@@ -1198,6 +1198,127 @@ static const char PL_PRELUDE_LIB_4_SRC[] =
     "\t;   true\n"
     "\t).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
+    { "bb_inf", 3 },
+    { "bb_inf", 5 },
+    { "vertex_value", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_5_LOADS[] = { "bv_r", "nf_r", 0 };
+static const char PL_PRELUDE_LIB_5_SRC[] =
+    "bb_inf(Is,Term,Inf) :-\n"
+    "\tbb_inf(Is,Term,Inf,_,0.001).\n"
+    "bb_inf(Is,Term,Inf,Vertex,Eps) :-\n"
+    "\tnf(Eps,ENf),\n"
+    "\tnf_constant(ENf,EpsN),\n"
+    "\twait_linear(Term,Nf,'$bb_r_bb_inf_internal'(Is,Nf,EpsN,Inf,Vertex)).\n"
+    "'$bb_r_bb_inf_internal'(Is,Lin,Eps,_,_) :-\n"
+    "\t'$bb_r_bb_intern'(Is,IsNf,Eps),\n"
+    "\tnb_delete(prov_opt),\n"
+    "\trepair(Lin,LinR),\n"
+    "\tderef(LinR,Lind),\n"
+    "\tvar_with_def_assign(Dep,Lind),\n"
+    "\tdetermine_active_dec(Lind),\n"
+    "\t'$bb_r_bb_loop'(Dep,IsNf,Eps),\n"
+    "\tfail.\n"
+    "'$bb_r_bb_inf_internal'(_,_,_,Inf,Vertex) :-\n"
+    "\tcatch(nb_getval(prov_opt,InfVal-Vertex),_,fail),\n"
+    "\t{Inf =:= InfVal},\n"
+    "\tnb_delete(prov_opt).\n"
+    "'$bb_r_bb_loop'(Opt,Is,Eps) :-\n"
+    "\t'$bb_r_bb_reoptimize'(Opt,Inf),\n"
+    "\t'$bb_r_bb_better_bound'(Inf),\n"
+    "\tvertex_value(Is,Ivs),\n"
+    "\t(   '$bb_r_bb_first_nonint'(Is,Ivs,Eps,Viol,Floor,Ceiling)\n"
+    "\t->  '$bb_r_bb_branch'(Viol,Floor,Ceiling),\n"
+    "\t    '$bb_r_bb_loop'(Opt,Is,Eps)\n"
+    "\t;   '$bb_r_round_values'(Ivs,RoundVertex),\n"
+    "\t    nb_setval(prov_opt,Inf-RoundVertex)\n"
+    "\t).\n"
+    "'$bb_r_bb_reoptimize'(Obj,Inf) :-\n"
+    "\tvar(Obj),\n"
+    "\titerate_dec(Obj,Inf).\n"
+    "'$bb_r_bb_reoptimize'(Obj,Inf) :-\n"
+    "\tnonvar(Obj),\n"
+    "\tInf = Obj.\n"
+    "'$bb_r_bb_better_bound'(Inf) :-\n"
+    "\tcatch((nb_getval(prov_opt,Inc-_),Inf - Inc < -1.0e-10),_,true).\n"
+    "'$bb_r_bb_branch'(V,U,_) :- {V =< U}.\n"
+    "'$bb_r_bb_branch'(V,_,L) :- {V >= L}.\n"
+    "vertex_value([],[]).\n"
+    "vertex_value([X|Xs],[V|Vs]) :-\n"
+    "\t'$bb_r_rhs_value'(X,V),\n"
+    "\tvertex_value(Xs,Vs).\n"
+    "'$bb_r_rhs_value'(Xn,Value) :-\n"
+    "\t(   nonvar(Xn)\n"
+    "\t->  Value = Xn\n"
+    "\t;   var(Xn)\n"
+    "\t->  deref_var(Xn,Xd),\n"
+    "\t    Xd = [I,R|_],\n"
+    "\t    Value is R+I\n"
+    "\t).\n"
+    "'$bb_r_bb_first_nonint'([I|Is],[Rhs|Rhss],Eps,Viol,F,C) :-\n"
+    "\t(   Floor is floor(Rhs+1.0e-10),\n"
+    "\t    Ceiling is ceiling(Rhs-1.0e-10),\n"
+    "\t    Eps - min(Rhs-Floor,Ceiling-Rhs) < -1.0e-10\n"
+    "\t->  Viol = I,\n"
+    "\t    F = Floor,\n"
+    "\t    C = Ceiling\n"
+    "\t;   '$bb_r_bb_first_nonint'(Is,Rhss,Eps,Viol,F,C)\n"
+    "\t).\n"
+    "'$bb_r_round_values'([],[]).\n"
+    "'$bb_r_round_values'([X|Xs],[Y|Ys]) :-\n"
+    "\tY is round(X),\n"
+    "\t'$bb_r_round_values'(Xs,Ys).\n"
+    "'$bb_r_bb_intern'([],[],_).\n"
+    "'$bb_r_bb_intern'([X|Xs],[Xi|Xis],Eps) :-\n"
+    "\tnf(X,Xnf),\n"
+    "\t'$bb_r_bb_intern'(Xnf,Xi,X,Eps),\n"
+    "\t'$bb_r_bb_intern'(Xs,Xis,Eps).\n"
+    "'$bb_r_bb_intern'([],X,_,_) :-\n"
+    "\t!,\n"
+    "\tX = 0.0.\n"
+    "'$bb_r_bb_intern'([v(I,[])],X,_,Eps) :-\n"
+    "\t!,\n"
+    "\tX = I,\n"
+    "\tmin(I-floor(I+1e-010),ceiling(I-1e-010)-I) - Eps < 1e-010.\n"
+    "'$bb_r_bb_intern'([v(One,[V^1])],X,_,_) :-\n"
+    "\tTest is One - 1.0,\n"
+    "\tTest =< 1e-010,\n"
+    "\tTest >= -1e-010,\n"
+    "\t!,\n"
+    "\tV = X,\n"
+    "\t'$bb_r_bb_narrow_lower'(X),\n"
+    "\t'$bb_r_bb_narrow_upper'(X).\n"
+    "'$bb_r_bb_intern'(_,_,Term,_) :-\n"
+    "\tthrow(instantiation_error(bb_inf(Term,_,_),1)).\n"
+    "'$bb_r_bb_narrow_lower'(X) :-\n"
+    "\t(   inf(X,Inf)\n"
+    "\t->  Bound is ceiling(Inf-1.0e-10),\n"
+    "\t    (   entailed(X > Bound)\n"
+    "\t    ->  {X >= Bound+1}\n"
+    "\t    ;   {X >= Bound}\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$bb_r_bb_narrow_upper'(X) :-\n"
+    "\t(   sup(X,Sup)\n"
+    "\t->  Bound is floor(Sup+1.0e-10),\n"
+    "\t    (   entailed(X < Bound)\n"
+    "\t    ->  {X =< Bound-1}\n"
+    "\t    ;   {X =< Bound}\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "allvars", 2 },
     { "backsubst", 3 },
     { "backsubst_delta", 4 },
@@ -1242,17 +1363,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
     { "log_deref", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_5_LOADS[] = { "bb_q", "clpqr_class", "ineq_q", "nf_q", "store_q", 0 };
-static const char PL_PRELUDE_LIB_5_SRC[] =
+static const char *const PL_PRELUDE_LIB_6_LOADS[] = { "bb_q", "clpqr_class", "ineq_q", "nf_q", "store_q", 0 };
+static const char PL_PRELUDE_LIB_6_SRC[] =
     "deref(Lin,Lind) :-\n"
     "\tsplit(Lin,H,I),\n"
     "\tnormalize_scalar(I,Nonvar),\n"
@@ -2242,7 +2363,1073 @@ static const char PL_PRELUDE_LIB_5_SRC[] =
     "\t    nf2sum(H1,0,Sum)\n"
     "\t},\n"
     "\t[Sum =\\= I1].\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
+    { "allvars", 2 },
+    { "backsubst", 3 },
+    { "backsubst_delta", 4 },
+    { "basis_add", 2 },
+    { "dec_step", 2 },
+    { "deref", 2 },
+    { "deref_var", 2 },
+    { "detach_bounds", 1 },
+    { "detach_bounds_vlv", 5 },
+    { "determine_active_dec", 1 },
+    { "determine_active_inc", 1 },
+    { "dump_var", 6 },
+    { "dump_nz", 5 },
+    { "export_binding", 1 },
+    { "export_binding", 2 },
+    { "get_or_add_class", 2 },
+    { "inc_step", 2 },
+    { "intro_at", 3 },
+    { "iterate_dec", 2 },
+    { "lb", 3 },
+    { "pivot_a", 4 },
+    { "pivot", 5 },
+    { "rcbl_status", 6 },
+    { "reconsider", 1 },
+    { "same_class", 2 },
+    { "solve", 1 },
+    { "solve_ord_x", 3 },
+    { "ub", 3 },
+    { "unconstrained", 4 },
+    { "var_intern", 2 },
+    { "var_intern", 3 },
+    { "var_with_def_assign", 2 },
+    { "var_with_def_intern", 4 },
+    { "maximize", 1 },
+    { "minimize", 1 },
+    { "sup", 2 },
+    { "sup", 4 },
+    { "inf", 2 },
+    { "inf", 4 },
+    { "solve_<", 1 },
+    { "solve_=<", 1 },
+    { "solve_=\\=", 1 },
+    { "log_deref", 4 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_7_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_7_LOADS[] = { "bb_r", "clpqr_class", "ineq_r", "nf_r", "store_r", 0 };
+static const char PL_PRELUDE_LIB_7_SRC[] =
+    "deref(Lin,Lind) :-\n"
+    "\tsplit(Lin,H,I),\n"
+    "\tnormalize_scalar(I,Nonvar),\n"
+    "\tlength(H,Len),\n"
+    "\tlog_deref(Len,H,[],Restd),\n"
+    "\tadd_linear_11(Nonvar,Restd,Lind).\n"
+    "log_deref(0,Vs,Vs,Lin) :-\n"
+    "\t!,\n"
+    "\tLin = [0.0,0.0].\n"
+    "log_deref(1,[v(K,[X^1])|Vs],Vs,Lin) :-\n"
+    "\t!,\n"
+    "\tderef_var(X,Lx),\n"
+    "\tmult_linear_factor(Lx,K,Lin).\n"
+    "log_deref(2,[v(Kx,[X^1]),v(Ky,[Y^1])|Vs],Vs,Lin) :-\n"
+    "\t!,\n"
+    "\tderef_var(X,Lx),\n"
+    "\tderef_var(Y,Ly),\n"
+    "\tadd_linear_ff(Lx,Kx,Ly,Ky,Lin).\n"
+    "log_deref(N,V0,V2,Lin) :-\n"
+    "\tP is N >> 1,\n"
+    "\tQ is N - P,\n"
+    "\tlog_deref(P,V0,V1,Lp),\n"
+    "\tlog_deref(Q,V1,V2,Lq),\n"
+    "\tadd_linear_11(Lp,Lq,Lin).\n"
+    "deref_var(X,Lin) :-\n"
+    "\t(   get_attr(X,clpqr_itf,Att)\n"
+    "\t->  (   \\+ arg(1,Att,clpr)\n"
+    "\t    ->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t    ;   arg(4,Att,lin(Lin))\n"
+    "\t    ->  true\n"
+    "\t    ;   setarg(2,Att,type(t_none)),\n"
+    "\t\tsetarg(3,Att,strictness(0)),\n"
+    "\t\tLin = [0.0,0.0,l(X*1.0,Ord)],\n"
+    "\t\tsetarg(4,Att,lin(Lin)),\n"
+    "\t\tsetarg(5,Att,order(Ord))\n"
+    "\t    )\n"
+    "\t;   Lin = [0.0,0.0,l(X*1.0,Ord)],\n"
+    "\t    put_attr(X,clpqr_itf,t(clpr,type(t_none),strictness(0),\n"
+    "\t\tlin(Lin),order(Ord),n,n,n,n,n,n))\n"
+    "\t).\n"
+    "var_with_def_assign(Var,Lin) :-\n"
+    "\tLin = [I,_|Hom],\n"
+    "\t(   Hom = []\n"
+    "\t->\n"
+    "\t    Var = I\n"
+    "\t;   Hom = [l(V*K,_)|Cs]\n"
+    "\t->  (   Cs = [],\n"
+    "\t\tTestK is K - 1.0,\n"
+    "\t\tTestK =< 1.0e-10,\n"
+    "\t\tTestK >= -1.0e-10,\n"
+    "\t\tI >= -1.0e-010,\n"
+    "\t\tI =< 1.0e-010\n"
+    "\t    ->\n"
+    "\t\tVar = V\n"
+    "\t    ;\n"
+    "\t\tvar_with_def_intern(t_none,Var,Lin,0)\n"
+    "\t    )\n"
+    "\t).\n"
+    "var_with_def_intern(Type,Var,Lin,Strict) :-\n"
+    "\tput_attr(Var,clpqr_itf,t(clpr,type(Type),strictness(Strict),lin(Lin),\n"
+    "\t    order(_),n,n,n,n,n,n)),\n"
+    "\tLin = [_,_|Hom],\n"
+    "\tget_or_add_class(Var,Class),\n"
+    "\tsame_class(Hom,Class).\n"
+    "var_intern(Type,Var,Strict) :-\n"
+    "\tput_attr(Var,clpqr_itf,t(clpr,type(Type),strictness(Strict),\n"
+    "\t    lin([0.0,0.0,l(Var*1.0,Ord)]),order(Ord),n,n,n,n,n,n)),\n"
+    "\tget_or_add_class(Var,_Class).\n"
+    "var_intern(Var,Class) :-\n"
+    "\tget_attr(Var,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(_)),\n"
+    "\targ(4,Att,lin(_)),\n"
+    "\t!,\n"
+    "\tget_or_add_class(Var,Class).\n"
+    "var_intern(Var,Class) :-\n"
+    "\tput_attr(Var,clpqr_itf,t(clpr,type(t_none),strictness(0),\n"
+    "\t    lin([0.0,0.0,l(Var*1.0,Ord)]),order(Ord),n,n,n,n,n,n)),\n"
+    "\tget_or_add_class(Var,Class).\n"
+    "export_binding([]).\n"
+    "export_binding([X-Y|Gs]) :-\n"
+    "\texport_binding(Y,X),\n"
+    "\texport_binding(Gs).\n"
+    "export_binding(Y,X) :-\n"
+    "\t(   nonvar(Y),\n"
+    "\t    Y >= -1.0e-10,\n"
+    "\t    Y =< 1.0e-10\n"
+    "\t->  X = 0.0\n"
+    "\t;   Y = X\n"
+    "\t).\n"
+    "'$bv_r_solve_='(Nf) :-\n"
+    "\tderef(Nf,Nfd),\n"
+    "\tsolve(Nfd).\n"
+    "'solve_=\\\\='(Nf) :-\n"
+    "\tderef(Nf,Lind),\n"
+    "\tLind = [Inhom,_|Hom],\n"
+    "\t(   Hom = []\n"
+    "\t->\n"
+    "\t    \\+ (Inhom >= -1.0e-10, Inhom =< 1.0e-10)\n"
+    "\t;\n"
+    "\t    var_with_def_intern(t_none,Nz,Lind,0),\n"
+    "\t    get_attr(Nz,clpqr_itf,Att),\n"
+    "\t    setarg(8,Att,nonzero)\n"
+    "\t).\n"
+    "'solve_<'(Nf) :-\n"
+    "\tsplit(Nf,H,I),\n"
+    "\tineq(H,I,Nf,strict).\n"
+    "'solve_=<'(Nf) :-\n"
+    "\tsplit(Nf,H,I),\n"
+    "\tineq(H,I,Nf,nonstrict).\n"
+    "maximize(Term) :-\n"
+    "\tminimize(-Term).\n"
+    "minimize(Term) :-\n"
+    "\twait_linear(Term,Nf,'$bv_r_minimize_lin'(Nf)).\n"
+    "'$bv_r_minimize_lin'(Lin) :-\n"
+    "\tderef(Lin,Lind),\n"
+    "\tvar_with_def_intern(t_none,Dep,Lind,0),\n"
+    "\tdetermine_active_dec(Lind),\n"
+    "\titerate_dec(Dep,Inf),\n"
+    "\t{ Dep =:= Inf }.\n"
+    "sup(Expression,Sup) :-\n"
+    "\tsup(Expression,Sup,[],[]).\n"
+    "sup(Expression,Sup,Vector,Vertex) :-\n"
+    "\tinf(-Expression,-Sup,Vector,Vertex).\n"
+    "inf(Expression,Inf) :-\n"
+    "\tinf(Expression,Inf,[],[]).\n"
+    "inf(Expression,Inf,Vector,Vertex) :-\n"
+    "\twait_linear(Expression,Nf,'$bv_r_inf_lin'(Nf,Inf,Vector,Vertex)).\n"
+    "'$bv_r_inf_lin'(Lin,_,Vector,_) :-\n"
+    "\tderef(Lin,Lind),\n"
+    "\tvar_with_def_intern(t_none,Dep,Lind,0),\n"
+    "\tdetermine_active_dec(Lind),\n"
+    "\titerate_dec(Dep,Inf),\n"
+    "\tvertex_value(Vector,Values),\n"
+    "\tnb_setval(inf,[Inf|Values]),\n"
+    "\tfail.\n"
+    "'$bv_r_inf_lin'(_,Infimum,_,Vertex) :-\n"
+    "\tcatch(nb_getval(inf,L),_,fail),\n"
+    "\tnb_delete(inf),\n"
+    "\t'$bv_r_assign'([Infimum|Vertex],L).\n"
+    "'$bv_r_assign'([],[]).\n"
+    "'$bv_r_assign'([X|Xs],[Y|Ys]) :-\n"
+    "\t{X =:= Y},\n"
+    "\t'$bv_r_assign'(Xs,Ys).\n"
+    "iterate_dec(OptVar,Opt) :-\n"
+    "\tget_attr(OptVar,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\tdec_step(H,Status),\n"
+    "\t(   Status = applied\n"
+    "\t->  iterate_dec(OptVar,Opt)\n"
+    "\t;   Status = optimum,\n"
+    "\t    Opt is R + I\n"
+    "\t).\n"
+    "'$bv_r_iterate_inc'(OptVar,Opt) :-\n"
+    "\tget_attr(OptVar,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\tinc_step(H,Status),\n"
+    "\t(   Status = applied\n"
+    "\t->  '$bv_r_iterate_inc'(OptVar,Opt)\n"
+    "\t;   Status = optimum,\n"
+    "\t    Opt is R + I\n"
+    "\t).\n"
+    "'$bv_r_dec_step_cont'([],optimum,Cont,Cont).\n"
+    "'$bv_r_dec_step_cont'([l(V*K,OrdV)|Vs],Status,ContIn,ContOut) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(W)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\t(   '$bv_r_dec_step_2_cont'(W,l(V*K,OrdV),Class,Status,ContIn,ContOut)\n"
+    "\t->  true\n"
+    "\t;   '$bv_r_dec_step_cont'(Vs,Status,ContIn,ContOut)\n"
+    "\t).\n"
+    "'$bv_r_inc_step_cont'([],optimum,Cont,Cont).\n"
+    "'$bv_r_inc_step_cont'([l(V*K,OrdV)|Vs],Status,ContIn,ContOut) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(W)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\t(   '$bv_r_inc_step_2_cont'(W,l(V*K,OrdV),Class,Status,ContIn,ContOut)\n"
+    "\t->  true\n"
+    "\t;   '$bv_r_inc_step_cont'(Vs,Status,ContIn,ContOut)\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2_cont'(t_U(U),l(V*K,OrdV),Class,Status,ContIn,ContOut) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\t(   lb(Class,OrdV,Vub-Vb-_)\n"
+    "\t->\n"
+    "\t    Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_u(U)),\n"
+    "\t    '$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut)\n"
+    "\t;   Status = unlimited(V,t_u(U)),\n"
+    "\t    ContIn = ContOut\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2_cont'(t_lU(L,U),l(V*K,OrdV),Class,applied,ContIn,ContOut) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\tInit is L - U,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_lb'(Deps,OrdV,V-t_Lu(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)),\n"
+    "\t'$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut).\n"
+    "'$bv_r_dec_step_2_cont'(t_L(L),l(V*K,OrdV),Class,Status,ContIn,ContOut) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\t(   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_l(L)),\n"
+    "\t    '$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut)\n"
+    "\t;   Status = unlimited(V,t_l(L)),\n"
+    "\t    ContIn = ContOut\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2_cont'(t_Lu(L,U),l(V*K,OrdV),Class,applied,ContIn,ContOut) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\tInit is U - L,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_ub'(Deps,OrdV,V-t_lU(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)),\n"
+    "\t'$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut).\n"
+    "'$bv_r_dec_step_2_cont'(t_none,l(V*_,_),_,unlimited(V,t_none),Cont,Cont).\n"
+    "'$bv_r_inc_step_2_cont'(t_U(U),l(V*K,OrdV),Class,Status,ContIn,ContOut) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\t(   lb(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_u(U)),\n"
+    "\t    '$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut)\n"
+    "\t;   Status = unlimited(V,t_u(U)),\n"
+    "\t    ContIn = ContOut\n"
+    "\t).\n"
+    "'$bv_r_inc_step_2_cont'(t_lU(L,U),l(V*K,OrdV),Class,applied,ContIn,ContOut) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\tInit is L - U,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_lb'(Deps,OrdV,V-t_Lu(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)),\n"
+    "\t'$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut).\n"
+    "'$bv_r_inc_step_2_cont'(t_L(L),l(V*K,OrdV),Class,Status,ContIn,ContOut) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\t(   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_l(L)),\n"
+    "\t    '$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut)\n"
+    "\t;   Status = unlimited(V,t_l(L)),\n"
+    "\t    ContIn = ContOut\n"
+    "\t).\n"
+    "'$bv_r_inc_step_2_cont'(t_Lu(L,U),l(V*K,OrdV),Class,applied,ContIn,ContOut) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\tInit is U - L,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_ub'(Deps,OrdV,V-t_lU(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)),\n"
+    "\t'$bv_r_replace_in_cont'(ContIn,Vub,V,ContOut).\n"
+    "'$bv_r_inc_step_2_cont'(t_none,l(V*_,_),_,unlimited(V,t_none),Cont,Cont).\n"
+    "'$bv_r_replace_in_cont'([],_,_,[]).\n"
+    "'$bv_r_replace_in_cont'([H1|T1],X,Y,[H2|T2]) :-\n"
+    "\t(   H1 == X\n"
+    "\t->  H2 = Y,\n"
+    "\t    T1 = T2\n"
+    "\t;   H2 = H1,\n"
+    "\t    '$bv_r_replace_in_cont'(T1,X,Y,T2)\n"
+    "\t).\n"
+    "dec_step([],optimum).\n"
+    "dec_step([l(V*K,OrdV)|Vs],Status) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(W)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\t(   '$bv_r_dec_step_2'(W,l(V*K,OrdV),Class,Status)\n"
+    "\t->  true\n"
+    "\t;   dec_step(Vs,Status)\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2'(t_U(U),l(V*K,OrdV),Class,Status) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\t(   lb(Class,OrdV,Vub-Vb-_)\n"
+    "\t->\n"
+    "\t    Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_u(U))\n"
+    "\t;   Status = unlimited(V,t_u(U))\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2'(t_lU(L,U),l(V*K,OrdV),Class,applied) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\tInit is L - U,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_lb'(Deps,OrdV,V-t_Lu(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)).\n"
+    "'$bv_r_dec_step_2'(t_L(L),l(V*K,OrdV),Class,Status) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\t(   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_l(L))\n"
+    "\t;   Status = unlimited(V,t_l(L))\n"
+    "\t).\n"
+    "'$bv_r_dec_step_2'(t_Lu(L,U),l(V*K,OrdV),Class,applied) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\tInit is U - L,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_ub'(Deps,OrdV,V-t_lU(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)).\n"
+    "'$bv_r_dec_step_2'(t_none,l(V*_,_),_,unlimited(V,t_none)).\n"
+    "inc_step([],optimum).\n"
+    "inc_step([l(V*K,OrdV)|Vs],Status) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(W)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\t(   '$bv_r_inc_step_2'(W,l(V*K,OrdV),Class,Status)\n"
+    "\t->  true\n"
+    "\t;   inc_step(Vs,Status)\n"
+    "\t).\n"
+    "'$bv_r_inc_step_2'(t_U(U),l(V*K,OrdV),Class,Status) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\t(   lb(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_u(U))\n"
+    "\t;   Status = unlimited(V,t_u(U))\n"
+    "\t).\n"
+    "'$bv_r_inc_step_2'(t_lU(L,U),l(V*K,OrdV),Class,applied) :-\n"
+    "\tK < -1.0e-10,\n"
+    "\tInit is L - U,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_lb'(Deps,OrdV,V-t_Lu(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)).\n"
+    "'$bv_r_inc_step_2'(t_L(L),l(V*K,OrdV),Class,Status) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\t(   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t->  Status = applied,\n"
+    "\t    pivot_a(Vub,V,Vb,t_l(L))\n"
+    "\t;   Status = unlimited(V,t_l(L))\n"
+    "\t).\n"
+    "'$bv_r_inc_step_2'(t_Lu(L,U),l(V*K,OrdV),Class,applied) :-\n"
+    "\tK > 1.0e-10,\n"
+    "\tInit is U - L,\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_ub'(Deps,OrdV,V-t_lU(L,U)-Init,Vub-Vb-_),\n"
+    "\t'$bv_r_pivot_b'(Vub,V,Vb,t_lu(L,U)).\n"
+    "'$bv_r_inc_step_2'(t_none,l(V*_,_),_,unlimited(V,t_none)).\n"
+    "ub(Class,OrdX,Ub) :-\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_ub_first'(Deps,OrdX,Ub).\n"
+    "'$bv_r_ub_first'([Dep|Deps],OrdX,Tightest) :-\n"
+    "\t(   get_attr(Dep,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$bv_r_ub_inner'(Type,OrdX,Lin,W,Ub),\n"
+    "\t    Ub > -1.0e-10\n"
+    "\t->  '$bv_r_ub'(Deps,OrdX,Dep-W-Ub,Tightest)\n"
+    "\t;   '$bv_r_ub_first'(Deps,OrdX,Tightest)\n"
+    "\t).\n"
+    "'$bv_r_ub'([],_,T0,T0).\n"
+    "'$bv_r_ub'([Dep|Deps],OrdX,T0,T1) :-\n"
+    "\t(   get_attr(Dep,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$bv_r_ub_inner'(Type,OrdX,Lin,W,Ub),\n"
+    "\t    T0 = _-Ubb,\n"
+    "\t    Ub - Ubb < -1.0e-10,\n"
+    "\t    Ub > -1.0e-10\n"
+    "\t->  '$bv_r_ub'(Deps,OrdX,Dep-W-Ub,T1)\n"
+    "\t;   '$bv_r_ub'(Deps,OrdX,T0,T1)\n"
+    "\t).\n"
+    "'$bv_r_ub_inner'(t_l(L),OrdX,Lin,t_L(L),Ub) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\tK < -1.0e-10,\n"
+    "\tUb is (L-Rhs)/K.\n"
+    "'$bv_r_ub_inner'(t_u(U),OrdX,Lin,t_U(U),Ub) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\tK > 1.0e-10,\n"
+    "\tUb is (U-Rhs)/K.\n"
+    "'$bv_r_ub_inner'(t_lu(L,U),OrdX,Lin,W,Ub) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\t(   K < -1.0e-10\n"
+    "\t->  W = t_Lu(L,U),\n"
+    "\t    Ub = (L-Rhs)/K\n"
+    "\t;   K > 1.0e-10\n"
+    "\t->  W = t_lU(L,U),\n"
+    "\t    Ub = (U-Rhs)/K\n"
+    "\t).\n"
+    "lb(Class,OrdX,Lb) :-\n"
+    "\tclass_basis(Class,Deps),\n"
+    "\t'$bv_r_lb_first'(Deps,OrdX,Lb).\n"
+    "'$bv_r_lb_first'([Dep|Deps],OrdX,Tightest) :-\n"
+    "\t(   get_attr(Dep,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$bv_r_lb_inner'(Type,OrdX,Lin,W,Lb),\n"
+    "\t    Lb < 1.0e-10\n"
+    "\t->  '$bv_r_lb'(Deps,OrdX,Dep-W-Lb,Tightest)\n"
+    "\t;   '$bv_r_lb_first'(Deps,OrdX,Tightest)\n"
+    "\t).\n"
+    "'$bv_r_lb'([],_,T0,T0).\n"
+    "'$bv_r_lb'([Dep|Deps],OrdX,T0,T1) :-\n"
+    "\t(   get_attr(Dep,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$bv_r_lb_inner'(Type,OrdX,Lin,W,Lb),\n"
+    "\t    T0 = _-Lbb,\n"
+    "\t    Lb - Lbb > 1.0e-10,\n"
+    "\t    Lb < 1.0e-10\n"
+    "\t->  '$bv_r_lb'(Deps,OrdX,Dep-W-Lb,T1)\n"
+    "\t;   '$bv_r_lb'(Deps,OrdX,T0,T1)\n"
+    "\t).\n"
+    "'$bv_r_lb_inner'(t_l(L),OrdX,Lin,t_L(L),Lb) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\tK > 1.0e-10,\n"
+    "\tLb is (L-Rhs)/K.\n"
+    "'$bv_r_lb_inner'(t_u(U),OrdX,Lin,t_U(U),Lb) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\tK < -1.0e-10,\n"
+    "\tLb is (U-Rhs)/K.\n"
+    "'$bv_r_lb_inner'(t_lu(L,U),OrdX,Lin,W,Lb) :-\n"
+    "\tnf_rhs_x(Lin,OrdX,Rhs,K),\n"
+    "\t(   K < -1.0e-10\n"
+    "\t->  W = t_lU(L,U),\n"
+    "\t    Lb is (U-Rhs)/K\n"
+    "\t;   K > 1.0e-10\n"
+    "\t->  W = t_Lu(L,U),\n"
+    "\t    Lb is (L-Rhs)/K\n"
+    "\t).\n"
+    "solve(Lin) :-\n"
+    "\tLin = [I,_|H],\n"
+    "\t'$bv_r_solve'(H,Lin,I,Bindings,[]),\n"
+    "\texport_binding(Bindings).\n"
+    "'$bv_r_solve'([],_,I,Bind0,Bind0) :-\n"
+    "\t!,\n"
+    "\tI >= -1.0e-10,\n"
+    "\tI =< 1.0e-10.\n"
+    "'$bv_r_solve'(H,Lin,_,Bind0,BindT) :-\n"
+    "\t'$bv_r_sd'(H,[],ClassesUniq,9-9-0,Category-Selected-_,NV,NVT),\n"
+    "\tget_attr(Selected,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(Ord)),\n"
+    "\tisolate(Ord,Lin,Lin1),\n"
+    "\t(   Category = 1\n"
+    "\t->  setarg(4,Att,lin(Lin1)),\n"
+    "\t    Lin1 = [Inhom,_|Hom],\n"
+    "\t    '$bv_r_bs_collect_binding'(Hom,Selected,Inhom,Bind0,BindT),\n"
+    "\t    '$bv_r_eq_classes'(NV,NVT,ClassesUniq)\n"
+    "\t;   Category = 2\n"
+    "\t->  arg(6,Att,class(NewC)),\n"
+    "\t    class_allvars(NewC,Deps),\n"
+    "\t    (   ClassesUniq = [_]\n"
+    "\t    ->\t'$bv_r_bs_collect_bindings'(Deps,Ord,Lin1,Bind0,BindT)\n"
+    "\t    ;   Bind0 = BindT,\n"
+    "\t\t'$bv_r_bs'(Deps,Ord,Lin1)\n"
+    "\t    ),\n"
+    "\t    '$bv_r_eq_classes'(NV,NVT,ClassesUniq)\n"
+    "\t;   Category = 3\n"
+    "\t->  arg(2,Att,type(Type)),\n"
+    "\t    setarg(4,Att,lin(Lin1)),\n"
+    "\t    '$bv_r_deactivate_bound'(Type,Selected),\n"
+    "\t    '$bv_r_eq_classes'(NV,NVT,ClassesUniq),\n"
+    "\t    basis_add(Selected,Basis),\n"
+    "\t    '$bv_r_undet_active'(Lin1),\n"
+    "\t    Lin1 = [Inhom,_|Hom],\n"
+    "\t    '$bv_r_bs_collect_binding'(Hom,Selected,Inhom,Bind0,Bind1),\n"
+    "\t    '$bv_r_rcbl'(Basis,Bind1,BindT)\n"
+    "\t;   Category = 4\n"
+    "\t->  arg(2,Att,type(Type)),\n"
+    "\t    arg(6,Att,class(NewC)),\n"
+    "\t    class_allvars(NewC,Deps),\n"
+    "\t    (   ClassesUniq = [_]\n"
+    "\t    ->\t'$bv_r_bs_collect_bindings'(Deps,Ord,Lin1,Bind0,Bind1)\n"
+    "\t    ;   Bind0 = Bind1,\n"
+    "\t\t'$bv_r_bs'(Deps,Ord,Lin1)\n"
+    "\t    ),\n"
+    "\t    '$bv_r_deactivate_bound'(Type,Selected),\n"
+    "\t    basis_add(Selected,Basis),\n"
+    "\t    '$bv_r_equate'(ClassesUniq,_),\n"
+    "\t    '$bv_r_undet_active'(Lin1),\n"
+    "\t    '$bv_r_rcbl'(Basis,Bind1,BindT)\n"
+    "\t).\n"
+    "'$bv_r_solve_x'(Lin,X) :-\n"
+    "\tLin = [I,_|H],\n"
+    "\t'$bv_r_solve_x'(H,Lin,I,X,Bindings,[]),\n"
+    "\texport_binding(Bindings).\n"
+    "'$bv_r_solve_x'([],_,I,_,Bind0,Bind0) :-\n"
+    "\t!,\n"
+    "\tI >= -1.0e-10,\n"
+    "\tI =< 1.0e-10.\n"
+    "'$bv_r_solve_x'(H,Lin,_,X,Bind0,BindT) :-\n"
+    "\t'$bv_r_sd'(H,[],ClassesUniq,9-9-0,_,NV,NVT),\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(OrdX)),\n"
+    "\tisolate(OrdX,Lin,Lin1),\n"
+    "\t(   arg(6,Att,class(NewC))\n"
+    "\t->  class_allvars(NewC,Deps),\n"
+    "\t    (   ClassesUniq = [_]\n"
+    "\t    ->\t'$bv_r_bs_collect_bindings'(Deps,OrdX,Lin1,Bind0,BindT)\n"
+    "\t    ;   Bind0 = BindT,\n"
+    "\t\t'$bv_r_bs'(Deps,OrdX,Lin1)\n"
+    "\t    ),\n"
+    "\t    '$bv_r_eq_classes'(NV,NVT,ClassesUniq)\n"
+    "\t;   setarg(4,Att,lin(Lin1)),\n"
+    "\t    Lin1 = [Inhom,_|Hom],\n"
+    "\t    '$bv_r_bs_collect_binding'(Hom,X,Inhom,Bind0,BindT),\n"
+    "\t    '$bv_r_eq_classes'(NV,NVT,ClassesUniq)\n"
+    "\t).\n"
+    "solve_ord_x(Lin,OrdX,ClassX) :-\n"
+    "\tLin = [I,_|H],\n"
+    "\t'$bv_r_solve_ord_x'(H,Lin,I,OrdX,ClassX,Bindings,[]),\n"
+    "\texport_binding(Bindings).\n"
+    "'$bv_r_solve_ord_x'([],_,I,_,_,Bind0,Bind0) :-\n"
+    "\tI >= -1.0e-10,\n"
+    "\tI =< 1.0e-10.\n"
+    "'$bv_r_solve_ord_x'([_|_],Lin,_,OrdX,ClassX,Bind0,BindT) :-\n"
+    "\tisolate(OrdX,Lin,Lin1),\n"
+    "\tLin1 = [_,_|H1],\n"
+    "\t'$bv_r_sd'(H1,[],ClassesUniq1,9-9-0,_,NV,NVT),\n"
+    "\tord_add_element(ClassesUniq1,ClassX,ClassesUniq),\n"
+    "\tclass_allvars(ClassX,Deps),\n"
+    "\t(   ClassesUniq = [_]\n"
+    "\t->  '$bv_r_bs_collect_bindings'(Deps,OrdX,Lin1,Bind0,BindT)\n"
+    "\t;   Bind0 = BindT,\n"
+    "\t    '$bv_r_bs'(Deps,OrdX,Lin1)\n"
+    "\t),\n"
+    "\t'$bv_r_eq_classes'(NV,NVT,ClassesUniq).\n"
+    "'$bv_r_sd'([],Class0,Class0,Preference0,Preference0,NV0,NV0).\n"
+    "'$bv_r_sd'([l(X*K,_)|Xs],Class0,ClassN,Preference0,PreferenceN,NV0,NVt) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\t(   arg(6,Att,class(Xc))\n"
+    "\t->  NV0 = NV1,\n"
+    "\t    ord_add_element(Class0,Xc,Class1),\n"
+    "\t    (   arg(2,Att,type(t_none))\n"
+    "\t    ->  '$bv_r_preference'(Preference0,2-X-K,Preference1)\n"
+    "\t    ;   '$bv_r_preference'(Preference0,4-X-K,Preference1)\n"
+    "\t    )\n"
+    "\t;\n"
+    "\t    Class1 = Class0,\n"
+    "\t    NV0 = [X|NV1],\n"
+    "\t    (   arg(2,Att,type(t_none))\n"
+    "\t    ->  '$bv_r_preference'(Preference0,1-X-K,Preference1)\n"
+    "\t    ;   '$bv_r_preference'(Preference0,3-X-K,Preference1)\n"
+    "\t    )\n"
+    "\t),\n"
+    "\t'$bv_r_sd'(Xs,Class1,ClassN,Preference1,PreferenceN,NV1,NVt).\n"
+    "'$bv_r_preference'(A,B,Pref) :-\n"
+    "\tA = Px-_-_,\n"
+    "\tB = Py-_-_,\n"
+    "\t(   Px < Py\n"
+    "\t->  Pref = A\n"
+    "\t;   Pref = B\n"
+    "\t).\n"
+    "'$bv_r_eq_classes'(NV,_,Cs) :-\n"
+    "\tvar(NV),\n"
+    "\t!,\n"
+    "\t'$bv_r_equate'(Cs,_).\n"
+    "'$bv_r_eq_classes'(NV,NVT,Cs) :-\n"
+    "\tclass_new(Su,clpr,NV,NVT,[]),\n"
+    "\t'$bv_r_attach_class'(NV,Su),\n"
+    "\t'$bv_r_equate'(Cs,Su).\n"
+    "'$bv_r_equate'([],_).\n"
+    "'$bv_r_equate'([X|Xs],X) :- '$bv_r_equate'(Xs,X).\n"
+    "'$bv_r_attach_class'(Xs,_) :-\n"
+    "\tvar(Xs),\n"
+    "\t!.\n"
+    "'$bv_r_attach_class'([X|Xs],Class) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(6,Att,class(Class)),\n"
+    "\t'$bv_r_attach_class'(Xs,Class).\n"
+    "unconstrained(Lin,Uc,Kuc,Rest) :-\n"
+    "\tLin = [_,_|H],\n"
+    "\t'$bv_r_sd'(H,[],_,9-9-0,Category-Uc-_,_,_),\n"
+    "\tCategory =< 2,\n"
+    "\tget_attr(Uc,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(OrdUc)),\n"
+    "\tdelete_factor(OrdUc,Lin,Rest,Kuc).\n"
+    "same_class([],_).\n"
+    "same_class([l(X*_,_)|Xs],Class) :-\n"
+    "\tget_or_add_class(X,Class),\n"
+    "\tsame_class(Xs,Class).\n"
+    "get_or_add_class(X,Class) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(1,Att,CLP),\n"
+    "\t(   arg(6,Att,class(ClassX))\n"
+    "\t->  ClassX = Class\n"
+    "\t;   setarg(6,Att,class(Class)),\n"
+    "\t    class_new(Class,CLP,[X|Tail],Tail,[])\n"
+    "\t).\n"
+    "allvars(X,Allvars) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(6,Att,class(C)),\n"
+    "\tclass_allvars(C,Allvars).\n"
+    "'$bv_r_deactivate_bound'(t_l(_),_).\n"
+    "'$bv_r_deactivate_bound'(t_u(_),_).\n"
+    "'$bv_r_deactivate_bound'(t_lu(_,_),_).\n"
+    "'$bv_r_deactivate_bound'(t_L(L),X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_l(L))).\n"
+    "'$bv_r_deactivate_bound'(t_Lu(L,U),X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,U))).\n"
+    "'$bv_r_deactivate_bound'(t_U(U),X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_u(U))).\n"
+    "'$bv_r_deactivate_bound'(t_lU(L,U),X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,U))).\n"
+    "intro_at(X,Value,Type) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(Ord)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\tsetarg(2,Att,type(Type)),\n"
+    "\t(   Value >= -1.0e-10,\n"
+    "\t    Value =< 1.0e-010\n"
+    "\t->  true\n"
+    "\t;   backsubst_delta(Class,Ord,X,Value)\n"
+    "\t).\n"
+    "'$bv_r_undet_active'([_,_|H]) :-\n"
+    "\t'$bv_r_undet_active_h'(H).\n"
+    "'$bv_r_undet_active_h'([]).\n"
+    "'$bv_r_undet_active_h'([l(X*_,_)|Xs]) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\t'$bv_r_undet_active'(Type,X),\n"
+    "\t'$bv_r_undet_active_h'(Xs).\n"
+    "'$bv_r_undet_active'(t_none,_).\n"
+    "'$bv_r_undet_active'(t_L(_),_).\n"
+    "'$bv_r_undet_active'(t_Lu(_,_),_).\n"
+    "'$bv_r_undet_active'(t_U(_),_).\n"
+    "'$bv_r_undet_active'(t_lU(_,_),_).\n"
+    "'$bv_r_undet_active'(t_l(L),X) :- intro_at(X,L,t_L(L)).\n"
+    "'$bv_r_undet_active'(t_u(U),X) :- intro_at(X,U,t_U(U)).\n"
+    "'$bv_r_undet_active'(t_lu(L,U),X) :- intro_at(X,L,t_Lu(L,U)).\n"
+    "determine_active_dec([_,_|H]) :-\n"
+    "\t'$bv_r_determine_active'(H,-1).\n"
+    "determine_active_inc([_,_|H]) :-\n"
+    "\t'$bv_r_determine_active'(H,1).\n"
+    "'$bv_r_determine_active'([],_).\n"
+    "'$bv_r_determine_active'([l(X*K,_)|Xs],S) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\t'$bv_r_determine_active'(Type,X,K,S),\n"
+    "\t'$bv_r_determine_active'(Xs,S).\n"
+    "'$bv_r_determine_active'(t_L(_),_,_,_).\n"
+    "'$bv_r_determine_active'(t_Lu(_,_),_,_,_).\n"
+    "'$bv_r_determine_active'(t_U(_),_,_,_).\n"
+    "'$bv_r_determine_active'(t_lU(_,_),_,_,_).\n"
+    "'$bv_r_determine_active'(t_l(L),X,_,_) :- intro_at(X,L,t_L(L)).\n"
+    "'$bv_r_determine_active'(t_u(U),X,_,_) :- intro_at(X,U,t_U(U)).\n"
+    "'$bv_r_determine_active'(t_lu(L,U),X,K,S) :-\n"
+    "\tTestKs is K*S,\n"
+    "\t(   TestKs < -1.0e-10\n"
+    "\t->  intro_at(X,L,t_Lu(L,U))\n"
+    "\t;   TestKs > 1.0e-10\n"
+    "\t->  intro_at(X,U,t_lU(L,U))\n"
+    "\t).\n"
+    "detach_bounds(V) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\targ(5,Att,order(OrdV)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\tsetarg(2,Att,type(t_none)),\n"
+    "\tsetarg(3,Att,strictness(0)),\n"
+    "\t(   indep(Lin,OrdV)\n"
+    "\t->  (   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t    ->\n"
+    "\t\tclass_basis_drop(Class,Vub),\n"
+    "\t\tpivot(Vub,Class,OrdV,Vb,Type)\n"
+    "\t    ;   lb(Class,OrdV,Vlb-Vb-_)\n"
+    "\t    ->  class_basis_drop(Class,Vlb),\n"
+    "\t\tpivot(Vlb,Class,OrdV,Vb,Type)\n"
+    "\t    ;   true\n"
+    "\t    )\n"
+    "\t;   class_basis_drop(Class,V)\n"
+    "\t).\n"
+    "detach_bounds_vlv(OrdV,Lin,Class,Var,NewLin) :-\n"
+    "\t(   indep(Lin,OrdV)\n"
+    "\t->  Lin = [_,R|_],\n"
+    "\t    (   ub(Class,OrdV,Vub-Vb-_)\n"
+    "\t    ->\n"
+    "\t\tclass_basis_drop(Class,Var),\n"
+    "\t\t'$bv_r_pivot_vlv'(Vub,Class,OrdV,Vb,R,NewLin)\n"
+    "\t    ;   lb(Class,OrdV,Vlb-Vb-_)\n"
+    "\t    ->  class_basis_drop(Class,Var),\n"
+    "\t\t'$bv_r_pivot_vlv'(Vlb,Class,OrdV,Vb,R,NewLin)\n"
+    "\t    ;   NewLin = Lin\n"
+    "\t    )\n"
+    "\t;   NewLin = Lin,\n"
+    "\t    class_basis_drop(Class,Var)\n"
+    "\t).\n"
+    "'$bv_r_basis_drop'(X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(6,Att,class(Cv)),\n"
+    "\tclass_basis_drop(Cv,X).\n"
+    "'$bv_r_basis'(X,Basis) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(6,Att,class(Cv)),\n"
+    "\tclass_basis(Cv,Basis).\n"
+    "basis_add(X,NewBasis) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(6,Att,class(Cv)),\n"
+    "\tclass_basis_add(Cv,X,NewBasis).\n"
+    "'$bv_r_basis_pivot'(Leave,Enter) :-\n"
+    "\tget_attr(Leave,clpqr_itf,Att),\n"
+    "\targ(6,Att,class(Cv)),\n"
+    "\tclass_basis_pivot(Cv,Enter,Leave).\n"
+    "'$bv_r_pivot'(Dep,Indep) :-\n"
+    "\tget_attr(Dep,clpqr_itf,AttD),\n"
+    "\targ(4,AttD,lin(H)),\n"
+    "\targ(5,AttD,order(OrdDep)),\n"
+    "\tget_attr(Indep,clpqr_itf,AttI),\n"
+    "\targ(5,AttI,order(Ord)),\n"
+    "\targ(5,AttI,class(Class)),\n"
+    "\tdelete_factor(Ord,H,H0,Coeff),\n"
+    "\tK is -1.0/Coeff,\n"
+    "\tadd_linear_ff(H0,K,[0.0,0.0,l(Dep* -1.0,OrdDep)],K,Lin),\n"
+    "\tbacksubst(Class,Ord,Lin).\n"
+    "pivot_a(Dep,Indep,Vb,Wd) :-\n"
+    "\t'$bv_r_basis_pivot'(Dep,Indep),\n"
+    "\tget_attr(Indep,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(5,Att,order(Ord)),\n"
+    "\targ(6,Att,class(Class)),\n"
+    "\tpivot(Dep,Class,Ord,Vb,Type),\n"
+    "\tget_attr(Indep,clpqr_itf,Att2),\n"
+    "\tsetarg(2,Att2,type(Wd)).\n"
+    "'$bv_r_pivot_b'(Vub,V,Vb,Wd) :-\n"
+    "\t(   Vub == V\n"
+    "\t->  get_attr(V,clpqr_itf,Att),\n"
+    "\t    arg(5,Att,order(Ord)),\n"
+    "\t    arg(6,Att,class(Class)),\n"
+    "\t    setarg(2,Att,type(Vb)),\n"
+    "\t    '$bv_r_pivot_b_delta'(Vb,Delta),\n"
+    "\t    backsubst_delta(Class,Ord,V,Delta)\n"
+    "\t;   pivot_a(Vub,V,Vb,Wd)\n"
+    "\t).\n"
+    "'$bv_r_pivot_b_delta'(t_Lu(L,U),Delta) :- Delta is L-U.\n"
+    "'$bv_r_pivot_b_delta'(t_lU(L,U),Delta) :- Delta is U-L.\n"
+    "'$bv_r_select_active_bound'(t_L(L),L).\n"
+    "'$bv_r_select_active_bound'(t_Lu(L,_),L).\n"
+    "'$bv_r_select_active_bound'(t_U(U),U).\n"
+    "'$bv_r_select_active_bound'(t_lU(_,U),U).\n"
+    "'$bv_r_select_active_bound'(t_none,0.0).\n"
+    "'$bv_r_select_active_bound'(t_l(_),0.0).\n"
+    "'$bv_r_select_active_bound'(t_u(_),0.0).\n"
+    "'$bv_r_select_active_bound'(t_lu(_,_),0.0).\n"
+    "pivot(Dep,Class,IndepOrd,DepAct,IndAct) :-\n"
+    "\tget_attr(Dep,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin(H)),\n"
+    "\targ(5,Att,order(DepOrd)),\n"
+    "\tsetarg(2,Att,type(DepAct)),\n"
+    "\t'$bv_r_select_active_bound'(DepAct,AbvD),\n"
+    "\t'$bv_r_select_active_bound'(IndAct,AbvI),\n"
+    "\tdelete_factor(IndepOrd,H,H0,Coeff),\n"
+    "\tAbvDm is -AbvD,\n"
+    "\tAbvIm is -AbvI,\n"
+    "\tadd_linear_f1([0.0,AbvIm],Coeff,H0,H1),\n"
+    "\tK is -1.0/Coeff,\n"
+    "\tadd_linear_ff(H1,K,[0.0,AbvDm,l(Dep* -1.0,DepOrd)],K,H2),\n"
+    "\tadd_linear_11(H2,[0.0,AbvIm],Lin),\n"
+    "\tbacksubst(Class,IndepOrd,Lin).\n"
+    "'$bv_r_pivot_vlv'(Dep,Class,IndepOrd,DepAct,AbvI,Lin) :-\n"
+    "\tget_attr(Dep,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin(H)),\n"
+    "\targ(5,Att,order(DepOrd)),\n"
+    "\tsetarg(2,Att,type(DepAct)),\n"
+    "\t'$bv_r_select_active_bound'(DepAct,AbvD),\n"
+    "\tdelete_factor(IndepOrd,H,H0,Coeff),\n"
+    "\tAbvDm is -AbvD,\n"
+    "\tAbvIm is -AbvI,\n"
+    "\tadd_linear_f1([0.0,AbvIm],Coeff,H0,H1),\n"
+    "\tK is -1.0/Coeff,\n"
+    "\tadd_linear_ff(H1,K,[0.0,AbvDm,l(Dep* -1.0,DepOrd)],K,Lin),\n"
+    "\tadd_linear_11(Lin,[0.0,AbvIm],SubstLin),\n"
+    "\tbacksubst(Class,IndepOrd,SubstLin).\n"
+    "backsubst_delta(Class,OrdX,X,Delta) :-\n"
+    "\tbacksubst(Class,OrdX,[0.0,Delta,l(X*1.0,OrdX)]).\n"
+    "backsubst(Class,OrdX,Lin) :-\n"
+    "\tclass_allvars(Class,Allvars),\n"
+    "\t'$bv_r_bs'(Allvars,OrdX,Lin).\n"
+    "'$bv_r_bs'(Xs,_,_) :-\n"
+    "\tvar(Xs),\n"
+    "\t!.\n"
+    "'$bv_r_bs'([X|Xs],OrdV,Lin) :-\n"
+    "\t(   get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(4,Att,lin(LinX)),\n"
+    "\t    nf_substitute(OrdV,Lin,LinX,LinX1)\n"
+    "\t->  setarg(4,Att,lin(LinX1)),\n"
+    "\t    '$bv_r_bs'(Xs,OrdV,Lin)\n"
+    "\t;   '$bv_r_bs'(Xs,OrdV,Lin)\n"
+    "\t).\n"
+    "'$bv_r_bs_collect_bindings'(Xs,_,_,Bind0,BindT) :-\n"
+    "\tvar(Xs),\n"
+    "\t!,\n"
+    "\tBind0 = BindT.\n"
+    "'$bv_r_bs_collect_bindings'([X|Xs],OrdV,Lin,Bind0,BindT) :-\n"
+    "\t(   get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(4,Att,lin(LinX)),\n"
+    "\t    nf_substitute(OrdV,Lin,LinX,LinX1)\n"
+    "\t->  setarg(4,Att,lin(LinX1)),\n"
+    "\t    LinX1 = [Inhom,_|Hom],\n"
+    "\t    '$bv_r_bs_collect_binding'(Hom,X,Inhom,Bind0,Bind1),\n"
+    "\t    '$bv_r_bs_collect_bindings'(Xs,OrdV,Lin,Bind1,BindT)\n"
+    "\t;   '$bv_r_bs_collect_bindings'(Xs,OrdV,Lin,Bind0,BindT)\n"
+    "\t).\n"
+    "'$bv_r_bs_collect_binding'([],X,Inhom) --> [X-Inhom].\n"
+    "'$bv_r_bs_collect_binding'([_|_],_,_) --> [].\n"
+    "'$bv_r_rcbl'([],Bind0,Bind0).\n"
+    "'$bv_r_rcbl'([X|Continuation],Bind0,BindT) :-\n"
+    "\t(   '$bv_r_rcb_cont'(X,Status,Violated,Continuation,NewContinuation)\n"
+    "\t->  rcbl_status(Status,X,NewContinuation,Bind0,BindT,Violated)\n"
+    "\t;   '$bv_r_rcbl'(Continuation,Bind0,BindT)\n"
+    "\t).\n"
+    "'$bv_r_rcb_cont'(X,Status,Violated,ContIn,ContOut) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\t(   Type = t_l(L)\n"
+    "\t->  R + I - L < 1.0e-10,\n"
+    "\t    Violated = l(L),\n"
+    "\t    '$bv_r_inc_step_cont'(H,Status,ContIn,ContOut)\n"
+    "\t;   Type = t_u(U)\n"
+    "\t->  R + I - U  > -1.0e-10,\n"
+    "\t    Violated = u(U),\n"
+    "\t    '$bv_r_dec_step_cont'(H,Status,ContIn,ContOut)\n"
+    "\t;   Type = t_lu(L,U)\n"
+    "\t->  At is R + I,\n"
+    "\t    (   At - L < 1.0e-10\n"
+    "\t    ->\tViolated = l(L),\n"
+    "\t\t'$bv_r_inc_step_cont'(H,Status,ContIn,ContOut)\n"
+    "\t    ;   At - U > -1.0e-10\n"
+    "\t    ->\tViolated = u(U),\n"
+    "\t\t'$bv_r_dec_step_cont'(H,Status,ContIn,ContOut)\n"
+    "\t    )\n"
+    "\t).\n"
+    "reconsider(X) :-\n"
+    "\t'$bv_r_rcb'(X,Status,Violated),\n"
+    "\t!,\n"
+    "\trcbl_status(Status,X,[],Binds,[],Violated),\n"
+    "\texport_binding(Binds).\n"
+    "reconsider(_).\n"
+    "'$bv_r_rcb'(X,Status,Violated) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\t(   Type = t_l(L)\n"
+    "\t->  R + I - L < 1.0e-10,\n"
+    "\t    Violated = l(L),\n"
+    "\t    inc_step(H,Status)\n"
+    "\t;   Type = t_u(U)\n"
+    "\t->  R + I - U  > -1.0e-10,\n"
+    "\t    Violated = u(U),\n"
+    "\t    dec_step(H,Status)\n"
+    "\t;   Type = t_lu(L,U)\n"
+    "\t->  At is R + I,\n"
+    "\t    (   At - L < 1.0e-10\n"
+    "\t    ->\tViolated = l(L),\n"
+    "\t\tinc_step(H,Status)\n"
+    "\t    ;   At - U > -1.0e-10\n"
+    "\t    ->\tViolated = u(U),\n"
+    "\t\tdec_step(H,Status)\n"
+    "\t    )\n"
+    "\t).\n"
+    "rcbl_status(optimum,X,Cont,B0,Bt,Violated) :- '$bv_r_rcbl_opt'(Violated,X,Cont,B0,Bt).\n"
+    "rcbl_status(applied,X,Cont,B0,Bt,Violated) :- '$bv_r_rcbl_app'(Violated,X,Cont,B0,Bt).\n"
+    "rcbl_status(unlimited(Indep,DepT),X,Cont,B0,Bt,Violated) :-\n"
+    "\t'$bv_r_rcbl_unl'(Violated,X,Cont,B0,Bt,Indep,DepT).\n"
+    "'$bv_r_rcbl_opt'(l(L),X,Continuation,B0,B1) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(3,Att,strictness(Strict)),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\tLin = [I,R|_],\n"
+    "\tOpt is R + I,\n"
+    "\tTestLO is L - Opt,\n"
+    "\t(   TestLO < -1.0e-10\n"
+    "\t->  '$bv_r_narrow_u'(Type,X,Opt),\n"
+    "\t    '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t;   TestLO =< 1.0e-10,\n"
+    "\t    Strict /\\ 2 =:= 0,\n"
+    "\t    Mop is -Opt,\n"
+    "\t    normalize_scalar(Mop,MopN),\n"
+    "\t    add_linear_11(MopN,Lin,Lin1),\n"
+    "\t    Lin1 = [Inhom,_|Hom],\n"
+    "\t    (   Hom = []\n"
+    "\t    ->  '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t    ;   '$bv_r_solve'(Hom,Lin1,Inhom,B0,B1)\n"
+    "\t    )\n"
+    "\t).\n"
+    "'$bv_r_rcbl_opt'(u(U),X,Continuation,B0,B1) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(3,Att,strictness(Strict)),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\tLin = [I,R|_],\n"
+    "\tOpt is R + I,\n"
+    "\tTestUO is U - Opt,\n"
+    "\t(   TestUO > 1.0e-10\n"
+    "\t->  '$bv_r_narrow_l'(Type,X,Opt),\n"
+    "\t    '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t;   TestUO >= -1.0e-10,\n"
+    "\t    Strict /\\ 1 =:= 0,\n"
+    "\t    Mop is -Opt,\n"
+    "\t    normalize_scalar(Mop,MopN),\n"
+    "\t    add_linear_11(MopN,Lin,Lin1),\n"
+    "\t    Lin1 = [Inhom,_|Hom],\n"
+    "\t    (   Hom = []\n"
+    "\t    ->  '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t    ;   '$bv_r_solve'(Hom,Lin1,Inhom,B0,B1)\n"
+    "\t    )\n"
+    "\t).\n"
+    "'$bv_r_rcbl_app'(l(L),X,Continuation,B0,B1) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\t(   R + I - L > 1.0e-10\n"
+    "\t->  '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t;   inc_step(H,Status),\n"
+    "\t    rcbl_status(Status,X,Continuation,B0,B1,l(L))\n"
+    "\t).\n"
+    "'$bv_r_rcbl_app'(u(U),X,Continuation,B0,B1) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([I,R|H])),\n"
+    "\t(   R + I - U < -1.0e-10\n"
+    "\t->  '$bv_r_rcbl'(Continuation,B0,B1)\n"
+    "\t;   dec_step(H,Status),\n"
+    "\t    rcbl_status(Status,X,Continuation,B0,B1,u(U))\n"
+    "\t).\n"
+    "'$bv_r_rcbl_unl'(l(L),X,Continuation,B0,B1,Indep,DepT) :-\n"
+    "\tpivot_a(X,Indep,t_L(L),DepT),\n"
+    "\t'$bv_r_rcbl'(Continuation,B0,B1).\n"
+    "'$bv_r_rcbl_unl'(u(U),X,Continuation,B0,B1,Indep,DepT) :-\n"
+    "\tpivot_a(X,Indep,t_U(U),DepT),\n"
+    "\t'$bv_r_rcbl'(Continuation,B0,B1).\n"
+    "'$bv_r_narrow_u'(t_u(_),X,U) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_u(U))).\n"
+    "'$bv_r_narrow_u'(t_lu(L,_),X,U) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,U))).\n"
+    "'$bv_r_narrow_l'( t_l(_),    X, L) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_l(L))).\n"
+    "'$bv_r_narrow_l'( t_lu(_,U), X, L) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,U))).\n"
+    "dump_var(t_none,V,I,H) -->\n"
+    "\t!,\n"
+    "\t(   {\n"
+    "\t\tH = [l(W*K,_)],\n"
+    "\t\tV == W,\n"
+    "\t\tI >= -1.0e-10,\n"
+    "\t\tI =< 1.0e-010,\n"
+    "\t\tTestK is K - 1.0,\n"
+    "\t\tTestK >= -1.0e-10,\n"
+    "\t\tTestK =< 1.0e-10\n"
+    "\t    }\n"
+    "\t->\n"
+    "\t    []\n"
+    "\t;   {nf2sum(H,I,Sum)},\n"
+    "\t    [V = Sum]\n"
+    "\t).\n"
+    "dump_var(t_L(L),V,I,H) -->\n"
+    "\t!,\n"
+    "\tdump_var(t_l(L),V,I,H).\n"
+    "dump_var(t_l(L),V,I,H) -->\n"
+    "\t!,\n"
+    "\t{\n"
+    "\t    H = [l(_*K,_)|_],\n"
+    "\t    get_attr(V,clpqr_itf,Att),\n"
+    "\t    arg(3,Att,strictness(Strict)),\n"
+    "\t    Sm is Strict /\\ 2,\n"
+    "\t    Kr is 1.0/K,\n"
+    "\t    Li is Kr*(L - I),\n"
+    "\t    mult_hom(H,Kr,H1),\n"
+    "\t    nf2sum(H1,0.0,Sum),\n"
+    "\t    (   K > 1.0e-10\n"
+    "\t    ->\t'$bv_r_dump_strict'(Sm,Sum >= Li,Sum > Li,Result)\n"
+    "\t    ;   '$bv_r_dump_strict'(Sm,Sum =< Li,Sum < Li,Result)\n"
+    "\t    )\n"
+    "\t},\n"
+    "\t[Result].\n"
+    "dump_var(t_U(U),V,I,H) -->\n"
+    "\t!,\n"
+    "\tdump_var(t_u(U),V,I,H).\n"
+    "dump_var(t_u(U),V,I,H) -->\n"
+    "\t!,\n"
+    "\t{\n"
+    "\t    H = [l(_*K,_)|_],\n"
+    "\t    get_attr(V,clpqr_itf,Att),\n"
+    "\t    arg(3,Att,strictness(Strict)),\n"
+    "\t    Sm is Strict /\\ 1,\n"
+    "\t    Kr is 1.0/K,\n"
+    "\t    Ui is Kr*(U-I),\n"
+    "\t    mult_hom(H,Kr,H1),\n"
+    "\t    nf2sum(H1,0.0,Sum),\n"
+    "\t    (   K > 1.0e-10\n"
+    "\t    ->\t'$bv_r_dump_strict'(Sm,Sum =< Ui,Sum < Ui,Result)\n"
+    "\t    ;   '$bv_r_dump_strict'(Sm,Sum >= Ui,Sum > Ui,Result)\n"
+    "\t    )\n"
+    "\t},\n"
+    "\t[Result].\n"
+    "dump_var(t_Lu(L,U),V,I,H) -->\n"
+    "\t!,\n"
+    "\tdump_var(t_l(L),V,I,H),\n"
+    "\tdump_var(t_u(U),V,I,H).\n"
+    "dump_var(t_lU(L,U),V,I,H) -->\n"
+    "\t!,\n"
+    "\tdump_var(t_l(L),V,I,H),\n"
+    "\tdump_var(t_u(U),V,I,H).\n"
+    "dump_var(t_lu(L,U),V,I,H) -->\n"
+    "\t!,\n"
+    "\tdump_var(t_l(L),V,I,H),\n"
+    "\tdump_var(t_U(U),V,I,H).\n"
+    "dump_var(T,V,I,H) -->\n"
+    "\t[V:T:I+H].\n"
+    "'$bv_r_dump_strict'(0,Result,_,Result).\n"
+    "'$bv_r_dump_strict'(1,_,Result,Result).\n"
+    "'$bv_r_dump_strict'(2,_,Result,Result).\n"
+    "dump_nz(_,H,I) -->\n"
+    "\t{\n"
+    "\t    H = [l(_*K,_)|_],\n"
+    "\t    Kr is 1.0/K,\n"
+    "\t    I1 is -Kr*I,\n"
+    "\t    mult_hom(H,Kr,H1),\n"
+    "\t    nf2sum(H1,0.0,Sum)\n"
+    "\t},\n"
+    "\t[Sum =\\= I1].\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "#>", 2 },
     { "#<", 2 },
     { "#>=", 2 },
@@ -2315,10 +3502,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "fdset_complement", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_QUIET[] = {
     { "#/\\", 0 },
     { "#<", 0 },
     { "#<==", 0 },
@@ -2386,7 +3573,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
     { "zcompare", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_8_OPS[] = {
     { 760, "yfx", "#<==>" },
     { 750, "xfy", "#==>" },
     { 750, "yfx", "#<==" },
@@ -2406,8 +3593,8 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
     { 450, "xfx", ".." },
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_6_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_6_SRC[] =
+static const char *const PL_PRELUDE_LIB_8_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_8_SRC[] =
     ":- create_prolog_flag(clpfd_propagation, default, []).\n"
     ":- op(700, xfx, cis).\n"
     ":- op(700, xfx, cis_geq).\n"
@@ -12786,20 +13973,20 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "                                           H,\n"
     "                                           1))\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_7_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_7_LOADS[] = { "bb_q", "bv_q", "clpqr_class", "clpqr_dump", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", "clpqr_redund", "fourmotz_q", "ineq_q", "itf_q", "nf_q", "store_q", 0 };
-static const char PL_PRELUDE_LIB_7_SRC[] =
+static const char *const PL_PRELUDE_LIB_9_LOADS[] = { "bb_q", "bv_q", "clpqr_class", "clpqr_dump", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", "clpqr_redund", "fourmotz_q", "ineq_q", "itf_q", "nf_q", "store_q", 0 };
+static const char PL_PRELUDE_LIB_9_SRC[] =
     "portray_message(warning,import(_,_,clpq,private)).\n"
     "'$clpq_dump_toplevel_bindings'(Bindings,Constraints) :-\n"
     "\t'$clpq_dump_vars_names'(Bindings,[],Vars,Names),\n"
@@ -12828,7 +14015,7 @@ static const char PL_PRELUDE_LIB_7_SRC[] =
     "\t->  true\n"
     "\t;   '$clpq_memberchk_eq'(X,Ys)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "class_allvars", 2 },
     { "class_new", 5 },
     { "class_drop", 2 },
@@ -12841,17 +14028,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "class_put_prio", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_8_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_8_LOADS[] = { "clpqr_ordering", 0 };
-static const char PL_PRELUDE_LIB_8_SRC[] =
+static const char *const PL_PRELUDE_LIB_10_LOADS[] = { "clpqr_ordering", 0 };
+static const char PL_PRELUDE_LIB_10_SRC[] =
     "clpqr_class:attr_unify_hook(class(CLP,La,Lat,ABasis,PrioA),Y) :-\n"
     "\t!,\n"
     "\tvar(Y),\n"
@@ -12904,22 +14091,22 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "\t;   Res = [Y|Tail],\n"
     "\t    '$clpqr_class_delete_first'(Ys,X,Tail)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "dump", 3 },
     { "projecting_assert", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_9_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", 0 };
-static const char PL_PRELUDE_LIB_9_SRC[] =
+static const char *const PL_PRELUDE_LIB_11_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", 0 };
+static const char PL_PRELUDE_LIB_11_SRC[] =
     "dump([],[],[]) :- !.\n"
     "dump(Target,NewVars,Constraints) :-\n"
     "\tmust_be(list(var), Target),\n"
@@ -13023,23 +14210,23 @@ static const char PL_PRELUDE_LIB_9_SRC[] =
     "'$clpqr_dump_list_to_conj'([X], X) :- !.\n"
     "'$clpqr_dump_list_to_conj'([H|T0], (H,T)) :-\n"
     "\t'$clpqr_dump_list_to_conj'(T0, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "geler", 3 },
     { "project_nonlin", 3 },
     { "collect_nonlin", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_10_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_10_SRC[] =
+static const char *const PL_PRELUDE_LIB_12_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_12_SRC[] =
     "'$clpqr_geler_l2conj'([X|Xs],Conj) :-\n"
     "\t(   X = [],\n"
     "\t    Conj = X\n"
@@ -13131,23 +14318,23 @@ static const char PL_PRELUDE_LIB_10_SRC[] =
     "\t;   put_attr(V,clpqr_geler,g(CLP,goals(Goal),n))\n"
     "\t),\n"
     "\t'$clpqr_geler_attach'(Vs,CLP,Goal).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
     { "dump_linear", 3 },
     { "dump_nonzero", 3 },
     { "clp_type", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_11_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_11_SRC[] =
+static const char *const PL_PRELUDE_LIB_13_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_13_SRC[] =
     "clp_type(Var,Type) :-\n"
     "\t(   get_attr(Var,clpqr_itf,Att)\n"
     "\t->  arg(1,Att,Type)\n"
@@ -13215,23 +14402,23 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "\titf_q:do_checks(Y,Ty,St,Li,Or,Cl,No,Later).\n"
     "'$clpqr_itf_do_checks'(clpr,Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
     "\titf_r:do_checks(Y,Ty,St,Li,Or,Cl,No,Later).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "combine", 3 },
     { "ordering", 1 },
     { "arrangement", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_12_LOADS[] = { "clpqr_class", "clpqr_itf", 0 };
-static const char PL_PRELUDE_LIB_12_SRC[] =
+static const char *const PL_PRELUDE_LIB_14_LOADS[] = { "clpqr_class", "clpqr_itf", 0 };
+static const char PL_PRELUDE_LIB_14_SRC[] =
     "ordering(X) :-\n"
     "\tvar(X),\n"
     "\t!,\n"
@@ -13328,24 +14515,24 @@ static const char PL_PRELUDE_LIB_12_SRC[] =
     "\t;   Res = [K-Kl|Tail],\n"
     "\t    '$clpqr_ordering_group'(Ls,L,Ll,Tail)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "drop_dep", 1 },
     { "drop_dep_one", 1 },
     { "make_target_indep", 2 },
     { "project_attributes", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_13_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_ordering", "clpqr_redund", 0 };
-static const char PL_PRELUDE_LIB_13_SRC[] =
+static const char *const PL_PRELUDE_LIB_15_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_ordering", "clpqr_redund", 0 };
+static const char PL_PRELUDE_LIB_15_SRC[] =
     "project_attributes(TargetVars,Cvas) :-\n"
     "\tsort(TargetVars,Tvs),\n"
     "\tsort(Cvas,Avs),\n"
@@ -13499,22 +14686,22 @@ static const char PL_PRELUDE_LIB_13_SRC[] =
     "\t    '$clpqr_project_arrange_pivot'(Xs)\n"
     "\t;   '$clpqr_project_arrange_pivot'(Xs)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "redundancy_vars", 1 },
     { "systems", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_14_LOADS[] = { "clpqr_class", 0 };
-static const char PL_PRELUDE_LIB_14_SRC[] =
+static const char *const PL_PRELUDE_LIB_16_LOADS[] = { "clpqr_class", 0 };
+static const char PL_PRELUDE_LIB_16_SRC[] =
     "systems([],Si,Si).\n"
     "systems([V|Vs],Si,So) :-\n"
     "\t(   var(V),\n"
@@ -13686,7 +14873,48 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "'$clpqr_redund_red_t_u'.\n"
     "'$clpqr_redund_red_t_L'.\n"
     "'$clpqr_redund_red_t_U'.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_17_LOADS[] = { "bb_r", "bv_r", "clpqr_class", "clpqr_dump", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", "clpqr_redund", "fourmotz_r", "ineq_r", "itf_r", "nf_r", "store_r", 0 };
+static const char PL_PRELUDE_LIB_17_SRC[] =
+    "portray_message(warning,import(_,_,clpr,private)).\n"
+    "'$clpr_dump_toplevel_bindings'(Bindings,Constraints) :-\n"
+    "\t'$clpr_dump_vars_names'(Bindings,[],Vars,Names),\n"
+    "\tdump(Vars,Names,Constraints).\n"
+    "'$clpr_dump_vars_names'([],_,[],[]).\n"
+    "'$clpr_dump_vars_names'([Name=Term|Rest],Seen,Vars,Names) :-\n"
+    "\t(   var(Term),\n"
+    "\t    (   get_attr(Term,clpqr_itf,_)\n"
+    "\t    ;   get_attr(Term,clpqr_geler,_)\n"
+    "\t    ),\n"
+    "\t    \\+ '$clpr_memberchk_eq'(Term,Seen)\n"
+    "\t->  Vars = [Term|RVars],\n"
+    "\t    Names = [Name|RNames],\n"
+    "\t    NSeen = [Term|Seen]\n"
+    "\t;   Vars = RVars,\n"
+    "\t    Names = RNames,\n"
+    "\t    Seen = NSeen\n"
+    "\t),\n"
+    "\t'$clpr_dump_vars_names'(Rest,NSeen,RVars,RNames).\n"
+    "'$clpr_dump_format'([],[]).\n"
+    "'$clpr_dump_format'([X|Xs],['{~w}'-[X],nl|Rest]) :-\n"
+    "\t'$clpr_dump_format'(Xs,Rest).\n"
+    "'$clpr_memberchk_eq'(X,[Y|Ys]) :-\n"
+    "\t(   X == Y\n"
+    "\t->  true\n"
+    "\t;   '$clpr_memberchk_eq'(X,Ys)\n"
+    "\t).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "csv", 3 },
     { "csv", 4 },
     { "csv_read_file", 2 },
@@ -13700,17 +14928,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "csv_write_stream", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_15_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_15_SRC[] =
+static const char *const PL_PRELUDE_LIB_18_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "'$csv_default_csv_options'(csv_options(44, false, false, true, preserve, row, _, true, _)).\n"
     "'$csv_csv_options_separator'(csv_options(A, _, _, _, _, _, _, _, _), A).\n"
     "'$csv_csv_options_strip'(csv_options(_, A, _, _, _, _, _, _, _), A).\n"
@@ -14244,7 +15472,7 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "    must_be(list, B),\n"
     "    '$csv_make_csv_options'(C, D, _),\n"
     "    maplist('$csv_csv_write_row'(A, D), B).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "is_alnum", 1 },
     { "is_alpha", 1 },
     { "is_ascii", 1 },
@@ -14272,17 +15500,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "upper_lower", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_16_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char *const PL_PRELUDE_LIB_19_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "is_alnum(C)   :- code_type(C, alnum).\n"
     "is_alpha(C)   :- code_type(C, alpha).\n"
     "is_ascii(C)   :- code_type(C, ascii).\n"
@@ -14334,7 +15562,7 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "    !.\n"
     "'$ctypes_is_digit'(C, Weight) :-\n"
     "    plus(Weight, 55, C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "date_time_value", 3 },
     { "parse_time", 2 },
     { "parse_time", 3 },
@@ -14342,17 +15570,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "day_of_the_year", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_17_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char *const PL_PRELUDE_LIB_20_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "date_time_value(year,            date(Y,_,_,_,_,_,_,_,_), Y).\n"
     "date_time_value(month,           date(_,M,_,_,_,_,_,_,_), M).\n"
     "date_time_value(day,             date(_,_,D,_,_,_,_,_,_), D).\n"
@@ -14530,7 +15758,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "day_of_the_year(date(Year, Mon, Day), DotY) :-\n"
     "    format_time(atom(A), '%j', date(Year, Mon, Day, 0, 0, 0, 0, -, -)),\n"
     "    atom_number(A, DotY).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "white", 2 },
     { "whites", 2 },
     { "blank", 2 },
@@ -14556,10 +15784,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "atom", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { "alpha_to_lower", 0 },
     { "atom", 0 },
     { "blank", 0 },
@@ -14585,11 +15813,11 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { "xinteger", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_18_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char *const PL_PRELUDE_LIB_21_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_21_SRC[] =
     "string_without(End, Codes) -->\n"
     "\t{ string(End), !,\n"
     "\t  string_codes(End, EndCodes)\n"
@@ -14761,7 +15989,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "atom(Atom, Head, Tail) :-\n"
     "\tmust_be(ground, Atom),\n"
     "\tformat(codes(Head, Tail), '~w', [Atom]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "get_dict", 3 },
     { "get_dict", 5 },
     { "put_dict", 3 },
@@ -14777,17 +16005,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "$dict_eval", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_19_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char *const PL_PRELUDE_LIB_22_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_22_SRC[] =
     "'$dict_need'(D) :- is_dict(D), !.\n"
     "'$dict_need'(D) :- var(D), !, throw(error(instantiation_error, _)).\n"
     "'$dict_need'(D) :- throw(error(type_error(dict, D), _)).\n"
@@ -14855,7 +16083,7 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "'$dict_fn'(K, D, V) :- atomic(K), !, ( get_dict(K, D, V0) -> V = V0 ; throw(error(existence_error(key, K, D), context(system:'$get_dict_ex'/3, _))) ).\n"
     "'$dict_fn'(F, D, V) :- ( F = '$dict_m0'(_) -> true ; compound(F) ), is_dict(D, T), atom(T), current_predicate('$dict_method'/4), !, '$dict_method'(T, F, D, V).\n"
     "'$dict_fn'(F, D, _) :- throw(error(existence_error(dict_function, F), D)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "engine_create", 3 },
     { "engine_create", 4 },
     { "engine_next", 2 },
@@ -14870,17 +16098,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "is_engine", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_20_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char *const PL_PRELUDE_LIB_23_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_23_SRC[] =
     "engine_create(Templ, Goal, E) :-\n"
     "    engine_create(Templ, Goal, E, []).\n"
     "engine_create(Templ, Goal, E, Options) :-\n"
@@ -15108,7 +16336,7 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "    '$engine_yield'(created),\n"
     "    catch(( call(G), copy_term(T, C), '$engine_yield'(answer(C)), fail ; true ), B, ( copy_term(B, CB), '$engine_yield'(throw(CB)) )),\n"
     "    fail.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "instantiation_error", 1 },
     { "uninstantiation_error", 1 },
     { "type_error", 2 },
@@ -15124,17 +16352,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "current_type", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_21_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_21_SRC[] =
+static const char *const PL_PRELUDE_LIB_24_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_24_SRC[] =
     "type_error(ValidType, Culprit) :-\n"
     "    throw(error(type_error(ValidType, Culprit), _)).\n"
     "domain_error(ValidDomain, Culprit) :-\n"
@@ -15314,21 +16542,21 @@ static const char PL_PRELUDE_LIB_21_SRC[] =
     "    !,\n"
     "    G = G0.\n"
     "'$error_qualify'(G, error:G).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "fm_elim", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_22_LOADS[] = { "bv_q", "clpqr_class", "clpqr_project", "clpqr_redund", "store_q", 0 };
-static const char PL_PRELUDE_LIB_22_SRC[] =
+static const char *const PL_PRELUDE_LIB_25_LOADS[] = { "bv_q", "clpqr_class", "clpqr_project", "clpqr_redund", "store_q", 0 };
+static const char PL_PRELUDE_LIB_25_SRC[] =
     "fm_elim(Vs,Target,Pivots) :-\n"
     "\t'$fourmotz_q_prefilter'(Vs,Vsf),\n"
     "\t'$fourmotz_q_fm_elim_int'(Vsf,Target,Pivots).\n"
@@ -15569,23 +16797,278 @@ static const char PL_PRELUDE_LIB_22_SRC[] =
     "\t->  true\n"
     "\t;   '$fourmotz_q_occurs'(De,OrdV)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
+    { "fm_elim", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_26_LOADS[] = { "bv_r", "clpqr_class", "clpqr_project", "clpqr_redund", "store_r", 0 };
+static const char PL_PRELUDE_LIB_26_SRC[] =
+    "fm_elim(Vs,Target,Pivots) :-\n"
+    "\t'$fourmotz_r_prefilter'(Vs,Vsf),\n"
+    "\t'$fourmotz_r_fm_elim_int'(Vsf,Target,Pivots).\n"
+    "'$fourmotz_r_prefilter'([],[]).\n"
+    "'$fourmotz_r_prefilter'([V|Vs],Res) :-\n"
+    "\t(   get_attr(V,clpqr_itf,Att),\n"
+    "\t    arg(9,Att,n),\n"
+    "\t    '$fourmotz_r_occurs'(V)\n"
+    "\t->  Res = [V|Tail],\n"
+    "\t    setarg(10,Att,keep_indep),\n"
+    "\t    '$fourmotz_r_prefilter'(Vs,Tail)\n"
+    "\t;   '$fourmotz_r_prefilter'(Vs,Res)\n"
+    "\t).\n"
+    "'$fourmotz_r_fm_elim_int'([],_,Pivots) :-\n"
+    "\t'$fourmotz_r_unkeep'(Pivots).\n"
+    "'$fourmotz_r_fm_elim_int'(Vs,Target,Pivots) :-\n"
+    "\tVs = [_|_],\n"
+    "\t(   '$fourmotz_r_best'(Vs,Best,Rest)\n"
+    "\t->  '$fourmotz_r_occurences'(Best,Occ),\n"
+    "\t    '$fourmotz_r_elim_min'(Best,Occ,Target,Pivots,NewPivots)\n"
+    "\t;\n"
+    "\t    NewPivots = Pivots,\n"
+    "\t    Rest = []\n"
+    "\t),\n"
+    "\t'$fourmotz_r_fm_elim_int'(Rest,Target,NewPivots).\n"
+    "'$fourmotz_r_best'(Vs,Best,Rest) :-\n"
+    "\tfindall(Delta-N,'$fourmotz_r_fm_cp_filter'(Vs,Delta,N),Deltas),\n"
+    "\tkeysort(Deltas,[_-N|_]),\n"
+    "\t'$fourmotz_r_select_nth'(Vs,N,Best,Rest).\n"
+    "'$fourmotz_r_fm_cp_filter'(Vs,Delta,N) :-\n"
+    "\tlength(Vs,Len),\n"
+    "\t'$fourmotz_r_mem'(Vs,X,Vst),\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\targ(5,Att,order(OrdX)),\n"
+    "\targ(9,Att,n),\n"
+    "\tindep(Lin,OrdX),\n"
+    "\t'$fourmotz_r_occurences'(X,Occ),\n"
+    "\tOcc = [_|_],\n"
+    "\t'$fourmotz_r_cp_card'(Occ,0,Lnew),\n"
+    "\tlength(Occ,Locc),\n"
+    "\tDelta is Lnew-Locc,\n"
+    "\tlength(Vst,Vstl),\n"
+    "\tN is Len-Vstl.\n"
+    "'$fourmotz_r_mem'([X|Xs],X,Xs).\n"
+    "'$fourmotz_r_mem'([_|Ys],X,Xs) :- '$fourmotz_r_mem'(Ys,X,Xs).\n"
+    "'$fourmotz_r_select_nth'(List,N,Nth,Others) :-\n"
+    "\t'$fourmotz_r_select_nth'(List,1,N,Nth,Others).\n"
+    "'$fourmotz_r_select_nth'([X|Xs],N,N,X,Xs) :- !.\n"
+    "'$fourmotz_r_select_nth'([Y|Ys],M,N,X,[Y|Xs]) :-\n"
+    "\tM1 is M+1,\n"
+    "\t'$fourmotz_r_select_nth'(Ys,M1,N,X,Xs).\n"
+    "'$fourmotz_r_elim_min'(V,Occ,Target,Pivots,NewPivots) :-\n"
+    "\t'$fourmotz_r_crossproduct'(Occ,New,[]),\n"
+    "\t'$fourmotz_r_activate_crossproduct'(New),\n"
+    "\t'$fourmotz_r_reverse_pivot'(Pivots),\n"
+    "\t'$fourmotz_r_fm_detach'(Occ),\n"
+    "\tallvars(V,All),\n"
+    "\tredundancy_vars(All),\n"
+    "\tmake_target_indep(Target,NewPivots),\n"
+    "\tdrop_dep(All).\n"
+    "'$fourmotz_r_reverse_pivot'([]).\n"
+    "'$fourmotz_r_reverse_pivot'([I:D|Ps]) :-\n"
+    "\tget_attr(D,clpqr_itf,AttD),\n"
+    "\targ(2,AttD,type(Dt)),\n"
+    "\tsetarg(11,AttD,n),\n"
+    "\tget_attr(I,clpqr_itf,AttI),\n"
+    "\targ(2,AttI,type(It)),\n"
+    "\targ(5,AttI,order(OrdI)),\n"
+    "\targ(6,AttI,class(ClI)),\n"
+    "\tpivot(D,ClI,OrdI,Dt,It),\n"
+    "\t'$fourmotz_r_reverse_pivot'(Ps).\n"
+    "'$fourmotz_r_unkeep'([]).\n"
+    "'$fourmotz_r_unkeep'([_:D|Ps]) :-\n"
+    "\tget_attr(D,clpqr_itf,Att),\n"
+    "\tsetarg(11,Att,n),\n"
+    "\tdrop_dep_one(D),\n"
+    "\t'$fourmotz_r_unkeep'(Ps).\n"
+    "'$fourmotz_r_fm_detach'( []).\n"
+    "'$fourmotz_r_fm_detach'([V:_|Vs]) :-\n"
+    "\tdetach_bounds(V),\n"
+    "\t'$fourmotz_r_fm_detach'(Vs).\n"
+    "'$fourmotz_r_activate_crossproduct'([]).\n"
+    "'$fourmotz_r_activate_crossproduct'([lez(Strict,Lin)|News]) :-\n"
+    "\tvar_with_def_intern(t_u(0.0),Var,Lin,Strict),\n"
+    "\tbasis_add(Var,_),\n"
+    "\t'$fourmotz_r_activate_crossproduct'(News).\n"
+    "'$fourmotz_r_crossproduct'([]) --> [].\n"
+    "'$fourmotz_r_crossproduct'([A|As]) -->\n"
+    "\t'$fourmotz_r_crossproduct'(As,A),\n"
+    "\t'$fourmotz_r_crossproduct'(As).\n"
+    "'$fourmotz_r_crossproduct'([],_) --> [].\n"
+    "'$fourmotz_r_crossproduct'([B:Kb|Bs],A:Ka) -->\n"
+    "\t{\n"
+    "\t    get_attr(A,clpqr_itf,AttA),\n"
+    "\t    arg(2,AttA,type(Ta)),\n"
+    "\t    arg(3,AttA,strictness(Sa)),\n"
+    "\t    arg(4,AttA,lin(LinA)),\n"
+    "\t    get_attr(B,clpqr_itf,AttB),\n"
+    "\t    arg(2,AttB,type(Tb)),\n"
+    "\t    arg(3,AttB,strictness(Sb)),\n"
+    "\t    arg(4,AttB,lin(LinB)),\n"
+    "\t    K is -Kb/Ka,\n"
+    "\t    add_linear_f1(LinA,K,LinB,Lin)\n"
+    "\t},\n"
+    "\t(   { K > 1.0e-10 }\n"
+    "\t->  { Strict is Sa \\/ Sb },\n"
+    "\t    '$fourmotz_r_cross_lower'(Ta,Tb,K,Lin,Strict),\n"
+    "\t    '$fourmotz_r_cross_upper'(Ta,Tb,K,Lin,Strict)\n"
+    "\t;\n"
+    "    \t    {\n"
+    "\t\t'$fourmotz_r_flip'(Ta,Taf),\n"
+    "\t\t'$fourmotz_r_flip_strict'(Sa,Saf),\n"
+    "\t\tStrict is Saf \\/ Sb\n"
+    "\t    },\n"
+    "\t    '$fourmotz_r_cross_lower'(Taf,Tb,K,Lin,Strict),\n"
+    "\t    '$fourmotz_r_cross_upper'(Taf,Tb,K,Lin,Strict)\n"
+    "\t),\n"
+    "\t'$fourmotz_r_crossproduct'(Bs,A:Ka).\n"
+    "'$fourmotz_r_cross_lower'(Ta,Tb,K,Lin,Strict) -->\n"
+    "\t{\n"
+    "\t    '$fourmotz_r_lower'(Ta,La),\n"
+    "\t    '$fourmotz_r_lower'(Tb,Lb),\n"
+    "\t    !,\n"
+    "\t    L is K*La+Lb,\n"
+    "\t    normalize_scalar(L,Ln),\n"
+    "\t    add_linear_f1(Lin,-1.0,Ln,Lhs),\n"
+    "\t    Sl is Strict >> 1\n"
+    "\t},\n"
+    "\t[ lez(Sl,Lhs) ].\n"
+    "'$fourmotz_r_cross_lower'(_,_,_,_,_) --> [].\n"
+    "'$fourmotz_r_cross_upper'(Ta,Tb,K,Lin,Strict) -->\n"
+    "\t{\n"
+    "\t    '$fourmotz_r_upper'(Ta,Ua),\n"
+    "\t    '$fourmotz_r_upper'(Tb,Ub),\n"
+    "\t    !,\n"
+    "\t    U is -(K*Ua+Ub),\n"
+    "\t    normalize_scalar(U,Un),\n"
+    "\t    add_linear_11(Un,Lin,Lhs),\n"
+    "\t    Su is Strict /\\ 1\n"
+    "\t},\n"
+    "\t[ lez(Su,Lhs) ].\n"
+    "'$fourmotz_r_cross_upper'(_,_,_,_,_) --> [].\n"
+    "'$fourmotz_r_lower'(t_l(L),L).\n"
+    "'$fourmotz_r_lower'(t_lu(L,_),L).\n"
+    "'$fourmotz_r_lower'(t_L(L),L).\n"
+    "'$fourmotz_r_lower'(t_Lu(L,_),L).\n"
+    "'$fourmotz_r_lower'(t_lU(L,_),L).\n"
+    "'$fourmotz_r_upper'(t_u(U),U).\n"
+    "'$fourmotz_r_upper'(t_lu(_,U),U).\n"
+    "'$fourmotz_r_upper'(t_U(U),U).\n"
+    "'$fourmotz_r_upper'(t_Lu(_,U),U).\n"
+    "'$fourmotz_r_upper'(t_lU(_,U),U).\n"
+    "'$fourmotz_r_flip'(t_l(X),t_u(X)).\n"
+    "'$fourmotz_r_flip'(t_u(X),t_l(X)).\n"
+    "'$fourmotz_r_flip'(t_lu(X,Y),t_lu(Y,X)).\n"
+    "'$fourmotz_r_flip'(t_L(X),t_u(X)).\n"
+    "'$fourmotz_r_flip'(t_U(X),t_l(X)).\n"
+    "'$fourmotz_r_flip'(t_lU(X,Y),t_lu(Y,X)).\n"
+    "'$fourmotz_r_flip'(t_Lu(X,Y),t_lu(Y,X)).\n"
+    "'$fourmotz_r_flip_strict'(0,0).\n"
+    "'$fourmotz_r_flip_strict'(1,2).\n"
+    "'$fourmotz_r_flip_strict'(2,1).\n"
+    "'$fourmotz_r_flip_strict'(3,3).\n"
+    "'$fourmotz_r_cp_card'([],Ci,Ci).\n"
+    "'$fourmotz_r_cp_card'([A|As],Ci,Co) :-\n"
+    "\t'$fourmotz_r_cp_card'(As,A,Ci,Cii),\n"
+    "\t'$fourmotz_r_cp_card'(As,Cii,Co).\n"
+    "'$fourmotz_r_cp_card'([],_,Ci,Ci).\n"
+    "'$fourmotz_r_cp_card'([B:Kb|Bs],A:Ka,Ci,Co) :-\n"
+    "\tget_attr(A,clpqr_itf,AttA),\n"
+    "\targ(2,AttA,type(Ta)),\n"
+    "\tget_attr(B,clpqr_itf,AttB),\n"
+    "\targ(2,AttB,type(Tb)),\n"
+    "\tK is -Kb/Ka,\n"
+    "\t(   K > 1.0e-10\n"
+    "\t->  '$fourmotz_r_cp_card_lower'(Ta,Tb,Ci,Cii),\n"
+    "\t    '$fourmotz_r_cp_card_upper'(Ta,Tb,Cii,Ciii)\n"
+    "\t;   '$fourmotz_r_flip'(Ta,Taf),\n"
+    "\t    '$fourmotz_r_cp_card_lower'(Taf,Tb,Ci,Cii),\n"
+    "\t    '$fourmotz_r_cp_card_upper'(Taf,Tb,Cii,Ciii)\n"
+    "\t),\n"
+    "\t'$fourmotz_r_cp_card'(Bs,A:Ka,Ciii,Co).\n"
+    "'$fourmotz_r_cp_card_lower'(Ta,Tb,Si,So) :-\n"
+    "\t'$fourmotz_r_lower'(Ta,_),\n"
+    "\t'$fourmotz_r_lower'(Tb,_),\n"
+    "\t!,\n"
+    "\tSo is Si+1.\n"
+    "'$fourmotz_r_cp_card_lower'(_,_,Si,Si).\n"
+    "'$fourmotz_r_cp_card_upper'(Ta,Tb,Si,So) :-\n"
+    "\t'$fourmotz_r_upper'(Ta,_),\n"
+    "\t'$fourmotz_r_upper'(Tb,_),\n"
+    "\t!,\n"
+    "\tSo is Si+1.\n"
+    "'$fourmotz_r_cp_card_upper'(_,_,Si,Si).\n"
+    "'$fourmotz_r_occurences'(V,Occ) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(OrdV)),\n"
+    "\targ(6,Att,class(C)),\n"
+    "\tclass_allvars(C,All),\n"
+    "\t'$fourmotz_r_occurences'(All,OrdV,Occ).\n"
+    "'$fourmotz_r_occurences'(De,_,[]) :-\n"
+    "\tvar(De),\n"
+    "\t!.\n"
+    "'$fourmotz_r_occurences'([D|De],OrdV,Occ) :-\n"
+    "\t(   get_attr(D,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$fourmotz_r_occ_type_filter'(Type),\n"
+    "\t    nf_coeff_of(Lin,OrdV,K)\n"
+    "\t->  Occ = [D:K|Occt],\n"
+    "\t    '$fourmotz_r_occurences'(De,OrdV,Occt)\n"
+    "\t;   '$fourmotz_r_occurences'(De,OrdV,Occ)\n"
+    "\t).\n"
+    "'$fourmotz_r_occ_type_filter'(t_l(_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_u(_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_lu(_,_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_L(_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_U(_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_lU(_,_)).\n"
+    "'$fourmotz_r_occ_type_filter'(t_Lu(_,_)).\n"
+    "'$fourmotz_r_occurs'(V) :-\n"
+    "\tget_attr(V,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(OrdV)),\n"
+    "\targ(6,Att,class(C)),\n"
+    "\tclass_allvars(C,All),\n"
+    "\t'$fourmotz_r_occurs'(All,OrdV).\n"
+    "'$fourmotz_r_occurs'(De,_) :-\n"
+    "\tvar(De),\n"
+    "\t!,\n"
+    "\tfail.\n"
+    "'$fourmotz_r_occurs'([D|De],OrdV) :-\n"
+    "\t(   get_attr(D,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$fourmotz_r_occ_type_filter'(Type),\n"
+    "\t    nf_coeff_of(Lin,OrdV,_)\n"
+    "\t->  true\n"
+    "\t;   '$fourmotz_r_occurs'(De,OrdV)\n"
+    "\t).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "reset_gensym", 0 },
     { "reset_gensym", 1 },
     { "gensym", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_23_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_23_SRC[] =
+static const char *const PL_PRELUDE_LIB_27_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_27_SRC[] =
     "gensym(Base, Atom) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    flag(Key, Old, Old+1),\n"
@@ -15608,7 +17091,7 @@ static const char PL_PRELUDE_LIB_23_SRC[] =
     "reset_gensym(Base) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    set_flag(Key, 0).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "write_to_atom", 2 },
     { "writeq_to_atom", 2 },
     { "print_to_atom", 2 },
@@ -15782,10 +17265,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "sr_error_from_exception", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
     { "add_linedit_completion", 0 },
     { "add_stream_alias", 0 },
     { "add_stream_mirror", 0 },
@@ -15931,11 +17414,11 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
     { "writeq_to_codes", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_24_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_24_SRC[] =
+static const char *const PL_PRELUDE_LIB_28_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_28_SRC[] =
     "write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).\n"
     "writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).\n"
     "print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).\n"
@@ -16553,7 +18036,7 @@ static const char PL_PRELUDE_LIB_24_SRC[] =
     "'$gnu_b_sr_exc'(error(syntax_error(_), _), E) :- !, syntax_error_info(_, L, C, M), E = sr_error(error, syntax(L, C, M)).\n"
     "'$gnu_b_sr_exc'(error(F, _), sr_error(error, F)) :- !.\n"
     "'$gnu_b_sr_exc'(X, sr_error(exception, X)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
     { "#<#", 2 },
@@ -16611,7 +18094,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "#==>", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -16625,7 +18108,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -16639,7 +18122,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
     { 700, "xfx", "#=#" },
     { 700, "xfx", "#\\=#" },
     { 700, "xfx", "#<#" },
@@ -16654,8 +18137,8 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 720, "yfx", "#\\/\\" },
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_25_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_25_SRC[] =
+static const char *const PL_PRELUDE_LIB_29_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_29_SRC[] =
     "'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).\n"
     "'#\\\\='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#\\\\='(X1, Y1).\n"
     "'#<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#<'(X1, Y1).\n"
@@ -16807,7 +18290,7 @@ static const char PL_PRELUDE_LIB_25_SRC[] =
     "'$gnu_is_prime'(N, D) :- D * D > N, !.\n"
     "'$gnu_is_prime'(N, D) :- N mod D =\\= 0, D1 is D + 1, '$gnu_is_prime'(N, D1).\n"
     "fd_reified_in(X, L, U, B) :- '#<==>'(B, in(X, '..'(L, U))).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "ht_new", 1 },
     { "ht_is_hashtable", 1 },
     { "ht_size", 2 },
@@ -16822,17 +18305,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "ht_keys", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_26_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_26_SRC[] =
+static const char *const PL_PRELUDE_LIB_30_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_30_SRC[] =
     "ht_new(ht(0,0,[](_))).\n"
     "ht_is_hashtable(HT) :-\n"
     "    nonvar(HT),\n"
@@ -17028,7 +18511,7 @@ static const char PL_PRELUDE_LIB_26_SRC[] =
     "        )\n"
     "    ;   Keys = []\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "add_to_heap", 4 },
     { "delete_from_heap", 4 },
     { "empty_heap", 1 },
@@ -17043,17 +18526,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "singleton_heap", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_27_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_27_SRC[] =
+static const char *const PL_PRELUDE_LIB_31_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_31_SRC[] =
     "add_to_heap(heap(Q0,M),P,X,heap(Q1,N)) :-\n"
     "    '$heaps_meld'(Q0,t(X,P,[]),Q1),\n"
     "    N is M+1.\n"
@@ -17132,7 +18615,7 @@ static const char PL_PRELUDE_LIB_27_SRC[] =
     "    '$heaps_meld'(Q0, Q1, Q2),\n"
     "    '$heaps_pairing'(Qs, Q3),\n"
     "    '$heaps_meld'(Q2, Q3, Q).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "ineq", 4 },
     { "ineq_one", 4 },
     { "ineq_one_n_n_0", 1 },
@@ -17141,17 +18624,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "ineq_one_s_p_0", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_28_LOADS[] = { "bv_q", "store_q", 0 };
-static const char PL_PRELUDE_LIB_28_SRC[] =
+static const char *const PL_PRELUDE_LIB_32_LOADS[] = { "bv_q", "store_q", 0 };
+static const char PL_PRELUDE_LIB_32_SRC[] =
     "ineq([],I,_,Strictness) :- '$ineq_q_ineq_ground'(Strictness,I).\n"
     "ineq([v(K,[X^1])|Tail],I,Lin,Strictness) :-\n"
     "\t'$ineq_q_ineq_cases'(Tail,I,Lin,Strictness,X,K).\n"
@@ -18107,21 +19590,1102 @@ static const char PL_PRELUDE_LIB_28_SRC[] =
     "\tnormalize_scalar(Nb,Nbs),\n"
     "\tadd_linear_11(Nbs,Lin,Eq),\n"
     "\tsolve(Eq).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+    { "ineq", 4 },
+    { "ineq_one", 4 },
+    { "ineq_one_n_n_0", 1 },
+    { "ineq_one_n_p_0", 1 },
+    { "ineq_one_s_n_0", 1 },
+    { "ineq_one_s_p_0", 1 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_33_LOADS[] = { "bv_r", "store_r", 0 };
+static const char PL_PRELUDE_LIB_33_SRC[] =
+    "ineq([],I,_,Strictness) :- '$ineq_r_ineq_ground'(Strictness,I).\n"
+    "ineq([v(K,[X^1])|Tail],I,Lin,Strictness) :-\n"
+    "\t'$ineq_r_ineq_cases'(Tail,I,Lin,Strictness,X,K).\n"
+    "'$ineq_r_ineq_cases'([],I,_,Strictness,X,K) :-\n"
+    "\tineq_one(Strictness,X,K,I).\n"
+    "'$ineq_r_ineq_cases'([_|_],_,Lin,Strictness,_,_) :-\n"
+    "\tderef(Lin,Lind),\n"
+    "\tLind = [Inhom,_|Hom],\n"
+    "\t'$ineq_r_ineq_more'(Hom,Inhom,Lind,Strictness).\n"
+    "'$ineq_r_ineq_ground'(strict,I) :- I < -1.0e-10.\n"
+    "'$ineq_r_ineq_ground'(nonstrict,I) :- I < 1.0e-10.\n"
+    "ineq_one(strict,X,K,I) :-\n"
+    "\t(   K > 1.0e-10\n"
+    "\t->  (   I >= -1.0e-10,\n"
+    "\t\tI =< 1.0e-10\n"
+    "\t    ->  ineq_one_s_p_0(X)\n"
+    "\t    ;   Inhom is I/K,\n"
+    "\t\t'$ineq_r_ineq_one_s_p_i'(X,Inhom)\n"
+    "\t    )\n"
+    "\t;   (   I >= -1.0e-10,\n"
+    "\t\tI =< 1.0e-10\n"
+    "\t    ->  ineq_one_s_n_0(X)\n"
+    "\t    ;   Inhom is -I/K,\n"
+    "\t\t'$ineq_r_ineq_one_s_n_i'(X,Inhom)\n"
+    "\t    )\n"
+    "\t).\n"
+    "ineq_one(nonstrict,X,K,I) :-\n"
+    "\t(   K > 1.0e-10\n"
+    "\t->  (   I >= -1.0e-10,\n"
+    "\t\tI =< 1.0e-10\n"
+    "\t    ->  ineq_one_n_p_0(X)\n"
+    "\t    ;   Inhom is I/K,\n"
+    "\t\t'$ineq_r_ineq_one_n_p_i'(X,Inhom)\n"
+    "\t    )\n"
+    "\t;   (   I >= -1.0e-10,\n"
+    "\t\tI =< 1.0e-10\n"
+    "\t    ->  ineq_one_n_n_0(X)\n"
+    "\t    ;   Inhom is -I/K,\n"
+    "\t\t'$ineq_r_ineq_one_n_n_i'(X,Inhom)\n"
+    "\t    )\n"
+    "\t).\n"
+    "ineq_one_s_p_0(X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_s_p_0'(OrdX,X,Ix)\n"
+    "\t).\n"
+    "ineq_one_s_p_0(X) :-\n"
+    "\tvar_intern(t_u(0.0),X,1).\n"
+    "ineq_one_s_n_0(X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_s_n_0'(OrdX,X,Ix)\n"
+    "\t).\n"
+    "ineq_one_s_n_0(X) :-\n"
+    "\tvar_intern(t_l(0.0),X,2).\n"
+    "'$ineq_r_ineq_one_s_p_i'(X,I) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_s_p_i'(OrdX,I,X,Ix)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_s_p_i'(X,I) :-\n"
+    "\tBound is -I,\n"
+    "\tvar_intern(t_u(Bound),X,1).\n"
+    "'$ineq_r_ineq_one_s_n_i'(X,I) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_s_n_i'(OrdX,I,X,Ix)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_s_n_i'(X,I) :- var_intern(t_l(I),X,2).\n"
+    "'$ineq_r_ineq_one_old_s_p_0'([],_,Ix) :- Ix < -1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_s_p_0'([l(Y*Ky,_)|Tail],X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Bound is -Ix/Ky,\n"
+    "\t    '$ineq_r_update_indep'(strict,Y,Ky,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udus'(Type,X,Lin,0.0,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_s_n_0'([],_,Ix) :- Ix > 1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_s_n_0'([l(Y*Ky,_)|Tail], X, Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Coeff is -Ky,\n"
+    "\t    Bound is Ix/Coeff,\n"
+    "\t    '$ineq_r_update_indep'(strict,Y,Coeff,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udls'(Type,X,Lin,0.0,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_s_p_i'([],I,_,Ix) :- Ix + I < -1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_s_p_i'([l(Y*Ky,_)|Tail],I,X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Bound is -(Ix + I)/Ky,\n"
+    "\t    '$ineq_r_update_indep'(strict,Y,Ky,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  Bound is -I,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udus'(Type,X,Lin,Bound,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_s_n_i'([],I,_,Ix) :- -Ix + I < -1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_s_n_i'([l(Y*Ky,_)|Tail],I,X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Coeff is -Ky,\n"
+    "\t    Bound is (Ix - I)/Coeff,\n"
+    "\t    '$ineq_r_update_indep'(strict,Y,Coeff,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udls'(Type,X,Lin,I,Old)\n"
+    "\t).\n"
+    "ineq_one_n_p_0(X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_n_p_0'(OrdX,X,Ix)\n"
+    "\t).\n"
+    "ineq_one_n_p_0(X) :-\n"
+    "\tvar_intern(t_u(0.0),X,0).\n"
+    "ineq_one_n_n_0(X) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_n_n_0'(OrdX,X,Ix)\n"
+    "\t).\n"
+    "ineq_one_n_n_0(X) :-\n"
+    "\tvar_intern(t_l(0.0),X,0).\n"
+    "'$ineq_r_ineq_one_n_p_i'(X,I) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_n_p_i'(OrdX,I,X,Ix)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_n_p_i'(X,I) :-\n"
+    "\tBound is -I,\n"
+    "\tvar_intern(t_u(Bound),X,0).\n"
+    "'$ineq_r_ineq_one_n_n_i'(X,I) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(4,Att,lin([Ix,_|OrdX])),\n"
+    "\t!,\n"
+    "\t(   \\+ arg(1,Att,clpr)\n"
+    "\t->  throw(error(permission_error('mix CLP(Q) variables with',\n"
+    "\t\t'CLP(R) variables:',X),context(_)))\n"
+    "\t;   '$ineq_r_ineq_one_old_n_n_i'(OrdX,I,X,Ix)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_n_n_i'(X,I) :-\n"
+    "\tvar_intern(t_l(I),X,0).\n"
+    "'$ineq_r_ineq_one_old_n_p_0'([],_,Ix) :- Ix < 1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_n_p_0'([l(Y*Ky,_)|Tail],X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Bound is -Ix/Ky,\n"
+    "\t    '$ineq_r_update_indep'(nonstrict,Y,Ky,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udu'(Type,X,Lin,0.0,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_n_n_0'([],_,Ix) :- Ix > -1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_n_n_0'([l(Y*Ky,_)|Tail], X, Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Coeff is -Ky,\n"
+    "\t    Bound is Ix/Coeff,\n"
+    "\t    '$ineq_r_update_indep'(nonstrict,Y,Coeff,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udl'(Type,X,Lin,0.0,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_n_p_i'([],I,_,Ix) :- Ix + I < 1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_n_p_i'([l(Y*Ky,_)|Tail],I,X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Bound is -(Ix + I)/Ky,\n"
+    "\t    '$ineq_r_update_indep'(nonstrict,Y,Ky,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  Bound is -I,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udu'(Type,X,Lin,Bound,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_one_old_n_n_i'([],I,_,Ix) :- -Ix + I < 1.0e-10.\n"
+    "'$ineq_r_ineq_one_old_n_n_i'([l(Y*Ky,_)|Tail],I,X,Ix) :-\n"
+    "\t(   Tail = []\n"
+    "\t->  Coeff is -Ky,\n"
+    "\t    Bound is (Ix - I)/Coeff,\n"
+    "\t    '$ineq_r_update_indep'(nonstrict,Y,Coeff,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    arg(2,Att,type(Type)),\n"
+    "\t    arg(3,Att,strictness(Old)),\n"
+    "\t    arg(4,Att,lin(Lin)),\n"
+    "\t    '$ineq_r_udl'(Type,X,Lin,I,Old)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_more'([],I,_,Strictness) :- '$ineq_r_ineq_ground'(Strictness,I).\n"
+    "'$ineq_r_ineq_more'([l(X*K,_)|Tail],Id,Lind,Strictness) :-\n"
+    "\t(   Tail = []\n"
+    "\t->\n"
+    "\t    get_or_add_class(X,_),\n"
+    "\t    Bound is -Id/K,\n"
+    "\t    '$ineq_r_update_indep'(Strictness,X,K,Bound)\n"
+    "\t;   Tail = [_|_]\n"
+    "\t->  '$ineq_r_ineq_more'(Strictness,Lind)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_more'(strict,Lind) :-\n"
+    "\t(   unconstrained(Lind,U,K,Rest)\n"
+    "\t->\n"
+    "\t    var_intern(t_l(0.0),S,2),\n"
+    "\t    get_attr(S,clpqr_itf,AttS),\n"
+    "\t    arg(5,AttS,order(OrdS)),\n"
+    "\t    Ki is -1.0/K,\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(S*1.0,OrdS)],Ki,LinU),\n"
+    "\t    LinU = [_,_|Hu],\n"
+    "\t    get_or_add_class(U,Class),\n"
+    "\t    same_class(Hu,Class),\n"
+    "\t    get_attr(U,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(ClassU)),\n"
+    "\t    backsubst(ClassU,OrdU,LinU)\n"
+    "\t;   var_with_def_intern(t_u(0.0),S,Lind,1),\n"
+    "\t    basis_add(S,_),\n"
+    "\t    determine_active_dec(Lind),\n"
+    "\t    reconsider(S)\n"
+    "\t).\n"
+    "'$ineq_r_ineq_more'(nonstrict,Lind) :-\n"
+    "\t(   unconstrained(Lind,U,K,Rest)\n"
+    "\t->\n"
+    "\t    var_intern(t_l(0.0),S,0),\n"
+    "\t    Ki is -1.0/K,\n"
+    "\t    get_attr(S,clpqr_itf,AttS),\n"
+    "\t    arg(5,AttS,order(OrdS)),\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(S*1.0,OrdS)],Ki,LinU),\n"
+    "\t    LinU = [_,_|Hu],\n"
+    "\t    get_or_add_class(U,Class),\n"
+    "\t    same_class(Hu,Class),\n"
+    "\t    get_attr(U,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(ClassU)),\n"
+    "\t    backsubst(ClassU,OrdU,LinU)\n"
+    "\t;\n"
+    "\t    var_with_def_intern(t_u(0.0),S,Lind,0),\n"
+    "\t    basis_add(S,_),\n"
+    "\t    determine_active_dec(Lind),\n"
+    "\t    reconsider(S)\n"
+    "\t).\n"
+    "'$ineq_r_update_indep'(strict,X,K,Bound) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(3,Att,strictness(Old)),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\t(   K < -1.0e-10\n"
+    "\t->  '$ineq_r_uils'(Type,X,Lin,Bound,Old)\n"
+    "\t;   '$ineq_r_uius'(Type,X,Lin,Bound,Old)\n"
+    "\t).\n"
+    "'$ineq_r_update_indep'(nonstrict,X,K,Bound) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(2,Att,type(Type)),\n"
+    "\targ(3,Att,strictness(Old)),\n"
+    "\targ(4,Att,lin(Lin)),\n"
+    "\t(   K < -1.0e-10\n"
+    "\t->  '$ineq_r_uil'(Type,X,Lin,Bound,Old)\n"
+    "\t;   '$ineq_r_uiu'(Type,X,Lin,Bound,Old)\n"
+    "\t).\n"
+    "'$ineq_r_udl'(t_none,X,Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,AttX),\n"
+    "\targ(5,AttX,order(Ord)),\n"
+    "\tsetarg(2,AttX,type(t_l(Bound))),\n"
+    "\tsetarg(3,AttX,strictness(0)),\n"
+    "\t(   unconstrained(Lin,Uc,Kuc,Rest)\n"
+    "\t->\n"
+    "\t    Ki is -1.0/Kuc,\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(X* -1.0,Ord)],Ki,LinU),\n"
+    "\t    get_attr(Uc,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(Class)),\n"
+    "\t    backsubst(Class,OrdU,LinU)\n"
+    "\t;\n"
+    "\t    basis_add(X,_),\n"
+    "\t    determine_active_inc(Lin),\n"
+    "\t    reconsider(X)\n"
+    "\t).\n"
+    "'$ineq_r_udl'(t_l(L),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold /\\ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_l(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_lower'(X,Lin,Bound)\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_udl'(t_u(U),X,Lin,Bound,_Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\t    '$ineq_r_reconsider_lower'(X,Lin,Bound)\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_udl'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    TestUB is U - Bound,\n"
+    "\t    (   TestUB < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestUB > 1.0e-10\n"
+    "\t    ->\n"
+    "\t\tStrict is Sold /\\ 1,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\t'$ineq_r_reconsider_lower'(X,Lin,Bound)\n"
+    "\t    ;\n"
+    "\t\tSold /\\ 1 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_udls'(t_none,X,Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,AttX),\n"
+    "\targ(5,AttX,order(Ord)),\n"
+    "\tsetarg(2,AttX,type(t_l(Bound))),\n"
+    "\tsetarg(3,AttX,strictness(2)),\n"
+    "\t(   unconstrained(Lin,Uc,Kuc,Rest)\n"
+    "\t->\n"
+    "\t    Ki is -1.0/Kuc,\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(X* -1.0,Ord)],Ki,LinU),\n"
+    "\t    get_attr(Uc,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(Class)),\n"
+    "\t    backsubst(Class,OrdU,LinU)\n"
+    "\t;\n"
+    "\t    basis_add(X,_),\n"
+    "\t    determine_active_inc(Lin),\n"
+    "\t    reconsider(X)\n"
+    "\t).\n"
+    "'$ineq_r_udls'(t_l(L),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_l(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_lower'(X,Lin,Bound)\n"
+    "\t;\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_udls'(t_u(U),X,Lin,Bound,Sold) :-\n"
+    "\tU - Bound > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 2,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t'$ineq_r_reconsider_lower'(X,Lin,Bound).\n"
+    "'$ineq_r_udls'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    U - Bound > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_lower'(X,Lin,Bound)\n"
+    "\t;\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_udu'(t_none,X,Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,AttX),\n"
+    "\targ(5,AttX,order(Ord)),\n"
+    "\tsetarg(2,AttX,type(t_u(Bound))),\n"
+    "\tsetarg(3,AttX,strictness(0)),\n"
+    "\t(   unconstrained(Lin,Uc,Kuc,Rest)\n"
+    "\t->\n"
+    "\t    Ki is -1.0/Kuc,\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(X* -1.0,Ord)],Ki,LinU),\n"
+    "\t    get_attr(Uc,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(Class)),\n"
+    "\t    backsubst(Class,OrdU,LinU)\n"
+    "\t;\n"
+    "\t    basis_add(X,_),\n"
+    "\t    determine_active_dec(Lin),\n"
+    "\t    reconsider(X)\n"
+    "\t).\n"
+    "'$ineq_r_udu'(t_u(U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold /\\ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_u(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_upper'(X,Lin,Bound)\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_udu'(t_l(L),X,Lin,Bound,_Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\t    '$ineq_r_reconsider_upper'(X,Lin,Bound)\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_udu'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    TestBL is Bound - L,\n"
+    "\t    (   TestBL < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestBL > 1.0e-10\n"
+    "\t    ->\n"
+    "\t\tStrict is Sold /\\ 2,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\t'$ineq_r_reconsider_upper'(X,Lin,Bound)\n"
+    "\t    ;\n"
+    "\t\tSold /\\ 2 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_udus'(t_none,X,Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,AttX),\n"
+    "\targ(5,AttX,order(Ord)),\n"
+    "\tsetarg(2,AttX,type(t_u(Bound))),\n"
+    "\tsetarg(3,AttX,strictness(1)),\n"
+    "\t(   unconstrained(Lin,Uc,Kuc,Rest)\n"
+    "\t->\n"
+    "\t    Ki is -1.0/Kuc,\n"
+    "\t    add_linear_ff(Rest,Ki,[0.0,0.0,l(X* -1.0,Ord)],Ki,LinU),\n"
+    "\t    get_attr(Uc,clpqr_itf,AttU),\n"
+    "\t    arg(5,AttU,order(OrdU)),\n"
+    "\t    arg(6,AttU,class(Class)),\n"
+    "\t    backsubst(Class,OrdU,LinU)\n"
+    "\t;\n"
+    "\t    basis_add(X,_),\n"
+    "\t    determine_active_dec(Lin),\n"
+    "\t    reconsider(X)\n"
+    "\t).\n"
+    "'$ineq_r_udus'(t_u(U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_u(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_upper'(X,Lin,Bound)\n"
+    "\t;\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_udus'(t_l(L),X,Lin,Bound,Sold) :-\n"
+    "\tBound - L > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 1,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t'$ineq_r_reconsider_upper'(X,Lin,Bound).\n"
+    "'$ineq_r_udus'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    Bound - L > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t    '$ineq_r_reconsider_upper'(X,Lin,Bound)\n"
+    "\t;\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_none,X,_Lin,Bound,_) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_u(Bound))),\n"
+    "\tsetarg(3,Att,strictness(0)).\n"
+    "'$ineq_r_uiu'(t_u(U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold /\\ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_u(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_l(L),X,Lin,Bound,_Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(L,Bound)))\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_L(L),X,Lin,Bound,_Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_Lu(L,Bound)))\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  TestBL is Bound - L,\n"
+    "\t    (   TestBL < -1.0e-10\n"
+    "\t    ->\tfail\n"
+    "\t    ;   TestBL > 1.0e-10\n"
+    "\t    ->\n"
+    "\t\tStrict is Sold /\\ 2,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict))\n"
+    "\t    ;\n"
+    "\t\tSold /\\ 2 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_Lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  TestBL is Bound - L,\n"
+    "\t    (   TestBL < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestBL > 1.0e-10\n"
+    "\t    ->  Strict is Sold /\\ 2,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_Lu(L,Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict))\n"
+    "\t    ;   Sold /\\ 2 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_U(U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->\n"
+    "\t    Strict is Sold /\\ 2,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tlb(ClassX,OrdX,Vlb-Vb-Lb),\n"
+    "\t\tBound - (Lb + U) < 1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_U(Bound))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vlb,X,Vb,t_u(Bound)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_U(Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - U,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uiu'(t_lU(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  TestBL is Bound-L,\n"
+    "\t    (   TestBL < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestBL > 1.0e-10\n"
+    "\t    ->\n"
+    "\t\tStrict is Sold /\\ 2,\n"
+    "\t\t(   get_attr(X,clpqr_itf,Att),\n"
+    "\t\t    arg(5,Att,order(OrdX)),\n"
+    "\t\t    arg(6,Att,class(ClassX)),\n"
+    "\t\t    lb(ClassX,OrdX,Vlb-Vb-Lb),\n"
+    "\t\t    Bound - (Lb + U) < 1.0e-10\n"
+    "\t\t->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\t    setarg(2,Att2,type(t_lU(L,Bound))),\n"
+    "\t\t    setarg(3,Att2,strictness(Strict)),\n"
+    "\t\t    pivot_a(Vlb,X,Vb,t_lu(L,Bound)),\n"
+    "\t\t    reconsider(X)\n"
+    "\t\t;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\t    arg(5,Att,order(OrdX)),\n"
+    "\t\t    arg(6,Att,class(ClassX)),\n"
+    "\t\t    setarg(2,Att,type(t_lU(L,Bound))),\n"
+    "\t\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t\t    Delta is Bound - U,\n"
+    "\t\t    backsubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t\t)\n"
+    "\t    ;\n"
+    "\t\tSold /\\ 2 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uius'(t_none,X,_Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_u(Bound))),\n"
+    "\tsetarg(3,Att,strictness(1)).\n"
+    "'$ineq_r_uius'(t_u(U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_u(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uius'(t_l(L),X,_Lin,Bound,Sold) :-\n"
+    "\tBound - L > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 1,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\tsetarg(3,Att,strictness(Strict)).\n"
+    "'$ineq_r_uius'(t_L(L),X,_Lin,Bound,Sold) :-\n"
+    "\tBound - L > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 1,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_Lu(L,Bound))),\n"
+    "\tsetarg(3,Att,strictness(Strict)).\n"
+    "'$ineq_r_uius'(t_lu(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  Bound - L > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(L,Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uius'(t_Lu(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  Bound - L > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_Lu(L,Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uius'(t_U(U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  Strict is Sold \\/ 1,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tlb(ClassX,OrdX,Vlb-Vb-Lb),\n"
+    "\t\tBound - (Lb + U) < 1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_U(Bound))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vlb,X,Vb,t_u(Bound)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_U(Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - U,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uius'(t_lU(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  Bound - L > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 1,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tlb(ClassX,OrdX,Vlb-Vb-Lb),\n"
+    "\t\tBound - (Lb + U) < 1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_lU(L,Bound))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vlb,X,Vb,t_lu(L,Bound)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_lU(L,Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - U,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   Strict is Sold \\/ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_none,X,_Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_l(Bound))),\n"
+    "\tsetarg(3,Att,strictness(0)).\n"
+    "'$ineq_r_uil'(t_l(L),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  Strict is Sold /\\ 1,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_l(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_u(U),X,Lin,Bound,_Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(Bound,U)))\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_U(U),X,Lin,Bound,_Sold) :-\n"
+    "\tTestUB is U - Bound,\n"
+    "\t(   TestUB < -1.0e-10\n"
+    "\t->  fail\n"
+    "\t;   TestUB > 1.0e-10\n"
+    "\t->  get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lU(Bound,U)))\n"
+    "\t;   '$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  TestUB is U - Bound,\n"
+    "\t    (   TestUB < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestUB > 1.0e-10\n"
+    "\t    ->  Strict is Sold /\\ 1,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict))\n"
+    "\t    ;   Sold /\\ 1 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_lU(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  TestUB is U - Bound,\n"
+    "\t    (   TestUB < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestUB > 1.0e-10\n"
+    "\t    ->  Strict is Sold /\\ 1,\n"
+    "\t\tget_attr(X,clpqr_itf,Att),\n"
+    "\t\tsetarg(2,Att,type(t_lU(Bound,U))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict))\n"
+    "\t    ;   Sold /\\ 1 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_L(L),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  Strict is Sold /\\ 1,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tub(ClassX,OrdX,Vub-Vb-Ub),\n"
+    "\t\tBound - (Ub + L) > -1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_L(Bound))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vub,X,Vb,t_l(Bound)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_L(Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - L,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uil'(t_Lu(L,U),X,Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  TestUB is U - Bound,\n"
+    "\t    (   TestUB < -1.0e-10\n"
+    "\t    ->  fail\n"
+    "\t    ;   TestUB > 1.0e-10\n"
+    "\t    ->  Strict is Sold /\\ 1,\n"
+    "\t\t(   get_attr(X,clpqr_itf,Att),\n"
+    "\t\t    arg(5,Att,order(OrdX)),\n"
+    "\t\t    arg(6,Att,class(ClassX)),\n"
+    "\t\t    ub(ClassX,OrdX,Vub-Vb-Ub),\n"
+    "\t\t    Bound - (Ub + L) > -1.0e-10\n"
+    "\t\t->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\t    setarg(2,Att2,t_Lu(Bound,U)),\n"
+    "\t\t    setarg(3,Att2,strictness(Strict)),\n"
+    "\t\t    pivot_a(Vub,X,Vb,t_lu(Bound,U)),\n"
+    "\t\t    reconsider(X)\n"
+    "\t\t;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\t    arg(5,Att,order(OrdX)),\n"
+    "\t\t    arg(6,Att,class(ClassX)),\n"
+    "\t\t    setarg(2,Att,type(t_Lu(Bound,U))),\n"
+    "\t\t    setarg(3,Att,strictness(Strict)),\n"
+    "\t\t    Delta is Bound - L,\n"
+    "\t\t    backsubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t\t)\n"
+    "\t    ;\tSold /\\ 1 =:= 0,\n"
+    "\t\t'$ineq_r_solve_bound'(Lin,Bound)\n"
+    "\t    )\n"
+    "\t;   true\n"
+    "\t).\n"
+    "'$ineq_r_uils'(t_none,X,_Lin,Bound,_Sold) :-\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_l(Bound))),\n"
+    "\tsetarg(3,Att,strictness(2)).\n"
+    "'$ineq_r_uils'(t_l(L),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_l(Bound))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uils'(t_u(U),X,_Lin,Bound,Sold) :-\n"
+    "\tU - Bound > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 2,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\tsetarg(3,Att,strictness(Strict)).\n"
+    "'$ineq_r_uils'(t_U(U),X,_Lin,Bound,Sold) :-\n"
+    "\tU - Bound > 1.0e-10,\n"
+    "\tStrict is Sold \\/ 2,\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\tsetarg(2,Att,type(t_lU(Bound,U))),\n"
+    "\tsetarg(3,Att,strictness(Strict)).\n"
+    "'$ineq_r_uils'(t_lu(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  U - Bound > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lu(Bound,U))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uils'(t_lU(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  U - Bound > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(2,Att,type(t_lU(Bound,U))),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t;   Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uils'(t_L(L),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  Strict is Sold \\/ 2,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tub(ClassX,OrdX,Vub-Vb-Ub),\n"
+    "\t\tBound - (Ub + L) > -1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_L(Bound))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vub,X,Vb,t_l(Bound)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_L(Bound))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - L,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_uils'(t_Lu(L,U),X,_Lin,Bound,Sold) :-\n"
+    "\tTestBL is Bound - L,\n"
+    "\t(   TestBL < -1.0e-10\n"
+    "\t->  true\n"
+    "\t;   TestBL > 1.0e-10\n"
+    "\t->  U - Bound > 1.0e-10,\n"
+    "\t    Strict is Sold \\/ 2,\n"
+    "\t    (   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tub(ClassX,OrdX,Vub-Vb-Ub),\n"
+    "\t\tBound - (Ub + L) > -1.0e-10\n"
+    "\t    ->  get_attr(X,clpqr_itf,Att2),\n"
+    "\t\tsetarg(2,Att2,type(t_Lu(Bound,U))),\n"
+    "\t\tsetarg(3,Att2,strictness(Strict)),\n"
+    "\t\tpivot_a(Vub,X,Vb,t_lu(Bound,U)),\n"
+    "\t\treconsider(X)\n"
+    "\t    ;   get_attr(X,clpqr_itf,Att),\n"
+    "\t\targ(5,Att,order(OrdX)),\n"
+    "\t\targ(6,Att,class(ClassX)),\n"
+    "\t\tsetarg(2,Att,type(t_Lu(Bound,U))),\n"
+    "\t\tsetarg(3,Att,strictness(Strict)),\n"
+    "\t\tDelta is Bound - L,\n"
+    "\t\tbacksubst_delta(ClassX,OrdX,X,Delta)\n"
+    "\t    )\n"
+    "\t;   Strict is Sold \\/ 2,\n"
+    "\t    get_attr(X,clpqr_itf,Att),\n"
+    "\t    setarg(3,Att,strictness(Strict))\n"
+    "\t).\n"
+    "'$ineq_r_reconsider_upper'(X,[I,R|H],U) :-\n"
+    "\tR + I - U > -1.0e-10,\n"
+    "\t!,\n"
+    "\tdec_step(H,Status),\n"
+    "\trcbl_status(Status,X,[],Binds,[],u(U)),\n"
+    "\texport_binding(Binds).\n"
+    "'$ineq_r_reconsider_upper'( _, _, _).\n"
+    "'$ineq_r_reconsider_lower'(X,[I,R|H],L) :-\n"
+    "\tR + I - L < 1.0e-10,\n"
+    "\t!,\n"
+    "\tinc_step(H,Status),\n"
+    "\trcbl_status(Status,X,[],Binds,[],l(L)),\n"
+    "\texport_binding(Binds).\n"
+    "'$ineq_r_reconsider_lower'(_,_,_).\n"
+    "'$ineq_r_solve_bound'(Lin,Bound) :-\n"
+    "\tBound >= -1.0e-10,\n"
+    "\tBound =< 1.0e-10,\n"
+    "\t!,\n"
+    "\tsolve(Lin).\n"
+    "'$ineq_r_solve_bound'(Lin,Bound) :-\n"
+    "\tNb is -Bound,\n"
+    "\tnormalize_scalar(Nb,Nbs),\n"
+    "\tadd_linear_11(Nbs,Lin,Eq),\n"
+    "\tsolve(Eq).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "do_checks", 8 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_29_LOADS[] = { "bv_q", "clpqr_class", "nf_q", "store_q", 0 };
-static const char PL_PRELUDE_LIB_29_SRC[] =
+static const char *const PL_PRELUDE_LIB_34_LOADS[] = { "bv_q", "clpqr_class", "nf_q", "store_q", 0 };
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
     "\t'$itf_q_numbers_only'(Y),\n"
     "\t'$itf_q_verify_nonzero'(No,Y),\n"
@@ -18221,7 +20785,126 @@ static const char PL_PRELUDE_LIB_29_SRC[] =
     "\t    solve(Lind)\n"
     "\t).\n"
     "'$itf_q_verify_lin'(_,_,_,_).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+    { "do_checks", 8 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_35_LOADS[] = { "bv_r", "clpqr_class", "nf_r", "store_r", 0 };
+static const char PL_PRELUDE_LIB_35_SRC[] =
+    "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
+    "\t'$itf_r_numbers_only'(Y),\n"
+    "\t'$itf_r_verify_nonzero'(No,Y),\n"
+    "\t'$itf_r_verify_type'(Ty,St,Y,Later,[]),\n"
+    "\t'$itf_r_verify_lin'(Or,Cl,Li,Y),\n"
+    "\tmaplist(call,Later).\n"
+    "'$itf_r_numbers_only'(Y) :-\n"
+    "\t(   var(Y)\n"
+    "\t->  true\n"
+    "\t;   integer(Y)\n"
+    "\t->  true\n"
+    "\t;   float(Y)\n"
+    "\t->  true\n"
+    "\t;   type_error(real, Y)\n"
+    "\t).\n"
+    "'$itf_r_verify_nonzero'(nonzero,Y) :-\n"
+    "\t(   var(Y)\n"
+    "\t->  (   get_attr(Y,clpqr_itf,Att)\n"
+    "\t    ->  setarg(8,Att,nonzero)\n"
+    "\t    ;   put_attr(Y,clpqr_itf,t(clpr,n,n,n,n,n,n,nonzero,n,n,n))\n"
+    "\t    )\n"
+    "\t;   (   Y < -1.0e-10\n"
+    "\t    ->\ttrue\n"
+    "\t    ;\tY > 1.0e-10\n"
+    "\t    )\n"
+    "\t).\n"
+    "'$itf_r_verify_nonzero'(n,_).\n"
+    "'$itf_r_verify_type'(type(Type),strictness(Strict),Y) -->\n"
+    "\t'$itf_r_verify_type2'(Y,Type,Strict).\n"
+    "'$itf_r_verify_type'(n,n,_) --> [].\n"
+    "'$itf_r_verify_type2'(Y,TypeX,StrictX) -->\n"
+    "\t{var(Y)},\n"
+    "\t!,\n"
+    "\t'$itf_r_verify_type_var'(TypeX,Y,StrictX).\n"
+    "'$itf_r_verify_type2'(Y,TypeX,StrictX) -->\n"
+    "\t{'$itf_r_verify_type_nonvar'(TypeX,Y,StrictX)}.\n"
+    "'$itf_r_verify_type_nonvar'(t_none,_,_).\n"
+    "'$itf_r_verify_type_nonvar'(t_l(L),Value,S) :- '$itf_r_ilb'(S,L,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_u(U),Value,S) :- '$itf_r_iub'(S,U,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_lu(L,U),Value,S) :-\n"
+    "\t'$itf_r_ilb'(S,L,Value),\n"
+    "\t'$itf_r_iub'(S,U,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_L(L),Value,S) :- '$itf_r_ilb'(S,L,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_U(U),Value,S) :- '$itf_r_iub'(S,U,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_Lu(L,U),Value,S) :-\n"
+    "\t'$itf_r_ilb'(S,L,Value),\n"
+    "\t'$itf_r_iub'(S,U,Value).\n"
+    "'$itf_r_verify_type_nonvar'(t_lU(L,U),Value,S) :-\n"
+    "\t'$itf_r_ilb'(S,L,Value),\n"
+    "\t'$itf_r_iub'(S,U,Value).\n"
+    "'$itf_r_ilb'(S,L,V) :-\n"
+    "\tS /\\ 2 =:= 0,\n"
+    "\t!,\n"
+    "\tL - V < 1.0e-10.\n"
+    "'$itf_r_ilb'(_,L,V) :- L - V < -1.0e-10.\n"
+    "'$itf_r_iub'(S,U,V) :-\n"
+    "\tS /\\ 1 =:= 0,\n"
+    "\t!,\n"
+    "\tV - U < 1.0e-10.\n"
+    "'$itf_r_iub'(_,U,V) :- V - U < -1.0e-10.\n"
+    "'$itf_r_verify_type_var'(t_none,_,_) --> [].\n"
+    "'$itf_r_verify_type_var'(t_l(L),Y,S) --> '$itf_r_llb'(S,L,Y).\n"
+    "'$itf_r_verify_type_var'(t_u(U),Y,S) --> '$itf_r_lub'(S,U,Y).\n"
+    "'$itf_r_verify_type_var'(t_lu(L,U),Y,S) -->\n"
+    "\t'$itf_r_llb'(S,L,Y),\n"
+    "\t'$itf_r_lub'(S,U,Y).\n"
+    "'$itf_r_verify_type_var'(t_L(L),Y,S) --> '$itf_r_llb'(S,L,Y).\n"
+    "'$itf_r_verify_type_var'(t_U(U),Y,S) --> '$itf_r_lub'(S,U,Y).\n"
+    "'$itf_r_verify_type_var'(t_Lu(L,U),Y,S) -->\n"
+    "\t'$itf_r_llb'(S,L,Y),\n"
+    "\t'$itf_r_lub'(S,U,Y).\n"
+    "'$itf_r_verify_type_var'(t_lU(L,U),Y,S) -->\n"
+    "\t'$itf_r_llb'(S,L,Y),\n"
+    "\t'$itf_r_lub'(S,U,Y).\n"
+    "'$itf_r_llb'(S,L,V) -->\n"
+    "\t{S /\\ 2 =:= 0},\n"
+    "\t!,\n"
+    "\t[clpr:{L =< V}].\n"
+    "'$itf_r_llb'(_,L,V) --> [clpr:{L < V}].\n"
+    "'$itf_r_lub'(S,U,V) -->\n"
+    "\t{S /\\ 1 =:= 0},\n"
+    "\t!,\n"
+    "\t[clpr:{V =< U}].\n"
+    "'$itf_r_lub'(_,U,V) -->\t[clpr:{V < U}].\n"
+    "'$itf_r_verify_lin'(order(OrdX),class(Class),lin(LinX),Y) :-\n"
+    "\t!,\n"
+    "\t(   indep(LinX,OrdX)\n"
+    "\t->  detach_bounds_vlv(OrdX,LinX,Class,Y,NewLinX),\n"
+    "\t    class_drop(Class,Y),\n"
+    "\t    nf(-Y,NfY),\n"
+    "\t    deref(NfY,LinY),\n"
+    "\t    add_linear_11(NewLinX,LinY,Lind),\n"
+    "\t    (   nf_coeff_of(Lind,OrdX,_)\n"
+    "\t    ->\n"
+    "\t\tsolve_ord_x(Lind,OrdX,Class)\n"
+    "\t    ;\tsolve(Lind)\n"
+    "\t    )\n"
+    "\t;   class_drop(Class,Y),\n"
+    "\t    nf(-Y,NfY),\n"
+    "\t    deref(NfY,LinY),\n"
+    "\t    add_linear_11(LinX,LinY,Lind),\n"
+    "\t    solve(Lind)\n"
+    "\t).\n"
+    "'$itf_r_verify_lin'(_,_,_,_).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "json_read", 2 },
     { "json_read", 3 },
     { "atom_json_term", 3 },
@@ -18236,17 +20919,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "atom_json_dict", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_30_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_30_SRC[] =
+static const char *const PL_PRELUDE_LIB_36_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_36_SRC[] =
     ":- dynamic 'json_write_hook'/4, 'json_dict_pairs'/2.\n"
     "'$json_default_json_options'(json_options(@(null), @(true), @(false), error, atom, '', _)).\n"
     "'$json_json_options_null'(json_options(A, _, _, _, _, _, _), A).\n"
@@ -19071,7 +21754,7 @@ static const char PL_PRELUDE_LIB_30_SRC[] =
     "    A=['Illegal comment'|B].\n"
     "'$json_json_syntax_error'(illegal_string_escape, A, B) :-\n"
     "    A=['Illegal escape sequence in string'|B].\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "lazy_list", 2 },
     { "lazy_list", 3 },
     { "lazy_list_materialize", 1 },
@@ -19086,17 +21769,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "lazy_list_iterator", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_31_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_31_SRC[] =
+static const char *const PL_PRELUDE_LIB_37_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_37_SRC[] =
     "lazy_list(A, B) :-\n"
     "    put_attr(B, lazy_lists, lazy_list(A, _)).\n"
     "lazy_lists:attr_unify_hook(A, B) :-\n"
@@ -19323,7 +22006,7 @@ static const char PL_PRELUDE_LIB_31_SRC[] =
     "lazy_findall(A, B, C, D) :-\n"
     "    engine_create(B, C, E),\n"
     "    lazy_list(lazy_engine_next(E, A), D).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "listing", 0 },
     { "listing", 1 },
     { "listing", 2 },
@@ -19332,20 +22015,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
     { "portray_clause", 1 },
     { "portray_clause", 2 },
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_32_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_32_SRC[] =
+static const char *const PL_PRELUDE_LIB_38_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_38_SRC[] =
     "listing :-\n"
     "    context_module(Context),\n"
     "    '$listing_list_module'(Context, []).\n"
@@ -20186,7 +22869,7 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "    ansi_format(Attributes, Format, Args).\n"
     "'$listing_comment'(Format, Args) :-\n"
     "    format(Format, Args).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "member", 2 },
     { "append", 2 },
     { "append", 3 },
@@ -20224,17 +22907,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "subtract", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_33_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char *const PL_PRELUDE_LIB_39_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_39_SRC[] =
     "member(El, [H|T]) :-\n"
     "    '$lists_member_'(T, El, H).\n"
     "'$lists_member_'(_, El, El).\n"
@@ -20525,7 +23208,7 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "    ;   R = [E|R1],\n"
     "        subtract(T, D, R1)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "main", 0 },
     { "argv_options", 3 },
     { "argv_options", 4 },
@@ -20534,17 +23217,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_34_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char *const PL_PRELUDE_LIB_40_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_40_SRC[] =
     ":- dynamic\n"
     "    interactive/0.\n"
     "main :-\n"
@@ -21107,7 +23790,7 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "    set_prolog_flag(xpce_threaded, true),\n"
     "    set_prolog_flag(message_ide, true),\n"
     "    set_prolog_flag(toplevel_goal, prolog).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "$mctx_assert", 3 },
     { "$mctx_asserta", 3 },
     { "$mctx_assertz", 3 },
@@ -21121,17 +23804,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "$mctx_call", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_35_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char *const PL_PRELUDE_LIB_41_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_41_SRC[] =
     "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
     "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
     "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
@@ -21170,7 +23853,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$mctx_eff1'(M,C,As,M,E):-'$mctx_ext'(C,As,E).\n"
     "'$mctx_ext'(C,As,E):-nonvar(C),callable(C),C=..L0,append(L0,As,L1),E=..L1,!.\n"
     "'$mctx_ext'(C,_,C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "empty_nb_set", 1 },
     { "add_nb_set", 2 },
     { "add_nb_set", 3 },
@@ -21179,17 +23862,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "nb_set_to_list", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_36_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char *const PL_PRELUDE_LIB_42_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_42_SRC[] =
     "'$nb_set_initial_size'(32).\n"
     "empty_nb_set(nb_set(Buckets, 0)) :-\n"
     "    '$nb_set_initial_size'(Size),\n"
@@ -21251,7 +23934,7 @@ static const char PL_PRELUDE_LIB_36_SRC[] =
     "    nb_set_to_list(Set, OrdSet),\n"
     "    member(Key, OrdSet).\n"
     "size_nb_set(nb_set(_, Size), Size).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "{}", 1 },
     { "nf", 2 },
     { "entailed", 1 },
@@ -21262,17 +23945,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "nf2term", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_37_LOADS[] = { "bv_q", "clpqr_geler", "ineq_q", "store_q", 0 };
-static const char PL_PRELUDE_LIB_37_SRC[] =
+static const char *const PL_PRELUDE_LIB_43_LOADS[] = { "bv_q", "clpqr_geler", "ineq_q", "store_q", 0 };
+static const char PL_PRELUDE_LIB_43_SRC[] =
     "{Rel} :-\n"
     "\tvar(Rel),\n"
     "\t!,\n"
@@ -21974,7 +24657,777 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "\t    nf2term(Nf,Term)\n"
     "\t},\n"
     "\t[clpq:{Term=Res},Goal].\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
+    { "{}", 1 },
+    { "nf", 2 },
+    { "entailed", 1 },
+    { "split", 3 },
+    { "repair", 2 },
+    { "nf_constant", 2 },
+    { "wait_linear", 3 },
+    { "nf2term", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_44_LOADS[] = { "bv_r", "clpqr_geler", "ineq_r", "store_r", 0 };
+static const char PL_PRELUDE_LIB_44_SRC[] =
+    "{Rel} :-\n"
+    "\tvar(Rel),\n"
+    "\t!,\n"
+    "\tinstantiation_error(Rel).\n"
+    "{R,Rs} :-\n"
+    "\t!,\n"
+    "\t{R},{Rs}.\n"
+    "{R;Rs} :-\n"
+    "\t!,\n"
+    "\t({R};{Rs}).\n"
+    "{L < R} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_lt'(Nf).\n"
+    "{L > R} :-\n"
+    "\t!,\n"
+    "\tnf(R-L,Nf),\n"
+    "\t'$nf_r_submit_lt'(Nf).\n"
+    "{L =< R} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_le'( Nf).\n"
+    "{<=(L,R)} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_le'(Nf).\n"
+    "{L >= R} :-\n"
+    "\t!,\n"
+    "\tnf(R-L,Nf),\n"
+    "\t'$nf_r_submit_le'(Nf).\n"
+    "{L =\\= R} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_ne'(Nf).\n"
+    "{L =:= R} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_eq'(Nf).\n"
+    "{L = R} :-\n"
+    "\t!,\n"
+    "\tnf(L-R,Nf),\n"
+    "\t'$nf_r_submit_eq'(Nf).\n"
+    "{Rel} :-\n"
+    "\ttype_error(clpr_constraint, Rel).\n"
+    "entailed(C) :-\n"
+    "\t'$nf_r_negate'(C,Cn),\n"
+    "\t\\+ {Cn}.\n"
+    "'$nf_r_negate'(Rel,_) :-\n"
+    "\tvar(Rel),\n"
+    "\t!,\n"
+    "\tthrow(instantiation_error(entailed(Rel),1)).\n"
+    "'$nf_r_negate'((A,B),(Na;Nb)) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_negate'(A,Na),\n"
+    "\t'$nf_r_negate'(B,Nb).\n"
+    "'$nf_r_negate'((A;B),(Na,Nb)) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_negate'(A,Na),\n"
+    "\t'$nf_r_negate'(B,Nb).\n"
+    "'$nf_r_negate'(A<B,A>=B) :- !.\n"
+    "'$nf_r_negate'(A>B,A=<B) :- !.\n"
+    "'$nf_r_negate'(A=<B,A>B) :- !.\n"
+    "'$nf_r_negate'(A>=B,A<B) :- !.\n"
+    "'$nf_r_negate'(A=:=B,A=\\=B) :- !.\n"
+    "'$nf_r_negate'(A=B,A=\\=B) :- !.\n"
+    "'$nf_r_negate'(A=\\=B,A=:=B) :- !.\n"
+    "'$nf_r_negate'(Rel,_) :-\n"
+    "\ttype_error(clpr_constraint, Rel).\n"
+    "'$nf_r_submit_eq'([]).\n"
+    "'$nf_r_submit_eq'([T|Ts]) :-\n"
+    "\t'$nf_r_submit_eq'(Ts,T).\n"
+    "'$nf_r_submit_eq'([],A) :- '$nf_r_submit_eq_b'(A).\n"
+    "'$nf_r_submit_eq'([B|Bs],A) :- '$nf_r_submit_eq_c'(A,B,Bs).\n"
+    "'$nf_r_submit_eq_b'(v(_,[])) :-\n"
+    "\t!,\n"
+    "\tfail.\n"
+    "'$nf_r_submit_eq_b'(v(_,[X^P])) :-\n"
+    "\tvar(X),\n"
+    "\tP > 0,\n"
+    "\t!,\n"
+    "\texport_binding(X,0.0).\n"
+    "'$nf_r_submit_eq_b'(v(_,[NL^1])) :-\n"
+    "\tnonvar(NL),\n"
+    "\t'$nf_r_nl_invertible'(NL,X,0.0,Inv),\n"
+    "\t!,\n"
+    "\tnf(-Inv,S),\n"
+    "\t'$nf_r_nf_add'(X,S,New),\n"
+    "\t'$nf_r_submit_eq'(New).\n"
+    "'$nf_r_submit_eq_b'(Term) :-\n"
+    "\tterm_variables(Term,Vs),\n"
+    "\tgeler(Vs,nf_r:resubmit_eq([Term])).\n"
+    "'$nf_r_submit_eq_c'(v(I,[]),B,Rest) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_submit_eq_c1'(Rest,B,I).\n"
+    "'$nf_r_submit_eq_c'(A,B,Rest) :-\n"
+    "\tA = v(_,[X^1]),\n"
+    "\tvar(X),\n"
+    "\tB = v(_,[Y^1]),\n"
+    "\tvar(Y),\n"
+    "\t'$nf_r_linear'(Rest),\n"
+    "\t!,\n"
+    "\tHom = [A,B|Rest],\n"
+    "\t'$nf_r_nf_length'(Hom,0,Len),\n"
+    "\tlog_deref(Len,Hom,[],HomD),\n"
+    "\tsolve(HomD).\n"
+    "'$nf_r_submit_eq_c'(A,B,Rest) :-\n"
+    "\tNorm = [A,B|Rest],\n"
+    "\tterm_variables(Norm,Vs),\n"
+    "\tgeler(Vs,nf_r:resubmit_eq(Norm)).\n"
+    "'$nf_r_submit_eq_c1'([], v(K,[X^P]), I) :-\n"
+    "    var(X),\n"
+    "    P =\\= 0,\n"
+    "    0 > (-I/K),\n"
+    "    integer(P) =:= P,\n"
+    "\t1 =:= integer(P) mod 2,\n"
+    "\t!,\n"
+    "\tVal is -((I/K) ** (1/P)),\n"
+    "\texport_binding(X,Val).\n"
+    "'$nf_r_submit_eq_c1'([], v(K,[X^P]), I) :-\n"
+    "    var(X),\n"
+    "    P =\\= 0,\n"
+    "    0 =< (-I/K),\n"
+    "    integer(P) =:= P,\n"
+    "\t0 =:= integer(P) mod 2,\n"
+    "\t!,\n"
+    "\tVal is (-I/K) ** (1/P),\n"
+    "\t(\texport_binding(X,Val)\n"
+    "\t;\n"
+    "\t\tValNeg is -Val,\n"
+    "\t\texport_binding(X, ValNeg)\n"
+    "    ).\n"
+    "'$nf_r_submit_eq_c1'([], v(K,[X^P]), I) :-\n"
+    "    var(X),\n"
+    "    P =\\= 0,\n"
+    "    0 =< (-I/K),\n"
+    "\t!,\n"
+    "\tVal is (-I/K) ** (1/P),\n"
+    "\texport_binding(X,Val).\n"
+    "'$nf_r_submit_eq_c1'([], v(_K,[X^_P]), _I) :-\n"
+    "    var(X),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$nf_r_submit_eq_c1'([], v(K,[X^P]), I) :-\n"
+    "    nonvar(X),\n"
+    "    X = exp(_,_),\n"
+    "    1 =:= abs(P),\n"
+    "    0 >= I,\n"
+    "    0 >= K,\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$nf_r_submit_eq_c1'([],v(K,[NL^P]),I) :-\n"
+    "\tnonvar(NL),\n"
+    "\t(   P =:=  1,\n"
+    "\t    Y is -I/K\n"
+    "\t;   P =:= -1,\n"
+    "\t    Y is -K/I\n"
+    "\t),\n"
+    "\t'$nf_r_nl_invertible'(NL,X,Y,Inv),\n"
+    "\t!,\n"
+    "\tnf(-Inv,S),\n"
+    "\t'$nf_r_nf_add'(X,S,New),\n"
+    "\t'$nf_r_submit_eq'(New).\n"
+    "'$nf_r_submit_eq_c1'(Rest,B,I) :-\n"
+    "\tB = v(_,[Y^1]),\n"
+    "\tvar(Y),\n"
+    "\t'$nf_r_linear'(Rest),\n"
+    "\t!,\n"
+    "\tHom = [B|Rest],\n"
+    "\t'$nf_r_nf_length'(Hom,0,Len),\n"
+    "\tnormalize_scalar(I,Nonvar),\n"
+    "\tlog_deref(Len,Hom,[],HomD),\n"
+    "\tadd_linear_11(Nonvar,HomD,LinD),\n"
+    "\tsolve(LinD).\n"
+    "'$nf_r_submit_eq_c1'(Rest,B,I) :-\n"
+    "\tNorm = [v(I,[]),B|Rest],\n"
+    "\tterm_variables(Norm,Vs),\n"
+    "\tgeler(Vs,nf_r:resubmit_eq(Norm)).\n"
+    "'$nf_r_submit_lt'([]) :- fail.\n"
+    "'$nf_r_submit_lt'([A|As]) :- '$nf_r_submit_lt'(As,A).\n"
+    "'$nf_r_submit_lt'([],v(K,P)) :- '$nf_r_submit_lt_b'(P,K).\n"
+    "'$nf_r_submit_lt'([B|Bs],A) :- '$nf_r_submit_lt_c'(Bs,A,B).\n"
+    "'$nf_r_submit_lt_b'([],I) :-\n"
+    "\t!,\n"
+    "\tI < -1.0e-10.\n"
+    "'$nf_r_submit_lt_b'([X^1],K) :-\n"
+    "\tvar(X),\n"
+    "\t!,\n"
+    "\t(   K > 1.0e-10\n"
+    "\t->  ineq_one_s_p_0(X)\n"
+    "\t;   ineq_one_s_n_0(X)\n"
+    "\t).\n"
+    "'$nf_r_submit_lt_b'(P,K) :-\n"
+    "\tterm_variables(P,Vs),\n"
+    "\tgeler(Vs,nf_r:resubmit_lt([v(K,P)])).\n"
+    "'$nf_r_submit_lt_c'([],A,B) :-\n"
+    "\tA = v(I,[]),\n"
+    "\tB = v(K,[Y^1]),\n"
+    "\tvar(Y),\n"
+    "\t!,\n"
+    "\tineq_one(strict,Y,K,I).\n"
+    "'$nf_r_submit_lt_c'(Rest,A,B) :-\n"
+    "\tNorm = [A,B|Rest],\n"
+    "\t(   '$nf_r_linear'(Norm)\n"
+    "\t->  'solve_<'(Norm)\n"
+    "\t;   term_variables(Norm,Vs),\n"
+    "\t    geler(Vs,nf_r:resubmit_lt(Norm))\n"
+    "\t).\n"
+    "'$nf_r_submit_le'([]).\n"
+    "'$nf_r_submit_le'([A|As]) :- '$nf_r_submit_le'(As,A).\n"
+    "'$nf_r_submit_le'([],v(K,P)) :- '$nf_r_submit_le_b'(P,K).\n"
+    "'$nf_r_submit_le'([B|Bs],A) :- '$nf_r_submit_le_c'(Bs,A,B).\n"
+    "'$nf_r_submit_le_b'([],I) :-\n"
+    "\t!,\n"
+    "\tI < 1.0e-10.\n"
+    "'$nf_r_submit_le_b'([X^1],K) :-\n"
+    "\tvar(X),\n"
+    "\t!,\n"
+    "\t(   K > 1.0e-10\n"
+    "\t->  ineq_one_n_p_0(X)\n"
+    "\t;   ineq_one_n_n_0(X)\n"
+    "\t).\n"
+    "'$nf_r_submit_le_b'(P,K) :-\n"
+    "\tterm_variables(P,Vs),\n"
+    "\tgeler(Vs,nf_r:resubmit_le([v(K,P)])).\n"
+    "'$nf_r_submit_le_c'([],A,B) :-\n"
+    "\tA = v(I,[]),\n"
+    "\tB = v(K,[Y^1]),\n"
+    "\tvar(Y),\n"
+    "\t!,\n"
+    "\tineq_one(nonstrict,Y,K,I).\n"
+    "'$nf_r_submit_le_c'(Rest,A,B) :-\n"
+    "\tNorm = [A,B|Rest],\n"
+    "\t(   '$nf_r_linear'(Norm)\n"
+    "\t->  'solve_=<'(Norm)\n"
+    "\t;   term_variables(Norm,Vs),\n"
+    "\t    geler(Vs,nf_r:resubmit_le(Norm))\n"
+    "\t).\n"
+    "'$nf_r_submit_ne'(Norm1) :-\n"
+    "\t(   nf_constant(Norm1,K)\n"
+    "\t->  \\+ (K >= -1.0e-10, K =< 1.0e-10)\n"
+    "\t;   '$nf_r_linear'(Norm1)\n"
+    "\t->  'solve_=\\\\='(Norm1)\n"
+    "\t;   term_variables(Norm1,Vs),\n"
+    "\t    geler(Vs,nf_r:resubmit_ne(Norm1))\n"
+    "\t).\n"
+    "'$nf_r_linear'([]).\n"
+    "'$nf_r_linear'(v(_,Ps)) :- '$nf_r_linear_ps'(Ps).\n"
+    "'$nf_r_linear'([A|As]) :-\n"
+    "\t'$nf_r_linear'(A),\n"
+    "\t'$nf_r_linear'(As).\n"
+    "'$nf_r_linear_ps'([]).\n"
+    "'$nf_r_linear_ps'([V^1]) :- var(V).\n"
+    "wait_linear(Term,Var,Goal) :-\n"
+    "\tnf(Term,Nf),\n"
+    "\t(   '$nf_r_linear'(Nf)\n"
+    "\t->  Var = Nf,\n"
+    "\t    call(Goal)\n"
+    "\t;   term_variables(Nf,Vars),\n"
+    "\t    geler(Vars,nf_r:wait_linear_retry(Nf,Var,Goal))\n"
+    "\t).\n"
+    "'$nf_r_resubmit_eq'(N) :-\n"
+    "\trepair(N,Norm),\n"
+    "\t'$nf_r_submit_eq'(Norm).\n"
+    "'$nf_r_resubmit_lt'(N) :-\n"
+    "\trepair(N,Norm),\n"
+    "\t'$nf_r_submit_lt'(Norm).\n"
+    "'$nf_r_resubmit_le'(N) :-\n"
+    "\trepair(N,Norm),\n"
+    "\t'$nf_r_submit_le'(Norm).\n"
+    "'$nf_r_resubmit_ne'(N) :-\n"
+    "\trepair(N,Norm),\n"
+    "\t'$nf_r_submit_ne'(Norm).\n"
+    "'$nf_r_wait_linear_retry'(Nf0,Var,Goal) :-\n"
+    "\trepair(Nf0,Nf),\n"
+    "\t(   '$nf_r_linear'(Nf)\n"
+    "\t->  Var = Nf,\n"
+    "\t    call(Goal)\n"
+    "\t;   term_variables(Nf,Vars),\n"
+    "\t    geler(Vars,nf_r:wait_linear_retry(Nf,Var,Goal))\n"
+    "\t).\n"
+    "'$nf_r_nl_invertible'(sin(X),X,Y,Res) :- Res is asin(Y).\n"
+    "'$nf_r_nl_invertible'(cos(X),X,Y,Res) :- Res is acos(Y).\n"
+    "'$nf_r_nl_invertible'(tan(X),X,Y,Res) :- Res is atan(Y).\n"
+    "'$nf_r_nl_invertible'(exp(B,C),X,A,Res) :-\n"
+    "\t(   nf_constant(B,Kb)\n"
+    "\t->  A > 1.0e-10,\n"
+    "\t    Kb > 1.0e-10,\n"
+    "\t    TestKb is Kb - 1.0,\n"
+    "\t    \\+ (TestKb >= -1.0e-10, TestKb =< 1.0e-10),\n"
+    "\t    X = C,\n"
+    "\t    Res is log(A)/log(Kb)\n"
+    "\t;   nf_constant(C,Kc),\n"
+    "\t    \\+ (A >= -1.0e-10, A =< 1.0e-10),\n"
+    "\t    Kc > 1.0e-10,\n"
+    "\t    X = B,\n"
+    "\t    Res is A**(1.0/Kc)\n"
+    "\t).\n"
+    "nf(X,Norm) :-\n"
+    "\tvar(X),\n"
+    "\t!,\n"
+    "\tNorm = [v(1.0,[X^1])].\n"
+    "nf(X,Norm) :-\n"
+    "\tnumber(X),\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_number'(X,Norm).\n"
+    "nf(#(Const),Norm) :-\n"
+    "\t'$nf_r_monash_constant'(Const,Value),\n"
+    "\t!,\n"
+    "\tNorm = [v(Value,[])].\n"
+    "nf(-A,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,An),\n"
+    "\t'$nf_r_nf_mul_factor'(v(-1.0,[]),An,Norm).\n"
+    "nf(+A,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,Norm).\n"
+    "nf(A+B,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,An),\n"
+    "\tnf(B,Bn),\n"
+    "\t'$nf_r_nf_add'(An,Bn,Norm).\n"
+    "nf(A-B,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,An),\n"
+    "\tnf(-B,Bn),\n"
+    "\t'$nf_r_nf_add'(An,Bn,Norm).\n"
+    "nf(A*B,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,An),\n"
+    "\tnf(B,Bn),\n"
+    "\t'$nf_r_nf_mul'(An,Bn,Norm).\n"
+    "nf(A/B,Norm) :-\n"
+    "\t!,\n"
+    "\tnf(A,An),\n"
+    "\tnf(B,Bn),\n"
+    "\t'$nf_r_nf_div'(Bn,An,Norm).\n"
+    "nf(Term,Norm) :-\n"
+    "\t'$nf_r_nonlin_1'(Term,Arg,Skel,Sa1),\n"
+    "\t!,\n"
+    "\tnf(Arg,An),\n"
+    "\t'$nf_r_nf_nonlin_1'(Skel,An,Sa1,Norm).\n"
+    "nf(Term,Norm) :-\n"
+    "\t'$nf_r_nonlin_2'(Term,A1,A2,Skel,Sa1,Sa2),\n"
+    "\t!,\n"
+    "\tnf(A1,A1n),\n"
+    "\tnf(A2,A2n),\n"
+    "\t'$nf_r_nf_nonlin_2'(Skel,A1n,A2n,Sa1,Sa2,Norm).\n"
+    "nf(Term,_) :-\n"
+    "\ttype_error(clpr_expression, Term).\n"
+    "'$nf_r_nf_number'(N,Res) :-\n"
+    "\tnumber(N),\n"
+    "\t(   (N >= -1.0e-10, N =< 1.0e-10)\n"
+    "\t->  Res = []\n"
+    "\t;   Res = [v(N,[])]\n"
+    "\t).\n"
+    "'$nf_r_nonlin_1'(abs(X),X,abs(Y),Y).\n"
+    "'$nf_r_nonlin_1'(sin(X),X,sin(Y),Y).\n"
+    "'$nf_r_nonlin_1'(cos(X),X,cos(Y),Y).\n"
+    "'$nf_r_nonlin_1'(tan(X),X,tan(Y),Y).\n"
+    "'$nf_r_nonlin_2'(min(A,B),A,B,min(X,Y),X,Y).\n"
+    "'$nf_r_nonlin_2'(max(A,B),A,B,max(X,Y),X,Y).\n"
+    "'$nf_r_nonlin_2'(exp(A,B),A,B,exp(X,Y),X,Y).\n"
+    "'$nf_r_nonlin_2'(pow(A,B),A,B,exp(X,Y),X,Y).\n"
+    "'$nf_r_nonlin_2'(A^B,A,B,exp(X,Y),X,Y).\n"
+    "'$nf_r_nf_nonlin_1'(Skel,An,S1,Norm) :-\n"
+    "\t(   nf_constant(An,S1)\n"
+    "\t->  '$nf_r_nl_eval'(Skel,Res),\n"
+    "\t    '$nf_r_nf_number'(Res,Norm)\n"
+    "\t;   S1 = An,\n"
+    "\t    Norm = [v(1.0,[Skel^1])]).\n"
+    "'$nf_r_nf_nonlin_2'(Skel,A1n,A2n,S1,S2,Norm) :-\n"
+    "\t(   nf_constant(A1n,S1),\n"
+    "\t    nf_constant(A2n,S2)\n"
+    "\t->  '$nf_r_nl_eval'(Skel,Res),\n"
+    "\t    '$nf_r_nf_number'(Res,Norm)\n"
+    "\t;   Skel=exp(_,_),\n"
+    "\t    nf_constant(A2n,Exp),\n"
+    "\t    '$nf_r_integerp'(Exp,I)\n"
+    "\t->  '$nf_r_nf_power'(I,A1n,Norm)\n"
+    "\t;   S1 = A1n,\n"
+    "\t    S2 = A2n,\n"
+    "\t    Norm = [v(1.0,[Skel^1])]\n"
+    "\t).\n"
+    "'$nf_r_nl_eval'(abs(X),R) :- R is abs(X).\n"
+    "'$nf_r_nl_eval'(sin(X),R) :- R is sin(X).\n"
+    "'$nf_r_nl_eval'(cos(X),R) :- R is cos(X).\n"
+    "'$nf_r_nl_eval'(tan(X),R) :- R is tan(X).\n"
+    "'$nf_r_nl_eval'(min(X,Y),R) :- R is min(X,Y).\n"
+    "'$nf_r_nl_eval'(max(X,Y),R) :- R is max(X,Y).\n"
+    "'$nf_r_nl_eval'(exp(X,Y),R) :- R is X**Y.\n"
+    "'$nf_r_monash_constant'(X,_) :-\n"
+    "\tvar(X),\n"
+    "\t!,\n"
+    "\tfail.\n"
+    "'$nf_r_monash_constant'(p,3.14259265).\n"
+    "'$nf_r_monash_constant'(pi,3.14259265).\n"
+    "'$nf_r_monash_constant'(e,2.71828182).\n"
+    "'$nf_r_monash_constant'(zero,1.0e-10).\n"
+    "nf_constant([],0.0).\n"
+    "nf_constant([v(K,[])],K).\n"
+    "split([],[],0.0).\n"
+    "split([First|T],H,I) :-\n"
+    "\t(   First = v(I,[])\n"
+    "\t->  H = T\n"
+    "\t;   I = 0.0,\n"
+    "\t    H = [First|T]\n"
+    "\t).\n"
+    "'$nf_r_nf_add'([],Bs,Bs).\n"
+    "'$nf_r_nf_add'([A|As],Bs,Cs) :- '$nf_r_nf_add'(Bs,A,As,Cs).\n"
+    "'$nf_r_nf_add'([],A,As,Cs) :- Cs = [A|As].\n"
+    "'$nf_r_nf_add'([B|Bs],A,As,Cs) :-\n"
+    "\tA = v(Ka,Pa),\n"
+    "\tB = v(Kb,Pb),\n"
+    "\tcompare(Rel,Pa,Pb),\n"
+    "\t'$nf_r_nf_add_case'(Rel,A,As,Cs,B,Bs,Ka,Kb,Pa).\n"
+    "'$nf_r_nf_add_case'(<,A,As,Cs,B,Bs,_,_,_) :-\n"
+    "\tCs = [A|Rest],\n"
+    "\t'$nf_r_nf_add'(As,B,Bs,Rest).\n"
+    "'$nf_r_nf_add_case'(>,A,As,Cs,B,Bs,_,_,_) :-\n"
+    "\tCs = [B|Rest],\n"
+    "\t'$nf_r_nf_add'(Bs,A,As,Rest).\n"
+    "'$nf_r_nf_add_case'(=,_,As,Cs,_,Bs,Ka,Kb,Pa) :-\n"
+    "\tKc is Ka + Kb,\n"
+    "\t(   (Kc >= -1.0e-10, Kc =< 1.0e-10)\n"
+    "\t->  '$nf_r_nf_add'(As,Bs,Cs)\n"
+    "\t;   Cs = [v(Kc,Pa)|Rest],\n"
+    "\t    '$nf_r_nf_add'(As,Bs,Rest)\n"
+    "\t).\n"
+    "'$nf_r_nf_mul'(A,B,Res) :-\n"
+    "\t'$nf_r_nf_length'(A,0,LenA),\n"
+    "\t'$nf_r_nf_length'(B,0,LenB),\n"
+    "\t'$nf_r_nf_mul_log'(LenA,A,[],LenB,B,Res).\n"
+    "'$nf_r_nf_mul_log'(0,As,As,_,_,[]) :- !.\n"
+    "'$nf_r_nf_mul_log'(1,[A|As],As,Lb,B,R) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_mul_factor_log'(Lb,B,[],A,R).\n"
+    "'$nf_r_nf_mul_log'(2,[A1,A2|As],As,Lb,B,R) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_mul_factor_log'(Lb,B,[],A1,A1b),\n"
+    "\t'$nf_r_nf_mul_factor_log'(Lb,B,[],A2,A2b),\n"
+    "\t'$nf_r_nf_add'(A1b,A2b,R).\n"
+    "'$nf_r_nf_mul_log'(N,A0,A2,Lb,B,R) :-\n"
+    "\tP is N>>1,\n"
+    "\tQ is N-P,\n"
+    "\t'$nf_r_nf_mul_log'(P,A0,A1,Lb,B,Rp),\n"
+    "\t'$nf_r_nf_mul_log'(Q,A1,A2,Lb,B,Rq),\n"
+    "\t'$nf_r_nf_add'(Rp,Rq,R).\n"
+    "'$nf_r_nf_add_2'(Af,Bf,Res) :-\n"
+    "\tAf = v(Ka,Pa),\n"
+    "\tBf = v(Kb,Pb),\n"
+    "\tcompare(Rel,Pa,Pb),\n"
+    "\t'$nf_r_nf_add_2_case'(Rel,Af,Bf,Res,Ka,Kb,Pa).\n"
+    "'$nf_r_nf_add_2_case'(<,Af,Bf,[Af,Bf],_,_,_).\n"
+    "'$nf_r_nf_add_2_case'(>,Af,Bf,[Bf,Af],_,_,_).\n"
+    "'$nf_r_nf_add_2_case'(=,_, _,Res,Ka,Kb,Pa) :-\n"
+    "\tKc is Ka + Kb,\n"
+    "\t(   (Kc >= -1.0e-10, Kc =< 1.0e-10)\n"
+    "\t->  Res = []\n"
+    "\t;   Res = [v(Kc,Pa)]\n"
+    "\t).\n"
+    "'$nf_r_nf_mul_k'([],_,[]).\n"
+    "'$nf_r_nf_mul_k'([v(I,P)|Vs],K,[v(Ki,P)|Vks]) :-\n"
+    "\tKi is K*I,\n"
+    "\t'$nf_r_nf_mul_k'(Vs,K,Vks).\n"
+    "'$nf_r_nf_mul_factor'(v(K,[]),Sum,Res) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_mul_k'(Sum,K,Res).\n"
+    "'$nf_r_nf_mul_factor'(F,Sum,Res) :-\n"
+    "\t'$nf_r_nf_length'(Sum,0,Len),\n"
+    "\t'$nf_r_nf_mul_factor_log'(Len,Sum,[],F,Res).\n"
+    "'$nf_r_nf_mul_factor_log'(0,As,As,_,[]) :- !.\n"
+    "'$nf_r_nf_mul_factor_log'(1,[A|As],As,F,[R]) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_mult'(A,F,R).\n"
+    "'$nf_r_nf_mul_factor_log'(2,[A,B|As],As,F,Res) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_mult'(A,F,Af),\n"
+    "\t'$nf_r_mult'(B,F,Bf),\n"
+    "\t'$nf_r_nf_add_2'(Af,Bf,Res).\n"
+    "'$nf_r_nf_mul_factor_log'(N,A0,A2,F,R) :-\n"
+    "\tP is N>>1,\n"
+    "\tQ is N-P,\n"
+    "\t'$nf_r_nf_mul_factor_log'(P,A0,A1,F,Rp),\n"
+    "\t'$nf_r_nf_mul_factor_log'(Q,A1,A2,F,Rq),\n"
+    "\t'$nf_r_nf_add'(Rp,Rq,R).\n"
+    "'$nf_r_mult'(v(Ka,La),v(Kb,Lb),v(Kc,Lc)) :-\n"
+    "\tKc is Ka*Kb,\n"
+    "\t'$nf_r_pmerge'(La,Lb,Lc).\n"
+    "'$nf_r_pmerge'([],Bs,Bs).\n"
+    "'$nf_r_pmerge'([A|As],Bs,Cs) :- '$nf_r_pmerge'(Bs,A,As,Cs).\n"
+    "'$nf_r_pmerge'([],A,As,Res) :- Res = [A|As].\n"
+    "'$nf_r_pmerge'([B|Bs],A,As,Res) :-\n"
+    "\tA = Xa^Ka,\n"
+    "\tB = Xb^Kb,\n"
+    "\tcompare(R,Xa,Xb),\n"
+    "\t'$nf_r_pmerge_case'(R,A,As,Res,B,Bs,Ka,Kb,Xa).\n"
+    "'$nf_r_pmerge_case'(<,A,As,Res,B,Bs,_,_,_) :-\n"
+    "\tRes = [A|Tail],\n"
+    "\t'$nf_r_pmerge'(As,B,Bs,Tail).\n"
+    "'$nf_r_pmerge_case'(>,A,As,Res,B,Bs,_,_,_) :-\n"
+    "\tRes = [B|Tail],\n"
+    "\t'$nf_r_pmerge'(Bs,A,As,Tail).\n"
+    "'$nf_r_pmerge_case'(=,_,As,Res,_,Bs,Ka,Kb,Xa) :-\n"
+    "\tKc is Ka + Kb,\n"
+    "\t(   Kc =:= 0\n"
+    "\t->  '$nf_r_pmerge'(As,Bs,Res)\n"
+    "\t;   Res = [Xa^Kc|Tail],\n"
+    "\t    '$nf_r_pmerge'(As,Bs,Tail)\n"
+    "\t).\n"
+    "'$nf_r_nf_div'([],_,_) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_zero_division'.\n"
+    "'$nf_r_nf_div'([v(K,P)],Sum,Res) :-\n"
+    "\t!,\n"
+    "\tKi is 1.0/K,\n"
+    "\t'$nf_r_mult_exp'(P,-1,Pi),\n"
+    "\t'$nf_r_nf_mul_factor'(v(Ki,Pi),Sum,Res).\n"
+    "'$nf_r_nf_div'(D,A,[v(1.0,[(A/D)^1])]).\n"
+    "'$nf_r_zero_division' :- fail.\n"
+    "'$nf_r_mult_exp'([],_,[]).\n"
+    "'$nf_r_mult_exp'([X^P|Xs],K,[X^I|Tail]) :-\n"
+    "\tI is K*P,\n"
+    "\t'$nf_r_mult_exp'(Xs,K,Tail).\n"
+    "'$nf_r_nf_power'(N,Sum,Norm) :-\n"
+    "\tinteger(N),\n"
+    "\tcompare(Rel,N,0),\n"
+    "\t(   Rel = (<)\n"
+    "\t->  Pn is -N,\n"
+    "\t    '$nf_r_binom'(Sum,Pn,Inorm),\n"
+    "\t    '$nf_r_nf_div'(Inorm,[v(1.0,[])],Norm)\n"
+    "\t;   Rel = (>)\n"
+    "\t->\n"
+    "\t    '$nf_r_binom'(Sum,N,Norm)\n"
+    "\t;   Rel = (=)\n"
+    "\t->\n"
+    "\t    Norm = [v(1.0,[])]\n"
+    "\t).\n"
+    "'$nf_r_nf_power_pos'(1,Sum,Norm) :-\n"
+    "\t!,\n"
+    "\tSum = Norm.\n"
+    "'$nf_r_nf_power_pos'(N,Sum,Norm) :-\n"
+    "\tN1 is N-1,\n"
+    "\t'$nf_r_nf_power_pos'(N1,Sum,Pn1),\n"
+    "\t'$nf_r_nf_mul'(Sum,Pn1,Norm).\n"
+    "'$nf_r_binom'(Sum,1,Power) :-\n"
+    "\t!,\n"
+    "\tPower = Sum.\n"
+    "'$nf_r_binom'([],_,[]).\n"
+    "'$nf_r_binom'([A|Bs],N,Power) :-\n"
+    "\t(   Bs = []\n"
+    "\t->  '$nf_r_nf_power_factor'(A,N,Ap),\n"
+    "\t    Power = [Ap]\n"
+    "\t;   Bs = [_|_]\n"
+    "\t->  '$nf_r_factor_powers'(N,A,v(1.0,[]),Pas),\n"
+    "\t    '$nf_r_sum_powers'(N,Bs,[v(1.0,[])],Pbs,[]),\n"
+    "\t    '$nf_r_combine_powers'(Pas,Pbs,0,N,1,[],Power)\n"
+    "\t).\n"
+    "'$nf_r_combine_powers'([],[],_,_,_,Pi,Pi).\n"
+    "'$nf_r_combine_powers'([A|As],[B|Bs],L,R,C,Pi,Po) :-\n"
+    "\t'$nf_r_nf_mul'(A,B,Ab),\n"
+    "\t'$nf_r_nf_mul_k'(Ab,C,Abc),\n"
+    "\t'$nf_r_nf_add'(Abc,Pi,Pii),\n"
+    "\tL1 is L+1,\n"
+    "\tR1 is R-1,\n"
+    "\tC1 is C*R//L1,\n"
+    "\t'$nf_r_combine_powers'(As,Bs,L1,R1,C1,Pii,Po).\n"
+    "'$nf_r_nf_power_factor'(v(K,P),N,v(Kn,Pn)) :-\n"
+    "\tKn is K**N,\n"
+    "\t'$nf_r_mult_exp'(P,N,Pn).\n"
+    "'$nf_r_factor_powers'(0,_,Prev,[[Prev]]) :- !.\n"
+    "'$nf_r_factor_powers'(N,F,Prev,[[Prev]|Ps]) :-\n"
+    "\tN1 is N-1,\n"
+    "\t'$nf_r_mult'(Prev,F,Next),\n"
+    "\t'$nf_r_factor_powers'(N1,F,Next,Ps).\n"
+    "'$nf_r_sum_powers'(0,_,Prev,[Prev|Lt],Lt) :- !.\n"
+    "'$nf_r_sum_powers'(N,S,Prev,L0,Lt) :-\n"
+    "\tN1 is N-1,\n"
+    "\t'$nf_r_nf_mul'(S,Prev,Next),\n"
+    "\t'$nf_r_sum_powers'(N1,S,Next,L0,[Prev|Lt]).\n"
+    "repair(Sum,Norm) :-\n"
+    "\t'$nf_r_nf_length'(Sum,0,Len),\n"
+    "\t'$nf_r_repair_log'(Len,Sum,[],Norm).\n"
+    "'$nf_r_repair_log'(0,As,As,[]) :- !.\n"
+    "'$nf_r_repair_log'(1,[v(Ka,Pa)|As],As,R) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_repair_term'(Ka,Pa,R).\n"
+    "'$nf_r_repair_log'(2,[v(Ka,Pa),v(Kb,Pb)|As],As,R) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_repair_term'(Ka,Pa,Ar),\n"
+    "\t'$nf_r_repair_term'(Kb,Pb,Br),\n"
+    "\t'$nf_r_nf_add'(Ar,Br,R).\n"
+    "'$nf_r_repair_log'(N,A0,A2,R) :-\n"
+    "\tP is N>>1,\n"
+    "\tQ is N-P,\n"
+    "\t'$nf_r_repair_log'(P,A0,A1,Rp),\n"
+    "\t'$nf_r_repair_log'(Q,A1,A2,Rq),\n"
+    "\t'$nf_r_nf_add'(Rp,Rq,R).\n"
+    "'$nf_r_repair_term'(K,P,Norm) :-\n"
+    "\tlength(P,Len),\n"
+    "\t'$nf_r_repair_p_log'(Len,P,[],Pr,[v(1.0,[])],Sum),\n"
+    "\t'$nf_r_nf_mul_factor'(v(K,Pr),Sum,Norm).\n"
+    "'$nf_r_repair_p_log'(0,Ps,Ps,[],L0,L0) :- !.\n"
+    "'$nf_r_repair_p_log'(1,[X^P|Ps],Ps,R,L0,L1) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_repair_p'(X,P,R,L0,L1).\n"
+    "'$nf_r_repair_p_log'(2,[X^Px,Y^Py|Ps],Ps,R,L0,L2) :-\n"
+    "\t!,\n"
+    "\t'$nf_r_repair_p'(X,Px,Rx,L0,L1),\n"
+    "\t'$nf_r_repair_p'(Y,Py,Ry,L1,L2),\n"
+    "\t'$nf_r_pmerge'(Rx,Ry,R).\n"
+    "'$nf_r_repair_p_log'(N,P0,P2,R,L0,L2) :-\n"
+    "\tP is N>>1,\n"
+    "\tQ is N-P,\n"
+    "\t'$nf_r_repair_p_log'(P,P0,P1,Rp,L0,L1),\n"
+    "\t'$nf_r_repair_p_log'(Q,P1,P2,Rq,L1,L2),\n"
+    "\t'$nf_r_pmerge'(Rp,Rq,R).\n"
+    "'$nf_r_repair_p'(Term,P,[Term^P],L0,L0) :- var(Term).\n"
+    "'$nf_r_repair_p'(Term,P,[],L0,L1) :-\n"
+    "\tnonvar(Term),\n"
+    "\t'$nf_r_repair_p_one'(Term,TermN),\n"
+    "\t'$nf_r_nf_power'(P,TermN,TermNP),\n"
+    "\t'$nf_r_nf_mul'(TermNP,L0,L1).\n"
+    "'$nf_r_repair_p_one'(Term,TermN) :-\n"
+    "\t'$nf_r_nf_number'(Term,TermN),\n"
+    "\t!.\n"
+    "'$nf_r_repair_p_one'(A1/A2,TermN) :-\n"
+    "\trepair(A1,A1n),\n"
+    "\trepair(A2,A2n),\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_div'(A2n,A1n,TermN).\n"
+    "'$nf_r_repair_p_one'(Term,TermN) :-\n"
+    "\t'$nf_r_nonlin_1'(Term,Arg,Skel,Sa),\n"
+    "\trepair(Arg,An),\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_nonlin_1'(Skel,An,Sa,TermN).\n"
+    "'$nf_r_repair_p_one'(Term,TermN) :-\n"
+    "\t'$nf_r_nonlin_2'(Term,A1,A2,Skel,Sa1,Sa2),\n"
+    "\trepair(A1,A1n),\n"
+    "\trepair(A2,A2n),\n"
+    "\t!,\n"
+    "\t'$nf_r_nf_nonlin_2'(Skel,A1n,A2n,Sa1,Sa2,TermN).\n"
+    "'$nf_r_repair_p_one'(Term,TermN) :-\n"
+    "\tnf(Term,TermN).\n"
+    "'$nf_r_nf_length'([],Li,Li).\n"
+    "'$nf_r_nf_length'([_|R],Li,Lo) :-\n"
+    "\tLii is Li+1,\n"
+    "\t'$nf_r_nf_length'(R,Lii,Lo).\n"
+    "nf2term([],0.0).\n"
+    "nf2term([F|Fs],T) :-\n"
+    "\t'$nf_r_f02t'(F,T0),\n"
+    "\t'$nf_r_yfx'(Fs,T0,T).\n"
+    "'$nf_r_yfx'([],T0,T0).\n"
+    "'$nf_r_yfx'([F|Fs],T0,TN) :-\n"
+    "\t'$nf_r_fn2t'(F,Ft,Op),\n"
+    "\tT1 =.. [Op,T0,Ft],\n"
+    "\t'$nf_r_yfx'(Fs,T1,TN).\n"
+    "'$nf_r_f02t'(v(K,P),T) :-\n"
+    "\t(\n"
+    "\t    P = []\n"
+    "\t->  T = K\n"
+    "\t;   TestK is K - 1.0,\n"
+    "\t    (TestK >= -1.0e-10, TestK =< 1.0e-10)\n"
+    "\t->  '$nf_r_p2term'(P,T)\n"
+    "\t;   TestK is K + 1.0,\n"
+    "\t    (TestK >= -1.0e-10, TestK =< 1.0e-10)\n"
+    "\t->  T = -Pt,\n"
+    "\t    '$nf_r_p2term'(P,Pt)\n"
+    "\t;   T = K*Pt,\n"
+    "\t    '$nf_r_p2term'(P,Pt)\n"
+    "\t).\n"
+    "'$nf_r_fn2t'(v(K,P),Term,Op) :-\n"
+    "\t(   TestK is K - 1.0,\n"
+    "\t    (TestK >= -1.0e-10, TestK =< 1.0e-10)\n"
+    "\t->  Term = Pt,\n"
+    "\t    Op = +\n"
+    "\t;   TestK is K + 1.0,\n"
+    "\t    (TestK >= -1.0e-10, TestK =< 1.0e-10)\n"
+    "\t->  Term = Pt,\n"
+    "\t    Op = -\n"
+    "\t;   K < -1.0e-10\n"
+    "\t->  Kf is -K,\n"
+    "\t    Term = Kf*Pt,\n"
+    "\t    Op = -\n"
+    "\t;\n"
+    "\t    Term = K*Pt,\n"
+    "\t    Op = +\n"
+    "\t),\n"
+    "\t'$nf_r_p2term'(P,Pt).\n"
+    "'$nf_r_p2term'([X^P|Xs],Term) :-\n"
+    "\t(   Xs = []\n"
+    "\t->  '$nf_r_pe2term'(X,Xt),\n"
+    "\t    '$nf_r_exp2term'(P,Xt,Term)\n"
+    "\t;   Xs = [_|_]\n"
+    "\t->  Term = Xst*Xtp,\n"
+    "\t    '$nf_r_pe2term'(X,Xt),\n"
+    "\t    '$nf_r_exp2term'(P,Xt,Xtp),\n"
+    "\t    '$nf_r_p2term'(Xs,Xst)\n"
+    "\t).\n"
+    "'$nf_r_exp2term'(1,X,X) :- !.\n"
+    "'$nf_r_exp2term'(-1,X,1.0/X) :- !.\n"
+    "'$nf_r_exp2term'(P,X,Term) :-\n"
+    "\tTerm = X^P.\n"
+    "'$nf_r_pe2term'(X,Term) :-\n"
+    "\tvar(X),\n"
+    "\tTerm = X.\n"
+    "'$nf_r_pe2term'(X,Term) :-\n"
+    "\tnonvar(X),\n"
+    "\tX =.. [F|Args],\n"
+    "\t'$nf_r_pe2term_args'(Args,Argst),\n"
+    "\tTerm =.. [F|Argst].\n"
+    "'$nf_r_pe2term_args'([],[]).\n"
+    "'$nf_r_pe2term_args'([A|As],[T|Ts]) :-\n"
+    "\tnf2term(A,T),\n"
+    "\t'$nf_r_pe2term_args'(As,Ts).\n"
+    "'$nf_r_transg'(resubmit_eq(Nf)) -->\n"
+    "\t{\n"
+    "\t    nf2term([],Z),\n"
+    "\t    nf2term(Nf,Term)\n"
+    "\t},\n"
+    "\t[clpr:{Term=Z}].\n"
+    "'$nf_r_transg'(resubmit_lt(Nf)) -->\n"
+    "\t{\n"
+    "\t    nf2term([],Z),\n"
+    "\t    nf2term(Nf,Term)\n"
+    "\t},\n"
+    "\t[clpr:{Term<Z}].\n"
+    "'$nf_r_transg'(resubmit_le(Nf)) -->\n"
+    "\t{\n"
+    "\t    nf2term([],Z),\n"
+    "\t    nf2term(Nf,Term)\n"
+    "\t},\n"
+    "\t[clpr:{Term=<Z}].\n"
+    "'$nf_r_transg'(resubmit_ne(Nf)) -->\n"
+    "\t{\n"
+    "\t    nf2term([],Z),\n"
+    "\t    nf2term(Nf,Term)\n"
+    "\t},\n"
+    "\t[clpr:{Term=\\=Z}].\n"
+    "'$nf_r_transg'(wait_linear_retry(Nf,Res,Goal)) -->\n"
+    "\t{\n"
+    "\t    nf2term(Nf,Term)\n"
+    "\t},\n"
+    "\t[clpr:{Term=Res},Goal].\n"
+    "'$nf_r_integerp'(X) :-\n"
+    "\tfloor(X)=:=X.\n"
+    "'$nf_r_integerp'(X,I) :-\n"
+    "\tfloor(X)=:=X,\n"
+    "\tI is integer(X).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "option", 2 },
     { "option", 3 },
     { "select_option", 3 },
@@ -21984,17 +25437,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "dict_options", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_38_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_38_SRC[] =
+static const char *const PL_PRELUDE_LIB_45_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_45_SRC[] =
     "option(Opt, Options, Default) :-\n"
     "    is_dict(Options),\n"
     "    !,\n"
@@ -22169,24 +25622,24 @@ static const char PL_PRELUDE_LIB_38_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "opt_parse", 5 },
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_39_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_39_SRC[] =
+static const char *const PL_PRELUDE_LIB_46_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_46_SRC[] =
     ":- dynamic 'parse_type'/3.\n"
     "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
     "    current_prolog_flag(argv, Argv),\n"
@@ -22567,7 +26020,7 @@ static const char PL_PRELUDE_LIB_39_SRC[] =
     "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
     "'$optparse_is_list_of_atoms'([]).\n"
     "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -22590,17 +26043,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_47_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_40_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_40_SRC[] =
+static const char *const PL_PRELUDE_LIB_47_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_47_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -22819,7 +26272,7 @@ static const char PL_PRELUDE_LIB_40_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -22828,17 +26281,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_48_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_41_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_41_SRC[] =
+static const char *const PL_PRELUDE_LIB_48_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_48_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -22882,7 +26335,7 @@ static const char PL_PRELUDE_LIB_41_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -22894,17 +26347,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_49_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_42_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_42_SRC[] =
+static const char *const PL_PRELUDE_LIB_49_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_49_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -23128,7 +26581,7 @@ static const char PL_PRELUDE_LIB_42_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_EXPORTS[] = {
     { "begin_tests", 1 },
     { "begin_tests", 2 },
     { "end_tests", 1 },
@@ -23137,17 +26590,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "set_test_options", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_50_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_43_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_43_SRC[] =
+static const char *const PL_PRELUDE_LIB_50_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_50_SRC[] =
     ":- dynamic pj_test/4.\n"
     "begin_tests(Suite) :- pj_unit_open(Suite), pj_suites_add(Suite, []).\n"
     "begin_tests(Suite, Opts) :- pj_unit_open(Suite), pj_suites_add(Suite, Opts).\n"
@@ -23304,21 +26757,21 @@ static const char PL_PRELUDE_LIB_43_SRC[] =
     "pj_reverse(L, R) :- pj_rev(L, [], R).\n"
     "pj_rev([], R, R).\n"
     "pj_rev([H|T], A, R) :- pj_rev(T, [H|A], R).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
     { "valid_term_position", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_51_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_44_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_44_SRC[] =
+static const char *const PL_PRELUDE_LIB_51_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_51_SRC[] =
     "valid_term_position(Term, TermPos) :-\n"
     "    '$vtp'(0, 0x7fffffffffffffff, Term, TermPos).\n"
     "'$vtp'(OuterFrom, OuterTo, _Term, TermPos),\n"
@@ -23399,7 +26852,7 @@ static const char PL_PRELUDE_LIB_44_SRC[] =
     "'$vtp_tail'(Tail0, HdPart, Tail) =>\n"
     "    HdPart = [],\n"
     "    Tail0 = Tail.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -23409,17 +26862,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_52_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_45_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_45_SRC[] =
+static const char *const PL_PRELUDE_LIB_52_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_52_SRC[] =
     "phrase_from_file(Grammar, File) :-\n"
     "    phrase_from_file(Grammar, File, []).\n"
     "phrase_from_file(Grammar, File, Options) :-\n"
@@ -23501,7 +26954,7 @@ static const char PL_PRELUDE_LIB_45_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -23539,17 +26992,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_53_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_46_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_46_SRC[] =
+static const char *const PL_PRELUDE_LIB_53_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_53_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -23659,7 +27112,7 @@ static const char PL_PRELUDE_LIB_46_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
     { "random", 1 },
     { "random_between", 3 },
     { "getrand", 1 },
@@ -23678,17 +27131,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
     { "random", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_47_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_54_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_47_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_47_SRC[] =
+static const char *const PL_PRELUDE_LIB_54_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_54_SRC[] =
     "'$random_check_gmp' :-\n"
     "    current_arithmetic_function(random_float),\n"
     "    !.\n"
@@ -23858,7 +27311,7 @@ static const char PL_PRELUDE_LIB_47_SRC[] =
     "'$random_partial_list'(List) :-\n"
     "    '$skip_list'(_, List, Tail),\n"
     "    var(Tail).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -23889,17 +27342,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_48_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_55_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_48_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_48_SRC[] =
+static const char *const PL_PRELUDE_LIB_55_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_55_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -24508,7 +27961,7 @@ static const char PL_PRELUDE_LIB_48_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -24519,17 +27972,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_49_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_56_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_49_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_49_SRC[] =
+static const char *const PL_PRELUDE_LIB_56_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_56_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -24639,24 +28092,24 @@ static const char PL_PRELUDE_LIB_49_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_50_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_57_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_50_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_50_SRC[] =
+static const char *const PL_PRELUDE_LIB_57_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_57_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -24949,7 +28402,7 @@ static const char PL_PRELUDE_LIB_50_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
     { "assignment", 2 },
     { "constraint", 3 },
     { "constraint", 4 },
@@ -24965,17 +28418,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
     { "variable_value", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_51_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_58_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_51_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_51_SRC[] =
+static const char *const PL_PRELUDE_LIB_58_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_58_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
     ":- endif.\n"
     "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
@@ -25916,7 +29369,7 @@ static const char PL_PRELUDE_LIB_51_SRC[] =
     "            print_message(warning, simplex(bounded))\n"
     "        ;   true\n"
     "        ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -25928,17 +29381,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
     { "group_by", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_52_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_59_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_52_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_52_SRC[] =
+static const char *const PL_PRELUDE_LIB_59_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_59_SRC[] =
     "distinct(Goal) :-\n"
     "    distinct(Goal, Goal).\n"
     "distinct(Witness, Goal) :-\n"
@@ -26096,7 +29549,7 @@ static const char PL_PRELUDE_LIB_52_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -26113,17 +29566,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
     { "renormalize", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_53_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_60_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_53_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_53_SRC[] =
+static const char *const PL_PRELUDE_LIB_60_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_60_SRC[] =
     "normalize_scalar(S,[S,0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -26318,7 +29771,255 @@ static const char PL_PRELUDE_LIB_53_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_q_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_EXPORTS[] = {
+    { "add_linear_11", 3 },
+    { "add_linear_f1", 4 },
+    { "add_linear_ff", 5 },
+    { "normalize_scalar", 2 },
+    { "delete_factor", 4 },
+    { "mult_linear_factor", 3 },
+    { "nf_rhs_x", 4 },
+    { "indep", 2 },
+    { "isolate", 3 },
+    { "nf_substitute", 4 },
+    { "mult_hom", 3 },
+    { "nf2sum", 3 },
+    { "nf_coeff_of", 3 },
+    { "renormalize", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_61_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_61_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_61_SRC[] =
+    "normalize_scalar(S,[S,0.0]).\n"
+    "renormalize([I,R|Hom],Lin) :-\n"
+    "\tlength(Hom,Len),\n"
+    "\t'$store_r_renormalize_log'(Len,Hom,[],Lin0),\n"
+    "\tadd_linear_11([I,R],Lin0,Lin).\n"
+    "'$store_r_renormalize_log'(1,[Term|Xs],Xs,Lin) :-\n"
+    "\t!,\n"
+    "\tTerm = l(X*_,_),\n"
+    "\t'$store_r_renormalize_log_one'(X,Term,Lin).\n"
+    "'$store_r_renormalize_log'(2,[A,B|Xs],Xs,Lin) :-\n"
+    "\t!,\n"
+    "\tA = l(X*_,_),\n"
+    "\tB = l(Y*_,_),\n"
+    "\t'$store_r_renormalize_log_one'(X,A,LinA),\n"
+    "\t'$store_r_renormalize_log_one'(Y,B,LinB),\n"
+    "\tadd_linear_11(LinA,LinB,Lin).\n"
+    "'$store_r_renormalize_log'(N,L0,L2,Lin) :-\n"
+    "\tP is N>>1,\n"
+    "\tQ is N-P,\n"
+    "\t'$store_r_renormalize_log'(P,L0,L1,Lp),\n"
+    "\t'$store_r_renormalize_log'(Q,L1,L2,Lq),\n"
+    "\tadd_linear_11(Lp,Lq,Lin).\n"
+    "'$store_r_renormalize_log_one'(X,Term,Res) :-\n"
+    "\tvar(X),\n"
+    "\tTerm = l(X*K,_),\n"
+    "\tget_attr(X,clpqr_itf,Att),\n"
+    "\targ(5,Att,order(OrdX)),\n"
+    "\tRes = [0.0,0.0,l(X*K,OrdX)].\n"
+    "'$store_r_renormalize_log_one'(X,Term,Res) :-\n"
+    "\tnonvar(X),\n"
+    "\tTerm = l(X*K,_),\n"
+    "\tXk is X*K,\n"
+    "\tnormalize_scalar(Xk,Res).\n"
+    "add_linear_ff(LinA,Ka,LinB,Kb,LinC) :-\n"
+    "\tLinA = [Ia,Ra|Ha],\n"
+    "\tLinB = [Ib,Rb|Hb],\n"
+    "\tLinC = [Ic,Rc|Hc],\n"
+    "\tIc is Ia*Ka+Ib*Kb,\n"
+    "\tRc is Ra*Ka+Rb*Kb,\n"
+    " \t'$store_r_add_linear_ffh'(Ha,Ka,Hb,Kb,Hc).\n"
+    "'$store_r_add_linear_ffh'([],_,Ys,Kb,Zs) :- mult_hom(Ys,Kb,Zs).\n"
+    "'$store_r_add_linear_ffh'([l(X*Kx,OrdX)|Xs],Ka,Ys,Kb,Zs) :-\n"
+    "\t'$store_r_add_linear_ffh'(Ys,X,Kx,OrdX,Xs,Zs,Ka,Kb).\n"
+    "'$store_r_add_linear_ffh'([],X,Kx,OrdX,Xs,Zs,Ka,_) :- mult_hom([l(X*Kx,OrdX)|Xs],Ka,Zs).\n"
+    "'$store_r_add_linear_ffh'([l(Y*Ky,OrdY)|Ys],X,Kx,OrdX,Xs,Zs,Ka,Kb) :-\n"
+    "\tcompare(Rel,OrdX,OrdY),\n"
+    "\t(   Rel = (=)\n"
+    "\t->  Kz is Kx*Ka+Ky*Kb,\n"
+    "\t    (\n"
+    "\t\tKz =< 1.0e-10,\n"
+    "\t\tKz >= -1.0e-10\n"
+    "\t    ->  '$store_r_add_linear_ffh'(Xs,Ka,Ys,Kb,Zs)\n"
+    "\t    ;   Zs = [l(X*Kz,OrdX)|Ztail],\n"
+    "\t\t'$store_r_add_linear_ffh'(Xs,Ka,Ys,Kb,Ztail)\n"
+    "\t    )\n"
+    "\t;   Rel = (<)\n"
+    "\t->  Zs = [l(X*Kz,OrdX)|Ztail],\n"
+    "\t    Kz is Kx*Ka,\n"
+    "\t    '$store_r_add_linear_ffh'(Xs,Y,Ky,OrdY,Ys,Ztail,Kb,Ka)\n"
+    "\t;   Rel = (>)\n"
+    "\t->  Zs = [l(Y*Kz,OrdY)|Ztail],\n"
+    "\t    Kz is Ky*Kb,\n"
+    "\t    '$store_r_add_linear_ffh'(Ys,X,Kx,OrdX,Xs,Ztail,Ka,Kb)\n"
+    "     \t).\n"
+    "add_linear_f1(LinA,Ka,LinB,LinC) :-\n"
+    "\tLinA = [Ia,Ra|Ha],\n"
+    "\tLinB = [Ib,Rb|Hb],\n"
+    "\tLinC = [Ic,Rc|Hc],\n"
+    "\tIc is Ia*Ka+Ib,\n"
+    "\tRc is Ra*Ka+Rb,\n"
+    "\t'$store_r_add_linear_f1h'(Ha,Ka,Hb,Hc).\n"
+    "'$store_r_add_linear_f1h'([],_,Ys,Ys).\n"
+    "'$store_r_add_linear_f1h'([l(X*Kx,OrdX)|Xs],Ka,Ys,Zs) :-\n"
+    "\t'$store_r_add_linear_f1h'(Ys,X,Kx,OrdX,Xs,Zs,Ka).\n"
+    "'$store_r_add_linear_f1h'([],X,Kx,OrdX,Xs,Zs,Ka) :- mult_hom([l(X*Kx,OrdX)|Xs],Ka,Zs).\n"
+    "'$store_r_add_linear_f1h'([l(Y*Ky,OrdY)|Ys],X,Kx,OrdX,Xs,Zs,Ka) :-\n"
+    "\tcompare(Rel,OrdX,OrdY),\n"
+    "\t(   Rel = (=)\n"
+    "\t->  Kz is Kx*Ka+Ky,\n"
+    "\t    (\n"
+    "\t\tKz =< 1.0e-10,\n"
+    "\t\tKz >= -1.0e-10\n"
+    "\t    ->  '$store_r_add_linear_f1h'(Xs,Ka,Ys,Zs)\n"
+    "\t    ;   Zs = [l(X*Kz,OrdX)|Ztail],\n"
+    "\t\t'$store_r_add_linear_f1h'(Xs,Ka,Ys,Ztail)\n"
+    "\t    )\n"
+    "\t;   Rel = (<)\n"
+    "\t->  Zs = [l(X*Kz,OrdX)|Ztail],\n"
+    "\t    Kz is Kx*Ka,\n"
+    "\t    '$store_r_add_linear_f1h'(Xs,Ka,[l(Y*Ky,OrdY)|Ys],Ztail)\n"
+    " \t;   Rel = (>)\n"
+    "\t->  Zs = [l(Y*Ky,OrdY)|Ztail],\n"
+    "\t    '$store_r_add_linear_f1h'(Ys,X,Kx,OrdX,Xs,Ztail,Ka)\n"
+    "\t).\n"
+    "add_linear_11(LinA,LinB,LinC) :-\n"
+    "\tLinA = [Ia,Ra|Ha],\n"
+    "\tLinB = [Ib,Rb|Hb],\n"
+    "\tLinC = [Ic,Rc|Hc],\n"
+    "\tIc is Ia+Ib,\n"
+    "\tRc is Ra+Rb,\n"
+    "\t'$store_r_add_linear_11h'(Ha,Hb,Hc).\n"
+    "'$store_r_add_linear_11h'([],Ys,Ys).\n"
+    "'$store_r_add_linear_11h'([l(X*Kx,OrdX)|Xs],Ys,Zs) :-\n"
+    "\t'$store_r_add_linear_11h'(Ys,X,Kx,OrdX,Xs,Zs).\n"
+    "'$store_r_add_linear_11h'([],X,Kx,OrdX,Xs,[l(X*Kx,OrdX)|Xs]).\n"
+    "'$store_r_add_linear_11h'([l(Y*Ky,OrdY)|Ys],X,Kx,OrdX,Xs,Zs) :-\n"
+    "\tcompare(Rel,OrdX,OrdY),\n"
+    "\t(   Rel = (=)\n"
+    "\t->  Kz is Kx+Ky,\n"
+    "\t    (\n"
+    "\t\tKz =< 1.0e-10,\n"
+    "\t\tKz >= -1.0e-10\n"
+    "\t    ->  '$store_r_add_linear_11h'(Xs,Ys,Zs)\n"
+    "\t    ;   Zs = [l(X*Kz,OrdX)|Ztail],\n"
+    "\t\t'$store_r_add_linear_11h'(Xs,Ys,Ztail)\n"
+    "\t    )\n"
+    "\t;   Rel = (<)\n"
+    "\t->  Zs = [l(X*Kx,OrdX)|Ztail],\n"
+    "\t    '$store_r_add_linear_11h'(Xs,Y,Ky,OrdY,Ys,Ztail)\n"
+    "\t;   Rel = (>)\n"
+    "\t->  Zs = [l(Y*Ky,OrdY)|Ztail],\n"
+    "\t    '$store_r_add_linear_11h'(Ys,X,Kx,OrdX,Xs,Ztail)\n"
+    "\t).\n"
+    "mult_linear_factor(Lin,K,Mult) :-\n"
+    "\tTestK is K - 1.0,\n"
+    "\tTestK =< 1.0e-10,\n"
+    "\tTestK >= -1.0e-10,\n"
+    "\t!,\n"
+    "\tMult = Lin.\n"
+    "mult_linear_factor(Lin,K,Res) :-\n"
+    "\tLin = [I,R|Hom],\n"
+    "\tRes = [Ik,Rk|Mult],\n"
+    "\tIk is I*K,\n"
+    "\tRk is R*K,\n"
+    "\tmult_hom(Hom,K,Mult).\n"
+    "mult_hom([],_,[]).\n"
+    "mult_hom([l(A*Fa,OrdA)|As],F,[l(A*Fan,OrdA)|Afs]) :-\n"
+    "\tFan is F*Fa,\n"
+    "\tmult_hom(As,F,Afs).\n"
+    "nf_substitute(OrdV,LinV,LinX,LinX1) :-\n"
+    "\tdelete_factor(OrdV,LinX,LinW,K),\n"
+    "\tadd_linear_f1(LinV,K,LinW,LinX1).\n"
+    "delete_factor(OrdV,Lin,Res,Coeff) :-\n"
+    "\tLin = [I,R|Hom],\n"
+    "\tRes = [I,R|Hdel],\n"
+    "\t'$store_r_delete_factor_hom'(OrdV,Hom,Hdel,Coeff).\n"
+    "'$store_r_delete_factor_hom'(VOrd,[Car|Cdr],RCdr,RKoeff) :-\n"
+    "\tCar = l(_*Koeff,Ord),\n"
+    "\tcompare(Rel,VOrd,Ord),\n"
+    "\t(   Rel= (=)\n"
+    "\t->  RCdr = Cdr,\n"
+    "\t    RKoeff=Koeff\n"
+    "\t;   Rel= (>)\n"
+    "\t->  RCdr = [Car|RCdr1],\n"
+    "\t    '$store_r_delete_factor_hom'(VOrd,Cdr,RCdr1,RKoeff)\n"
+    "\t).\n"
+    "nf_coeff_of([_,_|Hom],VOrd,Coeff) :-\n"
+    "\t'$store_r_nf_coeff_hom'(Hom,VOrd,Coeff).\n"
+    "'$store_r_nf_coeff_hom'([l(_*K,OVar)|Vs],OVid,Coeff) :-\n"
+    "\tcompare(Rel,OVid,OVar),\n"
+    "\t(   Rel = (=)\n"
+    "\t->  Coeff = K\n"
+    "\t;   Rel = (>)\n"
+    "\t->  '$store_r_nf_coeff_hom'(Vs,OVid,Coeff)\n"
+    "\t).\n"
+    "nf_rhs_x(Lin,OrdX,Rhs,K) :-\n"
+    "\tLin = [I,R|Tail],\n"
+    "\t'$store_r_nf_coeff_hom'(Tail,OrdX,K),\n"
+    "\tRhs is R+I.\n"
+    "isolate(OrdN,Lin,Lin1) :-\n"
+    "\tdelete_factor(OrdN,Lin,Lin0,Coeff),\n"
+    "\tK is -1.0/Coeff,\n"
+    "\tmult_linear_factor(Lin0,K,Lin1).\n"
+    "indep(Lin,OrdX) :-\n"
+    "\tLin = [I,_|[l(_*K,OrdY)]],\n"
+    "\tOrdX == OrdY,\n"
+    "\tTestK is K - 1.0,\n"
+    "\tTestK =< 1.0e-10,\n"
+    "\tTestK >= -1.0e-10,\n"
+    "\tI =< 1.0e-10,\n"
+    "\tI >= -1.0e-10.\n"
+    "nf2sum([],I,I).\n"
+    "nf2sum([X|Xs],I,Sum) :-\n"
+    "\t(\n"
+    "\t    I =< 1.0e-10,\n"
+    "\t    I >= -1.0e-10\n"
+    "\t->  X = l(Var*K,_),\n"
+    " \t    (\n"
+    "\t\tTestK is K - 1.0,\n"
+    "\t\tTestK =< 1.0e-10,\n"
+    "\t\tTestK >= -1.0e-10\n"
+    "\t    ->  '$store_r_hom2sum'(Xs,Var,Sum)\n"
+    "\t    ;\n"
+    "\t\tTestK is K + 1.0,\n"
+    "\t\tTestK =< 1.0e-10,\n"
+    "\t\tTestK >= -1.0e-10\n"
+    "\t    ->  '$store_r_hom2sum'(Xs,-Var,Sum)\n"
+    "\t    ;\t'$store_r_hom2sum'(Xs,K*Var,Sum)\n"
+    "\t    )\n"
+    "\t;   '$store_r_hom2sum'([X|Xs],I,Sum)\n"
+    " \t).\n"
+    "'$store_r_hom2sum'([],Term,Term).\n"
+    "'$store_r_hom2sum'([l(Var*K,_)|Cs],Sofar,Term) :-\n"
+    "\t(\n"
+    "\t    TestK is K - 1.0,\n"
+    "\t    TestK =< 1.0e-10,\n"
+    "\t    TestK >= -1.0e-10\n"
+    "\t->  Next = Sofar + Var\n"
+    "\t;\n"
+    "\t    TestK is K + 1.0,\n"
+    "\t    TestK =< 1.0e-10,\n"
+    "\t    TestK >= -1.0e-10\n"
+    "\t->  Next = Sofar - Var\n"
+    "\t;\n"
+    "\t    K < -1.0e-10\n"
+    "\t->  Ka is -K,\n"
+    "\t    Next = Sofar - Ka*Var\n"
+    "\t;   Next = Sofar + K*Var\n"
+    "\t),\n"
+    "\t'$store_r_hom2sum'(Cs,Next,Term).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -26326,17 +30027,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_54_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_62_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_54_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_54_SRC[] =
+static const char *const PL_PRELUDE_LIB_62_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_62_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -26546,7 +30247,7 @@ static const char PL_PRELUDE_LIB_54_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_EXPORTS[] = {
     { "open_string", 2 },
     { "directory_file_path", 3 },
     { "make_directory_path", 1 },
@@ -26567,17 +30268,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
     { "set_prolog_stack", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_55_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_63_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_55_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_55_SRC[] =
+static const char *const PL_PRELUDE_LIB_63_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_63_SRC[] =
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
@@ -26654,7 +30355,7 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$swb_u8b'(B, [B2|R], C, R) :- B < 224, !, C is ((B /\\ 31) << 6) \\/ (B2 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -26824,18 +30525,18 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
     { "snapshot", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_QUIET[] = {
     { "undefined", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_56_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_64_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_56_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_56_SRC[] =
+static const char *const PL_PRELUDE_LIB_64_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_64_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).\n"
     "'$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).\n"
@@ -27277,7 +30978,7 @@ static const char PL_PRELUDE_LIB_56_SRC[] =
     "'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.\n"
     "'$tbl_rsrun'([],_,_,_,[]).\n"
     "'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -27294,17 +30995,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_57_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_57_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_57_SRC[] =
+static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_65_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -27513,7 +31214,7 @@ static const char PL_PRELUDE_LIB_57_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "add_edges", 3 },
     { "add_vertices", 3 },
     { "complement", 2 },
@@ -27534,17 +31235,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
     { "connect_ugraph", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_58_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_58_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_58_SRC[] =
+static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_66_SRC[] =
     "vertices([], []) :- !.\n"
     "vertices([Vertex-_|Graph], [Vertex|Vertices]) :-\n"
     "    vertices(Graph, Vertices).\n"
@@ -27802,24 +31503,24 @@ static const char PL_PRELUDE_LIB_58_SRC[] =
     "    ord_union(Rs0, Nei, Rs1, D),\n"
     "    append(Ns, D, Nsi),\n"
     "    '$ugraphs_reachable'(Nsi, G, Rs1, RsF).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_59_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_59_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_59_SRC[] =
+static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_67_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -27954,7 +31655,7 @@ static const char PL_PRELUDE_LIB_59_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -27965,17 +31666,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
     { "load_dyn", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_60_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_60_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_60_SRC[] =
+static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_68_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -27993,26 +31694,26 @@ static const char PL_PRELUDE_LIB_60_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_61_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_61_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_61_SRC[] =
+static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_69_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -28036,17 +31737,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_62_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_62_LOADS[] = { 0 };
-static const char PL_PRELUDE_LIB_62_SRC[] =
+static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
+static const char PL_PRELUDE_LIB_70_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -28091,63 +31792,71 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "assoc", PL_PRELUDE_LIB_2_EXPORTS, PL_PRELUDE_LIB_2_OPS, PL_PRELUDE_LIB_2_SHADOWS, PL_PRELUDE_LIB_2_QUIET, PL_PRELUDE_LIB_2_SRC, PL_PRELUDE_LIB_2_LOADS, 0 },
     { "backcomp", PL_PRELUDE_LIB_3_EXPORTS, PL_PRELUDE_LIB_3_OPS, PL_PRELUDE_LIB_3_SHADOWS, PL_PRELUDE_LIB_3_QUIET, PL_PRELUDE_LIB_3_SRC, PL_PRELUDE_LIB_3_LOADS, 0 },
     { "bb_q", PL_PRELUDE_LIB_4_EXPORTS, PL_PRELUDE_LIB_4_OPS, PL_PRELUDE_LIB_4_SHADOWS, PL_PRELUDE_LIB_4_QUIET, PL_PRELUDE_LIB_4_SRC, PL_PRELUDE_LIB_4_LOADS, 1 },
-    { "bv_q", PL_PRELUDE_LIB_5_EXPORTS, PL_PRELUDE_LIB_5_OPS, PL_PRELUDE_LIB_5_SHADOWS, PL_PRELUDE_LIB_5_QUIET, PL_PRELUDE_LIB_5_SRC, PL_PRELUDE_LIB_5_LOADS, 1 },
-    { "clpfd", PL_PRELUDE_LIB_6_EXPORTS, PL_PRELUDE_LIB_6_OPS, PL_PRELUDE_LIB_6_SHADOWS, PL_PRELUDE_LIB_6_QUIET, PL_PRELUDE_LIB_6_SRC, PL_PRELUDE_LIB_6_LOADS, 0 },
-    { "clpq", PL_PRELUDE_LIB_7_EXPORTS, PL_PRELUDE_LIB_7_OPS, PL_PRELUDE_LIB_7_SHADOWS, PL_PRELUDE_LIB_7_QUIET, PL_PRELUDE_LIB_7_SRC, PL_PRELUDE_LIB_7_LOADS, 1 },
-    { "clpqr_class", PL_PRELUDE_LIB_8_EXPORTS, PL_PRELUDE_LIB_8_OPS, PL_PRELUDE_LIB_8_SHADOWS, PL_PRELUDE_LIB_8_QUIET, PL_PRELUDE_LIB_8_SRC, PL_PRELUDE_LIB_8_LOADS, 1 },
-    { "clpqr_dump", PL_PRELUDE_LIB_9_EXPORTS, PL_PRELUDE_LIB_9_OPS, PL_PRELUDE_LIB_9_SHADOWS, PL_PRELUDE_LIB_9_QUIET, PL_PRELUDE_LIB_9_SRC, PL_PRELUDE_LIB_9_LOADS, 1 },
-    { "clpqr_geler", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC, PL_PRELUDE_LIB_10_LOADS, 1 },
-    { "clpqr_itf", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC, PL_PRELUDE_LIB_11_LOADS, 1 },
-    { "clpqr_ordering", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC, PL_PRELUDE_LIB_12_LOADS, 1 },
-    { "clpqr_project", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC, PL_PRELUDE_LIB_13_LOADS, 1 },
-    { "clpqr_redund", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC, PL_PRELUDE_LIB_14_LOADS, 1 },
-    { "csv", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC, PL_PRELUDE_LIB_15_LOADS, 0 },
-    { "ctypes", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC, PL_PRELUDE_LIB_16_LOADS, 0 },
-    { "date", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC, PL_PRELUDE_LIB_17_LOADS, 0 },
-    { "dcg_basics", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC, PL_PRELUDE_LIB_18_LOADS, 0 },
-    { "dicts", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC, PL_PRELUDE_LIB_19_LOADS, 0 },
-    { "engines", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC, PL_PRELUDE_LIB_20_LOADS, 0 },
-    { "error", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC, PL_PRELUDE_LIB_21_LOADS, 0 },
-    { "fourmotz_q", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC, PL_PRELUDE_LIB_22_LOADS, 1 },
-    { "gensym", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC, PL_PRELUDE_LIB_23_LOADS, 0 },
-    { "gnu_builtins", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC, PL_PRELUDE_LIB_24_LOADS, 0 },
-    { "gnu_fd", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC, PL_PRELUDE_LIB_25_LOADS, 0 },
-    { "hashtable", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC, PL_PRELUDE_LIB_26_LOADS, 0 },
-    { "heaps", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC, PL_PRELUDE_LIB_27_LOADS, 0 },
-    { "ineq_q", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC, PL_PRELUDE_LIB_28_LOADS, 1 },
-    { "itf_q", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC, PL_PRELUDE_LIB_29_LOADS, 1 },
-    { "json", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC, PL_PRELUDE_LIB_30_LOADS, 0 },
-    { "lazy_lists", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC, PL_PRELUDE_LIB_31_LOADS, 0 },
-    { "listing", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC, PL_PRELUDE_LIB_32_LOADS, 0 },
-    { "lists", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC, PL_PRELUDE_LIB_33_LOADS, 0 },
-    { "main", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC, PL_PRELUDE_LIB_34_LOADS, 0 },
-    { "mctx", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC, PL_PRELUDE_LIB_35_LOADS, 0 },
-    { "nb_set", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC, PL_PRELUDE_LIB_36_LOADS, 0 },
-    { "nf_q", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC, PL_PRELUDE_LIB_37_LOADS, 1 },
-    { "option", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC, PL_PRELUDE_LIB_38_LOADS, 0 },
-    { "optparse", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC, PL_PRELUDE_LIB_39_LOADS, 0 },
-    { "ordsets", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC, PL_PRELUDE_LIB_40_LOADS, 0 },
-    { "pairs", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC, PL_PRELUDE_LIB_41_LOADS, 0 },
-    { "pcre", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC, PL_PRELUDE_LIB_42_LOADS, 0 },
-    { "plunit", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC, PL_PRELUDE_LIB_43_LOADS, 0 },
-    { "prolog_source", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC, PL_PRELUDE_LIB_44_LOADS, 0 },
-    { "pure_input", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC, PL_PRELUDE_LIB_45_LOADS, 0 },
-    { "quintus", PL_PRELUDE_LIB_46_EXPORTS, PL_PRELUDE_LIB_46_OPS, PL_PRELUDE_LIB_46_SHADOWS, PL_PRELUDE_LIB_46_QUIET, PL_PRELUDE_LIB_46_SRC, PL_PRELUDE_LIB_46_LOADS, 0 },
-    { "random", PL_PRELUDE_LIB_47_EXPORTS, PL_PRELUDE_LIB_47_OPS, PL_PRELUDE_LIB_47_SHADOWS, PL_PRELUDE_LIB_47_QUIET, PL_PRELUDE_LIB_47_SRC, PL_PRELUDE_LIB_47_LOADS, 0 },
-    { "rbtrees", PL_PRELUDE_LIB_48_EXPORTS, PL_PRELUDE_LIB_48_OPS, PL_PRELUDE_LIB_48_SHADOWS, PL_PRELUDE_LIB_48_QUIET, PL_PRELUDE_LIB_48_SRC, PL_PRELUDE_LIB_48_LOADS, 0 },
-    { "readutil", PL_PRELUDE_LIB_49_EXPORTS, PL_PRELUDE_LIB_49_OPS, PL_PRELUDE_LIB_49_SHADOWS, PL_PRELUDE_LIB_49_QUIET, PL_PRELUDE_LIB_49_SRC, PL_PRELUDE_LIB_49_LOADS, 0 },
-    { "record", PL_PRELUDE_LIB_50_EXPORTS, PL_PRELUDE_LIB_50_OPS, PL_PRELUDE_LIB_50_SHADOWS, PL_PRELUDE_LIB_50_QUIET, PL_PRELUDE_LIB_50_SRC, PL_PRELUDE_LIB_50_LOADS, 0 },
-    { "simplex", PL_PRELUDE_LIB_51_EXPORTS, PL_PRELUDE_LIB_51_OPS, PL_PRELUDE_LIB_51_SHADOWS, PL_PRELUDE_LIB_51_QUIET, PL_PRELUDE_LIB_51_SRC, PL_PRELUDE_LIB_51_LOADS, 0 },
-    { "solution_sequences", PL_PRELUDE_LIB_52_EXPORTS, PL_PRELUDE_LIB_52_OPS, PL_PRELUDE_LIB_52_SHADOWS, PL_PRELUDE_LIB_52_QUIET, PL_PRELUDE_LIB_52_SRC, PL_PRELUDE_LIB_52_LOADS, 0 },
-    { "store_q", PL_PRELUDE_LIB_53_EXPORTS, PL_PRELUDE_LIB_53_OPS, PL_PRELUDE_LIB_53_SHADOWS, PL_PRELUDE_LIB_53_QUIET, PL_PRELUDE_LIB_53_SRC, PL_PRELUDE_LIB_53_LOADS, 1 },
-    { "strings", PL_PRELUDE_LIB_54_EXPORTS, PL_PRELUDE_LIB_54_OPS, PL_PRELUDE_LIB_54_SHADOWS, PL_PRELUDE_LIB_54_QUIET, PL_PRELUDE_LIB_54_SRC, PL_PRELUDE_LIB_54_LOADS, 0 },
-    { "swi_builtins", PL_PRELUDE_LIB_55_EXPORTS, PL_PRELUDE_LIB_55_OPS, PL_PRELUDE_LIB_55_SHADOWS, PL_PRELUDE_LIB_55_QUIET, PL_PRELUDE_LIB_55_SRC, PL_PRELUDE_LIB_55_LOADS, 0 },
-    { "tabling", PL_PRELUDE_LIB_56_EXPORTS, PL_PRELUDE_LIB_56_OPS, PL_PRELUDE_LIB_56_SHADOWS, PL_PRELUDE_LIB_56_QUIET, PL_PRELUDE_LIB_56_SRC, PL_PRELUDE_LIB_56_LOADS, 0 },
-    { "terms", PL_PRELUDE_LIB_57_EXPORTS, PL_PRELUDE_LIB_57_OPS, PL_PRELUDE_LIB_57_SHADOWS, PL_PRELUDE_LIB_57_QUIET, PL_PRELUDE_LIB_57_SRC, PL_PRELUDE_LIB_57_LOADS, 0 },
-    { "ugraphs", PL_PRELUDE_LIB_58_EXPORTS, PL_PRELUDE_LIB_58_OPS, PL_PRELUDE_LIB_58_SHADOWS, PL_PRELUDE_LIB_58_QUIET, PL_PRELUDE_LIB_58_SRC, PL_PRELUDE_LIB_58_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_59_EXPORTS, PL_PRELUDE_LIB_59_OPS, PL_PRELUDE_LIB_59_SHADOWS, PL_PRELUDE_LIB_59_QUIET, PL_PRELUDE_LIB_59_SRC, PL_PRELUDE_LIB_59_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_60_EXPORTS, PL_PRELUDE_LIB_60_OPS, PL_PRELUDE_LIB_60_SHADOWS, PL_PRELUDE_LIB_60_QUIET, PL_PRELUDE_LIB_60_SRC, PL_PRELUDE_LIB_60_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_61_EXPORTS, PL_PRELUDE_LIB_61_OPS, PL_PRELUDE_LIB_61_SHADOWS, PL_PRELUDE_LIB_61_QUIET, PL_PRELUDE_LIB_61_SRC, PL_PRELUDE_LIB_61_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_62_EXPORTS, PL_PRELUDE_LIB_62_OPS, PL_PRELUDE_LIB_62_SHADOWS, PL_PRELUDE_LIB_62_QUIET, PL_PRELUDE_LIB_62_SRC, PL_PRELUDE_LIB_62_LOADS, 0 },
+    { "bb_r", PL_PRELUDE_LIB_5_EXPORTS, PL_PRELUDE_LIB_5_OPS, PL_PRELUDE_LIB_5_SHADOWS, PL_PRELUDE_LIB_5_QUIET, PL_PRELUDE_LIB_5_SRC, PL_PRELUDE_LIB_5_LOADS, 1 },
+    { "bv_q", PL_PRELUDE_LIB_6_EXPORTS, PL_PRELUDE_LIB_6_OPS, PL_PRELUDE_LIB_6_SHADOWS, PL_PRELUDE_LIB_6_QUIET, PL_PRELUDE_LIB_6_SRC, PL_PRELUDE_LIB_6_LOADS, 1 },
+    { "bv_r", PL_PRELUDE_LIB_7_EXPORTS, PL_PRELUDE_LIB_7_OPS, PL_PRELUDE_LIB_7_SHADOWS, PL_PRELUDE_LIB_7_QUIET, PL_PRELUDE_LIB_7_SRC, PL_PRELUDE_LIB_7_LOADS, 1 },
+    { "clpfd", PL_PRELUDE_LIB_8_EXPORTS, PL_PRELUDE_LIB_8_OPS, PL_PRELUDE_LIB_8_SHADOWS, PL_PRELUDE_LIB_8_QUIET, PL_PRELUDE_LIB_8_SRC, PL_PRELUDE_LIB_8_LOADS, 0 },
+    { "clpq", PL_PRELUDE_LIB_9_EXPORTS, PL_PRELUDE_LIB_9_OPS, PL_PRELUDE_LIB_9_SHADOWS, PL_PRELUDE_LIB_9_QUIET, PL_PRELUDE_LIB_9_SRC, PL_PRELUDE_LIB_9_LOADS, 1 },
+    { "clpqr_class", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC, PL_PRELUDE_LIB_10_LOADS, 1 },
+    { "clpqr_dump", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC, PL_PRELUDE_LIB_11_LOADS, 1 },
+    { "clpqr_geler", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC, PL_PRELUDE_LIB_12_LOADS, 1 },
+    { "clpqr_itf", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC, PL_PRELUDE_LIB_13_LOADS, 1 },
+    { "clpqr_ordering", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC, PL_PRELUDE_LIB_14_LOADS, 1 },
+    { "clpqr_project", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC, PL_PRELUDE_LIB_15_LOADS, 1 },
+    { "clpqr_redund", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC, PL_PRELUDE_LIB_16_LOADS, 1 },
+    { "clpr", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC, PL_PRELUDE_LIB_17_LOADS, 1 },
+    { "csv", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC, PL_PRELUDE_LIB_18_LOADS, 0 },
+    { "ctypes", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC, PL_PRELUDE_LIB_19_LOADS, 0 },
+    { "date", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC, PL_PRELUDE_LIB_20_LOADS, 0 },
+    { "dcg_basics", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC, PL_PRELUDE_LIB_21_LOADS, 0 },
+    { "dicts", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC, PL_PRELUDE_LIB_22_LOADS, 0 },
+    { "engines", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC, PL_PRELUDE_LIB_23_LOADS, 0 },
+    { "error", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC, PL_PRELUDE_LIB_24_LOADS, 0 },
+    { "fourmotz_q", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC, PL_PRELUDE_LIB_25_LOADS, 1 },
+    { "fourmotz_r", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC, PL_PRELUDE_LIB_26_LOADS, 1 },
+    { "gensym", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC, PL_PRELUDE_LIB_27_LOADS, 0 },
+    { "gnu_builtins", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC, PL_PRELUDE_LIB_28_LOADS, 0 },
+    { "gnu_fd", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC, PL_PRELUDE_LIB_29_LOADS, 0 },
+    { "hashtable", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC, PL_PRELUDE_LIB_30_LOADS, 0 },
+    { "heaps", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC, PL_PRELUDE_LIB_31_LOADS, 0 },
+    { "ineq_q", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC, PL_PRELUDE_LIB_32_LOADS, 1 },
+    { "ineq_r", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC, PL_PRELUDE_LIB_33_LOADS, 1 },
+    { "itf_q", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC, PL_PRELUDE_LIB_34_LOADS, 1 },
+    { "itf_r", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC, PL_PRELUDE_LIB_35_LOADS, 1 },
+    { "json", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC, PL_PRELUDE_LIB_36_LOADS, 0 },
+    { "lazy_lists", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC, PL_PRELUDE_LIB_37_LOADS, 0 },
+    { "listing", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC, PL_PRELUDE_LIB_38_LOADS, 0 },
+    { "lists", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC, PL_PRELUDE_LIB_39_LOADS, 0 },
+    { "main", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC, PL_PRELUDE_LIB_40_LOADS, 0 },
+    { "mctx", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC, PL_PRELUDE_LIB_41_LOADS, 0 },
+    { "nb_set", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC, PL_PRELUDE_LIB_42_LOADS, 0 },
+    { "nf_q", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC, PL_PRELUDE_LIB_43_LOADS, 1 },
+    { "nf_r", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC, PL_PRELUDE_LIB_44_LOADS, 1 },
+    { "option", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC, PL_PRELUDE_LIB_45_LOADS, 0 },
+    { "optparse", PL_PRELUDE_LIB_46_EXPORTS, PL_PRELUDE_LIB_46_OPS, PL_PRELUDE_LIB_46_SHADOWS, PL_PRELUDE_LIB_46_QUIET, PL_PRELUDE_LIB_46_SRC, PL_PRELUDE_LIB_46_LOADS, 0 },
+    { "ordsets", PL_PRELUDE_LIB_47_EXPORTS, PL_PRELUDE_LIB_47_OPS, PL_PRELUDE_LIB_47_SHADOWS, PL_PRELUDE_LIB_47_QUIET, PL_PRELUDE_LIB_47_SRC, PL_PRELUDE_LIB_47_LOADS, 0 },
+    { "pairs", PL_PRELUDE_LIB_48_EXPORTS, PL_PRELUDE_LIB_48_OPS, PL_PRELUDE_LIB_48_SHADOWS, PL_PRELUDE_LIB_48_QUIET, PL_PRELUDE_LIB_48_SRC, PL_PRELUDE_LIB_48_LOADS, 0 },
+    { "pcre", PL_PRELUDE_LIB_49_EXPORTS, PL_PRELUDE_LIB_49_OPS, PL_PRELUDE_LIB_49_SHADOWS, PL_PRELUDE_LIB_49_QUIET, PL_PRELUDE_LIB_49_SRC, PL_PRELUDE_LIB_49_LOADS, 0 },
+    { "plunit", PL_PRELUDE_LIB_50_EXPORTS, PL_PRELUDE_LIB_50_OPS, PL_PRELUDE_LIB_50_SHADOWS, PL_PRELUDE_LIB_50_QUIET, PL_PRELUDE_LIB_50_SRC, PL_PRELUDE_LIB_50_LOADS, 0 },
+    { "prolog_source", PL_PRELUDE_LIB_51_EXPORTS, PL_PRELUDE_LIB_51_OPS, PL_PRELUDE_LIB_51_SHADOWS, PL_PRELUDE_LIB_51_QUIET, PL_PRELUDE_LIB_51_SRC, PL_PRELUDE_LIB_51_LOADS, 0 },
+    { "pure_input", PL_PRELUDE_LIB_52_EXPORTS, PL_PRELUDE_LIB_52_OPS, PL_PRELUDE_LIB_52_SHADOWS, PL_PRELUDE_LIB_52_QUIET, PL_PRELUDE_LIB_52_SRC, PL_PRELUDE_LIB_52_LOADS, 0 },
+    { "quintus", PL_PRELUDE_LIB_53_EXPORTS, PL_PRELUDE_LIB_53_OPS, PL_PRELUDE_LIB_53_SHADOWS, PL_PRELUDE_LIB_53_QUIET, PL_PRELUDE_LIB_53_SRC, PL_PRELUDE_LIB_53_LOADS, 0 },
+    { "random", PL_PRELUDE_LIB_54_EXPORTS, PL_PRELUDE_LIB_54_OPS, PL_PRELUDE_LIB_54_SHADOWS, PL_PRELUDE_LIB_54_QUIET, PL_PRELUDE_LIB_54_SRC, PL_PRELUDE_LIB_54_LOADS, 0 },
+    { "rbtrees", PL_PRELUDE_LIB_55_EXPORTS, PL_PRELUDE_LIB_55_OPS, PL_PRELUDE_LIB_55_SHADOWS, PL_PRELUDE_LIB_55_QUIET, PL_PRELUDE_LIB_55_SRC, PL_PRELUDE_LIB_55_LOADS, 0 },
+    { "readutil", PL_PRELUDE_LIB_56_EXPORTS, PL_PRELUDE_LIB_56_OPS, PL_PRELUDE_LIB_56_SHADOWS, PL_PRELUDE_LIB_56_QUIET, PL_PRELUDE_LIB_56_SRC, PL_PRELUDE_LIB_56_LOADS, 0 },
+    { "record", PL_PRELUDE_LIB_57_EXPORTS, PL_PRELUDE_LIB_57_OPS, PL_PRELUDE_LIB_57_SHADOWS, PL_PRELUDE_LIB_57_QUIET, PL_PRELUDE_LIB_57_SRC, PL_PRELUDE_LIB_57_LOADS, 0 },
+    { "simplex", PL_PRELUDE_LIB_58_EXPORTS, PL_PRELUDE_LIB_58_OPS, PL_PRELUDE_LIB_58_SHADOWS, PL_PRELUDE_LIB_58_QUIET, PL_PRELUDE_LIB_58_SRC, PL_PRELUDE_LIB_58_LOADS, 0 },
+    { "solution_sequences", PL_PRELUDE_LIB_59_EXPORTS, PL_PRELUDE_LIB_59_OPS, PL_PRELUDE_LIB_59_SHADOWS, PL_PRELUDE_LIB_59_QUIET, PL_PRELUDE_LIB_59_SRC, PL_PRELUDE_LIB_59_LOADS, 0 },
+    { "store_q", PL_PRELUDE_LIB_60_EXPORTS, PL_PRELUDE_LIB_60_OPS, PL_PRELUDE_LIB_60_SHADOWS, PL_PRELUDE_LIB_60_QUIET, PL_PRELUDE_LIB_60_SRC, PL_PRELUDE_LIB_60_LOADS, 1 },
+    { "store_r", PL_PRELUDE_LIB_61_EXPORTS, PL_PRELUDE_LIB_61_OPS, PL_PRELUDE_LIB_61_SHADOWS, PL_PRELUDE_LIB_61_QUIET, PL_PRELUDE_LIB_61_SRC, PL_PRELUDE_LIB_61_LOADS, 1 },
+    { "strings", PL_PRELUDE_LIB_62_EXPORTS, PL_PRELUDE_LIB_62_OPS, PL_PRELUDE_LIB_62_SHADOWS, PL_PRELUDE_LIB_62_QUIET, PL_PRELUDE_LIB_62_SRC, PL_PRELUDE_LIB_62_LOADS, 0 },
+    { "swi_builtins", PL_PRELUDE_LIB_63_EXPORTS, PL_PRELUDE_LIB_63_OPS, PL_PRELUDE_LIB_63_SHADOWS, PL_PRELUDE_LIB_63_QUIET, PL_PRELUDE_LIB_63_SRC, PL_PRELUDE_LIB_63_LOADS, 0 },
+    { "tabling", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_LOADS, 0 },
+    { "terms", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_LOADS, 0 },
+    { "ugraphs", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_LOADS, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0 }
 };
