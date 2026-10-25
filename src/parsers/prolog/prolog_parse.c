@@ -3594,6 +3594,10 @@ static int pl_clause_is_attv_hook(PlClause *cl) {
     return (!strcmp(h->c[1]->v.sval, "attr_unify_hook") && h->c[1]->n == 2) || (!strcmp(h->c[1]->v.sval, "attribute_goals") && h->c[1]->n == 3);
 }
 static int pl_clause_is_directive(PlClause *cl) { return cl && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 2 && cl->tr->c[0] && cl->tr->c[0]->t == TT_NUL; }
+static int pl_clause_is_meta_spec(PlClause *cl) {
+    const tree_t *g = (pl_clause_is_directive(cl) && cl->tr && cl->tr->n > 1) ? cl->tr->c[1] : (const tree_t *)0;
+    return g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "$meta_spec");
+}
 static PlProgram *pl_prelude_parse(const char *src, int lib, const char *vis, int nlibs) {
     OpEntry *uo = g_parser.pl.uinfix;
     int un = g_parser.pl.uinfix_n, uc = g_parser.pl.uinfix_cap;
@@ -3668,6 +3672,34 @@ static void pl_lib_rename_clause(PlClause *cl, const cv_t *ek, const cv_t *ev) {
     if (cl->tr && cl->tr->n > 1) pl_lib_rename_goals(cl->tr->c[1], 0, ek, ev);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_libs_meta_specs(PlProgram *pre, const cv_t *referenced) {
+    extern int prolog_dialect_gnu_selected(void);
+    size_t len = 0, at;
+    PlProgram *mp;
+    if (prolog_dialect_gnu_selected()) return;
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) if (pl_cv_has(referenced, m->nm)) len += strlen(m->spec) + 2;
+    }
+    if (!len) return;
+    char buf[len + 32];
+    at = (size_t)snprintf(buf, sizeof buf, ":- '$meta_spec'((");
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) {
+            if (pl_cv_has(referenced, m->nm)) at += (size_t)snprintf(buf + at, sizeof buf - at, "%s%s", at > 17 ? ", " : "", m->spec);
+        }
+    }
+    snprintf(buf + at, sizeof buf - at, ")).\n");
+    mp = pl_prelude_parse(buf, -1, "", 0);
+    for (PlClause *cl = mp ? mp->head : (PlClause *)0, *nx; cl; cl = nx) {
+        nx = cl->next;
+        cl->next = NULL;
+        cl->dq_forced = 3 + 1;
+        if (!pre->head) pre->head = cl; else pre->tail->next = cl;
+        pre->tail = cl;
+        pre->nclauses++;
+    }
+    if (mp) ct_drop(mp);
+}
 static int pl_lib_dialect_ok(const char *lib, int swi) { return swi || strcmp(lib, "listing"); }
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi) {
     int nlibs = 0;
@@ -3708,7 +3740,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         for (int i = 0; i < nlibs; i++) {
             pl_pk_set_t lh = { 0 };
             if (!lp[i] || seen[i]) continue;
-            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_pk(cl->tr, &lh);
+            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (!pl_clause_is_meta_spec(cl)) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
             for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
@@ -3768,7 +3800,10 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
                 const char *cn;
                 int car;
                 int hook = pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl) || (pl_clause_key(cl, &cn, &car) && cn && car == 3 && !strcmp(cn, "exception"));
-                if (hook) { mk[i][j] = 1; pl_clause_collect_refs(cl, &r); }
+                if (hook) {
+                    mk[i][j] = 1;
+                    if (!pl_clause_is_meta_spec(cl)) pl_clause_collect_refs(cl, &r);
+                }
                 else if (pl_clause_key(cl, &cn, &car) && cn) pl_ri_put(ri, &nr, hd, hc, cn, car, i, j, cl);
             }
         }
@@ -4191,6 +4226,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
         pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi);
+        pl_libs_meta_specs(pre, &referenced);
         for (uint32_t i = 0; i < user_defined.len; i++) if (!pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
     {

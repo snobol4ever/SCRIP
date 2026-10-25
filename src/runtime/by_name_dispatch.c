@@ -24217,31 +24217,31 @@ static int pl_pp_ctl(const char *nm, int ar) {
     for (int i = 0; c[i]; i++) if (ca[i] == ar && !strcmp(c[i], nm)) return 1;
     return 0;
 }
-static const char *pl_gnu_meta_spec(const char *nm, int ar) {
-    static const char *const specs =
-        ";" "findall/3:? 0 -;findall/4:? 0 - ?;setof/3:? 0 -;bagof/3:? 0 -;asserta/1::;assertz/1::;retract/1::;retractall/1::;clause/2:: ?;abolish/1::;once/1:0;\\+/1:0;call_det/2:0 ?;"
-        "call_nth/2:0 ?;call_last/1:0;countall/2:0 ?;forall/2:0 0;call_with_args/1:1;call_with_args/2:1 ?;call_with_args/3:2 ? ?;call_with_args/4:3 ? ? ?;"
-        "call_with_args/5:4 ? ? ? ?;call_with_args/6:5 ? ? ? ? ?;call_with_args/7:6 ? ? ? ? ? ?;call_with_args/8:7 ? ? ? ? ? ? ?;call_with_args/9:8 ? ? ? ? ? ? ? ?;"
-        "call_with_args/10:9 ? ? ? ? ? ? ? ? ?;call_with_args/11:10 ? ? ? ? ? ? ? ? ? ?;call/2:1 ?;call/3:2 ? ?;call/4:3 ? ? ?;call/5:4 ? ? ? ?;call/6:5 ? ? ? ? ?;"
-        "call/7:6 ? ? ? ? ? ?;call/8:7 ? ? ? ? ? ? ?;call/9:8 ? ? ? ? ? ? ? ?;call/10:9 ? ? ? ? ? ? ? ? ?;call/11:10 ? ? ? ? ? ? ? ? ? ?;./2:: +;consult/1::;consult/2:: +;"
-        "listing/1::;spy/1::;nospy/1::;phrase/2:2 ?;phrase/3:2 ? ?;maplist/2:1 ?;maplist/3:2 ? ?;maplist/4:3 ? ? ?;maplist/5:4 ? ? ? ?;maplist/6:5 ? ? ? ? ?;"
-        "maplist/7:6 ? ? ? ? ? ?;maplist/8:7 ? ? ? ? ? ? ?;maplist/9:8 ? ? ? ? ? ? ? ?;current_predicate/1::;predicate_property/2:: ?;,/2:0 0;/2:0 0;->/2:0 0;*->/2:0 0;call/1:0;" "catch/3:0 ? 0;";
-    size_t nl = strlen(nm);
-    char key[nl + 24];
-    const char *p;
-    snprintf(key, sizeof key, ";%s/%d:", nm, ar);
-    p = strstr(specs, key);
-    return p ? p + strlen(key) : (const char *)0;
+typedef struct { const char *nm; int ar; int tok; } pl_meta_row_t;
+#include "pl_meta_specs.inc"
+int rt_pl_meta_builtin(const char *nm, int ar, int gnu, const char *const **toks) {
+    for (const pl_meta_row_t *r = gnu ? pl_meta_rows_gnu : pl_meta_rows_swi; nm && r->nm; r++) if (r->ar == ar && !strcmp(r->nm, nm)) { *toks = pl_meta_tok + r->tok; return 1; }
+    return 0;
 }
-static DESCR_t pl_gnu_meta_term(const char *nm, int ar, const char *sp) {
+static int pl_pp_meta(void *root, const char *nm, int ar, const char *const **toks, const long **ids) {
+    extern int rt_pl_db_key_meta(void *, const char *, const long **);
+    size_t nl = nm ? strlen(nm) : 0;
+    char key[nl + 24];
+    *toks = (const char *const *)0;
+    *ids = (const long *)0;
+    if (!nm || ar <= 0) return 0;
+    snprintf(key, sizeof key, "%s/%d", nm, ar);
+    if (root && rt_pl_db_key_meta(root, key, ids) == ar) return 1;
+    *ids = (const long *)0;
+    return rt_pl_meta_builtin(nm, ar, pl_gnu_dialect(), toks);
+}
+static DESCR_t pl_pp_meta_term(const char *nm, int ar, const char *const *toks, const long *ids) {
+    extern const char *prolog_atom_name(int);
     DESCR_t a[ar > 0 ? ar : 1];
     for (int k = 0; k < ar; k++) {
-        size_t tl = strcspn(sp, " ;");
-        int dig = tl > 0;
-        for (size_t j = 0; j < tl; j++) if (!isdigit((unsigned char)sp[j])) dig = 0;
-        a[k] = dig ? INTVAL(atoll(sp)) : pl_mk_atom_dup(sp, tl);
-        sp += tl;
-        if (*sp == ' ') sp++;
+        const char *t = toks ? toks[k] : prolog_atom_name((int)ids[k]);
+        if (!t) t = "?";
+        a[k] = (isdigit((unsigned char)t[0]) && !t[1]) ? INTVAL(t[0] - '0') : pl_mk_atom_dup(t, strlen(t));
     }
     return pl_gnu_fn(nm, ar, a);
 }
@@ -24254,6 +24254,8 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
     extern int pl_pi_is_builtin(const char *, int);
     extern const char *prolog_atom_name(int);
     const char *nm, *fp = (const char *)0;
+    const char *const *mt;
+    const long *mi;
     int ar = 0, kind;
     h = pl_pp_head(h, (DESCR_t *)0);
     if (h.v == (DTYPE_t)DT_PLREF) { nm = prolog_atom_name(plc_fid_name(h.slen)); ar = plc_fid_arity(h.slen); } else nm = pl_atom_str(h);
@@ -24283,7 +24285,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
                 gp[n++] = strncmp(nm, "fd_", 3) ? "built_in" : "built_in_fd";
                 gp[n++] = "native_code";
                 if (pl_pp_ctl(nm, ar)) gp[n++] = "control_construct";
-                if (pl_gnu_meta_spec(nm, ar)) gp[n++] = "meta_predicate";
+                if (pl_pp_meta(root, nm, ar, &mt, &mi)) gp[n++] = "meta_predicate";
                 gp[n++] = "defined";
             }
             if (i > n) return (const char *)0;
@@ -24292,12 +24294,22 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
             return gp[i - 1];
         }
     }
-    if (i > 3) return (const char *)0;
-    if (kind && i == 1) return kind == 2 ? "dynamic" : "static";
-    if (kind && fp && i == 2) { *file = fp; return "file"; }
-    if (kind) return i == (fp ? 3 : 2) ? "defined" : (const char *)0;
-    if (pl_pi_is_builtin(nm, ar) && !(!strcmp(nm, "?-") || !strcmp(nm, ":-") || !strcmp(nm, "|")) && i < 3) return i == 1 ? "built_in" : "defined";
-    return (const char *)0;
+    {
+        const char *gp[5];
+        int n = 0;
+        if (kind) {
+            gp[n++] = kind == 2 ? "dynamic" : "static";
+            if (fp) gp[n++] = "file";
+            gp[n++] = "defined";
+        } else if (pl_pi_is_builtin(nm, ar) && !(!strcmp(nm, "?-") || !strcmp(nm, ":-") || !strcmp(nm, "|"))) {
+            gp[n++] = "built_in";
+            gp[n++] = "defined";
+        }
+        if (pl_pp_meta(root, nm, ar, &mt, &mi)) gp[n++] = "meta_predicate";
+        if (i > n) return (const char *)0;
+        if (!strcmp(gp[i - 1], "file")) *file = fp;
+        return gp[i - 1];
+    }
 }
 DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     int ok = 0;
@@ -24322,8 +24334,9 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
             DESCR_t hh = pl_pp_head(rt_pl_deref_val(args[1]), (DESCR_t *)0);
             const char *hn = hh.v == (DTYPE_t)DT_PLREF ? prolog_atom_name(plc_fid_name(hh.slen)) : pl_atom_str(hh);
             int ha = hh.v == (DTYPE_t)DT_PLREF ? plc_fid_arity(hh.slen) : 0;
-            const char *sp = hn ? pl_gnu_meta_spec(hn, ha) : (const char *)0;
-            ok = sp && plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_gnu_meta_term(hn, ha, sp)), cx);
+            const char *const *mt;
+            const long *mi;
+            ok = hn && pl_pp_meta(root, hn, ha, &mt, &mi) && plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_pp_meta_term(hn, ha, mt, mi)), cx);
         } else if (pr && !strcmp(pr, "prolog_line")) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(ln)), cx);
         else if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_mk_atom_dup(fp, strlen(fp))), cx);
         else if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);
