@@ -1175,6 +1175,18 @@ static int pl_if_flag(const tree_t *f, const tree_t *v, int swi) {
     const tree_t *t = v->c[3];
     return !t || t->t == TT_VAR || (t->t == TT_MAKELIST && t->n == 0) || (t->t == TT_QLIT && t->v.sval && !strcmp(t->v.sval, "[]"));
 }
+int pl_prelude_lib_spec_known(const tree_t *l) {
+    const char *a = l && l->t == TT_QLIT ? l->v.sval : (const char *)0, *b = (const char *)0;
+    if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "/") && l->n == 2 && l->c[0] && l->c[0]->t == TT_QLIT && l->c[1] && l->c[1]->t == TT_QLIT) { a = l->c[0]->v.sval; b = l->c[1]->v.sval; }
+    if (!a) return -1;
+    size_t na = strlen(a);
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+        const char *e = PL_PRELUDE_LIBS[i].lib;
+        if (b ? !strncmp(e, a, na) && e[na] == '_' && !strcmp(e + na + 1, b) : !strcmp(e, a)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
     if (!cond) return 0;
     const char *fn = (cond->t == TT_QLIT || cond->t == TT_FNC) && cond->v.sval ? cond->v.sval : "";
@@ -1202,17 +1214,8 @@ static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
         }
     }
     if (!strcmp(fn, "exists_source") && arity == 1 && cond->c[0] && cond->c[0]->t == TT_FNC && cond->c[0]->v.sval && !strcmp(cond->c[0]->v.sval, "library") && cond->c[0]->n == 1) {
-        const tree_t *l = cond->c[0]->c[0];
-        const char *a = l && l->t == TT_QLIT ? l->v.sval : (const char *)0, *b = (const char *)0;
-        if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "/") && l->n == 2 && l->c[0] && l->c[0]->t == TT_QLIT && l->c[1] && l->c[1]->t == TT_QLIT) { a = l->c[0]->v.sval; b = l->c[1]->v.sval; }
-        if (a) {
-            size_t na = strlen(a);
-            for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
-                const char *e = PL_PRELUDE_LIBS[i].lib;
-                if (b ? !strncmp(e, a, na) && e[na] == '_' && !strcmp(e + na + 1, b) : !strcmp(e, a)) return 1;
-            }
-            return 0;
-        }
+        int k = pl_prelude_lib_spec_known(cond->c[0]->c[0]);
+        if (k >= 0) return k;
     }
     if (!x->p->quiet) fprintf(stderr, "%s:%d: warning: the :- if condition %s/%d has no read-time evaluator in SCRIP, so it reads as false\n", x->p->filename, x->lineno, fn, arity);
     return 0;
