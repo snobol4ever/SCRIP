@@ -3415,6 +3415,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * ty = (tree_t *) t->c[1];
                 tree_t * gen =
                     pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(0), pl_cc_ilit(1114111), code), pl_cc_fnc2(",", pl_cc_fnc2("$char_type_d", code, ty), pl_cc_fnc2("char_code", ch, code)));
+                tree_t * u = pl_cc_freshvar();
+                tree_t * l = pl_cc_freshvar();
+                tree_t * casel = pl_cc_fnc2(",", pl_cc_fnc2("=", ty, pl_cc_fnc1("to_lower", u)), pl_cc_fnc1("nonvar", u));
+                tree_t * caseu = pl_cc_fnc2(",", pl_cc_fnc2("=", ty, pl_cc_fnc1("to_upper", l)), pl_cc_fnc1("nonvar", l));
+                gen = pl_cc_ite(casel, pl_cc_fnc2("downcase_atom", u, ch), pl_cc_ite(caseu, pl_cc_fnc2("upcase_atom", l, ch), gen));
                 return goal(cx, pl_cc_ite(pl_cc_fnc2(",", pl_cc_fnc1("var", ch), pl_cc_fnc1("nonvar", ty)), gen, pl_cc_fnc2("$char_type_d", ch, ty)), γnext, ωfail, entry_out);
             }
             {
