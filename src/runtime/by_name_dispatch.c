@@ -23838,6 +23838,12 @@ DESCR_t rt_pl_dop_nb_setval_c(DESCR_t *args, int nargs, void *root) {
     pl_atoms_ready();
     { DESCR_t k = rt_pl_deref_val(args[0]); int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) return FAILDESCR; return rt_pl_nb_set(root, kk, (void *)&args[1]) ? pl_ok() : FAILDESCR; }
 }
+DESCR_t rt_pl_dop_nb_delete_c(DESCR_t *args, int nargs, void *root) {
+    extern void rt_pl_nb_unset(void *, int64_t);
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { DESCR_t k = rt_pl_deref_val(args[0]); int64_t kk = pl_nb_cell_k(k, root); if (kk >= 0) rt_pl_nb_unset(root, kk); return pl_ok(); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_nb_getval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     if (nargs != 2) return FAILDESCR;

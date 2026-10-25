@@ -3573,6 +3573,7 @@ static void pl_ri_put(pl_ri_t *ri, uint32_t *nr, int *hd, uint32_t hc, const cha
 }
 static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
     uint32_t udc, int imported) {
+    if (lib->import_only && !imported) return 0;
     for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
         int n = (int)strlen(e->nm);
         uint32_t hn = pl_pk_hname(e->nm, n);
@@ -3681,6 +3682,14 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     pl_pk_fill_cv(rk, rkc, refkeys);
     pl_pk_fill_cv(ud, udc, user_defined);
     for (int i = 0; i < nlibs; i++) imp[i] = (char)(imported && pl_cv_has(imported, PL_PRELUDE_LIBS[i].lib));
+    for (int ch = 1; ch;) {
+        ch = 0;
+        for (int i = 0; i < nlibs; i++) {
+            for (const char *const *l = imp[i] ? PL_PRELUDE_LIBS[i].loads : (const char *const *)0; l && *l; l++) {
+                for (int j = 0; j < nlibs; j++) if (!imp[j] && !strcmp(PL_PRELUDE_LIBS[j].lib, *l)) { imp[j] = 1; ch = 1; }
+            }
+        }
+    }
     for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
     for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;

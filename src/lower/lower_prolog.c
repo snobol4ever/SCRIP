@@ -3153,6 +3153,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if ((!strcmp(nm, "nb_getval") || !strcmp(nm, "b_getval")) && t->n == 2 && pl_file_defines("exception", 3))
                 return goal(cx, pl_cc_fnc2(nm[0] == 'n' ? "$nb_getval_hooked" : "$b_getval_hooked", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
+            if (!strcmp(nm, "nb_delete") && t->n == 1) {
+                const char * kk = pl_nb_key(t->c[0]);
+                int k = kk ? pl_dyn_index_or_add(kk, -1) : -1;
+                if (kk && k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
+                return kk ? pl_db_leaf2(cx, "$nb_delete", k, t->c[0], γnext, ωfail, entry_out) : pl_db_leaf2_tree(cx, "$nb_delete", t->c[0], t->c[0], γnext, ωfail, entry_out);
+            }
             if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval") || !strcmp(nm, "b_setval") || !strcmp(nm, "b_getval") || !strcmp(nm, "$nb_getval_raw") || !strcmp(nm, "$b_getval_raw")) &&
                 t->n == 2) {
                 const char * kk = pl_nb_key(t->c[0]);
