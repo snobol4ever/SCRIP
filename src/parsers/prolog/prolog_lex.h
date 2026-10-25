@@ -36,6 +36,7 @@ typedef struct {
     int     big;
     int     adj;
     int     uni;
+    const char *swi;
     int     len;
     int     start;
     int     end;
@@ -48,6 +49,9 @@ typedef struct {
     Token       peek;
     int         has_peek;
     TkKind      last_kind;
+    TkKind      prev_kind;
+    const char *last_text;
+    const char *prev_text;
     int         fenced;
     char       *sbuf;
     int         slen;

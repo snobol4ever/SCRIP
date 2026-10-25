@@ -52,12 +52,22 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.uni = 0; t.len = -1; t.start = 0; t.end = 0; t.pc = (struct tree_t *)0;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.uni = 0; t.swi = (const char *)0; t.len = -1; t.start = 0; t.end = 0; t.pc = (struct tree_t *)0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token err_tok(int line, const char *msg) {
     return tok(TK_ERROR, ct_strdup(msg), line);
+}
+static Token err_tok_s(int line, const char *msg, const char *swi) {
+    Token t = err_tok(line, msg);
+    t.swi = swi;
+    return t;
+}
+static const char *swi_culprit1(const char *name, int ch) {
+    char b[96];
+    snprintf(b, sizeof b, "%s\001%c", name, ch);
+    return ct_strdup(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_u_nd_zero(unsigned c) {
@@ -270,6 +280,7 @@ S_INT:
     if (PEEK(0) == '_')                                              {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == ' ' && lx_udig(p + 1, zs))                            {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == '\'')                                             {  radix = 0; for (const char *r = s; r < p && radix <= 36; r++) if (is_digit(*r)) radix = radix * 10 + (*r - '0');
+                                                                        if (radix >= 2 && radix <= 36 && PEEK(1) == '\0') { SYNC(); return err_tok_s(line, "end of file in radix integer", "end_of_file"); }
                                                                         c = digval(PEEK(1)); if (radix >= 2 && radix <= 36 && c >= 0 && c < radix) { ADV(1); s = p; goto S_RDIGITS; } goto LX_INT; }
     if (!lx->iso && (PEEK(0) == 'e' || PEEK(0) == 'E') && (lx_udig(p + 1, zs) || ((PEEK(1) == '+' || PEEK(1) == '-') && lx_udig(p + 2, zs)))) { ADV(1); goto S_EXP_SIGN; }
     if (PEEK(0) == '.' && lx_udig(p + 1, zs))                            {  ADV(1);                                                                goto S_FRAC;        }
@@ -309,21 +320,22 @@ S_RADIX:
     if (PEEK(0) == ' ' && ndig)                                      {  c = hexval(PEEK(1)); if (c >= 0 && c < radix) { seps = 1; ADV(1); goto S_RADIX; }         goto S_RADIX_END;   }
                                                                                                                                                goto S_RADIX_END;
 S_RADIX_END:
-    if (!ndig || hexval(PEEK(0)) >= 0 || is_alnum(PEEK(0)))          {  SYNC(); return err_tok(line, "malformed radix integer");                                   }
+    if (!ndig || hexval(PEEK(0)) >= 0 || is_alnum(PEEK(0)))          {  SYNC(); return err_tok_s(line, "malformed radix integer", "illegal_number");                 }
     t = tok(TK_INT, span_text(s, p, seps), line); errno = 0;
     { unsigned long long uv = strtoull(t.text + 2, NULL, radix);
       if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { t.big = 1; SYNC(); return t; }
       t.ival = (long)uv; }
     SYNC(); return t;
 S_CHARCODE:
-    if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code);
-                                                                        if (st != 1) { SYNC(); return err_tok(line, "invalid escape sequence in character code constant"); }
+    if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok_s(line, "end of file in character code constant", "end_of_file");     }
+    if (PEEK(0) == '\\')                                             {  const char *e0 = p; ADV(1); st = decode_escape(lx, &p, &code);
+                                                                        if (st != 1) { SYNC(); return err_tok_s(line, "invalid escape sequence in character code constant", swi_culprit1("undefined_char_escape", (unsigned char)e0[1])); }
                                                                         t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)code; SYNC(); return t;                }
     if (PEEK(0) == '\'' && PEEK(1) == '\'')                          {  ADV(2); t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)'\''; SYNC(); return t;        }
                                                                      {  n = u8_decode((const unsigned char *)p, &code); if (PEEK(0) == '\n') NL(); if (PEEK(0)) ADV(n);
                                                                         t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)code; SYNC(); return t;                }
 S_QUOTED:
-    if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string"); }
+    if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok_s(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string", swi_culprit1("end_of_file_in_quoted", q)); }
     if (PEEK(0) == q && PEEK(1) == q)                                {  pc_flush(lx); sb_put(lx, q); pc_flush(lx); ADV(2);                     goto S_QUOTED;      }
     if (PEEK(0) == q)                                                {  ADV(1); SYNC(); pc_flush(lx); if (!lx->pc) lx->pc = pc_piece(TT_QLIT, "", 0);
                                                                         t = tok(kind, sb_text(lx), line); t.len = lx->slen; t.pc = lx->pc; lx->pc = (tree_t *)0; return t;       }
@@ -331,8 +343,9 @@ S_QUOTED:
                                                                         if (st == 1 && strchr("abfnrtvesd\\'\"`", e0[1])) { sb_utf8(lx, code); pc_flush(lx); }
                                                                         else if (st == 1) { pc_add(lx, pc_piece(TT_ESC, e0, (int)(p - e0))); sb_utf8(lx, code); }
                                                                         lx->run0 = lx->slen;
-                                                                        if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
-                                                                                                                                         : "invalid escape sequence in double-quoted token"); }
+                                                                        if (st < 0) { SYNC(); return err_tok_s(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
+                                                                                                                                         : "invalid escape sequence in double-quoted token",
+                                                                                    e0[1] == 'u' || e0[1] == 'U' ? "Illegal \\u or \\U sequence" : swi_culprit1("undefined_char_escape", (unsigned char)e0[1])); }
                                                                                                                                                goto S_QUOTED;      }
     if ((PEEK(0) == '\n' && !lx->swi) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
                                                                                                                     : "unescaped layout character in double-quoted token"); }
@@ -362,7 +375,10 @@ static Token lexer_next_raw(Lexer *lx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Token lexer_next(Lexer *lx) {
     Token t = lexer_next_raw(lx);
+    lx->prev_kind = lx->last_kind;
+    lx->prev_text = lx->last_text;
     lx->last_kind = t.kind;
+    lx->last_text = t.text;
     lx->last_end = t.end;
     return t;
 }
@@ -382,6 +398,9 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->line     = 1;
     lx->has_peek = 0;
     lx->last_kind = TK_EOF;
+    lx->prev_kind = TK_EOF;
+    lx->last_text = (const char *)0;
+    lx->prev_text = (const char *)0;
     lx->fenced = 0;
     lx->iso = 0;
     lx->swi = lx_dialect_marker(lx->src);

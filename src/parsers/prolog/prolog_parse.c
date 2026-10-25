@@ -33,6 +33,7 @@ typedef struct {
     int         incl_depth;
     int         iso;
     const char *synerr;
+    int         wrap_tail;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -179,6 +180,36 @@ static const OpEntry *find_prefix(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_postfix(const char *name) { const OpEntry *u = find_user(name, FIX_POSTFIX); return (u && u->prec > 0) ? u : NULL; }
+enum { SYN_CLOSE = 1, SYN_END, SYN_LIST, SYN_OPERAND };
+static int syn_is_infix(const char *t) { return t && (find_binop(t) != NULL || !strcmp(t, ":-") || !strcmp(t, "-->") || !strcmp(t, "=>") || !strcmp(t, "?-")); }
+static int syn_is_op_text(const char *t) { return t && (syn_is_infix(t) || find_prefix(t) != NULL); }
+static const char *swi_syn(Parser *p, Token t, int ctx) {
+    int eof, prevop, prevopen;
+    if (t.kind == TK_ERROR && t.swi) return t.swi;
+    eof = t.kind == TK_EOF || (p->wrap_tail >= 0 && t.start >= p->wrap_tail);
+    prevop = p->lx.prev_kind == TK_OP || p->lx.prev_kind == TK_NECK || p->lx.prev_kind == TK_QUERY || p->lx.prev_kind == TK_SEMI || (p->lx.prev_kind == TK_ATOM && syn_is_op_text(p->lx.prev_text));
+    prevop = prevop || (p->lx.prev_kind == TK_PIPE && !p->in_list);
+    prevopen = p->lx.prev_kind == TK_LPAREN || p->lx.prev_kind == TK_LBRACKET || p->lx.prev_kind == TK_LBRACE || p->lx.prev_kind == TK_COMMA || (p->lx.prev_kind == TK_PIPE && p->in_list);
+    if (ctx == SYN_OPERAND) {
+        if (!eof && t.kind == TK_COMMA) return "quoted_punctuation";
+        if (eof || t.kind == TK_DOT) return prevop ? "operator_balance" : prevopen ? "end_of_clause" : "cannot_start_term";
+        return "cannot_start_term";
+    }
+    if (eof) return ctx == SYN_END ? "end_of_file" : "operator_expected";
+    switch (t.kind) {
+    case TK_RPAREN: case TK_RBRACKET: case TK_RBRACE: return "cannot_start_term";
+    case TK_PIPE: return ctx == SYN_LIST ? "list_rest" : "operator_balance";
+    case TK_DOT: return "end_of_clause";
+    case TK_NECK: case TK_QUERY: case TK_SEMI: return "operator_clash";
+    case TK_OP: case TK_ATOM: return syn_is_infix(t.text) ? "operator_clash" : "operator_expected";
+    default: return "operator_expected";
+    }
+}
+static int syn_swi(const Parser *p) { extern int rt_pl_dialect_swi(void); return p->lx.swi || rt_pl_dialect_swi(); }
+static void perror_syn(Parser *p, Token t, int ctx, const char *msg) {
+    if (p->clause_errs == 0 && syn_swi(p) && !p->synerr) p->synerr = swi_syn(p, t, ctx);
+    perror_at(p, t.line, msg);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int op_type_classify(const char *type, Assoc *assoc_out, Fixity *fix_out) {
     if (strcmp(type, "xfx") == 0) { *fix_out = FIX_INFIX;   *assoc_out = ASSOC_NONE;  return 1; }
@@ -468,11 +499,11 @@ static tree_t *pt_list(Parser *p, TreeScope *ts) {
             lst->v.ival = 1;
             pk = lexer_peek(&p->lx);
             if (pk.kind == TK_RBRACKET) lexer_next(&p->lx);
-            else perror_at(p, pk.line, "expected ] to close list");
+            else perror_syn(p, pk, SYN_LIST, "expected ] to close list");
         } else if (pk.kind == TK_RBRACKET) {
             lexer_next(&p->lx);
         } else {
-            perror_at(p, pk.line, "expected , | or ] in list");
+            perror_syn(p, pk, SYN_LIST, "expected , | or ] in list");
         }
         break;
     }
@@ -564,7 +595,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                else perror_at(p, rp.line, "expected ) to close argument list");
+                else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
             if (strcmp(tk.text, "dynamic") == 0 ||
@@ -613,7 +644,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                else perror_at(p, rp.line, "expected ) to close argument list");
+                else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
             { const OpEntry *pre_c = find_prefix("!");
@@ -635,7 +666,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                else perror_at(p, rp.line, "expected ) to close argument list");
+                else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
             if (prefix_arg_starts(pkn)) {
@@ -659,7 +690,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                else perror_at(p, rp.line, "expected ) to close argument list");
+                else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
             if (prefix_arg_starts(pkq)) {
@@ -683,7 +714,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             p->in_list = saved_list;
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-            else perror_at(p, rp.line, "expected )");
+            else perror_syn(p, rp, SYN_CLOSE, "expected )");
             return pt_stamp(inner, ln);
         }
         case TK_LBRACKET:
@@ -699,11 +730,11 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                else perror_at(p, rp.line, "expected ) to close argument list");
+                else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
             if (tk.kind == TK_SEMI) { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = ct_strdup(opname); return pt_stamp(n, ln); }
-            perror_at(p, tk.line, "unexpected , (a bare comma is not a term)");
+            perror_syn(p, tk, SYN_OPERAND, "unexpected , (a bare comma is not a term)");
             return pt_stamp(NULL, ln);
         }
         case TK_OP: {
@@ -715,7 +746,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                   pt_args(p, ts, fnc);
                   Token rp = lexer_peek(&p->lx);
                   if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                  else perror_at(p, rp.line, "expected ) to close argument list");
+                  else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                   return pt_stamp(fnc, ln); } }
             if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && (prefix_arg_starts(lexer_peek(&p->lx)) || lexer_functor_follows(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 900);
@@ -787,7 +818,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                     pt_args(p, ts, fnc);
                     Token rp = lexer_peek(&p->lx);
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                    else perror_at(p, rp.line, "expected ) to close argument list");
+                    else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                     return pt_stamp(fnc, ln);
                 }
                 const OpEntry *pre_o = find_prefix(tk.text);
@@ -815,7 +846,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                     pt_args(p, ts, n);
                     Token rp = lexer_peek(&p->lx);
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-                    else perror_at(p, rp.line, "expected ) to close argument list");
+                    else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
                 }
                 return pt_stamp(n, ln);
             }
@@ -823,14 +854,14 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             { int saved = p->in_args, saved_list = p->in_list; p->in_args = 0; p->in_list = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; p->in_list = saved_list; }
             Token rb = lexer_peek(&p->lx);
             if (rb.kind == TK_RBRACE) lexer_next(&p->lx);
-            else perror_at(p, rb.line, "expected } to close term");
+            else perror_syn(p, rb, SYN_CLOSE, "expected } to close term");
             tree_t *fnc = ast_node_new(TT_FNC);
             fnc->v.sval = ct_strdup("{}");
             if (inner) ast_push(fnc, inner);
             return pt_stamp(fnc, ln);
         }
         default:
-            perror_at(p, tk.line, "unexpected token, expected a term");
+            perror_syn(p, tk, SYN_OPERAND, "unexpected token, expected a term");
             return pt_stamp(NULL, ln);
     }
 }
@@ -885,7 +916,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             pt_args(p, ts, f);
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-            else perror_at(p, rp.line, "expected ) to close argument list");
+            else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
         }
         else if (ft.kind == TK_ATOM) { f = ast_node_new(TT_QLIT); f->v.sval = ct_strdup(ft.text); }
         else { perror_at(p, ft.line, "expected a key or a function after a dict ."); break; }
@@ -904,7 +935,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
     tree_t *lhs = pt_primary(p, ts);
     if (!lhs) return NULL;
     int lp = p->prec;
-    if (lp > max_prec) perror_at(p, ln, "operator priority clash");
+    if (lp > max_prec) { if (p->clause_errs == 0 && syn_swi(p) && !p->synerr) p->synerr = "operator_clash"; perror_at(p, ln, "operator priority clash"); }
     for (;;) {
         Token pk = lexer_peek(&p->lx);
         const char *optext = NULL;
@@ -1315,9 +1346,9 @@ static PlClause *parse_clause(Parser *p) {
             pt_args(p, ts, fnc);
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
-            else perror_at(p, rp.line, "expected ) to close argument list");
+            else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
             Token fdot = lexer_next(&p->lx);
-            if (fdot.kind != TK_DOT) perror_at(p, fdot.line, "expected . at end of clause");
+            if (fdot.kind != TK_DOT) perror_syn(p, fdot, SYN_END, "expected . at end of clause");
             tree_t *_fcl = ast_node_new(TT_CLAUSE);
             if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
             else if (fnc->n == 1) { register_op_directive(fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
@@ -1328,7 +1359,7 @@ static PlClause *parse_clause(Parser *p) {
         tree_t *body_tr = pt_term(p, ts, 1200);
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
-            perror_at(p, dot.line, "expected . after directive");
+            perror_syn(p, dot, SYN_END, "expected . after directive");
         register_op_directive(body_tr, p->lx.swi); iso_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
@@ -1348,7 +1379,7 @@ static PlClause *parse_clause(Parser *p) {
           cl->tr = _cl; }
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
-            perror_at(p, dot.line, "expected . at end of clause");
+            perror_syn(p, dot, SYN_END, "expected . at end of clause");
     } else if (pk.kind == TK_OP && strcmp(pk.text, "-->") == 0) {
         Token arrow_tk = lexer_next(&p->lx);
         tree_t *body_tr = pt_term(p, ts, 1200);
@@ -1357,7 +1388,7 @@ static PlClause *parse_clause(Parser *p) {
           cl->tr = _cl; }
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
-            perror_at(p, dot.line, "expected . at end of DCG clause");
+            perror_syn(p, dot, SYN_END, "expected . at end of DCG clause");
     } else if (pk.kind == TK_OP && strcmp(pk.text, "=>") == 0) {
         Token arrow_tk = lexer_next(&p->lx);
         tree_t *body_tr = pt_term(p, ts, 1200);
@@ -1366,14 +1397,14 @@ static PlClause *parse_clause(Parser *p) {
           cl->tr = _cl; }
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
-            perror_at(p, dot.line, "expected . at end of SSU rule");
+            perror_syn(p, dot, SYN_END, "expected . at end of SSU rule");
     } else {
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, head_tr);
           cl->tr = _cl; }
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
-            perror_at(p, dot.line, "expected . at end of fact");
+            perror_syn(p, dot, SYN_END, "expected . at end of fact");
     }
     return cl;
 }
@@ -4423,6 +4454,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.prec     = 0;
     p.incl_depth = 0;
     p.synerr   = (const char *)0;
+    p.wrap_tail = src && !strncmp(src, "'$rd'((", 7) ? (int)strlen(src) - 4 : -1;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));

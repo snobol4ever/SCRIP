@@ -3311,7 +3311,19 @@ void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom) {
     pl_cell_t fe[1];
     pl_cell_t *fec;
     pl_cell_t er[2];
-    fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
+    const char *sep = arg0_atom ? strchr(arg0_atom, 1) : (const char *)0;
+    if (sep) {
+        char nm[64];
+        size_t k = (size_t)(sep - arg0_atom) < sizeof nm - 1 ? (size_t)(sep - arg0_atom) : sizeof nm - 1;
+        pl_cell_t ia[1];
+        pl_cell_t *ic;
+        memcpy(nm, arg0_atom, k);
+        nm[k] = 0;
+        ia[0] = pl_make_atom(prolog_atom_intern(sep + 1));
+        ic = (pl_cell_t *)rt_pl_compound_cell(nm, 1, (void *)ia);
+        if (!ic) return (void *)0;
+        fe[0] = *ic;
+    } else fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
     fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
     if (!fec) return (void *)0;
     er[0] = *fec;

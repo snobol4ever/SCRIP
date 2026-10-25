@@ -8992,8 +8992,9 @@ static int pl_read_term_text(char **bp, size_t *np) {
     (*bp)[k] = 0;
     return seen ? 2 : 0;
 }
-static int pl_text_is_unbalanced(const char *s) {
+static int pl_text_is_unbalanced(const char *s, const char **why) {
     size_t nopen = 1;
+    *why = (const char *)0;
     for (const char *q = s; *q; q++) if (*q == '(' || *q == '[' || *q == '{') nopen++;
     char st[nopen];
     int sp = 0;
@@ -9001,12 +9002,12 @@ static int pl_text_is_unbalanced(const char *s) {
     for (i = 0; s[i]; i++) {
         char c = s[i];
         if (c == '%') { while (s[i] && s[i] != '\n') i++; if (!s[i]) break; continue; }
-        if (c == '/' && s[i + 1] == '*') { i += 2; while (s[i] && !(s[i] == '*' && s[i + 1] == '/')) i++; if (!s[i]) return 1; i++; continue; }
+        if (c == '/' && s[i + 1] == '*') { i += 2; while (s[i] && !(s[i] == '*' && s[i + 1] == '/')) i++; if (!s[i]) { *why = "end_of_file_in_block_comment"; return 1; } i++; continue; }
         if (c == '0' && s[i + 1] == '\'' && s[i + 2] && (i == 0 || !(isalnum((unsigned char)s[i - 1]) || s[i - 1] == '_'))) {
             i += 2;
             if (s[i] == '\\') {
                 i++;
-                if (!s[i]) return 1;
+                if (!s[i]) { *why = "end_of_file"; return 1; }
                 if (s[i] >= '0' && s[i] <= '7') {
                     while (s[i + 1] >= '0' && s[i + 1] <= '7') i++;
                     if (s[i + 1] == '\\') i++;
@@ -9017,11 +9018,12 @@ static int pl_text_is_unbalanced(const char *s) {
             } else if (s[i] == '\'' && s[i + 1] == '\'') i++;
             continue;
         }
+        if (c == '\'' && !s[i + 1] && i > 0 && isdigit((unsigned char)s[i - 1]) && (i == 1 || !(isalnum((unsigned char)s[i - 2]) || s[i - 2] == '_'))) { *why = "end_of_file"; return 1; }
         if (c == '\'' || c == '"' || c == '`') {
             char q = c;
             i++;
             for (;;) {
-                if (!s[i]) return 1;
+                if (!s[i]) { *why = q == '\'' ? "end_of_file_in_quoted\001'" : q == '"' ? "end_of_file_in_quoted\001\"" : "end_of_file_in_quoted\001`"; return 1; }
                 if (s[i] == '\\' && s[i + 1] >= '0' && s[i + 1] <= '7') { size_t j = i + 1; while (s[j] >= '0' && s[j] <= '7') j++; if (s[j] == '\\') j++; i = j; continue; }
                 if (s[i] == '\\' && (s[i + 1] == 'x' || s[i + 1] == 'X')) { size_t j = i + 2; while (isxdigit((unsigned char)s[j])) j++; if (s[j] == '\\') j++; i = j; continue; }
                 if (s[i] == '\\' && s[i + 1]) { i += 2; continue; }
@@ -9031,7 +9033,17 @@ static int pl_text_is_unbalanced(const char *s) {
             continue;
         }
         if (c == '(' || c == '[' || c == '{') { st[sp++] = c; continue; }
-        if (c == ')' || c == ']' || c == '}') { char want = c == ')' ? '(' : c == ']' ? '[' : '{'; if (sp == 0 || st[sp - 1] != want) return 1; sp--; continue; }
+        if (c == ')' || c == ']' || c == '}') { char want = c == ')' ? '(' : c == ']' ? '[' : '{'; if (sp == 0 || st[sp - 1] != want) { *why = "cannot_start_term"; return 1; } sp--; continue; }
+    }
+    if (sp != 0) {
+        size_t e = i;
+        while (e > 0 && (s[e - 1] == ' ' || s[e - 1] == '\n' || s[e - 1] == '\t' || s[e - 1] == '\r')) e--;
+        *why = e > 0 &&
+            (s[e - 1] == ',' || s[e - 1] == '|' ||
+            ((s[e - 1] == '(' || s[e - 1] == '[' || s[e - 1] == '{') &&
+            !(e > 2 && (s[e - 2] == ' ' || s[e - 2] == '\t') &&
+            (isalnum((unsigned char)s[e - 3]) || s[e - 3] == '_' || s[e - 3] == ')' || s[e - 3] == ']' || s[e - 3] == '}' || s[e - 3] == '\'' || s[e - 3] == '"')))) ? "end_of_clause" :
+            "operator_expected";
     }
     return sp != 0;
 }
@@ -9056,7 +9068,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     vt->ncm = 0;
     if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
     text = (char *)rt_wsb_alloc(L + 20);
-    if (pl_text_is_unbalanced(txt)) return 0;
+    { const char *why; if (pl_text_is_unbalanced(txt, &why)) { if (why && rt_pl_dialect_swi()) vt->err = why; return 0; } }
     memcpy(text, "'$rd'((", 7);
     memcpy(text + 7, txt, L);
     e = 7 + L;
