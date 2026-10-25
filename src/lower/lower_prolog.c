@@ -264,6 +264,9 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         }
         case TT_CUT:
         { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = "!"; return nd; }
+        case TT_UNIFY:
+        if (t->n == 2) { IR_t * kids[2], * kes[2]; for (int i = 0; i < 2; i++) kids[i] = term_lval_e(cx, t->c[i], &kes[i]); return mkc_node(cx, "=", 2, kids, kes, entry_out); }
+        { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
         default:
         { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
     }
