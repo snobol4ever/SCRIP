@@ -29,7 +29,6 @@ void rt_proc_set_rest_kind(const char *name, int kind);
 void rt_proc_set_named_rest(const char *name, int slot);
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void *lower_snobol4(const tree_t *prog);
-extern eval_chain_fn emit_chain(void *entry, void *out, const char *prefix);
 extern eval_chain_fn compile_chain(void *g, void *entry, void *out, const char *prefix);
 extern int emit_jmp_entry_for_chain(IR_graph_t *g);
 extern void emit_jmp_entry_clear(void);

@@ -182,7 +182,8 @@ extern "C" {
 #include "IR.h"
 #include <stdio.h>
 int bb_call_route_classify(IR_t * nd);
-bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+struct zeta_plan_t;
+bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
 int bb_varslot_peek(const char * name);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);

@@ -14,7 +14,6 @@ void rt_gvar_assign_pat(const char *name, void *head);
 void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zstatic);
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
-bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
 extern "C" bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, const char * prefix);
 extern "C" void rt_code_pool_check(void);
 void emit_gc_tables_register(const void *fn);

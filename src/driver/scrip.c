@@ -2392,7 +2392,8 @@ int main(int argc, char **argv) {
                 return 0;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
-            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+            extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
+            extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
             g_medium = BB_MEDIUM_TEXT;
             FILE * _out = stdout;
             if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } }
@@ -2486,7 +2487,7 @@ int main(int argc, char **argv) {
                         emit_sep_rule_c('-');
                         if (scrip_symmap()) emit_textf("  .type %s, @function\n", asm_fn_sym(pname));
                         g_emit.flat_bare_chain = _bare;
-                        emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx);
+                        emit_chain(bb_proc_entry(&s2->proc_table[_pi]) ? planner_chain_record(_bg, bb_proc_entry(&s2->proc_table[_pi]), _pfx) : (struct zeta_plan_t *)0, _out, _pfx);
                         g_emit.flat_bare_chain = 0;
                         if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname));
                     }
@@ -2686,7 +2687,7 @@ int main(int argc, char **argv) {
                 sn4_balias_fill(bbg, s2, _lbl_own, -1, 1);
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-');
-                rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
+                rc = emit_chain(bbg->entry ? planner_chain_record(bbg, bbg->entry, "main") : (struct zeta_plan_t *)0, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
                 {
                     extern int g_last_flat_frame_bytes;
@@ -2755,7 +2756,8 @@ int main(int argc, char **argv) {
         {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
-            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+            extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
+            extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
             extern int g_m4_dense_nid;
@@ -2854,13 +2856,14 @@ int main(int argc, char **argv) {
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) { extern void core_icn_startup_error_no_main(void); core_icn_startup_error_no_main(); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             if (!bbg->entry) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n"); abort(); }
-            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+            extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
+            extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             sn4_dentry_table_build(bbg, s2);
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
             sn4_balias_fill(bbg, s2, _lbl_own, -1, 0);
-            fn = emit_chain(bbg->entry, NULL, "pat_flat");
+            fn = emit_chain(bbg->entry ? planner_chain_record(bbg, bbg->entry, "pat_flat") : (struct zeta_plan_t *)0, NULL, "pat_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
             if (fn && icn_main_callable(s2, bbg)) {

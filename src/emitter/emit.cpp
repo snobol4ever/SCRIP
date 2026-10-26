@@ -3047,7 +3047,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
 }
 static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) { planner_dump_plan(g_emit_cfg, pl, prefix); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
+static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
     int _top_hoist = 0;
@@ -3108,7 +3108,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     nidx_reset();
-    zeta_plan_t * _pl = planner_chain_record(g_emit_cfg, entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
+    IR_t * entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
         flat_empty_body_succ = _pl->empty_succ;
     unsigned char * zd_on = _pl->on; int * zd_out = _pl->out; int * zd_gp = _pl->gp; int * zd_wp = _pl->wp; int * zd_arm = _pl->arm; int * zd_cps = _pl->cps; int * zd_cpd = _pl->cpd;
         int * zd_chn = _pl->chn;
@@ -4260,10 +4260,10 @@ static void emit_chain_prepare(IR_t * entry) {
     g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
-    if (!entry) return NULL;
-    emit_chain_prepare(entry);
-    if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end();
+bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
+    if (!rec || !rec->key) return NULL;
+    emit_chain_prepare(rec->key);
+    if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(rec, prefix); emitter_end();
         return rc == 0 ? (bb_box_fn)1 : NULL; }
     long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) { flat_cap = (long)g_emit_cfg->n * 2048L;
         if (flat_cap > 1024L * 1024L * 1024L) flat_cap = 1024L * 1024L * 1024L; }
@@ -4271,7 +4271,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!buf) return NULL;
     g_flat_node_id = 0;
     emitter_init_binary(buf, flat_cap);
-    codegen_flat_chain_body(entry, prefix);
+    codegen_flat_chain_body(rec, prefix);
     if (g_emit_chain_posthook) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
     int nbytes = emitter_end();
     if (g_emitter.bb_emit_overflow || nbytes <= 0 || nbytes > flat_cap) {
@@ -4296,7 +4296,7 @@ extern "C" bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, con
     extern int g_flat_frame_floor; planner_road_t rd; planner_road_none(&rd);
     rd.jmp_entry = g_emit.flat_jmp_entry; rd.pat = g_emit.flat_pat; rd.lex = g_emit.flat_lex; rd.gen = g_emit.flat_gen; rd.floor = g_flat_frame_floor;
     int staged = planner_stage_rt(g, entry, prefix, &rd);
-    bb_box_fn fn = emit_chain(entry, out, prefix);
+    bb_box_fn fn = emit_chain(planner_chain_record(g, entry, prefix), out, prefix);
     if (staged) planner_stage_release(entry);
     return fn;
 }
@@ -4348,9 +4348,10 @@ extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_ho
     char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
     IR_t * pent = pe->proc_entry_node ? pe->proc_entry_node : g->entry;
     if (!is_lbl && hk && hk->before) hk->before(hk->ctx, pi, pe->bb_idx);
-    if (getenv("SCRIP_PL_RTASM") && !is_lbl) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(pent, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname);
+    if (getenv("SCRIP_PL_RTASM") && !is_lbl) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(planner_chain_record(g, pent, pfx), stderr, pfx);
+        fprintf(stderr, "[RTASM] ---- end %s ----\n", pname);
         }
-    bb_box_fn pfn = is_lbl ? NULL : emit_chain(pent, NULL, pfx);
+    bb_box_fn pfn = is_lbl ? NULL : emit_chain(planner_chain_record(g, pent, pfx), NULL, pfx);
     if (pfn && hk && hk->after) hk->after(hk->ctx, pi, pe->bb_idx, (void *) pfn);
     emit_gc_tables_register((const void *) pfn);
     emit_proc_unprepare();
