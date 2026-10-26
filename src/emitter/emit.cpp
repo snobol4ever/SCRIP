@@ -716,7 +716,6 @@ extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes);
 int blob_frame_scope(void);
-static int blob_head_bytes(void);
 static int * xci_ints(cv_t * v, uint32_t n);
 static int rk_land_ngroups(const IR_t * nd) { const char * s = nd ? IR_LIT(nd).sval : (const char *)0; return s ? atoi(s) : 0; }
 static int64_t rk_blob_bounds(const char * blob) {
@@ -2405,8 +2404,11 @@ int blob_frame_scope(void);
 int sn4_alt_carrier(void);
 void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int sn4_blob_casmark(void) { return planner_blob_casmark(); }
-static int blob_head_bytes(void) { return planner_blob_head_bytes(); }
+int sn4_blob_casmark(void) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p;
+    if (!r) { fprintf(stderr, "FATAL sn4_blob_casmark: no published plan record to read the blob CAS-mark switch from (ceo CEO-1990)\n"); abort(); }
+    return r->casmark;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_defer_resume(void) {
      if (g_emitter.sn4_defer_resume__dres < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); g_emitter.sn4_defer_resume__dres = (e && *e == '0') ? 0 : 1; } return g_emitter.sn4_defer_resume__dres;
@@ -2472,15 +2474,6 @@ int blob_frame_bytes(void) { const zeta_plan_t * r = g_planner.g_zd_rec_p; retur
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
 extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
-static void blob_lay_push(int off, unsigned kind, int size) { CV_PUSH(g_emitter.g_blob_lay, uint64_t) = GC_LAY_Q(off, kind, size); }
-static void blob_layout_slot(const IR_t * m, int slot, int units, int cls) {
-    (void)m;
-    if (cls == ACT_CLASS_FENCE) { blob_lay_push(slot, GC_LAY_RAW, 16); blob_lay_push(slot + 16, GC_LAY_RAW, 16); return; }
-    if (cls == ACT_CLASS_ARBNO || cls == ACT_CLASS_CAPTURE) { blob_lay_push(slot, GC_LAY_RAW, 16); return; }
-    if (cls == ACT_CLASS_REGEX) { blob_lay_push(slot, GC_LAY_RAW, 16 * units); return; }
-    blob_lay_push(slot, GC_LAY_DESCR, 16);
-}
-static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
 int blob_cont_copy(void) { if (g_emitter.blob_cont_copy_v < 0) { const char * e = getenv("SCRIP_BLOB_CONT_COPY"); g_emitter.blob_cont_copy_v = (e && *e == '1') ? 1 : 0;
     } return g_emitter.blob_cont_copy_v; }
 static int blob_zf_gc_only(void) { if (g_emitter.blob_zf_gc_only_v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_GC_ONLY"), * d = getenv("SCRIP_DIAG");
@@ -2631,13 +2624,9 @@ static void blob_first_guard(void) {
     emit_label_define_bb(ok);
 }
 static int blob_layout_build(int bfb) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p;
     g_emitter.g_blob_lay.len = 0;
-    blob_lay_push(0, GC_LAY_RAW, 8); blob_lay_push(8, GC_LAY_PTR_CODE, 8); blob_lay_push(16, GC_LAY_PTR_CODE, 8);
-    blob_lay_push(-8, GC_LAY_PTR_CODE, 8); blob_lay_push(-16, GC_LAY_PTR_CODE, 8); blob_lay_push(-32, GC_LAY_DESCR, 16);
-    if (sn4_blob_casmark()) { blob_lay_push(-40, GC_LAY_RAW, 8); blob_lay_push(-48, GC_LAY_RAW, 8); } else blob_lay_push(-40, GC_LAY_RAW, 8);
-    planner_act_visit(blob_layout_slot);
-    blob_lay_push(-(blob_head_bytes() + planner_blob_slot_bytes()), GC_LAY_RAW, 8);
-    qsort(g_emitter.g_blob_lay.p, (size_t)g_emitter.g_blob_lay.len, sizeof(uint64_t), blob_lay_cmp);
+    for (size_t i = 0; r && i < r->v_blob_lay.size(); i++) CV_PUSH(g_emitter.g_blob_lay, uint64_t) = r->v_blob_lay[i];
     { int expect = -bfb; for (int i = 0; i < (int)g_emitter.g_blob_lay.len; i++) { int o = GC_LAY_OFF(CV_AT(g_emitter.g_blob_lay, uint64_t, i));
         if (o != expect)
         { fprintf(stderr,

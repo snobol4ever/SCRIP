@@ -92,6 +92,27 @@ static int pf_display_off(int lvl, const char * owner_proc) {
     char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", lvl);
     return stage2_owner_varslot(l3proc, nm);
 }
+static int pf_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
+static void pf_blob_layout(zeta_plan_t * rec) {
+    std::vector<uint64_t> & v = rec->v_blob_lay;
+    v.clear();
+    if (rec->blob_bytes <= 0) return;
+    auto push = [&](int off, unsigned kind, int size) { v.push_back(GC_LAY_Q(off, kind, size)); };
+    push(0, GC_LAY_RAW, 8); push(8, GC_LAY_PTR_CODE, 8); push(16, GC_LAY_PTR_CODE, 8); push(-8, GC_LAY_PTR_CODE, 8); push(-16, GC_LAY_PTR_CODE, 8); push(-32, GC_LAY_DESCR, 16);
+    if (rec->casmark) { push(-40, GC_LAY_RAW, 8); push(-48, GC_LAY_RAW, 8); } else push(-40, GC_LAY_RAW, 8);
+    const IR_graph_t * ag = g_planner.g_act_g;
+    if (ag && g_planner.g_act_all == ag->all)
+        for (int j = 0; j < ag->n; j++) {
+            int units = g_planner.g_act_units[(size_t)j], slot = g_planner.g_act_slot[(size_t)j], cls = g_planner.g_act_cls[(size_t)j];
+            if (units <= 0 || slot == -1) continue;
+            if (cls == ACT_CLASS_FENCE) { push(slot, GC_LAY_RAW, 16); push(slot + 16, GC_LAY_RAW, 16); }
+            else if (cls == ACT_CLASS_ARBNO || cls == ACT_CLASS_CAPTURE) push(slot, GC_LAY_RAW, 16);
+            else if (cls == ACT_CLASS_REGEX) push(slot, GC_LAY_RAW, 16 * units);
+            else push(slot, GC_LAY_DESCR, 16);
+        }
+    push(-(planner_blob_head_bytes() + planner_blob_slot_bytes()), GC_LAY_RAW, 8);
+    qsort(v.data(), v.size(), sizeof(uint64_t), pf_lay_cmp);
+}
 static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
     IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
@@ -392,6 +413,7 @@ void planner_blob_facts(zeta_plan_t * rec) {
         bytes = (sb == 0 && !pend && !pf_blob_wire_clobber_scan(g) && planner_blob_exit_live(g) >= 0) ? 0 : planner_blob_head_bytes() + sb;
     }
     rec->blob_bytes = bytes; rec->spf = (bytes <= 0 && rec->scope) ? 1 : 0; rec->sph = 0; rec->spgd = 0;
+    rec->casmark = planner_blob_casmark(); pf_blob_layout(rec);
     if (rec->spf) {
         int need = planner_blob_casmark(); for (int q = 0; q < n; q++) if (pf_blob_patv_reader(nodes[q])) need = 1;
         rec->sph = need ? (planner_blob_casmark() ? 32 : 16) : 0; rec->spgd = -1;

@@ -45,7 +45,7 @@ struct zeta_plan_t {
     IR_t * key;
     int own_root;
     int zdp_on;
-    int blob_bytes, spf, sph, spgd;
+    int blob_bytes, spf, sph, spgd, casmark;
     int empty_fail;
     int empty_succ;
     IR_t ** nodes_own;
@@ -85,6 +85,7 @@ struct zeta_plan_t {
     std::vector<int> v_gate;
     std::vector<unsigned char> v_lspine;
     std::vector<int> v_rel;
+    std::vector<uint64_t> v_blob_lay;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);
