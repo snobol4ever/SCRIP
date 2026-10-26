@@ -36,6 +36,16 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.frame_bytes = zls_g_frame_bytes(g);
     g->pf.fp_total = zls_g_fp_total(g);
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
+    {
+        extern int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
+        int cap = 64, gaps = 0, conf = 0, n;
+        uint64_t * q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t));
+        while ((n = zls_g_layout_q(g, q, cap, &gaps, &conf)) > cap) { cap *= 2; q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t)); }
+        g->pf.lay = q;
+        g->pf.lay_n = n;
+        g->pf.lay_gaps = gaps;
+        g->pf.lay_conf = conf;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_stage_graph(IR_graph_t * g) {

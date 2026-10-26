@@ -305,6 +305,10 @@ struct IR_graph_t {
         int frame_bytes;
         int fp_total;
         int zframe;
+        uint64_t * lay;
+        int lay_n;
+        int lay_gaps;
+        int lay_conf;
     } pf;
 };
 static inline int ir_graph_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }

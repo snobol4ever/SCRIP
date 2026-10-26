@@ -203,8 +203,6 @@ struct g_emitter_t {
     cv_t g_fbm_bit;
     int g_fbm_n = 0;
     int emit_fb_stmt_scan_fbdbg = -1;
-    int emit_stmt_frame_scan__sd = -1;
-    int emit_stmt_frame_scan__c2c = -1;
     int emit_chain_fbdbg2 = -1;
     std::string g_text_acc;
     FILE * g_emit_sink = NULL;

@@ -757,7 +757,6 @@ static int fence0_dyn_floor(const IR_t * nd) {
     return blob_carve_bytes();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
@@ -3039,12 +3038,11 @@ static void emit_gc_map_data(const char * fam) {
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_emitter.g_zls_lay_gaps = 0; g_emitter.g_zls_lay_conf = 0;
     if (g_emitter.g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_emitter.g_blob_lay.p; lay_n = (int)g_emitter.g_blob_lay.len; }
     else if (g_emit_cfg) { int gaps = 0, conf = 0;
-        if (g_emitter.g_zls_lay_v.cap < 32770) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), 32770, "g_zls_lay");
-        int n = zls_g_layout_q(g_emit_cfg, (uint64_t *)g_emitter.g_zls_lay_v.p, (int)g_emitter.g_zls_lay_v.cap - 2, &gaps, &conf);
-        while (n > (int)g_emitter.g_zls_lay_v.cap - 2) { cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)g_emitter.g_zls_lay_v.cap * 2, "g_zls_lay");
-            n = zls_g_layout_q(g_emit_cfg, (uint64_t *)g_emitter.g_zls_lay_v.p, (int)g_emitter.g_zls_lay_v.cap - 2, &gaps, &conf); }
+        int n = g_emit_cfg->pf.lay_n; gaps = g_emit_cfg->pf.lay_gaps; conf = g_emit_cfg->pf.lay_conf;
+        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 2) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 2), "g_zls_lay");
+        for (int k = 0; k < n; k++) ((uint64_t *)g_emitter.g_zls_lay_v.p)[k] = g_emit_cfg->pf.lay[k];
         uint64_t * g_zls_lay = (uint64_t *)g_emitter.g_zls_lay_v.p;
-        if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_value_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
+        if (n >= 0 && g_emit_cfg->root_graph) { int rg = g_emit_cfg->pf.value_region, nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
             if (rg < 0 || clo < rg || nc < 0)
                 { fprintf(stderr,
                 "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d value_bytes=%d -- the standing cells must lie between the value region and the reserved cell (gc_frame_map.h"
@@ -4330,38 +4328,6 @@ static int emit_fb_stmt_scan(IR_graph_t * g) {
         fprintf(stderr, "[FB-STMT] refine=1 n=%d rsp_nodes=%d\n", g_emitter.g_fbm_n, z); }
     return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int emit_stmt_frame_scan(IR_graph_t * g, IR_t * entry) {
-    if (!g || !entry || g->n <= 0 || g->n > 8192) return 0;
-     if (g_emitter.emit_stmt_frame_scan__sd < 0) { const char * e = getenv("SCRIP_STF_DEBUG"); g_emitter.emit_stmt_frame_scan__sd = (e && *e == '1') ? 1 : 0; }
-    enum { STF_MAX = 8192 };
-    IR_t ** q = (IR_t **)alloca(sizeof(IR_t *) * STF_MAX); IR_t ** seen = (IR_t **)alloca(sizeof(IR_t *) * STF_MAX); int qh = 0, qt = 0, sn = 0;
-    q[qt++] = entry;
-    while (qh < qt) { IR_t * c = q[qh++];
-        if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue;
-        { int dup = 0; for (int i = 0; i < sn; i++) if (seen[i] == c) { dup = 1; break; } if (dup) continue; }
-        if (sn >= STF_MAX || qt >= STF_MAX - 2) { if (g_emitter.emit_stmt_frame_scan__sd) fprintf(stderr, "[STF] reject overflow sn=%d qt=%d\n", sn, qt); return 0; }
-        seen[sn++] = c;
-        if ((c->γ.node && c->γ.node == entry) || (c->ω.node && c->ω.node == entry)) { if (g_emitter.emit_stmt_frame_scan__sd)
-            fprintf(stderr, "[STF] reject BACKWARD EDGE TO FIRST HEAD sn=%d\n", sn); return 0; }
-        switch (c->op) { case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_ATOM: case IR_ASSIGN: break;
-            case IR_VAR: case IR_BINOP: if (c->ω.node) q[qt++] = c->ω.node; break;
-            default: if (c->ω.node) q[qt++] = c->ω.node; break; }
-        { extern int fc_geom(const IR_t *, long *); long _fk = 0; int _fc = fc_geom(c, &_fk); if (g_emitter.emit_stmt_frame_scan__sd) { extern const char * bb_op_name(IR_e);
-            fprintf(stderr, "[STF] node %s fc=%d k=%ld\n", bb_op_name(c->op), _fc, _fk); }
-           if (g_emitter.emit_stmt_frame_scan__c2c < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_emitter.emit_stmt_frame_scan__c2c = (e2 && *e2 == '1') ? 1 : 0; }
-          int _callfam =
-              (g_emitter.emit_stmt_frame_scan__c2c && (ir_kind0(c) == IR_CALL || ir_kind0(c) == IR_CALL_PROC_STAGED || (c->op == IR_DEFINE && ir_define_sr_citizen(c)) || c->op == IR_GOTO_DEFERRED)) ?
-              1 : 0;
-          { extern int fc_vread_fp(const IR_t *); if (!_fc && c->op == IR_MATCH_BEGIN && fc_vread_fp(c) >= 0) _fc = 1;
-            if (!_fc && c->op == IR_MATCH_END && c->n_operands > 0 && c->operands[0] && fc_vread_fp(c->operands[0]) >= 0) _fc = 1;
-            if (!_fc && c->op == IR_MATCH_LIT) _fc = 1; }
-          int _stfwire = (c->op == IR_GOTO || c->op == IR_STATEMENT_BEGIN || c->op == IR_STATEMENT_END) ? 1 : 0;
-          if (!_fc && !(c->op == IR_BINOP || c->op == IR_ASSIGN || _stfwire || _callfam)) { if (g_emitter.emit_stmt_frame_scan__sd) { extern const char * bb_op_name(IR_e);
-              fprintf(stderr, "[STF] reject UNREGISTERED %s sn=%d\n", bb_op_name(c->op), sn); } return 0; } }
-        if (c->γ.node) q[qt++] = c->γ.node; }
-    if (g_emitter.emit_stmt_frame_scan__sd) fprintf(stderr, "[STF] ADMIT reachable=%d (g->n=%d)\n", sn, g->n);
-    return sn > 0 ? 1 : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_graph_zstatic(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE)) return 0;
     } return 1; }
 static int emit_graph_uniform(IR_graph_t *g) { if (!emit_graph_zstatic(g)) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && c->op == IR_MATCH_ARBNO) return 0; } return 1; }
@@ -4610,7 +4576,6 @@ int sn4_descr_stamp(void) { if (g_emitter.sn4_descr_stamp_on < 0) { const char *
     } return g_emitter.sn4_descr_stamp_on; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_u2_fence(void) { if (g_emitter.sn4_u2_fence_v < 0) { const char * e = getenv("SCRIP_U2_FENCE"); g_emitter.sn4_u2_fence_v = (e && e[0] == '0') ? 0 : 1; } return g_emitter.sn4_u2_fence_v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_nret_cap(void) { if (g_emitter.sn4_nret_cap_v < 0) { const char * e = getenv("SCRIP_NRET_CAP"); g_emitter.sn4_nret_cap_v = e ? (e[0] != '0') : 1; } return g_emitter.sn4_nret_cap_v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
