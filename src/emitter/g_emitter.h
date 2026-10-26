@@ -25,7 +25,6 @@
 #include "planner/g_planner.h"
 struct bb_ab_thunk_stems_t { std::unordered_map<std::string, std::string> stem; std::unordered_set<std::string> stems; int np; int nx; std::string fn; };
 typedef struct { int32_t line; int32_t _r; const char * file; } sno_stno_src_t;
-typedef struct { IR_t * key; int val; } nid_slot_t;
 typedef struct { const char *s; int idx; } strtab_ent_t;
 typedef struct { const char *s; int idx; unsigned char *tbl; unsigned char *bits; } csettab_ent_t;
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
@@ -67,8 +66,6 @@ struct g_emitter_t {
     int seq_fold_on_on = -1;
     int bb_emit_overflow = 0;
     int bb_label_define_bm = -1;
-    cv_t g_nid;
-    int g_nid_count = 0;
     cv_t g_strtab;
     int g_strtab_n = 0;
     cv_t xa_emit_strtab_rodata_chars, xa_emit_strtab_rodata_labels, xa_emit_strtab_rodata_escaped;
@@ -104,11 +101,6 @@ struct g_emitter_t {
     int bb_classify_node__cd = -1;
     cv_t g_bnr_vnode, g_bnr_vname;
     uint32_t g_bnr_gen = 0, g_bnr_nn = 0, g_bnr_nm = 0;
-    IR_t **g_nidx_nodes = 0;
-    int g_nidx_n = 0;
-    IR_t **g_nidx_keys = 0;
-    int *g_nidx_vals = 0;
-    size_t g_nidx_cap = 0;
     int g_zprobe_depth = 0;
     int walk_bb_node__zp = -1;
     int emit_sep_on__sep = -1;

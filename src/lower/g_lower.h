@@ -192,6 +192,13 @@ typedef struct {
     const char * zw_carve_k_bs;
     int bb_print_v_xd2;
     int zdp_mode_m;
+    cv_t nid;
+    int nid_count;
+    IR_t ** nidx_nodes;
+    int nidx_n;
+    IR_t ** nidx_keys;
+    int * nidx_vals;
+    size_t nidx_cap;
     int x86_zdp_on_c_v;
     int zzone_on_v;
     int zdp_cap_seamtier_v;

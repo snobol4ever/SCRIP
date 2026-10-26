@@ -11,6 +11,7 @@ extern "C" int prolog_functor_arity(int);
 #include "gc_frame_map.h"
 #include "dtp.h"
 #include "ir_index.h"
+#include "ir_node_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
 #include <unordered_set>

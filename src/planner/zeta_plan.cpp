@@ -2,8 +2,6 @@
 #include "../emitter/emit_decls.h"
 #include "planner.h"
 g_planner_t g_planner;
-void nidx_build(IR_t **nodes, int n);
-int nidx(IR_t **nodes, int n, const IR_t *e);
 int zst_coord(const char * name);
 int zst_s_of(const IR_t * nd);
 IR_t * zd_chase(IR_t * t);

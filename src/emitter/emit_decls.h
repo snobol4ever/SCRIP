@@ -28,7 +28,6 @@ extern int Σlen;
 #define FLAT_DATA_TEXT ((char *)g_flat_data_buf.p)
 #define FILL(nd,s,f,b) do { bb_fill_alpha(nd); g_emit.lbl_γ=(s)->name; g_emit.lbl_ω=(f)->name; g_emit.lbl_β=(b)->name; g_emit.lbl_γ_p=(s); g_emit.lbl_ω_p=(f); g_emit.lbl_β_p=(b); walk_bb_node( \
     (nd), emit_outf()); } while(0)
-inline int nidx(IR_t **nodes, int n, const IR_t *e);
 extern "C" int zls_dj_arm_resumes(const IR_t * nd, int a);
 extern "C" int zls_dj_retains(const IR_t * nd);
 extern "C" int zls_home_local_why(const IR_t * nd);
