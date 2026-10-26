@@ -4703,7 +4703,7 @@ DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t 
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
-DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int);
+DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int); DESCR_t pas_arr_make(DESCR_t *, int);
 DESCR_t pas_elem_ref(DESCR_t *, int); DESCR_t pas_ref_val(DESCR_t *, int);
 DESCR_t pas_view_make(DESCR_t *, int);
 DESCR_t rt_quit_trap_300(DESCR_t *, int); DESCR_t rt_quit_trap_320(DESCR_t *, int);
@@ -4976,6 +4976,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },
         { "$pl_cs_count", 1, "rt_pl_dop_pl_cs_count", rt_pl_dop_pl_cs_count }, { "$pl_cs_nth", 4, "rt_pl_dop_pl_cs_nth", rt_pl_dop_pl_cs_nth },
         { "arr_get", 2, "pas_arr_get", pas_arr_get }, { "arr_set_pure", 3, "pas_arr_set", pas_arr_set },
+        { "arr_make", 1, "pas_arr_make", pas_arr_make }, { "arr_make", 2, "pas_arr_make", pas_arr_make },
         { "__pas_elem_ref", 3, "pas_elem_ref", pas_elem_ref }, { "__pas_ref_val", 1, "pas_ref_val", pas_ref_val },
         { "__pas_view", 4, "pas_view_make", pas_view_make },
         { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
