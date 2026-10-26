@@ -949,6 +949,22 @@ static int zst_dj_reads(const IR_t * nd, const char * vn) {
     return 0;
 }
 static int zst_isparam(const IR_graph_t * g, const char * vn) { for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], vn)) return 1; return 0; }
+extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
+    int n = cg ? cg->n : 0; IR_t ** nodes = cg ? cg->all : (IR_t **)0;
+    if (n > 0) memset(ind, 0, (size_t)n);
+    if (!cg || n <= 0 || !planner_resumable_frame(cg)) return;
+    for (int i = 0; i < n; i++) if (!nodes[i]) return;
+    std::vector<int> wl;
+    for (int i = 0; i < n; i++) if (zd_edge_retains_g(cg, nodes[i])) { int q = zst_edge(nodes, n, i, 0);
+        for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { cur = q; q = zst_edge(nodes, n, q, 0); }
+        if (q >= 0 && q != i && !ind[q]) { ind[q] = 1; if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
+    while (!wl.empty()) { int v = wl.back(); wl.pop_back();
+        for (int e = 0; e < zd_pl_edges(nodes[v]); e++) { if (e == 1 || (e >= 2 && nodes[v]->op != IR_DISJUNCTION)) continue;
+            int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || ind[w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
+            int ub = (nodes[w]->op == IR_UNMARK && zd_pl_rest_ival(cg, nodes[w]) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
+            if (ub >= 0 && !ind[ub]) continue;
+            ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } }
+}
 static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == 8 || lw == PR_RETAINING_TARGET; }
 static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
     g_planner.zst_nodes = nodes; g_planner.zst_n = n; g_planner.g_zd_cur = -1; g_planner.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_planner.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
@@ -1912,6 +1928,12 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
                 rd[j].dist = planner_read_distance(cg, nodes, n, zarm, i, k, zout, rec->xb);
+                if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && rec->claim && zon[k] && rec->claim[i] != rec->claim[k] && rec->xb[k] != INT_MIN && rec->xb[i] == INT_MIN) { int fok = 0;
+                    zd_fam_delta(i, k, &fok); if (!fok) rd[j].xf = -(rec->xb[k] + zout[k]); }
+                if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && rec->claim && zon[k] && rec->claim[i] != rec->claim[k] && (rec->xb[k] == INT_MIN || rec->xb[i] == INT_MIN) &&
+                    zd_k_own_g(cg, p) >= 16 && !zd_local_home_node(cg, p) && getenv("SCRIP_PL_ALIAS_DIAG")) { int fok = 0; zd_fam_delta(i, k, &fok);
+                    if (!fok) fprintf(stderr, "[PL-ALIAS-MISS] graph=%s i=%d %s reads k=%d %s: no rsp distance, no alias, no frame home\n", zls_graph_name_get(cg), i, bb_op_name(nd->op), k,
+                        bb_op_name(p->op)); }
                 if (g_planner.zd_check__on > 0 && rec->xb && rec->claim && rec->claim[i] != rec->claim[k] && (rec->xb[i] == INT_MIN || rec->xb[k] == INT_MIN) && planner_frame_slot(g, p) == -1 &&
                     (zd_k_own_g(cg, p) >= 16 || zd_local_home_node(cg, p)) && !zd_run_alpha_dead(cg, nodes, n, rec->claim, rec->claim[i])) { int fok = 0; zd_fam_delta(i, k, &fok);
                     if (!fok) fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i, bb_op_name(nd->op), k, bb_op_name(p->op)); }

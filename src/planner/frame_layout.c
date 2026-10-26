@@ -14,6 +14,7 @@ extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 extern int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
+extern void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
@@ -2172,6 +2173,9 @@ void zls_home_pass(const IR_graph_t * g) {
         tw[i] = 0;
     }
     unsigned int stamp = 0;
+    unsigned char pind[n > 0 ? n : 1];
+    int plh = g->home_frame && zls_g_resumable_frame(g);
+    if (plh) planner_pl_indef0(g, pind);
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
         if (!cx) continue;
@@ -2182,6 +2186,7 @@ void zls_home_pass(const IR_graph_t * g) {
             for (int cg = 0; g->home_frame && po && po->op == IR_CONJUNCTION && po->n_operands > 0 && cg < 16; cg++) po = po->operands[0];
             int p = po ? zls_reuse_index(&nx, po) : -1;
             if (p < 0 || fcn_find(g->all[p], FCN_HOME) || (cx->op == IR_DISJUNCTION && g->cell_frame && !dy[p])) continue;
+            if (plh && !pind[p] && !dy[p] && ir_node_produces_value(g->all[p]->op)) continue;
             int top = 0, hit = 0;
             stamp++;
             if (sg[p] >= 0 && sg[p] != p) { st[top] = sg[p]; sd[top] = dy[p] ? 1 : 0; sw[top] = dy[p]; seen[2 * sg[p] + sd[top]] = stamp; top++; }
