@@ -6,6 +6,41 @@
 #include <stdlib.h>
 #include <stdio.h>
 stage2_t g_stage2;
+static unsigned bb_proc_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
+static void bb_proc_index_build(stage2_t *s) {
+    int cap = 16, nul = 0;
+    while (cap < 2 * s->proc_count + 2) cap <<= 1;
+    ct_drop(s->proc_ix);
+    s->proc_ix = (int *)ct_alloc((size_t)cap * sizeof(int));
+    for (int k = 0; k < cap; k++) s->proc_ix[k] = -1;
+    s->proc_ix_mask = (unsigned)(cap - 1);
+    for (int i = 0; i < s->proc_count; i++) {
+        const char *nm = s->proc_table[i].name;
+        unsigned h;
+        if (!nm) { nul++; continue; }
+        h = bb_proc_hash(nm) & s->proc_ix_mask;
+        while (s->proc_ix[h] >= 0 && strcmp(s->proc_table[s->proc_ix[h]].name, nm)) h = (h + 1) & s->proc_ix_mask;
+        if (s->proc_ix[h] < 0) s->proc_ix[h] = i;
+    }
+    s->proc_ix_n = s->proc_count;
+    s->proc_ix_tbl = s->proc_table;
+    s->proc_ix_nul = nul;
+}
+int bb_proc_find(const char * fname) {
+    stage2_t *s = &g_stage2;
+    if (!fname || s->proc_count <= 0) return -1;
+    for (int pass = 0; pass < 2; pass++) {
+        int i = -1;
+        unsigned h;
+        if (pass || !s->proc_ix || s->proc_ix_n != s->proc_count || s->proc_ix_tbl != s->proc_table) bb_proc_index_build(s);
+        h = bb_proc_hash(fname) & s->proc_ix_mask;
+        while (s->proc_ix[h] >= 0) { if (!strcmp(s->proc_table[s->proc_ix[h]].name, fname)) { i = s->proc_ix[h]; break; } h = (h + 1) & s->proc_ix_mask; }
+        if (i >= 0 ? (s->proc_table[i].name && !strcmp(s->proc_table[i].name, fname)) : !s->proc_ix_nul) return i;
+    }
+    for (int i = 0; i < s->proc_count; i++) if (s->proc_table[i].name && !strcmp(s->proc_table[i].name, fname)) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * n2_graph_by_proc_name(const char *name) {
     if (!name) return NULL;

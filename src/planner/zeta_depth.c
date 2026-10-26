@@ -11,6 +11,8 @@ typedef struct { const IR_t * key; int ina, inb, ret, wy, src, ztier, zoff; } zd
 #define ZE(s) CV_AT(g_lower.ir.zdp_ent, zdp_ent_t, (s))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zdp_mode(void) { if (g_lower.ir.zdp_mode_m < 0) { const char * e = getenv("SCRIP_ZDP"); g_lower.ir.zdp_mode_m = (e && *e && *e != '0') ? atoi(e) : 0; } return g_lower.ir.zdp_mode_m; }
+int x86_zdp_on_c(void) { if (g_lower.ir.x86_zdp_on_c_v < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); g_lower.ir.x86_zdp_on_c_v = (e && *e == '1') ? 1 : 0; } return g_lower.ir.x86_zdp_on_c_v; }
+int zzone_on_c(void) { if (g_lower.ir.zzone_on_v < 0) { const char * e = getenv("SCRIP_ZONE"); g_lower.ir.zzone_on_v = (e && *e == '1') ? 1 : 0; } return g_lower.ir.zzone_on_v; }
 static unsigned zdp_h(const IR_t * p) { unsigned long long v = (unsigned long long)(size_t)p; v ^= v >> 33; v *= 0xff51afd7ed558ccdULL; v ^= v >> 33; return (unsigned)v; }
 static void zdp_index_put(uint32_t i) {
     unsigned m = g_lower.ir.zdp_idx.cap - 1;

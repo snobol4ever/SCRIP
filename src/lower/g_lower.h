@@ -192,6 +192,8 @@ typedef struct {
     const char * zw_carve_k_bs;
     int bb_print_v_xd2;
     int zdp_mode_m;
+    int x86_zdp_on_c_v;
+    int zzone_on_v;
     int zdp_cap_seamtier_v;
     int zdp_atp_seamtier_v;
     int zdp_bomb_census_bm;
@@ -269,7 +271,7 @@ typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_ic
     sno_patsalt_on_v = -1, .sno_patname_salt_on_v = -1, .sno_lower_match_preord = -1, .sno_expr_thunks_build_xd = -1 }, .pas = { .proc_list = { NULL, 0, 0, (int) sizeof(const tree_t *) }, . \
     proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) } }, .opt = { .bc_mon_m = -1, .dg_mon_m = -1, .cf_spine_on_s = -1 } , .ir = { .zls_slot_census_on = -1, .zls_build_dbg = -1, . \
     zls_build_dbg2 = -1, .zls_build_dbg3 = -1, .zls_build_subj_on = -1, .zls_build_dyn_on = -1, .zls_build_dbg4 = -1, .zls_build_dbg5 = -1, .zls_build_eon = -1, .zc_nofc_v = -1, .fc_geom_ac = -1, . \
-    fc_reg_hw_e = (const char *) 1, .zw_carve_k_ba = -1, .zw_carve_k_all = -1, .bb_print_v_xd2 = -1, .zdp_mode_m = -1, .zdp_cap_seamtier_v = -1, .zdp_atp_seamtier_v = -1, . zdp_bomb_census_bm = -1, \
-    .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0, .ct_poison = -1 }, .rk = { 0 } }
+    fc_reg_hw_e = (const char *) 1, .zw_carve_k_ba = -1, .zw_carve_k_all = -1, .bb_print_v_xd2 = -1, .zdp_mode_m = -1, .x86_zdp_on_c_v = -1, .zzone_on_v = -1, .zdp_cap_seamtier_v = -1, . \
+    zdp_atp_seamtier_v = -1, . zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0, .ct_poison = -1 }, .rk = { 0 } }
 extern g_lower_t g_lower;
 #endif

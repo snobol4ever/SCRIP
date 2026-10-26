@@ -1204,7 +1204,6 @@ inline const char * XSAQ(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -
 inline const char * XSAD(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
 inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) :
     ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
-inline int zzone_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZONE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * LFC(int d) { return FR(_.x86_scratch_off + d); }
 inline const char * LFCQ(int d) { return FRQ(_.x86_scratch_off + d); }

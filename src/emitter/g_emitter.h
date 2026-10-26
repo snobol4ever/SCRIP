@@ -221,7 +221,6 @@ struct g_emitter_t {
     int sn4_define_fold__df = -1;
     int sn4_descr_stamp_on = -1;
     int sn4_u2_fence_v = -1;
-    int x86_zdp_on_c_v = -1;
     int sn4_nret_cap_v = -1;
     int sn4_cap_gva_v = -1;
     int sn4_opt_binimm_off_v = -1;

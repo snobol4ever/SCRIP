@@ -98,6 +98,7 @@ extern "C" {
 void emit_register_proc(stage2_t *s2, int pi);
 void emit_proc_props(stage2_t *s2, int pi);
 void *emit_install_proc(stage2_t *s2, int pi, const emit_install_hooks_t *hooks);
+int bb_proc_find(const char * fname);
 #ifdef __cplusplus
 }
 #endif

@@ -336,6 +336,18 @@ static void zrm_build(IR_t ** nodes, const int * run, int rl) {
 }
 static int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_planner.g_zrm_gen ? t->maxk : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int bb_proc_target_retains(const char *fname) {
+    if (!fname) return 0;
+    {
+        int i = bb_proc_find(fname);
+        if (i >= 0) {
+            int bi = g_stage2.proc_table[i].bb_idx;
+            IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
+            return (!cg || zls_g_resumable_frame(cg)) ? 1 : 0;
+        }
+    }
+    return 1;
+}
 static int planner_fence0_whack_on() { if (g_planner.fence0_whack_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_WHACK"); g_planner.fence0_whack_on_v = (e && *e == '0') ? 0 : 1;
     } return g_planner.fence0_whack_on_v; }
 int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd) {
