@@ -186,7 +186,6 @@ struct g_emitter_t {
     int codegen_flat_chain_body__gluo = -1;
     int codegen_flat_chain_body__gluod = -1;
     int codegen_flat_chain_body__diag_chain_seq = 0;
-    int codegen_flat_chain_body__uwl = -1;
     int codegen_flat_chain_body__sz = -1;
     int codegen_flat_chain_body__beo = -1;
     int codegen_flat_chain_body__dd = -1;

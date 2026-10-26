@@ -129,6 +129,62 @@ static void pf_gate(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gra
         rec->v_gate.push_back(V);
     }
 }
+static int pf_beta_kind_keeps(const IR_graph_t * g, IR_t * nd) { int op = nd ? (int)ir_kind0(nd) : -1;
+    return (nd &&
+        (ir_is_generator_kind(ir_kind0(nd)) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT ||
+        op == IR_GOTO || op == IR_STATEMENT_BEGIN || (g && nd == g->body_root))) ? 1 : 0; }
+static int pf_scan_body_beta_keeps(const IR_graph_t * g, IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (pf_beta_kind_keeps(g, nd) || op == IR_SCAN_TAB || op == IR_SCAN_MOVE)) ? 1 : 0; }
+static int pf_scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
+    for (int j = 0; j < n; j++) { IR_t * s = nodes[j]; if (!s || s->op != IR_SUSPEND || s->seal != 1 || s->n_operands < 2) continue;
+        IR_t * x = s->operands[1]; int h = 0;
+        while (x && x->op == IR_SCAN && x->n_operands > 2 && !x->operands[1] && x->operands[2] && x->operands[2]->op == IR_SCAN && x->operands[2]->n_operands > 2 && !x->operands[2]->operands[1] &&
+            h++ < 64) x = x->operands[2];
+        if (x == c) return 1; }
+    return 0;
+}
+static void pf_beta_used(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g, unsigned char * used) {
+    for (int j = 0; j < n; j++) if (rec->zn[j].fcsa) { for (int k = 0; k < n; k++) used[k] = 1; return; }
+    for (int k = 0; k < n; k++) used[k] = pf_beta_kind_keeps(g, nodes[k]);
+    for (int j = 0; j < n; j++) {
+        int op = (int)nodes[j]->op;
+        if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARBNO || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION || op == IR_REPALT)
+            for (int a = 0; a < nodes[j]->n_operands; a++) { int k = nidx(nodes, n, nodes[j]->operands[a]); if (k >= 0) used[k] = 1; }
+        if (op == IR_SCAN && nodes[j]->n_operands > 2 && nodes[j]->operands[2]) { int k = nidx(nodes, n, nodes[j]->operands[2]); if (k >= 0) used[k] = 1; }
+        if (op == IR_GATE_ARM && nodes[j]->n_operands > 0 && nodes[j]->operands[0] && (int)nodes[j]->seal) { int k = nidx(nodes, n, nodes[j]->operands[0]); if (k >= 0) used[k] = 1; }
+        int gib = port_sz_beta(nodes[j]->γ.sz), oib = port_sz_beta(nodes[j]->ω.sz); IR_t * gtgt = nodes[j]->γ.node, * otgt = nodes[j]->ω.node;
+        { int gg = 0; IR_t * g2 = gtgt; while (g2 && g2->op == IR_GOTO && gg++ < 128) { if (!gib) gib = port_sz_beta(g2->γ.sz); gtgt = g2->γ.node; g2 = gtgt; } }
+        { int gg = 0; IR_t * o2 = otgt; while (o2 && o2->op == IR_GOTO && gg++ < 128) { if (!oib) oib = port_sz_beta(o2->γ.sz); otgt = o2->γ.node; o2 = otgt; } }
+        if (gib) { int k = nidx(nodes, n, gtgt); if (k >= 0) used[k] = 1; }
+        if (oib) { int k = nidx(nodes, n, otgt); if (k >= 0) used[k] = 1; }
+    }
+}
+static int pf_alpha_shared(const IR_graph_t * g, IR_t * nd) {
+    if (g && g->n_balias > 0) for (int b = 0; b < g->n_balias; b++) if (g->balias_node[b] == nd) return 0;
+    return ir_floater_kind(nd) ? 1 : 0;
+}
+static void pf_scan_t0(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, const unsigned char * bu) {
+    znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; z->sbk = -1; z->sbb = 0; z->sbp = 0;
+    if (nd->op != IR_SCAN) return;
+    IR_t * bv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; int body = -1, bbeta = 0;
+    if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) { int k = nidx(nodes, n, bv); if (k >= 0) { body = k; bbeta = 1; } }
+    if (body < 0 && nd->n_operands > 2) { IR_t * bb2 = nd->operands[2]; int fk = -1;
+        { int gb = 0, gg = 0; IR_t * g2 = bb2; while (g2 && g2->op == IR_GOTO && gg++ < 128) { gb |= port_sz_beta(g2->γ.sz); g2 = g2->γ.node; }
+          int gk = (bb2 && bb2->op == IR_GOTO && gb && g2) ? nidx(nodes, n, g2) : -1; if (gk >= 0) { body = gk; bbeta = 1; fk = gk; } }
+        for (int hops = 0; bb2 && fk < 0 && hops < 8; hops++) {
+            int conduit = (IR_LIT(nd).dval == 3.0 || IR_LIT(nd).dval == 4.0) ? 1 : 0, k = nidx(nodes, n, bb2);
+            if (k >= 0) { fk = k; body = k;
+                bbeta = (!(hops == 0 && !bv && pf_scan_conduit_enters_a_do_clause(nodes, n, nd)) && (pf_scan_body_beta_keeps(g, nodes[k]) || (!conduit && bv && bu[k]))) ? 1 : 0; }
+            if (fk < 0) bb2 = bb2->γ.node;
+        } }
+    int tk = -1, ta = 0;
+    if (body >= 0 && bbeta) tk = body;
+    if (body >= 0 && !bbeta) { tk = body;
+        if (pf_alpha_shared(g, nodes[body])) for (int k = 0; k < n; k++) if (pf_alpha_shared(g, nodes[k]) && ir_floater_kind(nodes[k]) == ir_floater_kind(nodes[body])) { tk = k; break; }
+        ta = rec->zn[tk].k; }
+    z->sbk = body; z->sbb = bbeta;
+    if (tk >= 0 && rec->xb && rec->on[i] && rec->on[tk] && rec->xb[i] != INT_MIN && rec->xb[tk] != INT_MIN) z->sbp = (rec->xb[i] + rec->out[i]) - (rec->xb[tk] + rec->out[tk] - ta);
+    else if (tk >= 0 && rec->on[i] && rec->on[tk] && rec->claim[i] >= 0 && rec->claim[i] == rec->claim[tk]) z->sbp = rec->out[i] - (rec->out[tk] - ta);
+}
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     rec->v_lspine.assign((size_t)(g && g->lnames ? g->nlocals : 0), 0);
     for (int i = 0; g && g->lnames && i < g->nlocals; i++) rec->v_lspine[(size_t)i] = (g->lnames[i] && pf_local_spine(g, g->lnames[i])) ? 1 : 0;
@@ -249,4 +305,10 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         }
         z->ws = (int)sum;
     }
+    unsigned char * bu = (unsigned char *)alloca(n > 0 ? (size_t)n : 1);
+    pf_beta_used(rec, nodes, n, g, bu);
+    for (int q = 0; q < 2 * n; q++) if (rec->chn[q] >= 0) bu[rec->chn[q]] = 1;
+    { const char * e = getenv("SCRIP_UNWIND"); if (!(e && *e == '0')) for (int i = 0; i < n; i++) if (rec->zn[i].uwj >= 0 && rec->zn[i].uwd >= 0) bu[rec->zn[i].uwj] = 1; }
+    for (int i = 0; i < n; i++) rec->zn[i].bu = bu[i];
+    for (int i = 0; i < n; i++) pf_scan_t0(rec, nodes, n, i, g, bu);
 }

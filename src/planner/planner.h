@@ -13,6 +13,7 @@ struct znode_t {
     int djo, gto, fcsa, seam, zpk;
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
     int ws, wek, wex, f0r;
+    int bu, sbk, sbb, sbp;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
 struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
