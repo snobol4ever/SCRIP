@@ -1368,6 +1368,8 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
         if (!_en || _en->op != IR_CALL || !IR_LIT(_en).sval) continue;
         if (!strcmp(IR_LIT(_en).sval, "arr_get") && _en->n_operands == 2) _en->elem_access = 1;
         else if (!strcmp(IR_LIT(_en).sval, "arr_set_pure") && _en->n_operands == 3) _en->elem_access = 2;
+        else if (!strcmp(IR_LIT(_en).sval, "__pas_elem_ref") && _en->n_operands == 3) _en->elem_access = 3;
+        else if (!strcmp(IR_LIT(_en).sval, "__pas_ref_val") && _en->n_operands == 1) _en->elem_access = 4;
     }
     return g;
 }
