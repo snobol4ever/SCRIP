@@ -685,7 +685,6 @@ static inline void stno_rec_push(uint64_t pc, int32_t stno, int32_t line, const 
 static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph; }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
-#define ZST_BIAS (1 << 24)
 static inline const char * emit_pl_fb(void) { return "rbp"; }
 #ifdef __cplusplus
 extern "C" int emit_pl_fence_on(void);

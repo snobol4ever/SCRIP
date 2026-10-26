@@ -1,5 +1,4 @@
-#include "../emitter/emit_head.h"
-#include "../emitter/emit_decls.h"
+#include "planner_head.h"
 #include "planner.h"
 extern "C" void zls_fct_finalize(IR_graph_t *, int);
 extern "C" void zls_graph_name(const IR_graph_t *, const char *);

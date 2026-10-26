@@ -1,5 +1,4 @@
-#include "../emitter/emit_head.h"
-#include "../emitter/emit_decls.h"
+#include "planner_head.h"
 #include "planner.h"
 g_planner_t g_planner;
 int zst_coord(const char * name);
@@ -303,6 +302,7 @@ int zd_k_own_g(const IR_graph_t * cg, IR_t * nd) {
     return 16;
 }
 static int zd_map_on(void) { if (g_planner.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_planner.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_planner.zd_map_on__m; }
+typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 typedef struct { const IR_t *k; int v; uint32_t gen; } zdo_slot_t;
 typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
 static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull) & (g_planner.g_zdo.len - 1);

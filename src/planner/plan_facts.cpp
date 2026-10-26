@@ -1,5 +1,4 @@
-#include "../emitter/emit_head.h"
-#include "../emitter/emit_decls.h"
+#include "planner_head.h"
 #include "planner.h"
 extern "C" int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd);
 }

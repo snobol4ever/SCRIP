@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include "../emitter/emit_head.h"
-#include "../emitter/emit_decls.h"
+#include "planner_head.h"
 #include "planner.h"
 }
 extern "C" int fc_pair_extent(const IR_t * nd);

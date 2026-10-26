@@ -1,5 +1,4 @@
-#include "../emitter/emit_head.h"
-#include "../emitter/emit_decls.h"
+#include "planner_head.h"
 #include "planner.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int planner_chain_arity(const IR_t *n) {

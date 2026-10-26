@@ -224,6 +224,8 @@ int planner_blob_head_bytes(void);
 int planner_road_blob_scope(const planner_road_t * rd);
 void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd);
 void planner_graph_facts(IR_graph_t * g);
+int is_global(const char * name);
+int fc_geom(const IR_t * nd, long * k);
 void planner_stage_proc(stage2_t * s2, int pi, int mode);
 void planner_stage_procs(stage2_t * s2, int from_pi, int mode);
 void planner_stage_main(IR_graph_t * bbg, const char * prefix);
