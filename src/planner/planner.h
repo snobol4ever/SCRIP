@@ -11,7 +11,10 @@ struct znode_t {
     IR_t * cvn;
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
 };
+struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
 struct zeta_plan_t {
+    planner_road_t road;
+    int scope, head;
     IR_t ** nodes;
     int n;
     unsigned char * on;
@@ -83,13 +86,12 @@ int planner_rec_home(const IR_t * nd);
 const zrd_t * planner_rec_read(int i, int j);
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
-zeta_plan_t * planner_lookup_or_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
+zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
 void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_table_clear(void);
 void planner_table_forget(const IR_t * entry);
 int planner_entry_planned(const IR_t * entry);
-int planner_rt_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
 zeta_plan_t * planner_chain_plan(const IR_graph_t * cg, IR_t * entry, const char * prefix);
 int zd_dj_admitted(int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);
@@ -193,3 +195,17 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
     const char *prefix);
 IR_graph_t * planner_published_graph(void);
 static inline int planner_resumable_frame(const IR_graph_t * g) { return (g && zls_g_resumable_frame(g)) ? 1 : 0; }
+void planner_road_none(planner_road_t * rd);
+void planner_road_named(const char * pname, int dyn_scope, int is_generator, const IR_graph_t * g, planner_road_t * rd);
+void planner_road_pattern(planner_road_t * rd);
+void planner_road_proc(stage2_t * s2, int pi, planner_road_t * rd);
+void planner_chain_operands(IR_t * entry);
+int planner_blob_casmark(void);
+int planner_blob_head_bytes(void);
+int planner_road_blob_scope(const planner_road_t * rd);
+void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd);
+void planner_stage_procs(stage2_t * s2, int from_pi, int m4);
+void planner_stage_main(IR_graph_t * bbg, const char * prefix);
+int proc_role3_kind(const IR_graph_t * g);
+int planner_stage_rt(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd);
+void planner_stage_release(IR_t * entry);

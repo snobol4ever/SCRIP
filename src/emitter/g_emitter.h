@@ -43,7 +43,6 @@ typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
-typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct zeta_plan_t;
 struct g_emitter_t {
     int dump_homes = 0;
@@ -143,7 +142,6 @@ struct g_emitter_t {
     int sn4_arbno_reentry_v = -1;
     int cap_fail_retreat__cf = -1;
     uint32_t g_xci_epoch = 1;
-    int sn4_blob_casmark_v = -1;
     int sn4_defer_resume__dres = -1;
     int sn4_arbno_altsib_v = -1;
     int sn4_arbno_tailbeta__atb = -1;
@@ -215,9 +213,6 @@ struct g_emitter_t {
     int codegen_flat_chain_body__sz_0 = -1;
     const char ** g_rtxe_tab = (const char **)0;
     uint32_t g_rtxe_cap = 0;
-    cv_t g_ocr_map;
-    uint32_t g_ocr_gen = 1, g_ocr_cnt = 0;
-    cv_t g_ocr_chain, g_ocr_stkv, g_ocr_stk;
     int emit_jmp_entry_arm_region_v = -1;
     ir_index_t g_fbm_nd;
     cv_t g_fbm_bit;

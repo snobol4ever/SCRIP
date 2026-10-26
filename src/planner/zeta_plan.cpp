@@ -1766,15 +1766,12 @@ void zd_check_g(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char 
     fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_slot_get(IR_t * nd);
-int bb_varslot_peek(const char * name);
+static int planner_varslot(const IR_graph_t * cg, const char * name) { int c = zst_coord(name); if (c >= 0) return c; return ir_varslot_of(cg, name); }
 int fc_head_fp(const IR_t * nd);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 static int * zd_place_ints(int n, int fill) { int * p = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); for (int i = 0; i < n; i++) p[i] = fill; return p; }
 static int zd_place_key(IR_t ** nodes, int n, int i, IR_t * nd, int own) {
     if (!nd) return -1;
-    int s = bb_slot_get(nd);
-    if (s >= 0) return s;
     if (nd->op == IR_CONJUNCTION && nd->n_operands > 0 && nd->operands[0] && zls_off(nd->operands[0]) >= 0) { int k = nidx(nodes, n, nd);
         if (k >= 0 && (own ? k <= i : k < i)) return zls_off(nd->operands[0]); }
     return zls_off(nd);
@@ -1859,7 +1856,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 if (g_planner.zd_check__on > 0 && rec->xb && rec->claim && rec->claim[i] != rec->claim[k] && (rec->xb[i] == INT_MIN || rec->xb[k] == INT_MIN) && planner_frame_slot(g, p) == -1 &&
                     (zd_k_own_g(cg, p) >= 16 || zd_local_home_node(cg, p)) && !zd_run_alpha_dead(cg, nodes, n, rec->claim, rec->claim[i])) { int fok = 0; zd_fam_delta(i, k, &fok);
                     if (!fok) fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i, bb_op_name(nd->op), k, bb_op_name(p->op)); }
-                { const IR_t * lh = zd_local_home_node(cg, p); if (lh) rd[j].fr = bb_varslot_peek(IR_LIT(lh).sval);
+                { const IR_t * lh = zd_local_home_node(cg, p); if (lh) rd[j].fr = planner_varslot(cg, IR_LIT(lh).sval);
                     else if (zd_dj_cellless(nodes, n, zarm, k) && zls_off(p) >= 0) rd[j].fr = zls_off(p); }
                 rd[j].kind = (int)ir_norm_call_kind(p->op);
             }
@@ -2072,6 +2069,7 @@ void planner_capture(zeta_plan_t * rec) {
     rec->zrm_bytes.assign((const unsigned char *)g_planner.g_zrm_map.p, (const unsigned char *)g_planner.g_zrm_map.p + (size_t)g_planner.g_zrm_map.len * (size_t)g_planner.g_zrm_map.esz);
 }
 void planner_restore(zeta_plan_t * rec) {
+    planner_act_build(rec->cfg, rec->scope, rec->head);
     int n = rec->n; int CH_MAX = 65536; if (rec->cfg && rec->cfg->n + 1024 > CH_MAX) CH_MAX = rec->cfg->n + 1024;
     if (g_planner.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_planner.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
         g_planner.codegen_flat_chain_body_nodes_cap = CH_MAX; }
@@ -2168,16 +2166,20 @@ void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix) {
     zeta_plan_t * rec = planner_chain_plan(g, entry, prefix); rec->cfg = g; rec->key = entry; g_planner.planner_table[entry] = rec; g_planner.planner_planned++;
 }
 int planner_entry_planned(const IR_t * entry) { return (entry && g_planner.planner_table.find(entry) != g_planner.planner_table.end()) ? 1 : 0; }
-int planner_rt_plan(IR_graph_t * g, IR_t * entry, const char * prefix) { if (planner_entry_planned(entry)) return 0; planner_pass_plan(g, entry, prefix); g_planner.planner_rt++; return 1; }
 void planner_table_forget(const IR_t * entry) { if (entry) g_planner.planner_table.erase(entry); }
 void planner_table_clear(void) { g_planner.planner_table.clear(); }
-zeta_plan_t * planner_lookup_or_plan(IR_graph_t * g, IR_t * entry, const char * prefix) {
+zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix) {
     planner_report_arm();
     std::unordered_map<const IR_t *, zeta_plan_t *>::iterator it = g_planner.planner_table.find(entry);
-    if (it != g_planner.planner_table.end() && it->second->cfg == g) { g_planner.planner_hits++; planner_restore(it->second); return it->second; }
-    g_planner.planner_fallbacks++;
-    if (getenv("SCRIP_PLANNER_REPORT")) fprintf(stderr, "[PLANNER-FALLBACK] prefix=%s graph=%p n=%d\n", prefix ? prefix : "?", (const void *) g, g ? g->n : -1);
-    zeta_plan_t * rec = planner_chain_plan(g, entry, prefix); rec->cfg = g; rec->key = entry; planner_restore(rec); return rec;
+    if (it == g_planner.planner_table.end() || it->second->cfg != g) {
+        fprintf(stderr, "[PLANNER] chain not staged before emission: prefix=%s graph=%p n=%d %s -- every road stages its chain through the planner stage first\n", prefix ? prefix : "?",
+            (const void *) g, g ? g->n : -1,
+            it == g_planner.planner_table.end() ? "(no record for this entry)" : "(the record is for another graph)");
+        abort();
+    }
+    g_planner.planner_hits++;
+    planner_restore(it->second);
+    return it->second;
 }
 }
 int planner_retains(const IR_t * nd) { return planner_retains_g(planner_published_graph(), nd); }

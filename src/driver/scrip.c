@@ -2461,7 +2461,7 @@ int main(int argc, char **argv) {
                 if (_n > _pfxcap) _pfxcap = _n;
             }
             char _pfx[_pfxcap];
-            { extern void emit_plan_procs(stage2_t *, int, int); extern void emit_plan_main(IR_graph_t *, const char *); emit_plan_procs(s2, 0, 1); emit_plan_main(bbg, "main"); }
+            { extern void planner_stage_procs(stage2_t *, int, int); extern void planner_stage_main(IR_graph_t *, const char *); planner_stage_procs(s2, 0, 1); planner_stage_main(bbg, "main"); }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -2832,10 +2832,10 @@ int main(int argc, char **argv) {
             int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };
             {
-                extern void emit_plan_procs(stage2_t *, int, int);
-                extern void emit_plan_main(IR_graph_t *, const char *);
-                emit_plan_procs(s2, 0, 0);
-                if (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count && s2->bbp.table[main_bb_idx] && s2->bbp.table[main_bb_idx]->entry) emit_plan_main(s2->bbp.table[main_bb_idx], "pat_flat");
+                extern void planner_stage_procs(stage2_t *, int, int);
+                extern void planner_stage_main(IR_graph_t *, const char *);
+                planner_stage_procs(s2, 0, 0);
+                if (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count && s2->bbp.table[main_bb_idx] && s2->bbp.table[main_bb_idx]->entry) planner_stage_main(s2->bbp.table[main_bb_idx], "pat_flat");
             }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;

@@ -221,7 +221,6 @@ extern "C" void planner_act_visit(void (*fn)(const IR_t *, int, int, int)) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int planner_retains_emitter_view(int op);
 extern "C" int zls_dj_retains(const IR_t * nd);
-int bb_slot_get(IR_t * nd);
 static int pcon_ready(const IR_graph_t * g) { return (g && g_planner.g_pcon_g == g && g_planner.g_pcon_all == g->all && g_planner.g_pcon_n == g->n) ? 1 : 0; }
 static int ph_retk(int op) { return planner_retains_emitter_view(op); }
 void planner_consumers_build(const IR_graph_t * g) {

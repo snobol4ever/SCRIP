@@ -301,6 +301,7 @@ struct IR_graph_t {
         int kbase;
     } pf;
 };
+static inline int ir_graph_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_construct_add(IR_graph_t * g, int kind, IR_t * begin, IR_t * end, int lo, int hi);
 const IR_construct_t * ir_construct_find(const IR_graph_t * g, int kind, const IR_t * begin);

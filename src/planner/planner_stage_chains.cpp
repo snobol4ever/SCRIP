@@ -1,0 +1,43 @@
+#include "../emitter/emit_head.h"
+#include "../emitter/emit_decls.h"
+#include "planner.h"
+extern "C" void zls_fct_finalize(IR_graph_t *, int);
+extern "C" void zls_graph_name(const IR_graph_t *, const char *);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int planner_blob_casmark(void) { if (g_planner.sn4_blob_casmark_v < 0) { const char * e = getenv("SCRIP_BLOB_CASMARK"); g_planner.sn4_blob_casmark_v = (e && *e == '0') ? 0 : 1;
+    } return g_planner.sn4_blob_casmark_v; }
+int planner_blob_head_bytes(void) { return planner_blob_casmark() ? 56 : 40; }
+int planner_road_blob_scope(const planner_road_t * rd) { return (rd->jmp_entry && rd->pat && !(rd->floor > 0)) ? 1 : 0; }
+int proc_role3_kind(const IR_graph_t *g) {
+    if (!g || !g->entry) return 0;
+    if (g->entry->op == IR_GOTO_DEFERRED) return 1;
+    const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0;
+    return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2;
+}
+void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) {
+    if (!entry) return;
+    planner_chain_operands(entry);
+    if (g) zls_fct_finalize(g, 1);
+    int scope = planner_road_blob_scope(rd), head = planner_blob_head_bytes();
+    planner_act_build(g, scope, head);
+    planner_pass_plan(g, entry, prefix);
+    zeta_plan_t * rec = g_planner.planner_table[entry];
+    rec->road = *rd; rec->scope = scope; rec->head = head;
+}
+void planner_stage_procs(stage2_t * s2, int from_pi, int m4) {
+    for (int pi = from_pi; pi < s2->proc_count; pi++) {
+        ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; int idx = pe->bb_idx;
+        if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+        IR_graph_t * g = s2->bbp.table[idx]; int is_lbl = strncmp(pname, "LBL__", 5) == 0; int bare = m4 && proc_role3_kind(g) == 1;
+        zls_graph_name(g, pname);
+        if (is_lbl || bare) continue;
+        planner_road_t rd; planner_road_proc(s2, pi, &rd);
+        char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
+        planner_stage_chain(g, pe->proc_entry_node ? pe->proc_entry_node : g->entry, pfx, &rd);
+    }
+}
+void planner_stage_main(IR_graph_t * bbg, const char * prefix) { planner_road_t rd; planner_road_none(&rd); planner_stage_chain(bbg, bbg->entry, prefix, &rd); }
+int planner_stage_rt(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) { if (!entry || planner_entry_planned(entry)) return 0; planner_stage_chain(g, entry, prefix, rd);
+    g_planner.planner_rt++; return 1; }
+void planner_stage_release(IR_t * entry) { planner_table_forget(entry); }
+}

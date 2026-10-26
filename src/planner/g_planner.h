@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <assert.h>
 struct zeta_plan_t;
+typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_planner_t {
     struct zsm_frame_rec_t { const IR_graph_t * g; std::string name; int region; int resident; int frames; int addrs; int cls[4]; int rsp_form; int total; };
     const int * g_zd_cut_p = 0;
@@ -86,6 +87,10 @@ struct g_planner_t {
     int codegen_flat_chain_body_postv_cap = 0;
     std::unordered_map<const IR_t *, struct zeta_plan_t *> planner_table;
     int planner_hits = 0, planner_fallbacks = 0, planner_planned = 0, planner_rt = 0, planner_report_armed = 0;
+    int sn4_blob_casmark_v = -1;
+    cv_t g_ocr_map;
+    uint32_t g_ocr_gen = 1, g_ocr_cnt = 0;
+    cv_t g_ocr_chain, g_ocr_stkv, g_ocr_stk;
 };
 extern g_planner_t g_planner;
 #endif

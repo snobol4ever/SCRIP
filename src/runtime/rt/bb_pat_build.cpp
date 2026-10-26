@@ -15,6 +15,7 @@ void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zsta
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
 bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+extern "C" bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, const char * prefix);
 extern "C" void rt_code_pool_check(void);
 void emit_gc_tables_register(const void *fn);
 void optimizer_run(IR_graph_t * g);
@@ -51,7 +52,7 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
     g_frame_active = 1;
     int kt = bb_jmp_entry_ktotal(g);
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
-    bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtlen");
+    bb_box_fn fn = compile_chain(g_emit_cfg, g->entry = nd, NULL, "rtlen");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
@@ -73,7 +74,7 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     g_frame_active = 1;
     int kt = bb_jmp_entry_ktotal(g);
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
-    bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtbrk");
+    bb_box_fn fn = compile_chain(g_emit_cfg, g->entry = nd, NULL, "rtbrk");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
@@ -114,7 +115,7 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
         fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, 1, g_flat_frame_floor, _nc, _lf, _fn); }
     size_t pool_before = bb_pool_mark();
 #endif
-    bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
+    bb_box_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, "rtpat");
     emit_gc_tables_register((const void *) fn);
 #if RT_DIAG
     size_t pool_after = bb_pool_mark();

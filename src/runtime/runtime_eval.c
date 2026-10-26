@@ -30,6 +30,7 @@ void rt_proc_set_named_rest(const char *name, int slot);
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn emit_chain(void *entry, void *out, const char *prefix);
+extern eval_chain_fn compile_chain(void *g, void *entry, void *out, const char *prefix);
 extern int emit_jmp_entry_for_chain(IR_graph_t *g);
 extern void emit_jmp_entry_clear(void);
 extern void ast_tree_free_dyn(tree_t *p);
@@ -185,7 +186,7 @@ static int eval_thunks_emit_from(int pc0) {
         }
         char _m3pfx[strlen(pname) + 6];
         snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
-        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
+        eval_chain_fn pfn = compile_chain(g_emit_cfg, g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
         if (!pfn) emit_failed = 1;
         { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) pfn); }
         if (pfn) rt_proc_set_fn(pname, pfn);
@@ -310,7 +311,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph((IR_graph_t *)g); }
     emit_jmp_entry_for_chain((IR_graph_t *)g);
     g_runtime.eval.rt_fragment_emit = 1;
-    eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
+    eval_chain_fn fn = compile_chain(g_emit_cfg, ((IR_graph_t *)g)->entry, NULL, "pat_flat");
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
     g_runtime.eval.rt_fragment_emit = 0;
     emit_jmp_entry_clear();
@@ -984,7 +985,7 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
             g_runtime.eval.rt_fragment_emit = 1;
             emit_jmp_entry_for_proc(name, 1, 0, g);
             {
-                eval_chain_fn fn = emit_chain(g->entry, NULL, pfx);
+                eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, pfx);
                 emit_gc_tables_register((const void *)fn);
                 emit_jmp_entry_clear();
                 g_runtime.eval.rt_fragment_emit = rfe;
@@ -1113,7 +1114,7 @@ DESCR_t code_at(const char *src, long base) {
             g_runtime.eval.rt_fragment_emit = 1;
             { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
             emit_jmp_entry_for_chain(g);
-            eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
+            eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, "code_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             emit_jmp_entry_clear();
             g_runtime.eval.rt_fragment_emit = rfe_sv;
@@ -1253,7 +1254,7 @@ static int rk_emit_new_procs(int pc0) {
     g_frame_active = 1;
     int ga = g_gen_proc_active;
     g_runtime.eval.rt_fragment_emit = 1;
-    { extern void emit_plan_procs(stage2_t *, int, int); emit_plan_procs(&g_stage2, pc0, 0); }
+    { extern void planner_stage_procs(stage2_t *, int, int); planner_stage_procs(&g_stage2, pc0, 0); }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;

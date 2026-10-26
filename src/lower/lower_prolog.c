@@ -3863,6 +3863,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     extern void emit_jmp_entry_clear(void);
     extern void zls_graph_name(const IR_graph_t *, const char *);
     extern void rt_proc_set_fn(const char *, bb_box_fn);
+    extern bb_box_fn compile_chain(IR_graph_t *, IR_t *, FILE *, const char *);
     extern void rt_proc_set_frame_bytes(const char *, int);
     extern void rt_proc_set_dyn_scope(const char *, int);
     extern void emit_patzeta_register(const char *, int, int, int);
@@ -3965,10 +3966,10 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
                 }
             }
             fprintf(stderr, "[RTASM] ---- runtime fragment for %s ----\n", key);
-            emit_chain(g->entry, stderr, pfx);
+            compile_chain(g, g->entry, stderr, pfx);
             fprintf(stderr, "[RTASM] ---- end %s ----\n", key);
         }
-        fn = emit_chain(g->entry, (FILE *)0, pfx);
+        fn = compile_chain(g, g->entry, (FILE *)0, pfx);
     }
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
     emit_jmp_entry_clear();
