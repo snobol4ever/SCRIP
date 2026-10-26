@@ -1789,6 +1789,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
             if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj) && !lasn) g_emit.op_parts_ival[j] = -1;
             }
+        if (rj && !lasn && g_emit.op_parts_ival[j] >= 0 && nidx(nodes, n, rj) < 0 && zls_key_unbacked(g_emit_cfg, g_emit.op_parts_ival[j])) g_emit.op_parts_ival[j] = -1;
         } g_emit.op_parts_n = N; }
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
