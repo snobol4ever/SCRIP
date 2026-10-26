@@ -1,7 +1,12 @@
 #include <vector>
 #include <unordered_map>
 struct zrd_t { int dist, xf, fr, key, kind, anchor; };
-struct znode_t { int fcg, leaf, vw, vbin, aslot, loff, owni; };
+struct znode_t {
+    int fcg, leaf, vw, vbin, aslot, loff, owni;
+    int rlive, carve, zdpa, zdpb, nops, ssub, sticky, srole, kown, upost, djx, djret, vdj, cfp, sact, o0off;
+    int hfp, hth, hrel, hbr, altok, altM, padoff, fbody;
+    IR_t * vp1;
+};
 struct zeta_plan_t {
     IR_t ** nodes;
     int n;
@@ -58,6 +63,7 @@ struct zeta_plan_t {
     zrd_t * rd;
     int rdn;
     znode_t * zn;
+    std::vector<int> v_altpad;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);
@@ -72,7 +78,7 @@ const zrd_t * planner_rec_read(int i, int j);
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
-void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n);
+void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
 void planner_pass_plan(IR_t * entry, const char * prefix);
 void planner_table_clear(void);
 void planner_table_forget(const IR_t * entry);
@@ -87,7 +93,6 @@ IR_t * zd_scan_subject(IR_t * nd);
 IR_t * zd_value_producer(IR_t * nd);
 IR_t * zd_conj_value_node(IR_t * nd);
 int zd_plan_on_of(const IR_t * nd);
-void zd_ops_reserve(int n);
 int zd_sr_role(const IR_t * nd);
 int zd_cpos(int i, const int *xb, const int *zout, long *d);
 int zd_fam_delta(int i, int k, int * ok);

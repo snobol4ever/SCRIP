@@ -576,6 +576,7 @@ void xa_emit_csettab_rodata(void)
 int bb_slot_get(IR_t *nd);
 static int zrow_of(const IR_t * nd);
 static int zrow_under(int ri);
+static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
 #include "emit_ir.h"
 #include "XA.h"
@@ -1029,7 +1030,10 @@ static const char * sr3_gamma_label(const IR_t * g) { if (g_emitter.sr3_gamma_la
 int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
-    { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
+    const int _ri = zrow_of(nd);
+    if (_ri < 0) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE"); abort(); }
+    const zeta_plan_t * _zr = g_planner.g_zd_rec_p; const znode_t * _zn = &_zr->zn[_ri]; const zrd_t * _rdp = _zr->rd + _zr->rdo[_ri]; const int _rdn = _zr->rdo[_ri + 1] - _zr->rdo[_ri];
+    g_emit.op_zrow = _ri; g_emit.op_res_live = _zn->rlive;
     { if (g_emitter.walk_bb_node_inner__ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); g_emitter.walk_bb_node_inner__ba = (e && *e == '0') ? 0 : 1;
         g_emitter.walk_bb_node_inner__bo = getenv("SCRIP_BB_ONLY");
         g_emitter.walk_bb_node_inner__bs = getenv("SCRIP_BB_SKIP"); }
@@ -1038,12 +1042,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
           nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
       { if (g_emitter.walk_bb_node_inner__all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); g_emitter.walk_bb_node_inner__all = (e && *e == '1') ? 1 : 0; }
       (void)g_emitter.walk_bb_node_inner__ba; (void)g_emitter.walk_bb_node_inner__bo; (void)g_emitter.walk_bb_node_inner__bs; (void)g_emitter.walk_bb_node_inner__all; (void)_spine;
-      { extern long zw_carve_k(const IR_t *); extern int zc_nofc(void); long _k = zc_nofc() ? 0 : zw_carve_k(nd);
-        if (_k > 0) g_emit.op_fc_bytes = _k; } } }
+      if (_zn->carve > 0) g_emit.op_fc_bytes = _zn->carve; } }
     g_emit.op_zdepth = x86_fc_on() ? (int)g_emit.op_fc_bytes : 0; emit_gc_rsp_reset();
-    { extern int zdp_alpha(const IR_t *); extern int zdp_beta(const IR_t *); extern int zdp_known_alpha(const IR_t *); extern int zdp_known_beta(const IR_t *); extern int zdp_mode(void);
-      g_emit.op_zdp_ad = (nd && zdp_mode() && zdp_known_alpha(nd)) ? zdp_alpha(nd) : -1;
-      g_emit.op_zdp_bd = (nd && zdp_mode() && zdp_known_beta(nd)) ? zdp_beta(nd) : -1;
+    { g_emit.op_zdp_ad = _zn->zdpa; g_emit.op_zdp_bd = _zn->zdpb;
       g_emit.op_zdp_rbp = (nd && (nd->op == IR_MATCH_BEGIN || nd->op == IR_MATCH_DEFER)) ? 1 : 0; }
     g_emit.op_pair_rejoin = (nd && nd->op == IR_MATCH_ALTERNATE) ? 1 : 0;
     g_emit.op_stmt_dyn = g_emitter.g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_emitter.g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0;
@@ -1051,36 +1052,34 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_zcp_src = -1; g_emit.op_zcp_dst = -1; g_emit.op_xrec = 0;
     g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
         g_emit.op_zcut = -1;
-        zd_ops_reserve(nd ? nd->n_operands + 1 : 0);
+        emit_ops_reserve(nd ? nd->n_operands + 1 : 0);
         for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
-    { int _ri = nd ? zrow_of(nd) : -1; g_emit.op_zrow = _ri;
-        if (_ri >= 0) { const zeta_plan_t * _zr = g_planner.g_zd_rec_p; g_emit.op_xf_off = _zr->home[_ri];
-            for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = planner_rec_read(_ri, _zi); if (_rd) g_emit.op_zread_xf[_zi] = _rd->xf; } }
-        else if (nd) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", bb_op_name(nd->op)); abort(); } }
+    g_emit.op_xf_off = _zr->home[_ri];
+    for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) g_emit.op_zread_xf[_zi] = _rd->xf; }
     g_emit.op_suspend_stmt_uclaim = 0;
-    if (g_emitter.g_zd_stage) { const zeta_plan_t * _zr = g_planner.g_zd_rec_p; int _ri = g_emit.op_zrow; g_emit.op_suspend_stmt_uclaim = g_emitter.g_zd_suspend_uclaim;
+    if (g_emitter.g_zd_stage) { g_emit.op_suspend_stmt_uclaim = g_emitter.g_zd_suspend_uclaim;
         g_emitter.g_zd_suspend_uclaim = 0;
-        if (_ri < 0) { fprintf(stderr, "FATAL emitter: staged node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE");
-            abort(); }
         if (_zr->grec_off[_ri] != -1) { g_emit.op_xrec |= 4; g_emit.op_grec = _zr->grec_off[_ri]; g_emit.op_grec_pop = _zr->grec_res[_ri]; }
         if (_zr->wrec_off[_ri] != -1) { g_emit.op_xrec |= 8; g_emit.op_wrec = _zr->wrec_off[_ri]; g_emit.op_wrec_pop = _zr->wrec_res[_ri]; }
         if (g_emitter.g_zd_cpread && _zr->cpa_dx[_ri] != -1) { g_emit.op_xrec |= 2; g_emit.op_zcp_dxf = _zr->cpa_dx[_ri]; }
         if (g_emitter.g_zd_cpread && _zr->cpa_sx[_ri] != -1) { g_emit.op_xrec |= 1; g_emit.op_zcp_sxf = _zr->cpa_sx[_ri]; }
         if (g_emitter.g_zd_arm) { g_emit.op_zcp_src = _zr->cpa_s[_ri]; g_emit.op_zcp_dst = _zr->cpa_d[_ri];
             g_emit.op_zres = 1; g_emit.op_fc_bytes = g_emitter.g_zd_k; g_emit.op_fc_base = -1; g_emit.op_zdepth = g_emitter.g_zd_k + _zr->under[_ri];
-            if (g_emitter.g_zd_rdread) for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = planner_rec_read(_ri, _zi); if (!_rd) continue;
+            if (g_emitter.g_zd_rdread) for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (!_rd) continue;
                 g_emit.op_zread[_zi] = _rd->dist; g_emit.op_zkind[_zi] = _rd->kind; g_emit.op_zread_fr[_zi] = _rd->fr; }
             g_emit.op_ztail = _zr->tail[_ri]; g_emit.op_zpat = _zr->pat[_ri]; g_emit.op_zfc = _zr->fc[_ri];
-            if (g_emit_cfg) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
-                for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = planner_rec_read(_ri, _zi); g_emit.op_zslot[_zi] = _rd ? _rd->key : -1; }
-                if (zd_scan_subject(nd) && g_emit.op_zslot_n == nd->n_operands && g_emit.op_zslot_n < g_emit.op_zcap) { int _zi = g_emit.op_zslot_n++; const zrd_t * _rd = planner_rec_read(_ri, _zi);
+            if (g_emit_cfg) { int _xn = _zn->nops; g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
+                for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; g_emit.op_zslot[_zi] = _rd ? _rd->key : -1;
+                    }
+                if (_zn->ssub && g_emit.op_zslot_n == nd->n_operands && g_emit.op_zslot_n < g_emit.op_zcap) { int _zi = g_emit.op_zslot_n++;
+                    const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0;
                     g_emit.op_zslot[_zi] = _rd ? _rd->key : -1; }
                 g_emit.op_res_alias = _zr->alias[_ri];
                 if (xf_diag_on()) { fprintf(stderr, "[ALIAS] %s res=%d nops=%d:", bb_op_name(nd->op), g_emit.op_res_alias, g_emit.op_zslot_n);
                     for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
-                        fprintf(stderr, " [%d %s slot=%d on=%d k=%d zread=%d fr=%d xf=%d]", _zi, _po ? bb_op_name(_po->op) : "-", g_emit.op_zslot[_zi], _po ? zd_plan_on_of(_po) : -1,
-                            _po ? zd_k_own(_po) : -1, g_emit.op_zread[_zi], g_emit.op_zread_fr[_zi], g_emit.op_zread_xf[_zi]); } fprintf(stderr, "\n"); } } }
+                        fprintf(stderr, " [%d %s slot=%d zread=%d fr=%d xf=%d]", _zi, _po ? bb_op_name(_po->op) : "-", g_emit.op_zslot[_zi],
+                            g_emit.op_zread[_zi], g_emit.op_zread_fr[_zi], g_emit.op_zread_xf[_zi]); } fprintf(stderr, "\n"); } } }
         g_emit.op_zgpop = ((g_emit.flat_jmp_entry && g_emit.flat_pat) || g_emitter.g_zd_fence_exit) ? 0 : g_emitter.g_zd_gpop; g_emit.op_wpop += g_emitter.g_zd_wpop;
             g_emitter.g_zd_fence_exit = 0;
         g_emit.op_zbgrow = g_emitter.g_zd_bgrow ? g_emit.op_zgpop : 0; g_emitter.g_zd_bgrow = 0;
@@ -1091,10 +1090,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern void bb_prepare(IR_t *nd);
     extern int bb_slot_get(IR_t *nd);
     if (!nd) return 1;
-    const znode_t * _zn = &g_planner.g_zd_rec_p->zn[g_emit.op_zrow];
     g_emit.node = nd; g_emit.op_pat_static = nd->pat_static;
     g_emit.op_zf_unpinned = 1;
-    g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = zst_s_of(nd); g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0; g_emit.op_zdef = g_emitter.g_zd_def;
+    g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = _zn->sticky; g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0; g_emit.op_zdef = g_emitter.g_zd_def;
         g_emit.op_zcut = g_emitter.g_zd_cutd;
     if (g_emit.op_zres && !zrow_under(g_emit.op_zrow)) g_emit.op_zdepth = g_emitter.g_zd_abs;
     emit_set_sink(out);
@@ -1126,7 +1124,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         { int32_t _stno = (int32_t)IR_LIT(nd).ival;
         if (_stno != g_emit.stno_last) { emit_stno_mark(_stno); g_emit.stno_last = _stno; } g_emit.op_stno = _stno; }
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : (nd->op == IR_GOTO_DEFERRED ? (int64_t)nd->seal : IR_LIT(nd).ival);
-    if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)zd_sr_role(nd); g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
+    if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)_zn->srole; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     g_emit.op_counter = 0;
@@ -1353,32 +1351,30 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                     }
                                     if (!_k16r) { g_emit.op_arbno_body_k0 = (_pk == 0) ? 1 : 0; g_emit.op_arbno_body_defer_unsafe = (_pk < 0) ? 1 : 0; }
                                     bb_emit_x86(bb_match_arbno()); } return 0;
-    case IR_MATCH_BEGIN: { extern int fc_tail_head(const IR_t *); int _th = (fc_tail_head(nd)); if (fc_head_fp(nd) >= 0 || _th) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off;
+    case IR_MATCH_BEGIN: { int _th = _zn->hth; if (_zn->hfp >= 0 || _th) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off;
         } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_begin()); } return 0;
-    case IR_MATCH_END: { IR_t * _hd = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; extern int fc_tail_release(const IR_t *, int *); int _br = -1;
-                                    { int _tr = _hd ? fc_tail_release(_hd, &_br) : 0; int _fp = _hd ? fc_head_fp(_hd) : -999;
-                                      if (getenv("SCRIP_FCDISP_DIAG")) fprintf(stderr, "[FCDISP] tail_release=%d br=%d head_fp=%d\n", _tr, _br, _fp); }
-                                    if (_hd && fc_tail_release(_hd, &_br)) { g_emit.op_tail = 1; g_emit.op_fc_disp = _br; }
-                                    else g_emit.op_fc_disp = _hd ? fc_head_fp(_hd) : -1;
-                                    { extern int fc_tail_head(const IR_t *); if (_hd && (fc_head_fp(_hd) >= 0 || fc_tail_head(_hd))) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off; } }
+    case IR_MATCH_END: { if (getenv("SCRIP_FCDISP_DIAG")) fprintf(stderr, "[FCDISP] tail_release=%d br=%d head_fp=%d\n", _zn->hrel, _zn->hbr, _zn->hfp);
+                                    if (_zn->hrel) { g_emit.op_tail = 1; g_emit.op_fc_disp = _zn->hbr; }
+                                    else g_emit.op_fc_disp = _zn->hfp;
+                                    if (_zn->hfp >= 0 || _zn->hth) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off; }
                                     bb_emit_x86(bb_match_end()); } return 0;
     case IR_MATCH_REPLACE: { bb_emit_x86(bb_match_replace()); } return 0;
-    case IR_MATCH_ASSIGN_COND: { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_frame_off = _zn->aslot;
+    case IR_MATCH_ASSIGN_COND: { bb_prepare(nd); g_emit.op_fc_disp = _zn->cfp; g_emit.op_cap_frame_off = _zn->aslot;
         if (getenv("SCRIP_CAP_DIAG"))
         fprintf(stderr, "[CAP] COND nd=%p fc_disp=%d zres=%d zread0=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_zres, g_emit.op_zread[0]);
             bb_emit_x86(bb_match_capture()); } return 0;
-    case IR_MATCH_ASSIGN_IMM: { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_frame_off = _zn->aslot;
+    case IR_MATCH_ASSIGN_IMM: { bb_prepare(nd); g_emit.op_fc_disp = _zn->cfp; g_emit.op_cap_frame_off = _zn->aslot;
         if (getenv("SCRIP_CAP_DIAG"))
         fprintf(stderr, "[CAP] IMM nd=%p fc_disp=%d off=%d pin=%d refine=%d deep=%d pat=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_off,
         emit_jmp_pin_legacy(), g_emit.flat_fb_refine, g_emit.flat_deep_arrival, g_emit.flat_pat); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_SAVE: { bb_prepare(nd); g_emit.op_cap_frame_off = _zn->aslot; {
         if (_zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off; } } { extern int fc_save_active(const IR_t *);
         if (getenv("SCRIP_CAP_DIAG"))
-        fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld\n", (void*)nd, fc_save_active(nd), (long)g_emit.op_fc_bytes)
+        fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld\n", (void*)nd, _zn->sact, (long)g_emit.op_fc_bytes)
         ; } bb_emit_x86(bb_match_capture()); } return 0;
-    case IR_MATCH_ALTERNATE: { { int _M = 0; int _ok = planner_alt_exit(g_emit_cfg, nd, &_M); g_emit.op_alt_M = _ok == 0 ? _M : -1; g_emit.op_alt_cell = _ok != 0 ? 1 : 0; int _na = nd->n_operands / 2;
+    case IR_MATCH_ALTERNATE: { { int _M = _zn->altM; int _ok = _zn->altok; g_emit.op_alt_M = _ok == 0 ? _M : -1; g_emit.op_alt_cell = _ok != 0 ? 1 : 0; int _na = nd->n_operands / 2;
             g_emit.op_alt_pad = xci_ints(&g_emitter.g_alt_pads, (uint32_t)(_na > 0 ? _na : 1));
-                for (int _j = 0; _j < _na; _j++) g_emit.op_alt_pad[_j] = _ok == 0 ? _M - planner_alt_arm_live(g_emit_cfg, nd, _j) : 0; }
+                for (int _j = 0; _j < _na; _j++) g_emit.op_alt_pad[_j] = _zr->v_altpad[(size_t)(_zn->padoff + _j)]; }
         g_emit.op_sa = 0; { extern const char * blob_alt_first(const IR_t *);
         g_emit.op_alt_first = blob_alt_first(nd); } bb_emit_x86(bb_match_alternate()); g_emit.op_alt_first = (const char *)0; } return 0;
     case IR_MATCH_FENCE0: { bb_prepare(nd); g_emit.op_fence0_release = fence0_release_bytes(nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
@@ -1389,7 +1385,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                          "[EMIT] FATAL IR_MATCH_FENCE0 node %p carries literal %lld, which names neither the bare FENCE nor FLUSH (sno_fence_lit_e in IR.h) -- refused, not emitted as"
                                          " a plain FENCE\n", (void *)nd, (long long)IR_LIT(nd).ival); abort(); } } return 0;
     case IR_MATCH_FENCE1: { bb_prepare(nd);
-        g_emit.op_fence_body_kk = planner_body_live(g_emit_cfg, nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0, nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0, nd);
+        g_emit.op_fence_body_kk = _zn->fbody;
         g_emit.op_fence_frame_off = _zn->aslot; bb_emit_x86(bb_match_fence1()); } return 0;
     case IR_MATCH_ABORT: { bb_emit_x86(bb_match_abort()); } return 0;
     case IR_SCAN_ALTERNATE: { bb_emit_x86(bb_scan_alternate()); } return 0;
@@ -1403,8 +1399,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *);
             if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval;
             } if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5;
-            } if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) { extern int zls_off(const IR_t *);
-            int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = zls_off(nd->operands[0]); if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as;
+            } if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) {
+            int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = _zn->o0off; if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as;
             } } g_emit.op_define_role = (g_emit.op_ival == 4 && nd->n_operands >= 3) ? 7 : (int)g_emit.op_ival; extern std::string bb_define(); bb_emit_x86(bb_define()); return 0; }
         if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd);
             int _realstub = 0;
@@ -1433,8 +1429,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_STATEMENT_END:
     case IR_STATEMENT: { g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); } return 0;
     case IR_BOUND: { g_emit.op_sb = 1; g_emit.op_off = _zn->loff; g_emit.op_fc_bytes = g_emit.op_zres ? g_emitter.g_zd_k : 0; bb_emit_x86(bb_bound()); } return 0;
-    case IR_UNMARK: { IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_sb = 0; g_emit.op_off = _mk ? zls_off(_mk) : -1; g_emit.op_fc_bytes = 0;
-        g_emit.op_unmark_chain = g_emit.op_zres && g_emit.op_zf_unpinned; g_emit.op_upost = zd_upost_of(nd);
+    case IR_UNMARK: { g_emit.op_sb = 0; g_emit.op_off = _zn->o0off; g_emit.op_fc_bytes = 0;
+        g_emit.op_unmark_chain = g_emit.op_zres && g_emit.op_zf_unpinned; g_emit.op_upost = _zn->upost;
         g_emit.op_ival = IR_LIT(nd).ival; bb_emit_x86(bb_bound()); } return 0;
     case IR_SUBSCRIPT: g_emit.op_seal = nd->seal; bb_emit_x86(nd->n_operands == 2 ? (IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "lv-check", 8) ? bb_subscript_lvck() : bb_subscript())
                                              : (nd->n_operands == 3 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "nd2") || !strcmp(IR_LIT(nd).sval, "nd2-lv"))) ? bb_subscript2()
@@ -1470,13 +1466,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GATE_ARM: bb_emit_x86(bb_gate_arm()); return 0;
     case IR_GATE: bb_emit_x86(bb_gate()); return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { if (_zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off; } }
-        if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = zd_k_own(nd); g_emit.op_fc_base = g_emit.op_off;
-            } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
+        if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = _zn->kown; g_emit.op_fc_base = g_emit.op_off;
+            } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && _zn->vdj;
             g_emitter.g_zd_djok = 0;
-            g_emit.op_dj_rec = (zls_dj_retains(nd) && !zd_djx_of(nd) && g_emit.op_xf_off != -1) ? 1 : 0;
+            g_emit.op_dj_rec = (_zn->djret && !_zn->djx && g_emit.op_xf_off != -1) ? 1 : 0;
             bb_emit_x86(bb_disjunction()); return 0; }
                                                   g_emit.op_ival = 0; bb_emit_x86(bb_gate()); } return 0;
-    case IR_SCAN: { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? zd_value_producer(nd->operands[1]) : NULL;
+    case IR_SCAN: { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = _zn->vp1;
         g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0)); g_emit.op_off = nd_slot(_en);
         g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) :
             (_bv ? ((_bv->op == IR_VAR && IR_LIT(_bv).sval) ? drive_local_slot(IR_LIT(_bv).sval) : bb_slot_get(_bv) >= 0 ? bb_slot_get(_bv) : nd_slot(_bv)) : -1);
@@ -3523,6 +3519,16 @@ static int zrow_of(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     if (!nd || !r || !r->home || r->n != g_planner.g_zd_n || g_planner.g_zd_nodes_p != g_planner.codegen_flat_chain_body_nodes) return -1;
     return nidx(g_planner.codegen_flat_chain_body_nodes, r->n, nd);
+}
+static int * emit_grow_one(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
+    for (int k = o; k < cap; k++) q[k] = fill; return q; }
+static void emit_ops_reserve(int n) {
+    if (n < ZD_NOPS_MIN) n = ZD_NOPS_MIN;
+    if (n <= g_emit.op_zcap) return;
+    int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
+    g_emit.op_zread = emit_grow_one(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = emit_grow_one(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = emit_grow_one(g_emit.op_zread_xf, o, cap, -1);
+    g_emit.op_zread_fr = emit_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_grow_one(g_emit.op_zslot, o, cap, -1);
+    g_emit.op_zcap = cap;
 }
 static int zrow_under(int ri) { const zeta_plan_t * r = g_planner.g_zd_rec_p; return (ri >= 0 && r && r->under) ? r->under[ri] : 0; }
 static void dp_col(long v, long none) { if (v == none) printf(" -"); else printf(" %ld", v); }

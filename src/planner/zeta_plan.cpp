@@ -74,16 +74,6 @@ IR_t * zd_value_producer(IR_t * nd) {
 IR_t * zd_conj_value_node(IR_t * nd) { int g = 0; while (nd && nd->op == IR_CONJUNCTION && nd->n_operands > 0 && zd_k_own(nd) == 0 && g++ < 16) nd = nd->operands[0]; return nd; }
 int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_planner.g_zd_plan_on || g_planner.g_zd_plan_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
     for (int k = 0; k < g_planner.g_zd_plan_n; k++) if (g_planner.g_zd_plan_nodes[k] == nd) return g_planner.g_zd_plan_on[k] ? 1 : 0; return 0; }
-static int * zd_grow_one(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
-    for (int k = o; k < cap; k++) q[k] = fill; return q; }
-void zd_ops_reserve(int n) {
-    if (n < ZD_NOPS_MIN) n = ZD_NOPS_MIN;
-    if (n <= g_emit.op_zcap) return;
-    int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
-    g_emit.op_zread = zd_grow_one(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = zd_grow_one(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = zd_grow_one(g_emit.op_zread_xf, o, cap, -1);
-    g_emit.op_zread_fr = zd_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = zd_grow_one(g_emit.op_zslot, o, cap, -1);
-    g_emit.op_zcap = cap;
-}
 int zd_sr_role(const IR_t * nd) { int64_t v = IR_LIT(nd).ival; return (v == 1 || v == 2 || v == 3 || v == 4) ? (int)v : 0; }
 int zd_cpos(int i, const int *xb, const int *zout, long *d) {
     const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
@@ -2051,7 +2041,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     }
     g_planner.g_zd_plan_on = rec->on; g_planner.g_zd_plan_nodes = g_planner.codegen_flat_chain_body_nodes; g_planner.g_zd_plan_n = n;
     if (n > 0) zd_place(rec, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_arm, zd_cps, zd_cpd);
-    planner_facts(rec, g_planner.codegen_flat_chain_body_nodes, n);
+    planner_facts(rec, g_planner.codegen_flat_chain_body_nodes, n, g_emit_cfg);
     g_planner.g_zd_rec_p = rec;
     planner_capture(rec);
     return rec;
