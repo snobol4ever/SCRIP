@@ -18704,6 +18704,17 @@ DESCR_t c_rt_pas_sqr(DESCR_t *args, int nargs) {
     return INTVAL(v * v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_itoa(char *b, long long v, int uns) {
+    char t[24];
+    int n = 0, k = 0;
+    unsigned long long u = (uns || v >= 0) ? (unsigned long long)v : 0ULL - (unsigned long long)v;
+    do { t[n++] = (char)('0' + (int)(u % 10)); u /= 10; } while (u);
+    if (!uns && v < 0) b[k++] = '-';
+    while (n) b[k++] = t[--n];
+    b[k] = '\0';
+    return k;
+}
+static void pas_put_rjust(FILE *f, const char *s, int len, int width) { for (int i = len; i < width; i++) putc(' ', f); fwrite(s, 1, (size_t)len, f); }
 static int pas_bi_chr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return 0;
     long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
@@ -22046,10 +22057,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             if (IS_INT_fn(av)) {
                 int _pbn = 32;
                 char _pbq[_pbn];
-                int _pfmtlen = (w == -7 || w == -8) ? snprintf(_pbq, sizeof _pbq, "%llu", (unsigned long long)av.i) : snprintf(_pbq, sizeof _pbq, "%lld", (long long)av.i);
+                int _pfmtlen = pas_itoa(_pbq, (long long)av.i, w == -7 || w == -8);
                 if (w < 0 && w != -4 && w != -8 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
                 int _fw = (w == -4 || w == -8) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
-                fprintf(_dest, "%*s", _fw, _pbq);
+                pas_put_rjust(_dest, _pbq, _pfmtlen, _fw);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
                 int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
@@ -22058,10 +22069,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 int _signpad = (_rb[0] == '-') ? 0 : 1;
                 int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
                 int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
-                fprintf(_dest, "%*s", _fw, _rb);
+                pas_put_rjust(_dest, _rb, _pfmtlen, _fw);
             } else {
                 const char *_ps = VARVAL_fn(av);
-                if (_ps) { if (w == -2) { fprintf(_dest, "%c", (int)(unsigned char)_ps[0]); } else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); } else { fputs(_ps, _dest); } }
+                if (_ps) { if (w == -2) { putc((int)(unsigned char)_ps[0], _dest); } else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); } else { fputs(_ps, _dest); } }
             }
         }
         if (nl) fputc('\n', _dest);
