@@ -87,6 +87,9 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->vrfp = fc_vread_fp(nd); z->hwhy = zls_home_why(nd); z->fcact = fc_call_active(nd); z->argv = zls_argv_off(nd); z->redisp = zls_redisp_off(nd);
         z->curmov = zd_call_curmov(nd); z->cvn = o0 ? zd_conj_value_node_g(g, o0) : (IR_t *)0;
         z->dsave = (zls_g_generator_top(g) > 0 && z->loff >= 0 && !zls_key_unbacked(g, z->loff)) ? zls_frame_off(g, nd) + 16 : INT_MIN;
+        z->trapd = (op == IR_SETEXIT_TEST && rec->on[i]) ? rec->out[i] - z->k : 0; z->zrunb = rec->out[i] >= 0 ? rec->out[i] - (rec->on[i] ? z->k : 0) : 0;
+        z->xbp = (rec->out[i] >= 0 && rec->on[i] && rec->xb && rec->xb[i] != INT_MIN && rec->xb[i] > 0) ? rec->xb[i] : 0;
+        z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
     }
@@ -103,6 +106,12 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         }
     }
     for (int i = 0; i < n; i++) rec->zn[i].arr = ad[(size_t)i];
+    for (int i = 0; i < n; i++) {
+        znode_t * z = &rec->zn[i]; int ti = z->sidx; rec->zn[i].suc0 = rec->zn[i].suc1 = 0;
+        if (!(rec->on[i] && z->isusp && ti >= 0 && rec->on[ti])) continue;
+        int bi = (rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0, bt = (rec->xb && rec->xb[ti] != INT_MIN) ? rec->xb[ti] : 0, ke = z->yend, yd = ke >= 0 ? rec->out[ke] - rec->gp[ke] : rec->out[i];
+        z->suc0 = (bi + yd) - (bt + rec->out[ti]); z->suc1 = z->suc0 + rec->zn[ti].k;
+    }
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; znode_t * z = &rec->zn[i]; int op = (int)nd->op;
         if (op == IR_LIMIT && zls_g_home_frame(g)) for (int q = 2; q < nd->n_operands; q++) {
