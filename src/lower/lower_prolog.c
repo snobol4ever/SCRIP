@@ -962,6 +962,7 @@ static tree_t * pl_cc_fnc4(const char * f, tree_t * a0, tree_t * a1, tree_t * a2
     ast_push(n, a3);
     return n;
 }
+static tree_t * pl_between_split(const tree_t * t);
 static tree_t * pl_cc_freshvar(void) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = g_lower.pl.fresh_next++; return v; }
 static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_t * a0, tree_t * a1, tree_t * a2) {
     tree_t * cv = pl_cc_freshvar();
@@ -970,7 +971,7 @@ static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_
     tree_t * iv2 = pl_cc_freshvar();
     cv2->v.ival = cv->v.ival;
     iv2->v.ival = iv->v.ival;
-    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv));
+    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_between_split(pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv)));
     tree_t * pick = a2 ? pl_cc_fnc4(nth_leaf, iv2, a0, a1, a2) : pl_cc_fnc3(nth_leaf, iv2, a0, a1);
     return pl_cc_fnc2(",", gen, pick);
 }
@@ -1008,7 +1009,7 @@ static tree_t * pl_cc_gen2_desc(const char * count_leaf, const char * nth_leaf, 
     jv2->v.ival = jv->v.ival;
     iv2->v.ival = iv->v.ival;
     tree_t * down = pl_cc_fnc2("is", iv, pl_cc_fnc2("-", pl_cc_fnc2("+", cv3, pl_cc_ilit(1)), jv2));
-    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, jv), down));
+    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_cc_fnc2(",", pl_between_split(pl_cc_fnc3("between", pl_cc_ilit(1), cv2, jv)), down));
     return pl_cc_fnc2(",", gen, pl_cc_fnc4(nth_leaf, iv2, a0, a1, a2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2382,7 +2383,8 @@ static tree_t * pl_pp_runtime(const tree_t * h, const tree_t * pp) {
     tree_t * pc = pl_cc_fnc1("$pl_pp_pcheck", (tree_t *) pp);
     return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h),
         pl_cc_fnc2(",", pc,
-        pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))));
+        pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv),
+        pl_cc_fnc2(",", pl_between_split(pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv)), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -3485,7 +3487,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * code = pl_cc_freshvar();
                 tree_t * ty = (tree_t *) t->c[1];
                 tree_t * gen =
-                    pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(0), pl_cc_ilit(1114111), code), pl_cc_fnc2(",", pl_cc_fnc2("$char_type_d", code, ty), pl_cc_fnc2("char_code", ch, code)));
+                    pl_cc_fnc2(",", pl_between_split(pl_cc_fnc3("between", pl_cc_ilit(0), pl_cc_ilit(1114111), code)),
+                    pl_cc_fnc2(",", pl_cc_fnc2("$char_type_d", code, ty), pl_cc_fnc2("char_code", ch, code)));
                 tree_t * u = pl_cc_freshvar();
                 tree_t * l = pl_cc_freshvar();
                 tree_t * casel = pl_cc_fnc2(",", pl_cc_fnc2("=", ty, pl_cc_fnc1("to_lower", u)), pl_cc_fnc1("nonvar", u));
@@ -3546,7 +3549,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (entry_out) *entry_out = ge ? ge : g;
                 return nd;
             }
-            if (!strcmp(nm, "repeat") && !pl_user_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
+            if (!strcmp(nm, "repeat") && !pl_user_defines(nm, 0))
+                return goal(cx, pl_between_split(pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar())), γnext, ωfail, entry_out);
             if (!strcmp(nm, "!") || (!strcmp(nm, "$") && !pl_dollar_user(0))) {
                 IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω);
                 if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1;
