@@ -962,7 +962,7 @@ extern "C" void bbprof_record(int nid, int kind, int uid, void *lo, void *hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int walk_bb_node(IR_t * nd, FILE * out) {
     { if (g_emitter.walk_bb_node__zp < 0) { const char * e = getenv("SCRIP_ZPROBE"); g_emitter.walk_bb_node__zp = (e && *e == '1') ? 1 : 0; }
-      if (g_emitter.walk_bb_node__zp && nd) { extern int fc_geom(const IR_t *, long *); extern long zw_node_k(const IR_t *); long _d; long _k = fc_geom(nd, &_d) ? -1 : zw_node_k(nd);
+      if (g_emitter.walk_bb_node__zp && nd) { long _k = zrow(nd)->zpk;
           fprintf(stderr, "[ZPROBE] nest=%d nid=%d op=%d k=%ld\n", g_emitter.g_zprobe_depth, bb_node_id(nd), (int)nd->op, _k);
           g_emitter.g_zprobe_depth++; int _rc = walk_bb_node_inner(nd, out); g_emitter.g_zprobe_depth--; return _rc; } }
     if (!(nd && MEDIUM_BINARY && bbprof_on())) return walk_bb_node_inner(nd, out);
@@ -1491,26 +1491,7 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
 }
 extern "C" int fc_alt_fpmax(const IR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_alt_active(const IR_t *nd) { extern int fc_cells_active(void); return nd && nd->op == IR_MATCH_ALTERNATE && fc_cells_active() && fc_alt_fpmax(nd) >= 0; }
 extern "C" int fc_seq_active(const IR_t *);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_seq_on(const IR_t *nd) { return nd && fc_seq_active(nd); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_seq_elem_of(IR_t **nodes, int n, int k, int src) {
-    int N = (int)(nodes[k]->n_operands / 2), el = 0, sp = -1;
-    for (int j = 0; j < N; j++) if (nodes[k]->operands[2 * j] == nodes[src] || nodes[k]->operands[2 * j + 1] == nodes[src]) return j;
-    { int p = nidx(nodes, n, nodes[src]); if (p >= 0) { sp = p; } }
-    for (int j = 0; j < N; j++) { IR_t *e = nodes[k]->operands[2 * j]; { int p = nidx(nodes, n, e); if (p >= 0) { if (p <= sp) el = j; } } }
-    return el;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static bb_label_t * fc_seq_sigma_tgt(IR_t **nodes, int n, int k, int src, bb_label_t **lbls, bb_label_t *dflt) {
-    int N = (int)(nodes[k]->n_operands / 2), el = fc_seq_elem_of(nodes, n, k, src);
-    if (el >= N - 1) return dflt;
-    IR_t *nx = nodes[k]->operands[2 * (el + 1)];
-    { int p = nidx(nodes, n, nx); if (p >= 0) return lbls[p]; }
-    return dflt;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_clause_zero(int ak) {
     const IR_graph_t * g = g_emit_cfg;
@@ -1520,19 +1501,6 @@ static std::string pl_clause_zero(int ak) {
     if (b <= 128) { for (int q = 0; q < b / 8; q++) r += x86("mov", RDQ(emit_pl_fb(), g->alt_zlo + 8 * q), 0L); return r; }
     return r + x86("lea", "rdi", RDQ(emit_pl_fb(), g->alt_zlo)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(b / 8)) + x86("rep_stosq");
 }
-extern "C" int zls_g_vslot_count(const IR_graph_t *);
-extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
-static int pl_local_is_spine_cell(const IR_graph_t * g, const char * nm) {
-    int nv = zls_g_vslot_count(g);
-    for (int k = 0; k < nv; k++) {
-        int o = -1;
-        const char * vn = zls_g_vslot_get(g, k, &o);
-        if (!vn || strcmp(vn, nm)) continue;
-        int cov = k < (int)g_planner.zst_vcov.size() ? g_planner.zst_vcov[(size_t)k] : 0, use = k < (int)g_planner.zst_vuse.size() ? g_planner.zst_vuse[(size_t)k] : -1;
-        return cov > 0 && cov == use;
-    }
-    return 0;
-}
 static std::string pl_step_reseed_locals(void) {
     std::string r;
     if (!g_emit_cfg || !g_emit_cfg->lnames) return r;
@@ -1541,17 +1509,10 @@ static std::string pl_step_reseed_locals(void) {
         const char * nm = g_emit_cfg->lnames[i];
         if (!nm) continue;
         int off = ir_varslot_of(g_emit_cfg, nm);
-        if (off < 0 || (kt > 0 && off + 16 > kt) || pl_local_is_spine_cell(g_emit_cfg, nm)) continue;
+        if (off < 0 || (kt > 0 && off + 16 > kt) || ((size_t)i < g_planner.g_zd_rec_p->v_lspine.size() && g_planner.g_zd_rec_p->v_lspine[(size_t)i])) continue;
         r += x86("mov", RDQ(emit_pl_fb(), off), 0L) + x86("mov", RDQ(emit_pl_fb(), off + 8), 0L);
     }
     return r;
-}
-static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label_t **betas, bb_label_t *dflt) {
-    int el = fc_seq_elem_of(nodes, n, k, src);
-    if (el <= 0) return dflt;
-    IR_t *pv = nodes[k]->operands[2 * (el - 1) + 1];
-    { int p = nidx(nodes, n, pv); if (p >= 0) return betas[p]; }
-    return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_parts_reserve(int n) {
@@ -2558,10 +2519,11 @@ static int resume_sealed_defer_on_root(IR_t ** nodes, int n, IR_t * br) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int resume_carrier_ok(const IR_t * nd, int sealed_defer) { extern int zdp_seam_tier(const IR_t *);
-    if (zdp_seam_tier(nd) == 1) return 1;
-    if (zdp_seam_tier(nd) == 3) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); return (_nc == 1 && !sealed_defer && !nd->seal) ? 1 : 0; }
-    return zdp_seam_tier(nd) == 2 ? 1 : 0;
+static int resume_carrier_ok(const IR_t * nd, int sealed_defer) {
+    int st = zrow(nd)->seam;
+    if (st == 1) return 1;
+    if (st == 3) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); return (_nc == 1 && !sealed_defer && !nd->seal) ? 1 : 0; }
+    return st == 2 ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_frame_scope(void) {
@@ -2791,7 +2753,7 @@ static int scan_conduit_enters_a_do_clause(IR_t ** nodes, int n, IR_t * c) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
-    for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
+    for (int j = 0; j < n; j++) if (zrow(nodes[j])->fcsa) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
         used[k] = flat_beta_kind_keeps(nodes[k]);
     }
@@ -3095,7 +3057,8 @@ extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, 
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
     return x86("note", std::string("GCANCHOR ") + g_emitter.g_gc_map_lbl.name + " " + (frame_rel == 2 ? std::string(RDQ("rbp", -value_bytes + 8))
-                                                                          : frame_rel == 1 && zls_g_keys_only(g_emit_cfg) ? std::string(x86_fr64_prefix()) + std::to_string(value_bytes + 8) + "]"
+                                                                          : frame_rel == 1 &&
+                                                                              (g_emit_cfg && g_emit_cfg->pf.keys_only) ? std::string(x86_fr64_prefix()) + std::to_string(value_bytes + 8) + "]"
                                                                           : frame_rel ? std::string(FRQ(value_bytes + 8)) : std::string(RDQ("rsp", value_bytes + 8))))
          + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
 }

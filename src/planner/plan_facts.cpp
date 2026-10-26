@@ -56,6 +56,24 @@ static int pf_unwind_beta(const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
+extern "C" int fc_seq_active(const IR_t * nd);
+extern "C" int fc_cells_active(void);
+extern "C" int fc_alt_fpmax(const IR_t * nd);
+extern "C" int zdp_seam_tier(const IR_t * nd);
+extern "C" long zw_node_k(const IR_t * nd);
+extern "C" int zls_g_vslot_count(const IR_graph_t *);
+extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+static int pf_local_spine(const IR_graph_t * g, const char * nm) {
+    int nv = zls_g_vslot_count(g);
+    for (int k = 0; k < nv; k++) {
+        int o = -1;
+        const char * vn = zls_g_vslot_get(g, k, &o);
+        if (!vn || strcmp(vn, nm)) continue;
+        int cov = k < (int)g_planner.zst_vcov.size() ? g_planner.zst_vcov[(size_t)k] : 0, use = k < (int)g_planner.zst_vuse.size() ? g_planner.zst_vuse[(size_t)k] : -1;
+        return cov > 0 && cov == use;
+    }
+    return 0;
+}
 static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
     IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
@@ -112,6 +130,8 @@ static void pf_gate(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gra
     }
 }
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
+    rec->v_lspine.assign((size_t)(g && g->lnames ? g->nlocals : 0), 0);
+    for (int i = 0; g && g->lnames && i < g->nlocals; i++) rec->v_lspine[(size_t)i] = (g->lnames[i] && pf_local_spine(g, g->lnames[i])) ? 1 : 0;
     rec->zn = (znode_t *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(znode_t));
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; znode_t * z = &rec->zn[i]; long k = 0; int op = (int)nd->op;
@@ -171,6 +191,8 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
                         (vb || (!da && (ir_is_generator_kind(ir_kind0(db)) || ir_kind0(db) == IR_CALL || ir_kind0(db) == IR_CALL_PROC_STAGED || db->op == IR_SCAN_TAB || db->op == IR_SCAN_MOVE))) ? 1 :
                         0; } } }
         z->djo = -1; z->gto = -1;
+        z->fcsa = (fc_seq_active(nd) || (op == IR_MATCH_ALTERNATE && fc_cells_active() && fc_alt_fpmax(nd) >= 0)) ? 1 : 0; z->seam = zdp_seam_tier(nd);
+        { long d = 0; z->zpk = fc_geom(nd, &d) ? -1 : (int)zw_node_k(nd); }
         if (op == IR_DISJUNCTION) { z->djo = (int)rec->v_dj.size(); pf_dj(rec, nodes, n, i, g, z->djx); }
         if (op == IR_GATE && nd->n_operands > 0) { z->gto = (int)rec->v_gate.size(); pf_gate(rec, nodes, n, i, g); }
         z->opo = (int)rec->v_opoff.size();
