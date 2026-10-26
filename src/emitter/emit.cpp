@@ -4107,18 +4107,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emitter.g_scan_t0_pop = 0;
         g_create_body_entry = NULL;
         g_emitter.g_suspend_dobody_beta = NULL;
-        if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_SUSPEND && g_planner.codegen_flat_chain_body_nodes[i]->n_operands > 1 && g_planner.codegen_flat_chain_body_nodes[i]->operands[1]) {
-            IR_t *dobody = g_planner.codegen_flat_chain_body_nodes[i]->operands[1];
-            int via_beta = 0;
-            for (int _g = 0; dobody->op == IR_GOTO && dobody->γ.node && _g < 128; _g++) { via_beta |= port_sz_beta(dobody->γ.sz); dobody = dobody->γ.node; }
-            if (dobody->op == IR_FAIL) { g_emitter.g_suspend_dobody_beta = &lbl_ω; }
-            else { { int k = nidx(g_planner.codegen_flat_chain_body_nodes, n, dobody);
-                if (k >= 0) { int do_alpha = g_planner.codegen_flat_chain_body_nodes[i]->seal == 1 && !(dobody->op == IR_SCAN && dobody->n_operands > 2 && !dobody->operands[1]);
-                g_emitter.g_suspend_dobody_beta = (via_beta || (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED ||
-                    dobody->op == IR_SCAN_TAB || dobody->op == IR_SCAN_MOVE))) ?
-                    betas[k] :
-                    lbls[k]; } } }
-        }
+        if (_pl->zn[i].sdb == -1) g_emitter.g_suspend_dobody_beta = &lbl_ω;
+        else if (_pl->zn[i].sdb >= 0) g_emitter.g_suspend_dobody_beta = _pl->zn[i].sdbb ? betas[_pl->zn[i].sdb] : lbls[_pl->zn[i].sdb];
         if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
             for (int _aj = 0; _aj < g_planner.codegen_flat_chain_body_nodes[i]->n_operands; _aj++) { IR_t *_so = g_planner.codegen_flat_chain_body_nodes[i]->operands[_aj];
                 if (!_so || !(_so->op == IR_GOTO || _so->op == IR_MATCH_ARBNO || _so->op == IR_MATCH_ABORT)) continue;
@@ -4208,15 +4198,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             continue;
         }
         if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_LIMIT) {
-            IR_t *gen = g_planner.codegen_flat_chain_body_nodes[i]->n_operands > 0 ? g_planner.codegen_flat_chain_body_nodes[i]->operands[0] : NULL;
-            IR_t *rs = g_planner.codegen_flat_chain_body_nodes[i]->n_operands > 2 ? g_planner.codegen_flat_chain_body_nodes[i]->operands[2] : NULL;
-            g_emitter.g_limit_gen_beta = NULL;
-            g_emitter.g_limit_t0_pop = 0;
-            int tk = -1;
-            if (gen && ir_is_generator_kind(gen->op)) { { int k = nidx(g_planner.codegen_flat_chain_body_nodes, n, gen); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } } }
-            else if (rs) { int k = nidx(g_planner.codegen_flat_chain_body_nodes, n, rs); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } }
-            if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_limit_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
-            else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_limit_t0_pop = zd_out[i] - zd_out[tk];
+            g_emitter.g_limit_gen_beta = _pl->zn[i].t0x >= 0 ? betas[_pl->zn[i].t0x] : NULL;
+            g_emitter.g_limit_t0_pop = _pl->zn[i].t0p;
             g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0;
             if (_pl->zn[i].lgx >= 0) { g_emit.lbl_t1_p = betas[_pl->zn[i].lgx]; g_emit.lbl_t1 = betas[_pl->zn[i].lgx]->name; }
         }
@@ -4311,8 +4294,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   _pl->zn[i].gt == g_planner.codegen_flat_chain_body_nodes[zd_arm[i]];
               g_emitter.g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_emitter.g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_emitter.g_zd_k = zd_on[i] ? _pl->zn[i].k : 0;
-              if (zd_on[i] && _pl->zn[i].isusp) { int _ti = _pl->zn[i].sidx;
-                  g_emitter.g_zd_suspend_uclaim = (_ti >= 0 && g_emitter.g_suspend_dobody_beta == lbls[_ti]) ? _pl->zn[i].suc1 : _pl->zn[i].suc0; }
+              if (zd_on[i] && _pl->zn[i].isusp) g_emitter.g_zd_suspend_uclaim = _pl->zn[i].suc;
               { g_emitter.g_zd_abs = _pl->zn[i].zabs; g_planner.g_zd_cur = i;
                   g_emitter.g_zd_def = _pl->zn[i].zdef; g_emitter.g_zd_cutd = _pl->zn[i].zcut; g_emitter.g_zd_cpread = 1; g_emitter.g_zd_rdread = 1; } }
           if (g_emit_cfg && n_alt > 0) {

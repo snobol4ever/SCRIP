@@ -9,7 +9,7 @@ struct znode_t {
     IR_t * vp1, * gt, * ot;
     int aext, aexth, aclass, acause, vrfp, hwhy, fcact, argv, curmov, dsave, redisp, opo, actoff, bspk;
     IR_t * cvn;
-    int trapd, zrunb, xbp, zabs, zdef, zcut, suc0, suc1;
+    int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
 };
 struct zeta_plan_t {
     IR_t ** nodes;

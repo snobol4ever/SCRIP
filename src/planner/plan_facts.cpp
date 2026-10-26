@@ -1,6 +1,7 @@
 #include "../emitter/emit_head.h"
 #include "../emitter/emit_decls.h"
 #include "planner.h"
+int port_sz_beta(const char * sz);
 }
 extern "C" int fc_leaf_cell(const IR_t * nd, long * k);
 extern "C" long fc_vwpop(const IR_t * nd);
@@ -93,6 +94,20 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->xbp = (rec->out[i] >= 0 && rec->on[i] && rec->xb && rec->xb[i] != INT_MIN && rec->xb[i] > 0) ? rec->xb[i] : 0;
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
         z->actoff = zls_act_off(nd); z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) : 0;
+        z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
+        if (op == IR_LIMIT) { IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0, * rs = nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0; int tk = -1;
+            if (gen && ir_is_generator_kind(gen->op)) tk = nidx(nodes, n, gen); else if (rs) tk = nidx(nodes, n, rs);
+            z->t0x = tk;
+            if (tk >= 0 && rec->xb && rec->on[i] && rec->on[tk] && rec->xb[i] != INT_MIN && rec->xb[tk] != INT_MIN) z->t0p = (rec->xb[i] + rec->out[i]) - (rec->xb[tk] + rec->out[tk]);
+            else if (tk >= 0 && rec->on[i] && rec->on[tk] && rec->claim && rec->claim[i] >= 0 && rec->claim[i] == rec->claim[tk]) z->t0p = rec->out[i] - rec->out[tk]; }
+        if (op == IR_SUSPEND && nd->n_operands > 1 && nd->operands[1]) { IR_t * db = nd->operands[1]; int vb = 0;
+            for (int g2 = 0; db->op == IR_GOTO && db->γ.node && g2 < 128; g2++) { vb |= port_sz_beta(db->γ.sz); db = db->γ.node; }
+            if (db->op == IR_FAIL) z->sdb = -1;
+            else { int kd = nidx(nodes, n, db);
+                if (kd >= 0) { int da = nd->seal == 1 && !(db->op == IR_SCAN && db->n_operands > 2 && !db->operands[1]); z->sdb = kd;
+                    z->sdbb =
+                        (vb || (!da && (ir_is_generator_kind(ir_kind0(db)) || ir_kind0(db) == IR_CALL || ir_kind0(db) == IR_CALL_PROC_STAGED || db->op == IR_SCAN_TAB || db->op == IR_SCAN_MOVE))) ? 1 :
+                        0; } } }
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
     }
@@ -110,10 +125,11 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
     }
     for (int i = 0; i < n; i++) rec->zn[i].arr = ad[(size_t)i];
     for (int i = 0; i < n; i++) {
-        znode_t * z = &rec->zn[i]; int ti = z->sidx; rec->zn[i].suc0 = rec->zn[i].suc1 = 0;
+        znode_t * z = &rec->zn[i]; int ti = z->sidx; z->suc = 0;
         if (!(rec->on[i] && z->isusp && ti >= 0 && rec->on[ti])) continue;
         int bi = (rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0, bt = (rec->xb && rec->xb[ti] != INT_MIN) ? rec->xb[ti] : 0, ke = z->yend, yd = ke >= 0 ? rec->out[ke] - rec->gp[ke] : rec->out[i];
-        z->suc0 = (bi + yd) - (bt + rec->out[ti]); z->suc1 = z->suc0 + rec->zn[ti].k;
+        int ta = (z->sdb == ti && !z->sdbb) ? rec->zn[ti].k : 0;
+        z->suc = (bi + yd) - (bt + rec->out[ti] - ta);
     }
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; znode_t * z = &rec->zn[i]; int op = (int)nd->op;
