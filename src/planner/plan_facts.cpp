@@ -312,3 +312,61 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
     for (int i = 0; i < n; i++) rec->zn[i].bu = bu[i];
     for (int i = 0; i < n; i++) pf_scan_t0(rec, nodes, n, i, g, bu);
 }
+static int pf_blob_patv_reader(const IR_t * nd) { const char * sv = (nd && nd->op == IR_VAR) ? IR_LIT(nd).sval : (const char *)0; const char * d = sv ? strstr(sv, "$V") : (const char *)0;
+    if (!d || strncmp(sv, "PAT$", 4)) return 0; char * e = (char *)0; (void) strtol(d + 2, &e, 10); return (e && e != d + 2 && !*e) ? 1 : 0; }
+static int pf_blob_wire_clobber_scan(const IR_graph_t * g) {
+    if (!g) return 0;
+    for (int j = 0; j < g->n; j++) { IR_t * m = g->all[j]; if (!m) continue; int o = (int)ir_kind0(m);
+        if (o == IR_MATCH_DEFER || o == IR_CALL || o == IR_CALL_VALUE || o == IR_MATCH_VALUE || o == IR_MATCH_CALLOUT) return 1; }
+    return 0;
+}
+static int pf_fence0_dyn_on() { if (g_planner.fence0_dyn_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_DYNAMIC"); g_planner.fence0_dyn_on_v = (e && *e == '0') ? 0 : 1;
+    } return g_planner.fence0_dyn_on_v; }
+static int pf_fence0_dyn_floor(const zeta_plan_t * rec, const IR_t * nd) {
+    int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0; const IR_graph_t * g = rec->cfg;
+    if (!pf_fence0_dyn_on()) return 0;
+    if (!nd || !g || nd->op != IR_MATCH_FENCE0) return 0;
+    if (!rec->scope) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: not blob scope\n", (const void *)nd); return 0; }
+    int n = g->n; int guard = 0; IR_t * cur = zd_chase(nd->γ.node); const IR_t ** met = (const IR_t **)alloca(sizeof(IR_t *) * (size_t)(n + 1)); int nmet = 0;
+    while (cur && guard++ <= n) { int mo = (int)ir_kind0(cur);
+        if (mo == IR_MATCH_END) break;
+        if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE ||
+            mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: dynamic successor %s\n", (const void *)nd, bb_op_name((IR_e)mo)); return 0; }
+        if ((mo == IR_MATCH_ASSIGN_COND || mo == IR_MATCH_ASSIGN_IMM) && cur->n_operands > 1) { int own = 0; for (int s = 0; s < nmet; s++) if (met[s] == cur->operands[1]) { own = 1; break; }
+            if (!own) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: successor %s reads a save cell the fence would drop\n", (const void *)nd, bb_op_name((IR_e)mo)); return 0; } }
+        met[nmet++] = cur;
+        cur = zd_chase(cur->γ.node); }
+    if (guard > n) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: successor chase did not terminate\n", (const void *)nd); return 0; }
+    int floor = rec->blob_bytes > 0 ? rec->blob_bytes + 16 : 0;
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: FLOOR=%d\n", (const void *)nd, floor);
+    return floor;
+}
+void planner_blob_facts(zeta_plan_t * rec) {
+    const IR_graph_t * g = rec->cfg; IR_t ** nodes = rec->nodes_own; int n = rec->n, bytes = 0;
+    if (rec->scope && g) {
+        int pend = 0; if (planner_blob_casmark()) for (int i = 0; i < g->n; i++) { IR_t * m = g->all[i]; if (m && m->op == IR_MATCH_ASSIGN_COND) { pend = 1; break; } }
+        int sb = planner_blob_slot_bytes();
+        bytes = (sb == 0 && !pend && !pf_blob_wire_clobber_scan(g) && planner_blob_exit_live(g) >= 0) ? 0 : planner_blob_head_bytes() + sb;
+    }
+    rec->blob_bytes = bytes; rec->spf = (bytes <= 0 && rec->scope) ? 1 : 0; rec->sph = 0; rec->spgd = 0;
+    if (rec->spf) {
+        int need = planner_blob_casmark(); for (int q = 0; q < n; q++) if (pf_blob_patv_reader(nodes[q])) need = 1;
+        rec->sph = need ? (planner_blob_casmark() ? 32 : 16) : 0; rec->spgd = -1;
+        for (int q = 0; q < n; q++) { IR_t * gt = rec->zn[q].gt; if (gt && gt->op != IR_SUCCEED) continue; int d = rec->on[q] ? rec->out[q] : -2;
+            rec->spgd = (rec->spgd == -1 || rec->spgd == d) ? d : -2; }
+    }
+    for (int i = 0; i < n; i++) {
+        znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; z->hrsp = (rec->sph > 0 && rec->on[i]) ? rec->out[i] + rec->sph - 8 : -1; z->dtk = -1; z->dtph = 0; z->dtd = 0;
+        z->f0f = nd->op == IR_MATCH_FENCE0 ? pf_fence0_dyn_floor(rec, nd) : 0;
+        if (nd->op != IR_MATCH_DEFER) continue;
+        for (int a = 0; a < nd->n_operands; a++) { IR_t * so = nd->operands[a];
+            if (!so || !(so->op == IR_GOTO || so->op == IR_MATCH_ARBNO || so->op == IR_MATCH_ABORT)) continue;
+            int phi = 0, gg = 0; while (so && so->op == IR_GOTO && gg++ < 128) { if (!phi) phi = (so->γ.sz[0] == (char)0xcf && (unsigned char)so->γ.sz[1] == 0x86); so = so->γ.node; }
+            int k = nidx(nodes, n, so);
+            if (k >= 0) { z->dtk = k; z->dtph = phi;
+                if (rec->spf && so->op == IR_MATCH_ABORT) { int da = rec->zn[k].arr, dj = rec->on[i] ? rec->out[i] : -1; if (da == -1) da = 0; z->dtd = (dj < 0 || da < 0 || dj < da) ? -1 : dj - da;
+                    } }
+            break;
+        }
+    }
+}

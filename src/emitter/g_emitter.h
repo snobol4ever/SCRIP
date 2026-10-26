@@ -95,7 +95,6 @@ struct g_emitter_t {
     int g_α_ring_i = 0;
     int g_bb_alpha_seq = 0;
     int fence_kk_gamma_on_v = -1;
-    int fence0_dyn_on_v = -1;
     int frame_need_of__cn = -1;
     int bb_classify_node__ed = -1;
     int bb_classify_node__cd = -1;

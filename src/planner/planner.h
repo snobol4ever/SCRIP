@@ -14,6 +14,7 @@ struct znode_t {
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
     int ws, wek, wex, f0r;
     int bu, sbk, sbb, sbp;
+    int hrsp, dtk, dtph, dtd, f0f;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
 struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
@@ -43,6 +44,7 @@ struct zeta_plan_t {
     IR_t * key;
     int own_root;
     int zdp_on;
+    int blob_bytes, spf, sph, spgd;
     int empty_fail;
     int empty_succ;
     IR_t ** nodes_own;
@@ -97,6 +99,7 @@ void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
+void planner_blob_facts(zeta_plan_t * rec);
 void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon, const int * eslot);
 void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char * prefix);
 void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
