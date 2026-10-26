@@ -2186,7 +2186,7 @@ void zls_home_pass(const IR_graph_t * g) {
                 top--;
                 int x = st[top], d = sd[top], w = sw[top];
                 if (x == c) { if (d) { fcn_t * t = fcn_get(g->all[p]); t->fl |= FCN_HOME; t->hw = w ? w : 8; hit = 1; } continue; }
-                if (rn[x]) { d = 0; w = 0; } else if (dy[x]) { d = 1; w = dy[x]; }
+                if (rn[x] && w != 5 && w != 11) { d = 0; w = 0; } else if (dy[x]) { d = 1; w = dy[x]; }
                 const IR_t * xx = g->all[x];
                 int na = (g->home_frame && xx && xx->op == IR_DISJUNCTION) ? (int)IR_LIT(xx).ival : 0;
                 for (int e = 0; e < 2 + na; e++) {
