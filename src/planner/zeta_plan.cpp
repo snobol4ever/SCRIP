@@ -1,6 +1,7 @@
 #include "../emitter/emit_head.h"
 #include "../emitter/emit_decls.h"
 #include "planner.h"
+g_planner_t g_planner;
 int emit_floater_member(const IR_t * n);
 void nidx_build(IR_t **nodes, int n);
 int emit_floater_kind(const IR_t * n);
@@ -39,7 +40,7 @@ int zd_nops(IR_t * nd);
 int zd_k_own(IR_t * nd);
 int zst_s_of(const IR_t * nd);
 int zd_k_own(IR_t * nd);
-int zd_dj_admitted(int n, int ei) { return (ei >= 0 && ei < n && (size_t)ei < g_emitter.g_zd_admit.size() && g_emitter.g_zd_admit[(size_t)ei]) ? 1 : 0; }
+int zd_dj_admitted(int n, int ei) { return (ei >= 0 && ei < n && (size_t)ei < g_planner.g_zd_admit.size() && g_planner.g_zd_admit[(size_t)ei]) ? 1 : 0; }
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k) {
     return k >= 0 && nodes[k]->op == IR_DISJUNCTION && zarm && !zd_dj_admitted(n, k);
 }
@@ -71,8 +72,8 @@ IR_t * zd_value_producer(IR_t * nd) {
     return nd;
 }
 IR_t * zd_conj_value_node(IR_t * nd) { int g = 0; while (nd && nd->op == IR_CONJUNCTION && nd->n_operands > 0 && zd_k_own(nd) == 0 && g++ < 16) nd = nd->operands[0]; return nd; }
-int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_emitter.g_zd_plan_on || g_emitter.g_zd_plan_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
-    for (int k = 0; k < g_emitter.g_zd_plan_n; k++) if (g_emitter.g_zd_plan_nodes[k] == nd) return g_emitter.g_zd_plan_on[k] ? 1 : 0; return 0; }
+int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_planner.g_zd_plan_on || g_planner.g_zd_plan_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
+    for (int k = 0; k < g_planner.g_zd_plan_n; k++) if (g_planner.g_zd_plan_nodes[k] == nd) return g_planner.g_zd_plan_on[k] ? 1 : 0; return 0; }
 static int * zd_grow_one(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
     for (int k = o; k < cap; k++) q[k] = fill; return q; }
 void zd_ops_reserve(int n) {
@@ -85,21 +86,21 @@ void zd_ops_reserve(int n) {
 }
 int zd_sr_role(const IR_t * nd) { int64_t v = IR_LIT(nd).ival; return (v == 1 || v == 2 || v == 3 || v == 4) ? (int)v : 0; }
 int zd_cpos(int i, const int *xb, const int *zout, long *d) {
-    const int * cl = g_emitter.g_zd_claim_p, * fm = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
+    const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
     if (xb[i] != INT_MIN) { *d = xb[i] + zout[i]; return -2; }
     if (cl[i] >= 0 && fm[cl[i]] >= 0) { *d = fb[cl[i]] + zout[i]; return fm[cl[i]]; }
     *d = zout[i];
     return cl[i] >= 0 ? -3 - cl[i] : INT_MIN;
 }
 int zd_fam_delta(int i, int k, int * ok) {
-    const int * cl = g_emitter.g_zd_claim_p, * fm = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
+    const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
     *ok = (cl && fm && fb && cl[i] >= 0 && cl[k] >= 0 && cl[i] != cl[k] && fm[cl[i]] >= 0 && fm[cl[i]] == fm[cl[k]]) ? 1 : 0;
     return *ok ? fb[cl[i]] - fb[cl[k]] : 0;
 }
 int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp) {
     long da = 0, dk = 0;
     int ca = zd_cpos(a, xb, zout, &da), ck = INT_MIN;
-    da -= g_emitter.g_zd_gp_p[a];
+    da -= g_planner.g_zd_gp_p[a];
     if (wantb && zd_edge_retains(nodes[k])) {
         IR_t * c = zd_chase(nodes[k]->γ.node);
         int kc = c ? nidx(nodes, n, c) : -1;
@@ -114,7 +115,7 @@ int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const u
     if (!zd_gate_pair(nodes, n, a, k, wantb, zon, zout, xb, rsp)) return 0;
     IR_t * c = (g >= 0 && wantb && (nodes[k]->op == IR_DISJUNCTION || (int)ir_kind0(nodes[k]) == IR_CALL_PROC_STAGED)) ? zd_chase(nodes[g]->γ.node) : (IR_t *)0;
     int ci = c ? nidx(nodes, n, c) : -1;
-    const int * cl = g_emitter.g_zd_claim_p;
+    const int * cl = g_planner.g_zd_claim_p;
     if (ci >= 0 && ci != g && zon[ci] && zon[g] && cl && cl[ci] >= 0 && cl[ci] == cl[g] && cl[g] != cl[a]) *rsp += zout[g] - (zout[ci] - zd_k(nodes[ci]));
     return 1;
 }
@@ -189,33 +190,33 @@ int zd_nops(IR_t * nd) { int op = (int)ir_kind0(nd);
         op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK ||
         op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
 void zd_rec_arm(IR_t ** nodes, int i) {
-    g_emitter.g_zd_grec_off = -1;
-    g_emitter.g_zd_wrec_off = -1;
-    if (i < 0 || i >= (int)g_emitter.g_zd_grec.size()) return;
-    int gd = g_emitter.g_zd_grec[(size_t)i], wd = g_emitter.g_zd_wrec[(size_t)i];
+    g_planner.g_zd_grec_off = -1;
+    g_planner.g_zd_wrec_off = -1;
+    if (i < 0 || i >= (int)g_planner.g_zd_grec.size()) return;
+    int gd = g_planner.g_zd_grec[(size_t)i], wd = g_planner.g_zd_wrec[(size_t)i];
     int gs = gd >= 0 ? planner_frame_slot(g_emit_cfg, nodes[gd]) : -1, ws = wd >= 0 ? planner_frame_slot(g_emit_cfg, nodes[wd]) : -1;
-    if (gs != -1) { g_emitter.g_zd_grec_off = gs + 24; g_emitter.g_zd_grec_res = g_emitter.g_zd_grec_pop[(size_t)i]; }
-    if (ws != -1) { g_emitter.g_zd_wrec_off = ws + 24; g_emitter.g_zd_wrec_res = g_emitter.g_zd_wrec_pop[(size_t)i]; }
+    if (gs != -1) { g_planner.g_zd_grec_off = gs + 24; g_planner.g_zd_grec_res = g_planner.g_zd_grec_pop[(size_t)i]; }
+    if (ws != -1) { g_planner.g_zd_wrec_off = ws + 24; g_planner.g_zd_wrec_res = g_planner.g_zd_wrec_pop[(size_t)i]; }
 }
 void zd_cp_arm(IR_t ** nodes, int i, const int * zcps, const int * zcpd, const int * zout) {
-    g_emitter.g_zd_cpsx = -1;
-    g_emitter.g_zd_cpdx = -1;
+    g_planner.g_zd_cpsx = -1;
+    g_planner.g_zd_cpdx = -1;
     if (zcpd[i] > -2) {
         if (zcps[i] > -2) return;
         int k = -zcps[i] - 2, sx = planner_frame_slot(g_emit_cfg, nodes[k]);
         if (sx == -1 && zd_value_producer(nodes[k]) != nodes[k]) sx = planner_frame_slot(g_emit_cfg, zd_value_producer(nodes[k]));
-        if (sx != -1) { g_emitter.g_zd_cpsx = sx; g_emitter.g_zd_cps = 0; }
-        else g_emitter.g_zd_cps = zout[i] - zout[k];
+        if (sx != -1) { g_planner.g_zd_cpsx = sx; g_planner.g_zd_cps = 0; }
+        else g_planner.g_zd_cps = zout[i] - zout[k];
         return;
     }
     int d = -zcpd[i] - 2, k = zcps[i] <= -2 ? -zcps[i] - 2 : -1;
     int dx = planner_frame_slot(g_emit_cfg, nodes[d]), sx = k >= 0 ? planner_frame_slot(g_emit_cfg, nodes[k]) : -1;
-    g_emitter.g_zd_cpd = -1;
-    g_emitter.g_zd_cps = -1;
+    g_planner.g_zd_cpd = -1;
+    g_planner.g_zd_cps = -1;
     if (dx == -1 || k < 0) return;
-    g_emitter.g_zd_cpdx = dx;
-    if (sx != -1) g_emitter.g_zd_cpsx = sx;
-    else g_emitter.g_zd_cps = zout[i] - zout[k];
+    g_planner.g_zd_cpdx = dx;
+    if (sx != -1) g_planner.g_zd_cpsx = sx;
+    else g_planner.g_zd_cps = zout[i] - zout[k];
 }
 int zd_icn_local_var(const IR_t * nd) { return nd && nd->op == IR_VAR && g_emit_cfg && g_emit_cfg->spine_cells && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
@@ -238,13 +239,13 @@ static int zd_icn_stmt_head(const IR_t * nd) { extern const char * bb_src_of(con
     return (s && (!strcmp(s, "stmt") || !strcmp(s, "nstmt"))) ? 1 : 0; }
 static int zd_icn_stmt_sibling(const IR_t * nd) { extern const char * bb_src_of(const IR_t *); const char * s = (nd && g_emit_cfg && g_emit_cfg->spine_cells) ? bb_src_of(nd) : (const char *)0;
     return (s && !strcmp(s, "stmt")) ? 1 : 0; }
-int zd_djx_of(const IR_t * nd) { if (!nd || nd->op != IR_DISJUNCTION || g_emitter.g_zd_djx_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
-    int i = nidx(g_emitter.g_zd_djx_nodes, (int)g_emitter.g_zd_djx.size(), nd); return i >= 0 ? g_emitter.g_zd_djx[(size_t)i] : 0; }
-int zd_upost_of(const IR_t * nd) { if (!nd || nd->op != IR_UNMARK || g_emitter.g_zd_djx_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
-    int i = nidx(g_emitter.g_zd_djx_nodes, (int)g_emitter.g_zd_upost.size(), nd); return i >= 0 ? g_emitter.g_zd_upost[(size_t)i] : 0; }
+int zd_djx_of(const IR_t * nd) { if (!nd || nd->op != IR_DISJUNCTION || g_planner.g_zd_djx_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
+    int i = nidx(g_planner.g_zd_djx_nodes, (int)g_planner.g_zd_djx.size(), nd); return i >= 0 ? g_planner.g_zd_djx[(size_t)i] : 0; }
+int zd_upost_of(const IR_t * nd) { if (!nd || nd->op != IR_UNMARK || g_planner.g_zd_djx_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
+    int i = nidx(g_planner.g_zd_djx_nodes, (int)g_planner.g_zd_upost.size(), nd); return i >= 0 ? g_planner.g_zd_upost[(size_t)i] : 0; }
 int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
-static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
-    int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
+static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planner.g_zd_zarm_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
+    int i = nidx(g_planner.g_zd_zarm_nodes, g_planner.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_planner.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
@@ -275,11 +276,11 @@ static int zd_bcs_when(IR_t * nd, int w) {
 extern "C" int zls_off(const IR_t * nd);
 extern "C" int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);
 extern "C" int zd_cross_cell(int off) {
-    int n = g_emitter.g_zd_n, i = g_emitter.g_zd_cur;
-    IR_t ** nodes = g_emitter.g_zd_nodes_p;
-    const int * out = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p, * cl = g_emitter.g_zd_claim_p, * fam = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
-    const unsigned char * on = g_emitter.g_zd_plan_on;
-    if (!nodes || !out || !on || g_emitter.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
+    int n = g_planner.g_zd_n, i = g_planner.g_zd_cur;
+    IR_t ** nodes = g_planner.g_zd_nodes_p;
+    const int * out = g_planner.g_zd_out_p, * xb = g_planner.g_zd_xb_p, * cl = g_planner.g_zd_claim_p, * fam = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
+    const unsigned char * on = g_planner.g_zd_plan_on;
+    if (!nodes || !out || !on || g_planner.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
     int b = -1, key = -1;
     for (int c = i - 1; c >= 0 && b < 0; c--) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own(nodes[c])) { b = c; key = k; } }
     for (int c = i + 1; c < n && b < 0; c++) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own(nodes[c])) { b = c; key = k; } }
@@ -308,7 +309,7 @@ int zd_k_own(IR_t * nd) {
     }
     return 16;
 }
-static int zd_map_on(void) { if (g_emitter.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_emitter.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_emitter.zd_map_on__m; }
+static int zd_map_on(void) { if (g_planner.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_planner.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_planner.zd_map_on__m; }
 int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
 static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout, const int *claim) { int k = zdo_first(nodes, n, t); if (k < 0) return 0; int s = zon[k] ? zout[k] : 0;
@@ -644,7 +645,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                 if (g_emit_cfg && g_emit_cfg->home_frame) for (int s = 0; s < n; s++)
                     if (claim[s] == h && zon[s] && zst_s_of(nodes[s]) > 0 && base[h] + zout[s] - zd_k(nodes[s]) + zst_s_of(nodes[s]) > c)
                     c = base[h] + zout[s] - zd_k(nodes[s]) + zst_s_of(nodes[s]);
-                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-BASES] h=%d i=%d e=%d q=%d l=%d c=%d known=%d base=%d\n", h, i, e, q, l, c, known[q], base[q]);
+                if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-BASES] h=%d i=%d e=%d q=%d l=%d c=%d known=%d base=%d\n", h, i, e, q, l, c, known[q], base[q]);
                 if (known[q] && ((g_emit_cfg && g_emit_cfg->spine_cells) ? c >= base[q] : c <= base[q])) continue;
                 base[q] = c;
                 known[q] = 1;
@@ -862,7 +863,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
         }
     }
 }
-int zst_s_of(const IR_t * nd) { if (!nd || g_emitter.zst_sm.empty()) return 0; auto it = g_emitter.zst_sm.find(nd); return it == g_emitter.zst_sm.end() ? 0 : it->second; }
+int zst_s_of(const IR_t * nd) { if (!nd || g_planner.zst_sm.empty()) return 0; auto it = g_planner.zst_sm.find(nd); return it == g_planner.zst_sm.end() ? 0 : it->second; }
 static int zst_edge(IR_t ** nodes, int n, int i, int e) {
     IR_t * nd = nodes[i], * t = (IR_t *)0;
     if (e == 0) { IR_t * ig = (nd->op == IR_GATE_ARM && !nd->γ.node && nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; t = zd_chase(ig ? ig->γ.node : nd->γ.node); }
@@ -892,14 +893,14 @@ static int zst_dj_reads(const IR_t * nd, const char * vn) {
 }
 static int zst_isparam(const IR_graph_t * g, const char * vn) { for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], vn)) return 1; return 0; }
 static void zst_plan(IR_t ** nodes, int n) {
-    g_emitter.zst_nodes = nodes; g_emitter.zst_n = n; g_emitter.g_zd_cur = -1; g_emitter.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_emitter.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
-    g_emitter.zst_name.clear(); g_emitter.zst_vroot.clear(); g_emitter.zst_c.clear(); g_emitter.zst_j.clear(); g_emitter.zst_L.clear(); g_emitter.zst_vuse.clear(); g_emitter.zst_vcov.clear();
-        g_emitter.zst_sm.clear();
+    g_planner.zst_nodes = nodes; g_planner.zst_n = n; g_planner.g_zd_cur = -1; g_planner.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_planner.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
+    g_planner.zst_name.clear(); g_planner.zst_vroot.clear(); g_planner.zst_c.clear(); g_planner.zst_j.clear(); g_planner.zst_L.clear(); g_planner.zst_vuse.clear(); g_planner.zst_vcov.clear();
+        g_planner.zst_sm.clear();
     const IR_graph_t * g = g_emit_cfg;
     if (!g || n <= 0 || !(emit_resumable_frame() || g->spine_cells || g->home_frame)) return;
     if (g->spine_cells && !g->home_frame) return;
     int nv = zls_g_vslot_count(g); if (nv <= 0) return;
-    g_emitter.zst_vuse.assign((size_t)nv, 0); g_emitter.zst_vcov.assign((size_t)nv, 0);
+    g_planner.zst_vuse.assign((size_t)nv, 0); g_planner.zst_vcov.assign((size_t)nv, 0);
     std::vector<int> es, ed, pcnt((size_t)n + 1, 0);
     for (int i = 0; i < n; i++) for (int e = 0; e < zd_pl_edges(nodes[i]); e++) { int q = zst_edge(nodes, n, i, e); if (q >= 0 && q != i) { es.push_back(i); ed.push_back(q); pcnt[(size_t)q + 1]++; } }
     for (int i = 0; i < n; i++) pcnt[(size_t)i + 1] += pcnt[(size_t)i];
@@ -920,7 +921,7 @@ static void zst_plan(IR_t ** nodes, int n) {
     for (int v = 0; v < n; v++) { int np = pcnt[(size_t)v + 1] - pcnt[(size_t)v]; reach[(size_t)v] = (unsigned char)(isroot[(size_t)v] || np > 0); }
     for (int v = 0; v < n; v++) { if (!reach[(size_t)v]) continue; int r = -1, nr = 0;
         for (int u = 0; u < n; u++) if (isroot[(size_t)u] && (dom[(size_t)v * W + (size_t)u / 64] >> (u % 64) & 1)) { r = u; nr++; }
-        g_emitter.zst_root[(size_t)v] = nr == 1 ? r : -1; }
+        g_planner.zst_root[(size_t)v] = nr == 1 ? r : -1; }
     std::vector<int> idx((size_t)n, -1), low((size_t)n, 0), st; std::vector<unsigned char> on((size_t)n, 0), loop((size_t)n, 0); int ctr = 0;
     std::vector<int> scnt((size_t)n + 1, 0), ss, sd; for (size_t k = 0; k < es.size(); k++) scnt[(size_t)es[k] + 1]++;
     for (int i = 0; i < n; i++) scnt[(size_t)i + 1] += scnt[(size_t)i]; { std::vector<int> f2(scnt); sd.assign(es.size() + 1, -1);
@@ -962,11 +963,11 @@ static void zst_plan(IR_t ** nodes, int n) {
             if (hit) uses.push_back(i); }
         { int past = 0; for (size_t u = 0; (g->spine_cells || g->home_frame) && u < uses.size() && !past; u++) if (zls_home_local_why(nodes[uses[u]])) past = 1; if (past) continue; }
         if (zls_home_local_test(g, vn) == 9) continue;
-        std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_emitter.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0;
+        std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_planner.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0;
             for (size_t t = 0; t < roots.size(); t++) if (roots[t] == r) seen = 1; if (!seen) roots.push_back(r); }
-        g_emitter.zst_vuse[(size_t)k] = (int)roots.size();
+        g_planner.zst_vuse[(size_t)k] = (int)roots.size();
         for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
-            for (size_t u = 0; u < uses.size(); u++) if (g_emitter.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
+            for (size_t u = 0; u < uses.size(); u++) if (g_planner.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
             int best = -1;
             for (int pass = 0; pass < (g->home_frame ? 2 : 1) && best < 0; pass++) for (int d = 0; d < n; d++) {
                 if (!(tmp[(size_t)d / 64] >> (d % 64) & 1) || (loop[(size_t)d] && !(pass && zd_pl_home())) || indef0[(size_t)d] || nodes[d]->op == IR_DISJUNCTION || (zd_k_own(nodes[d]) <= 0 && !pass))
@@ -975,38 +976,38 @@ static void zst_plan(IR_t ** nodes, int n) {
                 for (size_t bi = 0; bi < bnds.size() && !inside; bi++) {
                     int b = bnds[bi];
                     if (b == d || !(dom[(size_t)d * W + (size_t)b / 64] >> (b % 64) & 1) || esc[bi][(size_t)d]) continue;
-                    for (size_t u = 0; u < uses.size() && !inside; u++) if (g_emitter.zst_root[(size_t)uses[u]] == r && esc[bi][(size_t)uses[u]]) inside = 1;
+                    for (size_t u = 0; u < uses.size() && !inside; u++) if (g_planner.zst_root[(size_t)uses[u]] == r && esc[bi][(size_t)uses[u]]) inside = 1;
                 }
                 if (inside) continue;
                 if (best < 0 || dsz[(size_t)d] > dsz[(size_t)best]) best = d;
             }
             if (best < 0) continue;
-            g_emitter.zst_name.push_back(vn); g_emitter.zst_vroot.push_back(r); g_emitter.zst_c.push_back(best); g_emitter.zst_j.push_back(g_emitter.zst_s[(size_t)best] / 16);
-                g_emitter.zst_L.push_back(0);
-            g_emitter.zst_s[(size_t)best] += 16; g_emitter.zst_vcov[(size_t)k]++; } }
-    for (int i = 0; i < n; i++) if (g_emitter.zst_s[(size_t)i] > 0) g_emitter.zst_sm[nodes[i]] = g_emitter.zst_s[(size_t)i];
+            g_planner.zst_name.push_back(vn); g_planner.zst_vroot.push_back(r); g_planner.zst_c.push_back(best); g_planner.zst_j.push_back(g_planner.zst_s[(size_t)best] / 16);
+                g_planner.zst_L.push_back(0);
+            g_planner.zst_s[(size_t)best] += 16; g_planner.zst_vcov[(size_t)k]++; } }
+    for (int i = 0; i < n; i++) if (g_planner.zst_s[(size_t)i] > 0) g_planner.zst_sm[nodes[i]] = g_planner.zst_s[(size_t)i];
 }
 void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known) {
-    if (g_emitter.zst_nodes != nodes || g_emitter.zst_n != n) return;
-    for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t]; int rk = claim && claim[c] >= 0 && known && known[claim[c]] && base;
-        g_emitter.zst_L[t] = rk ? base[claim[c]] + zout[c] - zd_k(nodes[c]) + g_emitter.zst_s[(size_t)c] - 16 * g_emitter.zst_j[t] : INT_MIN; }
-    if (zd_map_on()) for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t];
-        fprintf(stderr, "[ZD-MAP] STICKY name=%s root=%d c=%d (%s zout=%d k=%d own=%d s=%d) j=%d L=%d\n", g_emitter.zst_name[t], g_emitter.zst_vroot[t], c, bb_op_name(nodes[c]->op), zout[c],
-            zd_k(nodes[c]), zd_k_own(nodes[c]), g_emitter.zst_s[(size_t)c], g_emitter.zst_j[t], g_emitter.zst_L[t]); }
+    if (g_planner.zst_nodes != nodes || g_planner.zst_n != n) return;
+    for (size_t t = 0; t < g_planner.zst_c.size(); t++) { int c = g_planner.zst_c[t]; int rk = claim && claim[c] >= 0 && known && known[claim[c]] && base;
+        g_planner.zst_L[t] = rk ? base[claim[c]] + zout[c] - zd_k(nodes[c]) + g_planner.zst_s[(size_t)c] - 16 * g_planner.zst_j[t] : INT_MIN; }
+    if (zd_map_on()) for (size_t t = 0; t < g_planner.zst_c.size(); t++) { int c = g_planner.zst_c[t];
+        fprintf(stderr, "[ZD-MAP] STICKY name=%s root=%d c=%d (%s zout=%d k=%d own=%d s=%d) j=%d L=%d\n", g_planner.zst_name[t], g_planner.zst_vroot[t], c, bb_op_name(nodes[c]->op), zout[c],
+            zd_k(nodes[c]), zd_k_own(nodes[c]), g_planner.zst_s[(size_t)c], g_planner.zst_j[t], g_planner.zst_L[t]); }
 }
 int zst_coord(const char * name) {
-    if (!name || g_emitter.g_zd_cur < 0 || g_emitter.g_zd_cur >= g_emitter.zst_n || g_emitter.zst_nodes != g_emitter.codegen_flat_chain_body_nodes) return -1;
-    int r = g_emitter.zst_root[(size_t)g_emitter.g_zd_cur]; if (r < 0) return -1;
-    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && g_emitter.zst_L[t] != INT_MIN && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS -
-        g_emitter.zst_L[t];
+    if (!name || g_planner.g_zd_cur < 0 || g_planner.g_zd_cur >= g_planner.zst_n || g_planner.zst_nodes != g_planner.codegen_flat_chain_body_nodes) return -1;
+    int r = g_planner.zst_root[(size_t)g_planner.g_zd_cur]; if (r < 0) return -1;
+    for (size_t t = 0; t < g_planner.zst_name.size(); t++) if (g_planner.zst_vroot[t] == r && g_planner.zst_L[t] != INT_MIN && !strcmp(g_planner.zst_name[t], name)) return ZST_BIAS -
+        g_planner.zst_L[t];
     return -1;
 }
 static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zgpop, const int * zwpop, const int * zarm, const int * claim, const int * base,
     const unsigned char * known, int on) {
-    g_emitter.g_zd_grec.assign((size_t)(n > 0 ? n : 0), -1);
-    g_emitter.g_zd_wrec.assign((size_t)(n > 0 ? n : 0), -1);
-    g_emitter.g_zd_grec_pop.assign((size_t)(n > 0 ? n : 0), 0);
-    g_emitter.g_zd_wrec_pop.assign((size_t)(n > 0 ? n : 0), 0);
+    g_planner.g_zd_grec.assign((size_t)(n > 0 ? n : 0), -1);
+    g_planner.g_zd_wrec.assign((size_t)(n > 0 ? n : 0), -1);
+    g_planner.g_zd_grec_pop.assign((size_t)(n > 0 ? n : 0), 0);
+    g_planner.g_zd_wrec_pop.assign((size_t)(n > 0 ? n : 0), 0);
     if (!on || n <= 0 || !zarm) return;
     std::vector<int> recd((size_t)n * 2, INT_MAX);
     for (int d = 0; d < n; d++) {
@@ -1038,14 +1039,14 @@ static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, cons
                 int ai = base[claim[k]] + zout[k];
                 int land = v ? ai - zd_k(nodes[k]) - zwpop[k] : ai - zgpop[k];
                 if (land >= zdab) {
-                    if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJREC] i=%d edge %d leaves the continuation of dj %d at %d, not below its %d\n", k, v, d, land, zdab);
+                    if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJREC] i=%d edge %d leaves the continuation of dj %d at %d, not below its %d\n", k, v, d, land, zdab);
                     continue;
                 }
                 if (zdab >= recd[(size_t)(2 * k + v)]) continue;
                 recd[(size_t)(2 * k + v)] = zdab;
-                (v ? g_emitter.g_zd_wrec : g_emitter.g_zd_grec)[(size_t)k] = d;
-                (v ? g_emitter.g_zd_wrec_pop : g_emitter.g_zd_grec_pop)[(size_t)k] = zdab - land;
-                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJREC] i=%d %s edge leaves the continuation of dj %d: rsp from its record, then pop %d\n", k, v ? "omega" : "gamma", d, zdab - land);
+                (v ? g_planner.g_zd_wrec : g_planner.g_zd_grec)[(size_t)k] = d;
+                (v ? g_planner.g_zd_wrec_pop : g_planner.g_zd_grec_pop)[(size_t)k] = zdab - land;
+                if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJREC] i=%d %s edge leaves the continuation of dj %d: rsp from its record, then pop %d\n", k, v ? "omega" : "gamma", d, zdab - land);
             }
         }
     }
@@ -1053,11 +1054,11 @@ static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, cons
 static int zd_match_env_record(const IR_t * nd) { return nd->op == IR_MATCH_ALTERNATE ? 32 : nd->op == IR_MATCH_FENCE1 ? planner_fence_k(g_emit_cfg, nd) : 0; }
 void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {
     extern const char * bb_src_of(const IR_t *);
-    if (g_emitter.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_emitter.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
-    g_emitter.g_zd_djx.assign((size_t)(n > 0 ? n : 0), 0);
-    g_emitter.g_zd_admit.assign((size_t)(n > 0 ? n : 1), 0);
-    g_emitter.g_zd_upost.assign((size_t)(n > 0 ? n : 0), 0);
-    g_emitter.g_zd_djx_nodes = nodes;
+    if (g_planner.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_planner.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
+    g_planner.g_zd_djx.assign((size_t)(n > 0 ? n : 0), 0);
+    g_planner.g_zd_admit.assign((size_t)(n > 0 ? n : 1), 0);
+    g_planner.g_zd_upost.assign((size_t)(n > 0 ? n : 0), 0);
+    g_planner.g_zd_djx_nodes = nodes;
     zdo_build(nodes, n);
     zst_plan(nodes, n);
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = -1;
@@ -1070,11 +1071,11 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
     for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; if (zarm) zarm[i] = -1; zgt[i] = (IR_t *)0; zot[i] = (IR_t *)0; zgin[i] = 0; zoin[i] = 0; zmatch[i] = -1; }
     int * zarmj = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * djn = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    unsigned char * djok = g_emitter.g_zd_admit.data();
+    unsigned char * djok = g_planner.g_zd_admit.data();
     for (int i = 0; i < n; i++) { zarmj[i] = -1; djn[i] = 0; djok[i] = 0; if (zcps) zcps[i] = -1; if (zcpd) zcpd[i] = -1; if (zchn) { zchn[2 * i] = -1; zchn[2 * i + 1] = -1; } }
     const int zdj_on = zarm && zcps && g_emit_cfg && g_emit_cfg->spine_cells;
     const int zdj_arms = zarm && zcps && g_emit_cfg;
-    { if(g_emitter.zd_plan__lp<0){const char*e=getenv("SCRIP_ZDLOCAL");g_emitter.zd_plan__lp=(e&&*e=='1')?1:0;} if(g_emitter.zd_plan__lp){ extern int is_global(const char *);
+    { if(g_planner.zd_plan__lp<0){const char*e=getenv("SCRIP_ZDLOCAL");g_planner.zd_plan__lp=(e&&*e=='1')?1:0;} if(g_planner.zd_plan__lp){ extern int is_global(const char *);
         for (int i=0;i<n;i++){ int o=(int)nodes[i]->op;
         if(o==IR_VAR||o==IR_ASSIGN){ const char*vn=IR_LIT(nodes[i]).sval; int gl = (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn));
         if(!gl) fprintf(stderr,"[ZDLOCAL] %s name=%s fbdata=%d\n", bb_op_name(nodes[i]->op), vn?vn:"<null>", x86_fb_data()); } } } }
@@ -1144,20 +1145,20 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                     if (!rs || (zdj_on ? 0 : rs != env)) { bad = 1; break; }
                     IR_t * c2 = env->operands[2 * a];
                     if (c2 && c2->op == IR_FAIL && (rs == env || (zdj_on && rs->op == IR_FAIL)) && nidx(nodes, n, c2) < 0) {
-                        if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d is a bare fail: no box, its entry is the chain's omega\n", ei, a);
+                        if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d is a bare fail: no box, its entry is the chain's omega\n", ei, a);
                         continue;
                     }
                     int first = 1, g2 = 0, phi = 0;
                     while (c2 && c2 != env && g2++ <= n) {
                         int ci = nidx(nodes, n, c2);
                         if (first && ci >= 0 && claim[ci] < 0 && zd_icn_stmt_head(nodes[ci])) {
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d opens with a statement: no box claimed, its runs reach the box by sigma and phi\n", ei, a);
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d opens with a statement: no box claimed, its runs reach the box by sigma and phi\n", ei, a);
                             first = 0;
                             c2 = (IR_t *)0;
                             break;
                         }
                         if (!first && ci >= 0 && claim[ci] == hi && zarm[ci] == ei && zarmj[ci] == a) {
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d loops back to ci=%d: the arm's own loop, it leaves by phi\n", ei, a, ci);
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d loops back to ci=%d: the arm's own loop, it leaves by phi\n", ei, a, ci);
                             c2 = (IR_t *)0;
                             phi = 1;
                             break;
@@ -1167,20 +1168,20 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                             (IR_t *)0; break; }
                         if (zdj_on && !first && ci >= 0 && claim[ci] >= 0 && (claim[ci] != hi || ((zarm[ci] != ei || zarmj[ci] != a) && (nodes[ci] == zd_chase(env->γ.node) || (g_emit_cfg &&
                             (g_emit_cfg->spine_cells || (g_emit_cfg->home_frame && nodes[ci]->op == IR_UNMARK))))))) {
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box into ci=%d of run %d\n", ei, a, ci, claim[ci]);
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box into ci=%d of run %d\n", ei, a, ci, claim[ci]);
                             c2 = (IR_t *)0;
                             break;
                         }
                         if (ci < 0 || claim[ci] >= 0 || bb_src_of(nodes[ci]) || emit_floater_kind(nodes[ci]) || (walls && walls[ci])) { bad = 1;
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d stops at ci=%d (claim=%d src=%d floater=%d wall=%d)\n", ei, a, ci, ci >= 0 ? claim[ci] : -2,
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d stops at ci=%d (claim=%d src=%d floater=%d wall=%d)\n", ei, a, ci, ci >= 0 ? claim[ci] : -2,
                                 ci >= 0 ? (bb_src_of(nodes[ci]) != 0) : -1, ci >= 0 ? emit_floater_kind(nodes[ci]) : -1, (ci >= 0 && walls) ? walls[ci] : -1); break; }
                         if (emit_resumable_frame() && zd_edge_retains(nodes[ci]) && zd_chase(c2->γ.node) != env) {
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d holds a retaining ci=%d before its end: the disjunction is not admitted\n", ei, a, ci);
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d holds a retaining ci=%d before its end: the disjunction is not admitted\n", ei, a, ci);
                             bad = 1;
                             break;
                         }
                         run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; zarm[ci] = ei; zarmj[ci] = a; aent[ci] = (unsigned char)first; first = 0; rl++;
-                        if (g_emitter.zd_plan__dg)
+                        if (g_planner.zd_plan__dg)
                             fprintf(stderr, "[ZD-DJ] i=%d arm %d claims ci=%d %s rawgamma=%s\n", ei, a, ci, bb_op_name(nodes[ci]->op), c2->γ.node ? bb_op_name(c2->γ.node->op) : "-");
                         if (zdj_on && c2->γ.node && c2->γ.node->op == IR_GOTO && zd_chase(c2->γ.node) != env) { c2 = (IR_t *)0; break; }
                         if (zdj_on && c2->op == IR_GOTO) {
@@ -1193,7 +1194,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                                 t = zd_chase(t->γ.node);
                             }
                             if (leaves) {
-                                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box at its GOTO ci=%d (next, break)\n", ei, a, ci);
+                                if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box at its GOTO ci=%d (next, break)\n", ei, a, ci);
                                 c2 = (IR_t *)0;
                                 break;
                             }
@@ -1212,14 +1213,14 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                             int ci = nidx(nodes, n, c3);
                             if (ci < 0 || claim[ci] >= 0 || bb_src_of(nodes[ci]) || emit_floater_kind(nodes[ci]) || (walls && walls[ci])) break;
                             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; zarm[ci] = ei; zarmj[ci] = a; aent[ci] = 0; rl++;
-                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d claims ci=%d %s by omega\n", ei, a, ci, bb_op_name(nodes[ci]->op));
+                            if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d claims ci=%d %s by omega\n", ei, a, ci, bb_op_name(nodes[ci]->op));
                             c3 = zd_chase(c3->γ.node);
                         }
                         if (!(c3 == env && rl > rl1)) { for (int u = rl1; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; zarmj[ci] = -1; aent[ci] = 0; } rl = rl1; }
                     }
                     if (first || (c2 && c2 != env)) bad = 1;
                 }
-                if (g_emitter.zd_plan__dg && bad) fprintf(stderr, "[ZD-DJ] i=%d not admitted (na=%d claimed=%d)\n", ei, na, rl - rl0);
+                if (g_planner.zd_plan__dg && bad) fprintf(stderr, "[ZD-DJ] i=%d not admitted (na=%d claimed=%d)\n", ei, na, rl - rl0);
                 if (bad && getenv("SCRIP_ZD_CHECK") && zd_pl_home() && !zls_g_hf_resident(g_emit_cfg, nodes[ei]))
                     { fprintf(stderr, "[ZD-CHECK] FATAL DISJUNCTION i=%d is not admitted to the spine, does not retain and holds no frame record (zls_hf_resident)\n", ei); abort(); }
                 if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; zarmj[ci] = -1; aent[ci] = 0; } rl = rl0; continue; }
@@ -1239,12 +1240,12 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                     dep += zd_k(nodes[i]);
                     if (zd_chase(nodes[i]->γ.node) == nodes[d] && zd_sz_sigma(zd_edge_sz(nodes[i], 0)) && zls_dj_arm_resumes(nodes[d], zarmj[i]) && dep > x) x = dep;
                 }
-                if (cst && x > 0) g_emitter.g_zd_djx[(size_t)d] = x;
-                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJX] i=%d exit depth %d%s\n", d, x, cst ? "" : " (an arm's depth is not a constant: the record road)");
+                if (cst && x > 0) g_planner.g_zd_djx[(size_t)d] = x;
+                if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJX] i=%d exit depth %d%s\n", d, x, cst ? "" : " (an arm's depth is not a constant: the record road)");
             }
         }
         for (int k = 0; k < n; k++) cm[k] = 0;
-        g_emitter.g_zd_zarm_p = zarm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n;
+        g_planner.g_zd_zarm_p = zarm; g_planner.g_zd_zarm_nodes = nodes; g_planner.g_zd_zarm_n = n;
         int nblob = 0;
         { int wn = 0;
           for (int r = 0; r < rl; r++) { cm[run[r]] = 1; wl[wn++] = run[r]; }
@@ -1317,22 +1318,22 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 else if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);
                 else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (_wzdepth - K) - zout[oback]; } }
-                if (g_emitter.zd_plan__dg)
+                if (g_planner.zd_plan__dg)
                     fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d gin=%d oin=%d gback=%d oback=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gin,
                     oin, gback, oback);
             }
         }
         else {
             for (int r = 0; r < rl; r++) rpos[run[r]] = -1;
-               if (g_emitter.zd_plan__dg && rl > 0) { extern const char * zls_graph_name_get(const IR_graph_t *);
+               if (g_planner.zd_plan__dg && rl > 0) { extern const char * zls_graph_name_get(const IR_graph_t *);
                    fprintf(stderr, "[ZD] run h=%d len=%d REFUSED at i=%d (%s op=%d) graph=%s\n", hi, rl, badi, why, badi >= 0 ? (int)nodes[badi]->op : -1,
                    g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : "?"); }
-               { if (g_emitter.zd_plan__gp < 0) { const char * _e = getenv("SCRIP_ZD_GAP"); g_emitter.zd_plan__gp = (_e && _e[0] == '1') ? 1 : 0;
-                   } if (g_emitter.zd_plan__gp && rl > 0) { for (int _r = 0; _r < rl; _r++) { IR_t * _n = nodes[run[_r]]; const char * _nm = bb_op_name(_n->op); { int _o = (int)_n->op;
+               { if (g_planner.zd_plan__gp < 0) { const char * _e = getenv("SCRIP_ZD_GAP"); g_planner.zd_plan__gp = (_e && _e[0] == '1') ? 1 : 0;
+                   } if (g_planner.zd_plan__gp && rl > 0) { for (int _r = 0; _r < rl; _r++) { IR_t * _n = nodes[run[_r]]; const char * _nm = bb_op_name(_n->op); { int _o = (int)_n->op;
                    int _ic = (_o == (int)IR_CALL || (_o != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_o))); const char * _cs = (_ic && IR_LIT(_n).sval) ? IR_LIT(_n).sval : "-";
                    fprintf(stderr, "[ZD-GAP] r=%d op=%s(%d) nops=%d callee=%s\n", _r, _nm ? _nm : "<unnamed>", _o, (int)_n->n_operands, _cs); } } } }
-               { if (g_emitter.zd_plan__cd < 0) { const char *_e = getenv("SCRIP_CALL_DIAG"); g_emitter.zd_plan__cd = (_e && _e[0] == '1') ? 1 : 0; }
-                 if (g_emitter.zd_plan__cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op;
+               { if (g_planner.zd_plan__cd < 0) { const char *_e = getenv("SCRIP_CALL_DIAG"); g_planner.zd_plan__cd = (_e && _e[0] == '1') ? 1 : 0; }
+                 if (g_planner.zd_plan__cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op;
                      int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop)));
                      const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0;
                      fprintf(stderr, "[CALL-DIAG] REFUSE blocker op=%s(%d) callee=%s rl=%d badi=%d narg=%d\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-", rl, badi,
@@ -1353,7 +1354,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - zout[oback];
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && zd_sz_alpha(zd_edge_sz(nodes[i], 1))) zwpop[i] = (zout[i] - K) - _obpre;
-        if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback);
+        if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback);
             } }
     for (int i = 0; i < n; i++) {
         if (!zon[i]) continue;
@@ -1385,7 +1386,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             for (int v = 0; v < 2; v++) {
                 int q, b;
                 (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, v, &q, &b);
-                if (g_emitter.zd_plan__dg)
+                if (g_planner.zd_plan__dg)
                     fprintf(stderr, "[ZD-XC] i=%d v=%d q=%d b=%d cq=%d known=%d ai=%d\n", i, v, q, b, q >= 0 ? claim[q] : -2, (q >= 0 && claim[q] >= 0) ? known[claim[q]] : -1, ai);
                 if (q < 0 || claim[q] < 0 || claim[q] == claim[i]) continue;
                 int cq = claim[q], kq = known[cq] ? 1 : (fam[cq] >= 0 ? 2 : 0);
@@ -1556,8 +1557,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                     zout[k] = xc ? ab - base[claim[k]] : zout[b];
                     zgpop[k] = (u == _gs && _rb) ? (xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq]) : (u == _gs && _gt == nodes[b]) ? zd_k(nodes[b]) : 0;
                     zwpop[k] = 0; }
-                if (_rb && _gs == nodes[i]) g_emitter.g_zd_upost[(size_t)i] = xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq];
-                else if (_gt == nodes[b] && _gs == nodes[i]) g_emitter.g_zd_upost[(size_t)i] = zd_k(nodes[b]);
+                if (_rb && _gs == nodes[i]) g_planner.g_zd_upost[(size_t)i] = xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq];
+                else if (_gt == nodes[b] && _gs == nodes[i]) g_planner.g_zd_upost[(size_t)i] = zd_k(nodes[b]);
                 continue;
             }
             if (!xc && !_rb && _gt && _gt->op == IR_DISJUNCTION && zd_sz_phi(zd_edge_sz(_gs, 0))) continue;
@@ -1620,7 +1621,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         int k = zd_yield_end(nodes, n, sp, zon, claim);
         if (k < 0) continue;
         zgpop[k] = (g_emit_cfg && g_emit_cfg->home_frame && g_emit_cfg->spine_cells) ? 0 : zout[k] - zout[sp];
-        if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops %d\n", k, sp, zgpop[k]);
+        if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops %d\n", k, sp, zgpop[k]);
     }
     for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 1 && zd_edge_retains(nodes[i]->operands[1]) &&
         zd_arm_resumes(nodes[i], nodes[i]->operands[1])) zgpop[i] = 0;
@@ -1641,8 +1642,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = zon[i] ? claim[i] : -1;
 }
 void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix) {
-     if (g_emitter.zd_depth_census__on < 0) { const char * e = getenv("SCRIP_ZD_DEPTH"); g_emitter.zd_depth_census__on = (e && *e == '1') ? 1 : 0; }
-    if (!g_emitter.zd_depth_census__on || n <= 0) return;
+     if (g_planner.zd_depth_census__on < 0) { const char * e = getenv("SCRIP_ZD_DEPTH"); g_planner.zd_depth_census__on = (e && *e == '1') ? 1 : 0; }
+    if (!g_planner.zd_depth_census__on || n <= 0) return;
     zdw_ent_t * w = (zdw_ent_t *)ct_zalloc((size_t)(2 * n + 1), sizeof(zdw_ent_t)); if (!w) return;
     int wn = 0, armed = 0, edges = 0, walls = 0;
     for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++;
@@ -1690,8 +1691,8 @@ int zd_run_alpha_dead(IR_t ** nodes, int n, const int * claim, int h) {
 void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const int *zcut, const int *zarm,
     const char *prefix)
     {
-    if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
-    if (!g_emitter.zd_check__on || n <= 0) return;
+    if (g_planner.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_planner.zd_check__on = (e && *e == '1') ? 1 : 0; }
+    if (!g_planner.zd_check__on || n <= 0) return;
     int armed = 0, def = 0, edges = 0, viol = 0;
     for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++; if (xb && xb[i] != INT_MIN) def++; }
     for (int i = 0; i < n; i++) {
@@ -1788,10 +1789,10 @@ static void zd_place(zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned cha
     rec->rdo[n] = total; rec->rdn = total; rec->rd = (zrd_t *)ct_zalloc((size_t)(total > 0 ? total : 1), sizeof(zrd_t));
     for (int q = 0; q < total; q++) { rec->rd[q].dist = 0; rec->rd[q].xf = -1; rec->rd[q].fr = -1; rec->rd[q].key = -1; rec->rd[q].kind = -1; rec->rd[q].anchor = -1; }
     planner_consumers_build(g);
-    int cur_saved = g_emitter.g_zd_cur;
+    int cur_saved = g_planner.g_zd_cur;
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i]; int no = nd->n_operands;
-        g_emitter.g_zd_cur = i;
+        g_planner.g_zd_cur = i;
         rec->home[i] = planner_frame_slot(g, nd);
         { int K = zd_k(nd), off = zd_place_key(nodes, n, i, nd, 1); if (zls_key_unbacked(g, off)) off = -1; rec->lkey[i] = off;
             int esc = (nd->op == IR_TABLE_HDR && off >= 0) ? 1 : 0, xf = rec->home[i];
@@ -1819,11 +1820,11 @@ static void zd_place(zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned cha
             if (zd_scan_subject(nd) && xn == no) rd[xn].xf = planner_frame_slot(g, zd_scan_subject(nd));
             for (int j = 0; j <= no; j++) if (rd[j].xf == -1 && rd[j].anchor != -1) rd[j].xf = rd[j].anchor; }
         zd_rec_arm(nodes, i);
-        rec->grec_off[i] = g_emitter.g_zd_grec_off; rec->grec_res[i] = g_emitter.g_zd_grec_off != -1 ? g_emitter.g_zd_grec_res : 0; rec->wrec_off[i] = g_emitter.g_zd_wrec_off;
-        rec->wrec_res[i] = g_emitter.g_zd_wrec_off != -1 ? g_emitter.g_zd_wrec_res : 0;
-        g_emitter.g_zd_cps = zon[i] ? zcps[i] : -1; g_emitter.g_zd_cpd = zon[i] ? zcpd[i] : -1; g_emitter.g_zd_cpsx = -1; g_emitter.g_zd_cpdx = -1;
+        rec->grec_off[i] = g_planner.g_zd_grec_off; rec->grec_res[i] = g_planner.g_zd_grec_off != -1 ? g_planner.g_zd_grec_res : 0; rec->wrec_off[i] = g_planner.g_zd_wrec_off;
+        rec->wrec_res[i] = g_planner.g_zd_wrec_off != -1 ? g_planner.g_zd_wrec_res : 0;
+        g_planner.g_zd_cps = zon[i] ? zcps[i] : -1; g_planner.g_zd_cpd = zon[i] ? zcpd[i] : -1; g_planner.g_zd_cpsx = -1; g_planner.g_zd_cpdx = -1;
         if (zon[i]) zd_cp_arm(nodes, i, zcps, zcpd, zout);
-        rec->cpa_s[i] = g_emitter.g_zd_cps; rec->cpa_d[i] = g_emitter.g_zd_cpd; rec->cpa_sx[i] = g_emitter.g_zd_cpsx; rec->cpa_dx[i] = g_emitter.g_zd_cpdx;
+        rec->cpa_s[i] = g_planner.g_zd_cps; rec->cpa_d[i] = g_planner.g_zd_cpd; rec->cpa_sx[i] = g_planner.g_zd_cpsx; rec->cpa_dx[i] = g_planner.g_zd_cpdx;
         if (zon[i] && rec->cpa_s[i] == 0 && rec->cpa_d[i] >= 0 && rec->cpa_sx[i] == -1) { IR_t * vp = zd_value_producer(nd);
             if (vp && planner_frame_slot(g, vp) != -1) rec->cpa_sx[i] = planner_frame_slot(g, vp); }
         if (!zon[i]) continue;
@@ -1853,7 +1854,7 @@ static void zd_place(zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned cha
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
                 rd[j].dist = planner_read_distance(nodes, n, zarm, i, k, zout, rec->xb);
-                if (g_emitter.zd_check__on > 0 && rec->xb && rec->claim && rec->claim[i] != rec->claim[k] && (rec->xb[i] == INT_MIN || rec->xb[k] == INT_MIN) && planner_frame_slot(g, p) == -1 &&
+                if (g_planner.zd_check__on > 0 && rec->xb && rec->claim && rec->claim[i] != rec->claim[k] && (rec->xb[i] == INT_MIN || rec->xb[k] == INT_MIN) && planner_frame_slot(g, p) == -1 &&
                     (zd_k_own(p) >= 16 || zd_local_home_node(p)) && !zd_run_alpha_dead(nodes, n, rec->claim, rec->claim[i])) { int fok = 0; zd_fam_delta(i, k, &fok);
                     if (!fok) fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i, bb_op_name(nd->op), k, bb_op_name(p->op)); }
                 { const IR_t * lh = zd_local_home_node(p); if (lh) rd[j].fr = bb_varslot_peek(IR_LIT(lh).sval); else if (zd_dj_cellless(nodes, n, zarm, k) && zls_off(p) >= 0) rd[j].fr = zls_off(p); }
@@ -1870,29 +1871,29 @@ static void zd_place(zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned cha
                 rd[j].key = (po && (zd_k_own(po) >= 16 || zd_local_home_node(po) || (pv != po && zd_k_own(pv) >= 16 && onp) || ph) && ono) ? zd_place_key(nodes, n, i, po, 0) : -1; }
             if (xs && ns == no) { int kx = nidx(nodes, n, xs); rd[ns].key = ((zd_k_own(xs) >= 16 || zd_local_home_node(xs)) && kx >= 0 && zon[kx]) ? zls_off(xs) : -1; } }
     }
-    g_emitter.g_zd_grec_off = -1; g_emitter.g_zd_wrec_off = -1; g_emitter.g_zd_grec_res = 0; g_emitter.g_zd_wrec_res = 0; g_emitter.g_zd_cpsx = -1; g_emitter.g_zd_cpdx = -1; g_emitter.g_zd_cps = -1;
-    g_emitter.g_zd_cpd = -1; g_emitter.g_zd_cur = cur_saved;
+    g_planner.g_zd_grec_off = -1; g_planner.g_zd_wrec_off = -1; g_planner.g_zd_grec_res = 0; g_planner.g_zd_wrec_res = 0; g_planner.g_zd_cpsx = -1; g_planner.g_zd_cpdx = -1; g_planner.g_zd_cps = -1;
+    g_planner.g_zd_cpd = -1; g_planner.g_zd_cur = cur_saved;
 }
 zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix) {
     int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024; int Q_MAX = CH_MAX * 16;
-      if (g_emitter.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_nodes_cap = CH_MAX; } int n = 0;
-      if (g_emitter.codegen_flat_chain_body_queue_cap < Q_MAX) { g_emitter.codegen_flat_chain_body_queue = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_queue, (size_t)Q_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_queue_cap = Q_MAX; } int qh = 0, qt = 0;
+      if (g_planner.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_planner.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
+          g_planner.codegen_flat_chain_body_nodes_cap = CH_MAX; } int n = 0;
+      if (g_planner.codegen_flat_chain_body_queue_cap < Q_MAX) { g_planner.codegen_flat_chain_body_queue = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_queue, (size_t)Q_MAX * sizeof(IR_t *));
+          g_planner.codegen_flat_chain_body_queue_cap = Q_MAX; } int qh = 0, qt = 0;
     int entry_is_own_graph_root = (g_emit_cfg && (entry == g_emit_cfg->entry)) ? 1 : 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL || entry->op == IR_GOTO) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
     if (g_emit_cfg && entry == g_emit_cfg->entry) entry_is_own_graph_root = 1;
     int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
-      if (g_emitter.codegen_flat_chain_body_postv_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_postv = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_postv, (size_t)CH_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_postv_cap = CH_MAX; } int pn = 0;
+      if (g_planner.codegen_flat_chain_body_postv_cap < CH_MAX) { g_planner.codegen_flat_chain_body_postv = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_postv, (size_t)CH_MAX * sizeof(IR_t *));
+          g_planner.codegen_flat_chain_body_postv_cap = CH_MAX; } int pn = 0;
     ir_pset_t seenset; ir_pset_init(&seenset);
 #define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
 #define RPO_MARK(p) ir_pset_add(&seenset, (const IR_t *)(p))
 #define RPO_TAG_EMIT ((IR_t *)1)
 #define RPO_PUSH(p) do { IR_t *_rpp = (IR_t *)(p); int _rppg = 0; while (_rpp && _rpp->op == IR_SUCCEED && _rpp->γ.node && _rppg++ < 4096) _rpp = _rpp->γ.node; if (_rpp && _rpp->op != IR_SUCCEED \
-&& _rpp->op != IR_FAIL && !emit_floater_member(_rpp) && !(_stmt_seed && _rpp->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(_rpp) && qt < Q_MAX) g_emitter.codegen_flat_chain_body_queue[qt++] = _rpp; } \
+&& _rpp->op != IR_FAIL && !emit_floater_member(_rpp) && !(_stmt_seed && _rpp->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(_rpp) && qt < Q_MAX) g_planner.codegen_flat_chain_body_queue[qt++] = _rpp; } \
     while (0)
 #define RPO_PUSH_SUCCS(c) \
          \
@@ -1920,23 +1921,23 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         (void)0;
 #define RPO_DRAIN() \
     while (qt > qh) { \
-        IR_t *c = g_emitter.codegen_flat_chain_body_queue[--qt]; \
-        if (c == RPO_TAG_EMIT) { IR_t *e = g_emitter.codegen_flat_chain_body_queue[--qt]; if (pn < CH_MAX) g_emitter.codegen_flat_chain_body_postv[pn++] = e; continue; } \
+        IR_t *c = g_planner.codegen_flat_chain_body_queue[--qt]; \
+        if (c == RPO_TAG_EMIT) { IR_t *e = g_planner.codegen_flat_chain_body_queue[--qt]; if (pn < CH_MAX) g_planner.codegen_flat_chain_body_postv[pn++] = e; continue; } \
         if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue; \
         if (RPO_VISITED(c)) continue; \
         RPO_MARK(c); \
         if (pn >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } \
         if (qt + 2 > Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated at EMIT tag\n"); abort(); } \
-        g_emitter.codegen_flat_chain_body_queue[qt++] = c; g_emitter.codegen_flat_chain_body_queue[qt++] = RPO_TAG_EMIT; \
+        g_planner.codegen_flat_chain_body_queue[qt++] = c; g_planner.codegen_flat_chain_body_queue[qt++] = RPO_TAG_EMIT; \
         RPO_PUSH_SUCCS(c); \
     }
-#define RPO_FLUSH() do { for (int _i = pn - 1; _i >= 0; _i--) { if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } g_emitter.codegen_flat_chain_body_nodes[n++] = \
-    g_emitter.codegen_flat_chain_body_postv[_i]; } pn = 0; } while (0)
+#define RPO_FLUSH() do { for (int _i = pn - 1; _i >= 0; _i--) { if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } g_planner.codegen_flat_chain_body_nodes[n++] = \
+    g_planner.codegen_flat_chain_body_postv[_i]; } pn = 0; } while (0)
     int _stmt_seed = 0; if (g_emit_cfg && entry_is_own_graph_root) for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sn = g_emit_cfg->all[_ss];
         if (_sn && _sn->op == IR_STATEMENT_BEGIN) { _stmt_seed = 1; break; } }
-    if (_stmt_seed) { if (qt < Q_MAX) g_emitter.codegen_flat_chain_body_queue[qt++] = entry; RPO_DRAIN(); RPO_FLUSH();
+    if (_stmt_seed) { if (qt < Q_MAX) g_planner.codegen_flat_chain_body_queue[qt++] = entry; RPO_DRAIN(); RPO_FLUSH();
         for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sb = g_emit_cfg->all[_ss];
-        if (!_sb || _sb->op != IR_STATEMENT_BEGIN || RPO_VISITED(_sb)) continue; if (qt < Q_MAX) { g_emitter.codegen_flat_chain_body_queue[qt++] = _sb; RPO_DRAIN(); RPO_FLUSH(); } } }
+        if (!_sb || _sb->op != IR_STATEMENT_BEGIN || RPO_VISITED(_sb)) continue; if (qt < Q_MAX) { g_planner.codegen_flat_chain_body_queue[qt++] = _sb; RPO_DRAIN(); RPO_FLUSH(); } } }
     else { RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH(); }
     if (g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit_cfg->alt_entry)
         for (int _ak = 1; _ak < g_emit_cfg->n_alts; _ak++) { IR_t * _ae = g_emit_cfg->alt_entry[_ak]; if (_ae && !RPO_VISITED(_ae)) { RPO_PUSH(_ae); RPO_DRAIN(); RPO_FLUSH(); } }
@@ -1950,11 +1951,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           if (_refd[3]) _refd[1] = _refd[2] = 1;
           for (int _fk = 1; _fk <= 3; _fk++) { if (!_refd[_fk]) continue; for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi];
               if (!_fn || emit_floater_kind(_fn) != _fk || RPO_VISITED(_fn)) continue;
-              if (qt < Q_MAX) { g_emitter.codegen_flat_chain_body_queue[qt++] = _fn; RPO_DRAIN(); RPO_FLUSH(); } } } } }
+              if (qt < Q_MAX) { g_planner.codegen_flat_chain_body_queue[qt++] = _fn; RPO_DRAIN(); RPO_FLUSH(); } } } } }
     { int _p2_base = 0; do { int _p2_added = 0;
         for (int i = _p2_base; i < n; i++)
-            if (ir_is_generator_kind(g_emitter.codegen_flat_chain_body_nodes[i]->op) && g_emitter.codegen_flat_chain_body_nodes[i]->ω.node &&
-            !RPO_VISITED(g_emitter.codegen_flat_chain_body_nodes[i]->ω.node)) { RPO_PUSH(g_emitter.codegen_flat_chain_body_nodes[i]->ω.node); _p2_added = 1; } _p2_base = n;
+            if (ir_is_generator_kind(g_planner.codegen_flat_chain_body_nodes[i]->op) && g_planner.codegen_flat_chain_body_nodes[i]->ω.node &&
+            !RPO_VISITED(g_planner.codegen_flat_chain_body_nodes[i]->ω.node)) { RPO_PUSH(g_planner.codegen_flat_chain_body_nodes[i]->ω.node); _p2_added = 1; } _p2_base = n;
         RPO_DRAIN(); RPO_FLUSH(); if (!_p2_added) break; } while (1); }
 #undef RPO_FLUSH
 #undef RPO_DRAIN
@@ -1974,12 +1975,12 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     int *zd_cpd = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int *zd_chn = (int *)alloca(sizeof(int) * (size_t)(2 * n + 2));
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
-    nidx_build(g_emitter.codegen_flat_chain_body_nodes, n);
+    nidx_build(g_planner.codegen_flat_chain_body_nodes, n);
     int *zd_claim = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0, zd_cps, zd_cpd, zd_chn, zd_claim);
+    zd_plan(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0, zd_cps, zd_cpd, zd_chn, zd_claim);
     int * zd_vl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    zd_vdj_live(g_emitter.codegen_flat_chain_body_nodes, n, zd_vl);
-    for (int i = 0; i < n; i++) for (int p = zd_on[i] ? zd_arm[i] : -1, g = 0; p >= 0 && g++ < n; p = zd_arm[p]) if (g_emitter.codegen_flat_chain_body_nodes[p]->op == IR_DISJUNCTION) { zd_vl[i] = 0;
+    zd_vdj_live(g_planner.codegen_flat_chain_body_nodes, n, zd_vl);
+    for (int i = 0; i < n; i++) for (int p = zd_on[i] ? zd_arm[i] : -1, g = 0; p >= 0 && g++ < n; p = zd_arm[p]) if (g_planner.codegen_flat_chain_body_nodes[p]->op == IR_DISJUNCTION) { zd_vl[i] = 0;
         break; }
     int * zd_xb = (int *)0;
     int * zd_cut = (int *)0;
@@ -1987,28 +1988,28 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * _zst = (int *)alloca(sizeof(int) * (size_t)(3 * n + 3)); for (int _q = 0; _q < n; _q++) _zw[_q] = 0; auto _in_arms = [&](int t, int k) -> int { int sp = 0;
         for (int q = 0; q < n; q++) _zarm[q] = 0;
-            for (int a = 0; a < g_emitter.codegen_flat_chain_body_nodes[t]->n_operands; a++) { int q =
-            nidx(g_emitter.codegen_flat_chain_body_nodes, n, g_emitter.codegen_flat_chain_body_nodes[t]->operands[a]); if (q >= 0 && !_zarm[q]) { _zarm[q] = 1;
-        _zst[sp++] = q; } } while (sp > 0) { IR_t * x = g_emitter.codegen_flat_chain_body_nodes[_zst[--sp]];
+            for (int a = 0; a < g_planner.codegen_flat_chain_body_nodes[t]->n_operands; a++) { int q =
+            nidx(g_planner.codegen_flat_chain_body_nodes, n, g_planner.codegen_flat_chain_body_nodes[t]->operands[a]); if (q >= 0 && !_zarm[q]) { _zarm[q] = 1;
+        _zst[sp++] = q; } } while (sp > 0) { IR_t * x = g_planner.codegen_flat_chain_body_nodes[_zst[--sp]];
         for (int e = 0; e < 2 + x->n_operands; e++) { IR_t * y = e == 0 ? zd_chase(x->γ.node) : e == 1 ? zd_chase(x->ω.node) : x->operands[e - 2];
-        int q = (y && y != g_emitter.codegen_flat_chain_body_nodes[t]) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, y) : -1; if (q >= 0 && !_zarm[q] && sp < 3 * n + 3) { _zarm[q] = 1;
+        int q = (y && y != g_planner.codegen_flat_chain_body_nodes[t]) ? nidx(g_planner.codegen_flat_chain_body_nodes, n, y) : -1; if (q >= 0 && !_zarm[q] && sp < 3 * n + 3) { _zarm[q] = 1;
             _zst[sp++] = q; } } } return _zarm[k]; };
         for (int _it = 0; _it < n; _it++) { int _add = 0;
-            for (int k = 0; k < n; k++) { if (g_emitter.codegen_flat_chain_body_nodes[k]->op == IR_GOTO) continue;
-        for (int v = 0; v < 2; v++) { IR_t * tt = zd_chase(v == 0 ? g_emitter.codegen_flat_chain_body_nodes[k]->γ.node : g_emitter.codegen_flat_chain_body_nodes[k]->ω.node);
-            if (!tt || (v == 1 && port_sz_beta(g_emitter.codegen_flat_chain_body_nodes[k]->ω.sz))) continue; int t = nidx(g_emitter.codegen_flat_chain_body_nodes, n, tt);
+            for (int k = 0; k < n; k++) { if (g_planner.codegen_flat_chain_body_nodes[k]->op == IR_GOTO) continue;
+        for (int v = 0; v < 2; v++) { IR_t * tt = zd_chase(v == 0 ? g_planner.codegen_flat_chain_body_nodes[k]->γ.node : g_planner.codegen_flat_chain_body_nodes[k]->ω.node);
+            if (!tt || (v == 1 && port_sz_beta(g_planner.codegen_flat_chain_body_nodes[k]->ω.sz))) continue; int t = nidx(g_planner.codegen_flat_chain_body_nodes, n, tt);
         if (t < 0 || t == k || _zw[t] || !zd_on[t] || zd_arm[t] >= 0) continue;
-            int ad = zd_out[t] - zd_k(g_emitter.codegen_flat_chain_body_nodes[t]) + fence0_release_bytes(g_emitter.codegen_flat_chain_body_nodes[t]); int d = 0;
-        if (zd_on[k] || ad <= 0 || !strncmp(bb_op_name(g_emitter.codegen_flat_chain_body_nodes[k]->op), "IR_MATCH_", 9) ||
-            !strncmp(bb_op_name(g_emitter.codegen_flat_chain_body_nodes[t]->op), "IR_MATCH_", 9) || _in_arms(t, k)) continue; _zw[t] = 1; _add++;
+            int ad = zd_out[t] - zd_k(g_planner.codegen_flat_chain_body_nodes[t]) + fence0_release_bytes(g_planner.codegen_flat_chain_body_nodes[t]); int d = 0;
+        if (zd_on[k] || ad <= 0 || !strncmp(bb_op_name(g_planner.codegen_flat_chain_body_nodes[k]->op), "IR_MATCH_", 9) ||
+            !strncmp(bb_op_name(g_planner.codegen_flat_chain_body_nodes[t]->op), "IR_MATCH_", 9) || _in_arms(t, k)) continue; _zw[t] = 1; _add++;
         if (getenv("SCRIP_ZD_DIAG"))
-            fprintf(stderr, "[ZD] JOIN-WALL i=%d (%s) alpha depth %d entered at depth %d by i=%d (%s)\n", t, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[t]->op), ad, d, k,
-            bb_op_name(g_emitter.codegen_flat_chain_body_nodes[k]->op));
-        } } if (!_add) break; zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
+            fprintf(stderr, "[ZD] JOIN-WALL i=%d (%s) alpha depth %d entered at depth %d by i=%d (%s)\n", t, bb_op_name(g_planner.codegen_flat_chain_body_nodes[t]->op), ad, d, k,
+            bb_op_name(g_planner.codegen_flat_chain_body_nodes[k]->op));
+        } } if (!_add) break; zd_plan(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
         }
     zeta_plan_t * rec = new zeta_plan_t();
     rec->entry = entry; rec->n = n; rec->own_root = entry_is_own_graph_root; rec->empty_fail = flat_empty_body_fail; rec->empty_succ = flat_empty_body_succ;
-    rec->nodes = g_emitter.codegen_flat_chain_body_nodes;
+    rec->nodes = g_planner.codegen_flat_chain_body_nodes;
     rec->on = (unsigned char *)ct_zalloc((size_t)(n > 0 ? n : 1), 1); memcpy(rec->on, zd_on, (size_t)n);
     rec->out = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->out, zd_out, sizeof(int) * (size_t)n);
     rec->gp = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->gp, zd_gp, sizeof(int) * (size_t)n);
@@ -2019,7 +2020,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     rec->claim = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->claim, zd_claim, sizeof(int) * (size_t)n);
     rec->vl = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->vl, zd_vl, sizeof(int) * (size_t)n);
     rec->chn = (int *)ct_zalloc((size_t)(2 * n + 2), sizeof(int)); memcpy(rec->chn, zd_chn, sizeof(int) * (size_t)(2 * n + 2));
-    if (g_emitter.g_zd_zarm_p == zd_arm) g_emitter.g_zd_zarm_p = rec->arm;
+    if (g_planner.g_zd_zarm_p == zd_arm) g_planner.g_zd_zarm_p = rec->arm;
     if (n > 0) {
         int * _b = (int *)alloca(sizeof(int) * (size_t)n);
         unsigned char * _kn = (unsigned char *)alloca((size_t)n);
@@ -2027,77 +2028,77 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         zd_cut = (int *)alloca(sizeof(int) * (size_t)n);
         int * zd_fam = (int *)alloca(sizeof(int) * (size_t)n);
         int * zd_fbase = (int *)alloca(sizeof(int) * (size_t)n);
-        zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
+        zd_pl_bases(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
         for (int _i = 0; _i < n; _i++) {
-            IR_t * _u = g_emitter.codegen_flat_chain_body_nodes[_i], * _gs = _u;
+            IR_t * _u = g_planner.codegen_flat_chain_body_nodes[_i], * _gs = _u;
             if (!zd_on[_i] || _u->op != IR_UNMARK || _u->n_operands < 1 || zd_cut[_i] >= 0) continue;
             IR_t * _gt = zd_lm_chase(_u, n, &_gs);
-            int _q = _gt ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _gt) : -1;
+            int _q = _gt ? nidx(g_planner.codegen_flat_chain_body_nodes, n, _gt) : -1;
             if (_q < 0 || !zd_on[_q] || zd_xb[_q] == INT_MIN) continue;
-            zd_cut[_i] = zd_xb[_q] + zd_out[_q] - (port_sz_beta(zd_edge_sz(_gs, 0)) ? 0 : zd_k(g_emitter.codegen_flat_chain_body_nodes[_q]));
+            zd_cut[_i] = zd_xb[_q] + zd_out[_q] - (port_sz_beta(zd_edge_sz(_gs, 0)) ? 0 : zd_k(g_planner.codegen_flat_chain_body_nodes[_q]));
         }
-        zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
+        zst_finish(g_planner.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
         rec->xb = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->xb, zd_xb, sizeof(int) * (size_t)n);
         rec->cut = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->cut, zd_cut, sizeof(int) * (size_t)n);
         rec->fam = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->fam, zd_fam, sizeof(int) * (size_t)n);
         rec->fbase = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->fbase, zd_fbase, sizeof(int) * (size_t)n);
         rec->b = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->b, _b, sizeof(int) * (size_t)n);
         rec->kn = (unsigned char *)ct_zalloc((size_t)n, 1); memcpy(rec->kn, _kn, (size_t)n);
-        g_emitter.g_zd_claim_p = rec->claim; g_emitter.g_zd_xb_p = rec->xb; g_emitter.g_zd_nodes_p = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = rec->cut;
-        g_emitter.g_zd_fam_p = rec->fam; g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out;
-        g_emitter.g_zd_wp_p = rec->wp;
+        g_planner.g_zd_claim_p = rec->claim; g_planner.g_zd_xb_p = rec->xb; g_planner.g_zd_nodes_p = g_planner.codegen_flat_chain_body_nodes; g_planner.g_zd_n = n; g_planner.g_zd_cut_p = rec->cut;
+        g_planner.g_zd_fam_p = rec->fam; g_planner.g_zd_fbase_p = rec->fbase; g_planner.g_zd_gp_p = rec->gp; g_planner.g_zd_out_p = rec->out;
+        g_planner.g_zd_wp_p = rec->wp;
     }
-    g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_plan_n = n;
-    if (n > 0) zd_place(rec, g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_arm, zd_cps, zd_cpd);
-    g_emitter.g_zd_rec_p = rec;
+    g_planner.g_zd_plan_on = rec->on; g_planner.g_zd_plan_nodes = g_planner.codegen_flat_chain_body_nodes; g_planner.g_zd_plan_n = n;
+    if (n > 0) zd_place(rec, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_arm, zd_cps, zd_cpd);
+    g_planner.g_zd_rec_p = rec;
     planner_capture(rec);
     return rec;
 }
 void planner_capture(zeta_plan_t * rec) {
     int n = rec->n;
-    rec->nodes_own = (IR_t **)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(IR_t *)); memcpy(rec->nodes_own, g_emitter.codegen_flat_chain_body_nodes, sizeof(IR_t *) * (size_t)n);
-    rec->v_zst_s = g_emitter.zst_s; rec->v_zst_root = g_emitter.zst_root; rec->v_zst_vroot = g_emitter.zst_vroot; rec->v_zst_c = g_emitter.zst_c; rec->v_zst_j = g_emitter.zst_j;
-        rec->v_zst_L = g_emitter.zst_L;
-    rec->v_zst_vuse = g_emitter.zst_vuse; rec->v_zst_vcov = g_emitter.zst_vcov; rec->v_zst_name = g_emitter.zst_name; rec->v_zst_sm = g_emitter.zst_sm; rec->zst_n_saved = g_emitter.zst_n;
-    rec->v_djx = g_emitter.g_zd_djx; rec->v_upost = g_emitter.g_zd_upost; rec->v_grec = g_emitter.g_zd_grec; rec->v_wrec = g_emitter.g_zd_wrec; rec->v_grec_pop = g_emitter.g_zd_grec_pop;
-    rec->v_wrec_pop = g_emitter.g_zd_wrec_pop; rec->v_admit = g_emitter.g_zd_admit;
-    rec->zarm_published = (g_emitter.g_zd_zarm_p == rec->arm) ? 1 : 0; rec->djx_nodes_published = (g_emitter.g_zd_djx_nodes == g_emitter.codegen_flat_chain_body_nodes) ? 1 : 0;
-    rec->zrm_len = g_emitter.g_zrm_map.len; rec->zrm_cap = g_emitter.g_zrm_map.cap; rec->zrm_esz = g_emitter.g_zrm_map.esz; rec->zrm_gen = g_emitter.g_zrm_gen;
-    rec->zrm_bytes.assign((const unsigned char *)g_emitter.g_zrm_map.p, (const unsigned char *)g_emitter.g_zrm_map.p + (size_t)g_emitter.g_zrm_map.len * (size_t)g_emitter.g_zrm_map.esz);
+    rec->nodes_own = (IR_t **)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(IR_t *)); memcpy(rec->nodes_own, g_planner.codegen_flat_chain_body_nodes, sizeof(IR_t *) * (size_t)n);
+    rec->v_zst_s = g_planner.zst_s; rec->v_zst_root = g_planner.zst_root; rec->v_zst_vroot = g_planner.zst_vroot; rec->v_zst_c = g_planner.zst_c; rec->v_zst_j = g_planner.zst_j;
+        rec->v_zst_L = g_planner.zst_L;
+    rec->v_zst_vuse = g_planner.zst_vuse; rec->v_zst_vcov = g_planner.zst_vcov; rec->v_zst_name = g_planner.zst_name; rec->v_zst_sm = g_planner.zst_sm; rec->zst_n_saved = g_planner.zst_n;
+    rec->v_djx = g_planner.g_zd_djx; rec->v_upost = g_planner.g_zd_upost; rec->v_grec = g_planner.g_zd_grec; rec->v_wrec = g_planner.g_zd_wrec; rec->v_grec_pop = g_planner.g_zd_grec_pop;
+    rec->v_wrec_pop = g_planner.g_zd_wrec_pop; rec->v_admit = g_planner.g_zd_admit;
+    rec->zarm_published = (g_planner.g_zd_zarm_p == rec->arm) ? 1 : 0; rec->djx_nodes_published = (g_planner.g_zd_djx_nodes == g_planner.codegen_flat_chain_body_nodes) ? 1 : 0;
+    rec->zrm_len = g_planner.g_zrm_map.len; rec->zrm_cap = g_planner.g_zrm_map.cap; rec->zrm_esz = g_planner.g_zrm_map.esz; rec->zrm_gen = g_planner.g_zrm_gen;
+    rec->zrm_bytes.assign((const unsigned char *)g_planner.g_zrm_map.p, (const unsigned char *)g_planner.g_zrm_map.p + (size_t)g_planner.g_zrm_map.len * (size_t)g_planner.g_zrm_map.esz);
 }
 void planner_restore(zeta_plan_t * rec) {
     int n = rec->n; int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024;
-    if (g_emitter.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
-        g_emitter.codegen_flat_chain_body_nodes_cap = CH_MAX; }
-    IR_t ** nodes = g_emitter.codegen_flat_chain_body_nodes; memcpy(nodes, rec->nodes_own, sizeof(IR_t *) * (size_t)n);
+    if (g_planner.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_planner.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
+        g_planner.codegen_flat_chain_body_nodes_cap = CH_MAX; }
+    IR_t ** nodes = g_planner.codegen_flat_chain_body_nodes; memcpy(nodes, rec->nodes_own, sizeof(IR_t *) * (size_t)n);
     nidx_build(nodes, n);
-    g_emitter.zst_s = rec->v_zst_s; g_emitter.zst_root = rec->v_zst_root; g_emitter.zst_vroot = rec->v_zst_vroot; g_emitter.zst_c = rec->v_zst_c; g_emitter.zst_j = rec->v_zst_j;
-        g_emitter.zst_L = rec->v_zst_L;
-    g_emitter.zst_vuse = rec->v_zst_vuse; g_emitter.zst_vcov = rec->v_zst_vcov; g_emitter.zst_name = rec->v_zst_name; g_emitter.zst_sm = rec->v_zst_sm; g_emitter.zst_nodes = nodes;
-        g_emitter.zst_n = rec->zst_n_saved;
-    g_emitter.g_zd_djx = rec->v_djx; g_emitter.g_zd_upost = rec->v_upost; g_emitter.g_zd_grec = rec->v_grec; g_emitter.g_zd_wrec = rec->v_wrec; g_emitter.g_zd_grec_pop = rec->v_grec_pop;
-    g_emitter.g_zd_wrec_pop = rec->v_wrec_pop; g_emitter.g_zd_admit = rec->v_admit;
-    if (rec->djx_nodes_published) g_emitter.g_zd_djx_nodes = nodes;
+    g_planner.zst_s = rec->v_zst_s; g_planner.zst_root = rec->v_zst_root; g_planner.zst_vroot = rec->v_zst_vroot; g_planner.zst_c = rec->v_zst_c; g_planner.zst_j = rec->v_zst_j;
+        g_planner.zst_L = rec->v_zst_L;
+    g_planner.zst_vuse = rec->v_zst_vuse; g_planner.zst_vcov = rec->v_zst_vcov; g_planner.zst_name = rec->v_zst_name; g_planner.zst_sm = rec->v_zst_sm; g_planner.zst_nodes = nodes;
+        g_planner.zst_n = rec->zst_n_saved;
+    g_planner.g_zd_djx = rec->v_djx; g_planner.g_zd_upost = rec->v_upost; g_planner.g_zd_grec = rec->v_grec; g_planner.g_zd_wrec = rec->v_wrec; g_planner.g_zd_grec_pop = rec->v_grec_pop;
+    g_planner.g_zd_wrec_pop = rec->v_wrec_pop; g_planner.g_zd_admit = rec->v_admit;
+    if (rec->djx_nodes_published) g_planner.g_zd_djx_nodes = nodes;
     zdo_build(nodes, n);
-    if (g_emitter.g_zrm_map.cap < rec->zrm_cap || g_emitter.g_zrm_map.esz != rec->zrm_esz) { g_emitter.g_zrm_map.p = ct_zalloc(rec->zrm_cap, rec->zrm_esz); g_emitter.g_zrm_map.cap = rec->zrm_cap;
-        g_emitter.g_zrm_map.esz = rec->zrm_esz; }
-    g_emitter.g_zrm_map.len = rec->zrm_len; if (rec->zrm_len) memcpy(g_emitter.g_zrm_map.p, rec->zrm_bytes.data(), (size_t)rec->zrm_len * (size_t)rec->zrm_esz); g_emitter.g_zrm_gen = rec->zrm_gen;
-    if (n > 0) { g_emitter.g_zd_claim_p = rec->claim; g_emitter.g_zd_xb_p = rec->xb; g_emitter.g_zd_nodes_p = nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = rec->cut;
-        g_emitter.g_zd_fam_p = rec->fam;
-        g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out; g_emitter.g_zd_wp_p = rec->wp; }
-    g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = nodes; g_emitter.g_zd_plan_n = n;
-    if (rec->zarm_published) { g_emitter.g_zd_zarm_p = rec->arm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n; }
-    g_emitter.g_zd_rec_p = rec;
+    if (g_planner.g_zrm_map.cap < rec->zrm_cap || g_planner.g_zrm_map.esz != rec->zrm_esz) { g_planner.g_zrm_map.p = ct_zalloc(rec->zrm_cap, rec->zrm_esz); g_planner.g_zrm_map.cap = rec->zrm_cap;
+        g_planner.g_zrm_map.esz = rec->zrm_esz; }
+    g_planner.g_zrm_map.len = rec->zrm_len; if (rec->zrm_len) memcpy(g_planner.g_zrm_map.p, rec->zrm_bytes.data(), (size_t)rec->zrm_len * (size_t)rec->zrm_esz); g_planner.g_zrm_gen = rec->zrm_gen;
+    if (n > 0) { g_planner.g_zd_claim_p = rec->claim; g_planner.g_zd_xb_p = rec->xb; g_planner.g_zd_nodes_p = nodes; g_planner.g_zd_n = n; g_planner.g_zd_cut_p = rec->cut;
+        g_planner.g_zd_fam_p = rec->fam;
+        g_planner.g_zd_fbase_p = rec->fbase; g_planner.g_zd_gp_p = rec->gp; g_planner.g_zd_out_p = rec->out; g_planner.g_zd_wp_p = rec->wp; }
+    g_planner.g_zd_plan_on = rec->on; g_planner.g_zd_plan_nodes = nodes; g_planner.g_zd_plan_n = n;
+    if (rec->zarm_published) { g_planner.g_zd_zarm_p = rec->arm; g_planner.g_zd_zarm_nodes = nodes; g_planner.g_zd_zarm_n = n; }
+    g_planner.g_zd_rec_p = rec;
 }
 extern "C" long zsm_declared_owner(void);
 extern "C" int zls_retains_why(const IR_graph_t * g, const IR_t * nd);
 extern "C" long zsm_declared_word(void) {
     const IR_t * nd = g_emit.node;
-    int n = g_emitter.g_zd_plan_n, i = (nd && g_emitter.g_zd_plan_nodes && g_emitter.g_zd_plan_on) ? nidx(g_emitter.g_zd_plan_nodes, n, nd) : -1;
-    if (i < 0 || !g_emitter.g_zd_plan_on[i]) return 0L;
-    int rel = g_emitter.g_zd_nodes_p == g_emitter.g_zd_plan_nodes && g_emitter.g_zd_n == n && g_emitter.g_zd_gp_p && g_emitter.g_zd_wp_p;
-    long k = zd_k((IR_t *)nd), gp = rel ? g_emitter.g_zd_gp_p[i] : 0, wp = rel ? g_emitter.g_zd_wp_p[i] : 0;
+    int n = g_planner.g_zd_plan_n, i = (nd && g_planner.g_zd_plan_nodes && g_planner.g_zd_plan_on) ? nidx(g_planner.g_zd_plan_nodes, n, nd) : -1;
+    if (i < 0 || !g_planner.g_zd_plan_on[i]) return 0L;
+    int rel = g_planner.g_zd_nodes_p == g_planner.g_zd_plan_nodes && g_planner.g_zd_n == n && g_planner.g_zd_gp_p && g_planner.g_zd_wp_p;
+    long k = zd_k((IR_t *)nd), gp = rel ? g_planner.g_zd_gp_p[i] : 0, wp = rel ? g_planner.g_zd_wp_p[i] : 0;
     int o = (int)nd->op, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE;
     IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
     int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
@@ -2119,35 +2120,35 @@ extern "C" int zls_g_frame_region(const IR_graph_t * g);
 extern "C" int zls_g_resident_bytes(const IR_graph_t * g);
 extern "C" int zls_g_key_class(const IR_graph_t * g, int off);
 static int zsm_frame_on(void) {
-    if (g_emitter.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_emitter.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
-    return g_emitter.zsm_frame_on;
+    if (g_planner.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_planner.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
+    return g_planner.zsm_frame_on;
 }
 static void zsm_frame_report(void) {
-    for (const auto & r : g_emitter.zsm_frames)
+    for (const auto & r : g_planner.zsm_frames)
         fprintf(stderr, "[ZSM-FRAME] graph=%s total=%d region=%d resident=%d frames=%d addrs=%d word=%d resident_addrs=%d outside=%d unbacked=%d rsp_form=%d\n", r.name.c_str(), r.total,
             r.region, r.resident, r.frames, r.addrs, r.cls[1], r.cls[2], r.cls[3], r.cls[0], r.rsp_form);
 }
-static g_emitter_t::zsm_frame_rec_t * zsm_frame_rec(void) {
+static g_planner_t::zsm_frame_rec_t * zsm_frame_rec(void) {
     const IR_graph_t * g = g_emit_cfg;
-    if (!g) return (g_emitter_t::zsm_frame_rec_t *)0;
-    int L = g_emitter.zsm_frames_last;
-    if (L >= 0 && L < (int)g_emitter.zsm_frames.size() && g_emitter.zsm_frames[(size_t)L].g == g) return &g_emitter.zsm_frames[(size_t)L];
-    for (size_t k = 0; k < g_emitter.zsm_frames.size(); k++) if (g_emitter.zsm_frames[k].g == g) { g_emitter.zsm_frames_last = (int)k; return &g_emitter.zsm_frames[k]; }
-    if (g_emitter.zsm_frames.empty()) atexit(zsm_frame_report);
+    if (!g) return (g_planner_t::zsm_frame_rec_t *)0;
+    int L = g_planner.zsm_frames_last;
+    if (L >= 0 && L < (int)g_planner.zsm_frames.size() && g_planner.zsm_frames[(size_t)L].g == g) return &g_planner.zsm_frames[(size_t)L];
+    for (size_t k = 0; k < g_planner.zsm_frames.size(); k++) if (g_planner.zsm_frames[k].g == g) { g_planner.zsm_frames_last = (int)k; return &g_planner.zsm_frames[k]; }
+    if (g_planner.zsm_frames.empty()) atexit(zsm_frame_report);
     const char * nm = zls_graph_name_get(g);
-    g_emitter_t::zsm_frame_rec_t r = { g, std::string(nm ? nm : "?"), zls_g_frame_region(g), zls_g_resident_bytes(g), 0, 0, { 0, 0, 0, 0 }, 0, 0 };
-    g_emitter.zsm_frames.push_back(r);
-    g_emitter.zsm_frames_last = (int)g_emitter.zsm_frames.size() - 1;
-    return &g_emitter.zsm_frames.back();
+    g_planner_t::zsm_frame_rec_t r = { g, std::string(nm ? nm : "?"), zls_g_frame_region(g), zls_g_resident_bytes(g), 0, 0, { 0, 0, 0, 0 }, 0, 0 };
+    g_planner.zsm_frames.push_back(r);
+    g_planner.zsm_frames_last = (int)g_planner.zsm_frames.size() - 1;
+    return &g_planner.zsm_frames.back();
 }
 extern "C" void zsm_frame_addr(int off, int cls, int rsp_form) {
     if (!zsm_frame_on()) return;
-    g_emitter_t::zsm_frame_rec_t * r = zsm_frame_rec();
+    g_planner_t::zsm_frame_rec_t * r = zsm_frame_rec();
     if (!r) return;
     int c = cls >= 0 ? cls : zls_g_key_class(g_emit_cfg, off);
     if (c == 0 && off >= r->region + 16 && off < r->total) c = 1;
-    if (g_emitter.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_emitter.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
-    if (g_emitter.zsm_frame_diag && (c == 0 || c == 3))
+    if (g_planner.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_planner.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
+    if (g_planner.zsm_frame_diag && (c == 0 || c == 3))
         fprintf(stderr, "[ZSM-FRAME-ADDR] graph=%s class=%s op=%s off=%d region=%d form=%s\n", r->name.c_str(), c ? "outside" : "unbacked", g_emit.node ? bb_op_name(g_emit.node->op) : "-", off,
             r->region, rsp_form ? "rsp" : "frame");
     r->addrs++;
@@ -2156,29 +2157,29 @@ extern "C" void zsm_frame_addr(int off, int cls, int rsp_form) {
 }
 extern "C" void zsm_frame_carve(int frame_bytes) {
     if (!zsm_frame_on()) return;
-    g_emitter_t::zsm_frame_rec_t * r = zsm_frame_rec();
+    g_planner_t::zsm_frame_rec_t * r = zsm_frame_rec();
     if (!r) return;
     r->frames++;
     if (frame_bytes > r->total) r->total = frame_bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void planner_report_at_exit(void) {
-    fprintf(stderr, "[PLANNER-PASS] planned=%d planned_rt=%d hits=%d fallbacks=%d\n", g_emitter.planner_planned, g_emitter.planner_rt, g_emitter.planner_hits, g_emitter.planner_fallbacks);
+    fprintf(stderr, "[PLANNER-PASS] planned=%d planned_rt=%d hits=%d fallbacks=%d\n", g_planner.planner_planned, g_planner.planner_rt, g_planner.planner_hits, g_planner.planner_fallbacks);
 }
-static void planner_report_arm(void) { if (!g_emitter.planner_report_armed) { g_emitter.planner_report_armed = 1; if (getenv("SCRIP_PLANNER_REPORT")) atexit(planner_report_at_exit); } }
+static void planner_report_arm(void) { if (!g_planner.planner_report_armed) { g_planner.planner_report_armed = 1; if (getenv("SCRIP_PLANNER_REPORT")) atexit(planner_report_at_exit); } }
 void planner_pass_plan(IR_t * entry, const char * prefix) {
     planner_report_arm();
-    zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; g_emitter.planner_planned++;
+    zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_planner.planner_table[entry] = rec; g_planner.planner_planned++;
 }
-int planner_entry_planned(const IR_t * entry) { return (entry && g_emitter.planner_table.find(entry) != g_emitter.planner_table.end()) ? 1 : 0; }
-int planner_rt_plan(IR_t * entry, const char * prefix) { if (planner_entry_planned(entry)) return 0; planner_pass_plan(entry, prefix); g_emitter.planner_rt++; return 1; }
-void planner_table_forget(const IR_t * entry) { if (entry) g_emitter.planner_table.erase(entry); }
-void planner_table_clear(void) { g_emitter.planner_table.clear(); }
+int planner_entry_planned(const IR_t * entry) { return (entry && g_planner.planner_table.find(entry) != g_planner.planner_table.end()) ? 1 : 0; }
+int planner_rt_plan(IR_t * entry, const char * prefix) { if (planner_entry_planned(entry)) return 0; planner_pass_plan(entry, prefix); g_planner.planner_rt++; return 1; }
+void planner_table_forget(const IR_t * entry) { if (entry) g_planner.planner_table.erase(entry); }
+void planner_table_clear(void) { g_planner.planner_table.clear(); }
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix) {
     planner_report_arm();
-    std::unordered_map<const IR_t *, zeta_plan_t *>::iterator it = g_emitter.planner_table.find(entry);
-    if (it != g_emitter.planner_table.end() && it->second->cfg == g_emit_cfg) { g_emitter.planner_hits++; planner_restore(it->second); return it->second; }
-    g_emitter.planner_fallbacks++;
+    std::unordered_map<const IR_t *, zeta_plan_t *>::iterator it = g_planner.planner_table.find(entry);
+    if (it != g_planner.planner_table.end() && it->second->cfg == g_emit_cfg) { g_planner.planner_hits++; planner_restore(it->second); return it->second; }
+    g_planner.planner_fallbacks++;
     if (getenv("SCRIP_PLANNER_REPORT")) fprintf(stderr, "[PLANNER-FALLBACK] prefix=%s graph=%p n=%d\n", prefix ? prefix : "?", (const void *) g_emit_cfg, g_emit_cfg ? g_emit_cfg->n : -1);
     zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; planner_restore(rec); return rec;
 }
