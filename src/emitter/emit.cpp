@@ -1068,13 +1068,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         else if (_vn && (is_global(_vn) && !graph_has_local(g_emit_cfg, _vn))) { { if (!g_emit.op_zres && _zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off;
             } } { if (_zn->vw > 0 && !g_emit.op_zres) g_emit.op_wpop += _zn->vw; } bb_emit_x86(bb_var_global()); }
         else bb_emit_x86(bb_var()); } return 0;
-    case IR_VAR_FRAME: { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd); } bb_emit_x86(bb_var_frame()); return 0;
+    case IR_VAR_FRAME: { extern void display_copy(IR_t *); display_copy(nd); } bb_emit_x86(bb_var_frame()); return 0;
     case IR_ASSIGN_FRAME: { IR_t *_fr = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;
         g_emit.op_a_slot = _fr ? bb_slot_get(_fr) : -1;
         if (g_emit.op_a_slot < 0 && _fr) { int _z = nd_slot(_fr); if (_z >= 0) g_emit.op_a_slot = _z; }
-        { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd); } bb_emit_x86(bb_assign_frame()); } return 0;
+        { extern void display_copy(IR_t *); display_copy(nd); } bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_REF: { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
-        if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); { extern void frame_display_prepare(IR_t *); frame_display_prepare(nd);
+        if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); { extern void display_copy(IR_t *); display_copy(nd);
             } bb_emit_x86(bb_var_ref_frame()); return 0; }
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
         else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
@@ -4432,19 +4432,11 @@ extern "C" void x86_asm_str_escape_c(const char * s, char * out, unsigned long o
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" { int stage2_owner_varslot(const char * proc, const char * var); const char * stage2_owner_l3_ancestor(const char * proc); }
-static int frame_display_mem_off(int lvl, const char * owner_proc) {
-    if (lvl <= 3 || !owner_proc) return -1;
-    const char * l3proc = stage2_owner_l3_ancestor(owner_proc);
-    if (!l3proc) return -1;
-    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", lvl);
-    return stage2_owner_varslot(l3proc, nm);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void frame_display_prepare(IR_t *nd) {
+void display_copy(IR_t *nd) {
     g_emit.op_seal = nd ? nd->seal : 0;
     g_emit.op_name1 = g_emit.op_seal == 1 ? "r13" : g_emit.op_seal == 2 ? "r14" : g_emit.op_seal == 3 ? "r15" : (const char *)0;
-    g_emit.op_sa = (g_emit.op_a_sval && g_emit.op_sval) ? stage2_owner_varslot(g_emit.op_a_sval, g_emit.op_sval) : -1;
-    g_emit.op_sb = g_emit.op_name1 ? -1 : frame_display_mem_off(g_emit.op_seal, g_emit.op_a_sval);
+    g_emit.op_sa = zrow(nd)->dsa;
+    g_emit.op_sb = zrow(nd)->dsb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * kw_bare(const char * s) { return !s ? "" : (s[0] == '&' ? s + 1 : s); }

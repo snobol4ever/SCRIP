@@ -84,6 +84,14 @@ static void pf_rel(zeta_plan_t * rec, const IR_graph_t * g, const IR_t * sc, int
     rec->v_rel[at] = n;
     rec->v_rel.resize(at + 1 + (size_t)n);
 }
+extern "C" { int stage2_owner_varslot(const char * proc, const char * var); const char * stage2_owner_l3_ancestor(const char * proc); }
+static int pf_display_off(int lvl, const char * owner_proc) {
+    if (lvl <= 3 || !owner_proc) return -1;
+    const char * l3proc = stage2_owner_l3_ancestor(owner_proc);
+    if (!l3proc) return -1;
+    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", lvl);
+    return stage2_owner_varslot(l3proc, nm);
+}
 static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
     IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
@@ -256,7 +264,11 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
                     z->sdbb =
                         (vb || (!da && (ir_is_generator_kind(ir_kind0(db)) || ir_kind0(db) == IR_CALL || ir_kind0(db) == IR_CALL_PROC_STAGED || db->op == IR_SCAN_TAB || db->op == IR_SCAN_MOVE))) ? 1 :
                         0; } } }
-        z->djo = -1; z->gto = -1; z->relo = -1;
+        z->djo = -1; z->gto = -1; z->relo = -1; z->dsa = -1; z->dsb = -1;
+        if (op == IR_VAR_FRAME || op == IR_ASSIGN_FRAME || op == IR_VAR_REF) {
+            const char * asv = o0 ? IR_LIT(o0).sval : (const char *)0, * sv = IR_LIT(nd).sval;
+            z->dsa = (asv && sv) ? stage2_owner_varslot(asv, sv) : -1; z->dsb = (nd->seal >= 1 && nd->seal <= 3) ? -1 : pf_display_off(nd->seal, asv);
+        }
         if (op == IR_BOUND || op == IR_UNMARK || op == IR_CUT) {
             const IR_t * sb = (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_BOUND) ? nd->operands[0] : nd;
             z->relo = (int)rec->v_rel.size(); pf_rel(rec, g, sb, 5); pf_rel(rec, g, sb, 4); pf_rel(rec, g, nd, 4);
