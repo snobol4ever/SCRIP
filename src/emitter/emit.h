@@ -709,7 +709,7 @@ extern "C" int zls_g_resumable_frame(const IR_graph_t *);
 #else
 int zls_g_resumable_frame(const IR_graph_t *);
 #endif
-static inline int emit_resumable_frame(void) { return (g_emit_cfg && zls_g_resumable_frame(g_emit_cfg)) ? 1 : 0; }
+static inline int emit_resumable_frame(void) { return (g_emit_cfg && g_emit_cfg->pf.resumable_frame) ? 1 : 0; }
 extern const char *Σ;
 extern int Σlen;
 extern int Δ;

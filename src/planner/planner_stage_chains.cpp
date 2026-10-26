@@ -27,6 +27,7 @@ void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, cons
 }
 void planner_stage_proc(stage2_t * s2, int pi, int mode) {
     ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; int idx = pe->bb_idx;
+    pe->port_exit = planner_port_exit_promotes(s2, pi);
     if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) return;
     IR_graph_t * g = s2->bbp.table[idx]; int is_lbl = strncmp(pname, "LBL__", 5) == 0; int bare = mode == 1 && proc_role3_kind(g) == 1;
     zls_graph_name(g, pname);

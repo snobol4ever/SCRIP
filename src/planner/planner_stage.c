@@ -36,6 +36,7 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.frame_bytes = zls_g_frame_bytes(g);
     g->pf.fp_total = zls_g_fp_total(g);
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
+    { extern const char * zls_graph_name_get(const IR_graph_t *); g->pf.name = zls_graph_name_get(g); }
     {
         extern int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
         int cap = 64, gaps = 0, conf = 0, n;

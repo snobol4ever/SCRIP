@@ -191,6 +191,7 @@ static zls_graph_t * zls_g_find(const IR_graph_t * g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_graph_name(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
+    ((IR_graph_t *)g)->pf.name = name;
     zls_graph_t * r = zls_g_find(g);
     if (r) { if (r->own_name) { ct_drop((void *)r->name); r->own_name = 0; } r->name = name; if (r->first_scope >= 0 && r->first_scope < g_lower.ir.zs_n) zs[r->first_scope].name = name; return; }
     cv_reserve(&g_lower.ir.zg_v, (uint32_t)sizeof(zls_graph_t), (uint64_t)g_lower.ir.zg_n + 1, "zg");

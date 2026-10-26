@@ -40,7 +40,7 @@ extern "C" const char * bb_ab_thunk_stem_or(const char * nm) { const char * st =
 static void port_exit_prepass_build(void) {
     extern const char * bb_ab_sym_name(const char *);
     for (int i = 0; i < g_stage2.proc_count; i++) {
-        if (!planner_port_exit_promotes(&g_stage2, i)) continue;
+        if (!g_stage2.proc_table[i].port_exit) continue;
         g_emitter.g_port_exit_promoting_labels.insert(std::string(bb_ab_sym_name(g_stage2.proc_table[i].name)) + "_γ");
     }
 }
@@ -2728,8 +2728,6 @@ static void icn_register_local_offsets(const char * pname) {
     extern void rt_proc_set_locals(const char *, const char **, int);
     extern void rt_proc_set_pname(const char *, int, const char *);
     extern void rt_proc_set_local_offs(const char *, const int *, int);
-    extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
-    extern int zls_g_vslot_count(const IR_graph_t *);
     if (!pname || !g_emit_cfg || !g_emit_cfg->lnames || g_emit_cfg->nlocals <= 0) return;
     rt_proc_set_locals(pname, g_emit_cfg->lnames, g_emit_cfg->nlocals);
     for (int k = 0; k < g_emit_cfg->nparams; k++) if (g_emit_cfg->pnames && g_emit_cfg->pnames[k]) rt_proc_set_pname(pname, k, g_emit_cfg->pnames[k]);
@@ -2738,13 +2736,13 @@ static void icn_register_local_offsets(const char * pname) {
           const char ** pc = (const char **) ct_alloc(sizeof(const char *) * (size_t) g_emit_cfg->nparams);
           if (pc) { for (int k = 0; k < g_emit_cfg->nparams; k++) pc[k] = g_emit_cfg->pnames[k] ? ct_strdup(g_emit_cfg->pnames[k]) : (const char *) 0;
               rt_proc_set_loc_params(pname, pc, g_emit_cfg->nparams); } } }
-    int nv = zls_g_vslot_count(g_emit_cfg); if (nv <= 0) return;
+    if (g_emit_cfg->n_vslots <= 0) return;
     int nl = g_emit_cfg->nlocals;
     int * offs = (int *) ct_alloc(sizeof(int) * (size_t) nl); if (!offs) return;
     for (int k = 0; k < nl; k++) {
         offs[k] = -1;
         const char * ln = g_emit_cfg->lnames[k]; if (!ln) continue;
-        for (int v = 0; v < nv; v++) { int off = -1; const char * vn = zls_g_vslot_get(g_emit_cfg, v, &off); if (vn && off >= 0 && !strcmp(vn, ln)) { offs[k] = off; break; } }
+        offs[k] = ir_varslot_of(g_emit_cfg, ln);
     }
     rt_proc_set_local_offs(pname, offs, nl);
 }
@@ -2936,9 +2934,9 @@ extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, 
          + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
 }
 static void emit_gc_map_data(const char * fam) {
-    { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);
+    { const char * ef = gc_map_entry_fam(fam);
       if (ef && !strcmp(ef, "main")) fam = ef;
-      else { const char * gn = g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : (const char *)0; fam = (gn && *gn) ? gn : fam; } }
+      else { const char * gn = g_emit_cfg ? g_emit_cfg->pf.name : (const char *)0; fam = (gn && *gn) ? gn : fam; } }
     if (!g_emitter.g_gc_map_pending) { g_emitter.g_gc_map_last_off = -1; emit_gc_sites_data(fam, 1); return; }
     g_emitter.g_gc_map_pending = 0;
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_emitter.g_zls_lay_gaps = 0; g_emitter.g_zls_lay_conf = 0;
@@ -4326,7 +4324,7 @@ void rt_proc_set_rest_kind(const char *, int); void rt_proc_set_named_rest(const
 void rt_proc_register(const char *, const char **, int); void rt_proc_set_nformals(const char *, int); void rt_proc_set_frame_bytes(const char *, int); void rt_proc_set_fn(const char *, bb_box_fn);
     void rt_proc_set_dcfn(const char *, void *); void rt_proc_set_zstatic(const char *, int);
 void rt_proc_set_gen_region_ft(const char *, int); void bb_ab_seal_entry_cells(const char *, void *, int); void emit_patzeta_register(const char *, int, int, int); int rt_pl_dc_ok(const char *, int);
-int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *); void zls_graph_name(const IR_graph_t *, const char *); int proc_role3_kind(const IR_graph_t *);
+int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *); int proc_role3_kind(const IR_graph_t *);
     const char * bb_ab_sym_name(const char *);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4353,7 +4351,7 @@ extern "C" void emit_proc_prepare(stage2_t * s2, int pi, int with_props, int * i
     g_gen_proc_active = rd.gen_proc; g_flat_frame_floor = rd.floor;
     int isp = emit_jmp_entry_for_patproc(pe->thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, pe->dyn_scope, pe->is_generator, g);
     g_flat_dc_np = rd.dc_np;
-    zls_graph_name(g, pname); g_emit_frame_caller_dl = rd.caller_dl;
+    g_emit_frame_caller_dl = rd.caller_dl;
     if (isp_out) *isp_out = isp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
