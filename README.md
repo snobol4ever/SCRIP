@@ -375,18 +375,94 @@ shipped `.t` files graded whole against a local Rakudo; **RakRungs** is our own 
 **RakBench** the kernel set graded as tests. Raku is IN DEVELOPMENT: the front-end accepts a deliberate working subset of
 the language, most of Roast is outside it, and the parse-fail column is the roadmap.
 
-**Benchmarks.** RakBench is every Raku benchmark the two public sources hold, 83 kernels under `corpus/benchmarks/raku/` since 2026-09-26: raku-bench's 21 whole programs (Geoffrey Broadwell's `japhb/raku-bench`, Artistic 2.0, the `rc-` programs from Rosetta Code under the GFDL; the two random ones seeded, the two JSON parsers given their data file), its 62 usable microbenchmark bodies with each entry's own scale baked in, and Rakudo's 7 `tools/benchmark.pl` dispatch snippets -- each with its `.ref` cut twice from Rakudo and its declared stack and heap beside it, graded as tests in both modes by `../harness/scripts/test_raku_bench_suite.sh` (the suite table's RakBench row). The census of 2026-09-26 (mode 3, one run each): 36 of 83 print their ref; the 47 that do not are seventeen parser and emitter gaps, each a row on hq_raku (a last statement without its semicolon, statement modifiers, native `int`/`str`, the C-style `loop`, the `X` operator, binding, `push` as a sub, grammars, closures over an outer lexical, Rat arithmetic and float printing among them). The timing instrument is the three-angle cross-proof `../harness/scripts/bench_triangulate_raku.sh`: angle 1 a live doubling search for the largest iteration count whose loop completes within a 3 s CPU budget (Rakudo's JIT is cold for the first hundreds of milliseconds, so a shorter budget times the wrong regime), angle 2 the committed count of `fixed-iter-n.tsv`, angle 3 the kernel's own self-measured WORK bracket under the external stopwatch (OVERHEAD = elapsed - work, Rakudo's 300 ms of start-up never charged to the engine); every rep byte-verified against the `.ref`, every SCRIP run under the kernel's declared `-d`/`-s` switches, a cell cited only when both timed angles agree within 10%. ⚠ Only the four kernels that carry a hand-placed bracket can be looped by this harness; the other 32 that run wait on the kernel-convention row (a pristine source with the loop generated around it, as every other language does). The rival is Rakudo v2022.12, the reference implementation: Raku has no native compiler on this box, so the bar is Rakudo.
+**Benchmarks.** RakBench is the 84 kernels under `corpus/benchmarks/raku/`, from two public sources: Geoffrey Broadwell's `japhb/raku-bench` (Artistic 2.0) -- its 56 microbenchmark bodies (`mb-*`, each entry's own scale baked in) and 21 whole programs (the 8 `rc-` programs from Rosetta Code under the GFDL; the random ones seeded, the two JSON parsers given their data file) -- and the 7 dispatch snippets of Rakudo's own `tools/benchmark.pl` (`rakudo-tools-*`); each with its `.ref` cut from Rakudo 2026.05 and its declared stack and heap beside it, graded as tests in both modes by `../harness/scripts/test_raku_bench_suite.sh` (the suite table's RakBench row: 80 graded; 4 kept out of the denominator in `OUTSIDE.tsv` as too slow to time, 30-50 s a run -- the three `point_class_add` kernels, which pass as RakRungs entries, and `send-more-money-subs`). The timing instrument is the same runner's fixed-time twin (`../harness/scripts/bench_wrap_raku.py`, the kernel never edited): the kernel's output once, held to its `.ref`, then quiet repetitions until the budget is spent, each repetition's captured output held to the first; with `BENCH_ORACLE_ARM=1` the same generated twin runs under Rakudo, its `wall_us()` clock supplied by the benchmark prelude, so both engines are timed on the same program, on the same box, in the same minute. The rival is Rakudo, the reference implementation: Raku has no native compiler.
 
-*Measured 2026-09-26 13:11-13:16 CDT on SCRIP `0f416ecc0` / corpus `bd5ffd768`, **RT_OPT=-O0**, fleet quiet (load 0.7-1.2 on 16 cores), REPS=3 best-of by work, SCRIP with every diagnostic off (`SCRIP_DIAG=0`); the records are `corpus/benchmarks/raku/worktime-20260926T181134Z.tsv` (angle 3) and `triangulation-20260926T181134Z.tsv` (the cross-proof). WORK is the kernel's own bracket; the x-factor is Rakudo WORK / SCRIP WORK (1.5x is one and a half times faster, 0.5x half as fast); a row whose arms disagree or fail verification carries its readings and no multiple.*
+*Measured 2026-10-26 09:10-09:24 CDT on SCRIP `9bd097fa9` / corpus `a2cab70e9` / harness `317f987`, **the whole of SCRIP built `-O2`** (compiler and runtime, as in the SNOBOL4 section), load 0.7-1.1 on 16 cores (the ceo's single-core demo probes ran beside it from 09:12 to 09:17), **3 s of repetitions per point** -- Rakudo's JIT warms over the first part of a run, so a longer budget times its steady state (`BENCH_ORACLE_ARM=1 BENCH_ANGLES=time BENCH_BUD_MS=3000 bash ../harness/scripts/test_raku_bench_suite.sh`), Rakudo v2026.05, SCRIP with every diagnostic off (`SCRIP_DIAG=0`). 80 of 80 kernels printed their ref in both modes and under Rakudo. The per-repetition figure is the fixed-time twin's (microseconds per repetition of the kernel); the multiple is Rakudo time / SCRIP time on that same twin (above 1.00x SCRIP is ahead). A second pass at 1 s per point (09:00-09:06, the same build) is the cross-check: **†** marks the 7 kernels whose reading in some engine moved more than 25% between the two passes, **\*** the 3 whose slowest engine completed fewer than three repetitions in the budget. Two kernels carry no SCRIP multiple because the measurement showed SCRIP not doing the kernel's work, each a row: **‡** `divide-and-conquer` -- a nested sub declared a second time under one name binds to the first in SCRIP, so the twin's timed copy was never called, and the kernel prints 1 at every depth, which hid it; **§** `mb-deep_scan_for_interpolated_string_var` -- a bare `/regex/` against the topic answers True in SCRIP whatever the topic holds, so the scan it times is not the one Rakudo performs.*
 
-| kernel | Rakudo WORK | SCRIP m3 WORK | SCRIP m4 WORK | Rakudo / m3 | Rakudo / m4 | cross-proof |
-|---|---:|---:|---:|:---:|:---:|---|
-| point_class_add | 606.5 ms | 6.92 s | 6.20 s | — | — | rakudo DISAGREE |
-| point_class_add1 | 3.01 s | 7.17 s | 6.13 s | 0.42x | 0.49x | all three AGREE |
-| send-more-money-loops | 748.8 ms | 107.8 ms | 134.7 ms | — | 5.56x | m3 DISAGREE |
-| string-escape | 1.1 ms | 49 µs | 56 µs | 23.12x | 20.23x | all three AGREE |
+| kernel | Rakudo µs/rep | m3 µs/rep | m4 µs/rep | Rakudo / m3 | Rakudo / m4 |
+|---|---:|---:|---:|:---:|:---:|
+| divide-and-conquer ‡ | 39,314 | — | — | — | — |
+| insertion-sort | 7,207 | 1,693 | 1,698 | 4.256x | 4.245x |
+| mb-any_equals | 46.21 | 13.91 | 13.71 | 3.323x | 3.371x |
+| mb-array_set_xx | 16,612 | 824.6 | 818.0 | 20.147x | 20.307x |
+| mb-charrange | 481.7 | 398.8 | 376.9 | 1.208x | 1.278x |
+| mb-charrange_ignorecase | 499.7 | 399.0 | 393.6 | 1.252x | 1.269x |
+| mb-create_and_copy_2d_grid_cross | 77,033 | 36,195 | 34,092 | 2.128x | 2.260x |
+| mb-create_and_copy_2d_grid_cross_unpack | 152,662 | 35,772 | 33,319 | 4.268x | 4.582x |
+| mb-create_and_iterate_hash_kv | 12.19 | 16.45 | 15.65 | 0.741x | 0.779x |
+| mb-deep_scan_for_interpolated_string_var § | 1,623 | — | — | — | — |
+| mb-for_array_set | 113.4 | 532.8 | 539.8 | 0.213x | 0.210x |
+| mb-for_assign | 12.73 | 3 | 3 | 4.242x | 4.236x |
+| mb-for_assign_native | 8.35 | 2.98 | 3.03 | 2.801x | 2.758x |
+| mb-for_bind | 8.43 | 3.05 | 3.44 | 2.762x | 2.452x |
+| mb-for_concat | 62.90 | 310.7 | 337.1 | 0.202x | 0.187x |
+| mb-for_concat_2 | 87.28 | 867.6 | 860.6 | 0.101x | 0.101x |
+| mb-for_concat_2_native | 77.10 | 913.7 | 907.1 | 0.084x | 0.085x |
+| mb-for_concat_native | 40.24 | 308.3 | 340.0 | 0.131x | 0.118x |
+| mb-for_empty | 7.22 | 2.25 | 2.06 | 3.201x | 3.498x |
+| mb-for_hash_set † | 102.1 | 778.7 | 774.4 | 0.131x | 0.132x |
+| mb-for_param_sigil | 112.0 | 638.0 | 559.2 | 0.176x | 0.200x |
+| mb-for_postinc | 83.03 | 32.54 | 32.60 | 2.552x | 2.547x |
+| mb-for_postinc_native | 8.61 | 4.13 | 3.9 | 2.084x | 2.207x |
+| mb-for_push † | 18.75 | 96.54 | 77.06 | 0.194x | 0.243x |
+| mb-hello | 3.95 | 0.441 | 0.445 | 8.954x | 8.879x |
+| mb-loop_empty | 89.10 | 3.87 | 3.88 | 23.046x | 22.976x |
+| mb-loop_empty_native | 6.07 | 3.85 | 3.86 | 1.575x | 1.572x |
+| mb-loop_object_accessor | 16.04 | 1,713 | 1,643 | 0.009x | 0.010x |
+| mb-postwhile_nil | 88.38 | 10.57 | 11.94 | 8.366x | 7.402x |
+| mb-postwhile_nil_native | 5.04 | 10.71 | 11.79 | 0.471x | 0.427x |
+| mb-rat_harmonic | 419.3 | 167.6 | 166.0 | 2.501x | 2.526x |
+| mb-rat_mul_div_cancel | 403.9 | 207.4 | 205.3 | 1.948x | 1.967x |
+| mb-reduce_int_comb_range | 291.8 | 350.9 | 319.7 | 0.832x | 0.913x |
+| mb-reduce_range | 818.8 | 21.15 | 21.30 | 38.714x | 38.444x |
+| mb-split_string_constant | 1,328 | 737.6 | 721.1 | 1.801x | 1.842x |
+| mb-split_string_regex | 18,530 | 2,141 | 2,115 | 8.657x | 8.762x |
+| mb-trim_string | 345.3 | 134.7 | 124.1 | 2.564x | 2.783x |
+| mb-visit_2d_indices_cross | 28,200 | 15,334 | 12,979 | 1.839x | 2.173x |
+| mb-visit_2d_indices_cross_unpack | 63,560 | 14,428 | 13,036 | 4.405x | 4.876x |
+| mb-visit_2d_indices_for | 5.68 | 1.04 | 1.02 | 5.477x | 5.588x |
+| mb-visit_2d_indices_loop | 5.98 | 1.1 | 1.07 | 5.436x | 5.568x |
+| mb-visit_2d_indices_loop_native | 4.38 | 1.11 | 1.09 | 3.931x | 4.028x |
+| mb-visit_2d_indices_while | 6.24 | 1.21 | 1.06 | 5.152x | 5.882x |
+| mb-visit_2d_indices_while_native | 4.47 | 1.12 | 1.09 | 3.988x | 4.087x |
+| mb-while_array_set | 19.21 | 12.94 | 12.69 | 1.485x | 1.515x |
+| mb-while_bind † | 30.83 | 4.43 | 4.34 | 6.964x | 7.099x |
+| mb-while_concat | 142.8 | 313.5 | 300.2 | 0.456x | 0.476x |
+| mb-while_concat_native | 39.53 | 312.1 | 298.3 | 0.127x | 0.133x |
+| mb-while_empty | 85.63 | 3.64 | 3.4 | 23.503x | 25.214x |
+| mb-while_empty_native | 5.65 | 3.69 | 3.44 | 1.531x | 1.642x |
+| mb-while_hash_set | 19.90 | 99.44 | 97.26 | 0.200x | 0.205x |
+| mb-while_int2str † | 61.33 | 342.4 | 277.6 | 0.179x | 0.221x |
+| mb-while_int2str_concat | 309.8 | 596.5 | 607.3 | 0.519x | 0.510x |
+| mb-while_int2str_concat_native | 327.6 | 641.9 | 646.1 | 0.510x | 0.507x |
+| mb-while_int2str_native † | 21.32 | 283.3 | 280.1 | 0.075x | 0.076x |
+| mb-while_push | 11.57 | 99.40 | 85.54 | 0.116x | 0.135x |
+| mb-while_push_join | 17.18 | 100.9 | 80.32 | 0.170x | 0.214x |
+| mb-while_pushme | 3.88 | 3.56 | 3.21 | 1.089x | 1.206x |
+| merge-sort † | 6,088 | 7,508 | 5,915 | 0.811x | 1.029x |
+| parse-json * | 468,710 | 1,533,181 | 1,496,802 | 0.306x | 0.313x |
+| parse-json-no-obj-creation | 347,638 | 1,218,221 | 1,212,112 | 0.285x | 0.287x |
+| pi-sequential-iteration * | 5,574,176 | 1,239,100 | 1,306,405 | 4.499x | 4.267x |
+| rakudo-tools-01-hello-world | 3.83 | 0.459 | 0.442 | 8.349x | 8.667x |
+| rakudo-tools-02-10-000-sub-dispatches | 30.11 | 808.2 | 858.6 | 0.037x | 0.035x |
+| rakudo-tools-03-10-000-multi-dispatches | 29.50 | 4,966 | 4,855 | 0.006x | 0.006x |
+| rakudo-tools-04-10-000-method-dispatches † | 576.7 | 3,184 | 2,844 | 0.181x | 0.203x |
+| rakudo-tools-05-10-000-multi-method-dispatches | 593.8 | 17,623 | 15,876 | 0.034x | 0.037x |
+| rakudo-tools-06-10-000-operator-dispatches | 143.2 | 21.11 | 19.07 | 6.781x | 7.507x |
+| rakudo-tools-07-postfix-10-000-times | 821.5 | 316.5 | 312.0 | 2.596x | 2.633x |
+| rc-9-billion-names | 70.74 | 288.0 | 241.3 | 0.246x | 0.293x |
+| rc-dragon-curve | 317.5 | 530.1 | 502.3 | 0.599x | 0.632x |
+| rc-forest-fire | 35,142 | 14,181 | 13,463 | 2.478x | 2.610x |
+| rc-forest-fire-stringify | 6,337 | 2,305 | 2,253 | 2.750x | 2.813x |
+| rc-man-or-boy-test | 284.8 | 514.1 | 497.4 | 0.554x | 0.573x |
+| rc-mandelbrot | 3,727 | 2,694 | 2,439 | 1.384x | 1.528x |
+| rc-perfect-shuffle | 538.1 | 107.8 | 103.7 | 4.991x | 5.189x |
+| rc-self-describing-numbers | 30,825 | 33,855 | 31,038 | 0.910x | 0.993x |
+| send-more-money-loops | 828,526 | 197,332 | 210,549 | 4.199x | 3.935x |
+| spinner * | 191,226 | 7,121,875 | 3,694,241 | 0.027x | 0.052x |
+| string-escape | 110.6 | 28.60 | 28.37 | 3.865x | 3.898x |
 
-Geometric mean against Rakudo: **3.808x** in mode 4 over the 3 kernels cited and **3.116x** in mode 3 over 2. The reading has not changed shape since the first WORK-basis grid: loop and integer work is well ahead of Rakudo (string-escape), object and method-heavy work well behind (the point_class family), and the untimed kernels are the row above, not a measurement.
+Geometric mean over the 78 kernels timed in both engines: **1.086x** in mode 4, **1.036x** in mode 3 (SCRIP ahead on 46 and 45); over the 71 whose readings held between the two passes, **1.211x** and **1.163x**. SCRIP is far ahead on loops, integer ranges and reductions, and array stores (`mb-reduce_range` 38x, `mb-while_empty` 25x, `mb-loop_empty` 23x, `mb-array_set_xx` 20x in mode 4) and far behind on dispatch -- Rakudo's multi-dispatch snippet 0.006x, an object accessor in a loop 0.010x, sub dispatch 0.035x, multi-method dispatch 0.037x -- and on string concatenation, integer-to-string conversion and `push` (0.08-0.5x in mode 4).
 
 ### Pascal
 
