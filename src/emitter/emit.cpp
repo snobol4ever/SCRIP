@@ -94,11 +94,6 @@ static const char * flat_label_kind_of(IR_t * nd) {
 }
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
-int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
-    if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
-int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1;
-    if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
-    return 0; }
 static bb_label_t * emit_floater_label(int k) { static const char * const fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0;
     if (!g_emitter.g_flt_lbl[k]) g_emitter.g_flt_lbl[k] = g_emitter.g_flt_fam ? emit_label_alloc("%s_%s", fn[k], g_emitter.g_flt_fam) : emit_label_alloc("%s", fn[k]); return g_emitter.g_flt_lbl[k]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1029,17 +1024,6 @@ static const char * sr3_gamma_label(const IR_t * g) { if (g_emitter.sr3_gamma_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int * emit_ops_grow(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
-    for (int k = o; k < cap; k++) q[k] = fill; return q; }
-static void emit_ops_reserve(int n) {
-    if (n < ZD_NOPS_MIN) n = ZD_NOPS_MIN;
-    if (n <= g_emit.op_zcap) return;
-    int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
-    g_emit.op_zread = emit_ops_grow(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = emit_ops_grow(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = emit_ops_grow(g_emit.op_zread_xf, o, cap, -1);
-    g_emit.op_zread_fr = emit_ops_grow(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_ops_grow(g_emit.op_zslot, o, cap, -1);
-    g_emit.op_zcap = cap;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     const int _ri = zrow_of(nd);
     if (_ri < 0) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE"); abort(); }
@@ -1164,7 +1148,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       if (g_emitter.walk_bb_node_inner__dl && _ln > 0) { const char * _sf = stmt_src_get_file(); int _nl = stmt_src_nlines();
         if (_sf && *_sf) bb_emit_x86(x86("loc", _sf, _ln, (_raw > 0 && _nl > 0 && _ln <= _nl) ? 1 : 2)); } }
     bb_classify_node(nd);
-    if (emit_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }
+    if (ir_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
@@ -2673,9 +2657,6 @@ static int flat_unwind_beta(const IR_t *nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
 int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
-int emit_glue_box(const IR_t * t, int phi) { int o = (int)t->op;
-    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) ||
-        (phi && o == IR_MATCH_BEGIN); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
@@ -3747,7 +3728,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           emit_sep_rule('-'); emit_label_define_bb(&lbl_β); bb_emit_x86(bb_main_β());
           emit_sep_rule('-'); emit_label_define_bb(&lbl_γ); bb_emit_x86(bb_glue_outer_γ());
           emit_sep_rule('-'); emit_label_define_bb(&lbl_ω); bb_emit_x86(bb_glue_outer_ω());
-          for (int _k = 1; _k <= 3; _k++) { int _has = 0; for (int _i = 0; _i < n; _i++) if (emit_floater_kind(g_planner.codegen_flat_chain_body_nodes[_i]) == _k) { _has = 1; break;
+          for (int _k = 1; _k <= 3; _k++) { int _has = 0; for (int _i = 0; _i < n; _i++) if (ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[_i]) == _k) { _has = 1; break;
               } if (!_has) continue; _flt_hoisted[_k] = 1;
               bb_label_t * _fa = emit_floater_label(_k); bb_label_t * _fg = emit_floater_label(1);
               g_emit.lbl_α_p = _fa; g_emit.lbl_α = _fa->name; g_emit.lbl_γ_p = _fg; g_emit.lbl_γ = _fg->name; g_emit.lbl_ω_p = &lbl_ω; g_emit.lbl_ω = lbl_ω.name; g_emit.lbl_β_p = _fa;
@@ -3969,7 +3950,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     for (int i = 0; i < n; i++) {
         int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(g_planner.codegen_flat_chain_body_nodes[i]->op);
         lbls[i] = emit_label_alloc("n%d_%s_α", _uid, _kn);
-        { int _flk = emit_floater_kind(g_planner.codegen_flat_chain_body_nodes[i]); if (_flk) lbls[i] = emit_floater_label(_flk); }
+        { int _flk = ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[i]); if (_flk) lbls[i] = emit_floater_label(_flk); }
         if (g_emit_cfg && g_emit_cfg->n_balias > 0) { for (int _bi = 0; _bi < g_emit_cfg->n_balias; _bi++) if (g_emit_cfg->balias_node[_bi] == g_planner.codegen_flat_chain_body_nodes[i]) { lbls[i] =
             emit_label_alloc("%s", g_emit_cfg->balias_name[_bi]); break; } }
         if (g_emit_cfg && g_emit_cfg->n_dentry > 0) { for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_entry[_dq] == g_planner.codegen_flat_chain_body_nodes[i])
@@ -3978,8 +3959,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
         ra_y[i] = (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_γ_%d_ry", _kn, _uid) : NULL;
         ra_t[i] = (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_ω_%d_rt", _kn, _uid) : NULL;
-        na_s[i] = emit_glue_box(g_planner.codegen_flat_chain_body_nodes[i], 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
-        { int _naf_on = emit_glue_box(g_planner.codegen_flat_chain_body_nodes[i], 1);
+        na_s[i] = ir_glue_box(g_planner.codegen_flat_chain_body_nodes[i], 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
+        { int _naf_on = ir_glue_box(g_planner.codegen_flat_chain_body_nodes[i], 1);
           na_f[i] = _naf_on ? emit_label_alloc(".L%s_γ_%d_af", _kn, _uid) : NULL;
           na_fo[i] = _naf_on ? emit_label_alloc(".L%s_ω_%d_af", _kn, _uid) : NULL; }
         bxs[i] = emit_label_alloc("n%d_%s_bx", _uid, _kn);
@@ -4082,7 +4063,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     for (int i = 0; i < n; i++) {
-        { int _fk = emit_floater_kind(g_planner.codegen_flat_chain_body_nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
+        { int _fk = ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
         { if (g_emitter.codegen_flat_chain_body__sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); g_emitter.codegen_flat_chain_body__sz = (_e && _e[0] == '0') ? 0 : 1; }
           if (g_emitter.codegen_flat_chain_body__sz && g_is_text) {
               if (_bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name);
@@ -4124,8 +4105,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (gamma_is_sig) { node_γ = node_γ; }
             if (gamma_is_phi) { node_γ = node_γ; }
         } }
-        { int _flk = emit_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
-        { if (gtgt && ir_norm_call_kind(gtgt->op) == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
+        { int _flk = ir_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
+        { if (gtgt && ir_norm_call_kind(gtgt->op) == IR_CALL && ir_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
         if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
@@ -4133,7 +4114,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_fo[k])
             fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_fo[k=%d](%s) label=%s\n", i, bb_op_name(g_planner.codegen_flat_chain_body_nodes[i]->op), k,
                 bb_op_name(g_planner.codegen_flat_chain_body_nodes[k]->op), na_fo[k]->name); } }
-        { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
+        { int _flk = ir_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         if (zd_chn[2 * i] >= 0) node_γ = betas[zd_chn[2 * i]];
         if (zd_chn[2 * i + 1] >= 0) node_ω = betas[zd_chn[2 * i + 1]];
@@ -4656,7 +4637,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
     if (xa_flat_class_c_pred()) {
-        int _has_nret = 0; for (int _ni = 0; _ni < n; _ni++) if (emit_floater_kind(g_planner.codegen_flat_chain_body_nodes[_ni]) == 3) { _has_nret = 1; break; }
+        int _has_nret = 0; for (int _ni = 0; _ni < n; _ni++) if (ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[_ni]) == 3) { _has_nret = 1; break; }
         if (_has_nret) emit_label_define_bb(emit_floater_label(1));
     }
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }

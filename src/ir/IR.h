@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "descr.h"
 #ifndef NULVCL
 # define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
@@ -179,6 +180,23 @@ static inline int ir_range_operands_must_be_integers(const IR_t * nd) { return (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
 static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }
+static inline int ir_floater_kind(const IR_t * n) {
+    if (!n) return 0;
+    if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1;
+    if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
+    if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3;
+    return 0;
+}
+static inline int ir_floater_member(const IR_t * n) {
+    if (!n) return 0;
+    if (ir_floater_kind(n)) return 1;
+    if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
+    return 0;
+}
+static inline int ir_glue_box(const IR_t * t, int phi) {
+    int o = (int)t->op;
+    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) || (phi && o == IR_MATCH_BEGIN);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * ir_define_bind_entry(const IR_t * nd) {
     return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands >= 1 && nd->n_operands <= 2 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval :
