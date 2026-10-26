@@ -3825,25 +3825,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         { if (g_emitter.codegen_flat_chain_body__zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); g_emitter.codegen_flat_chain_body__zpf = (_e && _e[0] == '1') ? 1 : 0; }
           if (!g_emitter.codegen_flat_chain_body__zpf) {
-              long _sum = 0; int _fk = -1, _hops = 0;
-              { auto _bit = beta_of.find(node_ω); if (_bit != beta_of.end()) _fk = _bit->second; }
-              if (_fk >= 0 && beta_is_stmt_land(g_planner.codegen_flat_chain_body_nodes[_fk])) { _fk = -1; }
-              while (_fk >= 0 && _hops++ < 64 && _pl->zn[_fk].trivb) {
-                  { _sum += _pl->zn[_fk].fcg; if (zd_wp[_fk] > 0) _sum += zd_wp[_fk]; }
-                  IR_t *_c = g_planner.codegen_flat_chain_body_nodes[_fk]; IR_t *_o = _c->ω.node;
-                  int _ib = port_sz_beta(_c->ω.sz);
-                  int _ip = (_c->ω.sz[0] == (char)0xcf && (unsigned char)_c->ω.sz[1] == 0x86);
-                  { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = port_sz_beta(_g->γ.sz);
-                      if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
-                  bb_label_t *_next = NULL; int _k2 = -1;
-                  { int _k = nidx(g_planner.codegen_flat_chain_body_nodes, n, _o); if (_k >= 0) { _k2 = _k; } }
-                  if (_k2 >= 0) { _next = (_ip && na_fo[_k2]) ? na_fo[_k2] : _ib ? betas[_k2] : lbls[_k2]; }
-                  else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
-                  { auto _ro = repalt_by_op0.find(_c); if (_ro != repalt_by_op0.end()) _next = ra_t[_ro->second]; }
-                  node_ω = _next;
-                  _fk = -1; { auto _bit = beta_of.find(_next); if (_bit != beta_of.end()) _fk = _bit->second; }
-              }
-              g_emit.op_wpop = (int)_sum;
+              int _fk = -1; { auto _bit = beta_of.find(node_ω); if (_bit != beta_of.end()) _fk = _bit->second; }
+              if (_fk >= 0) { const znode_t * _w = &_pl->zn[_fk];
+                  if (_w->wek == ZW_NAFO) node_ω = na_fo[_w->wex]; else if (_w->wek == ZW_BETA) node_ω = betas[_w->wex]; else if (_w->wek == ZW_ALPHA) node_ω = lbls[_w->wex];
+                  else if (_w->wek == ZW_GAMMA) node_ω = &lbl_γ; else if (_w->wek == ZW_OMEGA) node_ω = &lbl_ω; else if (_w->wek == ZW_REPALT) node_ω = ra_t[_w->wex];
+                  g_emit.op_wpop = _w->ws; } else g_emit.op_wpop = 0;
           } }
         { if (g_emitter.codegen_flat_chain_body__dd_1 < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); g_emitter.codegen_flat_chain_body__dd_1 = (_e && _e[0] == '1') ? 1 : 0; }
           long _p0 = g_emitter.codegen_flat_chain_body__dd_1 ? emit_text_count() : 0;

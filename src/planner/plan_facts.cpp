@@ -232,4 +232,21 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
             int o = (int)nodes[j]->op; if (o == IR_STATEMENT_BEGIN || o == IR_STATEMENT_END || o == IR_STATEMENT) break;
             if (rec->on[j] && rec->wp[j] > 0 && rec->zn[j].unwb && rec->zn[j].ot == z->ot) { z->uwj = j; z->uwd = (rec->wp[i] + z->k) - (rec->wp[j] + rec->zn[j].k); break; } }
     }
+    std::unordered_map<const IR_t *, int> ra0; for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0) ra0.emplace(nodes[r]->operands[0], r);
+    for (int k = 0; k < n; k++) {
+        znode_t * z = &rec->zn[k]; z->ws = 0; z->wek = ZW_NONE; z->wex = -1;
+        if (beta_is_stmt_land(nodes[k])) continue;
+        int cur = k, hops = 0; long sum = 0;
+        while (cur >= 0 && hops++ < 64 && rec->zn[cur].trivb) {
+            IR_t * c = nodes[cur], * o = c->ω.node; int ib = port_sz_beta(c->ω.sz), ip = (c->ω.sz[0] == (char)0xcf && (unsigned char)c->ω.sz[1] == 0x86); sum += rec->zn[cur].fcg;
+                if (rec->wp[cur] > 0) sum += rec->wp[cur];
+            { int gg = 0; IR_t * g2 = o; while (g2 && g2->op == IR_GOTO && gg++ < 128) { if (!ib) ib = port_sz_beta(g2->γ.sz);
+                if (!ip) ip = (g2->γ.sz[0] == (char)0xcf && (unsigned char)g2->γ.sz[1] == 0x86); o = g2->γ.node; g2 = o; } }
+            int k2 = nidx(nodes, n, o); cur = -1;
+            if (k2 >= 0) { if (ip && ir_glue_box(nodes[k2], 1)) { z->wek = ZW_NAFO; z->wex = k2; } else if (ib) { z->wek = ZW_BETA; z->wex = k2; cur = k2; } else { z->wek = ZW_ALPHA; z->wex = k2; } }
+            else { z->wek = (o && o->op == IR_SUCCEED) ? ZW_GAMMA : ZW_OMEGA; z->wex = -1; }
+            { auto ro = ra0.find(c); if (ro != ra0.end()) { z->wek = ZW_REPALT; z->wex = ro->second; cur = -1; } }
+        }
+        z->ws = (int)sum;
+    }
 }
