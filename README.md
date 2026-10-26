@@ -264,13 +264,27 @@ tests. The numbers are in the table and nowhere else: a count typed here would h
 
 Geometric mean over the 23 kernels, runtime only: **2.129x** in mode 3, **2.151x** in mode 4; SCRIP ahead of SPITBOL on 21 of 23 kernels in mode 3 and 21 in mode 4. The two kernels behind it are string concatenation (`string_concat` 0.357x, `string_concat_twin` 0.381x, both modes).
 
-**The self-host, timed.** `corpus/demos/snobol4/beauty/beauty.sno`, the SNOBOL4 pretty-printer, beautifying its own source -- 671 lines, sixteen `-INCLUDE`s, 1,631 lines in all -- where every engine prints the source back byte for byte (its fixed point). *Measured 2026-10-26 09:48 CDT on the same `-O2` build (SCRIP `9bd097fa9` / corpus `a2cab70e9` / harness `fabf5cb`), load 0.3 on 16 cores, `bash ../harness/scripts/bench_stages.sh snobol4 --reps 9 --prog beauty.sno --input beauty.sno`: the program verbatim with a clock read at its first source line and one at its last, the same copy run under each engine; RUNTIME = last line - first line, START+COMPILE = the external stopwatch's elapsed - RUNTIME, medians of 9 runs; SPITBOL is the clean benchmark build, run where its `-INCLUDE`s resolve.*
+**The workhorse demos, timed.** The fifteen SNOBOL4 programs of `corpus/demos/snobol4/DEMO-SCALE.tsv` -- claws5 (a CLAWS5 part-of-speech tagger), treebank (a Penn-Treebank bracket parser), json (a JSON parser), calculator, beauty (the pretty-printer beautifying its own 1,631 lines: 671 of `beauty.sno` and its sixteen `-INCLUDE`s) and their `-match` and `-match-fence` variants (the same scan written as one pattern match, with and without `FENCE`) -- each on its workhorse input, the test input repeated to the scale its row declares (one KB is 1,024 bytes), where every engine must print SPITBOL's answer. *Measured 2026-10-26 10:02-10:04 CDT on the same `-O2` build (SCRIP `9bd097fa9` / corpus `a2cab70e9` / harness `259c660`), load 0.4-1.0 on 16 cores, `bash ../harness/scripts/bench_stages.sh snobol4 --reps 7 --prog <demo> --input <scaled input>` for each row: the program verbatim with a clock read at its first source line and one at its last (every goto to END routed through it), the same copy run under each engine at its declared sizes; RUNTIME = last line - first line, START+COMPILE = the external stopwatch's elapsed - RUNTIME, medians of 7 runs; SPITBOL is the clean benchmark build, run where its `-INCLUDE`s resolve.*
 
-| program | SPITBOL start+compile ms | SPITBOL runtime ms | m3 start+compile ms | m3 runtime ms | m4 start-up ms | m4 runtime ms | SPITBOL / m3 | SPITBOL / m4 |
+| demo (input) | SPITBOL start+compile ms | SPITBOL runtime ms | m3 start+compile ms | m3 runtime ms | m4 start-up ms | m4 runtime ms | SPITBOL / m3 | SPITBOL / m4 |
 |---|---:|---:|---:|---:|---:|---:|:---:|:---:|
-| beauty, self-host | 3.2 | 29.1 | 283.0 | 43.1 | 3.6 | 36.7 | 0.674x | 0.791x |
+| claws5 (x16, 1,043 KB) | 3.92 | 73.9 | 8.21 | 48.9 | 3.74 | 43.5 | 1.511x | 1.701x |
+| treebank (x1024, 327 KB) ¶ | 4.20 | 199.1 | 19.1 | 208.1 | 4.12 | 195.0 | crashed 3 of 7 | crashed 1 of 7 |
+| json (x1, 1,687 KB) | 4.30 | 43.6 | 26.7 | 57.0 | 4.20 | 56.3 | 0.765x | 0.776x |
+| calculator (x4, 127 KB) | 3.04 | 33.9 | 12.6 | 108.9 | 3.23 | 92.0 | 0.311x | 0.368x |
+| beauty (x1, 43 KB) | 3.17 | 29.0 | 286.7 | 45.2 | 3.77 | 37.0 | 0.642x | 0.784x |
+| calculator-1-match (x1, 32 KB) | 1.70 | 32.4 | 8.12 | 66.5 | 2.55 | 45.0 | 0.487x | 0.719x |
+| calculator-1-match-fence (x1, 32 KB) | 1.77 | 13.5 | 6.50 | 12.4 | 2.21 | 10.4 | 1.093x | 1.296x |
+| calculator-2-match (x4, 127 KB) | 1.86 | 4.54 | 9.03 | 25.9 | 2.87 | 6.21 | 0.175x | 0.730x |
+| calculator-2-match-fence (x4, 127 KB) | 2.11 | 6.50 | 7.01 | 9.64 | 2.53 | 3.15 | 0.674x | 2.059x |
+| treebank-match (x1024, 327 KB) | 1.95 | 4.10 | 7.88 | 18.3 | 2.71 | 3.98 | 0.224x | 1.030x |
+| treebank-match-fence (x1024, 327 KB) ¶ | 2.04 | 4.75 | 5.87 | 2.96 | 2.44 | 1.51 | crashed 4 of 7 | crashed 2 of 7 |
+| claws5-match (x32, 2,086 KB) | 1.80 | 6.25 | 6.85 | 16.6 | 2.84 | 6.02 | 0.377x | 1.039x |
+| claws5-match-fence (x32, 2,086 KB) | 1.65 | 6.88 | 5.96 | 10.2 | 2.83 | 5.29 | 0.671x | 1.299x |
+| json-match (x1, 1,687 KB) | 2.08 | 7.72 | 12.2 | 37.5 | 2.94 | 11.3 | 0.206x | 0.686x |
+| json-match-fence (x1, 1,687 KB) | 2.55 | 9.68 | 11.7 | 32.9 | 3.23 | 11.9 | 0.295x | 0.813x |
 
-On runtime alone SCRIP is at 0.674x of SPITBOL in mode 3 and 0.791x in mode 4. The whole run is another matter: SPITBOL compiles the 1,631 lines in about 3 ms, mode 3 takes about 283 ms to compile them before the first line runs, and the mode-4 binary, compiled ahead (`scrip --compile`, about 0.5 s, and the link), starts in 3.6 ms.
+Geometric mean over the 13 demos every run of which answered: **0.467x** in mode 3 and **0.934x** in mode 4 on runtime alone (SCRIP ahead on 2 and 6). **¶** `treebank` and `treebank-match-fence` gave SPITBOL's answer on their good runs (the figures are those runs') and crashed on the others -- a jump into unmapped memory, SIGSEGV, in both modes; they carry no multiple, and the crash is a rank-1 row (`test_demo_repeat_at_scale.sh treebank 30` reads m3 5 and m4 4 of 30 bad on origin `1cf048007`). Mode 3's start+compile is the compile on every run: 6-27 ms for these programs and 287 ms for beauty's 1,631 lines, against SPITBOL's 1.7-4.3 ms; the mode-4 binary, compiled ahead, starts in 2.2-4.2 ms.
 
 ### Icon
 
