@@ -6,7 +6,6 @@
 extern "C" {
 #include "xa_template_common.h"
 }
-extern "C" int zls_g_block_args(const IR_graph_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string icn_landing_line_restore(void) {
     return IF(g_emit.icn_line_cur > 0,
@@ -19,5 +18,5 @@ std::string icn_landing_line_restore(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int xa_icn_block_size(void) {
-    return (g_emit_cfg && g_emit_cfg->cell_frame && zls_g_block_args(g_emit_cfg)) ? 16 * g_emit_cfg->nparams : 0;
+    return (g_emit_cfg && g_emit_cfg->cell_frame && g_emit_cfg->pf.block_args) ? 16 * g_emit_cfg->nparams : 0;
 }

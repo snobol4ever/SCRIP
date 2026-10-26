@@ -68,7 +68,7 @@ static std::string xa_flat_dc_stub_str(void) {
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;
     static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
+    if (g_emit_cfg && g_emit_cfg->pf.block_args) {
         int nb = g_emit_cfg->nparams;
         if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
         std::string zs = x86("comment",
@@ -248,10 +248,10 @@ static std::string zf_display_restore(int kt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_det_block(const IR_graph_t * g);
-#define zf_det_block_size() ((g_emit_cfg && zls_g_det_block(g_emit_cfg)) ? 16L * g_emit_cfg->nparams : 0L)
+#define zf_det_block_size() ((g_emit_cfg && g_emit_cfg->pf.det_block) ? 16L * g_emit_cfg->nparams : 0L)
 static std::string zf_pin_restore(int kt) { return IF(x86_hb_on(), x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))); }
 static std::string zf_release(int kt) {
-    int np = (g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0;
+    int np = (g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0;
     if (x86_hb_on()) return x86("lea", "rsp", RDQ(x86_hb(), kt + 16 * np));
     return x86("add", "rsp", (long)(kt + 16 * np));
 }
@@ -394,7 +394,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
                         + x86("xor", "eax", "eax")
                         + x86("mov32", "ecx", (long)(zb / 8))
                         + x86("rep_stosq"));
-    } else if (zls_g_block_args(g_emit_cfg)) {
+    } else if (g_emit_cfg && g_emit_cfg->pf.block_args) {
         int zb = kt - 32;
         s += x86("comment",
             "the block protocol, Raku regime (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2 as landed for Prolog at e95282e39): the arguments are the caller's block at [rsp+kt+16i], "
@@ -482,7 +482,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
     else s += emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
         (!g_runtime.eval.rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
         (zf_pas_nest_graph() ? GC_LINK_Q(kt + (int)zf_det_block_size(), kt - 8, kt + (int)zf_det_block_size() + 16, x86_hb_on() ? 0u : GC_LINK_RBP_KEPT) :
-        GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0), x86_hb_on() ? 0u : GC_LINK_RBP_KEPT)));
+        GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0), x86_hb_on() ? 0u : GC_LINK_RBP_KEPT)));
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

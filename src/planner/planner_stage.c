@@ -5,6 +5,20 @@
 #include <stdio.h>
 void ir_vslot_push(IR_graph_t * g, const char * name, int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void planner_graph_facts(IR_graph_t * g) {
+    extern int zls_g_resumable_frame(const IR_graph_t *);
+    extern int zls_g_block_args(const IR_graph_t *);
+    extern int zls_g_det_block(const IR_graph_t *);
+    extern int zls_g_home_frame(const IR_graph_t *);
+    extern int zls_g_generator_top(const IR_graph_t *);
+    if (!g) return;
+    g->pf.resumable_frame = zls_g_resumable_frame(g);
+    g->pf.block_args = zls_g_block_args(g);
+    g->pf.det_block = zls_g_det_block(g);
+    g->pf.home_frame = zls_g_home_frame(g);
+    g->pf.generator_top = zls_g_generator_top(g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_stage_graph(IR_graph_t * g) {
     if (!g) return;
     extern void zls_build(IR_graph_t *);
@@ -33,6 +47,7 @@ void planner_stage_graph(IR_graph_t * g) {
     g->jcon_value_region = zls_g_frame_region(g);
     g->nvalue_slots = zls_g_nslots(g);
     { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
+    planner_graph_facts(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_stage(stage2_t * s2, int main_bb_idx) {
@@ -56,6 +71,8 @@ void planner_stage(stage2_t * s2, int main_bb_idx) {
         zls_home_pass(_g);
         planner_stage_graph(_g);
     }
-    for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].is_generator && s2->proc_table[i].bb_idx >= 0 && s2->proc_table[i].bb_idx < s2->bbp.count)
+    for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].is_generator && s2->proc_table[i].bb_idx >= 0 && s2->proc_table[i].bb_idx < s2->bbp.count) {
         zls_g_generator_set(s2->bbp.table[s2->proc_table[i].bb_idx]);
+        planner_graph_facts(s2->bbp.table[s2->proc_table[i].bb_idx]);
+    }
 }

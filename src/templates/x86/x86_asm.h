@@ -638,7 +638,7 @@ inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->cell_frame)) || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
 extern "C" int zls_g_generator_top(const IR_graph_t * g);
-inline int gen_frame_top() { return zls_g_generator_top(g_emit_cfg); }
+inline int gen_frame_top() { return g_emit_cfg ? g_emit_cfg->pf.generator_top : 0; }
 inline int icn_frame_rbp() { return (g_emit_cfg && g_emit_cfg->cell_frame && (g_emit.flat_gen || (g_emit.flat_lcl_proc && g_emit.frame_retained))) ? 1 : 0; }
 inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
@@ -1182,7 +1182,7 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 inline const char * FRQ(int off) { return x86_zop(off, 1, 0); }
 inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
-inline const char * x86_frame_top() { return zls_g_home_frame(g_emit_cfg) ? RDQ("rbp", g_emit.flat_frame_bytes) : FRQ(g_emit.flat_frame_bytes); }
+inline const char * x86_frame_top() { return (g_emit_cfg && g_emit_cfg->pf.home_frame) ? RDQ("rbp", g_emit.flat_frame_bytes) : FRQ(g_emit.flat_frame_bytes); }
 inline const char * ROQ(int n) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }

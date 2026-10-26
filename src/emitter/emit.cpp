@@ -2314,7 +2314,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         { int dst = nd_slot(nd); if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
             int src = bb_slot_get(nd->operands[0]);
-            if (src >= 0 && dst >= 0 && src != dst && !(g_emit_cfg && g_emit_cfg->spine_cells && zls_g_home_frame(g_emit_cfg) && zd_k_own(nd) == 0)) {
+            if (src >= 0 && dst >= 0 && src != dst && !(g_emit_cfg && g_emit_cfg->spine_cells && g_emit_cfg->pf.home_frame && zd_k_own(nd) == 0)) {
                 g_emit.op_sa = src; g_emit.op_off = dst;
             } else {
                 g_emit.op_sa = -1; g_emit.op_off = -1;
@@ -2442,7 +2442,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * cnt = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sc = cnt ? drive_value_slot(cnt) : -1;
         if (sc < 0) { drive_guard_refused(nd, __LINE__); break; }
-        g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd); g_emit.op_sb = zls_g_home_frame(g_emit_cfg) ? g_emit.op_off + 16 : -1;
+        g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd); g_emit.op_sb = (g_emit_cfg && g_emit_cfg->pf.home_frame) ? g_emit.op_off + 16 : -1;
         g_emit.op_sc = (g_emit.op_sb >= 0 && zls_home_why(nd)) ? g_emit.op_sb + 16 : -1;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2458,7 +2458,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_t0_pop = g_emitter.g_limit_t0_pop;
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sb = -1;
-        for (int _gk = 2; zls_g_home_frame(g_emit_cfg) && _gk < nd->n_operands; _gk++) if (nd->operands[_gk] && nd->operands[_gk]->op == IR_LIMIT_GATE) g_emit.op_sb =
+        for (int _gk = 2; g_emit_cfg && g_emit_cfg->pf.home_frame && _gk < nd->n_operands; _gk++) if (nd->operands[_gk] && nd->operands[_gk]->op == IR_LIMIT_GATE) g_emit.op_sb =
             drive_value_slot(nd->operands[_gk]) + 16;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -5869,7 +5869,7 @@ void call_prepare(IR_t * nd) {
     if (!fnroute && !zd && kind != IR_CALL_GEN) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); g_emit.op_call_curmov = lower_call_is_curmov(fn);
         g_emit.op_call_dsave = g_emit.op_call_argbase + 16 * narg; }
     if (zd && !fnroute && kind == IR_CALL_BYNAME) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); if (zd_call_curmov(nd)) { g_emit.op_call_curmov = 1;
-        g_emit.op_call_dsave = (zls_g_generator_top(g_emit_cfg) > 0 && zls_off(nd) >= 0 && !zls_key_unbacked(g_emit_cfg, zls_off(nd))) ? zls_frame_off(g_emit_cfg, nd) + 16 : INT_MIN; } }
+        g_emit.op_call_dsave = (g_emit_cfg && g_emit_cfg->pf.generator_top > 0 && zls_off(nd) >= 0 && !zls_key_unbacked(g_emit_cfg, zls_off(nd))) ? zls_frame_off(g_emit_cfg, nd) + 16 : INT_MIN; } }
     if (kind == IR_CALL_GEN) g_emit.op_call_scansync = lower_call_is_scan_builtin(fn);
     switch (kind) {
     case IR_CALL_DIRECT: { const char * s = 0; g_emit.op_call_fp = (uint64_t)(uintptr_t)dop_direct_fp(fn, (int64_t)narg, &s); g_emit.op_call_sym = s ? s : ""; break; }
