@@ -2176,6 +2176,7 @@ void zls_home_pass(const IR_graph_t * g) {
         const IR_t * cx = g->all[c];
         if (!cx) continue;
         if (cx->op == IR_UNMARK && (IR_LIT(cx).ival & 32) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
+        if (cx->op == IR_GATE_ARM && g->home_frame && zls_g_resumable_frame(g)) continue;
         for (int oj = 0; oj < cx->n_operands; oj++) {
             const IR_t * po = cx->operands[oj];
             for (int cg = 0; g->home_frame && po && po->op == IR_CONJUNCTION && po->n_operands > 0 && cg < 16; cg++) po = po->operands[0];

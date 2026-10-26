@@ -949,6 +949,7 @@ static int zst_dj_reads(const IR_t * nd, const char * vn) {
     return 0;
 }
 static int zst_isparam(const IR_graph_t * g, const char * vn) { for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], vn)) return 1; return 0; }
+static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == 8 || lw == PR_RETAINING_TARGET; }
 static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
     g_planner.zst_nodes = nodes; g_planner.zst_n = n; g_planner.g_zd_cur = -1; g_planner.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_planner.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
     g_planner.zst_name.clear(); g_planner.zst_vroot.clear(); g_planner.zst_c.clear(); g_planner.zst_j.clear(); g_planner.zst_L.clear(); g_planner.zst_vuse.clear(); g_planner.zst_vcov.clear();
@@ -1018,7 +1019,8 @@ static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
         std::vector<int> uses; for (int i = 0; i < n; i++) { int m = zst_names(nodes[i], nm); int hit = g->home_frame ? zst_dj_reads(nodes[i], vn) : 0;
             for (int q = 0; q < m && !hit; q++) if (nm[q] && !strcmp(nm[q], vn)) hit = 1;
             if (hit) uses.push_back(i); }
-        { int past = 0; for (size_t u = 0; (g->spine_cells || g->home_frame) && u < uses.size() && !past; u++) if (zls_home_local_why(nodes[uses[u]])) past = 1; if (past) continue; }
+        { int past = 0; for (size_t u = 0; (g->spine_cells || g->home_frame) && u < uses.size() && !past; u++) { int lw = zls_home_local_why(nodes[uses[u]]);
+              if (lw && !(zd_pl_home(cg) && zst_excursion_why(lw))) past = 1; } if (past) continue; }
         if (zls_home_local_test(g, vn) == 9) continue;
         std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_planner.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0;
             for (size_t t = 0; t < roots.size(); t++) if (roots[t] == r) seen = 1; if (!seen) roots.push_back(r); }
