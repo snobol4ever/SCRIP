@@ -1,6 +1,7 @@
 #include "../emitter/emit_head.h"
 #include "../emitter/emit_decls.h"
 #include "planner.h"
+extern "C" int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd);
 }
 extern "C" int fc_leaf_cell(const IR_t * nd, long * k);
 extern "C" long fc_vwpop(const IR_t * nd);
@@ -150,6 +151,12 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
         z->actoff = zls_act_off(nd); z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) : 0;
         z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
+        z->asa = -1; z->asb = -1; z->dsusp = -1;
+        if (op == IR_MATCH_ARBNO) { int wl = 0, wb = 0, mo = -1, sp = 0; planner_act_window(nd, &wl, &wb); z->awlo = wl; z->awb = wb;
+            z->apk = planner_body_live(g, nd->n_operands > 2 ? nd->operands[1] : (IR_t *)0, nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0, nd);
+            z->ak16 = (g && nd->n_operands >= 3 && z->apk > 0 && z->aslot == -1) ? 1 : 0; z->abk0 = z->apk == 0 ? 1 : 0; z->abdu = z->apk < 0 ? 1 : 0;
+            if (zls_arbno_geom(nd, &mo, &sp)) { z->ach = 1; z->asa = mo; z->asb = (sp + 24 + 15) & ~15; } }
+        if (op == IR_MATCH_DEFER) z->dsusp = fc_tail_defer_susp_g((IR_graph_t *)g, nd);
         if (op == IR_LIMIT) { IR_t * gen = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0, * rs = nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0; int tk = -1;
             if (gen && ir_is_generator_kind(gen->op)) tk = nidx(nodes, n, gen); else if (rs) tk = nidx(nodes, n, rs);
             z->t0x = tk;

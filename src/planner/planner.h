@@ -11,6 +11,7 @@ struct znode_t {
     IR_t * cvn;
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
     int djo, gto;
+    int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
 };
 struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
 struct zeta_plan_t {

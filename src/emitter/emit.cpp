@@ -1222,95 +1222,17 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         } } bb_emit_x86(bb_match_arb()); } return 0;
     case IR_MATCH_BAL: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_bal()); } return 0;
-    case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1;
+    case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = _zn->dsusp;
         defer_prepare();
         bb_emit_x86(bb_match_defer()); } return 0;
     case IR_MATCH_VALUE: { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;
-    case IR_MATCH_ARBNO: { bb_prepare(nd); g_emit.op_arbno_rbp = 0;
-                                    g_emit.op_arbno_frame_off = planner_act_slot(nd); planner_act_window(nd, &g_emit.op_arbno_win_lo, &g_emit.op_arbno_win_bytes);
-                                    int _pk = planner_body_live(g_emit_cfg, nd->n_operands > 2 ? nd->operands[1] : (IR_t *)0, nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0, nd);
-                                    extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
-                                    int _tailc = (fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) ? 1 : 0;
-                                    int _k16r = 0; { if (g_emitter.walk_bb_node_inner__k16e < 0) { const char * _e1 = getenv("SCRIP_ARBNO_K16");
-                                        g_emitter.walk_bb_node_inner__k16e = (_e1 ? (atoi(_e1) != 0) : 1) ? 1 : 0;
-                                        } if (g_emitter.walk_bb_node_inner__k16e && g_emit_cfg && nd->n_operands >= 3) { int _ni=-1;
-                                            for(int _j=0;_j<g_emit_cfg->n;_j++) if(g_emit_cfg->all[_j]==nd){_ni=_j;break;} int _fr=0;
-                                        if(_ni>=0) for(int _j=0;_j<g_emit_cfg->n&&!_fr;_j++){IR_t*_o=g_emit_cfg->all[_j]; if(_o&&_o!=nd&&_o->op==IR_MATCH_ARBNO&&_o->n_operands>=3){int _a=-1,_b=-1;
-                                        for(int _k=0;_k<g_emit_cfg->n;_k++){if(g_emit_cfg->all[_k]==_o->operands[1])_a=_k;if(g_emit_cfg->all[_k]==_o->operands[2])_b=_k;} if(_a>_b){int _t=_a;_a=_b;
-                                        _b=_t;} if(_a>=0&&_ni>=_a&&_ni<=_b)_fr=1;}} int _k0=1,_kk=0,_sq=1; { int _s0=-1,_s1=-1;
-                                        for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_s0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_s1=_j;} if(_s0>_s1){int _t=_s0;
-                                        _s0=_s1;_s1=_t;} if(_s0<0){_k0=0;_sq=0;} else for(int _j=_s0;_j<=_s1;_j++){IR_t*_m=g_emit_cfg->all[_j]; if(_m&&_m!=nd){int _mo2=(int)_m->op;
-                                        if(_mo2==IR_MATCH_ALTERNATE||_mo2==IR_MATCH_ARBNO||(_mo2==IR_MATCH_FENCE1 || _mo2==IR_MATCH_FENCE0)||_mo2==IR_MATCH_DEFER||_mo2==IR_MATCH_VALUE||_mo2==IR_CALL||
-                                        _mo2==IR_CALL_VALUE||_mo2==IR_DISJUNCTION||_mo2==IR_MATCH_ABORT)_sq=0; int _mk=zd_k(_m); if(_mk!=0)_k0=0; _kk+=_mk;}} } int _osv=0,_dmb=-2,_dme=-2;
-                                        { int _mb=-1,_hi=g_emit_cfg->n; for(int _j=_ni;_j>=0;_j--){if(g_emit_cfg->all[_j]&&g_emit_cfg->all[_j]->op==IR_MATCH_BEGIN){_mb=_j;break;
-                                        }} if(_mb>=0) for(int _j=_mb+1;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]&&g_emit_cfg->all[_j]->op==IR_MATCH_BEGIN){_hi=_j;break;}} if(_mb>=0){ int _s0=-1,
-                                        _s1=-1; for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_s0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_s1=_j;
-                                        } if(_s0>_s1){int _t=_s0;_s0=_s1;_s1=_t;} for(int _j=_mb+1;_j<_hi;_j++){ if(_j>=_s0&&_j<=_s1) continue; IR_t*_m=g_emit_cfg->all[_j];
-                                        if(_m&&_m->op==IR_MATCH_ASSIGN_SAVE)_osv=1; } } else _osv=1; _dmb=_mb; _dme=_hi; } if (_pk > 0 && g_emit.op_arbno_frame_off == -1) { _k16r = 1;
-                                            g_emitter.g_arbk16_stmt = 1;
-                                        g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = _pk; } {
-                                        if(g_emitter.walk_bb_node_inner__ad<0){const char*_e=getenv("SCRIP_ARBNO_DIAG"); g_emitter.walk_bb_node_inner__ad=(_e&&*_e=='1')?1:0;
-                                        } if(g_emitter.walk_bb_node_inner__ad)
-                                        fprintf(stderr,"[ARBNO-K16] framed=%d k0=%d sq=%d kk=%d osv=%d mb=%d me=%d route=%s\n", _fr, _k0, _sq, _kk, _osv, _dmb, _dme, _k16r?"FRAMELESS_K":"legacy");
-                                        } } }
-                                    if (!_k16r && 0 && _tailc) { g_emit.op_tail = 1; g_emit.op_sb = _osb; g_emit.op_sa = _hdr; g_emit.op_tail_fpb = _fpb; g_emit.op_tail_fpl = _fpl;
-                                        g_emit.op_tail_ncap = fc_tail_ncap(nd); g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0; g_emit.op_tail_dfr = fc_tail_dfr(nd);
-                                        { extern int fc_tail_fpr_rsp(const IR_t *); g_emit.op_tail_fpr_rsp = fc_tail_fpr_rsp(nd); } }
-                                    else if (!_k16r) { int _mo = -1, _sp = 0; if (zls_arbno_geom(nd, &_mo, &_sp)) { g_emit.op_sa = _mo; int _chain = 1; g_emit.op_arbno_chain = _chain;
-                                        g_emit.op_sb = (_sp + (_chain ? 24 : 16) + 15) & ~15; if (_chain) { g_emit.op_arbno_nzq = zls_arbno_zq(nd, &g_emit.op_arbno_zq);
-                                        if (_chain && g_emit_cfg && nd->n_operands >= 3) { int _i0=-1,_i1=-1; for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_i0=_j;
-                                        if(g_emit_cfg->all[_j]==nd->operands[2])_i1=_j;} if(_i0>_i1){int _t=_i0;_i0=_i1;_i1=_t;} int _bha=0;
-                                        for(int _j=_i0;_j<=_i1&&_j>=0&&!_bha;_j++) if(g_emit_cfg->all[_j]&&g_emit_cfg->all[_j]->op==IR_MATCH_ARBNO&&g_emit_cfg->all[_j]!=nd) _bha=1;
-                                        g_emit.op_body_has_arbno=_bha; } }
-                                           if (_chain && g_emit_cfg) { int _ni=-1; for(int _j=0;_j<g_emit_cfg->n;_j++) if(g_emit_cfg->all[_j]==nd){_ni=_j;break;} int _fr=0;
-                                               if(_ni>=0) for(int _j=0;_j<g_emit_cfg->n&&!_fr;_j++){IR_t*_o=g_emit_cfg->all[_j]; if(_o&&_o!=nd&&_o->op==IR_MATCH_ARBNO&&_o->n_operands>=3){int _a=-1,
-                                               _b=-1; for(int _k=0;_k<g_emit_cfg->n;_k++){if(g_emit_cfg->all[_k]==_o->operands[1])_a=_k;if(g_emit_cfg->all[_k]==_o->operands[2])_b=_k;
-                                               } if(_a>_b){int _t=_a;_a=_b;_b=_t;} if(_a>=0&&_ni>=_a&&_ni<=_b)_fr=1;}} g_emit.op_arbno_framed=_fr; int _k0=1; { int _s0=-1,_s1=-1;
-                                               for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_s0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_s1=_j;
-                                               } if(_s0>_s1){int _t=_s0;_s0=_s1;_s1=_t;} if(_s0<0)_k0=0; else for(int _j=_s0;_j<=_s1&&_k0;_j++){IR_t*_m=g_emit_cfg->all[_j];
-                                               if(_m&&_m!=nd){int _mo3=(int)_m->op;
-                                               if(zd_k(_m)!=0||_mo3==IR_MATCH_DEFER||_mo3==IR_MATCH_ALTERNATE||_mo3==IR_MATCH_ARBNO||(_mo3==IR_MATCH_FENCE1 || _mo3==IR_MATCH_FENCE0)||
-                                               _mo3==IR_MATCH_VALUE||_mo3==IR_CALL||_mo3==IR_CALL_VALUE||_mo3==IR_DISJUNCTION||_mo3==IR_MATCH_ABORT)_k0=0;}} } g_emit.op_arbno_body_k0=_k0; }
-   { int _du=0; int _ds0=-1,_ds1=-1; for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_ds0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_ds1=_j;} if(_ds0>_ds1){int _t=_ds0;
-       _ds0=_ds1;_ds1=_t;} int _alt=0,_ref=0,_dfr=0,_arb=0,_altnest=0; if(_ds0>=0) for(int _j=_ds0;_j<=_ds1;_j++){IR_t*_m=g_emit_cfg->all[_j];
-       if(_m&&_m!=nd&&(int)_m->op==IR_MATCH_DEFER&&!_m->pat_static)_du=1; if(!_m||_m==nd)continue; int _o=(int)_m->op; if(_o==IR_MATCH_ALTERNATE||_o==IR_DISJUNCTION){ if(_m->seal)_ref=1;
-       else { _alt++; for(int _q=0;_q<_m->n_operands;_q++){IR_t*_a=_m->operands[_q]; if(_a&&((int)_a->op==IR_MATCH_ALTERNATE||(int)_a->op==IR_DISJUNCTION))_altnest=1;} } continue;
-       } if(_o==IR_MATCH_DEFER){ extern int sn4_alt_carrier(void); if(sn4_alt_carrier()&&_m->seal!=1)_dfr++; else _ref=1; continue;} if(_o==IR_MATCH_ARBNO){ extern int sn4_arbno_tailbeta(void);
-       if(sn4_arbno_tailbeta()&&_m->γ.node==nd)_arb++; else _ref=1; continue;
-       } switch(_o){case IR_MATCH_LIT:case IR_MATCH_LEN:case IR_MATCH_ANY:case IR_MATCH_NOTANY:case IR_MATCH_POS:case IR_MATCH_RPOS:case IR_MATCH_TAB:case IR_MATCH_RTAB:case IR_MATCH_SPAN:
-       case IR_MATCH_BREAK:case IR_MATCH_REM:break;default:_ref=1;break;} } int _fseal=(nd->n_operands>3&&nd->operands[3]==nd)?1:0; g_emit.op_tail_seal=_fseal;
-       g_emit.op_arbno_body_defer_unsafe=_du; { int _bf=0; if(_ds0>=0) for(int _j=_ds0;_j<=_ds1;_j++){IR_t*_m=g_emit_cfg->all[_j];
-       if(_m&&_m!=nd&&((int)_m->op==IR_MATCH_FENCE1||(int)_m->op==IR_MATCH_FENCE0))_bf=1;} g_emit.op_arbno_body_fence=_bf; } { extern int sn4_arbno_altsib(void);
-       int _altok=sn4_arbno_altsib()?(_alt>=1&&!_altnest):(_alt==1);
-       g_emit.op_arbno_body_actframe=(((_altok&&_dfr==0&&_arb==0)||(_alt==0&&_dfr==1&&_arb==0)||(_alt==0&&_dfr==0&&_arb==1))&&!_ref&&!_fseal)?0:1; } } } else { g_emit.op_sa = -1; g_emit.op_sb = -1;
-       g_emit.op_arbno_chain = 0; } }
-                                    if (g_emit.op_arbno_chain && g_emit.op_off >= 0 && !(nd->n_operands > 3 && nd->operands[3] == nd) && g_emit_cfg && nd->n_operands >= 3) {
-                                         if (g_emitter.walk_bb_node_inner__dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); g_emitter.walk_bb_node_inner__dtl = _e ? (atoi(_e) != 0) : 0; }
-                                        if (g_emitter.walk_bb_node_inner__dtl) {
-                                            int _i0 = -1, _i1 = -1; for (int _j = 0; _j < g_emit_cfg->n; _j++) { if (g_emit_cfg->all[_j] == nd->operands[1]) _i0 = _j;
-                                                if (g_emit_cfg->all[_j] == nd->operands[2]) _i1 = _j; }
-                                            if (_i0 > _i1) { int _t = _i0; _i0 = _i1; _i1 = _t; }
-                                            IR_t * _dn = NULL; int _ok = (_i0 >= 0 && _i1 >= 0);
-                                            for (int _j = _i0; _ok && _j <= _i1; _j++) { IR_t * _x = g_emit_cfg->all[_j]; if (!_x) continue;
-                                                if (_x->op == IR_MATCH_DEFER) { if (_dn || _x->seal != 2) _ok = 0; else _dn = _x; }
-                                                else if (_x->op == IR_LIT_STRING || _x->op == IR_GOTO) { }
-                                                else _ok = 0; }
-                                            const char * _pn = NULL;
-                                            if (_ok && _dn) for (int _j = 0; _j < _dn->n_operands; _j++) { IR_t * _o = _dn->operands[_j];
-                                                if (_o && _o->op == IR_LIT_STRING && IR_LIT(_o).sval && !strncmp(IR_LIT(_o).sval, "PAT$", 4)) { _pn = IR_LIT(_o).sval; break; } }
-                                            int _susp = 0;
-                                             if (g_emitter.walk_bb_node_inner__pk < 0) { const char * _e2 = getenv("SCRIP_ARBNO_PEEK"); g_emitter.walk_bb_node_inner__pk = _e2 ? (atoi(_e2) != 0) : 1; }
-                                            if (getenv("SCRIP_DT_DIAG"))
-                                                fprintf(stderr, "[DT] arbno: ok=%d pn=%s var=%s pro=%d uni=%d pk=%d\n", _ok, _pn ? _pn : "-", (_dn && IR_LIT(_dn).sval) ? IR_LIT(_dn).sval : "-",
-                                                (_dn && IR_LIT(_dn).sval) ? sno_name_prologue_bound(IR_LIT(_dn).sval) : -1, _pn ? emit_patzeta_lookup(_pn, &_susp) : -1,
-                                                    g_emitter.walk_bb_node_inner__pk);
-                                            if (_ok && _dn && IR_LIT(_dn).sval && sno_name_prologue_bound(IR_LIT(_dn).sval) &&
-                                                (g_emitter.walk_bb_node_inner__pk ? 1 : (_pn && emit_patzeta_lookup(_pn, &_susp) != 0)))
-                                                { g_emit.op_arbno_dt = 1; g_emit.op_arbno_dt_susp = g_emitter.walk_bb_node_inner__pk ? 0 : _susp; }
-                                        }
-                                    }
-                                    if (!_k16r) { g_emit.op_arbno_body_k0 = (_pk == 0) ? 1 : 0; g_emit.op_arbno_body_defer_unsafe = (_pk < 0) ? 1 : 0; }
-                                    bb_emit_x86(bb_match_arbno()); } return 0;
+    case IR_MATCH_ARBNO: { bb_prepare(nd); g_emit.op_arbno_rbp = 0; g_emit.op_arbno_frame_off = _zn->aslot; g_emit.op_arbno_win_lo = _zn->awlo; g_emit.op_arbno_win_bytes = _zn->awb;
+        if (g_emitter.walk_bb_node_inner__k16e < 0) { const char * _e1 = getenv("SCRIP_ARBNO_K16"); g_emitter.walk_bb_node_inner__k16e = (_e1 ? (atoi(_e1) != 0) : 1) ? 1 : 0; }
+        int _k16r = g_emitter.walk_bb_node_inner__k16e && _zn->ak16;
+        if (_k16r) { g_emitter.g_arbk16_stmt = 1; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = _zn->apk; }
+        else { g_emit.op_sa = _zn->asa; g_emit.op_sb = _zn->asb; g_emit.op_arbno_chain = _zn->ach; if (_zn->ach) g_emit.op_tail_seal = (nd->n_operands > 3 && nd->operands[3] == nd) ? 1 : 0;
+            g_emit.op_arbno_body_k0 = _zn->abk0; g_emit.op_arbno_body_defer_unsafe = _zn->abdu; }
+        bb_emit_x86(bb_match_arbno()); } return 0;
     case IR_MATCH_BEGIN: { int _th = _zn->hth; if (_zn->hfp >= 0 || _th) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off;
         } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_begin()); } return 0;
     case IR_MATCH_END: { if (getenv("SCRIP_FCDISP_DIAG")) fprintf(stderr, "[FCDISP] tail_release=%d br=%d head_fp=%d\n", _zn->hrel, _zn->hbr, _zn->hfp);
