@@ -4697,7 +4697,8 @@ DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t 
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
 DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int); DESCR_t pas_arr_make(DESCR_t *, int); DESCR_t pas_deref(DESCR_t *, int); DESCR_t pas_deref_set(DESCR_t *, int);
-    DESCR_t pas_field_set(DESCR_t *, int); DESCR_t pas_alloc_rec(DESCR_t *, int); DESCR_t pas_dispose(DESCR_t *, int);
+    DESCR_t pas_field_set(DESCR_t *, int); DESCR_t pas_alloc_rec(DESCR_t *, int); DESCR_t pas_dispose(DESCR_t *, int); DESCR_t rt_iand_d(DESCR_t *, int); DESCR_t rt_ior_d(DESCR_t *, int);
+        DESCR_t rt_ixor_d(DESCR_t *, int); DESCR_t rt_ishift_d(DESCR_t *, int);
 DESCR_t pas_elem_ref(DESCR_t *, int); DESCR_t pas_ref_val(DESCR_t *, int);
 DESCR_t pas_view_make(DESCR_t *, int);
 DESCR_t rt_quit_trap_300(DESCR_t *, int); DESCR_t rt_quit_trap_320(DESCR_t *, int);
@@ -4973,6 +4974,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "arr_make", 1, "pas_arr_make", pas_arr_make }, { "arr_make", 2, "pas_arr_make", pas_arr_make },
         { "__pas_deref", 1, "pas_deref", pas_deref }, { "__pas_deref_set", 2, "pas_deref_set", pas_deref_set }, { "__pas_field_set", 3, "pas_field_set", pas_field_set },
         { "__pas_alloc_rec", 1, "pas_alloc_rec", pas_alloc_rec }, { "__pas_dispose", 1, "pas_dispose", pas_dispose },
+        { "__pas_iand", 2, "rt_iand_d", rt_iand_d }, { "__pas_ior", 2, "rt_ior_d", rt_ior_d }, { "__pas_ixor", 2, "rt_ixor_d", rt_ixor_d }, { "__pas_ishift", 2, "rt_ishift_d", rt_ishift_d },
         { "__pas_elem_ref", 3, "pas_elem_ref", pas_elem_ref }, { "__pas_ref_val", 1, "pas_ref_val", pas_ref_val },
         { "__pas_view", 4, "pas_view_make", pas_view_make },
         { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },

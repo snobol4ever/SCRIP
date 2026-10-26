@@ -421,6 +421,15 @@ static int pas_is_filebuf_actual(const tree_t * a) {
     return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && (!strcmp(a->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(a->c[0]->v.sval, "__pas_tbuf_get")) && a->c[1] &&
         a->c[1]->t == TT_VAR;
 }
+static const char * pas_builtin_alias(const char * nm, int nargs) {
+    if (!nm || pas_callee_is_user_proc(nm)) return nm;
+    if (nargs == 1 && !strcmp(nm, "length")) return "__pas_len";
+    if (nargs == 2 && !strcmp(nm, "iand")) return "__pas_iand";
+    if (nargs == 2 && !strcmp(nm, "ior")) return "__pas_ior";
+    if (nargs == 2 && !strcmp(nm, "ixor")) return "__pas_ixor";
+    if (nargs == 2 && !strcmp(nm, "ishift")) return "__pas_ishift";
+    return nm;
+}
 static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * c0 = (t->n > 0) ? t->c[0] : NULL;
     { IR_t * x = pas_lower_exit(cx, t, ω); if (x) { *res = x; return x; } }
@@ -547,7 +556,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     IR_t * nd = build(cx, IR_CALL, γ, ω);
     IR_t * tgt = env ? pas_envcall_wrap(cx, t, nd, γ, ω) : nd;
     IR_t * e = pas_call_args_brm_dir(cx, nd, tgt, brm, (const tree_t * const *) (t->n > env + 1 ? &t->c[env + 1] : NULL), (t->n > env) ? t->n - env - 1 : 0, ω, rtl);
-    IR_LIT(nd).sval = (cn && cn->v.sval) ? cn->v.sval : NULL;
+    IR_LIT(nd).sval = (cn && cn->v.sval) ? pas_builtin_alias(cn->v.sval, (t->n > env) ? t->n - env - 1 : 0) : NULL;
     if (rasg) ir_operand_push(rasg, nd);
     *res = rdv ? rdv : nd;
     return e;

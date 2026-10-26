@@ -174,7 +174,7 @@ IR_e lower_call_road_kind(const IR_t * nd, int route) {
     if (route != CALL_ROUTE_FN && route != CALL_ROUTE_BYNAME) return (IR_e)0;
     if (pl_leaf_inline_known(fn, narg)) return IR_CALL_PL_LEAF;
     if (route == CALL_ROUTE_FN && dop_direct_leaf_known(fn, narg)) return IR_CALL_DIRECT;
-    if (route == CALL_ROUTE_BYNAME && lower_call_pas_bi(fn) >= 0) return IR_CALL_PAS_BI;
+    if ((route == CALL_ROUTE_BYNAME || route == CALL_ROUTE_FN) && lower_call_pas_bi(fn) >= 0) return IR_CALL_PAS_BI;
     if (route == CALL_ROUTE_FN) {
         int open = lower_call_open(fn, narg, strict);
         if (open == CALL_OPEN_METHOD) return IR_CALL_METHOD;

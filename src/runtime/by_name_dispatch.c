@@ -21242,6 +21242,63 @@ static int try_call_builtin_by_name_eval_rq(const char *fn, DESCR_t *args, int n
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_iand_d(DESCR_t *args, int nargs) {
+    (void) nargs;
+    extern int rt_big_is(DESCR_t);
+    extern DESCR_t rt_big_and(DESCR_t, DESCR_t);
+    extern DESCR_t rt_bitop_operand(DESCR_t);
+    DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
+    if (rt_big_is(_a0) || rt_big_is(_a1)) { return rt_big_and(_a0, _a1); }
+    int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
+    return INTVAL(a&b);
+}
+DESCR_t rt_ior_d(DESCR_t *args, int nargs) {
+    (void) nargs;
+    extern int rt_big_is(DESCR_t);
+    extern DESCR_t rt_big_or(DESCR_t, DESCR_t);
+    extern DESCR_t rt_bitop_operand(DESCR_t);
+    DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
+    if (rt_big_is(_a0) || rt_big_is(_a1)) { return rt_big_or(_a0, _a1); }
+    int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
+    return INTVAL(a|b);
+}
+DESCR_t rt_ixor_d(DESCR_t *args, int nargs) {
+    (void) nargs;
+    extern int rt_big_is(DESCR_t);
+    extern DESCR_t rt_big_xor(DESCR_t, DESCR_t);
+    extern DESCR_t rt_bitop_operand(DESCR_t);
+    DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
+    if (rt_big_is(_a0) || rt_big_is(_a1)) { return rt_big_xor(_a0, _a1); }
+    int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
+    return INTVAL(a^b);
+}
+DESCR_t rt_ishift_d(DESCR_t *args, int nargs) {
+    (void) nargs;
+    extern int rt_big_is(DESCR_t);
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_pow(DESCR_t, int64_t);
+    extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    extern DESCR_t rt_bitop_operand(DESCR_t);
+    args[0] = rt_bitop_operand(args[0]);
+    args[1] = rt_bitop_operand(args[1]);
+    if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1]) || !(IS_INT_fn(args[1]))) { return FAILDESCR; }
+    int64_t b=args[1].i;
+    if (rt_big_is(args[0]) ||
+        (b > 0 && IS_INT_fn(args[0]) && args[0].i != 0 && (b >= 63 || (args[0].i > 0 ? (args[0].i > (9223372036854775807LL >> b)) : (args[0].i < (-9223372036854775807LL - 1) >> b))))) {
+        DESCR_t x = rt_big_is(args[0]) ? args[0] : INTVAL(args[0].i);
+        if (b >= 0) { extern DESCR_t rt_big_shl(DESCR_t, int64_t); return rt_big_shl(x, b); }
+        {
+            DESCR_t p2 = rt_big_pow(INTVAL(2), -b);
+            DESCR_t q = rt_big_div(x, p2);
+            extern int rt_big_sign(DESCR_t);
+            if (rt_big_sign(x) < 0 && !IS_FAIL_fn(rt_big_sub(x, rt_big_mul(q, p2))) && rt_big_sign(rt_big_sub(x, rt_big_mul(q, p2))) != 0) q = rt_big_sub(q, INTVAL(1));
+            return q;
+        }
+    }
+    int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r;
+    return INTVAL(b>=0?(b>=64?0:a<<b):(-b>=64?(a<0?-1:0):a>>(-b)));
+}
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq) {
     if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type;
@@ -22884,70 +22941,16 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_rtod) && nargs >= 1) { double v=TONUM(args[0]); if (strict) return icn_math1(icn_rtod, 0, args[0], out); *out=REALVAL(v*180.0/3.14159265358979323846); return 1; }
     L_bidjmp_5805:
     ;
-    if ((_bid == BID_iand) && nargs==2) {
-        extern int rt_big_is(DESCR_t);
-        extern DESCR_t rt_big_and(DESCR_t, DESCR_t);
-        extern DESCR_t rt_bitop_operand(DESCR_t);
-        DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
-        if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_and(_a0, _a1); return 1; }
-        int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
-        *out=INTVAL(a&b);
-        return 1;
-    }
+    if ((_bid == BID_iand) && nargs==2) { *out = rt_iand_d(args, nargs); return 1; }
     L_bidjmp_5806:
     ;
-    if ((_bid == BID_ior) && nargs==2) {
-        extern int rt_big_is(DESCR_t);
-        extern DESCR_t rt_big_or(DESCR_t, DESCR_t);
-        extern DESCR_t rt_bitop_operand(DESCR_t);
-        DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
-        if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_or(_a0, _a1); return 1; }
-        int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
-        *out=INTVAL(a|b);
-        return 1;
-    }
+    if ((_bid == BID_ior) && nargs==2) { *out = rt_ior_d(args, nargs); return 1; }
     L_bidjmp_5807:
     ;
-    if ((_bid == BID_ixor) && nargs==2) {
-        extern int rt_big_is(DESCR_t);
-        extern DESCR_t rt_big_xor(DESCR_t, DESCR_t);
-        extern DESCR_t rt_bitop_operand(DESCR_t);
-        DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]);
-        if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_xor(_a0, _a1); return 1; }
-        int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r;
-        *out=INTVAL(a^b);
-        return 1;
-    }
+    if ((_bid == BID_ixor) && nargs==2) { *out = rt_ixor_d(args, nargs); return 1; }
     L_bidjmp_5808:
     ;
-    if ((_bid == BID_ishift)&& nargs==2) {
-        extern int rt_big_is(DESCR_t);
-        extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
-        extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
-        extern DESCR_t rt_big_pow(DESCR_t, int64_t);
-        extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
-        extern DESCR_t rt_bitop_operand(DESCR_t);
-        args[0] = rt_bitop_operand(args[0]);
-        args[1] = rt_bitop_operand(args[1]);
-        if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1]) || !(IS_INT_fn(args[1]))) { *out = FAILDESCR; return 1; }
-        int64_t b=args[1].i;
-        if (rt_big_is(args[0]) ||
-            (b > 0 && IS_INT_fn(args[0]) && args[0].i != 0 && (b >= 63 || (args[0].i > 0 ? (args[0].i > (9223372036854775807LL >> b)) : (args[0].i < (-9223372036854775807LL - 1) >> b))))) {
-            DESCR_t x = rt_big_is(args[0]) ? args[0] : INTVAL(args[0].i);
-            if (b >= 0) { extern DESCR_t rt_big_shl(DESCR_t, int64_t); *out = rt_big_shl(x, b); return 1; }
-            {
-                DESCR_t p2 = rt_big_pow(INTVAL(2), -b);
-                DESCR_t q = rt_big_div(x, p2);
-                extern int rt_big_sign(DESCR_t);
-                if (rt_big_sign(x) < 0 && !IS_FAIL_fn(rt_big_sub(x, rt_big_mul(q, p2))) && rt_big_sign(rt_big_sub(x, rt_big_mul(q, p2))) != 0) q = rt_big_sub(q, INTVAL(1));
-                *out = q;
-                return 1;
-            }
-        }
-        int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r;
-        *out=INTVAL(b>=0?(b>=64?0:a<<b):(-b>=64?(a<0?-1:0):a>>(-b)));
-        return 1;
-    }
+    if ((_bid == BID_ishift)&& nargs==2) { *out = rt_ishift_d(args, nargs); return 1; }
     L_bidjmp_5809:
     ;
     if ((_bid == BID_icom) && nargs==1) {
