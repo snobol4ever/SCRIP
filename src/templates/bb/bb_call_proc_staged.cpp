@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "emit.h"
 extern "C" int emit_zrow_actoff(const IR_t * nd);
+extern "C" int emit_zrow_sprec(const IR_t * nd);
 extern "C" {
 #include "bb_template_common.h"
 #include "stage2.h"
@@ -890,13 +891,20 @@ static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
          + st
          + x86("def", L(lb));
 }
-static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx) {
+static std::string bcps_block_rec_beta(void);
+static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx, int sprec) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
     const int zsp = _.op_zres && !bb_proc_target_retains(_.op_sval);
+    if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() + x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
+    const int fr = !zsp && !sprec;
     int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
-         + IF(!zsp, x86("mov", FRQ(act), 0L))
+         + IF(fr, x86("mov", FRQ(act), 0L))
+         + IF(sprec, x86("note", "the null resume record (ARCH-PROLOG-ACTIVATION-LIFETIME 8.1): this call's cell holds the result and, at +16, the record its beta reads; "
+                                 "a callee that leaves no choice releases to this cell, so beta finds the null record and fails on")
+                   + x86("mov", x86_zref(16, 1), (long)DT_RAW)
+                   + x86("mov", x86_zref(24, 1), 0L))
          + bcps_block_build(argblks, n)
          + bcps_kill_dead(n, 16 * n, 0, 400)
          + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx, _.op_seal == IR_SEAL_TAIL_POP))
@@ -907,9 +915,19 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86_rsp_land(-16L * n)
          + x86_gc_site(X86_SITE_LANDING)
          + bcps_kill_dead(n, 0, 1, 530)
-         + IF(!zsp, x86("mov", FRQ(act), "rax"))
-         + IF(!zsp, x86("mov", FRQ(act + 8), "rdx"))
-         + IF(bcps_pl() && !zsp,
+         + IF(fr, x86("mov", FRQ(act), "rax"))
+         + IF(fr, x86("mov", FRQ(act + 8), "rdx"))
+         + IF(sprec, x86("note", "a retained callee (rax = its frame, rdx = its beta) left rsp at the bottom of its live region: push this call's cell there, the "
+                                 "resume record at +16 {DT_RAW | beta << 8, frame}; nothing reads the cell carved at alpha until the callee releases back to it")
+                   + x86("test", "rax", "rax")
+                   + x86("jz", L(86))
+                   + x86_sub("rsp", 32) + x86_rsp_rec(-32)
+                   + x86("shl", "rdx", 8L)
+                   + x86("or", "rdx", (long)DT_RAW)
+                   + x86("mov", x86_zref(16, 1), "rdx")
+                   + x86("mov", x86_zref(24, 1), "rax")
+                   + x86("def", L(86)))
+         + IF(bcps_pl() && fr,
                x86("note",
                    "the act word names a retained frame: trail the slot when its frame is OLDER than the newest choice (the slot at or above [B+32]), so the unwind zeroes it when backtracking passes"
                    " this box")
@@ -946,22 +964,39 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("def", L(4))
          + x86_rsp_land(-16L * n)
          + x86_gc_site(X86_SITE_LANDING)
-         + IF(!zsp, x86("mov", FRQ(act), 0L))
+         + IF(fr, x86("mov", FRQ(act), 0L))
          + bcps_lvl_add(-1L)
          + x86("mov32", "eax", (long)DT_FAIL)
          + x86("xor", "edx", "edx")
          + x86("def", L(2))
-         + IF(!zsp, x86("mov", FRQ(off), "rax"))
-         + IF(!zsp, x86("mov", FRQ(off + 8), "rdx"))
+         + IF(fr, x86("mov", FRQ(off), "rax"))
+         + IF(fr, x86("mov", FRQ(off + 8), "rdx"))
          + x86("cmp", "al", (long)DT_FAIL)
          + x86_omega("je")
-         + IF(zsp, x86("note", ZRESN()) + x86("mov", ZRES(0), "rax"))
-         + IF(zsp, x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx"))
+         + IF(zsp || sprec, x86("note", ZRESN()) + x86("mov", ZRES(0), "rax"))
+         + IF(zsp || sprec, x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx"))
          + x86_gamma()
          + x86_beta()
          + IF(zsp, x86_omega())
-         + IF(!zsp, bcps_block_beta(act))
+         + IF(sprec, bcps_block_rec_beta())
+         + IF(fr, bcps_block_beta(act))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
+}
+static std::string bcps_block_rec_beta(void) {
+    return x86_pl_ball_rule(30, 22)
+         + x86("note", "beta finds rsp at this call's cell (every box of the continuation popped its own carve): a null record fails on; else pop the cell, "
+                       "re-link rbp to the retained frame and resume it at its beta, rsp back where the callee left it")
+         + x86("mov", "rax", x86_zref(24, 1))
+         + x86("test", "rax", "rax")
+         + x86("je", L(22))
+         + x86("mov", "rcx", x86_zref(16, 1))
+         + x86("shr", "rcx", 8L)
+         + x86_add("rsp", 32) + x86_rsp_rec(32)
+         + x86("mov", x86_hb(), "rax")
+         + bcps_lvl_add(1L)
+         + x86_jmp_reg("rcx")
+         + x86("def", L(22))
+         + x86_omega();
 }
 static std::string bcps_block_beta(int act) {
     return x86_pl_ball_rule(30, 22)
@@ -1121,7 +1156,9 @@ static std::string bcps_spine_gen_arm() {
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     int gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long gi_idx = (!bcps_no_genidx() && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
-    if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
+    int sprec = emit_zrow_sprec(_.node);
+    if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx, sprec);
+    if (sprec) return x86_alpha() + x86_bomb("bb_call_proc_staged: the plan puts this call's resume record on the spine, but the call does not take the block protocol");
     int n2_fb = -1, cb_np = 0, cb_va = 0, callee_blk = (gi_idx >= 0 && _.op_sval) ? bb_proc_target_icn_block(_.op_sval, &cb_np, &cb_va) : 0;
     if ((icn_gen_regime() || callee_blk) && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
     if ((icn_gen_regime() || callee_blk) && n2_fb <= 0) return x86_alpha()

@@ -241,11 +241,20 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planne
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 static int zd_pl_home(const IR_graph_t * cg) { return (zls_g_home_frame(cg) && zls_g_resumable_frame(cg)) ? 1 : 0; }
+extern "C" int rt_proc_is_registered(const char *); extern "C" int rt_proc_is_generator(const char *); extern "C" int rt_proc_dyn_scope(const char *); extern "C" int rt_proc_index_of(const char *);
+extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd) {
+    if (!cg || !nd || nd->op != IR_CALL_PROC_STAGED || !zd_pl_home(cg) || !zd_edge_retains_g(cg, nd) || zls_home_why(nd)) return 0;
+    const char * fn = IR_LIT(nd).sval;
+    if (!fn || !fn[0] || !rt_proc_is_registered(fn) || !rt_proc_is_generator(fn) || rt_proc_dyn_scope(fn) || rt_proc_index_of(fn) < 0) return 0;
+    int i = bb_proc_find(fn), bi = i >= 0 ? g_stage2.proc_table[i].bb_idx : -1;
+    const IR_graph_t * tg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (const IR_graph_t *)0;
+    return (tg && zls_g_resumable_frame(tg)) ? 1 : 0;
+}
 static int zd_pl_home_dyn(const IR_graph_t * cg, IR_t * nd) { return zd_pl_home(cg) && (zls_home_why(nd) || zd_edge_retains_g(cg, nd) || planner_home_dyn(cg, nd)) ? 1 : 0; }
 #include "box_cell_shapes.inc"
 static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
@@ -263,6 +272,7 @@ static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
     if (w == BCS_PL_HOME_RANGE_HDR) return (zd_pl_home(cg) && nd->op == IR_TO && (ir_range_kind_is(nd, "db") || ir_range_trailed(nd))) ? 1 : 0;
     if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home(cg) && nd->n_operands > 0) ? 1 : 0;
     if (w == BCS_PL_BOUND_SPINE) return (zd_pl_home(cg) && planner_bound_spine(cg, nd)) ? 1 : 0;
+    if (w == BCS_PL_SPINE_RECORD) return planner_call_spine_record(cg, nd);
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
