@@ -521,7 +521,7 @@ extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd) {
     return 0;
 }
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
-    if (!g || !nd || nd->op != IR_BOUND || !zls_g_home_frame(g) || !zls_g_resumable_frame(g)) return 0;
+    if (!g || !nd || nd->op != IR_BOUND || !(zls_g_home_frame(g) || g->home_frame) || !zls_g_resumable_frame(g)) return 0;
     const IR_t * ig = zd_chase((IR_t *)nd->ω.node);
     if (!ig || ig->op != IR_GATE) return 0;
     int fence = zls_fcn_bs_get(nd, 0);
