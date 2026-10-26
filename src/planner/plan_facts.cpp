@@ -74,6 +74,17 @@ static int pf_local_spine(const IR_graph_t * g, const char * nm) {
     }
     return 0;
 }
+extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);
+static void pf_rel(zeta_plan_t * rec, const IR_graph_t * g, const IR_t * sc, int kind) {
+    int n = g ? zls_g_release_act_offs(g, sc, kind, (int *)0, 0) : 0;
+    if (n < 0) n = 0;
+    size_t at = rec->v_rel.size();
+    rec->v_rel.push_back(n);
+    rec->v_rel.resize(at + 1 + (size_t)n);
+    if (n > 0) n = zls_g_release_act_offs(g, sc, kind, rec->v_rel.data() + at + 1, n);
+    rec->v_rel[at] = n;
+    rec->v_rel.resize(at + 1 + (size_t)n);
+}
 static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
     IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
@@ -246,7 +257,11 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
                     z->sdbb =
                         (vb || (!da && (ir_is_generator_kind(ir_kind0(db)) || ir_kind0(db) == IR_CALL || ir_kind0(db) == IR_CALL_PROC_STAGED || db->op == IR_SCAN_TAB || db->op == IR_SCAN_MOVE))) ? 1 :
                         0; } } }
-        z->djo = -1; z->gto = -1;
+        z->djo = -1; z->gto = -1; z->relo = -1;
+        if (op == IR_BOUND || op == IR_UNMARK || op == IR_CUT) {
+            const IR_t * sb = (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_BOUND) ? nd->operands[0] : nd;
+            z->relo = (int)rec->v_rel.size(); pf_rel(rec, g, sb, 5); pf_rel(rec, g, sb, 4); pf_rel(rec, g, nd, 4);
+        }
         z->fcsa = (fc_seq_active(nd) || (op == IR_MATCH_ALTERNATE && fc_cells_active() && fc_alt_fpmax(nd) >= 0)) ? 1 : 0; z->seam = zdp_seam_tier(nd);
         { long d = 0; z->zpk = fc_geom(nd, &d) ? -1 : (int)zw_node_k(nd); }
         if (op == IR_DISJUNCTION) { z->djo = (int)rec->v_dj.size(); pf_dj(rec, nodes, n, i, g, z->djx); }

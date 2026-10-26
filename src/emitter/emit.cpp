@@ -3024,6 +3024,15 @@ const znode_t * zrow(const IR_t * nd) {
 static int zrow_opoff(const IR_t * nd, int k) { return g_planner.g_zd_rec_p->v_opoff[(size_t)(zrow(nd)->opo + k)]; }
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
+extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
+    const znode_t * z = zrow(g_emit.node);
+    int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
+    if (z->relo < 0 || w < 0) { fprintf(stderr, "FATAL emit_zrow_release: node %s has no release list %d/%d in its plan row (ceo CEO-1990)\n", bb_op_name(g_emit.node->op), below, kind); abort(); }
+    const int * v = g_planner.g_zd_rec_p->v_rel.data() + z->relo;
+    for (int i = 0; i < w; i++) v += 1 + v[0];
+    *offs = v + 1;
+    return v[0];
+}
 static int zrow_of(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     if (!nd || !r || !r->home || r->n != g_planner.g_zd_n || g_planner.g_zd_nodes_p != g_planner.codegen_flat_chain_body_nodes) return -1;

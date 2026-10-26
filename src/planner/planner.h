@@ -10,7 +10,7 @@ struct znode_t {
     int aext, aexth, aclass, acause, vrfp, hwhy, fcact, argv, curmov, dsave, redisp, opo, actoff, bspk;
     IR_t * cvn;
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
-    int djo, gto, fcsa, seam, zpk;
+    int djo, gto, fcsa, seam, zpk, relo;
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
     int ws, wek, wex, f0r;
     int bu, sbk, sbb, sbp;
@@ -83,6 +83,7 @@ struct zeta_plan_t {
     std::vector<int> v_dj;
     std::vector<int> v_gate;
     std::vector<unsigned char> v_lspine;
+    std::vector<int> v_rel;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);
