@@ -1029,6 +1029,17 @@ static const char * sr3_gamma_label(const IR_t * g) { if (g_emitter.sr3_gamma_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int * emit_ops_grow(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
+    for (int k = o; k < cap; k++) q[k] = fill; return q; }
+static void emit_ops_reserve(int n) {
+    if (n < ZD_NOPS_MIN) n = ZD_NOPS_MIN;
+    if (n <= g_emit.op_zcap) return;
+    int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
+    g_emit.op_zread = emit_ops_grow(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = emit_ops_grow(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = emit_ops_grow(g_emit.op_zread_xf, o, cap, -1);
+    g_emit.op_zread_fr = emit_ops_grow(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_ops_grow(g_emit.op_zslot, o, cap, -1);
+    g_emit.op_zcap = cap;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     const int _ri = zrow_of(nd);
     if (_ri < 0) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE"); abort(); }
@@ -3312,7 +3323,7 @@ extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, 
         "FATAL emit_gc_map_register: value_bytes=%d frame_bytes=%d frame_rel=%d (the value region is 16-aligned and the 16 reserved bytes after it lie inside the frame; a blob's region is the wh"
             "ole frame below its base "
         "and carries GC_FRAME_MAP_BLOB)\n", value_bytes, frame_bytes, frame_rel); abort(); }
-    zsm_frame_carve(frame_bytes);
+    zsm_frame_carve(g_emit_cfg, frame_bytes);
     g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_value_bytes = value_bytes; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
@@ -3636,7 +3647,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     g_emitter.g_nidx_nodes = 0; g_emitter.g_nidx_n = 0;
-    zeta_plan_t * _pl = planner_lookup_or_plan(entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
+    zeta_plan_t * _pl = planner_lookup_or_plan(g_emit_cfg, entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
         flat_empty_body_succ = _pl->empty_succ;
     unsigned char * zd_on = _pl->on; int * zd_out = _pl->out; int * zd_gp = _pl->gp; int * zd_wp = _pl->wp; int * zd_arm = _pl->arm; int * zd_cps = _pl->cps; int * zd_cpd = _pl->cpd;
         int * zd_chn = _pl->chn;
@@ -5010,7 +5021,7 @@ static void emit_chain_prepare(IR_t * entry) {
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
     emit_chain_prepare(entry);
-    int rtplan = planner_rt_plan(entry, prefix);
+    int rtplan = planner_rt_plan(g_emit_cfg, entry, prefix);
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); if (rtplan) planner_table_forget(entry);
         return rc == 0 ? (bb_box_fn)1 : NULL; }
     long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) { flat_cap = (long)g_emit_cfg->n * 2048L;
@@ -5041,7 +5052,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void emit_chain_plan(IR_t * entry, const char * prefix) { if (!entry) return; emit_chain_prepare(entry); planner_pass_plan(entry, prefix); }
+extern "C" void emit_chain_plan(IR_t * entry, const char * prefix) { if (!entry) return; emit_chain_prepare(entry); planner_pass_plan(g_emit_cfg, entry, prefix); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
 void rt_proc_set_generator(const char *, int); void rt_proc_set_jmpentry(const char *, int); void rt_proc_set_pinned(const char *, int); void rt_proc_set_variadic(const char *, int);

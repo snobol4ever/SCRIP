@@ -1064,8 +1064,9 @@ inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 <
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
-extern "C" void zsm_frame_addr(int off, int cls, int rsp_form);
-extern "C" void zsm_frame_carve(int frame_bytes);
+extern "C" void zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form);
+extern "C" void zsm_frame_carve(const IR_graph_t * g, int frame_bytes);
+inline void x86_zsm_frame_addr(int off, int cls, int rsp_form) { zsm_frame_addr(g_emit_cfg, _.node, off, cls, rsp_form); }
 extern "C" int zls_frame_resident(const IR_t * nd);
 extern "C" int zls_off(const IR_t * nd);
 extern "C" int zd_k_own(IR_t * nd);
@@ -1079,14 +1080,14 @@ inline int x86_zop_operand_hit(int k, int off) {
 }
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); zsm_frame_addr(-1, 2, 0); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS);
+    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); x86_zsm_frame_addr(-1, 2, 0); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS);
         return b[i]; }
     if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
     if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
-        if (_.op_xf_off != -1) zsm_frame_addr(-1, zls_frame_resident(_.node) ? 2 : 3, 0);
+        if (_.op_xf_off != -1) x86_zsm_frame_addr(-1, zls_frame_resident(_.node) ? 2 : 3, 0);
         return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
     for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (x86_zop_operand_hit(k, off)) { int d = off - _.op_zslot[k];
-        if (_.op_zread_xf[k] != -1) { zsm_frame_addr(-1, (_.node && k < _.node->n_operands && _.node->operands[k] && !zls_frame_resident(_.node->operands[k])) ? 3 : 2, 0);
+        if (_.op_zread_xf[k] != -1) { x86_zsm_frame_addr(-1, (_.node && k < _.node->n_operands && _.node->operands[k] && !zls_frame_resident(_.node->operands[k])) ? 3 : 2, 0);
             return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
@@ -1102,16 +1103,16 @@ inline const char * x86_zop(int off, int q, int bump) {
             fprintf(stderr, "FATAL x86_zop: at node %s own=%d k_own=%d op_sa=%d op_off=%d\n", _.node ? bb_op_name(_.node->op) : "NONE", _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1,
                 _.op_sa, _.op_off);
             abort(); }
-    if (r != 2 && icn_frame_rbp()) { zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
+    if (r != 2 && icn_frame_rbp()) { x86_zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
-    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3);
+    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zsm_frame_addr(off, -1, 0); x86_zop_note(3);
         snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3);
+    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { x86_zsm_frame_addr(off, -1, 0); x86_zop_note(3);
         snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = x86_frame_off(off) + bump; spine = 1; }
-    else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = off + _.op_zabs; spine = 1; }
-    else { zsm_frame_addr(off, -1, 0); eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
+    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { x86_zsm_frame_addr(off, -1, 1); eff = x86_frame_off(off) + bump; spine = 1; }
+    else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { x86_zsm_frame_addr(off, -1, 1); eff = off + _.op_zabs; spine = 1; }
+    else { x86_zsm_frame_addr(off, -1, 0); eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
@@ -2521,10 +2522,10 @@ inline int x86_zdp_rbp_frames() {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" long zsm_declared_word(void);
-extern "C" long zsm_declared_owner(void);
+extern "C" long zsm_declared_word(const IR_graph_t * g, const IR_t * nd, int op_zres, int op_subj_cell);
+extern "C" long zsm_declared_owner(const IR_t * nd);
 inline std::string x86_zsm_ev(int kind) {
-    long own = zsm_declared_owner();
+    long own = zsm_declared_owner(_.node);
     return x86("comment", "ZSM")
          + x86("push", "rax") + x86("push", "rax")
          + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
@@ -2535,7 +2536,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov", "rsi", "rbp")
          + (own > 0L ? x86_movabs_r64("rcx", (uint64_t)(kind | ((long)_.op_node_kind << 8)) | ((uint64_t)own << 24)) : x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8))))
          + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
-         + x86_movabs_r64("r9", (uint64_t)zsm_declared_word() | ((uint64_t)(_.op_xrec & 12) << 50))
+         + x86_movabs_r64("r9", (uint64_t)zsm_declared_word(g_emit_cfg, _.node, _.op_zres, _.op_subj_cell) | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")

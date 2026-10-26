@@ -69,53 +69,67 @@ enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE
 const char * zeta_name(int z);
 int planner_frame_slot(const IR_graph_t * g, const IR_t * nd);
 int planner_frame_slot_at(const IR_graph_t * g, const IR_t * nd, IR_t ** nodes, int n, const int * claim, const int * xb);
-int planner_read_distance(IR_t ** nodes, int n, const int * zarm, int i, int k, const int * zout, const int * xb);
+int planner_read_distance(const IR_graph_t * cg, IR_t ** nodes, int n, const int * zarm, int i, int k, const int * zout, const int * xb);
 int planner_graph_retains(const IR_graph_t * g);
 void planner_consumers_build(const IR_graph_t * g);
 int planner_consumers_of(const IR_graph_t * g, const IR_t * nd, const int ** con);
+int planner_rec_home_g(const IR_graph_t * cg, const IR_t * nd);
 int planner_rec_home(const IR_t * nd);
 const zrd_t * planner_rec_read(int i, int j);
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
-zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
+zeta_plan_t * planner_lookup_or_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
-void planner_pass_plan(IR_t * entry, const char * prefix);
+void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_table_clear(void);
 void planner_table_forget(const IR_t * entry);
 int planner_entry_planned(const IR_t * entry);
-int planner_rt_plan(IR_t * entry, const char * prefix);
-zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix);
+int planner_rt_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
+zeta_plan_t * planner_chain_plan(const IR_graph_t * cg, IR_t * entry, const char * prefix);
 int zd_dj_admitted(int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);
 int zd_pl_dj_arm_holds(const IR_t * d, int a);
 int zd_dj_arm_end(IR_t ** nodes, int n, int dj, int a);
 IR_t * zd_scan_subject(IR_t * nd);
+IR_t * zd_value_producer_g(const IR_graph_t * cg, IR_t * nd);
 IR_t * zd_value_producer(IR_t * nd);
+IR_t * zd_conj_value_node_g(const IR_graph_t * cg, IR_t * nd);
 IR_t * zd_conj_value_node(IR_t * nd);
 int zd_plan_on_of(const IR_t * nd);
 int zd_sr_role(const IR_t * nd);
 int zd_cpos(int i, const int *xb, const int *zout, long *d);
 int zd_fam_delta(int i, int k, int * ok);
+int zd_gate_pair_g(const IR_graph_t * cg, IR_t **nodes, int n, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
 int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
+int zd_gate_pair_at_g(const IR_graph_t * cg, IR_t **nodes, int n, int g, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
 int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
+int zd_cl_read_g(const IR_graph_t * cg, IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb);
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb);
 IR_t * zd_chase(IR_t * t);
 int zd_yield_end(IR_t ** nodes, int n, int sp, const unsigned char * zon, const int * claim);
 void zd_vdj_live(IR_t ** nodes, int n, int * live);
+int zd_nops_g(const IR_graph_t * cg, IR_t * nd);
 int zd_nops(IR_t * nd);
-void zd_rec_arm(IR_t ** nodes, int i);
-void zd_cp_arm(IR_t ** nodes, int i, const int * zcps, const int * zcpd, const int * zout);
+void zd_rec_arm(const IR_graph_t * cg, IR_t ** nodes, int i);
+void zd_cp_arm(const IR_graph_t * cg, IR_t ** nodes, int i, const int * zcps, const int * zcpd, const int * zout);
+int zd_icn_local_var_g(const IR_graph_t * cg, const IR_t * nd);
 int zd_icn_local_var(const IR_t * nd);
+int zd_icn_local_assign_g(const IR_graph_t * cg, const IR_t * nd);
 int zd_icn_local_assign(const IR_t * nd);
-const IR_t * zd_local_home_node(const IR_t * nd);
+const IR_t * zd_local_home_node(const IR_graph_t * cg, const IR_t * nd);
+int zd_icn_suspend_g(const IR_graph_t * cg, const IR_t * nd);
 int zd_icn_suspend(const IR_t * nd);
 int zd_djx_of(const IR_t * nd);
 int zd_upost_of(const IR_t * nd);
+int zd_k_g(const IR_graph_t * cg, IR_t * nd);
 int zd_k(IR_t * nd);
 int zd_call_curmov(const IR_t * nd);
+int zd_k_own_g(const IR_graph_t * cg, IR_t * nd);
 int zd_k_own(IR_t * nd);
 int zd_omega_test_kind(const IR_t * nd);
+int zd_arrival_depth_g(const IR_graph_t * cg, IR_t **nodes, int n, int i, const unsigned char *zon, const int *zout, const int *zgp, const int *zwp);
 int zd_arrival_depth(IR_t **nodes, int n, int i, const unsigned char *zon, const int *zout, const int *zgp, const int *zwp);
+int zd_edge_retains_g(const IR_graph_t * cg, const IR_t * nd);
 int zd_edge_retains(const IR_t * nd);
 enum {
     PR_SUSPEND = 1, PR_COEXPR = 2, PR_UNKNOWN_CALLEE = 3, PR_GENERATOR_CALLEE = 4, PR_RETAINING_CALLEE = 5, PR_UNRESOLVED_CALLEE = 6, PR_DEFERRED_PATTERN = 7, PR_GATE_HOLDS = 8,
@@ -128,6 +142,7 @@ int zls_fcn_bs_get(const IR_t * nd, int which);
 void zls_fcn_bs_set(const IR_t * nd, int which, int val);
 }
 #include "frame_layout.h"
+int planner_retains_g(const IR_graph_t * cg, const IR_t * nd);
 int planner_retains(const IR_t * nd);
 enum {
     ACT_NONE = 0, ACT_DEFERRED_PATTERN = 1, ACT_STATIC_PATTERN = 2, ACT_PATTERN_FUNCTION = 3, ACT_ARBNO_ITERATION = 4, ACT_RESUME_ROAD = 5, ACT_BOUNDED_ARM = 6, ACT_BOUNDED_OTHER = 7, ACT_HOME = 8,
@@ -151,20 +166,25 @@ extern "C" int planner_alt_arm_live(const IR_graph_t * g, const IR_t * alt, int 
 extern "C" int planner_alt_exit(const IR_graph_t * g, const IR_t * alt, int * M);
 extern "C" int planner_fence_k(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_env_encloses(const int * zarm, int i, int q);
-extern "C" int planner_read_extra(IR_t ** nodes, int n, const int * zarm, int i, int k);
+extern "C" int planner_read_extra(const IR_graph_t * cg, IR_t ** nodes, int n, const int * zarm, int i, int k);
 extern "C" int planner_alt_k(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_blob_exit_live(const IR_graph_t * g);
 int planner_retains_emitter_view(int op);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai);
-void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut, int *fam,
-    int *fbase);
+void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof,
+    int *zcut, int *fam, int *fbase);
 int zst_s_of(const IR_t * nd);
-void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known);
+void zst_finish(const IR_graph_t * cg, IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known);
 int zst_coord(const char * name);
-void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim);
+void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim);
+void zd_depth_census_g(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix);
 void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix);
-int zd_run_alpha_dead(IR_t ** nodes, int n, const int * claim, int h);
+int zd_run_alpha_dead(const IR_graph_t * cg, IR_t ** nodes, int n, const int * claim, int h);
+void zd_check_g(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn,
+    const int *zcut, const int *zarm, const char *prefix);
 void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const int *zcut, const int *zarm,
-    const char *prefix) ;
+    const char *prefix);
+IR_graph_t * planner_published_graph(void);
+static inline int planner_resumable_frame(const IR_graph_t * g) { return (g && zls_g_resumable_frame(g)) ? 1 : 0; }
