@@ -7,6 +7,8 @@ struct znode_t {
     int hfp, hth, hrel, hbr, altok, altM, padoff, fbody;
     int k, isusp, yend, clr, djadm, armrbp, trivb, unwb, gcall, uwj, uwd, endj, otx, sidx, lgx, arr;
     IR_t * vp1, * gt, * ot;
+    int aext, aexth, aclass, acause, vrfp, hwhy, fcact, argv, curmov, dsave, redisp, opo;
+    IR_t * cvn;
 };
 struct zeta_plan_t {
     IR_t ** nodes;
@@ -65,6 +67,7 @@ struct zeta_plan_t {
     int rdn;
     znode_t * zn;
     std::vector<int> v_altpad;
+    std::vector<int> v_opoff;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);

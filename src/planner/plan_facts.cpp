@@ -18,6 +18,14 @@ extern "C" int fc_head_fp(const IR_t * nd);
 extern "C" int fc_cond_fp(const IR_t * nd);
 extern "C" int fc_save_active(const IR_t * nd);
 extern "C" int fc_vdj_active(const IR_t * nd);
+extern "C" int fc_vread_fp(const IR_t * nd);
+extern "C" int fc_call_active(const IR_t * nd);
+extern "C" int zls_home_why(const IR_t * nd);
+extern "C" int zls_argv_off(const IR_t * nd);
+extern "C" int zls_redisp_off(const IR_t * nd);
+extern "C" int zls_frame_off(const IR_graph_t * g, const IR_t * nd);
+extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
+extern "C" int zls_g_generator_top(const IR_graph_t * g);
 extern "C" int fc_call_active(const IR_t * nd);
 extern "C" int zls_dj_rbp_arms(const IR_t * nd);
 extern "C" int zls_home_why(const IR_t * nd);
@@ -74,6 +82,13 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         if (op == IR_MATCH_ALTERNATE) {
             int M = 0; z->altok = planner_alt_exit(g, nd, &M); z->altM = M; z->padoff = (int)rec->v_altpad.size();
             for (int j = 0; j < nd->n_operands / 2; j++) rec->v_altpad.push_back(z->altok == 0 ? M - planner_alt_arm_live(g, nd, j) : 0); }
+        IR_t * o0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+        z->aext = planner_act_extra(nd); z->aexth = o0 ? planner_act_extra(o0) : 32; z->aclass = planner_act_class_of(nd); z->acause = planner_act_cause_of(nd);
+        z->vrfp = fc_vread_fp(nd); z->hwhy = zls_home_why(nd); z->fcact = fc_call_active(nd); z->argv = zls_argv_off(nd); z->redisp = zls_redisp_off(nd);
+        z->curmov = zd_call_curmov(nd); z->cvn = o0 ? zd_conj_value_node_g(g, o0) : (IR_t *)0;
+        z->dsave = (zls_g_generator_top(g) > 0 && z->loff >= 0 && !zls_key_unbacked(g, z->loff)) ? zls_frame_off(g, nd) + 16 : INT_MIN;
+        z->opo = (int)rec->v_opoff.size();
+        for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
     }
     std::vector<int> ad((size_t)(n > 0 ? n : 1), -1);
     for (int j = 0; j < n; j++) {
