@@ -122,6 +122,8 @@ static int eval_thunks_emit_from(int pc0) {
     extern void rt_proc_set_dyn_scope(const char *name, int v);
     extern void rt_proc_set_result_name(const char *name, const char *rname);
     extern void planner_stage_graph(IR_graph_t *g);
+    extern void planner_stage_proc(stage2_t *, int, int);
+    extern void planner_road_floor_dc(stage2_t *, int, int, int *, int *);
     extern int g_gen_proc_active;
     extern int g_frame_active;
     extern IR_graph_t *g_emit_cfg;
@@ -146,8 +148,6 @@ static int eval_thunks_emit_from(int pc0) {
     g_runtime.eval.rt_fragment_emit = 1;
     int b1c = 1;
     { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
-    int b1cland = 1;
-    { const char *_le = getenv("SCRIP_B1C_LAND"); if (_le && *_le == '0') b1cland = 0; }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
@@ -159,29 +159,18 @@ static int eval_thunks_emit_from(int pc0) {
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
         if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
-        if (b1c) {
-            extern int g_flat_frame_floor;
-            extern int zls_g_region(const IR_graph_t *);
-            IR_graph_t *_pg = g_stage2.bbp.table[idx];
-            g_flat_frame_floor = 0;
-            if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) {
-                for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
-                    int _mx = g_stage2.proc_table[_mi].bb_idx;
-                    if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]);
-                    break;
-                }
-                if (g_flat_frame_floor <= 0 && b1cland) g_flat_frame_floor = zls_g_region(_pg);
-            }
-        }
+        planner_stage_proc(&g_stage2, pi, 2);
+        int _fl = 0, _dcnp = -1;
+        planner_road_floor_dc(&g_stage2, pi, 1, &_fl, &_dcnp);
+        { extern int g_flat_frame_floor; g_flat_frame_floor = b1c ? _fl : 0; }
         int _ispe = 0;
         {
             extern int emit_jmp_entry_for_patproc(int, IR_graph_t*);
             extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
             extern int g_flat_dc_np;
-            extern int rt_pl_dc_ok(const char *, int);
             int _isp = emit_jmp_entry_for_patproc(g_stage2.proc_table[pi].thunk_kind, g_stage2.bbp.table[idx]);
             if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
-            if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1;
+            if (b1c) g_flat_dc_np = _dcnp;
             _ispe = _isp;
         }
         char _m3pfx[strlen(pname) + 6];

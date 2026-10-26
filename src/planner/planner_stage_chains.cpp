@@ -25,17 +25,29 @@ void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, cons
     rec->road = *rd; rec->scope = scope; rec->head = head;
     if (g) planner_graph_facts(g);
 }
-void planner_stage_procs(stage2_t * s2, int from_pi, int m4) {
-    for (int pi = from_pi; pi < s2->proc_count; pi++) {
-        ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; int idx = pe->bb_idx;
-        if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-        IR_graph_t * g = s2->bbp.table[idx]; int is_lbl = strncmp(pname, "LBL__", 5) == 0; int bare = m4 && proc_role3_kind(g) == 1;
-        zls_graph_name(g, pname);
-        if (is_lbl || bare) continue;
-        planner_road_t rd; planner_road_proc(s2, pi, &rd);
-        char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
-        planner_stage_chain(g, pe->proc_entry_node ? pe->proc_entry_node : g->entry, pfx, &rd);
-    }
+void planner_stage_proc(stage2_t * s2, int pi, int mode) {
+    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; int idx = pe->bb_idx;
+    if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) return;
+    IR_graph_t * g = s2->bbp.table[idx]; int is_lbl = strncmp(pname, "LBL__", 5) == 0; int bare = mode == 1 && proc_role3_kind(g) == 1;
+    zls_graph_name(g, pname);
+    if (is_lbl || bare) return;
+    planner_road_t rd; planner_road_proc(s2, pi, &rd, mode == 2);
+    char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
+    planner_stage_chain(g, pe->proc_entry_node ? pe->proc_entry_node : g->entry, pfx, &rd);
+}
+void planner_stage_procs(stage2_t * s2, int from_pi, int mode) {
+    for (int pi = from_pi; pi < s2->proc_count; pi++) planner_stage_proc(s2, pi, mode);
+}
+void planner_road_floor_dc(stage2_t * s2, int pi, int rt, int * floor, int * dc_np) {
+    ProcEntry * pe = &s2->proc_table[pi]; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry); planner_road_t rd;
+    if (rr) rd = *rr; else planner_road_proc(s2, pi, &rd, rt);
+    *floor = rd.floor; *dc_np = rd.dc_np;
+}
+const planner_road_t * planner_road_of(const IR_t * entry) {
+    if (!entry) return (const planner_road_t *)0;
+    auto it = g_planner.planner_table.find(entry);
+    return it == g_planner.planner_table.end() ? (const planner_road_t *)0 : &it->second->road;
 }
 void planner_stage_main(IR_graph_t * bbg, const char * prefix) { planner_road_t rd; planner_road_none(&rd); planner_stage_chain(bbg, bbg->entry, prefix, &rd); }
 int planner_stage_rt(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) { if (!entry || planner_entry_planned(entry)) return 0; planner_stage_chain(g, entry, prefix, rd);

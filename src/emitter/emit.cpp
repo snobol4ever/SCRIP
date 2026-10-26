@@ -40,17 +40,8 @@ extern "C" const char * bb_ab_thunk_stem_or(const char * nm) { const char * st =
 static void port_exit_prepass_build(void) {
     extern const char * bb_ab_sym_name(const char *);
     for (int i = 0; i < g_stage2.proc_count; i++) {
-        ProcEntry * pe = &g_stage2.proc_table[i];
-        if (!pe->name || pe->bb_idx < 0 || pe->bb_idx >= g_stage2.bbp.count) continue;
-        IR_graph_t * g = g_stage2.bbp.table[pe->bb_idx];
-        if (!g) continue;
-        int flat_pat = (pe->thunk_kind == PROC_THUNK_PATTERN) ? 1 : 0;
-        int flat_gen = (pe->is_generator && emit_graph_has_suspend(g)) ? 1 : 0;
-        int gen_ok = !flat_gen;
-        int flat_lcl_proc = (!flat_pat && gen_ok && ((g->nparams > 0 || g->nlocals > 0) || g->cell_frame)) ? 1 : 0;
-        int zframe_graph_flag = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
-        if (!(zframe_graph_flag || (g->cell_frame && flat_lcl_proc))) continue;
-        g_emitter.g_port_exit_promoting_labels.insert(std::string(bb_ab_sym_name(pe->name)) + "_γ");
+        if (!planner_port_exit_promotes(&g_stage2, i)) continue;
+        g_emitter.g_port_exit_promoting_labels.insert(std::string(bb_ab_sym_name(g_stage2.proc_table[i].name)) + "_γ");
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4388,7 +4379,7 @@ extern "C" void emit_proc_prepare(stage2_t * s2, int pi, int with_props, int * i
     ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     g_emit_cfg = g;
     if (with_props) emit_proc_props(s2, pi);
-    planner_road_t rd; planner_road_proc(s2, pi, &rd);
+    planner_road_t rd; { const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry); if (rr) rd = *rr; else planner_road_proc(s2, pi, &rd, 0); }
     g_gen_proc_active = rd.gen_proc; g_flat_frame_floor = rd.floor;
     int isp = emit_jmp_entry_for_patproc(pe->thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, pe->dyn_scope, pe->is_generator, g);
     g_flat_dc_np = rd.dc_np;
