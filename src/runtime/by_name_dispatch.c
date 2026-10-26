@@ -17501,6 +17501,31 @@ static size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, s
     return w;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_alloc_rec(DESCR_t *args, int nargs) {
+    long n = pas_heap_take();
+    DESCR_t *c = pas_heap_cell(n, 1);
+    (void) nargs;
+    if (c) *c = (args[0].v == DT_A && args[0].arr) ? args[0] : STRVAL(rt_heap_strdup_c("0"));
+    return INTVAL(n);
+}
+DESCR_t pas_dispose(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
+    if (args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
+        pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
+    pas_heap_give(args[0].i);
+    return NULVCL;
+}
+DESCR_t pas_deref(DESCR_t *args, int nargs) { (void) nargs; return *pas_heap_ref(args[0], "__pas_deref"); }
+DESCR_t pas_deref_set(DESCR_t *args, int nargs) { (void) nargs; *pas_heap_ref(args[0], "__pas_deref_set") = args[1]; return args[1]; }
+DESCR_t pas_field_set(DESCR_t *args, int nargs) {
+    DESCR_t *hc = pas_heap_ref(args[0], "__pas_field_set");
+    long idx = rk_ival(args[1]);
+    (void) nargs;
+    if (hc->v == DT_A && hc->arr) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2]; return args[2]; }
+    *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
+    return args[2];
+}
 static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     switch (id) {
         case PBI_sqr:
@@ -17704,23 +17729,10 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_alloc && nargs == 0) { long n = pas_heap_take(); DESCR_t *c = pas_heap_cell(n, 1); if (c) *c = INTVAL(0); *out = INTVAL(n); return 1; }
     L_pbi_3:
     ;
-    if (id == PBI_alloc_rec && nargs == 1) {
-        long n = pas_heap_take();
-        DESCR_t *c = pas_heap_cell(n, 1);
-        if (c) *c = (args[0].v == DT_A && args[0].arr) ? args[0] : STRVAL(rt_heap_strdup_c("0"));
-        *out = INTVAL(n);
-        return 1;
-    }
+    if (id == PBI_alloc_rec && nargs == 1) { *out = pas_alloc_rec(args, nargs); return 1; }
     L_pbi_10:
     ;
-    if (id == PBI_dispose && nargs == 1) {
-        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
-        if (args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
-            pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
-        pas_heap_give(args[0].i);
-        *out = NULVCL;
-        return 1;
-    }
+    if (id == PBI_dispose && nargs == 1) { *out = pas_dispose(args, nargs); return 1; }
     L_pbi_18:
     ;
     if (id == PBI_dispose_k && nargs == 3) {
@@ -18188,14 +18200,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     }
     L_pbi_396:
     ;
-    if (id == PBI_field_set && nargs == 3) {
-        DESCR_t *hc = pas_heap_ref(args[0], fn);
-        long idx = rk_ival(args[1]);
-        if (hc->v == DT_A && hc->arr) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2]; *out = args[2]; return 1; }
-        *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
-        *out = args[2];
-        return 1;
-    }
+    if (id == PBI_field_set && nargs == 3) { *out = pas_field_set(args, nargs); return 1; }
     L_pbi_404:
     ;
     if (id == PBI_field_idx_set && nargs == 4) {
@@ -18222,10 +18227,10 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     }
     L_pbi_424:
     ;
-    if (id == PBI_deref && nargs == 1) { *out = *pas_heap_ref(args[0], fn); return 1; }
+    if (id == PBI_deref && nargs == 1) { *out = pas_deref(args, nargs); return 1; }
     L_pbi_425:
     ;
-    if (id == PBI_deref_set && nargs == 2) { *pas_heap_ref(args[0], fn) = args[1]; *out = args[1]; return 1; }
+    if (id == PBI_deref_set && nargs == 2) { *out = pas_deref_set(args, nargs); return 1; }
     L_pbi_426:
     ;
     if (id == PBI_fassign && nargs == 1) { const char *s = VARVAL_fn(args[0]); if (!s) s = ""; *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
