@@ -1673,30 +1673,17 @@ static void emit_parts_reserve(int n) {
 static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t *node_γ, bb_label_t *node_ω, const unsigned char *zon, const int *zout,
     const int *xb) {
     IR_t *nd = nodes[i]; int N = nd->n_operands;
-    int hold = xb && zd_edge_retains(nd) && g_planner.g_zd_nodes_p == nodes && g_planner.g_zd_claim_p && g_planner.g_zd_fam_p && g_planner.g_zd_fbase_p && g_planner.g_zd_gp_p;
+    const int * gv = &g_planner.g_zd_rec_p->v_gate[(size_t)zrow(nd)->gto];
     g_emit.xa_bb_emit_pair_n = 0;
     for (int j = 0; j < N; j++) {
         IR_t *arm = nd->operands[j];
         IR_t *rtgt = (arm && arm->n_operands > 0) ? arm->operands[0] : (IR_t *)0;
         int wantb = arm ? (int) arm->seal : 0;
         bb_label_t *t = node_ω;
-        int k = -1;
         if (rtgt && rtgt->op == IR_SUCCEED) t = node_γ;
-        else if (rtgt && rtgt->op != IR_FAIL) { k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
+        else if (rtgt && rtgt->op != IR_FAIL) { int k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
         xa_pair_push(NULL, t);
-        { int a = arm ? nidx(nodes, n, arm) : -1; long r = 0;
-            if (hold && k >= 0 && a >= 0 && zon[a] && zon[k] && zd_gate_pair_at(nodes, n, i, a, k, wantb, zon, zout, xb, &r)) { XA_PAIR(j).rsp = r; continue; } }
-        if (xb && k >= 0 && zon[i] && zon[k] && xb[i] != INT_MIN && xb[k] != INT_MIN) XA_PAIR(j).rsp = (xb[i] + zout[i]) - (xb[k] + zout[k] - (wantb ? 0 : zd_k(nodes[k])));
-        else if (xb && g_planner.g_zd_fam_p && g_planner.g_zd_claim_p && g_planner.g_zd_gp_p && g_planner.g_zd_nodes_p == nodes) {
-            const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
-            int a = arm ? nidx(nodes, n, arm) : -1, lf = (a >= 0 && zon[a] && cl[a] >= 0) ? fm[cl[a]] : -1, kk = 0, kf = -1; long kd = 0;
-            if (k >= 0 && zon[k] && cl[k] >= 0 && xb[k] != INT_MIN) { kd = xb[k] + zout[k] - (wantb ? 0 : zd_k(nodes[k])); kk = 1; }
-            else if (k >= 0 && zon[k] && cl[k] >= 0 && fm[cl[k]] >= 0) { kd = fb[cl[k]] + zout[k] - (wantb ? 0 : zd_k(nodes[k])); kk = 2; kf = fm[cl[k]]; }
-            if (lf >= 0 && kk == 1 && zd_edge_retains(nodes[k])) { IR_t * lt = zd_chase(nodes[k]->γ.node); int lq = lt ? nidx(nodes, n, lt) : -1;
-                if (lq >= 0 && cl[lq] >= 0 && fm[cl[lq]] == lf) { kd = 0; kk = 2; kf = lf; } }
-            long di = (zon[i] && cl[i] >= 0 && fm[cl[i]] >= 0 && fm[cl[i]] == lf) ? fb[cl[i]] + zout[i] : 0;
-            if (lf >= 0 && kk == 2 && kf == lf) XA_PAIR(j).rsp = di - kd;
-        }
+        if (gv[j] != INT_MIN) XA_PAIR(j).rsp = gv[j];
     }
     g_emit.op_off = drive_value_slot(nd);
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
@@ -1736,27 +1723,11 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         } } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω; xa_pair_push(NULL, t); }
     for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; { int k = nidx(nodes, n, r); if (k >= 0) { t = betas[k];
         } } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i]; if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i]; xa_pair_push(NULL, t); }
-    if (nd->op == IR_DISJUNCTION && zd_djx_of(nd) && g_planner.g_zd_out_p && g_planner.g_zd_nodes_p == nodes)
-        for (int j = 0; j < N; j++) { IR_t * r = nd->operands[2 * j + 1]; int k = nidx(nodes, n, r);
-            XA_PAIR(N + j).rsp = (r == nd) ? zd_djx_of(nd) : (k >= 0 ? g_planner.g_zd_out_p[i] - g_planner.g_zd_out_p[k] : 0); }
-    if (nd->op == IR_DISJUNCTION && !zd_djx_of(nd) && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i])
+    const int * dj = nd->op == IR_DISJUNCTION ? &g_planner.g_zd_rec_p->v_dj[(size_t)zrow(nd)->djo] : (const int *)0;
+    if (dj) for (int j = 0; j < N; j++) if (dj[7 * j] != INT_MIN) XA_PAIR(N + j).rsp = dj[7 * j];
+    if (dj && !zrow(nd)->djx && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i])
         for (int j = 0; j < N; j++) if (nd->operands[2 * j + 1] != nd && nidx(nodes, n, nd->operands[2 * j + 1]) < 0) XA_PAIR(N + j).rsp = g_emitter.g_zd_k + g_emitter.g_zd_wpop;
-    if (nd->op == IR_DISJUNCTION && zd_edge_retains(nd) && g_planner.g_zd_nodes_p == nodes && g_planner.g_zd_xb_p && g_planner.g_zd_out_p && g_planner.g_zd_plan_on &&
-        g_planner.g_zd_claim_p && g_planner.g_zd_fam_p && g_planner.g_zd_fbase_p && g_planner.g_zd_gp_p) {
-        const unsigned char * zon = g_planner.g_zd_plan_on; const int * zout = g_planner.g_zd_out_p, * xb = g_planner.g_zd_xb_p;
-        for (int j = 0; j < N; j++) {
-            int e = zd_dj_arm_end(nodes, n, i, j), k = nidx(nodes, n, zd_chase(nd->operands[2 * j + 1]));
-            long r = 0, da = 0, dk = 0;
-            if (e < 0 || !zon[e]) continue;
-            if (zd_pl_dj_arm_holds(nd, j) && k >= 0 && zon[k] && zd_chase(nodes[k]->γ.node) == nd) {
-                int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(k, xb, zout, &dk);
-                if (ca != INT_MIN && ca == ck) XA_PAIR(N + j).rsp = (da - g_planner.g_zd_gp_p[e]) - (dk - g_planner.g_zd_gp_p[k]);
-                continue;
-            }
-            if (zd_pl_dj_arm_holds(nd, j)) { if (k >= 0 && zon[k] && zd_gate_pair(nodes, n, e, k, 1, zon, zout, xb, &r)) XA_PAIR(N + j).rsp = r; continue; }
-            { int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(i, xb, zout, &dk); da -= g_planner.g_zd_gp_p[e]; if (ca != INT_MIN && ca == ck) XA_PAIR(N + j).rsp = da - dk; }
-        }
-    }
+    if (dj) for (int j = 0; j < N; j++) if (dj[7 * j + 1] != INT_MIN) XA_PAIR(N + j).rsp = dj[7 * j + 1];
     { xa_pair_push(na_s[i], NULL); }
     { xa_pair_push(na_f[i], NULL); }
     if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1;
@@ -1770,17 +1741,15 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0;
         { int zok = g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] && g_planner.g_zd_zarm_p &&
               g_planner.g_zd_zarm_nodes == nodes;
-          if (zok && rj && nd_slot(rj) >= 0 && ((rj->op == IR_CONJUNCTION && !zd_dj_admitted(g_planner.g_zd_zarm_n, i)) ||
-              zd_dj_cellless(nodes, n, g_planner.g_zd_zarm_p, nidx(nodes, n, rj)))) { g_emit.op_parts_ival[j] = nd_slot(rj); continue; } }
+          if (zok && rj && dj[7 * j + 2] >= 0 && dj[7 * j + 3]) { g_emit.op_parts_ival[j] = dj[7 * j + 2]; continue; } }
         { int _g = 0;
         while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }
         int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs;
-        int lasn = (rj && zd_icn_local_assign(rj) && zd_k_own(rj) == 0) ? 1 : 0;
+        int lasn = dj[7 * j + 4];
         if (lasn) { int voff = bb_varslot_peek(IR_LIT(rj).sval); g_emit.op_parts_ival[j] = voff >= 0 ? voff : -1; }
-        if (rj && zls_g_home_frame(g_emit_cfg) && (zd_icn_local_var(rj) || lasn)) { extern int zst_coord(const char *); int sv = g_planner.g_zd_cur; g_planner.g_zd_cur = i;
-            int c = zst_coord(IR_LIT(rj).sval); g_planner.g_zd_cur = sv; if (c >= 0) { g_emit.op_parts_ival[j] = c; continue; } }
+        if (dj[7 * j + 5] >= 0) { g_emit.op_parts_ival[j] = dj[7 * j + 5]; continue; }
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
-            if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj) && !lasn) g_emit.op_parts_ival[j] = -1;
+            if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !dj[7 * j + 6] && !lasn) g_emit.op_parts_ival[j] = -1;
             }
         if (rj && !lasn && g_emit.op_parts_ival[j] >= 0 && nidx(nodes, n, rj) < 0 && x86_key_unbacked(g_emit.op_parts_ival[j])) g_emit.op_parts_ival[j] = -1;
         } g_emit.op_parts_n = N; }

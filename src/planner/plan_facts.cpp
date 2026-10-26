@@ -55,6 +55,62 @@ static int pf_unwind_beta(const IR_t * nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_g_home_frame(const IR_graph_t * g);
+static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
+static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
+    IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
+    int aok = djx && g_planner.g_zd_out_p && g_planner.g_zd_nodes_p == nodes;
+    int cok = zd_edge_retains_g(g, nd) && g_planner.g_zd_nodes_p == nodes && g_planner.g_zd_xb_p && g_planner.g_zd_out_p && g_planner.g_zd_plan_on && g_planner.g_zd_claim_p &&
+        g_planner.g_zd_fam_p && g_planner.g_zd_fbase_p && g_planner.g_zd_gp_p;
+    for (int j = 0; j < N; j++) {
+        IR_t * r = nd->operands[2 * j + 1]; int k = pf_row(nodes, n, r), A = INT_MIN, C = INT_MIN;
+        if (aok) A = (r == nd) ? djx : (k >= 0 ? g_planner.g_zd_out_p[i] - g_planner.g_zd_out_p[k] : 0);
+        if (cok) {
+            const unsigned char * zon = g_planner.g_zd_plan_on; const int * zout = g_planner.g_zd_out_p, * xb = g_planner.g_zd_xb_p, * gp = g_planner.g_zd_gp_p;
+            int e = zd_dj_arm_end(nodes, n, i, j), kk = pf_row(nodes, n, zd_chase(nd->operands[2 * j + 1]));
+            long rr = 0, da = 0, dk = 0;
+            if (e >= 0 && zon[e]) {
+                if (zd_pl_dj_arm_holds(nd, j) && kk >= 0 && zon[kk] && zd_chase(nodes[kk]->γ.node) == nd) {
+                    int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(kk, xb, zout, &dk);
+                    if (ca != INT_MIN && ca == ck) C = (int)((da - gp[e]) - (dk - gp[kk]));
+                }
+                else if (zd_pl_dj_arm_holds(nd, j)) { if (kk >= 0 && zon[kk] && zd_gate_pair_g(g, nodes, n, e, kk, 1, zon, zout, xb, &rr)) C = (int)rr; }
+                else { int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(i, xb, zout, &dk); da -= gp[e]; if (ca != INT_MIN && ca == ck) C = (int)(da - dk); }
+            }
+        }
+        IR_t * rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0, * rq = rj;
+        int cell = rj && g_planner.g_zd_zarm_p && g_planner.g_zd_zarm_nodes == nodes &&
+            ((rj->op == IR_CONJUNCTION && !zd_dj_admitted(g_planner.g_zd_zarm_n, i)) || zd_dj_cellless(nodes, n, g_planner.g_zd_zarm_p, pf_row(nodes, n, rj)));
+        { int q = 0; while (rq && rq->op == IR_CONJUNCTION && rq->n_operands > 0 && q++ < 16) rq = rq->operands[0]; }
+        int lasn = (rq && zd_icn_local_assign_g(g, rq) && zd_k_own_g(g, rq) == 0) ? 1 : 0, lvar = rq ? zd_icn_local_var_g(g, rq) : 0, coord = -1;
+        if (rq && zls_g_home_frame(g) && (lvar || lasn)) { int sv = g_planner.g_zd_cur; g_planner.g_zd_cur = i; coord = zst_coord(IR_LIT(rq).sval); g_planner.g_zd_cur = sv; }
+        int v[7] = { A, C, rj ? zls_off(rj) : -1, cell ? 1 : 0, lasn, coord, lvar };
+        rec->v_dj.insert(rec->v_dj.end(), v, v + 7);
+    }
+}
+static void pf_gate(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g) {
+    IR_t * nd = nodes[i]; int N = nd->n_operands; const unsigned char * zon = rec->on; const int * zout = rec->out, * xb = rec->xb;
+    int hold = xb && zd_edge_retains_g(g, nd) && g_planner.g_zd_nodes_p == nodes && g_planner.g_zd_claim_p && g_planner.g_zd_fam_p && g_planner.g_zd_fbase_p && g_planner.g_zd_gp_p;
+    for (int j = 0; j < N; j++) {
+        IR_t * arm = nd->operands[j], * rtgt = (arm && arm->n_operands > 0) ? arm->operands[0] : (IR_t *)0;
+        int wantb = arm ? (int)arm->seal : 0, k = -1, V = INT_MIN;
+        if (rtgt && rtgt->op != IR_SUCCEED && rtgt->op != IR_FAIL) k = pf_row(nodes, n, rtgt);
+        { int a = arm ? pf_row(nodes, n, arm) : -1; long r = 0;
+            if (hold && k >= 0 && a >= 0 && zon[a] && zon[k] && zd_gate_pair_at_g(g, nodes, n, i, a, k, wantb, zon, zout, xb, &r)) { rec->v_gate.push_back((int)r); continue; } }
+        if (xb && k >= 0 && zon[i] && zon[k] && xb[i] != INT_MIN && xb[k] != INT_MIN) V = (xb[i] + zout[i]) - (xb[k] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])));
+        else if (xb && g_planner.g_zd_fam_p && g_planner.g_zd_claim_p && g_planner.g_zd_gp_p && g_planner.g_zd_nodes_p == nodes) {
+            const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
+            int a = arm ? pf_row(nodes, n, arm) : -1, lf = (a >= 0 && zon[a] && cl[a] >= 0) ? fm[cl[a]] : -1, kk = 0, kf = -1; long kd = 0;
+            if (k >= 0 && zon[k] && cl[k] >= 0 && xb[k] != INT_MIN) { kd = xb[k] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])); kk = 1; }
+            else if (k >= 0 && zon[k] && cl[k] >= 0 && fm[cl[k]] >= 0) { kd = fb[cl[k]] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])); kk = 2; kf = fm[cl[k]]; }
+            if (lf >= 0 && kk == 1 && zd_edge_retains_g(g, nodes[k])) { IR_t * lt = zd_chase(nodes[k]->γ.node); int lq = lt ? pf_row(nodes, n, lt) : -1;
+                if (lq >= 0 && cl[lq] >= 0 && fm[cl[lq]] == lf) { kd = 0; kk = 2; kf = lf; } }
+            long di = (zon[i] && cl[i] >= 0 && fm[cl[i]] >= 0 && fm[cl[i]] == lf) ? fb[cl[i]] + zout[i] : 0;
+            if (lf >= 0 && kk == 2 && kf == lf) V = (int)(di - kd);
+        }
+        rec->v_gate.push_back(V);
+    }
+}
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     rec->zn = (znode_t *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(znode_t));
     for (int i = 0; i < n; i++) {
@@ -108,6 +164,9 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
                     z->sdbb =
                         (vb || (!da && (ir_is_generator_kind(ir_kind0(db)) || ir_kind0(db) == IR_CALL || ir_kind0(db) == IR_CALL_PROC_STAGED || db->op == IR_SCAN_TAB || db->op == IR_SCAN_MOVE))) ? 1 :
                         0; } } }
+        z->djo = -1; z->gto = -1;
+        if (op == IR_DISJUNCTION) { z->djo = (int)rec->v_dj.size(); pf_dj(rec, nodes, n, i, g, z->djx); }
+        if (op == IR_GATE && nd->n_operands > 0) { z->gto = (int)rec->v_gate.size(); pf_gate(rec, nodes, n, i, g); }
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
     }
