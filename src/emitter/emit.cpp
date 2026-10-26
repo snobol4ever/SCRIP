@@ -4406,18 +4406,18 @@ static void emit_chain_prepare(IR_t * entry) {
       { int _gen_ok = !g_emit.flat_gen;
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->cell_frame)) ? 1 : 0;
             }
-      g_emit.frame_retained = planner_graph_retains(g_emit_cfg);
-      g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->cell_frame) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame)) && g_emit.flat_frame_bytes == 0) { extern int zls_g_frame_bytes(const IR_graph_t *);
-          g_emit.flat_frame_bytes = g_emit_cfg ? zls_g_frame_bytes(g_emit_cfg) : ((FLAT_FRAME_ALLOWANCE + 15) & ~15); } }
+      g_emit.frame_retained = g_emit_cfg ? g_emit_cfg->pf.retains : 0;
+      g_emit.zframe_graph = g_emit_cfg ? g_emit_cfg->pf.zframe : 0;
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame)) && g_emit.flat_frame_bytes == 0) g_emit.flat_frame_bytes = g_emit_cfg ? g_emit_cfg->pf.frame_bytes :
+          ((FLAT_FRAME_ALLOWANCE + 15) & ~15); }
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;
         fprintf(stderr, "[N2-FT] EMIT gen=%d zframeA=%d icncells=%d lclproc=%d region=%d ffb=%d np=%d nl=%d zls=%d ft=%d predft=%d\n", g_emit.flat_gen ? 1 : 0, g_emit.zframe_graph ? 1 : 0,
-            g_emit_cfg->cell_frame ? 1 : 0, g_emit.flat_lcl_proc ? 1 : 0, _rg, g_emit.flat_frame_bytes, _np, _nl, zls_g_fp_total(g_emit_cfg),
+            g_emit_cfg->cell_frame ? 1 : 0, g_emit.flat_lcl_proc ? 1 : 0, _rg, g_emit.flat_frame_bytes, _np, _nl, g_emit_cfg->pf.fp_total,
                 g_emit.zframe_graph ? g_emit.flat_frame_bytes : g_emit.flat_frame_bytes + (_np + _nl) * 16, g_emit.zframe_graph ? ((48 + _rg + 15) & ~15) : ((48 + _rg + 15) & ~15) + (_np + _nl) * 16);
                     } }
     g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;
-    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : zls_g_fp_total(g_emit_cfg))) : 0;
+    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : g_emit_cfg->pf.fp_total)) : 0;
     g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

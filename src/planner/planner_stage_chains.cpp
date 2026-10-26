@@ -23,6 +23,7 @@ void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, cons
     planner_pass_plan(g, entry, prefix);
     zeta_plan_t * rec = g_planner.planner_table[entry];
     rec->road = *rd; rec->scope = scope; rec->head = head;
+    if (g) planner_graph_facts(g);
 }
 void planner_stage_procs(stage2_t * s2, int from_pi, int m4) {
     for (int pi = from_pi; pi < s2->proc_count; pi++) {

@@ -214,6 +214,7 @@ int planner_blob_casmark(void);
 int planner_blob_head_bytes(void);
 int planner_road_blob_scope(const planner_road_t * rd);
 void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd);
+void planner_graph_facts(IR_graph_t * g);
 void planner_stage_procs(stage2_t * s2, int from_pi, int m4);
 void planner_stage_main(IR_graph_t * bbg, const char * prefix);
 int proc_role3_kind(const IR_graph_t * g);
