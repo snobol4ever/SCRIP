@@ -1091,6 +1091,7 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (_.op_zres && _.node && x86_key_unbacked(off)) { int own = _.op_own, kw = _.op_kown;
         if (own >= 0 && off >= own && off < own + kw) return q ? ZRES_SPINE(off - own) : x86_zref(off - own, 0); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    if (r != 2 && x86_key_unbacked(off) && _.op_zres && _.op_xa > 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return q ? RDQ("rbp", off - _.op_xk - _.op_xa) : RDD("rbp", off - _.op_xk - _.op_xa);
     if (r != 2 && x86_key_unbacked(off) && _.op_zres) { if (_.op_xd >= 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return x86_zref(_.op_xd + off - _.op_xk, q); }
     if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,

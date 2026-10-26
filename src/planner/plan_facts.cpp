@@ -227,11 +227,13 @@ static void pf_scan_t0(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_
 }
 static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g) {
     znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i];
-    z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1;
+    z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0;
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
     IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
     int b = ow ? nidx(nodes, n, ow) : -1;
     if (b < 0 || !rec->on[i] || !rec->on[b] || zls_off(ow) < 0) return;
+    if (nd->op == IR_UNMARK && g && zls_g_home_frame(g) && zls_g_resumable_frame(g) && planner_bound_spine(g, ow) && rec->xb && rec->xb[b] != INT_MIN) {
+        z->xk = zls_off(ow); z->xw = zd_k_own_g(g, ow); z->xa = rec->xb[b] + rec->out[b]; return; }
     long xi, xo;
     if (rec->xb && rec->xb[i] != INT_MIN && rec->xb[b] != INT_MIN) { xi = (long)rec->xb[i] + rec->out[i]; xo = (long)rec->xb[b] + rec->out[b]; }
     else if (rec->claim && rec->claim[i] >= 0 && rec->claim[i] == rec->claim[b]) { xi = rec->out[i]; xo = rec->out[b]; }

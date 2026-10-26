@@ -513,6 +513,13 @@ extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai
     }
     return r;
 }
+extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
+extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd) {
+    if (!g || !nd || g->n <= 0) return 0;
+    if (g_planner.pdef_g != g || g_planner.pdef_n != g->n) { g_planner.pdef.assign((size_t)g->n, 0); planner_pl_indef0(g, g_planner.pdef.data()); g_planner.pdef_g = g; g_planner.pdef_n = g->n; }
+    for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return g_planner.pdef[(size_t)i] ? 0 : 1;
+    return 0;
+}
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
     if (!g || !nd || nd->op != IR_BOUND || !zls_g_home_frame(g) || !zls_g_resumable_frame(g)) return 0;
     const IR_t * ig = zd_chase((IR_t *)nd->ω.node);
@@ -524,12 +531,13 @@ extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
         zls_fcn_bs_set(nd, 0, fence);
     }
     if (fence == 1) return 0;
+    const int bdef = planner_pl_definite(g, nd);
         std::vector<const IR_t *> seen(1, nd), stk(1, nd);
     int r = 0;
     while (!stk.empty() && !r) {
         const IR_t * x = stk.back();
         stk.pop_back();
-        if (x != nd && (zd_edge_retains_g(g, x) || x->op == IR_SUSPEND || x->op == IR_DISJUNCTION || x->op == IR_BOUND || (x->op == IR_CUT && !IR_LIT(x).ival))) r = 1;
+        if (x != nd && ((zd_edge_retains_g(g, x) && !bdef) || x->op == IR_SUSPEND || x->op == IR_DISJUNCTION || x->op == IR_BOUND || (x->op == IR_CUT && !IR_LIT(x).ival))) r = 1;
         if (r || (x != nd && x->op == IR_UNMARK && x->n_operands > 0 && x->operands[0] == nd)) continue;
         for (int e = -2; e < x->n_operands; e++) {
             const IR_t * y = e == -2 ? x->γ.node : e == -1 ? x->ω.node : x->operands[e];
@@ -1928,6 +1936,8 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
                 rd[j].dist = planner_read_distance(cg, nodes, n, zarm, i, k, zout, rec->xb);
+                if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && zon[k] && rec->xb[k] != INT_MIN && nd->op == IR_UNMARK && p->op == IR_BOUND && planner_bound_spine(cg, p))
+                    rd[j].xf = -(rec->xb[k] + zout[k]);
                 if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && rec->claim && zon[k] && rec->claim[i] != rec->claim[k] && rec->xb[k] != INT_MIN && rec->xb[i] == INT_MIN) { int fok = 0;
                     zd_fam_delta(i, k, &fok); if (!fok) rd[j].xf = -(rec->xb[k] + zout[k]); }
                 if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && rec->claim && zon[k] && rec->claim[i] != rec->claim[k] && (rec->xb[k] == INT_MIN || rec->xb[i] == INT_MIN) &&
