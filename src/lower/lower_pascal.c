@@ -822,6 +822,41 @@ static void seq_flatten(const tree_t * t, lc_vec * out) {
     for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_SEQ_EXPR) seq_flatten(s, out); else if (s) lc_vec_push(out, &s); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_tree_fors_on(const tree_t * t, const char * v) {
+    if (!t) return 0;
+    if (t->t == TT_FOR && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, v)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_tree_fors_on(t->c[i], v)) return 1;
+    return 0;
+}
+static int pas_defines_var(const tree_t * s, const char * v) {
+    return s && s->t == TT_ASSIGN && s->n > 1 && s->c[0] && s->c[0]->t == TT_VAR && s->c[0]->v.sval && !strcmp(s->c[0]->v.sval, v) &&
+        !(s->c[1] && s->c[1]->t == TT_VAR && s->c[1]->v.sval && !strcmp(s->c[1]->v.sval, "__pas_undefined_value"));
+}
+static struct pas_fact ** pas_seq_facts(pcx_t * cx, const tree_t * const * st, int k) {
+    if (!cx->fvars.n || cx->labels.n || k < 2) return NULL;
+    struct pas_fact ** at = (struct pas_fact **) ct_zalloc((size_t) k, sizeof(struct pas_fact *));
+    for (int f = 0; f < cx->fvars.n; f++) {
+        const char * v = LC_AT(&cx->fvars, const char *, f);
+        int def = 0;
+        for (int i = 0; i < k; i++) {
+            int lp = pas_tree_fors_on(st[i], v);
+            if (def && !lp) { struct pas_fact * n = (struct pas_fact *) ct_zalloc(1, sizeof(struct pas_fact)); n->nm = v; n->up = at[i]; at[i] = n; }
+            def = lp ? 0 : (def || pas_defines_var(st[i], v));
+        }
+    }
+    return at;
+}
+static IR_t * pas_lower_with_facts(pcx_t * cx, struct pas_fact ** at, int i, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    struct pas_fact * f0 = cx->fact, * h = at ? at[i] : NULL;
+    if (!h) return lower(cx, t, γ, ω, res);
+    struct pas_fact * tail = h;
+    while (tail->up) tail = tail->up;
+    tail->up = f0;
+    cx->fact = h;
+    IR_t * e = lower(cx, t, γ, ω, res);
+    cx->fact = f0;
+    return e;
+}
 static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     lc_vec stv;
     lc_vec_init(&stv, (int) sizeof(const tree_t *));
@@ -832,7 +867,8 @@ static IR_t * lower_seq(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     IR_t * succ = γ;
     IR_t * entry = NULL;
     IR_t * lastres = NULL;
-    for (int i = k - 1; i >= 0; i--) { IR_t * r = NULL; IR_t * e = lower(cx, st[i], succ, ω, &r); if (i == k - 1) lastres = r; if (e) { entry = e; succ = e; } }
+    struct pas_fact ** at = pas_seq_facts(cx, st, k);
+    for (int i = k - 1; i >= 0; i--) { IR_t * r = NULL; IR_t * e = pas_lower_with_facts(cx, at, i, st[i], succ, ω, &r); if (i == k - 1) lastres = r; if (e) { entry = e; succ = e; } }
     if (res) *res = lastres;
     return entry ? entry : build(cx, IR_SUCCEED, γ, ω);
 }
@@ -857,7 +893,8 @@ static IR_t * lower_block(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
     if (k == 0) return build(cx, IR_GOTO, γ, γ);
     IR_t * succ = γ;
     IR_t * entry = NULL;
-    for (int i = k - 1; i >= 0; i--) { entry = lower(cx, stmts[i], succ, ω, NULL); if (entry) succ = entry; }
+    struct pas_fact ** at = pas_seq_facts(cx, stmts, k);
+    for (int i = k - 1; i >= 0; i--) { entry = pas_lower_with_facts(cx, at, i, stmts[i], succ, ω, NULL); if (entry) succ = entry; }
     return entry ? entry : build(cx, IR_GOTO, γ, γ);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
