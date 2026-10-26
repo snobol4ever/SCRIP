@@ -207,9 +207,14 @@ suites with refs cut from each oracle; each Bench row is that language's benchma
 | Raku — IN DEVELOPMENT | RakDemo | **0/1** | — | 0% | — |  | `2026-10-10` |
 | Raku — IN DEVELOPMENT | RakRungs (rungs) | **1062/1062** | — | 100% | 2m17s | ✅ | `2026-10-24` |
 | Raku — IN DEVELOPMENT | RakBench | **80/80** | 4 | 100% | 7m44s | ✅ | `2026-10-23` |
+| Snocone | SncDemo | **23/23** | — | 100% | 23s | ✅ | `2026-10-22` |
+| Snocone | SncRungs (rungs) | **358/358** | — | 100% | 21s | ✅ | `2026-10-24` |
+| Snocone | SncBench | **23/23** | — | 100% | 4s | ✅ | `2026-10-22` |
+| Rebus | RebRungs (rungs) | **43/43** | — | 100% | 3s | ✅ | `2026-10-25` |
+| Rebus | RebBench | **3/3** | — | 100% | 2s | ✅ | `2026-10-22` |
 | SCRIPtix (hybrid) | TixDemo | **12/12** | — | 100% | 11s | ✅ | `2026-10-23` |
 
-**30 of 39 suites at 100%.**
+**35 of 44 suites at 100%.**
 <!-- SUITE-TABLE:END -->
 
 ### SNOBOL4 / SPITBOL
@@ -448,11 +453,11 @@ The eighth language is the other seven together: a SCRIPtix file is a plain Mark
 
 ### Snocone
 
-Snocone is Koenig's structured SNOBOL4 (Bell Labs TR 124). No independent implementation ships a test suite, so its programs are graded through the SPITBOL oracle by construction, as SNOBOL4 programs are; the paper's own examples are in the corpus, and the self-hosting front-end's own beautifier is part of its rungs suite. Its suite and benchmark readings are kept on the leaderboard (`.github/SCORE.md` § THE SUITE TABLE) and are not shown here.
+Snocone is Koenig's structured SNOBOL4 (Bell Labs TR 124). No independent implementation ships a test suite, so its programs are graded through the SPITBOL oracle by construction, as SNOBOL4 programs are; the paper's own examples are in the corpus, and the self-hosting front-end's own beautifier is part of its rungs suite. Its suite and benchmark readings are in the suite table above.
 
 ### Rebus
 
-Rebus has no independent implementation, so there is no third-party suite to grade against and no rival to time against; its programs are graded through the SNOBOL4 oracle path by construction. Its suite and benchmark readings are kept on the leaderboard and are not shown here.
+Rebus has no independent implementation, so there is no third-party suite to grade against and no rival to time against; its programs are graded through the SNOBOL4 oracle path by construction. Its suite and benchmark readings are in the suite table above.
 
 ## Credits
 
