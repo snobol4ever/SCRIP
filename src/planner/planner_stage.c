@@ -15,6 +15,8 @@ void planner_graph_facts(IR_graph_t * g) {
     extern int zls_g_locals(const IR_graph_t *);
     extern int zls_g_value_region(const IR_graph_t *);
     extern int zdp_seam_tier(const IR_t *);
+    extern int zls_g_keys_only(const IR_graph_t *);
+    extern int zls_g_kbase(const IR_graph_t *);
     if (!g) return;
     g->pf.resumable_frame = zls_g_resumable_frame(g);
     g->pf.block_args = zls_g_block_args(g);
@@ -25,6 +27,8 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.locals = zls_g_locals(g);
     g->pf.value_region = zls_g_value_region(g);
     g->pf.body_seam = g->body_root ? zdp_seam_tier(g->body_root) : 0;
+    g->pf.keys_only = zls_g_keys_only(g);
+    g->pf.kbase = zls_g_kbase(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_stage_graph(IR_graph_t * g) {

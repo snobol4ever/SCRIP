@@ -7,7 +7,7 @@ struct znode_t {
     int hfp, hth, hrel, hbr, altok, altM, padoff, fbody;
     int k, isusp, yend, clr, djadm, armrbp, trivb, unwb, gcall, uwj, uwd, endj, otx, sidx, lgx, arr;
     IR_t * vp1, * gt, * ot;
-    int aext, aexth, aclass, acause, vrfp, hwhy, fcact, argv, curmov, dsave, redisp, opo;
+    int aext, aexth, aclass, acause, vrfp, hwhy, fcact, argv, curmov, dsave, redisp, opo, actoff, bspk;
     IR_t * cvn;
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc0, suc1;
 };

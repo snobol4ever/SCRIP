@@ -26,6 +26,8 @@ extern "C" int zls_redisp_off(const IR_t * nd);
 extern "C" int zls_frame_off(const IR_graph_t * g, const IR_t * nd);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 extern "C" int zls_g_generator_top(const IR_graph_t * g);
+extern "C" int zls_act_off(const IR_t * nd);
+extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 extern "C" int fc_call_active(const IR_t * nd);
 extern "C" int zls_dj_rbp_arms(const IR_t * nd);
 extern "C" int zls_home_why(const IR_t * nd);
@@ -90,6 +92,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->trapd = (op == IR_SETEXIT_TEST && rec->on[i]) ? rec->out[i] - z->k : 0; z->zrunb = rec->out[i] >= 0 ? rec->out[i] - (rec->on[i] ? z->k : 0) : 0;
         z->xbp = (rec->out[i] >= 0 && rec->on[i] && rec->xb && rec->xb[i] != INT_MIN && rec->xb[i] > 0) ? rec->xb[i] : 0;
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
+        z->actoff = zls_act_off(nd); z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) : 0;
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
     }

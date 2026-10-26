@@ -2305,6 +2305,7 @@ int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return
 int zls_g_keys_only(const IR_graph_t * g) { return (g && zls_g_find(g) && !g->zframe_graph && !g->entry_frame && !g->cell_frame && !g->spine_cells && !g->root_graph && !g->caller_frame) ? 1 : 0; }
 int zls_g_frame_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (zls_g_keys_only(g) ? 0 : r->hf ? r->fregion : r->region) : -1; }
 int zls_g_home_frame(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->hf : 0; }
+int zls_g_kbase(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->kbase : 0; }
 int zls_g_value_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (r->hf ? r->fregion : r->region) : -1; }
 int zls_key_unbacked(const IR_graph_t * g, int off) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return (r && (zls_g_keys_only(g) || (r->hf && off >= r->kbase))) ? 1 : 0; }
 int zls_retains_why(const IR_graph_t * g, const IR_t * nd) { return (g && nd) ? zls_home_dyn(g, nd) : 0; }

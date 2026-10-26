@@ -569,7 +569,7 @@ void xa_emit_csettab_rodata(void)
 }
 int bb_slot_get(IR_t *nd);
 static int zrow_of(const IR_t * nd);
-static const znode_t * zrow(const IR_t * nd);
+const znode_t * zrow(const IR_t * nd);
 static int zrow_opoff(const IR_t * nd, int k);
 static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
@@ -1720,13 +1720,13 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
         xa_pair_push(NULL, kx >= 0 ? lbls[kx] : node_ω);
     }
     g_emit.op_ival = kind;
-    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? zls_off(open) : -1);
+    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? (open == nd ? zrow(nd)->loff : zrow(nd)->o0off) : -1);
     g_emit.op_sa = -1;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
     g_emit.op_sb = kind == CLEANUP_OPEN ? zread : -1;
-    if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zls_off(op0);
-    if (kind == CLEANUP_BANK) g_emit.op_sa = zls_off(nd);
-    if (kind == CLEANUP_DET) g_emit.op_sa = op0 ? zls_off(op0) : -1;
+    if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zrow(nd)->o0off;
+    if (kind == CLEANUP_BANK) g_emit.op_sa = zrow(nd)->loff;
+    if (kind == CLEANUP_DET) g_emit.op_sa = op0 ? zrow(nd)->o0off : -1;
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1784,7 +1784,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
             if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj) && !lasn) g_emit.op_parts_ival[j] = -1;
             }
-        if (rj && !lasn && g_emit.op_parts_ival[j] >= 0 && nidx(nodes, n, rj) < 0 && zls_key_unbacked(g_emit_cfg, g_emit.op_parts_ival[j])) g_emit.op_parts_ival[j] = -1;
+        if (rj && !lasn && g_emit.op_parts_ival[j] >= 0 && nidx(nodes, n, rj) < 0 && x86_key_unbacked(g_emit.op_parts_ival[j])) g_emit.op_parts_ival[j] = -1;
         } g_emit.op_parts_n = N; }
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
@@ -2286,12 +2286,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_GOTO:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_BOUND: {
-        g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0;
+        g_emit.op_sb = 1; g_emit.op_off = zrow(nd)->loff; g_emit.op_fc_bytes = 0;
         if (g_emit.op_off < 0) { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_TABLE_HDR: {
-        g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0;
+        g_emit.op_off = zrow(nd)->loff; g_emit.op_fc_bytes = 0;
         if (g_emit.op_off < 0) { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -3473,7 +3473,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     if (g && g->root_graph && g->standing_cells > 0)
         fprintf(stderr, "[HOMES] g=%d graph=%s standing=%d home=STANDING why=dynamic-predicate-root\n", gi, gn ? gn : "?", g->standing_cells);
 }
-static const znode_t * zrow(const IR_t * nd) {
+const znode_t * zrow(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     int ri = (r && nd && nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
     if (ri < 0) {
@@ -3483,6 +3483,8 @@ static const znode_t * zrow(const IR_t * nd) {
     return &r->zn[ri];
 }
 static int zrow_opoff(const IR_t * nd, int k) { return g_planner.g_zd_rec_p->v_opoff[(size_t)(zrow(nd)->opo + k)]; }
+extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
+extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
 static int zrow_of(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     if (!nd || !r || !r->home || r->n != g_planner.g_zd_n || g_planner.g_zd_nodes_p != g_planner.codegen_flat_chain_body_nodes) return -1;

@@ -1059,6 +1059,7 @@ extern "C" int rt_proc_is_generator(const char * name);
 extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);
 extern "C" int emit_graph_has_suspend(IR_graph_t * g);
 extern "C" int emit_port_exit_label_promotes(const char * label);
+inline int x86_key_unbacked(int off) { return (g_emit_cfg && (g_emit_cfg->pf.keys_only || (g_emit_cfg->pf.home_frame && off >= g_emit_cfg->pf.kbase))) ? 1 : 0; }
 inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1091,11 +1092,11 @@ inline const char * x86_zop(int off, int q, int bump) {
             return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
-    if (_.op_zres && _.node && zls_key_unbacked(g_emit_cfg, off)) { int own = zls_off(_.node), kw = zd_k_own(_.node);
+    if (_.op_zres && _.node && x86_key_unbacked(off)) { int own = zls_off(_.node), kw = zd_k_own(_.node);
         if (own >= 0 && off >= own && off < own + kw) return q ? ZRES_SPINE(off - own) : x86_zref(off - own, 0); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
-    if (r != 2 && zls_key_unbacked(g_emit_cfg, off) && _.op_zres) { int d = zd_cross_cell(off); if (d >= 0) return x86_zref(d, q); }
-    if (r != 2 && zls_key_unbacked(g_emit_cfg, off))
+    if (r != 2 && x86_key_unbacked(off) && _.op_zres) { int d = zd_cross_cell(off); if (d >= 0) return x86_zref(d, q); }
+    if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
             "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",

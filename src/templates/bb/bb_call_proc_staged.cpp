@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdint.h>
 #include "emit.h"
+extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" {
 #include "bb_template_common.h"
 #include "stage2.h"
@@ -644,7 +645,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = bb_varslot_peek(a->sval);
-        return (s >= 0 && zls_key_unbacked(g_emit_cfg, s)) ? -1 : s; };
+        return (s >= 0 && x86_key_unbacked(s)) ? -1 : s; };
     auto arms = [&](int lb, int lg) -> std::string {
         return x86("def", L(lb + 3))
              + x86("mov", "r8", RDQ("rdi", 8))
@@ -843,7 +844,7 @@ static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
         IR_t * a = ir_call_arg(_.node, i);
         if (!a || a->op != IR_VAR_REF || !a->sval || a->seal != (home ? IR_SEAL_KILL_HOME : IR_SEAL_KILL_VALUE)) continue;
         int vs = bb_varslot_peek(a->sval), seen = 0;
-        if (vs < 0 || zls_key_unbacked(g_emit_cfg, vs)) continue;
+        if (vs < 0 || x86_key_unbacked(vs)) continue;
         if (!home) cp += x86("mov", "rax", FRQB(vs, bump))
                        + x86("mov", "rdx", FRQB(vs + 8, bump))
                        + x86("test", "rax", "rax")
@@ -1116,7 +1117,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
 static std::string bcps_spine_gen_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
-    int act = zls_act_off(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
+    int act = emit_zrow_actoff(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     int gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long gi_idx = (!bcps_no_genidx() && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;

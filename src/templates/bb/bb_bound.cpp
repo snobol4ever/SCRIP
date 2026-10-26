@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 #include "emit.h"
+extern "C" int emit_zrow_bspk(const IR_t * nd);
 extern "C" {
 #include "bb_template_common.h"
 }
@@ -11,7 +12,7 @@ extern "C" {
 #define BND_PL() x86_resumable_frame()
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 #define BND_UMK() ((_.node && _.node->op == IR_UNMARK && _.node->n_operands > 0) ? _.node->operands[0] : (IR_t *)0)
-#define BND_SPINE_K() ((BND_UMK() && planner_bound_spine(g_emit_cfg, BND_UMK())) ? zd_k_own((IR_t *)BND_UMK()) : 0)
+#define BND_SPINE_K() (BND_UMK() ? emit_zrow_bspk(_.node) : 0)
 static std::string bound_unmark_cells() {
     _.op_zgpop = _.op_upost;
     return x86("comment", "IR_UNMARK cells arm -- restore rsp from BOUND frame slot (depth-immune FRQ)")
