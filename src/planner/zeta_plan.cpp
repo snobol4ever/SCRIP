@@ -5,12 +5,6 @@ g_planner_t g_planner;
 void nidx_build(IR_t **nodes, int n);
 int fence0_release_bytes(const IR_t * nd);
 int nidx(IR_t **nodes, int n, const IR_t *e);
-int port_sz_beta(const char * sz);
-int beta_is_stmt_land(const IR_t * tgt);
-void zdo_build(IR_t **nodes, int n);
-int zdo_first(IR_t **nodes, int n, IR_t *t);
-void zrm_build(IR_t ** nodes, const int * run, int rl);
-int zrm_maxk(const IR_t * nd);
 int zst_coord(const char * name);
 int zst_s_of(const IR_t * nd);
 IR_t * zd_chase(IR_t * t);
@@ -312,6 +306,37 @@ int zd_k_own_g(const IR_graph_t * cg, IR_t * nd) {
     return 16;
 }
 static int zd_map_on(void) { if (g_planner.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_planner.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_planner.zd_map_on__m; }
+typedef struct { const IR_t *k; int v; uint32_t gen; } zdo_slot_t;
+typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
+static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull) & (g_planner.g_zdo.len - 1);
+    for (;;) { zdo_slot_t *q = &CV_AT(g_planner.g_zdo, zdo_slot_t, h); if (q->gen != g_planner.g_zdo_gen || q->k == k) return q; h = (h + 1) & (g_planner.g_zdo.len - 1); } }
+static void zdo_build(IR_t **nodes, int n) {
+    g_planner.g_zdo_gen++; g_planner.g_zdo_cnt = 0; g_planner.g_zdo_nodes = nodes; g_planner.g_zdo_n = n;
+    uint32_t need = 64; while (need < (uint32_t)n * 2 + 2) need <<= 1;
+    if (g_planner.g_zdo.len < need) { if (g_planner.g_zdo.p) ct_drop(g_planner.g_zdo.p); g_planner.g_zdo.p = ct_zalloc(need, sizeof(zdo_slot_t)); g_planner.g_zdo.len = need;
+        g_planner.g_zdo.cap = need; g_planner.g_zdo.esz = (uint32_t)sizeof(zdo_slot_t); }
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k])) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t);
+        if (q->gen != g_planner.g_zdo_gen) { q->k = t;
+        q->v = k; q->gen = g_planner.g_zdo_gen; g_planner.g_zdo_cnt++; } }
+}
+static int zdo_first(IR_t **nodes, int n, IR_t *t) {
+    if (t && nodes == g_planner.g_zdo_nodes && n == g_planner.g_zdo_n && g_planner.g_zdo.len) { zdo_slot_t *q = zdo_probe(t); return q->gen == g_planner.g_zdo_gen ? q->v : -1; }
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static zrm_slot_t * zrm_probe(const IR_t * nd) {
+    uint32_t m = g_planner.g_zrm_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
+    for (;;) { zrm_slot_t * t = &CV_AT(g_planner.g_zrm_map, zrm_slot_t, h); if (t->gen != g_planner.g_zrm_gen || t->nd == nd) return t; h = (h + 1) & m; }
+}
+static void zrm_build(IR_t ** nodes, const int * run, int rl) {
+    g_planner.g_zrm_gen++;
+    if ((uint64_t)g_planner.g_zrm_map.len < (uint64_t)rl * 2 + 2) { uint32_t c = 256; while ((uint64_t)c < (uint64_t)rl * 2 + 2) c *= 2; cv_t v = { 0, 0, 0, 0 };
+        v.p = ct_zalloc(c, sizeof(zrm_slot_t));
+        v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(zrm_slot_t); g_planner.g_zrm_map = v; }
+    for (int k = 0; k < rl; k++) { zrm_slot_t * t = zrm_probe(nodes[run[k]]); t->nd = nodes[run[k]]; t->gen = g_planner.g_zrm_gen; t->maxk = k; }
+}
+static int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_planner.g_zrm_gen ? t->maxk : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
 static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout, const int *claim) { int k = zdo_first(nodes, n, t); if (k < 0) return 0; int s = zon[k] ? zout[k] : 0;

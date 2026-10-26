@@ -1,7 +1,6 @@
 #include "../emitter/emit_head.h"
 #include "../emitter/emit_decls.h"
 #include "planner.h"
-int port_sz_beta(const char * sz);
 }
 extern "C" int fc_leaf_cell(const IR_t * nd, long * k);
 extern "C" long fc_vwpop(const IR_t * nd);

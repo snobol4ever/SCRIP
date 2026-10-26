@@ -193,6 +193,8 @@ static inline int ir_floater_member(const IR_t * n) {
     if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
     return 0;
 }
+static inline int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
+static inline int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
 static inline int ir_glue_box(const IR_t * t, int phi) {
     int o = (int)t->op;
     return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) || (phi && o == IR_MATCH_BEGIN);

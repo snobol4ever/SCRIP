@@ -38,8 +38,6 @@ struct emit_dir_ref { cv_t * chunks; cv_t * names; cv_t * hix; int * n; size_t e
 typedef struct { unsigned char set[256]; int nempty, impure, unknown; } blob_fg_t;
 typedef struct { cv_t var; cv_t thunk; } blob_fg_deps_t;
 typedef struct { const char * var; const char * thunk; const char * from; int conflict; } blob_fg_bind_t;
-typedef struct { const IR_t *k; int v; uint32_t gen; } zdo_slot_t;
-typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
@@ -166,10 +164,6 @@ struct g_emitter_t {
     int blob_fg_bind_on_v = -1;
     int blob_first_guard_seq = 0;
     int x86_diag_regs_on_c_v = -1;
-    cv_t g_zdo;
-    uint32_t g_zdo_gen = 0, g_zdo_cnt = 0;
-    IR_t **g_zdo_nodes = 0;
-    int g_zdo_n = -1;
     std::unordered_set<std::string> icn_trace_intern_pool;
     bb_label_t g_gc_map_lbl;
     int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;

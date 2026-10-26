@@ -2597,9 +2597,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
-int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_arbno_reentry(void);
@@ -2882,39 +2879,6 @@ extern "C" int emit_diag_regs_suppress(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int x86_diag_regs_on_c(void) { if (g_emitter.x86_diag_regs_on_c_v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); g_emitter.x86_diag_regs_on_c_v = (e && *e && *e != '0') ? 1 : 0;
     } return g_emitter.x86_diag_regs_on_c_v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull) & (g_emitter.g_zdo.len - 1);
-    for (;;) { zdo_slot_t *q = &CV_AT(g_emitter.g_zdo, zdo_slot_t, h); if (q->gen != g_emitter.g_zdo_gen || q->k == k) return q; h = (h + 1) & (g_emitter.g_zdo.len - 1); } }
-void zdo_build(IR_t **nodes, int n) {
-    g_emitter.g_zdo_gen++; g_emitter.g_zdo_cnt = 0; g_emitter.g_zdo_nodes = nodes; g_emitter.g_zdo_n = n;
-    uint32_t need = 64; while (need < (uint32_t)n * 2 + 2) need <<= 1;
-    if (g_emitter.g_zdo.len < need) { if (g_emitter.g_zdo.p) ct_drop(g_emitter.g_zdo.p); g_emitter.g_zdo.p = ct_zalloc(need, sizeof(zdo_slot_t)); g_emitter.g_zdo.len = need;
-        g_emitter.g_zdo.cap = need; g_emitter.g_zdo.esz = (uint32_t)sizeof(zdo_slot_t); }
-    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k])) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t);
-        if (q->gen != g_emitter.g_zdo_gen) { q->k = t;
-        q->v = k; q->gen = g_emitter.g_zdo_gen; g_emitter.g_zdo_cnt++; } }
-}
-int zdo_first(IR_t **nodes, int n, IR_t *t) {
-    if (t && nodes == g_emitter.g_zdo_nodes && n == g_emitter.g_zdo_n && g_emitter.g_zdo.len) { zdo_slot_t *q = zdo_probe(t); return q->gen == g_emitter.g_zdo_gen ? q->v : -1; }
-    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static zrm_slot_t * zrm_probe(const IR_t * nd) {
-    uint32_t m = g_planner.g_zrm_map.len - 1; uint64_t h = (((uint64_t)(uintptr_t)nd >> 4) * 0xff51afd7ed558ccdull) & m;
-    for (;;) { zrm_slot_t * t = &CV_AT(g_planner.g_zrm_map, zrm_slot_t, h); if (t->gen != g_planner.g_zrm_gen || t->nd == nd) return t; h = (h + 1) & m; }
-}
-void zrm_build(IR_t ** nodes, const int * run, int rl) {
-    g_planner.g_zrm_gen++;
-    if ((uint64_t)g_planner.g_zrm_map.len < (uint64_t)rl * 2 + 2) { uint32_t c = 256; while ((uint64_t)c < (uint64_t)rl * 2 + 2) c *= 2; cv_t v = { 0, 0, 0, 0 };
-        v.p = ct_zalloc(c, sizeof(zrm_slot_t));
-        v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(zrm_slot_t); g_planner.g_zrm_map = v; }
-    for (int k = 0; k < rl; k++) { zrm_slot_t * t = zrm_probe(nodes[run[k]]); t->nd = nodes[run[k]]; t->gen = g_planner.g_zrm_gen; t->maxk = k; }
-}
-int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_planner.g_zrm_gen ? t->maxk : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_proc_target_retains(const char *fname);
 extern "C" int zls_g_vslot_count(const IR_graph_t *); extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *); extern "C" int zls_g_block_base(const IR_graph_t *);
