@@ -2148,7 +2148,7 @@ int zls_dj_cut_arm(const IR_graph_t * g, const IR_t * nd) {
     ct_drop(nx.v);
     return hit;
 }
-int zls_frame_word_why(const IR_t * nd) { return zls_dj_retains(nd) ? 1 : (nd && nd->op == IR_TO && ir_range_kind_is(nd, "db")) ? 2 : 0; }
+int zls_frame_word_why(const IR_t * nd) { return zls_dj_retains(nd) ? 1 : 0; }
 static int zls_home_local_kind(int lo) {
     return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
         lo == IR_UNIFY_VALUE;
@@ -2267,12 +2267,13 @@ static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int 
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     if (nd && nd->op == IR_CALL_PROC_STAGED && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
+    if (nd && nd->op == IR_TO && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g)) return 0;
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
-        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 : 0;
+        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 : 0;
 }
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
