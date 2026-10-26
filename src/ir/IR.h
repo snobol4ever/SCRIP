@@ -287,7 +287,7 @@ struct IR_graph_t {
     int n_constructs;
     int max_constructs;
     int serial;
-    struct IR_plan_facts_t { int resumable_frame; int block_args; int det_block; int home_frame; int generator_top; } pf;
+    struct IR_plan_facts_t { int resumable_frame; int block_args; int det_block; int home_frame; int generator_top; int block_base; int locals; int value_region; int body_seam; } pf;
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_construct_add(IR_graph_t * g, int kind, IR_t * begin, IR_t * end, int lo, int hi);

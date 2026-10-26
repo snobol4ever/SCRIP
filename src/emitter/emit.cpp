@@ -3705,7 +3705,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_is_text) g_emit_pos += 7;
     g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.flat_gen_above = 0; g_emit.op_zxb = 0;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
-    int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
+    int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && g_emit_cfg->pf.block_args && !g_emit_cfg->pf.det_block) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
     if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_runtime.eval.rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) &&
         !g_emit.flat_lcl_proc &&
@@ -3731,10 +3731,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->cell_frame) ? 1 : 0;
         int carve = ((frame_total + 15) & ~15) + 48 + 8 + 16;
         std::string _gseed;
-        { extern int zls_g_locals(const IR_graph_t *); extern int zls_g_region(const IR_graph_t *);
+        {
            if (g_emitter.codegen_flat_chain_body__en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); g_emitter.codegen_flat_chain_body__en = (_e && *_e == '0') ? 0 : 1; }
-          int _lo = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
-          int _rg = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? zls_g_value_region(g_emit_cfg) : -1;
+          int _lo = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? g_emit_cfg->pf.locals : -1;
+          int _rg = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? g_emit_cfg->pf.value_region : -1;
           if (_lo >= 0 && _rg > 0) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
               _gseed = flat_zero_fill(_lo, _rg - _lo);
@@ -3743,11 +3743,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + flat_zero_fill(0, _rg);
           }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
-        int _gblk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
+        int _gblk = (_use_zframe_install && g_emit_cfg->pf.block_args) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
         g_emit.flat_gen_above = carve - frame_total + _gw + 40;
-        if (_gblk && zls_g_block_base(g_emit_cfg) != carve)
+        if (_gblk && g_emit_cfg->pf.block_base != carve)
             { fprintf(stderr, "FATAL emit: generator %s's argument block lies at +%d by the layout and +%d by the carve -- the two must agree to the byte\n", prefix ? prefix : "?",
-            zls_g_block_base(g_emit_cfg), carve); abort(); }
+            g_emit_cfg->pf.block_base, carve); abort(); }
         bb_emit_x86( IF(_gblk,
             x86("comment",
             "the block protocol: the caller's argument block is at this entry rsp, A[i] = [entry+16i]; the five entry words lie above it, so gamma, omega and the anchor are read 16n higher"))
@@ -3787,10 +3787,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->cell_frame) ? 1 : 0;
         std::string _lseed;
          if (g_emitter.codegen_flat_chain_body__iws < 0) { const char * _e = getenv("SCRIP_ICN_WIRE_STACK"); g_emitter.codegen_flat_chain_body__iws = (_e && *_e == (char)48) ? 0 : 1; }
-        { extern int zls_g_locals(const IR_graph_t *); extern int zls_g_region(const IR_graph_t *);
+        {
            if (g_emitter.codegen_flat_chain_body__en_0 < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); g_emitter.codegen_flat_chain_body__en_0 = (_e && *_e == '0') ? 0 : 1; }
-          int _lo = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
-          int _rg = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? zls_g_value_region(g_emit_cfg) : -1, _hz = frame_total - (g_emitter.codegen_flat_chain_body__iws ? 8 : 24);
+          int _lo = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? g_emit_cfg->pf.locals : -1;
+          int _rg = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? g_emit_cfg->pf.value_region : -1, _hz = frame_total - (g_emitter.codegen_flat_chain_body__iws ? 8 : 24);
           if (_lo >= 0 && _rg > 0) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)
               _lseed =
@@ -3803,11 +3803,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + flat_zero_fill(0, _hz);
           }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
-        int _blk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
+        int _blk = (_use_zframe_install && g_emit_cfg->pf.block_args) ? 1 : 0;
         int _aoff = _blk ? frame_total : 16;
-        if (_blk && zls_g_block_base(g_emit_cfg) != frame_total)
+        if (_blk && g_emit_cfg->pf.block_base != frame_total)
             { fprintf(stderr, "FATAL emit: %s's argument block lies at +%d by the layout and +%d by the prologue -- the two must agree to the byte\n", prefix ? prefix : "?",
-            zls_g_block_base(g_emit_cfg), frame_total); abort(); }
+            g_emit_cfg->pf.block_base, frame_total); abort(); }
         std::string _inst = _use_zframe_install ? icn_entry_gva() + icn_main_args_inline(np, _blk) : std::string();
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
@@ -3953,7 +3953,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         bb_emit_x86(x86("mov", FRQ(g_emitter.g_suspend_resume_slot), "rax"));
     }
-    for (int _li = 0; _li < n && !zls_g_home_frame(g_emit_cfg); _li++) if (g_planner.codegen_flat_chain_body_nodes[_li]->op == IR_LIMIT) {
+    for (int _li = 0; _li < n && !g_emit_cfg->pf.home_frame; _li++) if (g_planner.codegen_flat_chain_body_nodes[_li]->op == IR_LIMIT) {
         g_emit.op_off = drive_value_slot(g_planner.codegen_flat_chain_body_nodes[_li]);
         bb_emit_x86(bb_limit_init());
     }
@@ -4519,15 +4519,14 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_dres && g_emit.flat_pat && g_emit_cfg && g_emit_cfg->body_root) {
             int _f1 = 0; for (int i = 0; i < n; i++) if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1) { _f1 = 1; break; }
             int _sd = resume_sealed_defer_on_root(g_planner.codegen_flat_chain_body_nodes, n, g_emit_cfg->body_root);
-            int _f1r = _f1; { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME");
-                if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && zdp_seam_tier(g_emit_cfg->body_root) != 0) _f1r = 0; }
-            if (getenv("SCRIP_RESUME_WHY")) { extern int zdp_seam_tier(const IR_t *); const IR_t * _br = g_emit_cfg->body_root; int _found = 0;
+            int _f1r = _f1; { const char * _fre = getenv("SCRIP_FENCE_RESUME");
+                if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && g_emit_cfg->pf.body_seam != 0) _f1r = 0; }
+            if (getenv("SCRIP_RESUME_WHY")) { const IR_t * _br = g_emit_cfg->body_root; int _found = 0;
                 { int i = nidx(g_planner.codegen_flat_chain_body_nodes, n, _br); if (i >= 0) _found = 1; }
                 int _wnc = 0, _wlf = 0, _wfn = 0; sn4_blob_choice_scan(&_wnc, &_wlf, &_wfn);
-                fprintf(stderr, "[RESUME-WHY] flat_pat=%d dres=%d f1=%d f1r=%d sd=%d body_root_op=%d tier=%d seal=%d in_nodes=%d n=%d nc=%d lf=%d fn=%d bfb=%d spgd=%d sph=%d exitlive=%d fam=%s\n",
+                fprintf(stderr, "[RESUME-WHY] flat_pat=%d dres=%d f1=%d f1r=%d sd=%d body_root_op=%d tier=%d seal=%d in_nodes=%d n=%d nc=%d lf=%d fn=%d bfb=%d spgd=%d sph=%d fam=%s\n",
                     g_emit.flat_pat, _dres, _f1, _f1r,
-                    _sd, _br ? (int)_br->op : -1, _br ? zdp_seam_tier(_br) : -1, _br ? (int)_br->seal : -1, _found, n, _wnc, _wlf, _wfn, blob_frame_bytes(), _spgd, _sph,
-                        planner_blob_exit_live(g_emit_cfg), fam ? fam : "?"); }
+                    _sd, _br ? (int)_br->op : -1, _br ? g_emit_cfg->pf.body_seam : -1, _br ? (int)_br->seal : -1, _found, n, _wnc, _wlf, _wfn, blob_frame_bytes(), _spgd, _sph, fam ? fam : "?"); }
             if (!_f1r) { int i = nidx(g_planner.codegen_flat_chain_body_nodes, n, g_emit_cfg->body_root);
                 if (i >= 0 && (resume_carrier_ok(g_planner.codegen_flat_chain_body_nodes[i], _sd))) { resume_tgt = betas[i]; } }
             if (!_f1 && !_sd && resume_tgt == &lbl_ω && sn4_alt_carrier() && g_emit_cfg->body_root &&

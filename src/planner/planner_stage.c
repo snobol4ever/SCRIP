@@ -11,12 +11,20 @@ void planner_graph_facts(IR_graph_t * g) {
     extern int zls_g_det_block(const IR_graph_t *);
     extern int zls_g_home_frame(const IR_graph_t *);
     extern int zls_g_generator_top(const IR_graph_t *);
+    extern int zls_g_block_base(const IR_graph_t *);
+    extern int zls_g_locals(const IR_graph_t *);
+    extern int zls_g_value_region(const IR_graph_t *);
+    extern int zdp_seam_tier(const IR_t *);
     if (!g) return;
     g->pf.resumable_frame = zls_g_resumable_frame(g);
     g->pf.block_args = zls_g_block_args(g);
     g->pf.det_block = zls_g_det_block(g);
     g->pf.home_frame = zls_g_home_frame(g);
     g->pf.generator_top = zls_g_generator_top(g);
+    g->pf.block_base = zls_g_block_base(g);
+    g->pf.locals = zls_g_locals(g);
+    g->pf.value_region = zls_g_value_region(g);
+    g->pf.body_seam = g->body_root ? zdp_seam_tier(g->body_root) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_stage_graph(IR_graph_t * g) {
