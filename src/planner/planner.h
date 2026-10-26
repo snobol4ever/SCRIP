@@ -5,7 +5,8 @@ struct znode_t {
     int fcg, leaf, vw, vbin, aslot, loff, owni;
     int rlive, carve, zdpa, zdpb, nops, ssub, sticky, srole, kown, upost, djx, djret, vdj, cfp, sact, o0off;
     int hfp, hth, hrel, hbr, altok, altM, padoff, fbody;
-    IR_t * vp1;
+    int k, isusp, yend, clr, djadm, armrbp, trivb, unwb, gcall, uwj, uwd, endj, otx, sidx, lgx, arr;
+    IR_t * vp1, * gt, * ot;
 };
 struct zeta_plan_t {
     IR_t ** nodes;

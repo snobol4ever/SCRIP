@@ -2054,6 +2054,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     g_planner.g_zd_plan_on = rec->on; g_planner.g_zd_plan_nodes = g_planner.codegen_flat_chain_body_nodes; g_planner.g_zd_plan_n = n;
     if (n > 0) zd_place(cg, rec, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_arm, zd_cps, zd_cpd);
     planner_facts(rec, g_planner.codegen_flat_chain_body_nodes, n, cg);
+    zd_depth_census_g(cg, g_planner.codegen_flat_chain_body_nodes, n, rec->on, rec->out, rec->gp, rec->wp, prefix);
     g_planner.g_zd_rec_p = rec;
     planner_capture(rec);
     return rec;
