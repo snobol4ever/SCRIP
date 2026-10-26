@@ -1,6 +1,7 @@
 #include <vector>
 #include <unordered_map>
 struct zrd_t { int dist, xf, fr, key, kind, anchor; };
+struct znode_t { int fcg, leaf, vw, vbin, aslot, loff, owni; };
 struct zeta_plan_t {
     IR_t ** nodes;
     int n;
@@ -56,6 +57,7 @@ struct zeta_plan_t {
     int * rdo;
     zrd_t * rd;
     int rdn;
+    znode_t * zn;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);
@@ -70,6 +72,7 @@ const zrd_t * planner_rec_read(int i, int j);
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
+void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n);
 void planner_pass_plan(IR_t * entry, const char * prefix);
 void planner_table_clear(void);
 void planner_table_forget(const IR_t * entry);

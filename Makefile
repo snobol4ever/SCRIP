@@ -1589,6 +1589,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/planner/zeta_plan.cpp \
     $(SRC)/planner/act_words.cpp \
+    $(SRC)/planner/plan_facts.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_call_probe.cpp \
     $(SRC)/templates/x86/x86_arg_roles.cpp \
