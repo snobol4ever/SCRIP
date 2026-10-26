@@ -267,24 +267,6 @@ static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
 }
 extern "C" int zls_off(const IR_t * nd);
 extern "C" int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);
-int zd_cross_cell_g(const IR_graph_t * cg, int off) {
-    int n = g_planner.g_zd_n, i = g_planner.g_zd_cur;
-    IR_t ** nodes = g_planner.g_zd_nodes_p;
-    const int * out = g_planner.g_zd_out_p, * xb = g_planner.g_zd_xb_p, * cl = g_planner.g_zd_claim_p, * fam = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
-    const unsigned char * on = g_planner.g_zd_plan_on;
-    if (!nodes || !out || !on || g_planner.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
-    int b = -1, key = -1;
-    for (int c = i - 1; c >= 0 && b < 0; c--) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own_g(cg, nodes[c])) { b = c; key = k; } }
-    for (int c = i + 1; c < n && b < 0; c++) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own_g(cg, nodes[c])) { b = c; key = k; } }
-    for (int c = b + 1; b > i && c < n; c++) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own_g(cg, nodes[c])) return -1; }
-    if (b < 0) return -1;
-    long xi, xo;
-    if (xb && xb[i] != INT_MIN && xb[b] != INT_MIN) { xi = (long)xb[i] + out[i]; xo = (long)xb[b] + out[b]; }
-    else if (cl && cl[i] >= 0 && cl[i] == cl[b]) { xi = out[i]; xo = out[b]; }
-    else if (fam && fb && cl && cl[i] >= 0 && cl[b] >= 0 && fam[cl[i]] >= 0 && fam[cl[i]] == fam[cl[b]]) { xi = (long)fb[cl[i]] + out[i]; xo = (long)fb[cl[b]] + out[b]; }
-    else return -1;
-    return xi < xo ? -1 : (int)(xi - xo) + (off - key);
-}
 static int zd_bcs_words(const IR_graph_t * cg, const IR_t * nd, int w) {
     if (w == -1) return zd_dj_spine(nd);
     if (w == -2) return zd_dj_spine(nd) ? zd_dj_spine(nd) + 32 : 0;
@@ -1850,7 +1832,8 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
     int total = 0;
     for (int i = 0; i < n; i++) { rec->rdo[i] = total; total += nodes[i]->n_operands + 1; }
     rec->rdo[n] = total; rec->rdn = total; rec->rd = (zrd_t *)ct_zalloc((size_t)(total > 0 ? total : 1), sizeof(zrd_t));
-    for (int q = 0; q < total; q++) { rec->rd[q].dist = 0; rec->rd[q].xf = -1; rec->rd[q].fr = -1; rec->rd[q].key = -1; rec->rd[q].kind = -1; rec->rd[q].anchor = -1; }
+    for (int q = 0; q < total; q++) { rec->rd[q].dist = 0; rec->rd[q].xf = -1; rec->rd[q].fr = -1; rec->rd[q].key = -1; rec->rd[q].kind = -1; rec->rd[q].anchor = -1; rec->rd[q].kown = -1;
+        rec->rd[q].fres = 1; }
     planner_consumers_build(g);
     int cur_saved = g_planner.g_zd_cur;
     for (int i = 0; i < n; i++) {
@@ -2255,7 +2238,6 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
     const char *prefix){ zd_check_g(planner_published_graph(), nodes, n, zon, zout, zgpop, zwpop, claim, xb, zchn, zcut, zarm, prefix); }
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb) { return zd_cl_read_g(planner_published_graph(), nodes, n, i, on, out, xb); }
 IR_t * zd_conj_value_node(IR_t * nd) { return zd_conj_value_node_g(planner_published_graph(), nd); }
-extern "C" int zd_cross_cell(int off){ return zd_cross_cell_g(planner_published_graph(), off); }
 void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, const char *prefix)
     { zd_depth_census_g(planner_published_graph(), nodes, n, zon, zout, zgpop, zwpop, prefix); }
 int zd_edge_retains(const IR_t * nd) { return zd_edge_retains_g(planner_published_graph(), nd); }

@@ -1068,16 +1068,12 @@ extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 extern "C" void zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form);
 extern "C" void zsm_frame_carve(const IR_graph_t * g, int frame_bytes);
 inline void x86_zsm_frame_addr(int off, int cls, int rsp_form) { zsm_frame_addr(g_emit_cfg, _.node, off, cls, rsp_form); }
-extern "C" int zls_frame_resident(const IR_t * nd);
-extern "C" int zls_off(const IR_t * nd);
-extern "C" int zd_k_own(IR_t * nd);
-extern "C" int zd_cross_cell(int off);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline int x86_zop_operand_hit(int k, int off) {
     int s = _.op_zslot[k];
-    int wide = off > s + 8 && (off - s) % 8 == 0 && _.node && k < _.node->n_operands && _.node->operands[k];
-    return s >= 0 && (off == s || off == s + 8 || (wide && off < s + zd_k_own(_.node->operands[k])));
+    int wide = off > s + 8 && (off - s) % 8 == 0 && _.op_zkown[k] >= 0;
+    return s >= 0 && (off == s || off == s + 8 || (wide && off < s + _.op_zkown[k]));
 }
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
@@ -1085,23 +1081,23 @@ inline const char * x86_zop(int off, int q, int bump) {
         return b[i]; }
     if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
     if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
-        if (_.op_xf_off != -1) x86_zsm_frame_addr(-1, zls_frame_resident(_.node) ? 2 : 3, 0);
+        if (_.op_xf_off != -1) x86_zsm_frame_addr(-1, _.op_fres ? 2 : 3, 0);
         return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
     for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (x86_zop_operand_hit(k, off)) { int d = off - _.op_zslot[k];
-        if (_.op_zread_xf[k] != -1) { x86_zsm_frame_addr(-1, (_.node && k < _.node->n_operands && _.node->operands[k] && !zls_frame_resident(_.node->operands[k])) ? 3 : 2, 0);
+        if (_.op_zread_xf[k] != -1) { x86_zsm_frame_addr(-1, _.op_zfres[k] ? 2 : 3, 0);
             return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
-    if (_.op_zres && _.node && x86_key_unbacked(off)) { int own = zls_off(_.node), kw = zd_k_own(_.node);
+    if (_.op_zres && _.node && x86_key_unbacked(off)) { int own = _.op_own, kw = _.op_kown;
         if (own >= 0 && off >= own && off < own + kw) return q ? ZRES_SPINE(off - own) : x86_zref(off - own, 0); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
-    if (r != 2 && x86_key_unbacked(off) && _.op_zres) { int d = zd_cross_cell(off); if (d >= 0) return x86_zref(d, q); }
+    if (r != 2 && x86_key_unbacked(off) && _.op_zres) { if (_.op_xd >= 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return x86_zref(_.op_xd + off - _.op_xk, q); }
     if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
             "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
-            off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1);
-            fprintf(stderr, "FATAL x86_zop: at node %s own=%d k_own=%d op_sa=%d op_off=%d\n", _.node ? bb_op_name(_.node->op) : "NONE", _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1,
+            off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? _.op_own : -1, _.node ? _.op_kown : -1);
+            fprintf(stderr, "FATAL x86_zop: at node %s own=%d k_own=%d op_sa=%d op_off=%d\n", _.node ? bb_op_name(_.node->op) : "NONE", _.node ? _.op_own : -1, _.node ? _.op_kown : -1,
                 _.op_sa, _.op_off);
             abort(); }
     if (r != 2 && icn_frame_rbp()) { x86_zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }

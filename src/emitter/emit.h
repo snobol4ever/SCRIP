@@ -587,7 +587,10 @@ typedef struct {
     int * op_zread_xf;
     int * op_zread_fr;
     int * op_zslot;
+    int * op_zkown;
+    int * op_zfres;
     int op_zslot_n;
+    int op_own, op_kown, op_fres, op_xk, op_xw, op_xd;
     int op_res_alias;
     int op_zrow;
     int pl_trace_mode;

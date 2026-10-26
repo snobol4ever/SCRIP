@@ -1,6 +1,6 @@
 #include <vector>
 #include <unordered_map>
-struct zrd_t { int dist, xf, fr, key, kind, anchor; };
+struct zrd_t { int dist, xf, fr, key, kind, anchor, kown, fres; };
 struct znode_t {
     int fcg, leaf, vw, vbin, aslot, loff, owni;
     int rlive, carve, zdpa, zdpb, nops, ssub, sticky, srole, kown, upost, djx, djret, vdj, cfp, sact, o0off;
@@ -15,6 +15,7 @@ struct znode_t {
     int ws, wek, wex, f0r;
     int bu, sbk, sbb, sbp;
     int hrsp, dtk, dtph, dtd, f0f;
+    int fres, xk, xw, xd;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
 struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };

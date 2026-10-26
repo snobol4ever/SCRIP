@@ -203,6 +203,22 @@ static void pf_scan_t0(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_
     if (tk >= 0 && rec->xb && rec->on[i] && rec->on[tk] && rec->xb[i] != INT_MIN && rec->xb[tk] != INT_MIN) z->sbp = (rec->xb[i] + rec->out[i]) - (rec->xb[tk] + rec->out[tk] - ta);
     else if (tk >= 0 && rec->on[i] && rec->on[tk] && rec->claim[i] >= 0 && rec->claim[i] == rec->claim[tk]) z->sbp = rec->out[i] - (rec->out[tk] - ta);
 }
+static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g) {
+    znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i];
+    z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1;
+    for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
+    IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
+    int b = ow ? nidx(nodes, n, ow) : -1;
+    if (b < 0 || !rec->on[i] || !rec->on[b] || zls_off(ow) < 0) return;
+    long xi, xo;
+    if (rec->xb && rec->xb[i] != INT_MIN && rec->xb[b] != INT_MIN) { xi = (long)rec->xb[i] + rec->out[i]; xo = (long)rec->xb[b] + rec->out[b]; }
+    else if (rec->claim && rec->claim[i] >= 0 && rec->claim[i] == rec->claim[b]) { xi = rec->out[i]; xo = rec->out[b]; }
+    else if (rec->fam && rec->fbase && rec->claim && rec->claim[i] >= 0 && rec->claim[b] >= 0 && rec->fam[rec->claim[i]] >= 0 && rec->fam[rec->claim[i]] == rec->fam[rec->claim[b]]) {
+        xi = (long)rec->fbase[rec->claim[i]] + rec->out[i]; xo = (long)rec->fbase[rec->claim[b]] + rec->out[b]; }
+    else return;
+    if (xi < xo) return;
+    z->xk = zls_off(ow); z->xw = zd_k_own_g(g, ow); z->xd = (int)(xi - xo);
+}
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     rec->v_lspine.assign((size_t)(g && g->lnames ? g->nlocals : 0), 0);
     for (int i = 0; g && g->lnames && i < g->nlocals; i++) rec->v_lspine[(size_t)i] = (g->lnames[i] && pf_local_spine(g, g->lnames[i])) ? 1 : 0;
@@ -337,6 +353,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
     { const char * e = getenv("SCRIP_UNWIND"); if (!(e && *e == '0')) for (int i = 0; i < n; i++) if (rec->zn[i].uwj >= 0 && rec->zn[i].uwd >= 0) bu[rec->zn[i].uwj] = 1; }
     for (int i = 0; i < n; i++) rec->zn[i].bu = bu[i];
     for (int i = 0; i < n; i++) pf_scan_t0(rec, nodes, n, i, g, bu);
+    for (int i = 0; i < n; i++) pf_cells(rec, nodes, n, i, g);
 }
 static int pf_blob_patv_reader(const IR_t * nd) { const char * sv = (nd && nd->op == IR_VAR) ? IR_LIT(nd).sval : (const char *)0; const char * d = sv ? strstr(sv, "$V") : (const char *)0;
     if (!d || strncmp(sv, "PAT$", 4)) return 0; char * e = (char *)0; (void) strtol(d + 2, &e, 10); return (e && e != d + 2 && !*e) ? 1 : 0; }

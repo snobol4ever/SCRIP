@@ -948,10 +948,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
         g_emit.op_zcut = -1;
         emit_ops_reserve(nd ? nd->n_operands + 1 : 0);
-        for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1; }
+        for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1;
+            g_emit.op_zkown[_zi] = -1; g_emit.op_zfres[_zi] = 1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
+    g_emit.op_own = _zn->loff; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd;
     g_emit.op_xf_off = _zr->home[_ri];
-    for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) g_emit.op_zread_xf[_zi] = _rd->xf; }
+    for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) { g_emit.op_zread_xf[_zi] = _rd->xf;
+        g_emit.op_zkown[_zi] = _rd->kown; g_emit.op_zfres[_zi] = _rd->fres; } }
     g_emit.op_suspend_stmt_uclaim = 0;
     if (g_emitter.g_zd_stage) { g_emit.op_suspend_stmt_uclaim = g_emitter.g_zd_suspend_uclaim;
         g_emitter.g_zd_suspend_uclaim = 0;
@@ -3045,7 +3048,8 @@ static void emit_ops_reserve(int n) {
     if (n <= g_emit.op_zcap) return;
     int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
     g_emit.op_zread = emit_grow_one(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = emit_grow_one(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = emit_grow_one(g_emit.op_zread_xf, o, cap, -1);
-    g_emit.op_zread_fr = emit_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_grow_one(g_emit.op_zslot, o, cap, -1);
+    g_emit.op_zread_fr = emit_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_grow_one(g_emit.op_zslot, o, cap, -1); g_emit.op_zkown = emit_grow_one(g_emit.op_zkown, o, cap, -1);
+        g_emit.op_zfres = emit_grow_one(g_emit.op_zfres, o, cap, 1);
     g_emit.op_zcap = cap;
 }
 static int zrow_under(int ri) { const zeta_plan_t * r = g_planner.g_zd_rec_p; return (ri >= 0 && r && r->under) ? r->under[ri] : 0; }
