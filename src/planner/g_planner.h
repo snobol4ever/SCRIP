@@ -71,6 +71,7 @@ struct g_planner_t {
     int g_act_n = -1, g_act_blob = -1, g_act_head = 0, g_act_blob_units = 0;
     std::vector<int> g_act_cls, g_act_cause, g_act_slot, g_act_units, g_act_extra, g_act_owner;
     int zd_map_on__m = -1;
+    int fence0_whack_on_v = -1;
     cv_t g_zdo;
     uint32_t g_zdo_gen = 0, g_zdo_cnt = 0;
     IR_t **g_zdo_nodes = 0;

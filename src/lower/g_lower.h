@@ -190,7 +190,6 @@ typedef struct {
     int zw_carve_k_all;
     const char * zw_carve_k_bo;
     const char * zw_carve_k_bs;
-    int zop_audit_graph_close_reg;
     int bb_print_v_xd2;
     int zdp_mode_m;
     int zdp_cap_seamtier_v;
@@ -230,9 +229,6 @@ typedef struct {
     cv_t zlq_v;
     cv_t pz_v;
     int pz_n;
-    long zop_g_total;
-    long zop_g_mixed;
-    long zop_hist[16];
     const int * seq_of_node;
     int seq_of_node_n;
     cv_t zdp_ent;

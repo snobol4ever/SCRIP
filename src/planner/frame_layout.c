@@ -3003,31 +3003,4 @@ long zw_carve_k(const IR_t * nd) {
 }
 #include <stdio.h>
 #include <stdlib.h>
-void zop_audit_report(void);
-void zop_audit_graph_close(void);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zop_audit_graph_close(void) {
-    extern int zop_audit_seen(void);
-    extern void zop_audit_seen_clear(void);
-    int m, frames;
-    { if (!g_lower.ir.zop_audit_graph_close_reg) { g_lower.ir.zop_audit_graph_close_reg = 1; atexit(zop_audit_report); } }
-    m = zop_audit_seen();
-    if (m == 0) return;
-    zop_audit_seen_clear();
-    frames = ((m >> 1) & 1) + ((m >> 3) & 1) + ((m >> 4) & 1);
-    g_lower.ir.zop_g_total++;
-    if (frames > 1) g_lower.ir.zop_g_mixed++;
-    g_lower.ir.zop_hist[(m >> 1) & 15]++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zop_audit_report(void) {
-    zop_audit_graph_close();
-    if (!getenv("SCRIP_ZOP_AUDIT")) return;
-    fprintf(stderr, "[ZOP] graphs=%ld mixed=%ld\n", g_lower.ir.zop_g_total, g_lower.ir.zop_g_mixed);
-    {
-        int k;
-        const char * nm[16] = {"-","isle","cell","isle+cell","rsp","isle+___","cell+___","isle+cell+___","rsp","isle+rsp","cell+rsp","isle+cell+rsp","___+rsp","+","cell+___+rsp","all"};
-        for (k = 0; k < 16; k++) if (g_lower.ir.zop_hist[k]) fprintf(stderr, "[ZOP]   %-18s %ld\n", nm[k], g_lower.ir.zop_hist[k]);
-    }
-}
 int zls_g_first_scope(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->first_scope : -1; }

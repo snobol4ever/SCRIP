@@ -750,9 +750,6 @@ static int64_t rk_blob_bounds(const char * blob) {
     return (int64_t)(mn & 0xFFFF) | ((int64_t)(mx & 0xFFFF) << 16) | ((int64_t)fl << 32);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fence0_whack_on() { if (g_emitter.fence0_whack_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_WHACK"); g_emitter.fence0_whack_on_v = (e && *e == '0') ? 0 : 1;
-    } return g_emitter.fence0_whack_on_v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence0_dyn_on() { if (g_emitter.fence0_dyn_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_DYNAMIC"); g_emitter.fence0_dyn_on_v = (e && *e == '0') ? 0 : 1;
     } return g_emitter.fence0_dyn_on_v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -776,33 +773,6 @@ static int fence0_dyn_floor(const IR_t * nd) {
     return blob_carve_bytes();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fence0_release_bytes(const IR_t * nd) {
-    if (!fence0_whack_on()) return 0;
-    if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE0) return 0;
-    int n = g_emit_cfg->n; if (n <= 0) return 0;
-    int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0;
-    IR_t ** seq = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); int ns = -1;
-    for (int b = 0; b < n && ns < 0; b++) { IR_t * mb = g_emit_cfg->all[b]; if (!mb || mb->op != IR_MATCH_BEGIN) continue;
-        int cnt = 0, guard = 0; IR_t * cur = zd_chase(mb->γ.node);
-        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } }
-    { int has_mb = 0; for (int b = 0; b < n; b++) if (g_emit_cfg->all[b] && g_emit_cfg->all[b]->op == IR_MATCH_BEGIN) { has_mb = 1; break; }
-      if (ns < 0 && !has_mb && g_emit_cfg->entry) { int cnt = 0, guard = 0; IR_t * cur = zd_chase(g_emit_cfg->entry);
-        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } } }
-    if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN or thunk-entry forward chain -- bill 0\n", (const void *)nd); return 0; }
-    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p executed-prefix len=%d (cfg_n=%d)\n", (const void *)nd, ns, n);
-    int total = 0;
-    for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)ir_kind0(m);
-        if (_fzd) fprintf(stderr, "[FZ-DIAG]   step j=%-3d op=%-22s zd_k=%-3d total=%d\n", j, bb_op_name((IR_e)mo), zd_k(m), total);
-        if (mo == IR_MATCH_BEGIN || mo == IR_STATEMENT_BEGIN) break;
-        if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL ||
-            mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) break;
-        if (mo == IR_MATCH_SPAN || mo == IR_MATCH_BREAK || mo == IR_MATCH_BREAKX || mo == IR_MATCH_TAB || mo == IR_MATCH_RTAB || mo == IR_MATCH_REM || mo == IR_MATCH_BAL) { total += zd_k(m); continue;
-            }
-        if (zd_k(m) == 0) continue;
-        break; }
-    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p RELEASE=%d\n", (const void *)nd, total);
-    return total;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     g_emit.bb_ls = NULL;
@@ -1367,7 +1337,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                 for (int _j = 0; _j < _na; _j++) g_emit.op_alt_pad[_j] = _zr->v_altpad[(size_t)(_zn->padoff + _j)]; }
         g_emit.op_sa = 0; { extern const char * blob_alt_first(const IR_t *);
         g_emit.op_alt_first = blob_alt_first(nd); } bb_emit_x86(bb_match_alternate()); g_emit.op_alt_first = (const char *)0; } return 0;
-    case IR_MATCH_FENCE0: { bb_prepare(nd); g_emit.op_fence0_release = fence0_release_bytes(nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
+    case IR_MATCH_FENCE0: { bb_prepare(nd); g_emit.op_fence0_release = planner_fence0_release(g_emit_cfg, nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
                                      switch ((sno_fence_lit_e)IR_LIT(nd).ival) { case SNO_FENCE_LIT_BARE: bb_emit_x86(bb_match_fence0()); break;
                                          case SNO_FENCE_LIT_FLUSH: bb_emit_x86(bb_match_flush()); break;
                                      default:
@@ -4463,8 +4433,28 @@ int g_flat_dc_np = -1;
 long g_last_dc_off = -1;
 extern "C" long emit_last_pkt_chain_off(void) { return g_emit.flat_pkt_chain_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int zop_audit_seen(void) { return g_emit.zop_seen; }
-extern "C" void zop_audit_seen_clear(void) { g_emit.zop_seen = 0; }
+static void zop_audit_report(void);
+static void zop_audit_graph_close(void) {
+    int m, frames;
+    { if (!g_emitter.zop_audit_reg) { g_emitter.zop_audit_reg = 1; atexit(zop_audit_report); } }
+    m = g_emit.zop_seen;
+    if (m == 0) return;
+    g_emit.zop_seen = 0;
+    frames = ((m >> 1) & 1) + ((m >> 3) & 1) + ((m >> 4) & 1);
+    g_emitter.zop_g_total++;
+    if (frames > 1) g_emitter.zop_g_mixed++;
+    g_emitter.zop_hist[(m >> 1) & 15]++;
+}
+static void zop_audit_report(void) {
+    zop_audit_graph_close();
+    if (!getenv("SCRIP_ZOP_AUDIT")) return;
+    fprintf(stderr, "[ZOP] graphs=%ld mixed=%ld\n", g_emitter.zop_g_total, g_emitter.zop_g_mixed);
+    {
+        int k;
+        const char * nm[16] = {"-","isle","cell","isle+cell","rsp","isle+___","cell+___","isle+cell+___","rsp","isle+rsp","cell+rsp","isle+cell+rsp","___+rsp","+","cell+___+rsp","all"};
+        for (k = 0; k < 16; k++) if (g_emitter.zop_hist[k]) fprintf(stderr, "[ZOP]   %-18s %ld\n", nm[k], g_emitter.zop_hist[k]);
+    }
+}
 extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_flat_frame_floor = 0; g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0;
     g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_deep_arrival = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; g_emit.flat_lcl_proc = 0;
     g_emit.zframe_graph = 0; g_emit.frame_retained = 0; }
@@ -4563,7 +4553,7 @@ static void emit_chain_prepare(IR_t * entry) {
     g_emitter.g_xci_epoch++;
     g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
-    { extern void zop_audit_graph_close(void); zop_audit_graph_close(); g_emit.zop_seen = 0; }
+    { zop_audit_graph_close(); g_emit.zop_seen = 0; }
     g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0;
     g_emit.flat_all_zd = 0;
     g_emit.flat_deep_arrival = emit_graph_has_deep_arrival(g_emit_cfg);

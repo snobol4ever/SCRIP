@@ -3,7 +3,6 @@
 #include "planner.h"
 g_planner_t g_planner;
 void nidx_build(IR_t **nodes, int n);
-int fence0_release_bytes(const IR_t * nd);
 int nidx(IR_t **nodes, int n, const IR_t *e);
 int zst_coord(const char * name);
 int zst_s_of(const IR_t * nd);
@@ -336,6 +335,36 @@ static void zrm_build(IR_t ** nodes, const int * run, int rl) {
     for (int k = 0; k < rl; k++) { zrm_slot_t * t = zrm_probe(nodes[run[k]]); t->nd = nodes[run[k]]; t->gen = g_planner.g_zrm_gen; t->maxk = k; }
 }
 static int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_planner.g_zrm_gen ? t->maxk : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int planner_fence0_whack_on() { if (g_planner.fence0_whack_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_WHACK"); g_planner.fence0_whack_on_v = (e && *e == '0') ? 0 : 1;
+    } return g_planner.fence0_whack_on_v; }
+int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd) {
+    if (!planner_fence0_whack_on()) return 0;
+    if (!nd || !cg || nd->op != IR_MATCH_FENCE0) return 0;
+    int n = cg->n; if (n <= 0) return 0;
+    int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0;
+    IR_t ** seq = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); int ns = -1;
+    for (int b = 0; b < n && ns < 0; b++) { IR_t * mb = cg->all[b]; if (!mb || mb->op != IR_MATCH_BEGIN) continue;
+        int cnt = 0, guard = 0; IR_t * cur = zd_chase(mb->γ.node);
+        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } }
+    { int has_mb = 0; for (int b = 0; b < n; b++) if (cg->all[b] && cg->all[b]->op == IR_MATCH_BEGIN) { has_mb = 1; break; }
+      if (ns < 0 && !has_mb && cg->entry) { int cnt = 0, guard = 0; IR_t * cur = zd_chase(cg->entry);
+        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } } }
+    if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN or thunk-entry forward chain -- bill 0\n", (const void *)nd); return 0; }
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p executed-prefix len=%d (cfg_n=%d)\n", (const void *)nd, ns, n);
+    int total = 0;
+    for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)ir_kind0(m);
+        if (_fzd) fprintf(stderr, "[FZ-DIAG]   step j=%-3d op=%-22s zd_k=%-3d total=%d\n", j, bb_op_name((IR_e)mo), zd_k(m), total);
+        if (mo == IR_MATCH_BEGIN || mo == IR_STATEMENT_BEGIN) break;
+        if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL ||
+            mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) break;
+        if (mo == IR_MATCH_SPAN || mo == IR_MATCH_BREAK || mo == IR_MATCH_BREAKX || mo == IR_MATCH_TAB || mo == IR_MATCH_RTAB || mo == IR_MATCH_REM || mo == IR_MATCH_BAL) { total += zd_k(m); continue;
+            }
+        if (zd_k(m) == 0) continue;
+        break; }
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p RELEASE=%d\n", (const void *)nd, total);
+    return total;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
@@ -1289,7 +1318,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
         if (ok) { int zd = (vd_tidx >= 0) ? zd_omega_seed(nodes, n, nodes[hi], zon, zout, claim) : 0; int arm_zd = 0; int zdh_match = -1; int zdh_stmt = -1; int zdh_mafter = -1; int zwt = 0;
             if (nblob <= 0) zrm_build(nodes, run, rl);
             for (int r = 0; r < rl; r++) { int i = run[r];
-                int REL = fence0_release_bytes(nodes[i]);
+                int REL = planner_fence0_release(cg, nodes[i]);
                 int K = zd_k_g(cg, nodes[i]);
                 int UREL = 0;
                 { int _ub = zd_pl_unmark_bound(cg, nodes, n, i);
@@ -1860,7 +1889,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
             for (int zj = i - 1; zj >= 0; zj--) {
                 if (nodes[zj]->op == IR_MATCH_BEGIN) break;
                 if (nodes[zj]->op == IR_MATCH_END) { inpat = 1; continue; }
-                if (inpat && zon[zj] && nodes[zj]->op >= IR_MATCH && nodes[zj]->op <= IR_MATCH_VALUE) zp += zd_k_g(cg, nodes[zj]) - fence0_release_bytes(nodes[zj]);
+                if (inpat && zon[zj] && nodes[zj]->op >= IR_MATCH && nodes[zj]->op <= IR_MATCH_VALUE) zp += zd_k_g(cg, nodes[zj]) - planner_fence0_release(cg, nodes[zj]);
             }
             rec->pat[i] = zp;
             IR_t * mb = (IR_t *)0;
@@ -2023,7 +2052,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         for (int v = 0; v < 2; v++) { IR_t * tt = zd_chase(v == 0 ? g_planner.codegen_flat_chain_body_nodes[k]->γ.node : g_planner.codegen_flat_chain_body_nodes[k]->ω.node);
             if (!tt || (v == 1 && port_sz_beta(g_planner.codegen_flat_chain_body_nodes[k]->ω.sz))) continue; int t = nidx(g_planner.codegen_flat_chain_body_nodes, n, tt);
         if (t < 0 || t == k || _zw[t] || !zd_on[t] || zd_arm[t] >= 0) continue;
-            int ad = zd_out[t] - zd_k_g(cg, g_planner.codegen_flat_chain_body_nodes[t]) + fence0_release_bytes(g_planner.codegen_flat_chain_body_nodes[t]); int d = 0;
+            int ad = zd_out[t] - zd_k_g(cg, g_planner.codegen_flat_chain_body_nodes[t]) + planner_fence0_release(cg, g_planner.codegen_flat_chain_body_nodes[t]); int d = 0;
         if (zd_on[k] || ad <= 0 || !strncmp(bb_op_name(g_planner.codegen_flat_chain_body_nodes[k]->op), "IR_MATCH_", 9) ||
             !strncmp(bb_op_name(g_planner.codegen_flat_chain_body_nodes[t]->op), "IR_MATCH_", 9) || _in_arms(t, k)) continue; _zw[t] = 1; _add++;
         if (getenv("SCRIP_ZD_DIAG"))

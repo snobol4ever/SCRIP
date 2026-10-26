@@ -98,7 +98,6 @@ struct g_emitter_t {
     int g_α_ring_i = 0;
     int g_bb_alpha_seq = 0;
     int fence_kk_gamma_on_v = -1;
-    int fence0_whack_on_v = -1;
     int fence0_dyn_on_v = -1;
     int frame_need_of__cn = -1;
     int bb_classify_node__ed = -1;
@@ -161,6 +160,9 @@ struct g_emitter_t {
     int blob_fg_bind_on_v = -1;
     int blob_first_guard_seq = 0;
     int x86_diag_regs_on_c_v = -1;
+    int zop_audit_reg = 0;
+    long zop_g_total = 0, zop_g_mixed = 0;
+    long zop_hist[16] = {0};
     std::unordered_set<std::string> icn_trace_intern_pool;
     bb_label_t g_gc_map_lbl;
     int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
