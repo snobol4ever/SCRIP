@@ -2228,6 +2228,8 @@ static void planner_report_arm(void) { if (!g_planner.planner_report_armed) { g_
 void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix) {
     planner_report_arm();
     zeta_plan_t * rec = planner_chain_plan(g, entry, prefix); rec->cfg = g; rec->key = entry; g_planner.planner_table[entry] = rec; g_planner.planner_planned++;
+    rec->zdp_on = x86_zdp_on_c();
+    for (int i = 0; i < rec->n; i++) rec->zn[i].f0r = rec->nodes_own[i]->op == IR_MATCH_FENCE0 ? planner_fence0_release(g, rec->nodes_own[i]) : 0;
 }
 int planner_entry_planned(const IR_t * entry) { return (entry && g_planner.planner_table.find(entry) != g_planner.planner_table.end()) ? 1 : 0; }
 void planner_table_forget(const IR_t * entry) { if (entry) g_planner.planner_table.erase(entry); }

@@ -12,7 +12,7 @@ struct znode_t {
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
     int djo, gto, fcsa, seam, zpk;
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
-    int ws, wek, wex;
+    int ws, wek, wex, f0r;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
 struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
@@ -41,6 +41,7 @@ struct zeta_plan_t {
     IR_graph_t * cfg;
     IR_t * key;
     int own_root;
+    int zdp_on;
     int empty_fail;
     int empty_succ;
     IR_t ** nodes_own;

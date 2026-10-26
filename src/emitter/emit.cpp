@@ -1227,7 +1227,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                 for (int _j = 0; _j < _na; _j++) g_emit.op_alt_pad[_j] = _zr->v_altpad[(size_t)(_zn->padoff + _j)]; }
         g_emit.op_sa = 0; { extern const char * blob_alt_first(const IR_t *);
         g_emit.op_alt_first = blob_alt_first(nd); } bb_emit_x86(bb_match_alternate()); g_emit.op_alt_first = (const char *)0; } return 0;
-    case IR_MATCH_FENCE0: { bb_prepare(nd); g_emit.op_fence0_release = planner_fence0_release(g_emit_cfg, nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
+    case IR_MATCH_FENCE0: { bb_prepare(nd); g_emit.op_fence0_release = zrow(nd)->f0r; g_emit.op_fence0_floor = fence0_dyn_floor(nd);
                                      switch ((sno_fence_lit_e)IR_LIT(nd).ival) { case SNO_FENCE_LIT_BARE: bb_emit_x86(bb_match_fence0()); break;
                                          case SNO_FENCE_LIT_FLUSH: bb_emit_x86(bb_match_flush()); break;
                                      default:
@@ -3469,7 +3469,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
-    { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
+    { extern std::string bb_zdp_origin(long); if (_pl->zdp_on) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     int _sigk = 0;
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam, &_sigk);
     if (!bare && blob_frame_scope()) blob_first_guard();
