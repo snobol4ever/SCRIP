@@ -5435,7 +5435,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     g_lower.sno.seal_enabled = 0;
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL, stno_base, 0);
-    { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
+    { extern void optimizer_run(IR_graph_t *); extern void planner_stage_graph(IR_graph_t *); if (g) { optimizer_run(g); planner_stage_graph(g); } }
     ct_drop((void *) st);
     ct_drop(is_def);
     g_lower.sno.seal_enabled = seal_sv;

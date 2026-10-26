@@ -1578,12 +1578,12 @@ static int drive_value_slot(IR_t *nd) {
         if (slot >= 0) { bb_slot_register(nd, slot); return slot; }
     }
     if (nd && ir_node_produces_value(nd->op)) {
-                fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no frame slot — ir_drive_slot_assign never granted it. "
+                fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no frame slot — planner_stage_graph never granted it. "
                         "Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
         abort();
     }
     fprintf(stderr, "[TE] GOUGE drive_value_slot(op=%d): non-value-producer asked for a slot with no LOWER grant — emit-time allocation is ERADICATED "
-                    "(TMP-ERADICATE); add an ir_drive_slot_assign grant for this op\n", nd ? (int)nd->op : -1);
+                    "(TMP-ERADICATE); add an planner_stage_graph grant for this op\n", nd ? (int)nd->op : -1);
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2049,7 +2049,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
         { int voff = drive_local_slot(vn);
-          if (voff == -1) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort();
+          if (voff == -1) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in planner_stage_graph (src/planner/planner_stage.c), never allocate in the emitter\n", vn); abort();
               }
           g_emit.op_sb = voff; }
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -2260,7 +2260,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             if (voff == -1) { fprintf(stderr,
                 "[TE-4] IR_REV_ASSIGN '%s': not a global (is_global checked, so not the "
                 "bb_rev_assign_global path) and no LOWER-granted varslot as a local — "
-                "grant it in ir_drive_slot_assign, never in the emitter\n", vn); abort(); }
+                "grant it in planner_stage_graph, never in the emitter\n", vn); abort(); }
             g_emit.op_sb = voff; } }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc = g_emit.op_off + 16;
@@ -2276,12 +2276,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
           if (ln[0] != '&' && !(is_global(ln) && !graph_has_local(g_emit_cfg, ln))) { int voff = bb_varslot_peek(ln);
               if (voff == -1)
               { fprintf(stderr,
-              "[TE-4] IR_REV_SWAP lhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in ir_drive_slot_assign (s"
+              "[TE-4] IR_REV_SWAP lhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in planner_stage_graph (s"
               "crip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
           if (rn[0] != '&' && !(is_global(rn) && !graph_has_local(g_emit_cfg, rn))) { int voff = bb_varslot_peek(rn);
               if (voff == -1)
               { fprintf(stderr,
-              "[TE-4] IR_REV_SWAP rhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in ir_drive_slot_assign (s"
+              "[TE-4] IR_REV_SWAP rhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in planner_stage_graph (s"
               "crip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; } }
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;

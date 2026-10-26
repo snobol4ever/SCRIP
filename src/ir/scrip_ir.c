@@ -178,7 +178,7 @@ static void ir_vslot_ix_grow(IR_graph_t * g) {
     g->vslot_ix_cap = cap;
     for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name) { int * e = ir_vslot_ix_find(g, g->vslots[i].name); if (!*e) *e = i + 1; }
 }
-static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
+void ir_vslot_push(IR_graph_t * g, const char * name, int off) {
     if (!name) return;
     if (2 * (g->n_vslots + 1) > g->vslot_ix_cap) ir_vslot_ix_grow(g);
     int * e = ir_vslot_ix_find(g, name);
@@ -221,36 +221,6 @@ int graph_has_local(const IR_graph_t * g, const char * name) {
     IR_graph_t * w = (IR_graph_t *)g;
     if (!w->lname_ix_cap || w->lname_ix_pn != g->pnames || w->lname_ix_ln != g->lnames || w->lname_ix_np != g->nparams || w->lname_ix_nl != g->nlocals) ir_lname_ix_build(w);
     return *ir_lname_ix_find(w->lname_ix, w->lname_ix_cap, name) ? 1 : 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_drive_slot_assign(IR_graph_t * g) {
-    if (!g) return;
-    extern void zls_build(IR_graph_t *);
-    extern int zls_off(const IR_t *);
-    extern int zls_g_nslots(const IR_graph_t *);
-    extern int zls_g_region(const IR_graph_t *);
-    extern int zls_g_frame_region(const IR_graph_t *);
-    extern int zls_g_resume(const IR_graph_t *);
-    extern int zls_g_zeta_mark(const IR_graph_t *);
-    extern int zls_g_vslot_count(const IR_graph_t *);
-    extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
-    zls_build(g);
-    {
-        extern int zdp_analyze(IR_graph_t *);
-        extern int x86_zdp_on_c(void);
-        extern int zdp_mode(void);
-        extern int zzone_plan(IR_graph_t *);
-        extern int zzone_on_c(void);
-        if (zdp_mode() || x86_zdp_on_c() || zzone_on_c()) { zdp_analyze(g); zzone_plan(g); }
-    }
-    g->n_vslots = 0;
-    if (g->vslot_ix_cap) memset(g->vslot_ix, 0, (size_t)g->vslot_ix_cap * sizeof(int));
-    for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
-    g->resume_slot = zls_g_resume(g);
-    g->zeta_mark_slot = zls_g_zeta_mark(g);
-    g->jcon_value_region = zls_g_frame_region(g);
-    g->nvalue_slots = zls_g_nslots(g);
-    { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_seq_of(int ix) { return (g_lower.ir.seq_of_node && ix >= 0 && ix < g_lower.ir.seq_of_node_n) ? g_lower.ir.seq_of_node[ix] : -1; }

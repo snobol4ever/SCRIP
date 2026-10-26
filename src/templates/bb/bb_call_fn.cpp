@@ -99,7 +99,7 @@ static std::string cf_marg(int i) {
          + IF(MARG(i).kind == MARG_BOMB_GLOBAL,
                x86_bomb("bb_call marshal: a global VAR argument with no producer slot reached the NV_GET road, retired 2026-09-26 on a "
                         "plant proof (0 of 4693 corpus sources; every global argument arrives slotted)"))
-         + IF(MARG(i).kind == MARG_BOMB_VARSLOT, x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)"));
+         + IF(MARG(i).kind == MARG_BOMB_VARSLOT, x86_bomb("bb_call marshal: IR_VAR arg names a local with no LOWER-granted varslot (TE-4: grant in planner_stage_graph)"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string cf_marshal() { return FOR(0, _.op_marg_n, [](int k) { return cf_marg(_.op_marg_n - 1 - k); }); }

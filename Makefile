@@ -1766,8 +1766,9 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/unification.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/ir/scrip_ir.c \
-    $(SRC)/ir/frame_layout.c \
-    $(SRC)/ir/zeta_depth.c \
+    $(SRC)/planner/frame_layout.c \
+    $(SRC)/planner/zeta_depth.c \
+    $(SRC)/planner/planner_stage.c \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/runtime/rx.c \
     $(SRC)/runtime/rk_rat.c \

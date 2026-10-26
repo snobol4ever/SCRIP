@@ -679,31 +679,7 @@ static void register_procs_all(stage2_t * s2) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void drive_slots_all(stage2_t * s2) {
-    extern void ir_drive_slot_assign(IR_graph_t * g);
-    extern void fl_derive_tier(IR_graph_t * g);
-    extern void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np);
-    extern void zls_home_pass(const IR_graph_t * g);
-    extern void zls_g_generator_set(const IR_graph_t * g);
-    int _mx = polyglot_main_bb_idx(s2);
-    {
-        int np = s2->proc_count;
-        const char * pn[np > 0 ? np : 1];
-        int px[np > 0 ? np : 1];
-        for (int i = 0; i < np; i++) { pn[i] = s2->proc_table[i].name; px[i] = s2->proc_table[i].bb_idx; }
-        zls_home_callees_mark(s2->bbp.table, s2->bbp.count, pn, px, np);
-    }
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->home_frame) fl_derive_tier(s2->bbp.table[_gi]);
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
-        IR_graph_t * _g = s2->bbp.table[_gi];
-        if (!_g->home_frame) fl_derive_tier(_g);
-        if (_gi == _mx && !_g->cell_frame && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
-        zls_home_pass(_g);
-        ir_drive_slot_assign(_g);
-    }
-    for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].is_generator && s2->proc_table[i].bb_idx >= 0 && s2->proc_table[i].bb_idx < s2->bbp.count)
-        zls_g_generator_set(s2->bbp.table[s2->proc_table[i].bb_idx]);
-}
+static void drive_slots_all(stage2_t * s2) { extern void planner_stage(stage2_t *, int); planner_stage(s2, polyglot_main_bb_idx(s2)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
     char *end = NULL;
@@ -2247,7 +2223,7 @@ int main(int argc, char **argv) {
     if (dump_transpile) { extern int tree_to_sno(const tree_t *ast, FILE *out); tree_to_sno(ast_prog, stdout); return 0; }
     if (dump_ir || dump_zeta) {
         extern void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose);
-        extern void ir_drive_slot_assign(IR_graph_t * g);
+        extern void planner_stage_graph(IR_graph_t * g);
         extern void zls_graph_name(const IR_graph_t * g, const char * name);
         extern void zls_dump(FILE * fp);
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);

@@ -119,7 +119,7 @@ int zls_fcn_hunres(const IR_t * nd);
 int zls_fcn_bs_get(const IR_t * nd, int which);
 void zls_fcn_bs_set(const IR_t * nd, int which, int val);
 }
-#include "../ir/frame_layout.h"
+#include "frame_layout.h"
 int planner_retains(const IR_t * nd);
 enum {
     ACT_NONE = 0, ACT_DEFERRED_PATTERN = 1, ACT_STATIC_PATTERN = 2, ACT_PATTERN_FUNCTION = 3, ACT_ARBNO_ITERATION = 4, ACT_RESUME_ROAD = 5, ACT_BOUNDED_ARM = 6, ACT_BOUNDED_OTHER = 7, ACT_HOME = 8,
