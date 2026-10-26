@@ -45,9 +45,6 @@ struct zeta_plan_t;
 struct g_emitter_t {
     int dump_homes = 0;
     int dump_plan = 0;
-    int dump_plan_cols = 0;
-    std::vector<signed char> dh_rt;
-    std::unordered_map<std::string, int> dh_gidx;
     int g_zd_abs = 0;
     int g_zd_def = 1;
     int g_zd_cutd = -1;

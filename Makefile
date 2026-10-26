@@ -1590,6 +1590,7 @@ RT_PIC_SRCS := \
     $(SRC)/planner/zeta_plan.cpp \
     $(SRC)/planner/act_words.cpp \
     $(SRC)/planner/plan_facts.cpp \
+    $(SRC)/planner/planner_report.cpp \
     $(SRC)/planner/planner_road.cpp \
     $(SRC)/planner/planner_operands.cpp \
     $(SRC)/planner/planner_stage_chains.cpp \

@@ -90,6 +90,9 @@ struct g_planner_t {
     IR_t **codegen_flat_chain_body_postv = 0;
     int codegen_flat_chain_body_postv_cap = 0;
     std::unordered_map<const IR_t *, struct zeta_plan_t *> planner_table;
+    int dump_plan_cols = 0;
+    std::vector<signed char> dh_rt;
+    std::unordered_map<std::string, int> dh_gidx;
     int planner_hits = 0, planner_fallbacks = 0, planner_planned = 0, planner_rt = 0, planner_report_armed = 0;
     int sn4_blob_casmark_v = -1;
     cv_t g_ocr_map;

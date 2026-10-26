@@ -91,6 +91,8 @@ void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
+void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon, const int * eslot);
+void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char * prefix);
 void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_table_clear(void);
 void planner_table_forget(const IR_t * entry);
