@@ -97,7 +97,8 @@ automated check in the test suite).
 ## Eating its own cooking
 
 SCRIP beautifies its own source: `beauty.sno`, the SNOBOL4 pretty-printer written in
-SNOBOL4, reproduces itself byte-for-byte when run through the compiler, in both modes.
+SNOBOL4, reproduces itself byte-for-byte when run through the compiler, in both modes
+(its timing against SPITBOL is under [§ SNOBOL4 / SPITBOL](#snobol4--spitbol)).
 
 Six of the seven frontends also exist a second time, as real Snocone source that
 SCRIP itself compiles and runs — [`bootstrap/parser_<lang>.sc`](bootstrap) (SNOBOL4,
@@ -260,6 +261,14 @@ tests. The numbers are in the table and nowhere else: a count typed here would h
 | var_access | 63.0 | 14.6 | 14.1 | 4.319x | 4.478x |
 
 Geometric mean over the 23 kernels: **2.129x** in mode 3, **2.151x** in mode 4; SCRIP ahead of SPITBOL on 21 of 23 kernels in mode 3 and 21 in mode 4. The two kernels behind it are string concatenation (`string_concat` 0.357x, `string_concat_twin` 0.381x, both modes).
+
+**The self-host, timed.** `corpus/demos/snobol4/beauty/beauty.sno`, the SNOBOL4 pretty-printer, beautifying its own source -- 671 lines, sixteen `-INCLUDE`s, 1,631 lines in all -- where every engine prints the source back byte for byte (its fixed point). *Measured 2026-10-26 09:33 CDT on the same `-O2` build (SCRIP `9bd097fa9` / corpus `a2cab70e9` / harness `ba76fea`), load 0.3 on 16 cores, `DEMOS=beauty bash ../harness/scripts/bench_triangulate_demos_snobol4.sh`: one figure is one whole run under the external stopwatch `tools/bench_rusage`, process start and compile included -- 3 s of runs (angle 1) and 5 fixed runs (angle 2), the two agreeing within 2% in all three engines; SPITBOL is the clean benchmark build, run where its `-INCLUDE`s resolve.*
+
+| program | SPITBOL ms/run | m3 ms/run | m4 ms/run | SPITBOL / m3 | SPITBOL / m4 |
+|---|---:|---:|---:|:---:|:---:|
+| beauty, self-host | 32.4 | 331.7 | 39.6 | 0.098x | 0.816x |
+
+Mode 3 compiles the program inside every run, and that is most of its time: on empty input it still takes about 270 ms, so its beautifying is about 60 ms. Mode 4 compiles once ahead of the run (`scrip --compile`, about 0.5 s), so its figure is the work and the process start alone, against SPITBOL's compile and run together.
 
 ### Icon
 
