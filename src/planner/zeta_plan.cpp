@@ -241,12 +241,13 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planne
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_BOUND_GIDX };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 static int zd_pl_home(const IR_graph_t * cg) { return (zls_g_home_frame(cg) && zls_g_resumable_frame(cg)) ? 1 : 0; }
 extern "C" int rt_proc_is_registered(const char *); extern "C" int rt_proc_is_generator(const char *); extern "C" int rt_proc_dyn_scope(const char *); extern "C" int rt_proc_index_of(const char *);
+extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd) {
     if (!cg || !nd || nd->op != IR_CALL_PROC_STAGED || !zd_pl_home(cg) || !zd_edge_retains_g(cg, nd) || zls_home_why(nd)) return 0;
     const char * fn = IR_LIT(nd).sval;
@@ -273,6 +274,7 @@ static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
     if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home(cg) && nd->n_operands > 0) ? 1 : 0;
     if (w == BCS_PL_BOUND_SPINE) return (zd_pl_home(cg) && planner_bound_spine(cg, nd)) ? 1 : 0;
     if (w == BCS_PL_SPINE_RECORD) return planner_call_spine_record(cg, nd);
+    if (w == BCS_PL_BOUND_GIDX) return (zd_pl_home(cg) && planner_bound_gidx(cg, nd)) ? 1 : 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
@@ -514,13 +516,38 @@ extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai
     return r;
 }
 extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
+static uint64_t zd_pdef_hash(const IR_graph_t * g) {
+    uint64_t h = (uint64_t)(uintptr_t)g * 0x9E3779B97F4A7C15ull ^ (uint64_t)g->n;
+    for (int i = 0; i < g->n; i++) { const IR_t * x = g->all[i]; if (!x) continue;
+        h = (h ^ (uint64_t)(uintptr_t)x->γ.node ^ ((uint64_t)(uintptr_t)x->ω.node << 1) ^ ((uint64_t)x->n_operands << 7) ^ ((uint64_t)x->seal << 3)) * 0x100000001B3ull;
+        for (int k = 0; k < x->n_operands; k++) h = (h ^ (uint64_t)(uintptr_t)x->operands[k]) * 0x100000001B3ull; }
+    return h;
+}
+static void zd_pdef_fill(const IR_graph_t * g) {
+    uint64_t h = zd_pdef_hash(g);
+    if (g_planner.pdef_g == g && g_planner.pdef_n == g->n && g_planner.pdef_h == h) return;
+    g_planner.pdef.assign((size_t)g->n, 0); planner_pl_indef0(g, g_planner.pdef.data()); g_planner.pdef_g = g; g_planner.pdef_n = g->n; g_planner.pdef_h = h;
+    g_planner.pdef_ix.clear(); for (int i = 0; i < g->n; i++) if (g->all[i]) g_planner.pdef_ix[g->all[i]] = i;
+}
+extern "C" void planner_pdef_lock(const IR_graph_t * g) { if (g_planner.pdef_depth++ == 0 && g) { g_planner.pdef_lock = g; g_planner.pdef_memo.clear(); g_planner.pdef_gb.clear(); g_planner.pdef_gb_ok = 0; if (g->n > 0) zd_pdef_fill(g); } }
+extern "C" void planner_pdef_unlock(void) { if (g_planner.pdef_depth > 0 && --g_planner.pdef_depth == 0) { g_planner.pdef_lock = (const IR_graph_t *)0; g_planner.pdef_memo.clear(); g_planner.pdef_gb.clear(); g_planner.pdef_gb_ok = 0; } }
+struct zd_pdef_scope { int on; zd_pdef_scope(const IR_graph_t * g) : on(g != 0) { if (on) planner_pdef_lock(g); } ~zd_pdef_scope() { if (on) planner_pdef_unlock(); } };
+static int zd_pdef_locked(const IR_graph_t * g) { return g && g_planner.pdef_lock == g && g_planner.pdef_g == g && g_planner.pdef_n == g->n; }
 extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd) {
     if (!g || !nd || g->n <= 0) return 0;
-    if (g_planner.pdef_g != g || g_planner.pdef_n != g->n) { g_planner.pdef.assign((size_t)g->n, 0); planner_pl_indef0(g, g_planner.pdef.data()); g_planner.pdef_g = g; g_planner.pdef_n = g->n; }
+    if (zd_pdef_locked(g)) { auto it = g_planner.pdef_ix.find(nd); return (it != g_planner.pdef_ix.end() && !g_planner.pdef[(size_t)it->second]) ? 1 : 0; }
+    zd_pdef_fill(g);
     for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return g_planner.pdef[(size_t)i] ? 0 : 1;
     return 0;
 }
+static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
+    if (!zd_pdef_locked(g) || !nd || nd->op != IR_BOUND) return zd_bound_spine0(g, nd);
+    unsigned char & m = g_planner.pdef_memo[nd];
+    if (!(m & 1)) m = (unsigned char)(m | 1 | (zd_bound_spine0(g, nd) ? 2 : 0));
+    return (m & 2) ? 1 : 0;
+}
+static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     if (!g || !nd || nd->op != IR_BOUND || !(zls_g_home_frame(g) || g->home_frame) || !zls_g_resumable_frame(g)) return 0;
     const IR_t * ig = zd_chase((IR_t *)nd->ω.node);
     if (!ig || ig->op != IR_GATE) return 0;
@@ -564,6 +591,18 @@ extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
     }
     return r ? 0 : 1;
 }
+extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd) { return (nd && nd->op == IR_BOUND && planner_bound_spine(g, nd) && planner_pl_definite(g, nd)) ? 1 : 0; }
+extern "C" const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * gate) {
+    if (!g || !gate || gate->op != IR_GATE) return (const IR_t *)0;
+    if (zd_pdef_locked(g)) {
+        if (!g_planner.pdef_gb_ok) { g_planner.pdef_gb_ok = 1;
+            for (int i = 0; i < g->n; i++) { const IR_t * b = g->all[i], * t = b && b->op == IR_BOUND ? zd_chase((IR_t *)b->ω.node) : (const IR_t *)0;
+                if (t && t->op == IR_GATE && !g_planner.pdef_gb.count(t) && planner_bound_gidx(g, b)) g_planner.pdef_gb[t] = b; } }
+        auto it = g_planner.pdef_gb.find(gate); return it == g_planner.pdef_gb.end() ? (const IR_t *)0 : it->second; }
+    for (int i = 0; i < g->n; i++) { const IR_t * b = g->all[i]; if (b && b->op == IR_BOUND && zd_chase((IR_t *)b->ω.node) == gate && planner_bound_gidx(g, b)) return b; }
+    return (const IR_t *)0;
+}
+static int zd_bound_pop(const IR_graph_t * cg, IR_t * b) { return zd_k_own_g(cg, b) - (planner_bound_gidx(cg, b) ? 16 : 0); }
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
         int r = planner_retains_g(g, nd);
@@ -630,7 +669,7 @@ static int zd_pl_entry(const IR_graph_t * cg, IR_t **nodes, int n, const unsigne
         zout[i];
     if (e == 0 && nodes[i]->op == IR_UNMARK && nodes[i]->n_operands > 0 && zd_pl_rest_ival(cg, nodes[i]) && zd_pl_bspine(cg, nodes[i]->operands[0])) {
         int ub = nidx(nodes, n, nodes[i]->operands[0]);
-        if (ub >= 0) v = (claim[ub] == claim[i]) ? zout[ub] - zd_k_own_g(cg, nodes[ub]) : zout[i] - zd_k_own_g(cg, nodes[ub]);
+        if (ub >= 0) v = (claim[ub] == claim[i]) ? zout[ub] - zd_bound_pop(cg, nodes[ub]) : zout[i] - zd_bound_pop(cg, nodes[ub]);
     }
     IR_t * r = (e == 0 && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
     int rq = r ? nidx(nodes, n, r) : -1;
@@ -961,17 +1000,35 @@ extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
     int n = cg ? cg->n : 0; IR_t ** nodes = cg ? cg->all : (IR_t **)0;
     if (n > 0) memset(ind, 0, (size_t)n);
     if (!cg || n <= 0 || !planner_resumable_frame(cg)) return;
-    for (int i = 0; i < n; i++) if (!nodes[i]) return;
     std::vector<int> wl;
-    for (int i = 0; i < n; i++) if (zd_edge_retains_g(cg, nodes[i])) { int q = zst_edge(nodes, n, i, 0);
+    for (int i = 0; i < n; i++) if (nodes[i] && zd_edge_retains_g(cg, nodes[i])) { int q = zst_edge(nodes, n, i, 0);
         for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { cur = q; q = zst_edge(nodes, n, q, 0); }
         if (q >= 0 && q != i && !ind[q]) { ind[q] = 1; if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
     while (!wl.empty()) { int v = wl.back(); wl.pop_back();
         for (int e = 0; e < zd_pl_edges(nodes[v]); e++) { if (e == 1 || (e >= 2 && nodes[v]->op != IR_DISJUNCTION)) continue;
-            int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || ind[w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
-            int ub = (nodes[w]->op == IR_UNMARK && zd_pl_rest_ival(cg, nodes[w]) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
+            int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || !nodes[w] || ind[w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
+            int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
             if (ub >= 0 && !ind[ub]) continue;
-            ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } }
+            ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); }
+        if (wl.empty()) for (int u = 0; u < n; u++) { IR_t * x = nodes[u]; int ub = (x && x->op == IR_UNMARK && (IR_LIT(x).ival & 6) && x->n_operands > 0) ? nidx(nodes, n, x->operands[0]) : -1;
+            if (ub >= 0 && ind[ub] && !ind[u]) { ind[u] = 1; wl.push_back(u); } } }
+    std::vector<unsigned char> rch((size_t)n, 0); std::vector<int> rl;
+    auto reach = [&](IR_t * t) { int q = t ? nidx(nodes, n, zd_chase(t)) : -1; if (q >= 0 && nodes[q] && !ind[q] && !rch[(size_t)q]) { rch[(size_t)q] = 1; rl.push_back(q); } };
+    reach(cg->entry);
+    for (int a = 0; cg->alt_entry && a < cg->n_alts; a++) reach(cg->alt_entry[a]);
+    for (int moved = 1; moved; ) { moved = 0;
+        while (!rl.empty()) { int v = rl.back(); rl.pop_back(); IR_t * x = nodes[v];
+            for (int e = 0; e < zd_pl_edges(x); e++) { if (e == 0 && zd_edge_retains_g(cg, x)) continue;
+                if (e <= 1) { IR_t * ig = (e == 0 && x->op == IR_GATE_ARM && !x->γ.node && x->n_operands > 1) ? x->operands[1] : (IR_t *)0;
+                    if (ig ? port_sz_beta(ig->γ.sz) : port_sz_beta(zd_edge_sz(x, e))) continue; }
+                int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
+                reach(nodes[w]); } }
+        for (int u = 0; u < n; u++) { IR_t * x = nodes[u]; int ub = (x && x->op == IR_UNMARK && (IR_LIT(x).ival & 6) && x->n_operands > 0) ? nidx(nodes, n, x->operands[0]) : -1;
+            if (ub >= 0 && rch[(size_t)ub] && !rch[(size_t)u] && !ind[u]) { reach(x); moved = 1; } } }
+    for (int i = 0; i < n; i++) if (nodes[i] && !rch[(size_t)i]) ind[i] = 1;
+    if (getenv("SCRIP_PL_INDEF_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const char * gn = zls_graph_name_get(cg);
+        if (gn && !strcmp(gn, getenv("SCRIP_PL_INDEF_DIAG"))) for (int i = 0; i < n; i++) if (nodes[i]) fprintf(stderr, "[PL-INDEF] all=%d %s ind=%d ret=%d g=%d\n", i, bb_op_name(nodes[i]->op), ind[i],
+            zd_edge_retains_g(cg, nodes[i]), nidx(nodes, n, zd_chase(nodes[i]->γ.node))); }
 }
 static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == 8 || lw == PR_RETAINING_TARGET; }
 static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
@@ -1143,6 +1200,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
     g_planner.g_zd_admit.assign((size_t)(n > 0 ? n : 1), 0);
     g_planner.g_zd_upost.assign((size_t)(n > 0 ? n : 0), 0);
     g_planner.g_zd_djx_nodes = nodes;
+    zd_pdef_scope pds(cg);
     zdo_build(nodes, n);
     zst_plan(cg, nodes, n);
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = -1;
@@ -1350,8 +1408,8 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                 int K = zd_k_g(cg, nodes[i]);
                 int UREL = 0;
                 { int _ub = zd_pl_unmark_bound(cg, nodes, n, i);
-                    if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - (zout[_ub] - (zd_pl_bspine(cg, nodes[_ub]) ? zd_k_own_g(cg, nodes[_ub]) : 0));
-                    else if (_ub >= 0 && claim[_ub] != hi && zd_pl_bspine(cg, nodes[_ub])) UREL = zd_k_own_g(cg, nodes[_ub]); }
+                    if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - (zout[_ub] - (zd_pl_bspine(cg, nodes[_ub]) ? zd_bound_pop(cg, nodes[_ub]) : 0));
+                    else if (_ub >= 0 && claim[_ub] != hi && zd_pl_bspine(cg, nodes[_ub])) UREL = zd_bound_pop(cg, nodes[_ub]); }
                 if (zd_pl_cut(cg, nodes[i])) UREL = (int)zd + K;
                 zurel[i] = UREL;
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K; } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K; }
@@ -2112,6 +2170,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     rec->chn = (int *)ct_zalloc((size_t)(2 * n + 2), sizeof(int)); memcpy(rec->chn, zd_chn, sizeof(int) * (size_t)(2 * n + 2));
     if (g_planner.g_zd_zarm_p == zd_arm) g_planner.g_zd_zarm_p = rec->arm;
     if (n > 0) {
+        zd_pdef_scope pds(cg);
         int * _b = (int *)alloca(sizeof(int) * (size_t)n);
         unsigned char * _kn = (unsigned char *)alloca((size_t)n);
         zd_xb = (int *)alloca(sizeof(int) * (size_t)n);

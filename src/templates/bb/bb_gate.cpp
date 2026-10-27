@@ -1,4 +1,5 @@
 #include <string>
+#include <climits>
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
@@ -18,6 +19,7 @@ static std::string gate_dispatch_chain(int n) {
                                        + x86("je", PAIR(i)); });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_zrow_gix(const IR_t * nd);
 std::string bb_gate() {
     x86_begin();
     return IF(_.op_off < 0,
@@ -28,7 +30,7 @@ std::string bb_gate() {
          + x86_omega()
          + x86_beta()
          + IF(x86_resumable_frame(), x86_pl_ball_rule_omega(30))
-         + x86("mov", "eax", FR(_.op_off + 16))
+         + (emit_zrow_gix(_.node) != INT_MIN ? x86("mov", "eax", RDD("rbp", emit_zrow_gix(_.node))) : x86("mov", "eax", FR(_.op_off + 16)))
          + gate_dispatch_chain((int) _.op_ival)
          + x86_omega());
 }

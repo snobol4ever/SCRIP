@@ -15,6 +15,7 @@ extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 extern int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
 extern void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
+extern const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * gate);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
@@ -2278,7 +2279,7 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
-        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 : 0;
+        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || (nd->op == IR_GATE && !planner_gate_bound(g, nd)) || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 : 0;
 }
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
