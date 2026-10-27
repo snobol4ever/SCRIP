@@ -2287,9 +2287,7 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
-        (zls_g_home_frame(g) &&
-        ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 :
-        0;
+        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(g, nd))))))) ? 1 : 0;
 }
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }

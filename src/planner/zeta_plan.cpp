@@ -774,7 +774,6 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
             if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
             int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && zd_pl_rest_ival(cg, nodes[q]) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
             if (ub >= 0 && zon[ub] && claim[ub] >= 0 && known[claim[ub]]) continue;
-            if (getenv("SCRIP_ZD_SEED")) { extern const char * zls_graph_name_get(const IR_graph_t *); fprintf(stderr, "[ZD-SEED] g=%s i=%d q=%d run=%d\n", zls_graph_name_get(cg), i, q, claim[q]); }
             indef[claim[q]] = 1; wl[wn++] = claim[q];
         }
         while (wn > 0) {
@@ -1007,7 +1006,7 @@ extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
     std::vector<int> wl;
     for (int i = 0; i < n; i++) if (nodes[i] && zd_edge_retains_g(cg, nodes[i])) { int q = zst_edge(nodes, n, i, 0);
         for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { cur = q; q = zst_edge(nodes, n, q, 0); }
-        if (q >= 0 && q != i && !ind[q]) { ind[q] = 1; if (getenv("SCRIP_PL_INDEF_WHO") && atoi(getenv("SCRIP_PL_INDEF_WHO")) == q) fprintf(stderr, "[WHO] seed %d by %d\n", q, i); if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
+        if (q >= 0 && q != i && !ind[q]) { ind[q] = 1; if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
     while (!wl.empty()) { int v = wl.back(); wl.pop_back();
         for (int e = 0; e < zd_pl_edges(nodes[v]); e++) { if (e == 1 || (e >= 2 && nodes[v]->op != IR_DISJUNCTION)) continue;
             int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || !nodes[w] || ind[w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
@@ -1016,7 +1015,6 @@ extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
                 if ((ig ? port_sz_beta(ig->γ.sz) : port_sz_beta(zd_edge_sz(nodes[v], 0))) && zd_beta_via_act(cg, nodes[w])) continue; }
             int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
             if (ub >= 0 && !ind[ub]) continue;
-            if (getenv("SCRIP_PL_INDEF_WHO") && atoi(getenv("SCRIP_PL_INDEF_WHO")) == w) fprintf(stderr, "[WHO] prop %d by %d e=%d\n", w, v, e);
             ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } }
     std::vector<unsigned char> ia(ind, ind + n), rch((size_t)n, 0); std::vector<int> rl;
     auto reach = [&](IR_t * t) { int q = t ? nidx(nodes, n, zd_chase(t)) : -1; if (q >= 0 && nodes[q] && !ind[q] && !rch[(size_t)q]) { rch[(size_t)q] = 1; rl.push_back(q); } };
