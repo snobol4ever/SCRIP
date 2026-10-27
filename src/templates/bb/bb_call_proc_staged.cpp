@@ -895,7 +895,8 @@ static std::string bcps_block_rec_beta(void);
 static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx, int sprec) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
     const int zsp = _.op_zres && !bb_proc_target_retains(_.op_sval);
-    if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() + x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
+    if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() +
+        x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
     const int fr = !zsp && !sprec;
     int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
     return x86_alpha()

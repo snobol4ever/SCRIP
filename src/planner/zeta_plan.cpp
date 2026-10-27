@@ -529,8 +529,10 @@ static void zd_pdef_fill(const IR_graph_t * g) {
     g_planner.pdef.assign((size_t)g->n, 0); planner_pl_indef0(g, g_planner.pdef.data()); g_planner.pdef_g = g; g_planner.pdef_n = g->n; g_planner.pdef_h = h;
     g_planner.pdef_ix.clear(); for (int i = 0; i < g->n; i++) if (g->all[i]) g_planner.pdef_ix[g->all[i]] = i;
 }
-extern "C" void planner_pdef_lock(const IR_graph_t * g) { if (g_planner.pdef_depth++ == 0 && g) { g_planner.pdef_lock = g; g_planner.pdef_memo.clear(); g_planner.pdef_gb.clear(); g_planner.pdef_gb_ok = 0; if (g->n > 0) zd_pdef_fill(g); } }
-extern "C" void planner_pdef_unlock(void) { if (g_planner.pdef_depth > 0 && --g_planner.pdef_depth == 0) { g_planner.pdef_lock = (const IR_graph_t *)0; g_planner.pdef_memo.clear(); g_planner.pdef_gb.clear(); g_planner.pdef_gb_ok = 0; } }
+extern "C" void planner_pdef_lock(const IR_graph_t * g) { if (g_planner.pdef_depth++ == 0 && g) { g_planner.pdef_lock = g; g_planner.pdef_memo.clear(); g_planner.pdef_gb.clear();
+    g_planner.pdef_gb_ok = 0; if (g->n > 0) zd_pdef_fill(g); } }
+extern "C" void planner_pdef_unlock(void) { if (g_planner.pdef_depth > 0 && --g_planner.pdef_depth == 0) { g_planner.pdef_lock = (const IR_graph_t *)0; g_planner.pdef_memo.clear();
+    g_planner.pdef_gb.clear(); g_planner.pdef_gb_ok = 0; } }
 struct zd_pdef_scope { int on; zd_pdef_scope(const IR_graph_t * g) : on(g != 0) { if (on) planner_pdef_lock(g); } ~zd_pdef_scope() { if (on) planner_pdef_unlock(); } };
 static int zd_pdef_locked(const IR_graph_t * g) { return g && g_planner.pdef_lock == g && g_planner.pdef_g == g && g_planner.pdef_n == g->n; }
 extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd) {
@@ -1027,7 +1029,8 @@ extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
             if (ub >= 0 && rch[(size_t)ub] && !rch[(size_t)u] && !ind[u]) { reach(x); moved = 1; } } }
     for (int i = 0; i < n; i++) if (nodes[i] && !rch[(size_t)i]) ind[i] = 1;
     if (getenv("SCRIP_PL_INDEF_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const char * gn = zls_graph_name_get(cg);
-        if (gn && !strcmp(gn, getenv("SCRIP_PL_INDEF_DIAG"))) for (int i = 0; i < n; i++) if (nodes[i]) fprintf(stderr, "[PL-INDEF] all=%d %s ind=%d ret=%d g=%d\n", i, bb_op_name(nodes[i]->op), ind[i],
+        if (gn && !strcmp(gn, getenv("SCRIP_PL_INDEF_DIAG"))) for (int i = 0; i < n; i++) if (nodes[i])
+            fprintf(stderr, "[PL-INDEF] all=%d %s ind=%d ret=%d g=%d\n", i, bb_op_name(nodes[i]->op), ind[i],
             zd_edge_retains_g(cg, nodes[i]), nidx(nodes, n, zd_chase(nodes[i]->γ.node))); }
 }
 static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == 8 || lw == PR_RETAINING_TARGET; }

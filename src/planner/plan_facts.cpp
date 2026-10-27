@@ -235,7 +235,8 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     { const IR_t * gt = nd->op == IR_GATE ? nd : (nd->op == IR_GATE_ARM && nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
       const IR_t * gb = gt ? planner_gate_bound(g, gt) : (const IR_t *)0; int bk = gb ? nidx(nodes, n, (IR_t *)gb) : -1;
       if (bk >= 0 && rec->on[bk] && rec->xb && rec->xb[bk] != INT_MIN) z->gix = 48 - (rec->xb[bk] + rec->out[bk]);
-      else if (gb && getenv("SCRIP_PL_ALIAS_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); fprintf(stderr, "[PL-GIX-MISS] graph=%s node=%s bk=%d on=%d xb=%d\n", zls_graph_name_get(g), bb_op_name(nd->op), bk, bk >= 0 ? rec->on[bk] : -1, (bk >= 0 && rec->xb) ? rec->xb[bk] : -7); } }
+      else if (gb && getenv("SCRIP_PL_ALIAS_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *);
+          fprintf(stderr, "[PL-GIX-MISS] graph=%s node=%s bk=%d on=%d xb=%d\n", zls_graph_name_get(g), bb_op_name(nd->op), bk, bk >= 0 ? rec->on[bk] : -1, (bk >= 0 && rec->xb) ? rec->xb[bk] : -7); } }
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
     IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
     int b = ow ? nidx(nodes, n, ow) : -1;
@@ -292,7 +293,8 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->trapd = (op == IR_SETEXIT_TEST && rec->on[i]) ? rec->out[i] - z->k : 0; z->zrunb = rec->out[i] >= 0 ? rec->out[i] - (rec->on[i] ? z->k : 0) : 0;
         z->xbp = (rec->out[i] >= 0 && rec->on[i] && rec->xb && rec->xb[i] != INT_MIN && rec->xb[i] > 0) ? rec->xb[i] : 0;
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
-        z->actoff = zls_act_off(nd); z->sprec = planner_call_spine_record(g, nd); z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) - (planner_bound_gidx(g, o0) ? 16 : 0) : 0;
+        z->actoff = zls_act_off(nd); z->sprec = planner_call_spine_record(g, nd);
+            z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) - (planner_bound_gidx(g, o0) ? 16 : 0) : 0;
         z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
         z->asa = -1; z->asb = -1; z->dsusp = -1;
         if (op == IR_MATCH_ARBNO) { int wl = 0, wb = 0, mo = -1, sp = 0; planner_act_window(nd, &wl, &wb); z->awlo = wl; z->awb = wb;

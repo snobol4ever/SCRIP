@@ -39,8 +39,16 @@ struct g_planner_t {
     IR_t ** zst_nodes = NULL;
     int zst_n = 0;
     std::vector<int> zst_s, zst_root, zst_vroot, zst_c, zst_j, zst_L, zst_vuse, zst_vcov;
-    std::vector<unsigned char> pdef; const IR_graph_t * pdef_g; int pdef_n; uint64_t pdef_h; const IR_graph_t * pdef_lock = 0; int pdef_depth = 0;
-    std::unordered_map<const IR_t *, int> pdef_ix; std::unordered_map<const IR_t *, unsigned char> pdef_memo; std::unordered_map<const IR_t *, const IR_t *> pdef_gb; int pdef_gb_ok = 0;
+    std::vector<unsigned char> pdef;
+    const IR_graph_t * pdef_g;
+    int pdef_n;
+    uint64_t pdef_h;
+    const IR_graph_t * pdef_lock = 0;
+    int pdef_depth = 0;
+    std::unordered_map<const IR_t *, int> pdef_ix;
+    std::unordered_map<const IR_t *, unsigned char> pdef_memo;
+    std::unordered_map<const IR_t *, const IR_t *> pdef_gb;
+    int pdef_gb_ok = 0;
     std::vector<const char *> zst_name;
     std::unordered_map<const IR_t *, int> zst_sm;
     int g_zd_cps = -1;

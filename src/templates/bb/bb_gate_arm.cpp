@@ -17,7 +17,9 @@ std::string bb_gate_arm() {
          + IF(_.op_off >= 0 && _.op_ival >= 0,
                x86("comment", "IR_GATE_ARM")
              + x86_alpha()
-             + (gix != INT_MIN ? x86("note", "the live-arm index lives on the spine in its BOUND's carve, above the record the commit pops; reached through the rbp alias (ARCH-PROLOG-ACTIVATION-LIFETIME 8.2)")
+             +
+                 (gix != INT_MIN ?
+                 x86("note", "the live-arm index lives on the spine in its BOUND's carve, above the record the commit pops; reached through the rbp alias (ARCH-PROLOG-ACTIVATION-LIFETIME 8.2)")
                                + x86("mov", RDD("rbp", gix), (int) _.op_ival)
                                : x86("mov", FR(_.op_off + 16), (int) _.op_ival))
              + x86_gamma()
