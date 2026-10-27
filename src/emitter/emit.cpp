@@ -3017,6 +3017,11 @@ const znode_t * zrow(const IR_t * nd) {
 static int zrow_opoff(const IR_t * nd, int k) { return g_planner.g_zd_rec_p->v_opoff[(size_t)(zrow(nd)->opo + k)]; }
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
+extern "C" int emit_zrow_xabs(const IR_t * nd) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p; if (!r || !nd) return INT_MIN;
+    int ri = (nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
+    return (ri < 0 || !r->on[ri] || !r->xb || r->xb[ri] == INT_MIN) ? INT_MIN : r->xb[ri] + r->out[ri];
+}
 extern "C" int emit_zrow_zchk(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p; if (!r || !nd || !getenv("SCRIP_ZD_RTCHECK")) return INT_MIN;
     int ri = (nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);

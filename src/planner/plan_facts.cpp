@@ -233,9 +233,9 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i];
     z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0;
     z->gcell = (nd->op == IR_GATE || (nd->op == IR_GATE_ARM && nd->n_operands > 1)) ? planner_gate_cells(g, nd->op == IR_GATE ? nd : nd->operands[1]) : 0;
-    if (nd->op == IR_BOUND && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) != (rec->xb[i] != INT_MIN ? 1 : 0)) {
+    if ((nd->op == IR_BOUND || ir_node_produces_value(nd->op)) && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) && rec->xb[i] == INT_MIN) {
           extern const char * zls_graph_name_get(const IR_graph_t *);
-              fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d def0=%d plan=%d\n", zls_graph_name_get(g), i, planner_pl_definite(g, nd), rec->xb[i] != INT_MIN); }
+              fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d %s def0=1 plan=0\n", zls_graph_name_get(g), i, bb_op_name(nd->op)); }
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
     IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
     int b = ow ? nidx(nodes, n, ow) : -1;

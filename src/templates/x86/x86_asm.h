@@ -686,7 +686,9 @@ inline std::string x86_deflabel(int port) {
 extern "C" int emit_zrow_zchk(const IR_t * nd);
 inline std::string x86_alpha_zchk();
 inline std::string x86_alpha() { return x86_deflabel(X86P_ALPHA) + x86_alpha_zchk(); }
-inline std::string x86_beta() { return x86_deflabel(X86P_BETA); }
+extern "C" int emit_zrow_xabs(const IR_t * nd);
+inline std::string x86_beta_anchor();
+inline std::string x86_beta() { return x86_deflabel(X86P_BETA) + x86_beta_anchor(); }
 inline std::string x86_beta_trampoline() { return _.op_beta_dead ? std::string() : (x86_deflabel(X86P_BETA) + x86_jmp(X86P_OMEGA)); }
 inline std::string x86_gamma() { return x86_jmp(X86P_GAMMA); }
 inline std::string x86_gamma(const char * mnem) { return x86_jcc(mnem, X86P_GAMMA); }
@@ -3225,6 +3227,15 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
         + x86("def", L(13)))
 #define ARITH_ARMED_ZD() RK_ARMED_ZD(binop_base((long long)_.op_ival), 0)
 #define RELOP_ARMED_ZD(truthy) RK_ARMED_ZD(_.op_ival, (truthy))
+inline std::string x86_beta_anchor() {
+    if (!_.node || _.node->op != IR_TO || !x86_resumable_frame()) return std::string();
+    int e = emit_zrow_xabs(_.node);
+    return e == (-2147483647 - 1) ? std::string()
+         :
+             x86("note",
+             "a generator is re-entered at its own exit depth: an edge from a claim of unknown depth (a backward gamma after a retaining box) cannot pop to it, so rsp is re-established from the plan")
+         + x86("lea", "rsp", RDQ("rbp", -e));
+}
 inline std::string x86_alpha_zchk() {
     if (!_.node || !x86_resumable_frame()) return std::string();
     int e = emit_zrow_zchk(_.node); if (e == (-2147483647 - 1)) return std::string();
