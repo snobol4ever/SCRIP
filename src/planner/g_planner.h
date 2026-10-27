@@ -47,8 +47,6 @@ struct g_planner_t {
     int pdef_depth = 0;
     std::unordered_map<const IR_t *, int> pdef_ix;
     std::unordered_map<const IR_t *, unsigned char> pdef_memo;
-    std::unordered_map<const IR_t *, const IR_t *> pdef_gb;
-    int pdef_gb_ok = 0;
     std::vector<const char *> zst_name;
     std::unordered_map<const IR_t *, int> zst_sm;
     int g_zd_cps = -1;

@@ -1474,6 +1474,7 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
         else if (rtgt && rtgt->op != IR_FAIL) { int k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
         xa_pair_push(NULL, t);
         if (gv[j] != INT_MIN) XA_PAIR(j).rsp = gv[j];
+        else if (zrow(nd)->gcell) XA_PAIR(j).rsp = 16;
     }
     g_emit.op_off = drive_value_slot(nd);
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
@@ -3017,8 +3018,7 @@ static int zrow_opoff(const IR_t * nd, int k) { return g_planner.g_zd_rec_p->v_o
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
-extern "C" int emit_zrow_gix(const IR_t * nd) { return zrow(nd)->gix; }
-extern "C" int emit_zrow_gixr(const IR_t * nd) { return zrow(nd)->gixr; }
+extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;

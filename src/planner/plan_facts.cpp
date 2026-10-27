@@ -29,8 +29,7 @@ extern "C" int zls_g_generator_top(const IR_graph_t * g);
 extern "C" int zls_act_off(const IR_t * nd);
 extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
-extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd);
-extern "C" const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * gate);
+extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate);
 extern "C" void planner_pdef_lock(const IR_graph_t * g);
 extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd);
 extern "C" void planner_pdef_unlock(void);
@@ -232,32 +231,10 @@ static void pf_scan_t0(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_
 }
 static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g) {
     znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i];
-    z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0; z->gix = INT_MIN; z->gixr = INT_MIN;
-    { const IR_t * gt = nd->op == IR_GATE ? nd : (nd->op == IR_GATE_ARM && nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
-      const IR_t * gb = gt ? planner_gate_bound(g, gt) : (const IR_t *)0; int bk = gb ? nidx(nodes, n, (IR_t *)gb) : -1;
-      if (bk >= 0 && rec->on[bk] && rec->xb && rec->xb[bk] != INT_MIN) z->gix = 48 - (rec->xb[bk] + rec->out[bk]);
-      else if (bk >= 0 && rec->on[bk] && rec->claim && rec->claim[bk] >= 0) {
-          auto rel = [&](int m) { int cm = (m >= 0 && rec->on[m]) ? rec->claim[m] : -1, cb = rec->claim[bk]; if (cm < 0) return INT_MIN;
-              if (cm == cb) return rec->out[m] - rec->out[bk] + 48;
-              return (rec->fam && rec->fbase && rec->fam[cm] >= 0 && rec->fam[cm] == rec->fam[cb]) ? (rec->fbase[cm] + rec->out[m]) - (rec->fbase[cb] + rec->out[bk]) + 48 : INT_MIN; };
-          int gq = nidx(nodes, n, (IR_t *)gt), all = gq >= 0 && rec->on[gq] && rel(gq) != INT_MIN;
-          for (int q = 0; all && q < n; q++) if (nodes[q]->op == IR_GATE_ARM && nodes[q]->n_operands > 1 && nodes[q]->operands[1] == gt && rec->on[q] && rel(q) == INT_MIN) all = 0;
-          if (all) z->gixr = rel(i); }
-      if (gb && rec->on[i] && z->gix == INT_MIN && z->gixr == INT_MIN) { extern const char * zls_graph_name_get(const IR_graph_t *);
-          fprintf(stderr, "FATAL planner: %s in %s -- the frame layout put its gate's live-arm index in its BOUND's spine carve (planner_gate_bound) and granted no frame word, "
-              "but the plan reaches the carve neither through the rbp alias nor at a fixed rsp distance\n", bb_op_name(nd->op), zls_graph_name_get(g));
-          abort(); }
-      if (nd->op == IR_BOUND && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) != (rec->xb[i] != INT_MIN ? 1 : 0)) {
+    z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0;
+    z->gcell = (nd->op == IR_GATE || (nd->op == IR_GATE_ARM && nd->n_operands > 1)) ? planner_gate_cells(g, nd->op == IR_GATE ? nd : nd->operands[1]) : 0;
+    if (nd->op == IR_BOUND && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) != (rec->xb[i] != INT_MIN ? 1 : 0)) {
           extern const char * zls_graph_name_get(const IR_graph_t *); fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d def0=%d plan=%d\n", zls_graph_name_get(g), i, planner_pl_definite(g, nd), rec->xb[i] != INT_MIN); }
-      if (nd->op == IR_GATE && z->gix == INT_MIN && z->gixr == INT_MIN && getenv("SCRIP_PL_GATE_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const IR_t * b = (const IR_t *)0; int bi = -1;
-          for (int q = 0; q < n && !b; q++) if (nodes[q]->op == IR_BOUND && zd_chase(nodes[q]->ω.node) == nd) { b = nodes[q]; bi = q; }
-          char uv[64]; int ul = 0; uv[0] = 0; for (int q = 0; b && q < g->n && ul < 56; q++) { const IR_t * u = g->all[q]; if (u && u->op == IR_UNMARK && u->n_operands > 0 && u->operands[0] == b)
-              ul += snprintf(uv + ul, sizeof uv - (size_t)ul, "%d,", (int)IR_LIT(u).ival); }
-          fprintf(stderr, "[PL-GATE] umk=%s narms=%d graph=%s bound=%d spine=%d def=%d xb=%d claim=%d gclaim=%d fam=%d gfam=%d\n", uv, nd->n_operands, zls_graph_name_get(g), bi, b ? planner_bound_spine(g, b) : -1, b ? planner_pl_definite(g, b) : -1,
-              (bi >= 0 && rec->xb) ? rec->xb[bi] : -7, bi >= 0 ? rec->claim[bi] : -7, rec->claim[i], (bi >= 0 && rec->fam && rec->claim[bi] >= 0) ? rec->fam[rec->claim[bi]] : -7,
-              (rec->fam && rec->claim[i] >= 0) ? rec->fam[rec->claim[i]] : -7); }
-      if (gb && z->gix == INT_MIN && z->gixr == INT_MIN && getenv("SCRIP_PL_ALIAS_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *);
-          fprintf(stderr, "[PL-GIX-MISS] graph=%s node=%s bk=%d on=%d xb=%d\n", zls_graph_name_get(g), bb_op_name(nd->op), bk, bk >= 0 ? rec->on[bk] : -1, (bk >= 0 && rec->xb) ? rec->xb[bk] : -7); } }
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
     IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
     int b = ow ? nidx(nodes, n, ow) : -1;
@@ -315,7 +292,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->xbp = (rec->out[i] >= 0 && rec->on[i] && rec->xb && rec->xb[i] != INT_MIN && rec->xb[i] > 0) ? rec->xb[i] : 0;
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
         z->actoff = zls_act_off(nd); z->sprec = planner_call_spine_record(g, nd);
-            z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) - 16 : 0;
+            z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) : 0;
         z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
         z->asa = -1; z->asb = -1; z->dsusp = -1;
         if (op == IR_MATCH_ARBNO) { int wl = 0, wb = 0, mo = -1, sp = 0; planner_act_window(nd, &wl, &wb); z->awlo = wl; z->awb = wb;
