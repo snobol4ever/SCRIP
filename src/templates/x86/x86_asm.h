@@ -683,7 +683,9 @@ inline std::string x86_deflabel(int port) {
     return s + (port == X86P_ALPHA ? x86_zdp_rbp_pre_alpha() : std::string()) + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_alpha() { return x86_deflabel(X86P_ALPHA); }
+extern "C" int emit_zrow_zchk(const IR_t * nd);
+inline std::string x86_alpha_zchk();
+inline std::string x86_alpha() { return x86_deflabel(X86P_ALPHA) + x86_alpha_zchk(); }
 inline std::string x86_beta() { return x86_deflabel(X86P_BETA); }
 inline std::string x86_beta_trampoline() { return _.op_beta_dead ? std::string() : (x86_deflabel(X86P_BETA) + x86_jmp(X86P_OMEGA)); }
 inline std::string x86_gamma() { return x86_jmp(X86P_GAMMA); }
@@ -1091,6 +1093,7 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (_.op_zres && _.node && x86_key_unbacked(off)) { int own = _.op_own, kw = _.op_kown;
         if (own >= 0 && off >= own && off < own + kw) return q ? ZRES_SPINE(off - own) : x86_zref(off - own, 0); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    if (r != 2 && x86_key_unbacked(off) && _.op_zres && _.op_xa > 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return q ? RDQ("rbp", off - _.op_xk - _.op_xa) : RDD("rbp", off - _.op_xk - _.op_xa);
     if (r != 2 && x86_key_unbacked(off) && _.op_zres) { if (_.op_xd >= 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return x86_zref(_.op_xd + off - _.op_xk, q); }
     if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,
@@ -3222,4 +3225,9 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
         + x86("def", L(13)))
 #define ARITH_ARMED_ZD() RK_ARMED_ZD(binop_base((long long)_.op_ival), 0)
 #define RELOP_ARMED_ZD(truthy) RK_ARMED_ZD(_.op_ival, (truthy))
+inline std::string x86_alpha_zchk() {
+    if (!_.node || !x86_resumable_frame()) return std::string();
+    int e = emit_zrow_zchk(_.node); if (e == (-2147483647 - 1)) return std::string();
+    return x86("lea", "r11", RDQ("rbp", -e)) + x86("cmp", "rsp", "r11") + x86("je", L(987)) + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n") + x86("def", L(987));
+}
 #endif

@@ -950,7 +950,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1;
             g_emit.op_zkown[_zi] = -1; g_emit.op_zfres[_zi] = 1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
-    g_emit.op_own = _zn->loff; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd;
+    g_emit.op_own = _zn->loff; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd; g_emit.op_xa = _zn->xa;
     g_emit.op_xf_off = _zr->home[_ri];
     for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) { g_emit.op_zread_xf[_zi] = _rd->xf;
         g_emit.op_zkown[_zi] = _rd->kown; g_emit.op_zfres[_zi] = _rd->fres; } }
@@ -1474,6 +1474,7 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
         else if (rtgt && rtgt->op != IR_FAIL) { int k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
         xa_pair_push(NULL, t);
         if (gv[j] != INT_MIN) XA_PAIR(j).rsp = gv[j];
+        else if (zrow(nd)->gcell) XA_PAIR(j).rsp = 16;
     }
     g_emit.op_off = drive_value_slot(nd);
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
@@ -3016,6 +3017,14 @@ const znode_t * zrow(const IR_t * nd) {
 static int zrow_opoff(const IR_t * nd, int k) { return g_planner.g_zd_rec_p->v_opoff[(size_t)(zrow(nd)->opo + k)]; }
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
+extern "C" int emit_zrow_zchk(const IR_t * nd) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p; if (!r || !nd || !getenv("SCRIP_ZD_RTCHECK")) return INT_MIN;
+    int ri = (nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
+    if (ri < 0 || !r->on[ri] || !r->xb || r->xb[ri] == INT_MIN || (nd->op == IR_UNMARK && (IR_LIT(nd).ival & 6))) return INT_MIN;
+    return r->xb[ri] + r->out[ri];
+}
+extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
+extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
@@ -3841,6 +3850,8 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
             bb_emit_x86(x86("comment",
                 "PL ALTERNATIVE TRAMPOLINE (rung 2, Jcon ir_MoveLabel): advance F.CUR to the NEXT alternative, or zero it on the last one so the step concedes, then enter this clause head unificatio"
                 "n.")
+                      + x86("note", "a clause retry starts at the frame base: the failed clause may concede from a claim whose depth the plan cannot know, so rsp is re-established, not trusted")
+                      + x86("mov", "rsp", emit_pl_fb())
                       + pl_clause_zero(_ak)
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emitter.codegen_flat_chain_body_alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
                       + x86("mov", RDQ(emit_pl_fb(), _kt - 56), "rax")

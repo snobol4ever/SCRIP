@@ -13,6 +13,9 @@ extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
+extern int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
+extern void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
+extern int planner_gate_cells(const IR_graph_t * g, const IR_t * gate);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
@@ -568,6 +571,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         return 1 + nd->n_operands;
         case IR_PROC_GEN:
         case IR_CALL_VALUE:
+        if (planner_call_spine_record(g, nd)) return 0;
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
         zls_field(scope_id, off + 16 * nd->n_operands, 8, zls_act_kind(g, nd), 0,
             "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a"
@@ -582,6 +586,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         default:
         if (ir_kind0(nd) == IR_CALL || ir_is_call_kind(ir_kind0(nd))) {
             if (ir_kind0(nd) == IR_CALL_PROC_STAGED) {
+                if (planner_call_spine_record(g, nd)) return 0;
                 if (!zls_callee_is_gen(nd) && !(g->home_frame && zls_g_resumable_frame(g) && zls_edge_retains(g, nd))) return 0;
                 zls_field(scope_id, off, 8, zls_act_kind(g, nd), 0,
                     "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that "
@@ -1887,6 +1892,10 @@ typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int
 #define FCN_BSF 0x100000u
 #define FCN_BOK 0x200000u
 #define FCN_BOV 0x400000u
+#define FCN_BVK 0x800000u
+#define FCN_BVV 0x1000000u
+#define FCN_GVK 0x2000000u
+#define FCN_GVV 0x4000000u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fc_reg_hw(const char * tbl, int n) {
     if (g_lower.ir.fc_reg_hw_e == (const char *) 1) g_lower.ir.fc_reg_hw_e = getenv("SCRIP_FC_REG_HIGHWATER");
@@ -2049,10 +2058,12 @@ void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int 
 }
 int zls_fcn_hret(const IR_t * nd) { return fcn_find(nd, FCN_HRET) ? 1 : 0; }
 int zls_fcn_hunres(const IR_t * nd) { return fcn_find(nd, FCN_HUNRES) ? 1 : 0; }
-int zls_fcn_bs_get(const IR_t * nd, int which) { uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF; return fcn_find(nd, k) ? (fcn_find(nd, v) ? 2 : 1) : 0; }
+static uint32_t zls_fcn_bs_k(int which) { return which == 3 ? FCN_GVK : which == 2 ? FCN_BVK : which ? FCN_BOK : FCN_BSK; }
+static uint32_t zls_fcn_bs_v(int which) { return which == 3 ? FCN_GVV : which == 2 ? FCN_BVV : which ? FCN_BOV : FCN_BSF; }
+int zls_fcn_bs_get(const IR_t * nd, int which) { uint32_t k = zls_fcn_bs_k(which), v = zls_fcn_bs_v(which); return fcn_find(nd, k) ? (fcn_find(nd, v) ? 2 : 1) : 0; }
 void zls_fcn_bs_set(const IR_t * nd, int which, int val) {
     if (!nd) return;
-    uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF;
+    uint32_t k = zls_fcn_bs_k(which), v = zls_fcn_bs_v(which);
     fcn_t * t = fcn_get(nd);
     t->fl |= k;
     if (val == 2) t->fl |= v;
@@ -2170,15 +2181,20 @@ void zls_home_pass(const IR_graph_t * g) {
         tw[i] = 0;
     }
     unsigned int stamp = 0;
+    unsigned char pind[n > 0 ? n : 1];
+    int plh = g->home_frame && zls_g_resumable_frame(g);
+    if (plh) planner_pl_indef0(g, pind);
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
         if (!cx) continue;
-        if (cx->op == IR_UNMARK && (IR_LIT(cx).ival & 32) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
+        if (cx->op == IR_UNMARK && ((IR_LIT(cx).ival & 32) || plh) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
+        if (cx->op == IR_GATE_ARM && g->home_frame && zls_g_resumable_frame(g)) continue;
         for (int oj = 0; oj < cx->n_operands; oj++) {
             const IR_t * po = cx->operands[oj];
             for (int cg = 0; g->home_frame && po && po->op == IR_CONJUNCTION && po->n_operands > 0 && cg < 16; cg++) po = po->operands[0];
             int p = po ? zls_reuse_index(&nx, po) : -1;
             if (p < 0 || fcn_find(g->all[p], FCN_HOME) || (cx->op == IR_DISJUNCTION && g->cell_frame && !dy[p])) continue;
+            if (plh && !pind[p] && !dy[p] && ir_node_produces_value(g->all[p]->op)) continue;
             int top = 0, hit = 0;
             stamp++;
             if (sg[p] >= 0 && sg[p] != p) { st[top] = sg[p]; sd[top] = dy[p] ? 1 : 0; sw[top] = dy[p]; seen[2 * sg[p] + sd[top]] = stamp; top++; }
@@ -2263,6 +2279,9 @@ int zls_frame_resident(const IR_t * nd) {
 static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
+    if (nd && (nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
+    if (nd && nd->op == IR_GATE && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g) && planner_gate_cells(g, nd)) return 0;
+    if (nd && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g)) return 0;
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
