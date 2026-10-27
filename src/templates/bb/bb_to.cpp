@@ -23,7 +23,7 @@ std::string xa_to_db_load_store(int lab);
 std::string xa_to_db_store_rax(int lab);
 std::string xa_to_db_slot_addr();
 #define TO_BOMB1() (x86_resumable_frame() && _.op_num_real)
-#define TO_ZD_LIM() ((x86_resumable_frame() && _.op_to_trailed) ? 8 : 24)
+#define TO_ZD_LIM() ((x86_resumable_frame() && _.op_to_trailed) ? (_.op_fres ? 8 : 64) : 24)
 static std::string to_zd_int_operand_guard(int k) {
     return IF(_.op_range_int_operands,
                x86("note", ZOPN(k))

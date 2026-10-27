@@ -241,7 +241,7 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planne
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_GATE_ARM };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_GATE_ARM, BCS_PL_TO_TRAILED, BCS_PL_TO_DB };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
@@ -275,6 +275,8 @@ static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
     if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home(cg) && nd->n_operands > 0) ? 1 : 0;
     if (w == BCS_PL_BOUND_SPINE) return (zd_pl_home(cg) && planner_bound_spine(cg, nd)) ? 1 : 0;
     if (w == BCS_PL_SPINE_RECORD) return planner_call_spine_record(cg, nd);
+    if (w == BCS_PL_TO_TRAILED) return (zd_pl_home(cg) && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && ir_range_trailed(nd)) ? 1 : 0;
+    if (w == BCS_PL_TO_DB) return (zd_pl_home(cg) && nd->op == IR_TO && ir_range_kind_is(nd, "db")) ? 1 : 0;
     if (w == BCS_PL_GATE_ARM) return (nd->n_operands > 1 && planner_gate_cells(cg, nd->operands[1])) ? 1 : 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
