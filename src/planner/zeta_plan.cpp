@@ -249,6 +249,7 @@ static int zd_pl_home(const IR_graph_t * cg) { return (zls_g_home_frame(cg) && z
 extern "C" int rt_proc_is_registered(const char *); extern "C" int rt_proc_is_generator(const char *); extern "C" int rt_proc_dyn_scope(const char *); extern "C" int rt_proc_index_of(const char *);
 extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd) {
+    if (cg && nd && nd->op == IR_CALL_VALUE) return (zd_pl_home(cg) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal") && !zls_home_why(nd)) ? 1 : 0;
     if (!cg || !nd || nd->op != IR_CALL_PROC_STAGED || !zd_pl_home(cg) || !zd_edge_retains_g(cg, nd) || zls_home_why(nd)) return 0;
     const char * fn = IR_LIT(nd).sval;
     if (!fn || !fn[0] || !rt_proc_is_registered(fn) || !rt_proc_is_generator(fn) || rt_proc_dyn_scope(fn) || rt_proc_index_of(fn) < 0) return 0;

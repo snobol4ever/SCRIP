@@ -571,6 +571,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         return 1 + nd->n_operands;
         case IR_PROC_GEN:
         case IR_CALL_VALUE:
+        if (planner_call_spine_record(g, nd)) return 0;
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
         zls_field(scope_id, off + 16 * nd->n_operands, 8, zls_act_kind(g, nd), 0,
             "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a"
@@ -2272,7 +2273,7 @@ int zls_frame_resident(const IR_t * nd) {
 static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
-    if (nd && nd->op == IR_CALL_PROC_STAGED && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
+    if (nd && (nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
     if (nd && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g)) return 0;
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
