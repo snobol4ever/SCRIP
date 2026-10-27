@@ -566,7 +566,7 @@ static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     while (!stk.empty() && !r) {
         const IR_t * x = stk.back();
         stk.pop_back();
-        if (x != nd && ((zd_edge_retains_g(g, x) && !bdef) || x->op == IR_SUSPEND || x->op == IR_DISJUNCTION || x->op == IR_BOUND || (x->op == IR_CUT && !IR_LIT(x).ival))) r = 1;
+        if (x != nd && (x->op == IR_SUSPEND || (!bdef && (zd_edge_retains_g(g, x) || x->op == IR_DISJUNCTION || x->op == IR_BOUND || (x->op == IR_CUT && !IR_LIT(x).ival))))) r = 1;
         if (r || (x != nd && x->op == IR_UNMARK && x->n_operands > 0 && x->operands[0] == nd)) continue;
         for (int e = -2; e < x->n_operands; e++) {
             const IR_t * y = e == -2 ? x->γ.node : e == -1 ? x->ω.node : x->operands[e];
