@@ -1,3 +1,4 @@
+#include <climits>
 #include "planner_head.h"
 #include "planner.h"
 }
@@ -72,6 +73,8 @@ static const char * xop_frame_why(const IR_t * nd) {
     return zls_dj_retains(nd) ? "retaining-disjunction" : nd->op == IR_TO ? "generator-state" : "read-across-retaining-edge";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_zrow_gix(const IR_t * nd);
+extern "C" int emit_zrow_gixr(const IR_t * nd);
 void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon, const int * eslot) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
@@ -85,7 +88,8 @@ void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsign
         int off = eslot[i]; if (off < 0) off = zls_off(nd); if (zls_key_unbacked(g, off)) off = -1;
         int xf = planner_rec_home(nd), rbp = xf != -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
         int hs = !esc && !rbp && off >= 0 && zls_home_why(nd) && !ir_node_produces_value(nd->op);
-        int hr = !esc && !rbp && !hs && off >= 0 && g && zls_g_hf_resident(g, nd) && (nd->op != IR_DISJUNCTION || zls_dj_retains(nd) || !zd_dj_on_spine(nd));
+        int hr = !esc && !rbp && !hs && off >= 0 && g && zls_g_hf_resident(g, nd) && (nd->op != IR_DISJUNCTION || zls_dj_retains(nd) || !zd_dj_on_spine(nd)) &&
+            !(nd->op == IR_GATE && (emit_zrow_gix(nd) != INT_MIN || emit_zrow_gixr(nd) != INT_MIN));
         const char * home = (esc || hs || hr) ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
         if (esc || hs || hr) xf = off;
         fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf,

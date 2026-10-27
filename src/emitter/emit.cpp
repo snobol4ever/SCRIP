@@ -3018,6 +3018,7 @@ extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
 extern "C" int emit_zrow_gix(const IR_t * nd) { return zrow(nd)->gix; }
+extern "C" int emit_zrow_gixr(const IR_t * nd) { return zrow(nd)->gixr; }
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
