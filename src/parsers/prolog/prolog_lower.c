@@ -1294,6 +1294,31 @@ static void pl_yall_body(tree_t *g, int *k) {
         return;
     }
 }
+static int pl_body_not_callable(const tree_t *b) {
+    if (!b) return 0;
+    if (b->t == TT_ILIT || b->t == TT_FLIT || (b->t == TT_FNC && b->n == 1 && b->v.sval && !strcmp(b->v.sval, "$pl_big"))) return 1;
+    if (b->t == TT_FNC && b->v.sval && b->n == 2 && (!strcmp(b->v.sval, ",") || !strcmp(b->v.sval, ";") || !strcmp(b->v.sval, "->") || !strcmp(b->v.sval, "*->") || !strcmp(b->v.sval, "|")))
+        return pl_body_not_callable(b->c[0]) || pl_body_not_callable(b->c[1]);
+    return b->t == TT_FNC && b->v.sval && b->n == 1 && !strcmp(b->v.sval, "\\+") && pl_body_not_callable(b->c[0]);
+}
+static void pl_drop_ill_bodies(PlProgram *pl_prog) {
+    extern int rt_pl_dialect_swi(void);
+    PlClause **pp = &pl_prog->head, *prev = (PlClause *)0;
+    if (g_stage2.pl_dialect != PL_DIALECT_SWI && !rt_pl_dialect_swi()) return;
+    while (*pp) {
+        PlClause *cl = *pp;
+        const tree_t *t = cl->tr;
+        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t != TT_NUL && pl_body_not_callable(t->c[1])) {
+            fprintf(stderr, "%s:%d: type_error(callable): the clause body is not callable, so the clause is not loaded\n", cl->file ? cl->file : pl_prog->filename ? pl_prog->filename : "?", cl->lineno);
+            *pp = cl->next;
+            if (pl_prog->tail == cl) pl_prog->tail = prev;
+            pl_prog->nclauses--;
+            continue;
+        }
+        prev = cl;
+        pp = &cl->next;
+    }
+}
 static void pl_yall_lower_program(PlProgram *pl_prog) {
     int k = 0;
     if (!pl_yall_loaded(pl_prog)) return;
@@ -1305,9 +1330,11 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
     pl_dq_lower_program(pl_prog);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
     pl_yall_lower_program(pl_prog);
+    pl_drop_ill_bodies(pl_prog);
     pl_module_flatten(pl_prog);
     prolog_rewrite_incremental_dynamics(pl_prog);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
+    pl_dyn_mark(ct_strdup("$rec"), 3);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
     tree_t *prog = ast_node_new(TT_PROGRAM);
     tree_t *pld_seed[256]; int pld_seed_n = 0;

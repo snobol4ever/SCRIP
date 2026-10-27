@@ -1754,23 +1754,28 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
     return FAILDESCR;
 }
 static void rt_plco_floor_put(const char *tr, char *fl) { if (tr) *pl_tr_floor_slot(pl_tr_base_of(tr)) = fl; }
+static char *rt_plco_floor_of(const scrip_coctx_t *x) { return x->pl_keep > x->pl_floor ? x->pl_keep : x->pl_floor; }
 int rt_plco_mark(char *tr) {
     scrip_coctx_t *me = g_scrip_co_current;
     if (!me || !rt_genp_of_co(me)) return 0;
     me->pl_park = 1;
     me->pl_base = tr;
     me->pl_floor = tr;
+    me->pl_keep = 0;
+    me->pl_b0 = 0;
     rt_plco_floor_put(tr, tr);
     return 1;
 }
+int rt_plco_b0(char *b) { scrip_coctx_t *me = g_scrip_co_current; if (!me || !me->pl_park) return 0; me->pl_b0 = b; return 1; }
 int rt_plco_inside(void) { scrip_coctx_t *me = g_scrip_co_current; return me && me->pl_park != 0 && rt_genp_of_co(me) != (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in) {
+int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in, char *b) {
     scrip_coctx_t *me = g_scrip_co_current;
     uint64_t d0, d1;
     if (!me || !me->pl_park) return -2;
-    { char *fl = *pl_tr_floor_slot(pl_tr_base_of(*tr)); if (fl && *tr < fl) { me->pl_floor = me->pl_base; rt_plco_floor_put(*tr, me->pl_base); return -1; } }
+    if (me->pl_floor && *tr < me->pl_floor) { me->pl_floor = me->pl_base; rt_plco_floor_put(*tr, me->pl_base); return -1; }
     me->pl_park = kind;
+    me->pl_det = kind == 2 && me->pl_b0 && b == me->pl_b0;
     me->pl_gen = kind == 3 ? gen_in : ++me->pl_seq;
     *gen = me->pl_gen;
     me->pl_tr = *tr;
@@ -1778,7 +1783,7 @@ int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in) {
     memcpy(&d1, (char *)&r + 8, 8);
     scrip_coret(d0, d1, (void *)0);
     *tr = me->pl_tr;
-    rt_plco_floor_put(*tr, me->pl_floor);
+    rt_plco_floor_put(*tr, rt_plco_floor_of(me));
     me->pl_park = 1;
     return me->pl_cmd;
 }
@@ -1789,16 +1794,22 @@ static DESCR_t rt_plco_settle(scrip_coctx_t *c, void *slot, DESCR_t r, char **tr
         scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root();
         if (me->pl_xtr) *tr = me->pl_xtr;
         me->pl_xtr = 0;
-        rt_plco_floor_put(*tr, me->pl_floor);
+        if (me->pl_keep > *tr) me->pl_keep = *tr;
+        rt_plco_floor_put(*tr, rt_plco_floor_of(me));
         *st = 0;
         return FAILDESCR;
     }
-    *tr = c->pl_tr;
-    { scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root(); rt_plco_floor_put(*tr, me->pl_floor); }
     *gen_out = c->pl_gen;
     park = c->pl_park;
+    {
+        scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root();
+        if (me->pl_keep > *tr) me->pl_keep = *tr;
+        if ((park == 2 || park == 3) && c->pl_tr > me->pl_keep) me->pl_keep = c->pl_tr;
+        *tr = c->pl_tr;
+        rt_plco_floor_put(*tr, rt_plco_floor_of(me));
+    }
     if (park == 4 || park == 5) rt_proc_drop_frame_h(&slot);
-    *st = park == 4 ? 0 : 1;
+    *st = park == 4 ? 0 : park == 2 && c->pl_det ? 2 : 1;
     return park == 4 ? FAILDESCR : r;
 }
 DESCR_t rt_plco_after_start(void *h, DESCR_t r, char **tr, long *gen_out, int *st, DESCR_t *hd) {
@@ -1818,7 +1829,7 @@ DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, 
     c->pl_cmd = cmd ? 1 : 0;
     c->pl_tr = *tr;
     c->pl_floor = cmd ? *tr : c->pl_base;
-    rt_plco_floor_put(*tr, c->pl_floor);
+    rt_plco_floor_put(*tr, rt_plco_floor_of(c));
     { scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
     return rt_plco_settle(c, slot, rt_proc_resume_frame_h(&slot), tr, gen_out, st);
 }

@@ -7711,8 +7711,9 @@ PL_CX_LEAF_HEAD(set_stream, 2)
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_plco_mark(char *tr);
+extern int rt_plco_b0(char *b);
 extern int rt_plco_inside(void);
-extern int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in);
+extern int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in, char *b);
 extern DESCR_t rt_plco_after_start(void *h, DESCR_t r, char **tr, long *gen_out, int *st, DESCR_t *hd);
 extern DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, int *st);
 extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
@@ -7720,7 +7721,7 @@ static DESCR_t pl_co_answer(DESCR_t *args, int ir, DESCR_t r, long gen, int st, 
     char *tr0 = cx->tr;
     void *pend = st > 0 ? (void *)0 : *pl_tr_ball_slot(pl_tr_base_of(cx->tr));
     if (pend) { cx->ball = pend; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-    int ok = st > 0 && plw_unify_vals(args[ir], r, cx) && plw_unify_vals(args[ir + 1], INTVAL(gen), cx);
+    int ok = st > 0 && plw_unify_vals(args[ir], st == 2 ? pl_mk_cmp1("$det", r) : r, cx) && plw_unify_vals(args[ir + 1], INTVAL(gen), cx);
     if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
@@ -7764,7 +7765,7 @@ static DESCR_t pl_co_park_leaf(DESCR_t *args, int kind, long gen_in, int bind_ge
     long gen = 0;
     int cmd, ok;
     rt_pl_tr_gc_sync(cx->tr);
-    cmd = rt_plco_park(kind, r, &tr, &gen, gen_in);
+    cmd = rt_plco_park(kind, r, &tr, &gen, gen_in, cx->b);
     if (cmd < 0) { cx->ball = rt_pl_ball_permission3("backtrack", "continuation", r); return FAILDESCR; }
     cx->tr = tr;
     ok = cmd > 0 && bind_gen && plw_unify_vals(args[1], INTVAL(gen), cx);
@@ -7896,6 +7897,7 @@ DESCR_t rt_pl_dop_engine_reaped_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     return plw_unify_vals(args[0], l, cx) ? pl_ok() : FAILDESCR;
 }
 PL_CX_LEAF_HEAD(co_mark, 0) ok = rt_plco_mark(cx->tr); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(co_b0, 0) ok = rt_plco_b0(cx->b); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(co_inside, 0) ok = rt_plco_inside(); PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(compare, 3) ok = rt_pl_compare_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
@@ -25172,6 +25174,7 @@ static int pl_goal_conv_scan(DESCR_t t, int depth) {
             if (a) return a;
             return pl_goal_conv_scan(kids[1], depth + 1);
         }
+        if (ar == 1 && fn && depth < 64 && !strcmp(fn, "\\+") && rt_pl_dialect_swi()) return pl_goal_conv_scan(((DESCR_t *)v.p)[0], depth + 1);
         return 0;
     }
     if ((int)v.v == DT_PLATOM || v.v == DT_S) return 0;
@@ -25328,7 +25331,10 @@ static void * pl_anum_number_syntax(DESCR_t lst, int codes) {
     {
         extern const char *pl_skip_layout(const char *);
         const char *p = pl_skip_layout(buf);
-        if (*p && pl_parse_number(p, &num)) return (void *)0;
+        if (*p && pl_parse_number(p, &num)) {
+            if (num.v == DT_R && isinf(num.r) && !strstr(p, "Inf") && !strstr(p, "inf") && !pl_float_flag("float_overflow", "infinity")) return rt_pl_ball_kind1("syntax_error", "float_overflow");
+            return (void *)0;
+        }
         return rt_pl_ball_kind1("syntax_error", "illegal_number");
     }
 }
@@ -25412,9 +25418,21 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         return (void *)0;
     }
     if (!strcmp(nm, "atomic_list_concat") && (n == 2 || n == 3)) {
-        DESCR_t l = rt_pl_deref_val(a[0]), sep = rt_pl_deref_val(a[1]), r = rt_pl_deref_val(a[n - 1]);
-        if (n == 3 && !pl_iso_unbound(sep) && !pl_is_nil(sep) && !pl_anum_is_text(sep) && !pl_anum_is_num(sep)) return rt_pl_ball_kind2("type_error", "atomic", sep);
-        if (!pl_iso_unbound(r) && !pl_anum_is_text(r)) return rt_pl_ball_kind2("type_error", "atom", r);
+        DESCR_t l = rt_pl_deref_val(a[0]), sep = rt_pl_deref_val(a[1]), r = rt_pl_deref_val(a[n - 1]), end, cur;
+        int swi = pl_swi_dialect(), cyc = 0, partial;
+        long k = 0;
+        if (n == 3 && !pl_iso_unbound(sep) && !pl_is_nil(sep) && !pl_anum_is_text(sep) && !pl_anum_is_num(sep)) return rt_pl_ball_kind2("type_error", swi ? "text" : "atomic", sep);
+        if (!swi && !pl_iso_unbound(r) && !pl_anum_is_text(r)) return rt_pl_ball_kind2("type_error", "atom", r);
+        end = pl_spine_end(l, &k, &cyc);
+        if (!cyc && !pl_iso_unbound(end) && !pl_is_nil(end)) return rt_pl_ball_kind2("type_error", "list", end);
+        partial = !cyc && pl_iso_unbound(end);
+        for (cur = l; !cyc && k-- > 0; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
+            DESCR_t e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+            if (pl_iso_unbound(e)) partial = 1;
+            else if (swi && !pl_is_nil(e) && !pl_anum_is_text(e) && !pl_anum_is_num(e)) return rt_pl_ball_kind2("type_error", "text", e);
+        }
+        if (swi && !pl_iso_unbound(r) && !pl_anum_is_text(r) && !pl_anum_is_num(r)) return partial ? rt_pl_ball_kind2("type_error", "atomic", r) : (void *)0;
+        if (partial && (pl_iso_unbound(r) || (n == 3 && pl_iso_unbound(sep)))) return rt_pl_ball_instantiation();
         if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r) && pl_atom_str(sep) && !pl_atom_str(sep)[0]) return rt_pl_ball_kind2("domain_error", "non_empty_atom", sep);
         if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r)) return (void *)0;
         if (n == 3 && pl_iso_unbound(sep)) return rt_pl_ball_instantiation();

@@ -622,8 +622,8 @@ static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type) {
     fflush(stdout);
     fprintf(stderr,
         "[ZHP] REFUSED: %s allocated past the %u-byte error reserve of the %ld KB hard cap before the poll that follows it could raise the resource error (this request %llu payload bytes"
-        " of block kind %u); the reserve is sized to the largest burst one call makes between two polls, so this leaf is a measurement the reserve owes (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5)\n",
-        leaf, GC_ERR_RESERVE, (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (unsigned long long)payload_bytes, (unsigned)type);
+        " of block kind %u); the reserve is sized to the largest burst one call makes between two polls, so this leaf is a measurement the reserve owes (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5)"
+        "\n", leaf, GC_ERR_RESERVE, (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (unsigned long long)payload_bytes, (unsigned)type);
     exit(2);
 }
 void rt_gcheap_cap_road(void) { g_runtime.gc.hp_cap_road = 1; }
@@ -2647,6 +2647,20 @@ int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a) {
 #endif
     g_runtime.gc.gc_seg_main = saved;
     return ok;
+}
+void rt_gc_segments_visit(void (*fn)(const char *, const char *, void *), void *a) {
+    gc_seg_it_t it;
+    char *lo, *hi, floor;
+    int pop, saved = g_runtime.gc.gc_seg_main;
+#if RT_DIAG
+    long park0 = g_runtime.gc.gc_co_parked;
+#endif
+    gc_seg_begin(&it, &floor);
+    while (gc_seg_next(&it, &lo, &hi, &pop)) fn(lo, hi, a);
+#if RT_DIAG
+    g_runtime.gc.gc_co_parked = park0;
+#endif
+    g_runtime.gc.gc_seg_main = saved;
 }
 static void gc_frames_visit_sum(const void *map, const char *base, void *a) { uint64_t *s = (uint64_t *)a; s[0]++; s[1] = s[1] * 31u + ((uint64_t)(uintptr_t)base ^ (uint64_t)(uintptr_t)map); }
 static int gc_frames_visit_check(uint64_t *v) {

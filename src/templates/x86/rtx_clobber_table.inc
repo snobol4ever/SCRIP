@@ -129,6 +129,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_co_finish", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_inside", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_mark", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_co_b0", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_resume", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_start", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_unwound", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

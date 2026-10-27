@@ -553,7 +553,7 @@ extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
     return r;
 }
 static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
-    if (!g || !nd || nd->op != IR_BOUND || !(zls_g_home_frame(g) || g->home_frame) || !zls_g_resumable_frame(g)) return 0;
+    if (!g || !nd || nd->op != IR_BOUND || !(zls_g_home_frame(g) || (g->home_frame && planner_pl_definite(g, nd))) || !zls_g_resumable_frame(g)) return 0;
     const IR_t * ig = zd_chase((IR_t *)nd->ω.node);
     if (!ig || ig->op != IR_GATE) return 0;
     int fence = zls_fcn_bs_get(nd, 0);
@@ -1565,7 +1565,10 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                 if (ki == 2 && !v && b && zd_edge_retains_g(cg, nodes[q])) {
                     int ql, qb;
                     (void) zd_pl_land(cg, nodes, n, zon, zout, zgpop, zwpop, q, 0, &ql, &qb);
-                    if (ql >= 0 && zon[ql] && claim[ql] >= 0 && claim[ql] == fam[ci]) { zgpop[i] = ai - (fbase[fam[ci]] + zout[ql] - (qb ? 0 : zd_k_g(cg, nodes[ql]))); continue; }
+                    if (ql >= 0 && zon[ql] && claim[ql] >= 0 && claim[ql] == fam[ci]) {
+                        zgpop[i] = ai - (fbase[fam[ci]] + zout[ql] - (qb ? 0 : zd_k_g(cg, nodes[ql]))) - (nodes[q]->op == IR_TO ? zgpop[q] : 0);
+                        continue;
+                    }
                 }
                 if (ki == 2 && v && fam[ci] != ci && zd_edge_retains_g(cg, nodes[q])) {
                     int ql, qb;

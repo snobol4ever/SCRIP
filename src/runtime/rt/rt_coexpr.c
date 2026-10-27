@@ -321,6 +321,9 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->pl_floor = 0;
     ctx->pl_base = 0;
     ctx->pl_xtr = 0;
+    ctx->pl_keep = 0;
+    ctx->pl_b0 = 0;
+    ctx->pl_det = 0;
     ctx->gc_next = g_co_gc_head;
     g_co_gc_head = ctx;
     { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx); scrip_co_init_once(cur); }
@@ -416,6 +419,9 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->pl_floor = 0;
     ctx->pl_base = 0;
     ctx->pl_xtr = 0;
+    ctx->pl_keep = 0;
+    ctx->pl_b0 = 0;
+    ctx->pl_det = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -4704,7 +4704,7 @@ DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DES
         int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *,
             int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
 DESCR_t rt_pl_dop_co_start(DESCR_t *, int); DESCR_t rt_pl_dop_co_resume(DESCR_t *, int); DESCR_t rt_pl_dop_co_yield(DESCR_t *, int); DESCR_t rt_pl_dop_co_unwound(DESCR_t *, int);
-DESCR_t rt_pl_dop_co_finish(DESCR_t *, int); DESCR_t rt_pl_dop_co_mark(DESCR_t *, int); DESCR_t rt_pl_dop_co_inside(DESCR_t *, int);
+DESCR_t rt_pl_dop_co_finish(DESCR_t *, int); DESCR_t rt_pl_dop_co_mark(DESCR_t *, int); DESCR_t rt_pl_dop_co_b0(DESCR_t *, int); DESCR_t rt_pl_dop_co_inside(DESCR_t *, int);
 DESCR_t rt_pl_dop_engine_new(DESCR_t *, int); DESCR_t rt_pl_dop_engine_next(DESCR_t *, int); DESCR_t rt_pl_dop_engine_yield(DESCR_t *, int); DESCR_t rt_pl_dop_engine_destroy(DESCR_t *, int);
 DESCR_t rt_pl_dop_engine_self(DESCR_t *, int); DESCR_t rt_pl_dop_engine_id(DESCR_t *, int); DESCR_t rt_pl_dop_engine_list(DESCR_t *, int); DESCR_t rt_pl_dop_engine_reaped(DESCR_t *, int);
     DESCR_t rt_pl_dop_engine_stats(DESCR_t *, int); DESCR_t rt_pl_dop_gc_now(DESCR_t *, int);
@@ -4855,7 +4855,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$db_alive", 2, "rt_pl_dop_db_alive", rt_pl_dop_db_alive },
         { "$co_start", 4, "rt_pl_dop_co_start", rt_pl_dop_co_start }, { "$co_resume", 5, "rt_pl_dop_co_resume", rt_pl_dop_co_resume },
         { "$co_yield", 2, "rt_pl_dop_co_yield", rt_pl_dop_co_yield }, { "$co_unwound", 2, "rt_pl_dop_co_unwound", rt_pl_dop_co_unwound },
-        { "$co_finish", 2, "rt_pl_dop_co_finish", rt_pl_dop_co_finish }, { "$co_mark", 0, "rt_pl_dop_co_mark", rt_pl_dop_co_mark },
+        { "$co_finish", 2, "rt_pl_dop_co_finish", rt_pl_dop_co_finish }, { "$co_mark", 0, "rt_pl_dop_co_mark", rt_pl_dop_co_mark }, { "$co_b0", 0, "rt_pl_dop_co_b0", rt_pl_dop_co_b0 },
         { "$co_inside", 0, "rt_pl_dop_co_inside", rt_pl_dop_co_inside },
         { "$engine_new", 4, "rt_pl_dop_engine_new", rt_pl_dop_engine_new }, { "$engine_next", 2, "rt_pl_dop_engine_next", rt_pl_dop_engine_next },
         { "$engine_yield", 1, "rt_pl_dop_engine_yield", rt_pl_dop_engine_yield }, { "$engine_destroy", 1, "rt_pl_dop_engine_destroy", rt_pl_dop_engine_destroy },

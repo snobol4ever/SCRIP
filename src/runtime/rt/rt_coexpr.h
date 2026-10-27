@@ -57,6 +57,9 @@ typedef struct scrip_coctx_t {
     char *pl_floor;
     char *pl_base;
     char *pl_xtr;
+    char *pl_keep;
+    char *pl_b0;
+    int pl_det;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint64_t epc, char *efp);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);

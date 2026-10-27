@@ -79,6 +79,7 @@ typedef struct { uint64_t ra, sp, rbx, rbp, r12, r13, r14, r15, rax, rdx; } rt_e
 int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r);
 typedef void (*rt_gc_frame_fn)(const void *map, const char *base, void *a);
 int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a);
+void rt_gc_segments_visit(void (*fn)(const char *, const char *, void *), void *a);
 long rt_gcheap_free(void);
 long rt_gc_runs_count(void);
 void rt_gc_assert_dead(const void *payload);

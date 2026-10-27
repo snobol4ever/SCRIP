@@ -785,7 +785,9 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                     return pt_stamp(n, ln);
                 }
                 if (pk3.kind == TK_FLOAT && !pk3.uni && neg_adj) {
+                    extern int rt_pl_flag_is(const char *, const char *);
                     Token num = lexer_next(&p->lx);
+                    if (num.big && !rt_pl_flag_is("float_overflow", "infinity")) { if (p->clause_errs == 0) p->synerr = "float_overflow"; perror_at(p, ln, "float literal out of range"); return pt_stamp(NULL, ln); }
                     tree_t *n = ast_node_new(TT_FLIT);
                     n->v.dval = -num.fval;
                     return pt_stamp(n, ln);
@@ -1414,16 +1416,22 @@ static const char * const PL_PRELUDE_SRC =
     "reset(G,B,C):-'$co_enter'(G,H,R,N),'$reset_k'(R,H,N,B,C).\n"
     "'$co_enter'(G,H,R,N):-nonvar(G),G='$cont'(H0,N0),!,H=H0,'$co_resume'(H0,1,N0,R,N).\n"
     "'$co_enter'(G,H,R,N):-'$co_start'(G,H,R,N).\n"
-    "'$reset_k'(shift(X),H,N,B,C):-(\\+X=B->shift(X),'$co_resume'(H,1,N,R,N1),'$reset_k'(R,H,N1,B,C);(X=B,C='$cont'(H,N);'$reset_redo'(H,N,B,C))).\n"
-    "'$reset_k'(done,H,N,B,C):-(C=0;'$reset_redo'(H,N,B,C)).\n"
+    "'$reset_k'(shift(X),H,N,B,C):-(\\+X=B->shift(X),'$co_resume'(H,1,N,R,N1),'$reset_k'(R,H,N1,B,C);(X=B,(var(C)->C='$cont'(H,N);throw(error(uninstantiation_error(X),context(system:shift/1,_))));'$reset_redo'(H,N,B,C))).\n"
+    "'$reset_k'(done,H,N,B,C):-((var(C)->C=0;throw(error(uninstantiation_error(C),context(system:reset/3,_))));'$reset_redo'(H,N,B,C)).\n"
     "'$reset_k'(throw(E),_,_,_,_):-throw(E).\n"
+    "'$reset_k'('$det'(R),H,N,B,C):-'$reset_d'(R,H,N,B,C).\n"
+    "'$reset_d'(done,_,_,_,C):-(var(C)->C=0;throw(error(uninstantiation_error(C),context(system:reset/3,_)))).\n"
+    "'$reset_d'(shift(X),H,N,B,C):-(\\+X=B->shift(X),'$co_resume'(H,1,N,R,N1),'$reset_k'(R,H,N1,B,C);X=B,(var(C)->C='$cont'(H,N);throw(error(uninstantiation_error(X),context(system:shift/1,_))))).\n"
     "'$reset_redo'(H,N,B,C):-'$co_resume'(H,0,N,R,N1),'$reset_k'(R,H,N1,B,C).\n"
     "shift(X):-('$co_inside'->'$co_yield'(shift(X),N),(true;'$co_unwound'(unwound,N));throw(error(existence_error(reset,X),context(shift/1,'No matching reset/3 call')))).\n"
     "'$cont'(H,N):-'$co_resume'(H,1,N,R,N1),'$cont_k'(R,H,N1).\n"
     "'$cont_k'(done,H,N):-(true;'$co_resume'(H,0,N,R,N1),'$cont_k'(R,H,N1)).\n"
     "'$cont_k'(shift(X),H,N):-shift(X),'$co_resume'(H,1,N,R,N1),'$cont_k'(R,H,N1).\n"
     "'$cont_k'(throw(E),_,_):-throw(E).\n"
-    "'$co_body'(G):-'$co_mark',(call(G),'$co_yield'(done,_),fail;'$co_finish'(0,fail)).\n"
+    "'$cont_k'('$det'(R),H,N):-'$cont_d'(R,H,N).\n"
+    "'$cont_d'(done,_,_).\n"
+    "'$cont_d'(shift(X),H,N):-shift(X),'$co_resume'(H,1,N,R,N1),'$cont_k'(R,H,N1).\n"
+    "'$co_body'(G):-'$co_mark',('$co_b0',call(G),'$co_yield'(done,_),fail;'$co_finish'(0,fail)).\n"
     "'$scc_cut':-'$scc_bnew'(B),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(B):-'$scc_take'(B,C),!,(catch(C,_,true)->true;true),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(_).\n"

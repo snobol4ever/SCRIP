@@ -1265,7 +1265,12 @@ static const char *plc_atom_op_text_n(pl_cell_t *t, char *buf, size_t bufsz, siz
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz) { size_t n; return plc_atom_op_text_n(t, buf, bufsz, &n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_num_of_text(const char *s, pl_cell_t *out) { extern int rt_pl_parse_number(const char *, DESCR_t *); return s && rt_pl_parse_number(s, out); }
+static int plc_num_of_text(const char *s, pl_cell_t *out) {
+    extern int rt_pl_parse_number(const char *, DESCR_t *);
+    extern int rt_pl_flag_is(const char *, const char *);
+    if (!s || !rt_pl_parse_number(s, out)) return 0;
+    return !((int)out->v == DT_R && isinf(out->r) && !strstr(s, "Inf") && !strstr(s, "inf") && !rt_pl_flag_is("float_overflow", "infinity"));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_make_atom_cell(const char *name) { int id = prolog_atom_intern(name ? name : ""); const char *nm = prolog_atom_name(id); (void)nm; return pl_make_atom(id); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4641,6 +4646,16 @@ static void pl_db_rc_frame(const void *map, const char *base, void *a) {
         }
     }
 }
+static void pl_db_rc_seg(const char *lo, const char *hi, void *a) {
+    pl_db_rc_t *r = (pl_db_rc_t *)a;
+    for (const char *w = (const char *)(((uintptr_t)lo + 7) & ~(uintptr_t)7); w + 8 <= hi; w += 8) {
+        uint64_t x = *(const uint64_t *)w;
+        const char *p = (const char *)(uintptr_t)(x >> 8);
+        int j;
+        if ((x & 255u) != (uint64_t)DT_RAW || p < r->lo || p >= r->hi || (j = pl_db_frag_find(r->db, p)) < 0 || (r->db->s[j].frag & PL_DB_FRAG_GONE)) continue;
+        pl_db_rc_hold(r, p);
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void rt_pl_db_reclaimed_entry(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4687,6 +4702,7 @@ static void pl_db_reclaim(pl_db_t *db) {
     {
         pl_db_rc_t r = { db, b, b + bb_pool_used(), INT_MAX, lo, hi };
         int ok = rt_gc_frames_visit(pl_db_rc_frame, (void *)&r);
+        if (ok) rt_gc_segments_visit(pl_db_rc_seg, (void *)&r);
         next_lo = db->n;
         for (int i = lo; i <= hi; i++) {
             int held = db->s[i].frag & PL_DB_FRAG_HELD;
