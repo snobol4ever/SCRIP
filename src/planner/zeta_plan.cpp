@@ -1010,13 +1010,12 @@ extern "C" void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind) {
         for (int e = 0; e < zd_pl_edges(nodes[v]); e++) { if (e == 1 || (e >= 2 && nodes[v]->op != IR_DISJUNCTION)) continue;
             int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || !nodes[w] || ind[w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
             if (e == 0) { IR_t * ig = (nodes[v]->op == IR_GATE_ARM && !nodes[v]->γ.node && nodes[v]->n_operands > 1) ? nodes[v]->operands[1] : (IR_t *)0;
+                if (ig && zd_pl_dj_join(nodes, n, nidx(nodes, n, ig), w)) continue;
                 if ((ig ? port_sz_beta(ig->γ.sz) : port_sz_beta(zd_edge_sz(nodes[v], 0))) && zd_beta_via_act(cg, nodes[w])) continue; }
             int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
             if (ub >= 0 && !ind[ub]) continue;
             if (getenv("SCRIP_PL_INDEF_WHO") && atoi(getenv("SCRIP_PL_INDEF_WHO")) == w) fprintf(stderr, "[WHO] prop %d by %d e=%d\n", w, v, e);
-            ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); }
-        if (wl.empty()) for (int u = 0; u < n; u++) { IR_t * x = nodes[u]; int ub = (x && x->op == IR_UNMARK && (IR_LIT(x).ival & 6) && x->n_operands > 0) ? nidx(nodes, n, x->operands[0]) : -1;
-            if (ub >= 0 && ind[ub] && !ind[u]) { ind[u] = 1; wl.push_back(u); } } }
+            ind[w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } }
     std::vector<unsigned char> ia(ind, ind + n), rch((size_t)n, 0); std::vector<int> rl;
     auto reach = [&](IR_t * t) { int q = t ? nidx(nodes, n, zd_chase(t)) : -1; if (q >= 0 && nodes[q] && !ind[q] && !rch[(size_t)q]) { rch[(size_t)q] = 1; rl.push_back(q); } };
     reach(cg->entry);

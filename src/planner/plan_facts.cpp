@@ -246,9 +246,11 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
           if (all) z->gixr = rel(i); }
       if (nd->op == IR_BOUND && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) != (rec->xb[i] != INT_MIN ? 1 : 0)) {
           extern const char * zls_graph_name_get(const IR_graph_t *); fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d def0=%d plan=%d\n", zls_graph_name_get(g), i, planner_pl_definite(g, nd), rec->xb[i] != INT_MIN); }
-      if (nd->op == IR_GATE && !gb && getenv("SCRIP_PL_GATE_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const IR_t * b = (const IR_t *)0; int bi = -1;
+      if (nd->op == IR_GATE && z->gix == INT_MIN && z->gixr == INT_MIN && getenv("SCRIP_PL_GATE_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const IR_t * b = (const IR_t *)0; int bi = -1;
           for (int q = 0; q < n && !b; q++) if (nodes[q]->op == IR_BOUND && zd_chase(nodes[q]->ω.node) == nd) { b = nodes[q]; bi = q; }
-          fprintf(stderr, "[PL-GATE] graph=%s bound=%d spine=%d def=%d xb=%d claim=%d gclaim=%d fam=%d gfam=%d\n", zls_graph_name_get(g), bi, b ? planner_bound_spine(g, b) : -1, b ? planner_pl_definite(g, b) : -1,
+          char uv[64]; int ul = 0; uv[0] = 0; for (int q = 0; b && q < g->n && ul < 56; q++) { const IR_t * u = g->all[q]; if (u && u->op == IR_UNMARK && u->n_operands > 0 && u->operands[0] == b)
+              ul += snprintf(uv + ul, sizeof uv - (size_t)ul, "%d,", (int)IR_LIT(u).ival); }
+          fprintf(stderr, "[PL-GATE] umk=%s narms=%d graph=%s bound=%d spine=%d def=%d xb=%d claim=%d gclaim=%d fam=%d gfam=%d\n", uv, nd->n_operands, zls_graph_name_get(g), bi, b ? planner_bound_spine(g, b) : -1, b ? planner_pl_definite(g, b) : -1,
               (bi >= 0 && rec->xb) ? rec->xb[bi] : -7, bi >= 0 ? rec->claim[bi] : -7, rec->claim[i], (bi >= 0 && rec->fam && rec->claim[bi] >= 0) ? rec->fam[rec->claim[bi]] : -7,
               (rec->fam && rec->claim[i] >= 0) ? rec->fam[rec->claim[i]] : -7); }
       if (gb && z->gix == INT_MIN && z->gixr == INT_MIN && getenv("SCRIP_PL_ALIAS_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *);
