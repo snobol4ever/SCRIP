@@ -597,10 +597,11 @@ static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     return r ? 0 : 1;
 }
 extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate) {
-    if (!g || !gate || gate->op != IR_GATE || !zd_pl_home(g)) return 0;
+    if (!g || !gate || gate->op != IR_GATE || !zd_pl_home(g) || !getenv("SCRIP_PL_GATE_CELLS")) return 0;
     int v = zls_fcn_bs_get(gate, 3);
     if (v) return v == 2;
-    int ok = 1;
+    const IR_t * t = zd_chase((IR_t *)gate->γ.node);
+    int ok = !(t && (t->op == IR_GATE_ARM || t->op == IR_DISJUNCTION));
     for (int i = 0; i < g->n && ok; i++) { const IR_t * x = g->all[i]; if (x && x != gate && zd_chase((IR_t *)x->γ.node) == gate && port_sz_beta(x->γ.sz)) ok = 0; }
     zls_fcn_bs_set(gate, 3, ok ? 2 : 1);
     return ok;
