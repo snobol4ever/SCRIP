@@ -235,7 +235,6 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0; z->gix = INT_MIN; z->gixr = INT_MIN;
     { const IR_t * gt = nd->op == IR_GATE ? nd : (nd->op == IR_GATE_ARM && nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
       const IR_t * gb = gt ? planner_gate_bound(g, gt) : (const IR_t *)0; int bk = gb ? nidx(nodes, n, (IR_t *)gb) : -1;
-      for (int q = 0; gt && bk < 0 && q < n; q++) if (nodes[q]->op == IR_BOUND && zd_chase(nodes[q]->ω.node) == gt && planner_bound_spine(g, nodes[q])) bk = q;
       if (bk >= 0 && rec->on[bk] && rec->xb && rec->xb[bk] != INT_MIN) z->gix = 48 - (rec->xb[bk] + rec->out[bk]);
       else if (bk >= 0 && rec->on[bk] && rec->claim && rec->claim[bk] >= 0) {
           auto rel = [&](int m) { int cm = (m >= 0 && rec->on[m]) ? rec->claim[m] : -1, cb = rec->claim[bk]; if (cm < 0) return INT_MIN;
@@ -244,6 +243,10 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
           int gq = nidx(nodes, n, (IR_t *)gt), all = gq >= 0 && rec->on[gq] && rel(gq) != INT_MIN;
           for (int q = 0; all && q < n; q++) if (nodes[q]->op == IR_GATE_ARM && nodes[q]->n_operands > 1 && nodes[q]->operands[1] == gt && rec->on[q] && rel(q) == INT_MIN) all = 0;
           if (all) z->gixr = rel(i); }
+      if (gb && rec->on[i] && z->gix == INT_MIN && z->gixr == INT_MIN) { extern const char * zls_graph_name_get(const IR_graph_t *);
+          fprintf(stderr, "FATAL planner: %s in %s -- the frame layout put its gate's live-arm index in its BOUND's spine carve (planner_gate_bound) and granted no frame word, "
+              "but the plan reaches the carve neither through the rbp alias nor at a fixed rsp distance\n", bb_op_name(nd->op), zls_graph_name_get(g));
+          abort(); }
       if (nd->op == IR_BOUND && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) != (rec->xb[i] != INT_MIN ? 1 : 0)) {
           extern const char * zls_graph_name_get(const IR_graph_t *); fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d def0=%d plan=%d\n", zls_graph_name_get(g), i, planner_pl_definite(g, nd), rec->xb[i] != INT_MIN); }
       if (nd->op == IR_GATE && z->gix == INT_MIN && z->gixr == INT_MIN && getenv("SCRIP_PL_GATE_DIAG")) { extern const char * zls_graph_name_get(const IR_graph_t *); const IR_t * b = (const IR_t *)0; int bi = -1;

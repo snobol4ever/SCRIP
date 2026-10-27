@@ -543,11 +543,13 @@ extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd) {
     return 0;
 }
 static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd);
+static int zd_pl_freezes(const IR_graph_t * g) { return g && zls_g_resumable_frame(g) && (zls_g_home_frame(g) || g->home_frame); }
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
-    if (!zd_pdef_locked(g) || !nd || nd->op != IR_BOUND) return zd_bound_spine0(g, nd);
-    unsigned char & m = g_planner.pdef_memo[nd];
-    if (!(m & 1)) m = (unsigned char)(m | 1 | (zd_bound_spine0(g, nd) ? 2 : 0));
-    return (m & 2) ? 1 : 0;
+    if (!nd || nd->op != IR_BOUND) return 0;
+    { int v = zls_fcn_bs_get(nd, 2); if (v) return v == 2; }
+    int r = zd_bound_spine0(g, nd);
+    if (zd_pl_freezes(g)) zls_fcn_bs_set(nd, 2, r ? 2 : 1);
+    return r;
 }
 static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     if (!g || !nd || nd->op != IR_BOUND || !(zls_g_home_frame(g) || g->home_frame) || !zls_g_resumable_frame(g)) return 0;
@@ -593,9 +595,14 @@ static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     }
     return r ? 0 : 1;
 }
-extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd) { return (nd && nd->op == IR_BOUND && planner_bound_spine(g, nd) && planner_pl_definite(g, nd)) ? 1 : 0; }
-extern "C" const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * gate) {
-    if (!g || !gate || gate->op != IR_GATE) return (const IR_t *)0;
+extern "C" int planner_bound_gidx(const IR_graph_t * g, const IR_t * nd) {
+    if (!nd || nd->op != IR_BOUND) return 0;
+    { int v = zls_fcn_bs_get(nd, 3); if (v) return v == 2; }
+    int r = (planner_bound_spine(g, nd) && planner_pl_definite(g, nd)) ? 1 : 0;
+    if (zd_pl_freezes(g)) zls_fcn_bs_set(nd, 3, r ? 2 : 1);
+    return r;
+}
+static const IR_t * zd_gate_bound0(const IR_graph_t * g, const IR_t * gate) {
     if (zd_pdef_locked(g)) {
         if (!g_planner.pdef_gb_ok) { g_planner.pdef_gb_ok = 1;
             for (int i = 0; i < g->n; i++) { const IR_t * b = g->all[i], * t = b && b->op == IR_BOUND ? zd_chase((IR_t *)b->ω.node) : (const IR_t *)0;
@@ -603,6 +610,16 @@ extern "C" const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * ga
         auto it = g_planner.pdef_gb.find(gate); return it == g_planner.pdef_gb.end() ? (const IR_t *)0 : it->second; }
     for (int i = 0; i < g->n; i++) { const IR_t * b = g->all[i]; if (b && b->op == IR_BOUND && zd_chase((IR_t *)b->ω.node) == gate && planner_bound_gidx(g, b)) return b; }
     return (const IR_t *)0;
+}
+extern "C" const IR_t * planner_gate_bound(const IR_graph_t * g, const IR_t * gate) {
+    if (!g || !gate || gate->op != IR_GATE) return (const IR_t *)0;
+    int v = zls_fcn_bs_get(gate, 3);
+    if (v == 1) return (const IR_t *)0;
+    const IR_t * b = zd_gate_bound0(g, gate);
+    if (!v && zd_pl_freezes(g)) zls_fcn_bs_set(gate, 3, b ? 2 : 1);
+    if (v == 2 && !b) { extern const char * zls_graph_name_get(const IR_graph_t *);
+        fprintf(stderr, "FATAL planner: a GATE in %s was laid out with its live-arm index in its BOUND's spine carve, and no gidx BOUND reaches it now\n", zls_graph_name_get(g)); abort(); }
+    return b;
 }
 static int zd_bound_pop(const IR_graph_t * cg, IR_t * b) { return zd_k_own_g(cg, b) - 16; }
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }

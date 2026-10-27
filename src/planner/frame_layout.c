@@ -1892,6 +1892,10 @@ typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int
 #define FCN_BSF 0x100000u
 #define FCN_BOK 0x200000u
 #define FCN_BOV 0x400000u
+#define FCN_BVK 0x800000u
+#define FCN_BVV 0x1000000u
+#define FCN_GVK 0x2000000u
+#define FCN_GVV 0x4000000u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fc_reg_hw(const char * tbl, int n) {
     if (g_lower.ir.fc_reg_hw_e == (const char *) 1) g_lower.ir.fc_reg_hw_e = getenv("SCRIP_FC_REG_HIGHWATER");
@@ -2054,10 +2058,12 @@ void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int 
 }
 int zls_fcn_hret(const IR_t * nd) { return fcn_find(nd, FCN_HRET) ? 1 : 0; }
 int zls_fcn_hunres(const IR_t * nd) { return fcn_find(nd, FCN_HUNRES) ? 1 : 0; }
-int zls_fcn_bs_get(const IR_t * nd, int which) { uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF; return fcn_find(nd, k) ? (fcn_find(nd, v) ? 2 : 1) : 0; }
+static uint32_t zls_fcn_bs_k(int which) { return which == 3 ? FCN_GVK : which == 2 ? FCN_BVK : which ? FCN_BOK : FCN_BSK; }
+static uint32_t zls_fcn_bs_v(int which) { return which == 3 ? FCN_GVV : which == 2 ? FCN_BVV : which ? FCN_BOV : FCN_BSF; }
+int zls_fcn_bs_get(const IR_t * nd, int which) { uint32_t k = zls_fcn_bs_k(which), v = zls_fcn_bs_v(which); return fcn_find(nd, k) ? (fcn_find(nd, v) ? 2 : 1) : 0; }
 void zls_fcn_bs_set(const IR_t * nd, int which, int val) {
     if (!nd) return;
-    uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF;
+    uint32_t k = zls_fcn_bs_k(which), v = zls_fcn_bs_v(which);
     fcn_t * t = fcn_get(nd);
     t->fl |= k;
     if (val == 2) t->fl |= v;
@@ -2274,6 +2280,7 @@ static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int 
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     if (nd && (nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
+    if (nd && nd->op == IR_GATE && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g) && planner_gate_bound(g, nd)) return 0;
     if (nd && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g)) return 0;
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
