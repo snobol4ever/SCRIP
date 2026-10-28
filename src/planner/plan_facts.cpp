@@ -118,6 +118,21 @@ static void pf_blob_layout(zeta_plan_t * rec) {
         }
     push(-(planner_blob_head_bytes() + planner_blob_slot_bytes()), GC_LAY_RAW, 8);
     qsort(v.data(), v.size(), sizeof(uint64_t), pf_lay_cmp);
+    const char * gn = rec->cfg ? zls_graph_name_get(rec->cfg) : (const char *)0;
+    int expect = -rec->blob_bytes;
+    for (size_t i = 0; i < v.size(); i++) {
+        int o = GC_LAY_OFF(v[i]);
+        if (o != expect) {
+            fprintf(stderr, "FATAL planner blob layout: graph %s entry %d at rbp%+d, expected rbp%+d -- the static layout does not tile the blob frame [%d, 24) "
+                "and a layout that does not cover its frame is a guess (ARCH-GC section 6.2e)\n", gn ? gn : "?", (int)i, o, expect, -rec->blob_bytes);
+            abort();
+        }
+        expect += GC_LAY_SIZE(v[i]);
+    }
+    if (expect != 24) {
+        fprintf(stderr, "FATAL planner blob layout: graph %s layout ends at rbp%+d, expected rbp+24 (frame [%d, 24))\n", gn ? gn : "?", expect, -rec->blob_bytes);
+        abort();
+    }
 }
 static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {

@@ -2615,18 +2615,10 @@ static void blob_first_guard(void) {
     }
     emit_label_define_bb(ok);
 }
-static int blob_layout_build(int bfb) {
+static void blob_layout_build(void) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     g_emitter.g_blob_lay.len = 0;
     for (size_t i = 0; r && i < r->v_blob_lay.size(); i++) CV_PUSH(g_emitter.g_blob_lay, uint64_t) = r->v_blob_lay[i];
-    { int expect = -bfb; for (int i = 0; i < (int)g_emitter.g_blob_lay.len; i++) { int o = GC_LAY_OFF(CV_AT(g_emitter.g_blob_lay, uint64_t, i));
-        if (o != expect)
-        { fprintf(stderr,
-        "FATAL blob_layout_build: graph %s entry %d at rbp%+d, expected rbp%+d -- the static layout does not tile the blob frame [%d, 24) and a layout that does not cover its frame is a guess (ARCH-"
-        "GC section 6.2e)\n", g_emit.flat_fam ? g_emit.flat_fam : "?", i, o, expect, -bfb); abort(); } expect += GC_LAY_SIZE(CV_AT(g_emitter.g_blob_lay, uint64_t, i)); }
-      if (expect != 24) { fprintf(stderr, "FATAL blob_layout_build: graph %s layout ends at rbp%+d, expected rbp+24 (frame [%d, 24))\n", g_emit.flat_fam ? g_emit.flat_fam : "?", expect, -bfb);
-          abort(); } }
-    return (int)g_emitter.g_blob_lay.len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_diag_regs_suppress(void) {
@@ -3384,7 +3376,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     int _sigk = 0;
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam, &_sigk);
     if (!bare && blob_frame_scope()) blob_first_guard();
-    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
+    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build();
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
         emit_gc_map_register(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2, GC_LINK_Q(8, 0, 8, 0u)) + blob_zero_fill(_bfb) +
         IF(blob_cont_copy(), x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx")) +
