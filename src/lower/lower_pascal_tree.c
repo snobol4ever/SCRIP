@@ -1050,6 +1050,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             int isr = !isc && v && v->t == TT_VAR && v->v.sval && pas_var_is_real(v->v.sval);
             tree_t *rv = isr ? (fstream ? mk_set_bin("__pas_read_i_f", pas_tree_clone(fstream), ilit(1)) : mk_fnc1("__pas_read_i", ilit(1))) : fstream ?
                 mk_fnc1(isc ? "__pas_read_c_f" : "__pas_read_i_f", pas_tree_clone(fstream)) : mk_fnc0(isc ? "__pas_read_c" : "__pas_read_i");
+            if (g_lower.pas.sem.pas_dialect_fpc && !isc) rv = fstream ? mk_fnc3("__pas_read_i_f", pas_tree_clone(fstream), ilit(isr), ilit(1)) : mk_fnc2("__pas_read_i", ilit(isr), ilit(1));
             {
                 long long _lo, _hi;
                 if (!isr && g_lower.pas.sem.pas_range_check_on && v && v->t == TT_VAR && v->v.sval && !pas_is_setvar(v->v.sval) && pas_subvar_get(v->v.sval, &_lo, &_hi)) rv =

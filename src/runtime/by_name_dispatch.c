@@ -4071,12 +4071,13 @@ static char *pas_numeral_put(char *b, size_t *n, size_t *cap, int c) {
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
+static DESCR_t pas_read_number(FILE *f, int real, int fpc, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     char *b = NULL;
     size_t n = 0, cap = 0;
     int c = fgetc(f), nd = 0, bad = 0;
     while (c != EOF && isspace(c)) c = fgetc(f);
+    if (c == EOF && fpc) return real ? REALVAL(0.0) : INTVAL(0);
     if (c == EOF) pas_file_err("6.9.1", "end-of-file is true when a number is to be read", fn);
     if (c == '+' || c == '-') { b = pas_numeral_put(b, &n, &cap, c); c = fgetc(f); }
     if (!real) {
@@ -21961,7 +21962,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5121:
     ;
-    if ((_bid == BID___pas_read_i) && (nargs == 0 || nargs == 1)) { *out = pas_read_number(stdin, nargs == 1, fn); return 1; }
+    if ((_bid == BID___pas_read_i) && (nargs == 0 || nargs == 1 || nargs == 2)) {
+        *out = pas_read_number(stdin, nargs == 1 || (nargs == 2 && args[0].i != 0), nargs == 2 && args[1].i != 0, fn);
+        return 1;
+    }
     L_bidjmp_5124:
     ;
     if ((_bid == BID___pas_read_c) && nargs == 0) { int c = getchar(); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
@@ -21985,7 +21989,14 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         extern FILE *fh_get(int);
         FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL;
         if (!f) f = stdin;
-        *out = pas_read_number(f, 1, fn);
+        *out = pas_read_number(f, 1, 0, fn);
+        return 1;
+    }
+    if ((_bid == BID___pas_read_i_f) && nargs == 3) {
+        extern FILE *fh_get(int);
+        FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL;
+        if (!f) f = stdin;
+        *out = pas_read_number(f, args[1].i != 0, args[2].i != 0, fn);
         return 1;
     }
     if (((_bid == BID___pas_read_i_f) || (_bid == BID___pas_read_c_f) || (_bid == BID___pas_readln_f) || (_bid == BID___pas_eof_f) || (_bid == BID___pas_eoln_f) || (_bid == BID___pas_getbufch_f)) &&
@@ -21997,7 +22008,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             core_runtime_error(103, "file not open for reading (reset it first)");
         }
         if (!f) f = stdin;
-        if ((_bid == BID___pas_read_i_f)) { *out = pas_read_number(f, 0, fn); return 1; }
+        if ((_bid == BID___pas_read_i_f)) { *out = pas_read_number(f, 0, 0, fn); return 1; }
         if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
         if ((_bid == BID___pas_readln_f)) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
         if ((_bid == BID___pas_eof_f)) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
