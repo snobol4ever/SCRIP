@@ -96,6 +96,8 @@ struct g_planner_t {
     int codegen_flat_chain_body_postv_cap = 0;
     std::unordered_map<const IR_t *, struct zeta_plan_t *> planner_table;
     int dump_plan_cols = 0;
+    int dump_homes = 0;
+    int dump_plan = 0;
     std::vector<signed char> dh_rt;
     std::unordered_map<std::string, int> dh_gidx;
     int planner_hits = 0, planner_fallbacks = 0, planner_planned = 0, planner_rt = 0, planner_report_armed = 0;

@@ -24,6 +24,11 @@ void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, cons
     rec->road = *rd; rec->scope = scope; rec->head = head;
     planner_blob_facts(rec);
     if (g) planner_graph_facts(g);
+    if (g_planner.dump_homes || g_planner.dump_plan) {
+        planner_restore(rec);
+        if (g_planner.dump_homes) planner_dump_homes(g, g_planner.codegen_flat_chain_body_nodes, rec->n, rec->on);
+        if (g_planner.dump_plan) planner_dump_plan(g, rec, prefix);
+    }
 }
 void planner_stage_proc(stage2_t * s2, int pi, int mode) {
     ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; int idx = pe->bb_idx;

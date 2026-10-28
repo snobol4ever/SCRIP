@@ -72,7 +72,9 @@ static const char * xop_frame_why(const IR_t * nd) {
     return zls_dj_retains(nd) ? "retaining-disjunction" : nd->op == IR_TO ? "generator-state" : "read-across-retaining-edge";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon, const int * eslot) {
+void planner_dump_homes_on(void) { g_planner.dump_homes = 1; }
+void planner_dump_plan_on(void) { g_planner.dump_plan = 1; }
+void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
     int gi = -1;
@@ -82,7 +84,7 @@ void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsign
         if (!nd) continue;
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
-        int off = eslot[i]; if (off < 0) off = zls_off(nd); if (zls_key_unbacked(g, off)) off = -1;
+        int off = zls_off(nd); if (zls_key_unbacked(g, off)) off = -1;
         int xf = planner_rec_home(nd), rbp = xf != -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
         int hs = !esc && !rbp && off >= 0 && zls_home_why(nd) && !ir_node_produces_value(nd->op);
         int hr = !esc && !rbp && !hs && off >= 0 && g && zls_g_hf_resident(g, nd) && (nd->op != IR_DISJUNCTION || zls_dj_retains(nd) || !zd_dj_on_spine(nd));

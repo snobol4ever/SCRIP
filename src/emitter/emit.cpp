@@ -2990,8 +2990,6 @@ extern "C" void emit_gc_tables_register(const void *fn) { if (!fn) return;
 extern "C" int emit_gc_map_names_n(void) { return g_emitter.g_gc_map_names_n; }
 extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_emitter.g_gc_map_names_n) ? CV_AT(g_emitter.g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void emit_dump_homes_on(void) { g_emitter.dump_homes = 1; }
-extern "C" void emit_dump_plan_on(void) { g_emitter.dump_plan = 1; }
 extern "C" int zls_g_resumable_frame(const IR_graph_t * g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const znode_t * zrow(const IR_t * nd) {
@@ -3046,12 +3044,6 @@ static void emit_ops_reserve(int n) {
     g_emit.op_zcap = cap;
 }
 static int zrow_under(int ri) { const zeta_plan_t * r = g_planner.g_zd_rec_p; return (ri >= 0 && r && r->under) ? r->under[ri] : 0; }
-static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
-    int * es = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    for (int i = 0; i < n; i++) es[i] = nodes[i] ? bb_slot_get(nodes[i]) : -1;
-    planner_dump_homes(g_emit_cfg, nodes, n, zon, es);
-}
-static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) { planner_dump_plan(g_emit_cfg, pl, prefix); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
@@ -3124,8 +3116,6 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));
         int * _tpd = (int *)alloca(sizeof(int) * (size_t)(n + 1)); int _tpn = 0;
     zd_check(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, zd_arm, prefix);
-    if (g_emitter.dump_homes) emit_dump_homes(g_planner.codegen_flat_chain_body_nodes, n, zd_on);
-    if (g_emitter.dump_plan) emit_dump_plan(_pl, prefix);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
     if (g_emitter.codegen_flat_chain_body__zk0_on && g_emit_cfg && g_emit_cfg->spine_cells) {

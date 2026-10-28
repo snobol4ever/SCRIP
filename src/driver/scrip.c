@@ -1726,12 +1726,12 @@ int main(int argc, char **argv) {
                 dump_zeta = 1;
                 argi++;
             } else if (strcmp(argv[argi], "--dump-homes") == 0) {
-                extern void emit_dump_homes_on(void);
-                emit_dump_homes_on();
+                extern void planner_dump_homes_on(void);
+                planner_dump_homes_on();
                 argi++;
             } else if (strcmp(argv[argi], "--dump-plan") == 0) {
-                extern void emit_dump_plan_on(void);
-                emit_dump_plan_on();
+                extern void planner_dump_plan_on(void);
+                planner_dump_plan_on();
                 mode_compile = 1;
                 if (!target_name) target_name = "x86";
                 if (!output_path) output_path = "/dev/null";

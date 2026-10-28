@@ -41,8 +41,6 @@ typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 struct zeta_plan_t;
 struct g_emitter_t {
-    int dump_homes = 0;
-    int dump_plan = 0;
     int g_zd_abs = 0;
     int g_zd_def = 1;
     int g_zd_cutd = -1;
