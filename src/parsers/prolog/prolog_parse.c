@@ -1401,6 +1401,16 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_syn(p, dot, SYN_END, "expected . at end of SSU rule");
+    } else if ((pk.kind == TK_OP || pk.kind == TK_ATOM) && find_binop(pk.text) && find_binop(pk.text)->prec == 1200) {
+        const OpEntry *fop = find_binop(pk.text);
+        Token op_tk = lexer_next(&p->lx);
+        tree_t *rhs_tr = pt_term(p, ts, fop->assoc == ASSOC_RIGHT ? 1200 : 1199);
+        { tree_t *_cl = ast_node_new(TT_CLAUSE);
+          ast_push(_cl, pt_stamp(pt_binop(op_tk.text, head_tr, rhs_tr), op_tk.line));
+          cl->tr = _cl; }
+        Token dot = lexer_next(&p->lx);
+        if (dot.kind != TK_DOT)
+            perror_syn(p, dot, SYN_END, "expected . at end of fact");
     } else {
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, head_tr);
