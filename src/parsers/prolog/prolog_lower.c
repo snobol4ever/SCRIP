@@ -1005,6 +1005,7 @@ static void pl_mod_strip_head(PlClause *cl) {
 }
 static void pl_module_flatten(PlProgram *pl_prog) {
     pl_mods_t ms;
+    cv_t udefs = { 0 };
     int n = 0, ci = 0, any = 0;
     memset(&ms, 0, sizeof ms);
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) n++;
@@ -1048,7 +1049,11 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             const char *dm = m1v[ci];
             int foreign = 0;
             if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && pl_mod_atomish(h->c[0])) { dm = h->c[0]->v.sval; h = h->c[1]; foreign = 1; }
-            if (!h || !dm || !strcmp(dm, "user")) continue;
+            if (!h || !dm) continue;
+            if (!strcmp(dm, "user")) {
+                if (g_stage2.pl_dialect == PL_DIALECT_SWI && !foreign && h->v.sval && (h->t == TT_FNC || pl_mod_atomish(h)) && !pl_mod_never_renamed(h->v.sval, h->t == TT_FNC ? h->n : 0, 0)) pl_mk_add(&udefs, "user", h->v.sval, h->t == TT_FNC ? h->n : 0);
+                continue;
+            }
             if (h->t == TT_FNC && h->n == 2 && h->v.sval && (!strcmp(h->v.sval, ":-") || !strcmp(h->v.sval, ",") || !strcmp(h->v.sval, ";") || !strcmp(h->v.sval, "->") || !strcmp(h->v.sval, ":"))) continue;
             {
                 const char *hn = h->v.sval;
@@ -1067,7 +1072,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         cv_t keep = { 0 };
         for (uint32_t i = 0; i < ms.defs.len; i++) {
             const pl_mkey_t *e = &CV_AT(ms.defs, pl_mkey_t, i);
-            if (strncmp(e->mod, "plunit_", 7) && pl_mk_has(&ms.exps, e->mod, e->name, e->ar)) continue;
+            if (strncmp(e->mod, "plunit_", 7) && pl_mk_has(&ms.exps, e->mod, e->name, e->ar) && !pl_mk_has(&udefs, "user", e->name, e->ar)) continue;
             CV_PUSH(keep, pl_mkey_t) = *e;
         }
         ms.defs = keep;
