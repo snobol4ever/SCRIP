@@ -1989,7 +1989,13 @@ static const char *core_apply_target(const DESCR_t *a) {
     if (!fname) fname = VARVAL_fn(a[0]);
     return fname;
 }
-static DESCR_t _APPLY_(DESCR_t *a, int n) { if (n < 1) return NULVCL; return RT_GC_CALLBACK(APPLY_fn(core_apply_target(a), a + 1, n - 1)); }
+static int core_apply_arg_ok(const DESCR_t *a, int n) {
+    const char *fname = n >= 1 ? core_apply_target(a) : (const char *)0;
+    const int notname = n >= 1 && (a[0].v == DT_A || a[0].v == DT_T || a[0].v == DT_P || a[0].v == DT_C || a[0].v == DT_E);
+    if (notname || !fname || !*fname) { core_runtime_error(60, "apply first arg is not natural variable name"); return 0; }
+    return 1;
+}
+static DESCR_t _APPLY_(DESCR_t *a, int n) { if (!core_apply_arg_ok(a, n)) return FAILDESCR; return RT_GC_CALLBACK(APPLY_fn(core_apply_target(a), a + 1, n - 1)); }
 static DESCR_t _ARG_(DESCR_t *a, int n);
 static DESCR_t _DEFINE_(DESCR_t *a, int n);
 static DESCR_t _FIELD_(DESCR_t *a, int n);
@@ -4892,6 +4898,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
             }
             if (e->fn == _APPLY_ && rq && nargs >= 1) {
                 extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);
+                if (!core_apply_arg_ok(args, nargs)) return FAILDESCR;
                 return RT_GC_CALLBACK(APPLY_fn_rq(core_apply_target(args), args + 1, nargs - 1, rq));
             }
             if (e->fn == _EVAL_ && rq && rq[1] == RT_RQ_EVAL_ARM && nargs == 1 && rt_eval_open_takes(args[0])) { rq[0] = RT_TRY_EVAL_OPEN; rq[1] = (long)(uintptr_t)args; return FAILDESCR; }

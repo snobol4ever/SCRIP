@@ -4538,7 +4538,7 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
     if (!args || nargs < 1) return none;
     {
         const char *pn = (args[0].v == DT_N && args[0].slen == 0) ? args[0].s : VARVAL_fn(args[0]);
-        if (!pn || !*pn) return none;
+        if (!pn || !*pn) { extern void core_runtime_error(int, const char *); core_runtime_error(60, "apply first arg is not natural variable name"); return none; }
         {
             int na = nargs - 1;
             rt_call_args_need(na);

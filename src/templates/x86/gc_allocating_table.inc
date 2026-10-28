@@ -565,6 +565,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "comm_var_tail", GC_RET_VOID },
     { "compile_chain", GC_RET_OTHER },
     { "core_DATA_register", GC_RET_DESCR },
+    { "core_apply_arg_ok", GC_RET_OTHER },
     { "core_apply_runtime_proc", GC_RET_OTHER },
     { "core_apply_target", GC_RET_OTHER },
     { "core_error_voice", GC_RET_VOID },
