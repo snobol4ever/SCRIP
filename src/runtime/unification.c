@@ -1636,7 +1636,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         return plc_text_built(a2_cell, cat, l0 + l1, l0 + l1, 1, cx);
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
-        const char *sep = (t1 && ((int)t1->v == DT_PLATOM || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
+        const char *sep = (t2 && t1 && ((int)t1->v == DT_PLATOM || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
         void *result_cell = t2 ? a2_cell : a1_cell;
         size_t sl = (sep && sep[0]) ? strlen(sep) : 0, need = 1;
         long ne = 0;
