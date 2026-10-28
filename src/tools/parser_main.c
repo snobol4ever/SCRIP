@@ -33,6 +33,7 @@
 #define PARSER_NAME "rebus"
 #define PARSER_PARSE rebus_compile_parse
 #define PARSER_TREE(p) (rebus_nerrors > 0 ? NULL : (tree_t *)(p))
+#define PARSER_RESET rebus_reset
 #elif defined(PARSER_LANG_RAKU)
 #include "parsers/raku/raku_driver.h"
 #define PARSER_NAME "raku"
@@ -169,6 +170,9 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
     return parse_snobol4_program(src, len, name, pns, hash);
 #else
     (void)len;
+#if defined(PARSER_RESET)
+    PARSER_RESET();
+#endif
     int64_t a = mono_ns();
     void * parsed = PARSER_PARSE(src, name);
     *pns += mono_ns() - a;

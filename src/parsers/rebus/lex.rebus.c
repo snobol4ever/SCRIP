@@ -2357,6 +2357,8 @@ extern int   rebus_yyparse(void);
 extern void  rebus_parse_init(void);
 tree_t      *rebus_parsed_program = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rebus_reset(void) { rebus_nerrors=0; yylineno=1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rebus_parse_buf(const char *src, size_t len, const char *filename) {
     rebus_filename=(char *)filename;
     last_tok=0;
