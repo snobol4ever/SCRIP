@@ -322,14 +322,8 @@ function LibPeek(p, t, lib) {
 }
 LibScan   = @lbp *LibPeek(lbp);
 /* a registered infix operator of 1100 or more is not the head of a 700-level operator: cmp_expr would take the < of <=> or the == of ==> and then => or > as a bare atom, and its FENCE would commit */
-function ChrAhead(p, t, b) {
-    Src ? (TAB(p) *Graphic_atom . t);
-    b = uop_band['in' t];
-    if (b ? (POS(0) ('in1100' | 'in1180' | 'in1190' | 'in1200') RPOS(0))) { return; }
-    freturn;
-}
 chr_on    = FAIL;
-chr_stop  = *chr_on *$' ' @cap *ChrAhead(cap);
+chr_stop  = *chr_on *$' ' @cap *DIFFER(Src ? (POS(cap) *Graphic_atom . chr_t)) ( *IDENT(uop_band['in' chr_t], 'in1100') | *IDENT(uop_band['in' chr_t], 'in1180') | *IDENT(uop_band['in' chr_t], 'in1190') | *IDENT(uop_band['in' chr_t], 'in1200') );
 /* ==================================================================================================================== */
 arg       = ( *arg_top | (*Graphic_atom | ';') . b_name . *Shift('TT_QLIT', b_name) );
 arg_ite   = ( *unify_expr FENCE( *$'->' *arg_ite  . *Reduce('TT_FNC', 2, '->') | epsilon ) );
