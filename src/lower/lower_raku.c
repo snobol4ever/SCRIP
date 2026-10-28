@@ -2142,7 +2142,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ir_operand_push(to, rlo);
                 ir_operand_push(to, rhi);
                 if (rhi && ir_is_generator_kind(to->op)) lc_γ_to(rhi, to);
+                IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
+                cx->loop_exit = γ;
+                cx->loop_next = to;
                 IR_t * inner = rk_xf_body(cx, xf, xfk, vname, to, body, to, ω);
+                cx->loop_exit = sv_exit;
+                cx->loop_next = sv_next;
                 γ_to(to, inner);
                 *res = to;
                 return elo;
