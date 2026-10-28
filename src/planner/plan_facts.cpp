@@ -34,6 +34,7 @@ extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd)
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate);
 extern "C" void planner_pdef_lock(const IR_graph_t * g);
+extern "C" int planner_pl_definite(const IR_graph_t * g, const IR_t * nd);
 extern "C" void planner_pdef_unlock(void);
 extern "C" int fc_call_active(const IR_t * nd);
 extern "C" int zls_dj_rbp_arms(const IR_t * nd);
@@ -253,6 +254,9 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     z->tret = nd->op == IR_CALL_PROC_STAGED ? bb_proc_target_retains(IR_LIT(nd).sval) : 0;
     z->zsmown = 0;
     z->zsmw = planner_zsm_on() ? planner_zsm_row_word(g, rec, i, &z->zsmown) : 0L;
+    if ((nd->op == IR_BOUND || ir_node_produces_value(nd->op)) && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) && rec->xb[i] == INT_MIN) {
+          extern const char * zls_graph_name_get(const IR_graph_t *);
+              fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d %s def0=1 plan=0\n", zls_graph_name_get(g), i, bb_op_name(nd->op)); }
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }
     IR_t * ow = nd->op == IR_UNMARK ? (nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0) : nd->op == IR_SCAN ? z->vp1 : (IR_t *)0;
     int b = ow ? nidx(nodes, n, ow) : -1;

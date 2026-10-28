@@ -14,7 +14,7 @@ extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 extern int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
-extern const unsigned char * planner_pass_marks(const IR_graph_t * cg);
+extern void planner_pl_indef0(const IR_graph_t * cg, unsigned char * ind);
 extern int planner_gate_cells(const IR_graph_t * g, const IR_t * gate);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
@@ -2184,8 +2184,7 @@ void zls_home_pass(const IR_graph_t * g) {
     unsigned int stamp = 0;
     unsigned char pind[n > 0 ? n : 1];
     int plh = g->home_frame && zls_g_resumable_frame(g);
-    memset(pind, 0, (size_t)(n > 0 ? n : 1));
-    if (plh) { const unsigned char * pm = planner_pass_marks(g); if (pm) memcpy(pind, pm, (size_t)n); }
+    if (plh) planner_pl_indef0(g, pind);
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
         if (!cx) continue;
