@@ -688,7 +688,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
              + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx")
              + x86("pop", "rax")
-             + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
+             + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size()))
+                            + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
+                            : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
         return x86("mov", "rdi", "rax")
@@ -794,7 +796,9 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
              + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx")
              + x86("pop", "rax")
-             + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
+             + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size()))
+                            + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
+                            : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_ω();
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
