@@ -457,6 +457,7 @@ static int pas_is_unsigned_inttypename(const char *n) {
     for (size_t i = 0; i < sizeof(U) / sizeof(U[0]); i++) if (!strcmp(n, U[i])) return 1;
     return 0;
 }
+static int pas_is_u64_typename(const char *t) { return t && (!strcmp(t, "qword") || !strcmp(t, "uint64") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeuint") || !strcmp(t, "ptruint")); }
 static int pas_with_holds_pointee_of(tree_t *ptr);
 static int pas_dyn_depth(tree_t *e, const char **elem) {
     if (!e) return 0;
@@ -501,7 +502,7 @@ static tree_t *pas_split_writes(tree_t *e) {
     int i0 = (e->n >= 3 && e->c[2] && e->c[2]->t == TT_ILIT && e->c[2]->v.ival == -9) ? 3 : 1;
     int gs[e->n + 1], gcall[e->n + 1], ng = 0, needs = 0;
     for (int i = i0; i + 1 < e->n;) {
-        int g = (e->c[i + 1] && e->c[i + 1]->t == TT_ILIT && (e->c[i + 1]->v.ival == -10 || e->c[i + 1]->v.ival == -3)) ? 4 : 2;
+        int g = (e->c[i + 1] && e->c[i + 1]->t == TT_ILIT && (e->c[i + 1]->v.ival == -10 || e->c[i + 1]->v.ival == -11 || e->c[i + 1]->v.ival == -3)) ? 4 : 2;
         if (i + g > e->n) g = e->n - i;
         gs[ng] = i;
         gcall[ng] = 0;
@@ -1225,7 +1226,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             for (int i = _wstart; i + 1 < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 tree_t *wid = args->items[i + 1];
-                int is_char = pas_is_charexpr(val);
+                int is_char = pas_is_charexpr(val), _uw = 0;
                 const char *_enm = (val && val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
                 if (_enm) {
                     tree_t *_w = ast_node_new(TT_FNC);
@@ -1250,7 +1251,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6);
                 } else if (pas_is_qword(val) && val->t == TT_VAR) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(g_lower.pas.sem.pas_seen_mode_directive ? -8 : -7);
-                    else val = mk_fnc1("__pas_ustr", val);
+                    else _uw = 1;
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) {
                     val = pas_alpha_wrap(val);
                 } else if (pas_ca_is_read(val)) {
@@ -1265,6 +1266,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 if (g_lower.pas.sem.pas_seen_mode_directive && wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-4);
                 int _cont = _fmt_cont;
                 _fmt_cont = wid->t == TT_ILIT && wid->v.ival == -3;
+                if (_uw && !_cont) { ast_push(e, val); ast_push(e, ilit(-11)); ast_push(e, wid); ast_push(e, ilit(0)); continue; }
                 if (!_cont && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso && !(wid->t == TT_ILIT && wid->v.ival < 0)) {
                     ast_push(e, val);
                     ast_push(e, ilit(-10));
@@ -3603,7 +3605,7 @@ static int pas_is_qword(tree_t *e) {
     if (e->t == TT_ILIT) return e->v.ival < 0;
     if (e->t != TT_VAR || !e->v.sval) return 0;
     const char *tn = pas_scalarvartype_get(e->v.sval);
-    for (int g = 0; tn && g < 8; g++) { if (!strcmp(tn, "qword") || !strcmp(tn, "uint64")) return 1; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; }
+    for (int g = 0; tn && g < 8; g++) { if (pas_is_u64_typename(tn)) return 1; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; }
     return 0;
 }
 static int pas_is_stringexpr(tree_t *e) {
@@ -4800,7 +4802,7 @@ static void pas_formal_strtypes(const char *sig, PNodeList *params) {
         tree_t *id = params->items[i];
         if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 1);
-        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t))) pas_scalarvartype_add(id->v.sval, t);
+        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t) || pas_is_u64_typename(t))) pas_scalarvartype_add(id->v.sval, t);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

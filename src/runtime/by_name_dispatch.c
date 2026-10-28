@@ -22125,7 +22125,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
             int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i >= 0 ? (int)aw.i : -1))))))) : -1;
-            int _upper = 0;
+            int _upper = 0, _uns = 0;
+            if (IS_INT_fn(aw) && aw.i == -11 && _pi + 3 < nargs) { _uns = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
             if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
             if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
             if (w == -3) {
@@ -22142,7 +22143,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             if (IS_INT_fn(av)) {
                 int _pbn = 32;
                 char _pbq[_pbn];
-                int _pfmtlen = pas_itoa(_pbq, (long long)av.i, w == -7 || w == -8);
+                int _pfmtlen = pas_itoa(_pbq, (long long)av.i, w == -7 || w == -8 || _uns);
                 if (w < 0 && w != -4 && w != -8 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
                 int _fw = (w == -4 || w == -8) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
                 pas_put_rjust(_dest, _pbq, _pfmtlen, _fw);
