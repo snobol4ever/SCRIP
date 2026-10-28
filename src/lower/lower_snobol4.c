@@ -1122,7 +1122,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (!vn) vn = sno_capt_item_name(tgt);
             if (!vn && tgt && tgt->t == TT_DEFER) {
                 const tree_t * di = (tgt->n > 0) ? tgt->c[0] : NULL;
-                const char * bn = (sno_item_argbase(di) >= 0) ? sno_expr_collect_nm(di) : sno_expr_collect(di);
+                const char * bn = ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0) || sno_item_argbase(di) >= 0) ? sno_expr_collect_nm(di) :
+                    sno_expr_collect(di);
                 char pb[fmt_len("*%s", bn)];
                 snprintf(pb, sizeof pb, "*%s", bn);
                 vn = lp_strdup(pb);
