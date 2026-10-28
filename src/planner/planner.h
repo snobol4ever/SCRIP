@@ -58,6 +58,7 @@ struct zeta_plan_t {
     std::vector<int> v_zst_s, v_zst_root, v_zst_vroot, v_zst_c, v_zst_j, v_zst_L, v_zst_vuse, v_zst_vcov, v_djx, v_upost, v_grec, v_wrec, v_grec_pop, v_wrec_pop;
     std::vector<const char *> v_zst_name;
     std::unordered_map<const IR_t *, int> v_zst_sm;
+    std::unordered_map<const IR_t *, int> v_xoff;
     std::vector<unsigned char> zrm_bytes;
     std::vector<unsigned char> v_admit;
     int * home;

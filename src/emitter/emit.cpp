@@ -549,6 +549,7 @@ const znode_t * zrow(const IR_t * nd);
 static int zrow_opoff(const IR_t * nd, int k);
 static int zrow_partoff(const IR_t * nd, int j);
 static int zrow_own(const IR_t * nd);
+static int zrow_xoff(const IR_t * nd);
 static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
@@ -1390,6 +1391,8 @@ static int drive_value_slot(IR_t *nd) {
     if (e >= 0) return e;
     if (nd) {
         int slot = zrow_own(nd);
+        if (slot >= 0) return slot;
+        slot = zrow_xoff(nd);
         if (slot >= 0) return slot;
     }
     if (nd && ir_node_produces_value(nd->op)) {
@@ -3036,6 +3039,12 @@ static int zrow_of(const IR_t * nd) {
     return nidx(g_planner.codegen_flat_chain_body_nodes, r->n, nd);
 }
 static int zrow_own(const IR_t * nd) { int ri = zrow_of(nd); return ri >= 0 ? g_planner.g_zd_rec_p->zn[ri].loff : -1; }
+static int zrow_xoff(const IR_t * nd) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p;
+    if (!nd || !r || !r->home || r->n != g_planner.g_zd_n || g_planner.g_zd_nodes_p != g_planner.codegen_flat_chain_body_nodes) return -1;
+    std::unordered_map<const IR_t *, int>::const_iterator it = r->v_xoff.find(nd);
+    return it == r->v_xoff.end() ? -1 : it->second;
+}
 static int * emit_grow_one(int * p, int o, int cap, int fill) { int * q = (int *)ct_alloc((size_t)cap * sizeof(int)); if (o) memcpy(q, p, (size_t)o * sizeof(int));
     for (int k = o; k < cap; k++) q[k] = fill; return q; }
 static void emit_ops_reserve(int n) {

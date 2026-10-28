@@ -358,6 +358,17 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
             rec->v_partoff.push_back(pj ? zls_off(pj) : -1);
         }
     }
+    {
+        std::unordered_set<const IR_t *> rowset(nodes, nodes + n);
+        std::vector<IR_t *> pend;
+        for (int i = 0; i < n; i++) for (int k = 0; k < nodes[i]->n_operands; k++) if (nodes[i]->operands[k]) pend.push_back(nodes[i]->operands[k]);
+        while (!pend.empty()) {
+            IR_t * x = pend.back(); pend.pop_back();
+            if (rowset.count(x) || rec->v_xoff.count(x)) continue;
+            rec->v_xoff[x] = zls_off(x);
+            for (int k = 0; k < x->n_operands; k++) if (x->operands[k]) pend.push_back(x->operands[k]);
+        }
+    }
     std::vector<int> ad((size_t)(n > 0 ? n : 1), -1);
     for (int j = 0; j < n; j++) {
         IR_t * ot = rec->zn[j].ot, * gt = rec->zn[j].gt; int oi = ot ? nidx(nodes, n, ot) : -1, gi = gt ? nidx(nodes, n, gt) : -1;
