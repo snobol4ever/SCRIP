@@ -9610,13 +9610,15 @@ static int pl_var_name_ok(const char *n) {
     for (const char *q = n + adv; *q; q += adv) { adv = 1; if ((unsigned char)*q >= 0x80 ? !prolog_u_letter(q, &adv) : !(isalnum((unsigned char)*q) || *q == '_')) return 0; }
     return 1;
 }
+static const char *const pl_write_bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode",
+    "space_args", 0 };
+static int pl_write_opt_bare_ok(const char *on) { for (int i = 0; on && pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return 1; return 0; }
 static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
-    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode", "space_args", 0 };
     const char *as;
     if (!on) return 2;
     if (!strcmp(on, "truncated")) return 0;
     if (pl_val_unbound(a)) {
-        for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
+        for (int i = 0; pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return 1;
         if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs") || !strcmp(on, "spacing")) return 1;
         if (!strcmp(on, "module") && !pl_gnu_dialect()) return 1;
         return 2;
@@ -9626,7 +9628,7 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     if (!strcmp(on, "blobs")) return as ? 0 : 2;
     if (!strcmp(on, "spacing")) { *culprit = a; return !as ? 4 : (!strcmp(as, "standard") || !strcmp(as, "next_argument")) ? 0 : 6; }
     if (!strcmp(on, "module") && !pl_gnu_dialect()) return as ? 0 : 2;
-    for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
+    for (int i = 0; pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
     if (!strcmp(on, "max_depth") || !strcmp(on, "max_text")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
     if (!strcmp(on, "priority")) return (a.v == DT_I && a.i >= 0 && a.i <= 1200) ? 0 : 2;
     if (!strcmp(on, "variable_names")) {
@@ -9675,6 +9677,7 @@ static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
                 o = rt_pl_deref_val(kids[1]);
                 continue;
             }
+            if ((int)opt.v == DT_PLATOM && (pl_swi_dialect() || pl_xsb_dialect()) && pl_write_opt_bare_ok(pl_atom_str(opt))) { o = rt_pl_deref_val(kids[1]); continue; }
             if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) return 3;
             bad = pl_write_opt_bad(prolog_atom_name(plc_fid_name(opt.slen)), rt_pl_deref_val(((DESCR_t *)opt.p)[0]), culprit);
             if (bad) return bad == 1 ? 1 : bad >= 4 ? bad : 3;

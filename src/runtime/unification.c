@@ -223,6 +223,7 @@ static int plc_utf8_run(const char *q) {
 static int plc_has_non_ascii(const char *s) { for (; *s; s++) if ((unsigned char)*s >= 0x80) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_dialect_swi(void);
+extern int rt_pl_dialect_xsb(void);
 extern int rt_pl_dialect_gnu(void);
 int rt_pl_u8_get(const char *s, int *adv);
 extern int rt_pl_flag_true(const char *nm);
@@ -972,6 +973,15 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
                 m.vnc++;
                 m.vnl = pl_deref((pl_cell_t *)opts_cell);
             }
+        } else if ((int)o->v == DT_PLATOM && (rt_pl_dialect_swi() || rt_pl_dialect_xsb())) {
+            const char *bn = plc_atom_text(o);
+            if (bn && !strcmp(bn, "quoted")) quoted = 1;
+            else if (bn && !strcmp(bn, "ignore_ops")) ignore_ops = 1;
+            else if (bn && !strcmp(bn, "numbervars")) numbervars = 1;
+            else if (bn && !strcmp(bn, "quote_non_ascii")) qna = 1;
+            else if (bn && !strcmp(bn, "character_escapes_unicode")) xesc = 0;
+            else if (bn && !strcmp(bn, "partial")) partial = 1;
+            else if (bn && !strcmp(bn, "space_args")) m.space_args = 1;
         }
         lst = pl_deref(&pair[1]);
     }
