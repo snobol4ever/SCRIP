@@ -16,6 +16,7 @@ struct znode_t {
     int bu, sbk, sbb, sbp;
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
+    int go0off, vp1off, cvnoff, pto;
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
@@ -81,7 +82,7 @@ struct zeta_plan_t {
     int rdn;
     znode_t * zn;
     std::vector<int> v_altpad;
-    std::vector<int> v_opoff;
+    std::vector<int> v_opoff, v_partoff;
     std::vector<int> v_dj;
     std::vector<int> v_gate;
     std::vector<unsigned char> v_lspine;

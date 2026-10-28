@@ -350,6 +350,15 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         if (op == IR_GATE && nd->n_operands > 0) { z->gto = (int)rec->v_gate.size(); pf_gate(rec, nodes, n, i, g); }
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
+        z->go0off = (op == IR_SCAN && nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->n_operands > 0 && nd->operands[0]->operands[0]) ? zls_off(nd->operands[0]->operands[0]) : -1;
+        z->vp1off = z->vp1 ? zls_off(z->vp1) : -1;
+        z->cvnoff = z->cvn ? zls_off(z->cvn) : -1;
+        z->pto = (int)rec->v_partoff.size();
+        for (int j = 0; op == IR_DISJUNCTION && j < (int)IR_LIT(nd).ival; j++) {
+            IR_t * pj = (2 * (int)IR_LIT(nd).ival + j < nd->n_operands) ? nd->operands[2 * (int)IR_LIT(nd).ival + j] : (IR_t *)0;
+            for (int hops = 0; pj && pj->op == IR_CONJUNCTION && pj->n_operands > 0 && hops < 16; hops++) pj = pj->operands[0];
+            rec->v_partoff.push_back(pj ? zls_off(pj) : -1);
+        }
     }
     std::vector<int> ad((size_t)(n > 0 ? n : 1), -1);
     for (int j = 0; j < n; j++) {
