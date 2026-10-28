@@ -1088,6 +1088,8 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int plc_swi_list_name(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && name == g_runtime.atoms.atom_dot && rt_pl_dialect_swi()) ? prolog_atom_intern("[|]") : name; }
+int plc_swi_list_build(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && rt_pl_dialect_swi() && name == prolog_atom_intern("[|]")) ? g_runtime.atoms.atom_dot : name; }
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
@@ -1099,7 +1101,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
             return 0;
         }
         if ((int)d0->v == DT_PLREF) {
-            nameV = plc_atom_id_cell(plc_fid_name(d0->slen));
+            nameV = plc_atom_id_cell(plc_swi_list_name(plc_fid_name(d0->slen), plc_fid_arity(d0->slen)));
             arityV = pl_make_int((int64_t)plc_fid_arity(d0->slen));
         } else if ((int)d0->v == DT_S) {
             nameV = *d0;
@@ -1132,7 +1134,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
         if (!d1 || !plc_is_atomlike(d1)) { return 0; }
         pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)ar * sizeof(pl_cell_t));
         for (long i = 0; i < ar; i++) pl_init_var(&args[i], -1);
-        built = pl_make_compound(plc_atom_id_of(d1), (int)ar, args);
+        built = pl_make_compound(plc_swi_list_build(plc_atom_id_of(d1), (int)ar), (int)ar, args);
     }
     if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
     return 1;
@@ -1163,7 +1165,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
             pl_cell_t *aa = (pl_cell_t *)d0->p;
             for (int i = ar - 1; i >= 0; i--) { pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); c[0] = aa[i]; c[1] = lst; lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, c); }
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
-            c[0] = plc_atom_id_cell(plc_fid_name(d0->slen));
+            c[0] = plc_atom_id_cell(plc_swi_list_name(plc_fid_name(d0->slen), plc_fid_arity(d0->slen)));
             c[1] = lst;
             lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, c);
         } else {
@@ -1204,7 +1206,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
         pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)(ne - 1) * sizeof(pl_cell_t));
         int i = 0;
         for (cur = pl_deref(&((pl_cell_t *)l0->p)[1]); i < ne - 1; cur = pl_deref(&((pl_cell_t *)cur->p)[1])) args[i++] = *pl_deref(&((pl_cell_t *)cur->p)[0]);
-        built = pl_make_compound(plc_atom_id_of(h), ne - 1, args);
+        built = pl_make_compound(plc_swi_list_build(plc_atom_id_of(h), ne - 1), ne - 1, args);
     }
     if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
     return 1;

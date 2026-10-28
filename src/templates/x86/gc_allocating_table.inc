@@ -1326,6 +1326,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "plc_sp_addsub", GC_RET_DESCR },
     { "plc_sp_int_arg", GC_RET_OTHER },
     { "plc_sp_not_negative", GC_RET_OTHER },
+    { "plc_swi_list_build", GC_RET_OTHER },
+    { "plc_swi_list_name", GC_RET_OTHER },
     { "plc_term_prio", GC_RET_OTHER },
     { "plc_text_built", GC_RET_OTHER },
     { "plc_text_carve", GC_RET_OTHER },

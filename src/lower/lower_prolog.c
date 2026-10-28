@@ -191,6 +191,7 @@ static const char * pl_pi_name(const char * nm, int ar) { if (!nm) return ct_str
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 static int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
 static int pl_tree_is_engine(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_engine") && t->c[0] && t->c[0]->t == TT_ILIT; }
+static const char * pl_list_fname(const char * nm, int ar) { return (g_stage2.pl_dialect == PL_DIALECT_SWI && ar == 2 && nm && !strcmp(nm, "[|]")) ? "." : nm; }
 static int pl_tree_is_c0(const tree_t * t) { return t && t->t == TT_FNC && t->n == 0 && t->v.sval && strcmp(t->v.sval, "{}") != 0; }
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -200,7 +201,7 @@ static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, 
     extern int prolog_atom_intern(const char *);
     extern int prolog_functor_intern(int, int);
     IR_t * fn = build(cx, IR_LIT_INTEGER, NULL, cx->tω);
-    IR_LIT(fn).ival = (int64_t)prolog_functor_intern(prolog_atom_intern(fname), nkids);
+    IR_LIT(fn).ival = (int64_t)prolog_functor_intern(prolog_atom_intern(pl_list_fname(fname, nkids)), nkids);
     ir_operand_push(nd, fn);
     IR_t * prev = fn;
     IR_t * first = fn;
@@ -467,7 +468,7 @@ static IR_t * pl_head_term(lcx_t * cx, const tree_t * cl, int ar, IR_t * src, lo
         lc_γ_to(st, nx);
         {
             IR_t * f = build(cx, IR_LIT_INTEGER, NULL, NULL);
-            IR_LIT(f).ival = (int64_t) prolog_functor_intern(prolog_atom_intern(t->v.sval ? t->v.sval : "?"), t->n);
+            IR_LIT(f).ival = (int64_t) prolog_functor_intern(prolog_atom_intern(pl_list_fname(t->v.sval ? t->v.sval : "?", t->n)), t->n);
             IR_t * ix = build(cx, IR_LIT_INTEGER, NULL, NULL);
             IR_LIT(ix).ival = (int64_t) idx;
             ir_operand_push(st, src);

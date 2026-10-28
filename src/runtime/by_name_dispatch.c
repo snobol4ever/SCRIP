@@ -11418,11 +11418,12 @@ static DESCR_t pl_os_cwd_atom(void) {
 PL_CX_LEAF_HEAD(compound0, 3)
     {
         extern void *rt_pl_compound_cell(const char *, int, void *);
+        extern int plc_swi_list_name(int, int);
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
         DESCR_t t = rt_pl_deref_val(args[1]);
         ok = 0;
         if (op && !strcmp(op, "build") && pl_atom_str(t)) ok = plw_unify_vals(args[2], *(DESCR_t *)rt_pl_compound_cell(pl_atom_str(t), 0, (void *)0), cx);
-        else if (op && !strcmp(op, "name") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], pl_mk_atom(prolog_atom_name(plc_fid_name(t.slen))), cx);
+        else if (op && !strcmp(op, "name") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], pl_mk_atom(prolog_atom_name(plc_swi_list_name(plc_fid_name(t.slen), plc_fid_arity(t.slen)))), cx);
         else if (op && !strcmp(op, "arity") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], INTVAL((long long)plc_fid_arity(t.slen)), cx);
     }
 PL_CX_LEAF_TAIL
