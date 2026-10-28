@@ -1187,7 +1187,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         fprintf(stderr, "[CAP] IMM nd=%p fc_disp=%d off=%d pin=%d refine=%d deep=%d pat=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_off,
         emit_jmp_pin_legacy(), g_emit.flat_fb_refine, g_emit.flat_deep_arrival, g_emit.flat_pat); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_SAVE: { bb_prepare(nd); g_emit.op_cap_frame_off = _zn->aslot; {
-        if (_zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off; } } { extern int fc_save_active(const IR_t *);
+        if (_zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off; } } {
         if (getenv("SCRIP_CAP_DIAG"))
         fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld\n", (void*)nd, _zn->sact, (long)g_emit.op_fc_bytes)
         ; } bb_emit_x86(bb_match_capture()); } return 0;
@@ -1215,7 +1215,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (g_runtime.abi.trace_budget != 0 && g_emitter.walk_bb_node_inner__mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto()); return 0;
     case IR_GOTO_DEFERRED: bb_emit_x86(bb_goto_deferred()); return 0;
     case IR_DEFINE: {
-        if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *);
+        if (ir_define_sr_citizen(nd)) {
             if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval;
             } if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5;
             } if (g_emit.op_ival == 0 && _zn->gcall && nd->n_operands == 1 && nd->operands[0]) {
