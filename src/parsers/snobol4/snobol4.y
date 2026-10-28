@@ -20,6 +20,13 @@ static Lex     *g_lx;
 static int      g_err_lineno;
 static int sno_target_value(const tree_t *t) { return t && (t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_QLIT || t->t == TT_NAME); }
 static void sno_target_refuse(void) { sno_error(snobol4_get_stmt_lineno(), "value used where name is required"); }
+static tree_t *sno_goto_operand(tree_t *e) {
+    extern int sno_goto_operand_value(const tree_t *);
+    if (sno_goto_operand_value(e)) { tree_t *w = ast_node_new(TT_NAME); expr_add_child(w, e); return w; }
+    if (e && e->t == TT_VAR) { tree_t *q = ast_node_new(TT_QLIT); q->v.sval = e->v.sval; return q; }
+    if (e && e->t == TT_INDIRECT && e->n == 1) return e->c[0];
+    return e;
+}
 void sno_error_voice(int, const char *, int);
 static int sno_fold_refused_line = -1;
 static int sno_tree_has_call(const tree_t *t) { if (!t) return 0; if (t->t == TT_FNC) return 1; for (int k = 0; k < t->n; k++) if (sno_tree_has_call(t->c[k])) return 1; return 0; }
@@ -63,7 +70,7 @@ static tree_e pat_prim_kind(const char *s) {
 %parse-param { void *yyparse_param }
 %union { tree_t *expr; Token tok; }
 %token <tok> T_IDENT T_FUNCTION T_KEYWORD T_END T_INT T_REAL T_STR
-%token <tok> T_LABEL T_GOTO_S T_GOTO_F T_GOTO_LPAREN T_GOTO_RPAREN T_GOTO_LANGLE T_GOTO_RANGLE T_STMT_END
+%token <tok> T_LABEL T_GOTO_S T_GOTO_F T_GOTO_LPAREN T_GOTO_RPAREN T_GOTO_XLPAREN T_GOTO_XRPAREN T_GOTO_LANGLE T_GOTO_RANGLE T_STMT_END
 %token T_2EQUAL T_2QUEST T_2PIPE T_2PLUS T_2MINUS
 %token T_2STAR T_2SLASH T_2CARET
 %token T_2DOLLAR T_2DOT
@@ -130,6 +137,7 @@ goto_label_expr
            | T_GOTO_LPAREN T_1DOLLAR goto_sub T_GOTO_RPAREN                                  { $$=$3; }
            | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($3.sval);$$=e; }
            | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }
+           | T_GOTO_XLPAREN expr0 T_GOTO_XRPAREN                                             { $$=sno_goto_operand($2); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
 expr0      : expr1 T_2EQUAL expr0                                                             { if (sno_target_value($1)) sno_target_refuse(); $$=expr_binary(TT_ASSIGN,          $1,$3); }

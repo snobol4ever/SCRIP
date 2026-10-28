@@ -299,6 +299,7 @@ static int sno_pe_value_form(const tree_t * t) {
         return 0;
     }
 }
+int sno_goto_operand_value(const tree_t * t) { return sno_pe_value_form(t); }
 static int sno_pe_target_value(const tree_t * t) { return (t && t->t == TT_SCAN && t->n == 2) ? sno_pe_value_form(t->c[0]) : sno_pe_value_form(t); }
 static int sno_pe_byname_value(const tree_t * t) {
     if (!t) return 0;

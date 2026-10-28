@@ -35,6 +35,52 @@ static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
 static int   gt_have_operand;
+static int gt_skip_bal(const char *s, int n, int i, char open, char close) {
+    int d = 0, q = 0;
+    for (; i < n; i++) {
+        char c = s[i];
+        if (q) { if (c == q) q = 0; continue; }
+        if (c == '\'' || c == '"') { q = c; continue; }
+        if (c == open) d++;
+        else if (c == close && --d == 0) return i + 1;
+    }
+    return -1;
+}
+static int gt_plain(const char *s, int a, int b) {
+    int q = 0;
+    for (int i = a; i < b; i++) {
+        char c = s[i];
+        if (q) { if (c == q) q = 0; continue; }
+        if (c == '\'' || c == '"') { q = c; continue; }
+        if (c == '.' && ((i > a && (s[i - 1] == ' ' || s[i - 1] == '\t')) || (i + 1 < b && (s[i + 1] == ' ' || s[i + 1] == '\t')))) return 0;
+        if (!(isalnum((unsigned char) c) || c == '_' || c == '.' || c == ' ' || c == '\t' || c == ',' || c == '(' || c == ')' || c == '[' || c == ']' || c == '<' || c == '>' || (unsigned char) c >= 0x80)) return 0;
+    }
+    return 1;
+}
+static int gt_operand_simple(const char *s, int n) {
+    int i = 0, dollar = 0;
+    while (i < n && (s[i] == ' ' || s[i] == '\t')) i++;
+    while (n > i && (s[n - 1] == ' ' || s[n - 1] == '\t')) n--;
+    if (i >= n) return 1;
+    if (s[i] == '$') {
+        dollar = 1;
+        i++;
+        while (i < n && (s[i] == ' ' || s[i] == '\t')) i++;
+        if (i >= n) return 0;
+        if (s[i] == '\'' || s[i] == '"') { int j = i + 1; while (j < n && s[j] != s[i]) j++; return j == n - 1; }
+        if (s[i] == '(') { int j = gt_skip_bal(s, n, i, '(', ')'); return j == n && gt_plain(s, i + 1, j - 1); }
+    }
+    if (!isalpha((unsigned char) s[i]) && (unsigned char) s[i] < 0x80) return 0;
+    while (i < n && (isalnum((unsigned char) s[i]) || s[i] == '_' || s[i] == '.' || (unsigned char) s[i] >= 0x80)) i++;
+    if (i == n) return 1;
+    if (!dollar) { int j = s[i] == '(' ? gt_skip_bal(s, n, i, '(', ')') : -1; return j == n && gt_plain(s, i + 1, j - 1); }
+    while (i < n) {
+        int j = s[i] == '[' ? gt_skip_bal(s, n, i, '[', ']') : s[i] == '<' ? gt_skip_bal(s, n, i, '<', '>') : -1;
+        if (j < 0 || !gt_plain(s, i + 1, j - 1)) return 0;
+        i = j;
+    }
+    return 1;
+}
 typedef struct { int nend; int kind; int arg; char *text; } sno_list_ev_t;
 static sno_list_ev_t *g_list_events = NULL;
 static int g_list_nevents = 0;
@@ -364,11 +410,11 @@ G       ({WS}|{CONT})*
 <BODY_START><<EOF>>     { BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START>";"         { BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY_START>.           { yyless(0); BEGIN(BODY); }
-<BODY>\n               { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY><<EOF>>          { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>";"              { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
-<BODY>{W}";"           { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<BODY>\n               { lineno++; gt_angle=0; gt_depth=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY><<EOF>>          { gt_angle=0; gt_depth=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; gt_depth=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>";"              { gt_angle=0; gt_depth=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<BODY>{W}";"           { gt_angle=0; gt_depth=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
 <BODY>&{ALPHA}{IDCONT}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
@@ -390,10 +436,10 @@ G       ({WS}|{CONT})*
 <BODY>{W}"#"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2POUND;           }
 <BODY>{W}"%"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PERCENT;         }
 <BODY>{W}"~"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2TILDE;           }
-<BODY>"("{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LPAREN; }
+<BODY>"("{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_depth) gt_depth++; return T_LPAREN; }
 <BODY>"["{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LBRACK; }
 <BODY>"<"{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle) gt_angle++; return T_LANGLE; }
-<BODY>{G}")"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RPAREN; }
+<BODY>{G}")"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_depth && --gt_depth == 0) { gt_have_operand=1; BEGIN(GT); return T_GOTO_XRPAREN; } return T_RPAREN; }
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 <BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { gt_have_operand=1; BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
@@ -420,6 +466,7 @@ G       ({WS}|{CONT})*
 <BODY>"="    { return T_1EQUAL;        }
 <BODY>"?"    { return T_1QUEST;}
 <BODY>"&"    { return T_1AMP;    }
+<BODY>"\\"    { if (gt_depth) sno_error_voice(230, "syntax error: illegal character", lineno); else sno_error(lineno,"unexpected char '%s'",yytext); }
 <BODY>.      { sno_error(lineno,"unexpected char '%s'",yytext); }
 <STR1>[^'\n]*           {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
@@ -459,7 +506,23 @@ G       ({WS}|{CONT})*
 <GT>[Ss]/[ \t]*"<"      { return T_GOTO_S; }
 <GT>[Ff]/[ \t]*"("      { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
 <GT>[Ff]/[ \t]*"<"      { return T_GOTO_F; }
-<GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
+<GT>"("                 {
+    if (gt_depth == 0) {
+        char gb[2048];
+        int gn = 0, gc, gd = 1, gq = 0, ge = -1;
+        while (gn < (int) sizeof gb - 1 && (gc = input(yyscanner)) > 0) {
+            gb[gn++] = (char) gc;
+            if (gc == '\n') break;
+            if (gq) { if (gc == gq) gq = 0; continue; }
+            if (gc == '\'' || gc == '"') gq = gc;
+            else if (gc == '(') gd++;
+            else if (gc == ')' && --gd == 0) { ge = gn - 1; break; }
+        }
+        for (int gk = gn - 1; gk >= 0; gk--) unput(gb[gk]);
+        if (ge >= 0 && !gt_operand_simple(gb, ge)) { gt_depth = 1; BEGIN(BODY_START); return T_GOTO_XLPAREN; }
+    }
+    gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN;
+}
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
 <GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; if (gt_have_operand) { gt_have_operand=0; return T_LANGLE; } gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 <GT>">"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
