@@ -145,6 +145,18 @@ static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) l
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 static tree_t * leaf_sval2(tree_e kind, const char * s) { tree_t * n = ast_node_new(kind); n->v.sval = (char *)s; return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_coerce_base(const char * ty) {
+    if (!ty) return NULL;
+    const char * lp = strchr(ty, '(');
+    size_t bl = lp ? (size_t) (lp - ty) : 0;
+    if (!bl || ty[strlen(ty) - 1] != ')') return NULL;
+    static const char * const k[] = { "Int", "Str", "Num", "Rat", "Bool", 0 };
+    for (int i = 0; k[i]; i++) if (strlen(k[i]) == bl && !strncmp(ty, k[i], bl)) return k[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_coerce_val(tree_t * val, const char * base) { tree_t * m = ast_node_new(TT_METHCALL); m->line = val->line; ast_push(m, val); ast_push(m, leaf_sval2(TT_QLIT, base)); return m; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = lc_build(cx->g, op, γ, ω);
     if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
@@ -2867,7 +2879,13 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             if (pn && tgt && !strcmp(tgt, pn)) rk_plan[nplan++] = pd->c[rk_bstart + bi++];
             if (pn && pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) {
                 const char * ty = pv->c[0]->v.sval;
-                if (strstr(ty, ":D") || strstr(ty, ":U") || rk_is_modeled_type(ty)) {
+                const char * cbase = rk_coerce_base(ty);
+                if (cbase) {
+                    tree_t * as = ast_node_new(TT_ASSIGN);
+                    ast_push(as, leaf_sval2(TT_VAR, pn));
+                    ast_push(as, rk_coerce_val(leaf_sval2(TT_VAR, pn), cbase));
+                    rk_plan[nplan++] = as;
+                } else if (strstr(ty, ":D") || strstr(ty, ":U") || rk_is_modeled_type(ty)) {
                     tree_t * mc = ast_node_new(TT_FNC);
                     mc->v.sval = (char *)"__param_check";
                     tree_t * nmv = ast_node_new(TT_VAR);
@@ -5588,6 +5606,15 @@ static void rk_tv_walk(tree_t * t, rk_tvenv_t * e) {
     for (int i = 0; i < t->n; i++) {
         tree_t * c = t->c[i];
         if (!c) continue;
+        if (c->t == TT_DECL && c->n >= 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[1] && c->c[1]->t == TT_VAR && c->c[1]->v.sval && c->c[1]->v.sval[0] != '@' && c->c[1]->v.sval[0] != '%' &&
+            rk_coerce_base(c->c[0]->v.sval)) {
+            rk_tv_walk(c, e);
+            const char * cty = c->c[0]->v.sval, * base = rk_coerce_base(cty), * nm = c->c[1]->v.sval;
+            c->c[0]->v.sval = (char *) base;
+            rk_tv_push(e, nm, cty);
+            if (c->n >= 3 && c->c[2]) c->c[2] = rk_tv_check(e, rk_coerce_val(c->c[2], base), base, nm, 0);
+            continue;
+        }
         if (c->t == TT_DECL && c->n >= 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[1] && c->c[1]->t == TT_VAR && c->c[1]->v.sval && c->c[0]->v.sval && rk_tv_enforced(c->c[0]->v.sval, &e->classes)) {
             rk_tv_walk(c, e);
             const char * ty = c->c[0]->v.sval, * nm = c->c[1]->v.sval;
@@ -5598,8 +5625,9 @@ static void rk_tv_walk(tree_t * t, rk_tvenv_t * e) {
         if (c->t == TT_DECL && c->n >= 1) { rk_tv_walk(c, e); tree_t * v = c->c[c->n >= 3 ? 1 : 0]; if (v && v->t == TT_VAR && v->v.sval) rk_tv_push(e, v->v.sval, NULL); continue; }
         rk_tv_walk(c, e);
         if (c->t == TT_ASSIGN && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval) {
-            const char * nm = c->c[0]->v.sval, * ty = rk_tv_find(e, nm);
-            if (ty && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, c->c[1], ty, nm, 0);
+            const char * nm = c->c[0]->v.sval, * ty = rk_tv_find(e, nm), * cb = rk_coerce_base(ty);
+            if (cb && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, rk_coerce_val(c->c[1], cb), cb, nm, 0);
+            else if (ty && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, c->c[1], ty, nm, 0);
             else if (!ty && nm[0] != '@' && nm[0] != '%' && !rk_tv_find(e, nm)) rk_tv_push(e, nm, NULL);
         }
         if ((c->t == TT_ARR_SET || c->t == TT_HASH_SET) && c->n == 3 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval) {
