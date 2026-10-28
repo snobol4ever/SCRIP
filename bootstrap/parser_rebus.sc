@@ -111,16 +111,15 @@ CATASSIGN   = 'CATASSIGN';
 COMPOUND    = 'COMPOUND';
 nTop_count   = 'nTop()';
 /* the C lexer (rebus.l) upper-cases every identifier and keyword name before the grammar sees it */
-function RbUp(x) { RbUp = REPLACE(x, &LCASE, &UCASE); return; }
 X_sub = epsilon . *IncCounter() (*expr | epsilon . *Reduce('TT_NUL', 0)) FENCE(*$',' *X_sub | epsilon);
 X_args   = epsilon . *IncCounter() *alt_expr FENCE(*$',' FENCE(*X_args | epsilon . *IncCounter() (epsilon) . thx . *Shift('TT_NUL', thx) FENCE(*$',' *X_args | epsilon)) | epsilon);
-call_or_id = FENCE(  epsilon . *PushCounter() (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) . *IncCounter() *$'(' FENCE(*X_args | epsilon) *$')' . *Reduce('TT_FNC', nTop()) . *PopCounter()
-                   | (*Id) . thx . *Shift('TT_VAR', RbUp(thx))
+call_or_id = FENCE(  epsilon . *PushCounter() (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) . *IncCounter() *$'(' FENCE(*X_args | epsilon) *$')' . *Reduce('TT_FNC', nTop()) . *PopCounter()
+                   | (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE))
                   );
 primary = FENCE(  '"' (*DQ_body) . thx . *Shift('TT_QLIT', thx) '"'
                 | "'" (*SQ_body) . thx . *Shift('TT_QLIT', thx) "'"
-                | *KW_open (*KW_body) . thx . *Shift('TT_KEYWORD', RbUp(thx))
-                | '@' (*Id) . thx . *Shift('TT_CAPT_CURSOR', RbUp(thx))
+                | *KW_open (*KW_body) . thx . *Shift('TT_KEYWORD', REPLACE(thx, &LCASE, &UCASE))
+                | '@' (*Id) . thx . *Shift('TT_CAPT_CURSOR', REPLACE(thx, &LCASE, &UCASE))
                 | (*Real) . thx . *Shift('TT_FLIT', thx)
                 | (*Integer) . thx . *Shift('TT_ILIT', thx)
                 | *call_or_id
@@ -209,7 +208,7 @@ repeat_stmt_rest = *$'  ' *opt_nl *stmt_body . *Reduce('TT_REPEAT', 1);
 for_body = *$'do' *opt_nl *stmt_body;
 for_stmt = *$'for' *for_stmt_rest;
 for_stmt_rest = *$'  ' (*Id) . rbForVar *$'from' *match_or_expr *$'to' *match_or_expr
-           FENCE(*$'by' *match_or_expr *for_body . *Reduce('TT_FOR', 4, RbUp(rbForVar)) | epsilon . *Reduce('TT_NUL', 0) *for_body . *Reduce('TT_FOR', 4, RbUp(rbForVar)));
+           FENCE(*$'by' *match_or_expr *for_body . *Reduce('TT_FOR', 4, REPLACE(rbForVar, &LCASE, &UCASE)) | epsilon . *Reduce('TT_NUL', 0) *for_body . *Reduce('TT_FOR', 4, REPLACE(rbForVar, &LCASE, &UCASE)));
 return_stmt = *$'return' *return_stmt_rest;
 return_stmt_rest = *$' ' FENCE(*match_or_expr . *Reduce('TT_RETURN', 1) | epsilon . *Reduce('TT_RETURN', 0));
 exit_stmt   = *$'exit' *exit_stmt_rest;
@@ -240,22 +239,22 @@ func_end      = *$'end' *$' ' CHAR(10);
 blank_line    = *$' ' CHAR(10);
 func_body_stmt = FENCE(*blank_line *func_body_stmt | *func_end | epsilon . *IncCounter() *stmt *func_body_stmt);
 func_body     = epsilon . *PushCounter() *func_body_stmt . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
-X_params  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) FENCE(*$',' *X_params | epsilon);
+X_params  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) FENCE(*$',' *X_params | epsilon);
 opt_params = epsilon . *PushCounter() FENCE(*X_params | epsilon) . *Reduce('TT_VLIST', nTop()) . *PopCounter();
-X_fields  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) FENCE(*$',' *X_fields | epsilon);
+X_fields  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) FENCE(*$',' *X_fields | epsilon);
 opt_fields = FENCE(*X_fields | epsilon);
-X_locals   = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) FENCE(*$',' *X_locals | epsilon);
+X_locals   = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) FENCE(*$',' *X_locals | epsilon);
 opt_locals = epsilon . *PushCounter() FENCE(*$'local' *X_locals FENCE(*$';' | epsilon) *$' ' CHAR(10) | epsilon) . *Reduce('TT_VLIST', nTop()) . *PopCounter();
 init_expr   = *stmt_inline;
 opt_initial = FENCE(epsilon . *PushCounter() *$'initial' *init_expr FENCE(*$';' | epsilon) *$' ' CHAR(10) . *PopCounter() | epsilon . *Reduce('TT_NUL', 0));
 function_decl =
-    *$'function' (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) *$'(' *opt_params *$')' *$' ' CHAR(10)
+    *$'function' (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) *$'(' *opt_params *$')' *$' ' CHAR(10)
     *opt_locals
     *opt_initial
     *func_body
     . *Reduce('TT_FUNCTION', 5);
 record_decl =
-    epsilon . *PushCounter() *$'record' (*Id) . thx . *Shift('TT_VAR', RbUp(thx)) . *IncCounter() *$'(' *opt_fields *$')' *$' ' CHAR(10)
+    epsilon . *PushCounter() *$'record' (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, &LCASE, &UCASE)) . *IncCounter() *$'(' *opt_fields *$')' *$' ' CHAR(10)
     . *Reduce('TT_RECORD_DECL', nTop()) . *PopCounter();
 func_cmd = epsilon . *IncCounter() *function_decl;
 rec_cmd  = epsilon . *IncCounter() *record_decl;
