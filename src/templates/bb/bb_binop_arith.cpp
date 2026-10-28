@@ -99,9 +99,11 @@ static const struct { long long op; int col; char name[20]; void * addr; } rtop_
     { -1, 2, "rt_num_arith_sno", (void*)rt_num_arith_sno },
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int rtop_col(int strict) {
+    return (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_ISO7185 ? 3 : (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_RTERR ? 4 : strict == 2 ? 2 : strict != 0;
+}
 static inline int rtop_row(long long op, int strict, int i) {
-    int col = (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_ISO7185 ? 3 : (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_RTERR ? 4 : strict == 2 ? 2 : strict != 0;
-    return (rtop_tab[i].op == op || rtop_tab[i].op == -1) && rtop_tab[i].col == col ? i : rtop_row(op, strict, i + 1);
+    return (rtop_tab[i].op == op || rtop_tab[i].op == -1) && rtop_tab[i].col == rtop_col(strict) ? i : rtop_row(op, strict, i + 1);
 }
 #define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), (strict), 0)].addr)
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
