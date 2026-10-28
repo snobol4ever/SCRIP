@@ -550,6 +550,8 @@ static int zrow_opoff(const IR_t * nd, int k);
 static int zrow_partoff(const IR_t * nd, int j);
 static int zrow_own(const IR_t * nd);
 static int zrow_xoff(const IR_t * nd);
+static int zrow_opvs(const IR_t * nd, int k);
+static int zrow_partvs(const IR_t * nd, int j);
 static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
@@ -625,18 +627,6 @@ void bb_slot_register(IR_t *nd, int off) {
     bb_slotmap_push(nd, off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_varslot_peek(const char *name) {
-    int c = zst_coord(name); if (c >= 0) return c;
-    return ir_varslot_of(g_emit_cfg, name);
-}
-static int drive_local_slot(const char *vn) {
-    int voff = bb_varslot_peek(vn);
-    if (voff < 0 || !g_emit.op_zres || g_emit.op_zf_unpinned) return voff;
-    if (g_emit.zv_home_cfg != (const void *)g_emit_cfg) { g_emit.zv_home.len = 0; g_emit.zv_home_cfg = (const void *)g_emit_cfg; }
-    for (uint32_t k = 0; k < g_emit.zv_home.len; k++) { zv_home_t * h = &CV_AT(g_emit.zv_home, zv_home_t, k); if (!strcmp(h->name, vn)) return voff + g_emit.op_zrun - h->depth; }
-    CV_PUSH(g_emit.zv_home, zv_home_t) = (zv_home_t){ vn, g_emit.op_zrun };
-    return voff;
-}
 int g_proc_direct_active = 0;
 int g_gva_active = 0;
 int g_emit_frame_caller_dl = -1;
@@ -784,10 +774,10 @@ extern "C" int zls_frame_off(const IR_graph_t *, const IR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xf_diag_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_XF_DIAG"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_binop_opnd_slot(IR_t *o, int own) {
+int emit_binop_opnd_slot(IR_t *o, int own, int vs) {
     if (!o) return -1;
     extern int is_global(const char *);
-    if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && (!is_global(IR_LIT(o).sval) || graph_has_local(g_emit_cfg, IR_LIT(o).sval))) { int voff = bb_varslot_peek(IR_LIT(o).sval);
+    if (o->op == IR_VAR && IR_LIT(o).sval && IR_LIT(o).sval[0] != '&' && (!is_global(IR_LIT(o).sval) || graph_has_local(g_emit_cfg, IR_LIT(o).sval))) { int voff = vs;
         if (voff >= 0) return voff; }
     int s = bb_slot_get(o); if (s >= 0) return s;
     return own;
@@ -1081,7 +1071,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); { extern void display_copy(IR_t *); display_copy(nd);
             } bb_emit_x86(bb_var_ref_frame()); return 0; }
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
-        else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
+        else if (_rn) { int _vo = zrow(nd)->vso; g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
         bb_emit_x86(bb_var_ref()); } return 0;
     case IR_COERCE_STRING: { bb_prepare(nd); bb_emit_x86(bb_coerce_string()); } return 0;
     case IR_COERCE_INTEGER: { bb_prepare(nd); bb_emit_x86(bb_coerce_integer()); } return 0;
@@ -1296,7 +1286,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SCAN: { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = _zn->vp1;
         g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0)); g_emit.op_off = _zn->o0off;
         g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? _zn->go0off :
-            (_bv ? ((_bv->op == IR_VAR && IR_LIT(_bv).sval) ? drive_local_slot(IR_LIT(_bv).sval) : bb_slot_get(_bv) >= 0 ? bb_slot_get(_bv) : _zn->vp1off) : -1);
+            (_bv ? ((_bv->op == IR_VAR && IR_LIT(_bv).sval) ? _zn->vp1vso : bb_slot_get(_bv) >= 0 ? bb_slot_get(_bv) : _zn->vp1off) : -1);
         g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? _zn->go0off : -1; g_emit.op_ival = _zn->loff;
         g_emit.lbl_t0 = g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_emitter.g_scan_body_beta; g_emit.op_t0_pop = g_emitter.g_scan_t0_pop;
         bb_emit_x86(bb_gen_scan()); } return 0;
@@ -1360,7 +1350,6 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
 }
 extern int bb_slot_get(IR_t *nd);
 extern void bb_slot_register(IR_t *nd, int off);
-extern int bb_varslot_peek(const char *name);
 extern int is_global(const char *name);
 extern int zls_result_live(const IR_t *nd);
 extern int gva_index_of(const char *name);
@@ -1539,9 +1528,9 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
           if (zok && rj && dj[7 * j + 2] >= 0 && dj[7 * j + 3]) { g_emit.op_parts_ival[j] = dj[7 * j + 2]; continue; } }
         { int _g = 0;
         while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }
-        int rs = rj ? emit_binop_opnd_slot(rj, zrow_partoff(nd, j)) : -1; g_emit.op_parts_ival[j] = rs;
+        int rs = rj ? emit_binop_opnd_slot(rj, zrow_partoff(nd, j), zrow_partvs(nd, j)) : -1; g_emit.op_parts_ival[j] = rs;
         int lasn = dj[7 * j + 4];
-        if (lasn) { int voff = bb_varslot_peek(IR_LIT(rj).sval); g_emit.op_parts_ival[j] = voff >= 0 ? voff : -1; }
+        if (lasn) { int voff = zrow_partvs(nd, j); g_emit.op_parts_ival[j] = voff >= 0 ? voff : -1; }
         if (dj[7 * j + 5] >= 0) { g_emit.op_parts_ival[j] = dj[7 * j + 5]; continue; }
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
             if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !dj[7 * j + 6] && !lasn) g_emit.op_parts_ival[j] = -1;
@@ -1744,7 +1733,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); }
         else if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn;
             g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = drive_local_slot(vn); g_emit.op_sa = voff; g_emit.op_off = (voff != -1) ? drive_value_slot(nd) : -1; }
+        else if (vn) { int voff = zrow(nd)->vso; g_emit.op_sa = voff; g_emit.op_off = (voff != -1) ? drive_value_slot(nd) : -1; }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1752,7 +1741,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         const char *vn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
         if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn;
             g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = drive_local_slot(vn); g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
+        else if (vn) { int voff = zrow(nd)->vso; g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1762,7 +1751,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_snul_a_ok = ir_value_is_null_string(bb_child0(nd)); g_emit.op_snul_b_ok = ir_value_is_null_string(bb_child1(nd));
         int sa = -1, sb = -1;
         if (binop_is_num_real(g_emit_cfg, nd)) { int ra = bb_slot_get(bb_child0(nd)), rb = bb_slot_get(bb_child1(nd)); if (ra >= 0 && rb >= 0) { sa = ra; sb = rb; g_emit.op_num_real = 1; } }
-        if (!g_emit.op_num_real) { sa = emit_binop_opnd_slot(bb_child0(nd), zrow_opoff(nd, 0)); sb = emit_binop_opnd_slot(bb_child1(nd), zrow_opoff(nd, 1)); }
+        if (!g_emit.op_num_real) { sa = emit_binop_opnd_slot(bb_child0(nd), zrow_opoff(nd, 0), zrow_opvs(nd, 0)); sb = emit_binop_opnd_slot(bb_child1(nd), zrow_opoff(nd, 1), zrow_opvs(nd, 1)); }
         if (sa < 0 || sb < 0) { drive_guard_refused(nd, __LINE__); break; }
         if (!g_emit.op_num_real) {
             IR_t * la = bb_child0(nd), * lb = bb_child1(nd);
@@ -1773,13 +1762,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_PAIR_RESET(); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_UNOP: case IR_UNOP_TEST: case IR_NULLTEST_VAR: {
-        int sa = emit_binop_opnd_slot(bb_child0(nd), zrow_opoff(nd, 0));
+        int sa = emit_binop_opnd_slot(bb_child0(nd), zrow_opoff(nd, 0), zrow_opvs(nd, 0));
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_FIELD_GET: case IR_FIELD_VAR: {
         IR_t * obj = bb_child0(nd);
-        int sa = obj ? emit_binop_opnd_slot(obj, zrow_opoff(nd, 0)) : -1;
+        int sa = obj ? emit_binop_opnd_slot(obj, zrow_opoff(nd, 0), zrow_opvs(nd, 0)) : -1;
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_a_slot = sa; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); g_emit.op_seal = nd->seal;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1795,7 +1784,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1;
             g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
-        { int voff = drive_local_slot(vn);
+        { int voff = zrow(nd)->vso;
           if (voff == -1)
               { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in planner_stage_graph (src/planner/planner_stage.c), never allocate in the emitter\n", vn);
               abort();
@@ -1881,7 +1870,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_COERCE_STRING: case IR_COERCE_INTEGER: case IR_COERCE_REAL: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
-        int sa = a0 ? emit_binop_opnd_slot(a0, zrow_opoff(nd, 0)) : -1;
+        int sa = a0 ? emit_binop_opnd_slot(a0, zrow_opoff(nd, 0), zrow_opvs(nd, 0)) : -1;
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1889,7 +1878,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_COERCE_NUMERIC: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         IR_t * a1 = nd->n_operands > 1 ? nd->operands[1] : (nd->op == IR_COERCE_NUMERIC ? a0 : (IR_t *)0);
-        int sa = a0 ? emit_binop_opnd_slot(a0, zrow_opoff(nd, 0)) : -1; int sb = a1 ? emit_binop_opnd_slot(a1, zrow_opoff(nd, nd->n_operands > 1 ? 1 : 0)) : -1;
+        int sa = a0 ? emit_binop_opnd_slot(a0, zrow_opoff(nd, 0), zrow_opvs(nd, 0)) : -1;
+            int sb = a1 ? emit_binop_opnd_slot(a1, zrow_opoff(nd, nd->n_operands > 1 ? 1 : 0), zrow_opvs(nd, nd->n_operands > 1 ? 1 : 0)) : -1;
         if (sa < 0 || sb < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -2005,7 +1995,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_guard_refused(nd, __LINE__); break; }
         { extern int is_global(const char *);
           if (vn[0] == '&' || (is_global(vn) && !graph_has_local(g_emit_cfg, vn))) { g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = (vn[0] != '&' && g_gva_active) ? gva_index_of(vn) : -1; }
-          else { int voff = bb_varslot_peek(vn);
+          else { int voff = zrow_opvs(nd, 1);
             if (voff == -1) { fprintf(stderr,
                 "[TE-4] IR_REV_ASSIGN '%s': not a global (is_global checked, so not the "
                 "bb_rev_assign_global path) and no LOWER-granted varslot as a local — "
@@ -2022,12 +2012,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sval = ln; g_emit.op_name2 = rn;
         g_emit.op_sb = -1; g_emit.op_sa = -1;
         { extern int is_global(const char *);
-          if (ln[0] != '&' && !(is_global(ln) && !graph_has_local(g_emit_cfg, ln))) { int voff = bb_varslot_peek(ln);
+          if (ln[0] != '&' && !(is_global(ln) && !graph_has_local(g_emit_cfg, ln))) { int voff = zrow(nd)->vso;
               if (voff == -1)
               { fprintf(stderr,
               "[TE-4] IR_REV_SWAP lhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in planner_stage_graph (s"
               "crip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
-          if (rn[0] != '&' && !(is_global(rn) && !graph_has_local(g_emit_cfg, rn))) { int voff = bb_varslot_peek(rn);
+          if (rn[0] != '&' && !(is_global(rn) && !graph_has_local(g_emit_cfg, rn))) { int voff = zrow_opvs(nd, 0);
               if (voff == -1)
               { fprintf(stderr,
               "[TE-4] IR_REV_SWAP rhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in planner_stage_graph (s"
@@ -2160,8 +2150,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_SWAP: {
         IR_t * xv = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * yv = nd->n_operands > 1 ? nd->operands[1] : NULL;
-        int sa = xv ? bb_varslot_peek(IR_LIT(xv).sval) : -1;
-        int sb = yv ? bb_varslot_peek(IR_LIT(yv).sval) : -1;
+        int sa = xv ? zrow_opvs(nd, 0) : -1;
+        int sb = yv ? zrow_opvs(nd, 1) : -1;
         if (sa < 0 || sb < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa; g_emit.op_sb = sb; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -2998,6 +2988,9 @@ const znode_t * zrow(const IR_t * nd) {
 }
 static int zrow_opoff(const IR_t * nd, int k) { return (k >= 0 && k < nd->n_operands) ? g_planner.g_zd_rec_p->v_opoff[(size_t)(zrow(nd)->opo + k)] : -1; }
 static int zrow_partoff(const IR_t * nd, int j) { return g_planner.g_zd_rec_p->v_partoff[(size_t)(zrow(nd)->pto + j)]; }
+static int zrow_opvs(const IR_t * nd, int k) { return (nd && k >= 0 && k < nd->n_operands) ? g_planner.g_zd_rec_p->v_opvs[(size_t)(zrow(nd)->opo + k)] : -1; }
+static int zrow_partvs(const IR_t * nd, int j) { return g_planner.g_zd_rec_p->v_partvs[(size_t)(zrow(nd)->pto + j)]; }
+extern "C" int emit_zrow_opvs(const IR_t * nd, int k) { return zrow_opvs(nd, k); }
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
 extern "C" int emit_zrow_xabs(const IR_t * nd) {
@@ -3476,7 +3469,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     }
     if (g_emit_cfg && n_alt > 1 && n_alt <= 4096 && emit_resumable_frame() && !g_emit_cfg->root_graph && !g_emit.flat_pkt && g_emit_cfg->nparams >= 1 && g_emit_cfg->pnames && g_emit_cfg->pnames[0] &&
         g_emit_cfg->alt_entry) {
-        const char * _p0 = g_emit_cfg->pnames[0]; ix_slot = bb_varslot_peek(_p0);
+        const char * _p0 = g_emit_cfg->pnames[0]; ix_slot = _pl->pso0;
         int * _ktag = (int *)alloca(sizeof(int) * (size_t)n_alt); int64_t * _kval = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); int _nvar = 0, _nvc = -1;
         for (int _ak = 0; _ak < n_alt; _ak++) { IR_t * _e = g_emit_cfg->alt_entry[_ak]; _ktag[_ak] = 0; _kval[_ak] = 0;
             { int _sg = 0; while (_e && _e->op == IR_SUCCEED && _e->γ.node && _sg++ < 4096) _e = _e->γ.node; }
@@ -4464,7 +4457,7 @@ void unify_prepare(IR_t *nd) {
     int ok = 0, kid = 0, slot = -1; long idx = 0;
     if (nd && nd->n_operands >= 2 && src && ix && ix->op == IR_LIT_INTEGER && (long)IR_LIT(ix).ival >= 0) {
         idx = (long)IR_LIT(ix).ival;
-        if (src->op == IR_VAR_REF) { slot = IR_LIT(src).sval ? bb_varslot_peek(IR_LIT(src).sval) : -1; ok = slot >= 0; }
+        if (src->op == IR_VAR_REF) { slot = IR_LIT(src).sval ? zrow_opvs(nd, 0) : -1; ok = slot >= 0; }
         else if (src->op == IR_UNIFY_STRUCT) { slot = bb_slot_get(src); ok = slot >= 0 || g_emit.op_zres; kid = 1; }
     }
     g_emit.op_u_kid = kid; g_emit.op_u_slot = slot; g_emit.op_u_idx = idx;
@@ -4482,7 +4475,7 @@ void unify_prepare(IR_t *nd) {
         g_emit.op_u_why = !(ok && k && k->op == IR_LIT_INTEGER) ? 1 : (g_emit.op_off < 0 && !g_emit.op_zres) ? 2 : prolog_functor_arity((int)g_emit.op_u_fid) < 0 ? 3 : 0;
     }
     if (nd && (nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE)) {
-        g_emit.op_u_vo = (ok && vn) ? bb_varslot_peek(vn) : -1;
+        g_emit.op_u_vo = (ok && vn) ? zrow(nd)->vso : -1;
         g_emit.op_u_why = !(ok && vn) ? 1 : g_emit.op_u_vo < 0 ? 4 : 0;
     }
 }
@@ -5045,7 +5038,7 @@ static void call_marg_plan(int i, IR_t * lf, int aoff, IR_t * owner) {
       if (lf->op == IR_VAR && sv && sv[0] != '&' && is_global(sv)) { m->kind = MARG_BOMB_GLOBAL; return; }
       { int is_local_var = (lf->op == IR_VAR && sv && sv[0] != '&' && !is_global(sv)); int ps = is_local_var ? -1 : bb_slot_get(lf); if (ps < 0 && !is_local_var) ps = zls_off(lf);
         if (ps >= 0) { m->src = ps; m->kind = ps == aoff ? MARG_DIRECT : MARG_SLOT; return; } }
-      { int voff = bb_varslot_peek(sv ? sv : ""); if (voff < 0) { m->kind = MARG_BOMB_VARSLOT; return; } m->kind = MARG_SLOT; m->src = voff; } }
+      { int voff = zrow_opvs(owner, i); if (voff < 0) { m->kind = MARG_BOMB_VARSLOT; return; } m->kind = MARG_SLOT; m->src = voff; } }
 }
 static void call_fnlbl_set(const std::string & fl, int guard) {
     g_emit.op_call_fnlbl = call_cv_text(&g_emit.op_call_fnlbl_buf, fl);

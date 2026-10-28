@@ -184,7 +184,6 @@ extern "C" {
 int bb_call_route_classify(IR_t * nd);
 struct zeta_plan_t;
 bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
-int bb_varslot_peek(const char * name);
 void lower_flat_set_intern_str(const char * (*fn)(const char *));
 const char * emit_intern_str(const char * s);
 void lower_flat_reset (void);
@@ -503,9 +502,7 @@ typedef struct {
     int x86_uid;
     const char * x86_uid_kind;
     cv_t x86_uid_kind_buf;
-    cv_t zv_home;
     cv_t star_label_buf;
-    const void * zv_home_cfg;
     int x86_scratch_off;
     int * op_arg_slot;
     int op_arg_slot_cap;
@@ -726,7 +723,7 @@ extern "C" {
 IR_t * bb_child0(const IR_t *n);
 IR_t * bb_child1(const IR_t *n);
 int binop_slot_kind(IR_t *nd);
-int emit_binop_opnd_slot(IR_t *o, int own);
+int emit_binop_opnd_slot(IR_t *o, int own, int vs);
 int binop_is_num_real(IR_graph_t *g, IR_t *nd);
 void bb_fill_alpha(IR_t *nd);
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β);

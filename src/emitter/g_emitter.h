@@ -29,7 +29,6 @@ typedef struct { const char *s; int idx; } strtab_ent_t;
 typedef struct { const char *s; int idx; unsigned char *tbl; unsigned char *bits; } csettab_ent_t;
 typedef struct { IR_t *key; int off; } bb_slotmap_ent_t;
 typedef struct { IR_t *key; int idx; uint32_t gen; } bb_slotix_t;
-typedef struct { const char * name; int depth; } zv_home_t;
 typedef struct { IR_t *key; bb_box_fn fn; const char *text_lbl; } child_cache_ent_t;
 typedef struct { const void *k; uint32_t gen; } bnr_slot_t;
 typedef struct { const char * name; int slot; } ab_ent_t;

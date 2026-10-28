@@ -6,6 +6,7 @@
 #include "emit.h"
 extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" int emit_zrow_sprec(const IR_t * nd);
+extern "C" int emit_zrow_opvs(const IR_t * nd, int k);
 extern "C" {
 #include "bb_template_common.h"
 #include "stage2.h"
@@ -645,7 +646,7 @@ std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
-    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = bb_varslot_peek(a->sval);
+    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = emit_zrow_opvs(_.node, i);
         return (s >= 0 && x86_key_unbacked(s)) ? -1 : s; };
     auto arms = [&](int lb, int lg) -> std::string {
         return x86("def", L(lb + 3))
@@ -844,7 +845,7 @@ static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     for (int i = 0; i < n; i++) {
         IR_t * a = ir_call_arg(_.node, i);
         if (!a || a->op != IR_VAR_REF || !a->sval || a->seal != (home ? IR_SEAL_KILL_HOME : IR_SEAL_KILL_VALUE)) continue;
-        int vs = bb_varslot_peek(a->sval), seen = 0;
+        int vs = emit_zrow_opvs(_.node, i), seen = 0;
         if (vs < 0 || x86_key_unbacked(vs)) continue;
         if (!home) cp += x86("mov", "rax", FRQB(vs, bump))
                        + x86("mov", "rdx", FRQB(vs + 8, bump))
