@@ -6,6 +6,7 @@ function PosEx(sub, s: string; offset: integer): integer;
 function LeftStr(s: string; n: integer): string;
 function RightStr(s: string; n: integer): string;
 function MidStr(s: string; start, n: integer): string;
+function IntToBin(vl: int64; dg: integer): string;
 implementation
 function ReverseString(s: string): string;
 var r: string; i: integer;
@@ -49,5 +50,20 @@ end;
 function MidStr(s: string; start, n: integer): string;
 begin
   MidStr := copy(s, start, n)
+end;
+function IntToBin(vl: int64; dg: integer): string;
+var rs: string; bt: integer; ng: boolean;
+begin
+  setlength(rs, 0);
+  ng := vl < 0;
+  if ng then begin vl := vl + 4611686018427387904; vl := vl + 4611686018427387904 end;
+  for bt := 0 to dg - 1 do
+  begin
+    if (bt >= 63) and ng then rs := '1' + rs
+    else if (vl mod 2) = 1 then rs := '1' + rs
+    else rs := '0' + rs;
+    vl := vl div 2
+  end;
+  IntToBin := rs
 end;
 end.

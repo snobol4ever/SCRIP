@@ -98,11 +98,20 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_names_system(const tree_t *t) {
+    static const char *const S[] = { "strlen", "bsrqword", "bsrdword", "bsfqword", "bsfdword", "popcnt", 0 };
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval) for (int i = 0; S[i]; i++) if (!strcasecmp(t->v.sval, S[i])) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_names_system(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
     const tree_t *block = NULL;
     for (int i = 0; prog && i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_BLOCK) block = prog->c[i];
     const tree_t *uses = pas_uses_of(block);
-    if (!uses) return prog;
+    int sys = pas_names_system(block);
+    if (!uses && !sys) return prog;
     const char *slash = strrchr(filename, '/');
     size_t dl = slash ? (size_t)(slash - filename) : 1;
     char *dir = ct_alloc(dl + 1);
@@ -111,7 +120,13 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
     tree_t *forest = ast_node_new(TT_PART);
     forest->v.sval = ct_strdup("units");
     tree_t *visiting = ast_node_new(TT_VLIST);
-    if (!pas_units_visit(dir, filename, uses, forest, visiting)) return NULL;
+    if (uses && !pas_units_visit(dir, filename, uses, forest, visiting)) return NULL;
+    if (sys) {
+        tree_t *su = ast_node_new(TT_VLIST), *sn = ast_node_new(TT_VAR);
+        sn->v.sval = ct_strdup("system");
+        ast_push(su, sn);
+        if (!pas_units_visit(dir, filename, su, forest, visiting)) return NULL;
+    }
     ast_push(prog, forest);
     return prog;
 }

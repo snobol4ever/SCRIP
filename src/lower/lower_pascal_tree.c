@@ -5959,6 +5959,13 @@ static pval E_const_decl(const tree_t *n) {
         { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); pas_charvar_add(v[1].str); }
         return out;
     }
+    if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && IS(n->c[1], TT_FNC) && n->c[1]->n == 2 && n->c[1]->c[0] && n->c[1]->c[0]->v.sval && !strcmp(n->c[1]->c[0]->v.sval, "chr") &&
+        IS(n->c[1]->c[1], TT_ILIT)) {
+        v[1].str = tok_s(n->c[0]);
+        v[3].ival = n->c[1]->c[1]->v.ival;
+        { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); pas_charvar_add(v[1].str); }
+        return out;
+    }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && n->c[1] &&
         (n->c[1]->t == TT_ADD || n->c[1]->t == TT_SUB || n->c[1]->t == TT_MUL || n->c[1]->t == TT_DIV || n->c[1]->t == TT_IDIV || n->c[1]->t == TT_MOD ||
         (n->c[1]->t == TT_FNC && n->c[1]->n == 2 && n->c[1]->c[0] && n->c[1]->c[0]->v.sval && (!strcmp(n->c[1]->c[0]->v.sval, "high") || !strcmp(n->c[1]->c[0]->v.sval, "low"))) ||
