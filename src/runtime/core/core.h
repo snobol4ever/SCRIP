@@ -28,6 +28,7 @@ static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
 #define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })
 #define CSETVAL(s_) ((DESCR_t){ .v = DT_S, .slen = 0xFFFFFFFFu, .s = (s_) })
 #define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
+static inline __attribute__((always_inline)) DESCR_t NAME_AS_STR_fn(DESCR_t d) { return (d.v == DT_N && d.slen == 0 && d.s && !IS_KWNAME_fn(d)) ? STRVAL(d.s) : d; }
 #define NAMEVAL(s_) ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }

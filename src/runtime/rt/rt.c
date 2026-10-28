@@ -332,6 +332,7 @@ int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal) {
+    if (v->v == DT_N && v->slen == 0 && v->s && !IS_KWNAME_fn(*v)) { DESCR_t t = NAME_AS_STR_fn(*v); return rt_parse_num_d(&t, iv, rv, isreal); }
     if (v->v == DT_I) { *iv = v->i; *isreal = 0; return 1; }
     if (v->v == DT_R) { *rv = v->r; *isreal = 1; return 1; }
     if (v->v == DT_SNUL) { *iv = 0; *isreal = 0; return 1; }

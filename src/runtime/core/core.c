@@ -1585,6 +1585,7 @@ int is_numeric_like(DESCR_t d) {
         return (*end == '\0');
     }
     if (IS_KW(d)) return is_numeric_like(NV_GET_fn(d.s));
+    if (d.v == DT_N && d.slen == 0 && d.s && !IS_KWNAME_fn(d)) return is_numeric_like(NAME_AS_STR_fn(d));
     if (d.v == DT_DATA) { extern int rk_rat_is(DESCR_t); return rk_rat_is(d); }
     return 0;
 }
@@ -3376,6 +3377,7 @@ int64_t to_int_slow(DESCR_t v) {
         case DT_DATA:
         { extern int rk_rat_to_int(DESCR_t, long long *); long long q; if (rk_rat_to_int(v, &q)) return q; core_runtime_error(1, NULL); return 0; }
         case DT_N:
+        if (v.slen == 0 && v.s && !IS_KWNAME_fn(v)) return to_int(NAME_AS_STR_fn(v));
         if (v.slen == 1 && v.p) return to_int(*(DESCR_t *)v.p);
         if (v.slen == 2 && v.p && ((VCELL_t *)v.p)->cellp) return to_int(*((VCELL_t *)v.p)->cellp);
         core_runtime_error(1, NULL);
@@ -3403,6 +3405,10 @@ double to_real(DESCR_t v) {
         { const char *s = rt_cstr_d(v); return strtod(s, NULL); }
         case DT_K:
         return to_real(NV_GET_fn(v.s));
+        case DT_N:
+        if (v.slen == 0 && v.s && !IS_KWNAME_fn(v)) return to_real(NAME_AS_STR_fn(v));
+        core_runtime_error(1, NULL);
+        return 0.0;
         case DT_DATA:
         { extern int rk_rat_to_real(DESCR_t, double *); double q; if (rk_rat_to_real(v, &q)) return q; core_runtime_error(1, NULL); return 0.0; }
         default:
@@ -4760,6 +4766,7 @@ DESCR_t rt_fp_model_spitbol(DESCR_t *a, int n) { (void)a; (void)n; _mm_setcsr(_m
 int rt_gtn_real(const char *s, long n, double *out) { DESCR_t d; if (!s || !rt_gtn_str(s, n, &d)) return 0; *out = IS_REAL(d) ? d.r : (double)d.i; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_cnv_num(DESCR_t v, int want) {
+    v = NAME_AS_STR_fn(v);
     DESCR_t d = v;
     if (IS_STR(v)) {
         const char *s = v.s ? v.s : "";

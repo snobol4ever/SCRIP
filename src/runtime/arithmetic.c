@@ -706,6 +706,8 @@ static int sno_numeric_operand(DESCR_t d) {
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
+    a = NAME_AS_STR_fn(a);
+    b = NAME_AS_STR_fn(b);
     DESCR_t oa = a, ob = b;
     if (strict != 2) { a = big_str_operand(a); b = big_str_operand(b); }
     if (rt_big_arith_wanted(a, b, op)) {
@@ -819,6 +821,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_neg_s(DESCR_t a, int strict) {
+    a = NAME_AS_STR_fn(a);
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (!(strict == 2 ? sno_numeric_operand(a) : is_numeric_like(a))) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
@@ -834,6 +837,7 @@ DESCR_t rt_num_neg_strict(DESCR_t a) { return rt_num_neg_s(a, 1); }
 DESCR_t rt_num_neg_sno(DESCR_t a) { return rt_num_neg_s(a, 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_pos(DESCR_t a) {
+    a = NAME_AS_STR_fn(a);
     if (a.v == DT_BIG) return a;
     { DESCR_t bs = big_str_operand(a); if (bs.v == DT_BIG) return bs; }
     if (!is_numeric_like(a)) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
@@ -841,6 +845,7 @@ DESCR_t rt_num_pos(DESCR_t a) {
     return INTVAL(to_int(a));
 }
 DESCR_t rt_num_pos_sno(DESCR_t a) {
+    a = NAME_AS_STR_fn(a);
     if (a.v == DT_BIG) return a;
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) return INTVAL(0);
     if (!(IS_STR_fn(a) ? sno_numeric_operand(a) : is_numeric_like(a))) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
