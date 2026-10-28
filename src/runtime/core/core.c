@@ -3297,7 +3297,7 @@ int core_icn_int_ok_d(DESCR_t d);
 static int core_icn_int_ok(DESCR_t d) {
     if (IS_INT_fn(d) || IS_REAL_fn(d)) return 1;
     if (d.v == DT_S && d.s) {
-        const char *p = d.s;
+        const char *p = rt_cstr_d(d);
         int dg = 0;
         while (*p == ' ' || *p == '\t') p++;
         if (*p == '+' || *p == '-') p++;
@@ -3322,7 +3322,7 @@ int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_to_int_d(DESCR_t d) {
     if (!core_icn_int_ok(d)) { core_icn_error(101, d); return 0; }
-    if (d.v == DT_S && d.s) { for (const char *p = d.s; *p; p++) if (*p == 'e' || *p == 'E') return (int64_t) strtod(d.s, (char **) 0); }
+    if (d.v == DT_S && d.s) { const char *cs = rt_cstr_d(d); for (const char *p = cs; *p; p++) if (*p == 'e' || *p == 'E') return (int64_t) strtod(cs, (char **) 0); }
     return to_int(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -118,7 +118,7 @@ static int icn_cvt_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.
 static int icn_cvt_int_ok(DESCR_t d) {
     if (IS_INT_fn(d) || IS_REAL_fn(d)) return 1;
     if (d.v == DT_S && d.s) {
-        const char *p = d.s;
+        const char *p = rt_cstr_d(d);
         while (*p == ' ') p++;
         if (*p == '+' || *p == '-') p++;
         int dg = 0;
@@ -133,8 +133,8 @@ static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_err
 static int icn_alnum_c(int c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
 static int icn_cvt_num_ok(DESCR_t d) {
     if (IS_INT_fn(d) || IS_REAL_fn(d) || d.v == DT_BIG) return 1;
-    if (d.v != DT_S || !d.s || icn_numeric_is_c_hex(d.s)) return 0;
-    const char *p = d.s;
+    if (d.v != DT_S || !d.s || icn_numeric_is_c_hex(rt_cstr_d(d))) return 0;
+    const char *p = rt_cstr_d(d);
     while (*p == ' ') p++;
     if (*p == '+' || *p == '-') p++;
     if (!((*p >= '0' && *p <= '9') || (*p == '.' && p[1] >= '0' && p[1] <= '9'))) return 0;
@@ -20860,7 +20860,7 @@ static long icn_str_len_of(DESCR_t d) {
     return d.s ? (long)descr_slen(d) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int64_t icn_char_code(DESCR_t d) { long long rv; if (IS_INT_fn(d)) return d.i; if (d.v == DT_S && d.s && icon_radix_int(d.s, &rv) > 0) return (int64_t)rv; return to_int(d); }
+static int64_t icn_char_code(DESCR_t d) { long long rv; if (IS_INT_fn(d)) return d.i; if (d.v == DT_S && d.s && icon_radix_int(rt_cstr_d(d), &rv) > 0) return (int64_t)rv; return to_int(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict) {
     if (strict && nargs == 0 && (bid == BID_char || bid == BID_icom)) return icn_argtype_raise(101, NULVCL, out);
@@ -21327,6 +21327,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         }
     }
     if (!fn || !out) return 0;
+    for (int _ni = 0; _ni < nargs; _ni++) {
+        if (args[_ni].v == DT_S && args[_ni].s && args[_ni].slen && args[_ni].slen != 0xFFFFFFFFu && args[_ni].s[args[_ni].slen]) args[_ni].s = (char *)rt_cstr_materialize(args[_ni]);
+    }
     if (fn[0] == 'd' && !strcmp(fn, "display")) {
         extern int core_icn_act_top(void);
         extern const char *core_icn_act_name(int);

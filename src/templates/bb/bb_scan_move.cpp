@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
@@ -37,17 +36,24 @@ std::string bb_scan_move() {
          + x86("cmp", "rax", "rcx")
          + x86_omega("jg")
          + x86("mov", FRQ(_.op_off + 16), "r14")
-         + x86("mov", "rdi", "r13")
-         + x86("mov", "rsi", "r14")
-         + x86("mov", "rdx", "rax")
-         + x86("sub", "rdx", (long)1)
-         + x86("mov", "r14", "rdx")
-         + x86("sub", "rsp", (long)16)
-         + x86("call", "rt_substr", (uint64_t)(uintptr_t)(void*)rt_substr)
-         + x86("add", "rsp", (long)16)
-         + x86_rt_gc_poll_rec_sigma_res()
-         + x86("mov", FRQ(_.op_off), "rax")
-         + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + x86("mov", "rcx", "rax")
+         + x86("sub", "rcx", (long)1)
+         + x86("mov", "rdx", "r14")
+         + x86("mov", "r14", "rcx")
+         + x86("sub", "rdx", "rcx")
+         + x86("jge", "L1")
+         + x86("add", "rcx", "rdx")
+         + x86("neg", "rdx")
+         + x86("def", "L1")
+         + x86("lea", "rsi", "[r13+rcx]")
+         + x86("test", "rdx", "rdx")
+         + x86("jnz", "L2")
+         + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)"", x86_strtab_lbl("").c_str())
+         + x86("def", "L2")
+         + x86("shl", "rdx", 32L)
+         + x86("or", "rdx", (long)DT_S)
+         + x86("mov", FRQ(_.op_off), "rdx")
+         + x86("mov", FRQ(_.op_off + 8), "rsi")
          + x86_gamma()
          + x86_beta()
          + x86("mov", "r14", FRQ(_.op_off + 16))
