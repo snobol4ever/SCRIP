@@ -3005,9 +3005,10 @@ static void pas_filevar_add(const char *name) {
         g_lower.pas.sem.pas_filevars[g_lower.pas.sem.pas_nfilevar++].depth = g_lower.pas.sem.pas_npvmark;
     }
 }
+static int pas_std_shadowed(const char *name) { return pas_decl_string_kind(name) > 0 || pas_is_charvar(name); }
 static int pas_is_filevar(const char *name) {
     if (!name) return 0;
-    if (!strcmp(name, "input") || !strcmp(name, "output")) return 1;
+    if (!strcmp(name, "input") || !strcmp(name, "output")) return !pas_std_shadowed(name);
     for (int i = 0; i < g_lower.pas.sem.pas_nfilevar; i++) if (g_lower.pas.sem.pas_filevars[i].name && !strcmp(g_lower.pas.sem.pas_filevars[i].name, name)) return 1;
     return 0;
 }
@@ -3047,7 +3048,7 @@ static int pas_is_filevar_elem(tree_t *e) {
     long long _ah;
     return e && e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_filevar(e->c[0]->v.sval) && pas_array_high_get(e->c[0]->v.sval, &_ah);
 }
-static int pas_is_stdstream(const char *name) { return name && (!strcmp(name, "input") || !strcmp(name, "output")); }
+static int pas_is_stdstream(const char *name) { return name && (!strcmp(name, "input") || !strcmp(name, "output")) && !pas_std_shadowed(name); }
 static int pas_hdrfile_index(const char *n) {
     for (int i = 0; n && i < g_lower.pas.sem.pas_nhdrfile; i++) if (g_lower.pas.sem.pas_hdrfiles[i] && !strcmp(g_lower.pas.sem.pas_hdrfiles[i], n)) return i + 1;
     return 0;
@@ -3284,9 +3285,10 @@ static int pas_is_strval(tree_t *e) {
     return 0;
 }
 static tree_t *mk_set_bin(const char *fn, tree_t *a, tree_t *b);
+static int pas_is_strvar(tree_t *e) { return e && e->t == TT_VAR && e->v.sval && pas_var_string_kind(e->v.sval) > 0; }
 static tree_t *pas_rel(tree_e tt, tree_t *a, tree_t *b) {
     if ((pas_is_stringexpr(a) && pas_is_charexpr(b)) || (pas_is_charexpr(a) && pas_is_stringexpr(b))) return bin(tt, mk_set_bin("__pas_strcmp", pas_concat_operand(a), pas_concat_operand(b)), ilit(0));
-    int lex = pas_is_strval(a) || pas_is_strval(b);
+    int lex = pas_is_strval(a) || pas_is_strval(b) || pas_is_strvar(a) || pas_is_strvar(b);
     if (lex || pas_is_strtyped(a) || pas_is_strtyped(b)) { a = pas_alpha_wrap(a); b = pas_alpha_wrap(b); }
     return lex ? bin(tt, mk_set_bin("__pas_strcmp", a, b), ilit(0)) : bin(tt, a, b);
 }
