@@ -1457,6 +1457,7 @@ static void gc_visit_tbblk(struct _TBBLK_t *t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_attv_head(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && (c->slen == PL_ATTV_SLEN || c->slen == PL_ATTV_SEEN); }
 static int gc_cell_ref(rt_hblk_t *h, const char *p) {
     size_t off, cg;
     uint64_t bit;
@@ -1464,6 +1465,7 @@ static int gc_cell_ref(rt_hblk_t *h, const char *p) {
     if (gc_blk_marked(h)) return 1;
     off = (size_t)(p - (const char *)(h + 1));
     if (p < (const char *)(h + 1) || (off & 15u) || off + 16 > (size_t)h->size - sizeof(rt_hblk_t)) return 0;
+    if (gc_attv_head((const DESCR_t *)p)) return 0;
     cg = (size_t)(p - g_runtime.gc.hp_arena) >> 4;
     bit = 1ull << (cg & 63);
     if (g_runtime.abi.hp_fr.vis[cg >> 6] & bit) return 1;
@@ -3771,9 +3773,9 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     g_runtime.gc.gc_dvec_elems += g_runtime.abi.gc_mk.dvec_elems;
     g_runtime.gc.gc_dvec_nondvec += g_runtime.abi.gc_mk.dvec_nondvec;
 #endif
-    gc_cells_resolve();
     { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
     { extern void rt_pl_eng_gc_weak(void); rt_pl_eng_gc_weak(); }
+    gc_cells_resolve();
 #ifdef SCRIP_GC_AUDIT_B
 #if RT_DIAG
     gc_audit_b_shim(g_runtime.gc.gc_seam_sp ? g_runtime.gc.gc_seam_sp : &anchor);
