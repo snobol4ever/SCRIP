@@ -1819,8 +1819,10 @@ static int pl_iso_builtin(const char * nm, int ar) {
     for (int i = 0; iso[i].nm; i++) if (iso[i].ar == ar && !strcmp(iso[i].nm, nm)) return 1;
     return 0;
 }
+static int pl_xsb_library_replaces(const char * nm, int ar) { return g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(nm, "term_to_atom") && pl_file_defines(nm, ar); }
 static int pl_swi_user_redefines(const char * nm, int ar) {
-    return (g_stage2.pl_dialect == PL_DIALECT_SWI || g_stage2.pl_dialect == PL_DIALECT_XSB) && nm[0] != '$' && !pl_iso_builtin(nm, ar) && pl_user_file_defines(nm, ar);
+    return (g_stage2.pl_dialect == PL_DIALECT_SWI || g_stage2.pl_dialect == PL_DIALECT_XSB) && nm[0] != '$' && !pl_iso_builtin(nm, ar) &&
+        (pl_user_file_defines(nm, ar) || pl_xsb_library_replaces(nm, ar));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_swi_library_leaf(const char * nm, int ar) {

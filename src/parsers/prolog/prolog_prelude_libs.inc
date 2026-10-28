@@ -33973,6 +33973,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "term_size", 2 },
     { "number_digits", 2 },
     { "is_acyclic", 1 },
+    { "term_to_atom", 2 },
+    { "term_to_atom", 3 },
+    { "term_to_codes", 2 },
+    { "term_to_codes", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
@@ -34015,7 +34019,51 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "    ; throw(error(type_error(list, W), number_digits/2)) ).\n"
     "'$xsb_nd_char'(D, W, C) :- ( integer(D) -> ( D >= 0, D =< 9 -> number_codes(D, [K]), char_code(C, K) ; throw(error(type_error(digit, W), number_digits/2)) )\n"
     "    ; atom(D), atom_length(D, 1) -> C = D ; throw(error(syntax_error(W), number_digits/2)) ).\n"
-    "is_acyclic(T) :- acyclic_term(T).\n";
+    "is_acyclic(T) :- acyclic_term(T).\n"
+    "term_to_atom(T, A) :- term_to_codes(T, Cs), atom_codes(A, Cs).\n"
+    "term_to_atom(T, A, Opts) :- term_to_codes(T, Opts, Cs), atom_codes(A, Cs).\n"
+    "term_to_codes(T, Cs) :- term_to_codes(T, [ignore_ops(canonical)], Cs).\n"
+    "term_to_codes(T, Opts, Cs) :- '$xsb_ttc_opts'(Opts, opt(I, Q, N)), ( var(I) -> I = canonical ; true ), ( var(Q) -> Q = false ; true ), ( var(N) -> N = false ; true ),\n"
+    "    copy_term(T, T1), ( N == true -> numbervars(T1, 0, _) ; true ), '$xsb_ttc'(T1, opt(I, Q, N), 0, _, Cs, []).\n"
+    "'$xsb_ttc_opts'(Opts, _) :- var(Opts), !, throw(error(instantiation_error, term_to_atom/3)).\n"
+    "'$xsb_ttc_opts'([], _) :- !.\n"
+    "'$xsb_ttc_opts'([O|Os], S) :- !, '$xsb_ttc_opt'(O, S), '$xsb_ttc_opts'(Os, S).\n"
+    "'$xsb_ttc_opts'(Opts, _) :- throw(error(type_error(list, Opts), term_to_atom/3)).\n"
+    "'$xsb_ttc_opt'(ignore_ops(F), opt(F, _, _)) :- ( F == true ; F == canonical ), !.\n"
+    "'$xsb_ttc_opt'(quoted(F), opt(_, F, _)) :- ( F == true ; F == false ), !.\n"
+    "'$xsb_ttc_opt'(numbervars(F), opt(_, _, F)) :- ( F == true ; F == false ), !.\n"
+    "'$xsb_ttc_opt'(O, _) :- throw(error(domain_error(write_option, O), term_to_atom/3)).\n"
+    "'$xsb_ttc_var'(N, Cs0, Cs) :- number_codes(N, Ds), Cs0 = [95, 104|R], append(Ds, Cs, R).\n"
+    "'$xsb_ttc'(T, O, V0, V, Cs0, Cs) :- ( var(T) -> T = '$xsb_tv'(V0), V is V0 + 1, '$xsb_ttc_var'(V0, Cs0, Cs)\n"
+    "    ; T = '$xsb_tv'(N) -> V = V0, '$xsb_ttc_var'(N, Cs0, Cs)\n"
+    "    ; T = '$VAR'(N) -> '$xsb_ttc_dollar'(N, O, V0, V, Cs0, Cs)\n"
+    "    ; integer(T) -> V = V0, number_codes(T, Ds), append(Ds, Cs, Cs0)\n"
+    "    ; atom(T) -> V = V0, '$xsb_ttc_atom'(T, O, Cs0, Cs)\n"
+    "    ; float(T) -> V = V0, number_codes(T, Ds), append(Ds, Cs, Cs0)\n"
+    "    ; is_list(T) -> T = [H|Tl], '$xsb_ttc_list'(H, Tl, O, V0, V, Cs0, Cs)\n"
+    "    ; compound(T) -> T =.. [F0|As], ( F0 == '[|]' -> F = '.' ; F = F0 ), '$xsb_ttc_atom'(F, O, Cs0, [40|C1]), '$xsb_ttc_args'(As, O, V0, V, C1, Cs) ).\n"
+    "'$xsb_ttc_args'([], _, V, V, Cs0, Cs) :- Cs0 = [41|Cs].\n"
+    "'$xsb_ttc_args'([A|As], O, V0, V, Cs0, Cs) :- '$xsb_ttc'(A, O, V0, V1, Cs0, C1), '$xsb_ttc_rest'(As, O, V1, V, C1, Cs).\n"
+    "'$xsb_ttc_rest'([], _, V, V, Cs0, Cs) :- Cs0 = [41|Cs].\n"
+    "'$xsb_ttc_rest'([A|As], O, V0, V, [44|Cs0], Cs) :- '$xsb_ttc'(A, O, V0, V1, Cs0, C1), '$xsb_ttc_rest'(As, O, V1, V, C1, Cs).\n"
+    "'$xsb_ttc_list'(H, Tl, opt(canonical, Q, N), V0, V, [91|Cs0], Cs) :- !, '$xsb_ttc'(H, opt(canonical, Q, N), V0, V1, Cs0, C1), '$xsb_ttc_lrest'(Tl, opt(canonical, Q, N), V1, V, C1, Cs).\n"
+    "'$xsb_ttc_list'(H, Tl, O, V0, V, Cs0, Cs) :- O = opt(_, Q, _), ( Q == true -> Cs0 = [39, 46, 39, 40|C1] ; Cs0 = [46, 40|C1] ), '$xsb_ttc'(H, O, V0, V1, C1, C2), C2 = [44|C3], '$xsb_ttc'(Tl, O, V1, V, C3, [41|Cs]).\n"
+    "'$xsb_ttc_lrest'([], _, V, V, Cs0, Cs) :- Cs0 = [93|Cs].\n"
+    "'$xsb_ttc_lrest'([A|As], O, V0, V, [44|Cs0], Cs) :- '$xsb_ttc'(A, O, V0, V1, Cs0, C1), '$xsb_ttc_lrest'(As, O, V1, V, C1, Cs).\n"
+    "'$xsb_ttc_dollar'(N, O, V0, V, Cs0, Cs) :- O = opt(_, Q, Nv), ( Nv == true -> '$xsb_ttc_letters'(N, O, V0, V, Cs0, Cs)\n"
+    "    ; '$xsb_ttc'(N, O, V0, V, C1, [41|Cs]), ( Q == true -> append([39, 36, 86, 65, 82, 39, 40], C1, Cs0) ; append([36, 86, 65, 82, 40], C1, Cs0) ) ).\n"
+    "'$xsb_ttc_letters'(N, O, V0, V, Cs0, Cs) :- ( integer(N), N >= 0 -> V = V0, C is N mod 26 + 65, ( N >= 26 -> N1 is N // 26, Cs0 = [C|C1], '$xsb_ttc_letters'(N1, O, V0, _, C1, Cs) ; Cs0 = [C|Cs] )\n"
+    "    ; integer(N) -> V = V0, Cs0 = [95|Cs] ; atom(N) -> V = V0, atom_codes(N, Ac), append(Ac, Cs, Cs0)\n"
+    "    ; N = [_|_], '$xsb_ttc_numlist'(N) -> V = V0, append(N, Cs, Cs0) ; '$xsb_ttc'(N, O, V0, V, Cs0, Cs) ).\n"
+    "'$xsb_ttc_numlist'([]).\n"
+    "'$xsb_ttc_numlist'([H|T]) :- integer(H), '$xsb_ttc_numlist'(T).\n"
+    "'$xsb_ttc_atom'(A, opt(_, Q, _), Cs0, Cs) :- atom_codes(A, Ac), ( Q == true -> ( '$xsb_ttc_plain'(Ac) -> append(Ac, Cs, Cs0) ; Cs0 = [39|C1], '$xsb_ttc_dq'(Ac, C1, [39|Cs]) ) ; append(Ac, Cs, Cs0) ).\n"
+    "'$xsb_ttc_plain'([91, 93]) :- !.\n"
+    "'$xsb_ttc_plain'([C|Cs]) :- C >= 97, C =< 122, '$xsb_ttc_plain1'(Cs).\n"
+    "'$xsb_ttc_plain1'([]).\n"
+    "'$xsb_ttc_plain1'([C|Cs]) :- ( C >= 97, C =< 122 -> true ; C >= 65, C =< 90 -> true ; C =:= 95 -> true ; C >= 48, C =< 57 ), '$xsb_ttc_plain1'(Cs).\n"
+    "'$xsb_ttc_dq'([], Cs, Cs).\n"
+    "'$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
