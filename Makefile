@@ -1778,6 +1778,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_pascal.c \
     $(SRC)/lower/lower_pascal_tree.c \
     $(SRC)/lower/lower_pascal_class.c \
+    $(SRC)/lower/lower_pascal_types.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/rt_dir_snapshot.c \

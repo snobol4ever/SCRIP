@@ -9,6 +9,7 @@
 #include "lower.h"
 #include "g_lower.h"
 #include "lower_pascal_class.h"
+#include "lower_pascal_types.h"
 #define IS(x, k) ((x) && (x)->t == (k))
 static int pas_trace_enabled(void) { return g_runtime.abi.trace_budget != 0; }
 static PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }
@@ -2957,7 +2958,9 @@ static int pas_is_booltype(const char *name) {
     for (int i = 0; i < g_lower.pas.sem.pas_nbooltype; i++) if (g_lower.pas.sem.pas_booltypes[i].name && !strcmp(g_lower.pas.sem.pas_booltypes[i].name, name)) return 1;
     return 0;
 }
-static int pas_is_boolexpr(tree_t *e) {
+static int pas_is_boolexpr_legacy(tree_t *e);
+static int pas_is_boolexpr(tree_t *e) { int l = pas_is_boolexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("bool", e, l, pty_answer(e, PTK_BOOL)); return l; }
+static int pas_is_boolexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e));
     switch (e->t) {
@@ -3216,7 +3219,9 @@ static tree_t *pas_vt_unwrap_read(tree_t *e) {
         (!strcmp(e->c[0]->c[0]->v.sval, "__pas_vcheck") || !strcmp(e->c[0]->c[0]->v.sval, "__pas_tagwhole"))) return e->c[e->n - 1];
     return e;
 }
-static int pas_is_charexpr(tree_t *e) {
+static int pas_is_charexpr_legacy(tree_t *e);
+static int pas_is_charexpr(tree_t *e) { int l = pas_is_charexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("char", e, l, pty_answer(e, PTK_CHAR)); return l; }
+static int pas_is_charexpr_legacy(tree_t *e) {
     e = pas_vt_unwrap_read(e);
     if (!e) return 0;
     if (e->t == TT_FNC && e->n == 5 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_rdecode") && e->c[3] && e->c[3]->t == TT_ILIT && (e->c[3]->v.ival & 0xFF) == 4) return 1;
@@ -3569,7 +3574,9 @@ static const char *pas_field_typename(tree_t *e) {
         return (fi < g_lower.pas.sem.pas_rectypes[i].nf) ? g_lower.pas.sem.pas_rectypes[i].fldtypename[fi] : NULL;
     return NULL;
 }
-static int pas_is_setexpr(tree_t *e) {
+static int pas_is_setexpr_legacy(tree_t *e);
+static int pas_is_setexpr(tree_t *e) { int l = pas_is_setexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("set", e, l, pty_answer(e, PTK_SET)); return l; }
+static int pas_is_setexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_VAR && e->v.sval) return pas_is_setvar(e->v.sval);
     if (e->t == TT_IDX && pas_is_settype(pas_field_typename(e))) return 1;
@@ -3610,7 +3617,9 @@ static int pas_is_qword(tree_t *e) {
     for (int g = 0; tn && g < 8; g++) { if (pas_is_u64_typename(tn)) return 1; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; }
     return 0;
 }
-static int pas_is_stringexpr(tree_t *e) {
+static int pas_is_stringexpr_legacy(tree_t *e);
+static int pas_is_stringexpr(tree_t *e) { int l = pas_is_stringexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("string", e, l, pty_answer(e, PTK_STRING)); return l; }
+static int pas_is_stringexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_CAT) return 1;
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_copy") || !strcmp(e->c[0]->v.sval, "__pas_paramstr"))) return 1;
@@ -6067,7 +6076,9 @@ static pval E_decl_part(const tree_t *n) {
     elab_bad("decl_part", n);
     return out;
 }
-static pval E_expression(const tree_t *n) {
+static pval E_expression_raw(const tree_t *n);
+static pval E_expression(const tree_t *n) { pval o = E_expression_raw(n); pty_note_low(o.node, n); return o; }
+static pval E_expression_raw(const tree_t *n) {
     pval v[6];
     pval out;
     memset(v, 0, sizeof v);
@@ -6945,7 +6956,9 @@ static pval E_scalar_constant(const tree_t *n) {
     elab_bad("scalar_constant", n);
     return out;
 }
-static pval E_selector(const tree_t *n) {
+static pval E_selector_raw(const tree_t *n);
+static pval E_selector(const tree_t *n) { pval o = E_selector_raw(n); pty_note_low(o.node, n); return o; }
+static pval E_selector_raw(const tree_t *n) {
     pval v[7];
     pval out;
     memset(v, 0, sizeof v);
@@ -8251,8 +8264,10 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     pas_param_prepass(flat);
     if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
     pas_var_inits(flat);
+    pty_run(flat, g_lower.pas.sem.pas_dialect_fpc);
     if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_boolvar_add("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
     tree_t *root = E_program(flat).node;
+    pty_census_report();
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors, nlim = g_lower.pas.sem.pas_limit_errors;
     if (nlim > 0) fprintf(stderr, "pascal: %d static-storage limit error(s) in %s -- no code generated\n", nlim, filename);
     if (nsem > 0) fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename);

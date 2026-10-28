@@ -36,6 +36,7 @@ typedef struct { const tree_t *n; int i; } pas_sem_step_t;
 typedef struct {
     PNodeList pascal_procs;
     PNodeList pas_flat_marks;
+    struct pty_state *pty;
     int pas_recbody_depth;
     struct {
         PasDef *defs;
