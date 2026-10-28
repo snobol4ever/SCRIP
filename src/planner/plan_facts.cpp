@@ -1,6 +1,7 @@
 #include "planner_head.h"
 #include "planner.h"
 extern "C" int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd);
+extern "C" int bb_proc_target_retains(const char * fname);
 }
 extern "C" int fc_leaf_cell(const IR_t * nd, long * k);
 extern "C" long fc_vwpop(const IR_t * nd);
@@ -233,6 +234,7 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i];
     z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0;
     z->gcell = (nd->op == IR_GATE || (nd->op == IR_GATE_ARM && nd->n_operands > 1)) ? planner_gate_cells(g, nd->op == IR_GATE ? nd : nd->operands[1]) : 0;
+    z->tret = nd->op == IR_CALL_PROC_STAGED ? bb_proc_target_retains(IR_LIT(nd).sval) : 0;
     if ((nd->op == IR_BOUND || ir_node_produces_value(nd->op)) && rec->on[i] && rec->xb && getenv("SCRIP_PL_DEFCMP") && planner_pl_definite(g, nd) && rec->xb[i] == INT_MIN) {
           extern const char * zls_graph_name_get(const IR_graph_t *);
               fprintf(stderr, "[PL-DEFCMP] graph=%s i=%d %s def0=1 plan=0\n", zls_graph_name_get(g), i, bb_op_name(nd->op)); }

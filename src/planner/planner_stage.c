@@ -38,6 +38,22 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
     { extern const char * zls_graph_name_get(const IR_graph_t *); g->pf.name = zls_graph_name_get(g); }
     {
+        extern int zdp_scan_pure(const IR_t *);
+        int nc = 0, lf = 1, fn = 0;
+        for (int j = 0; j < g->n; j++) {
+            IR_t * m = g->all[j];
+            if (!m) continue;
+            int o = (int)m->op;
+            if (o == IR_MATCH_ALTERNATE || o == IR_DISJUNCTION) { if (m->seal) lf = 0; else nc++; continue; }
+            if (o == IR_MATCH_FENCE1 || o == IR_MATCH_FENCE0) { fn = 1; continue; }
+            if (o == IR_SUCCEED || o == IR_FAIL) continue;
+            if (!zdp_scan_pure(m)) lf = 0;
+        }
+        g->pf.choice_n = nc;
+        g->pf.choice_leaf = lf;
+        g->pf.choice_fence = fn;
+    }
+    {
         extern int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
         int cap = 64, gaps = 0, conf = 0, n;
         uint64_t * q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t));

@@ -833,7 +833,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
          + x86("def", L(lsk + 99));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int bb_proc_target_retains(const char *fname);
+extern "C" int emit_zrow_tret(const IR_t * nd);
 static std::string bcps_block_beta(int act);
 static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     int kt = g_emit.flat_frame_bytes;
@@ -894,7 +894,7 @@ static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
 static std::string bcps_block_rec_beta(void);
 static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx, int sprec) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
-    const int zsp = _.op_zres && !bb_proc_target_retains(_.op_sval);
+    const int zsp = _.op_zres && !emit_zrow_tret(_.node);
     if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() +
         x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
     const int fr = !zsp && !sprec;

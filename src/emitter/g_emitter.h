@@ -125,16 +125,11 @@ struct g_emitter_t {
     int g_ab_fn_cell_n = 0;
     int sn4_arbno_reentry_v = -1;
     int cap_fail_retreat__cf = -1;
-    uint32_t g_xci_epoch = 1;
     int sn4_defer_resume__dres = -1;
     int sn4_arbno_altsib_v = -1;
     int sn4_arbno_tailbeta__atb = -1;
     int sn4_seam_walk__sw = -1;
     int sn4_alt_carrier__ac = -1;
-    const IR_graph_t * g_bcs_g;
-    IR_t ** g_bcs_all;
-    int g_bcs_n = -1, g_bcs_nc, g_bcs_lf, g_bcs_fn;
-    uint32_t g_bcs_ep;
     int blob_carve_pad_v = -1;
     cv_t g_blob_lay;
     cv_t g_alt_pads;

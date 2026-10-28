@@ -48,7 +48,6 @@ extern IR_graph_t * g_emit_cfg;
 #define DRIVE_PAIR_JMP(tgt) do { xa_pair_push(NULL, (tgt)); } while(0)
 #define DRIVE_PAIR_DEF_JMP(l,t) do { xa_pair_push((l), (t)); } while(0)
 int xop_frame_slot(const IR_t * nd);
-extern "C" int bb_proc_target_retains(const char *fname);
 extern "C" int zls_g_vslot_count(const IR_graph_t *);
 extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
 extern "C" int zls_g_block_base(const IR_graph_t *);

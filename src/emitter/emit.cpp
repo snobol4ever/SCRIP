@@ -2437,15 +2437,7 @@ int sn4_alt_carrier(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence) {
     int _nc = 0, _lf = 1, _fn = 0;
-    if (g_emit_cfg && g_emitter.g_bcs_g == g_emit_cfg && g_emitter.g_bcs_all == g_emit_cfg->all && g_emitter.g_bcs_n == g_emit_cfg->n && g_emitter.g_bcs_ep == g_emitter.g_xci_epoch) { _nc =
-        g_emitter.g_bcs_nc; _lf = g_emitter.g_bcs_lf; _fn = g_emitter.g_bcs_fn; }
-    else if (g_emit_cfg) { for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m) continue; int o = (int)m->op;
-        if (o == IR_MATCH_ALTERNATE || o == IR_DISJUNCTION) { if (m->seal) _lf = 0; else _nc++; continue; }
-        if ((o == IR_MATCH_FENCE1 || o == IR_MATCH_FENCE0)) { _fn = 1; continue; }
-        if (o == IR_SUCCEED || o == IR_FAIL) continue;
-        { extern int zdp_scan_pure(const IR_t *); if (!zdp_scan_pure(m)) _lf = 0; } }
-        g_emitter.g_bcs_g = g_emit_cfg; g_emitter.g_bcs_all = g_emit_cfg->all; g_emitter.g_bcs_n = g_emit_cfg->n; g_emitter.g_bcs_ep = g_emitter.g_xci_epoch; g_emitter.g_bcs_nc = _nc;
-            g_emitter.g_bcs_lf = _lf; g_emitter.g_bcs_fn = _fn; }
+    if (g_emit_cfg) { _nc = g_emit_cfg->pf.choice_n; _lf = g_emit_cfg->pf.choice_leaf; _fn = g_emit_cfg->pf.choice_fence; }
     if (n_choice) *n_choice = _nc; if (leaf_ok) *leaf_ok = _lf; if (has_fence) *has_fence = _fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2645,7 +2637,6 @@ extern "C" int emit_diag_regs_suppress(void) {
 extern "C" int x86_diag_regs_on_c(void) { if (g_emitter.x86_diag_regs_on_c_v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); g_emitter.x86_diag_regs_on_c_v = (e && *e && *e != '0') ? 1 : 0;
     } return g_emitter.x86_diag_regs_on_c_v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int bb_proc_target_retains(const char *fname);
 extern "C" int zls_g_vslot_count(const IR_graph_t *); extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *); extern "C" int zls_g_block_base(const IR_graph_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int xa_flat_class_c_pred(void);
@@ -3028,6 +3019,7 @@ extern "C" int emit_zrow_zchk(const IR_t * nd) {
 }
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
 extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
+extern "C" int emit_zrow_tret(const IR_t * nd) { return zrow(nd)->tret; }
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
@@ -4244,7 +4236,6 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_chain_prepare(IR_t * entry) {
-    g_emitter.g_xci_epoch++;
     g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
     { zop_audit_graph_close(); g_emit.zop_seen = 0; }
