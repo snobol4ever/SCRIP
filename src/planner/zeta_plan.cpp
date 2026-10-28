@@ -774,6 +774,15 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
         int * wl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         int wn = 0;
         for (int i = 0; i < n; i++) indef[i] = 0;
+        auto restored = [&](int c) {
+            for (int hop = 0; c >= 0 && hop <= n; hop++) {
+                if (known[c]) return true;
+                int ub = (nodes[c]->op == IR_UNMARK && nodes[c]->n_operands > 0) ? nidx(nodes, n, nodes[c]->operands[0]) : -1;
+                if (ub < 0 || !zon[ub] || claim[ub] < 0 || claim[ub] == c || indef[claim[ub]]) return false;
+                c = claim[ub];
+            }
+            return false;
+        };
         for (int i = 0; i < n; i++) {
             if (!zon[i] || claim[i] < 0 || !zd_edge_retains_g(cg, nodes[i])) continue;
             IR_t * t = zd_chase(nodes[i]->γ.node);
@@ -782,7 +791,7 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
             for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { IR_t * t2 = zd_chase(nodes[q]->γ.node); cur = q; q = t2 ? nidx(nodes, n, t2) : -1; }
             if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
             int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && zd_pl_rest_ival(cg, nodes[q]) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
-            if (ub >= 0 && zon[ub] && claim[ub] >= 0 && known[claim[ub]]) continue;
+            if (ub >= 0 && zon[ub] && claim[ub] >= 0 && restored(claim[ub])) continue;
             indef[claim[q]] = 1; wl[wn++] = claim[q];
         }
         while (wn > 0) {
@@ -797,7 +806,7 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
                     int r = claim[q];
                     if (r != q && !(pl && nodes[q]->op != IR_DISJUNCTION)) continue;
                     int ub = (r == q && nodes[r]->op == IR_UNMARK && zd_pl_rest_ival(cg, nodes[r]) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
-                    if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && known[claim[ub]]) continue;
+                    if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && restored(claim[ub])) continue;
                     indef[r] = 1; wl[wn++] = r;
                 }
             }
