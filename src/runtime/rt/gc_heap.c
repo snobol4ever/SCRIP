@@ -1238,6 +1238,7 @@ typedef struct { const void *pc; const char *r; const void *rbp; } gc_ent_t;
 long gc_collect_ex(const gc_ent_t *ent);
 long gc_collect_ex_c(const gc_ent_t *ent);
 void gc_wl_drain(void);
+void gc_cells_resolve(void);
 void gc_run_verdicts(DESCR_t *v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_point_arr_run(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe, const gc_ent_t *ent) {
@@ -1481,7 +1482,7 @@ static void gc_cells_keep(rt_hblk_t *h) {
     g_runtime.abi.gc_mk.nmk++;
     if ((long)h->size > g_runtime.abi.gc_mk.mxs) g_runtime.abi.gc_mk.mxs = (long)h->size;
 }
-static void gc_cells_resolve(void) {
+void gc_cells_resolve(void) {
     const char *arena = g_runtime.gc.hp_arena;
     size_t nw = (((size_t)(g_hp_top - arena) >> 4) + 63) >> 6;
     uint64_t *vis = g_runtime.abi.hp_fr.vis;

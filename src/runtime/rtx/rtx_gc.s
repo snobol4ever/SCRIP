@@ -3995,6 +3995,7 @@ RTX_FUNC(gc_collect_ex)
     jmp     .Lgx_rd
 .Lgx_rdd:
     RTX_CALL(kw_cset_gc_weak)
+    RTX_CALL(gc_cells_resolve)
     mov     rax, GXHP(0)
     sub     rax, GRT(G_RT_OFF_GC_HP_ARENA)
     shr     rax, 4
