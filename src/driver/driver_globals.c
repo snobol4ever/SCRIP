@@ -132,12 +132,21 @@ static int fh_last_cp(const char *p, size_t n){
     return (int)cp;
 }
 static void fh_std_count(fh_slot_t *h, int i, const char *p, size_t n){ fh_pos_fold(&h[i],&h[1],p,n); if(n) h[i].lastc=fh_last_cp(p,n); }
+static void fh_std_in_fold_pipe(fh_slot_t *h, FILE *in){
+    struct stat st;
+    long cp, fill;
+    if(fstat(fileno(in),&st)||!(S_ISFIFO(st.st_mode)||S_ISSOCK(st.st_mode))){ h[1].cnt=2; return; }
+    cp=(long)(in->_IO_read_ptr-in->_IO_read_base);
+    fill=(long)(in->_IO_read_end-in->_IO_read_base);
+    if(fill!=h[0].in_fill||cp<h[0].in_fold){ h[0].in_fill=fill; h[0].in_fold=0; }
+    if(cp>h[0].in_fold){ fh_pos_fold((fh_slot_t *)0,&h[1],in->_IO_read_base+h[0].in_fold,(size_t)(cp-h[0].in_fold)); h[0].in_fold=cp; }
+}
 static void fh_std_in_fold(fh_slot_t *h){
     FILE *in=h[0].fp;
     long off;
     if(h[1].cnt!=1||!in||!in->_IO_read_base) return;
     off=ftell(in);
-    if(off<0){ h[1].cnt=2; return; }
+    if(off<0){ fh_std_in_fold_pipe(h,in); return; }
     if(off<h[1].pos_off){ h[1].pos_off=off; return; }
     while(h[1].pos_off<off){
         size_t want=(size_t)(off-h[1].pos_off);

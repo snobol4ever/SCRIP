@@ -71,6 +71,8 @@ typedef struct {
     char buf;
     char cnt;
     long pos_pre;
+    long in_fold;
+    long in_fill;
     long gpos_chars;
     long gpos_lines;
     long gpos_lpos;
