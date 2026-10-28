@@ -1753,6 +1753,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$expand_ctl'(findall(T,A,L),findall(T,A1,L)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(findall(T,A,L,M),findall(T,A1,L,M)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(aggregate_all(S,A,R),aggregate_all(S,A1,R)):-!,expand_goal(A,A1).\n"
+    "'$expand_ctl'(M:A,M:A1):-atom(M),!,expand_goal(A,A1).\n"
     "'$expand_ctl'(G,G1):-callable(G),G=..[F|As],As\\==[],functor(G,F,N),functor(S,F,N),catch('$meta_rt'(S),error(existence_error(_,_),_),fail),!,S=..[_|Ss],'$expand_margs'(As,Ss,As1),G1=..[F|As1].\n"
     "'$expand_ctl'(G,G).\n"
     "'$expand_margs'([],[],[]).\n"
