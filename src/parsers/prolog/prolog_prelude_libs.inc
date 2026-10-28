@@ -33977,9 +33977,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "term_to_atom", 3 },
     { "term_to_codes", 2 },
     { "term_to_codes", 3 },
+    { "compile", 1 },
+    { "compile", 2 },
+    { "min_ed_dis", 3 },
+    { "import", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+    { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
 };
@@ -34063,7 +34068,19 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$xsb_ttc_plain1'([]).\n"
     "'$xsb_ttc_plain1'([C|Cs]) :- ( C >= 97, C =< 122 -> true ; C >= 65, C =< 90 -> true ; C =:= 95 -> true ; C >= 48, C =< 57 ), '$xsb_ttc_plain1'(Cs).\n"
     "'$xsb_ttc_dq'([], Cs, Cs).\n"
-    "'$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).\n";
+    "'$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).\n"
+    "compile(F) :- compile(F, []).\n"
+    "compile(F, Opts) :- ( var(F) -> throw(error(instantiation_error, compile/2)) ; \\+ atom(F) -> throw(error(type_error(atom, F), compile/2)) ; true ),\n"
+    "    ( is_list(Opts) -> true ; throw(error(type_error(list, Opts), compile/2)) ), '$xsb_ld_path'(F, _).\n"
+    "min_ed_dis(S, T, D) :- atom_codes(S, Cs), atom_codes(T, Ds), length(Ds, N), numlist(0, N, Row0), '$xsb_med'(Cs, Ds, 1, Row0, Row), last(Row, D).\n"
+    "'$xsb_med'([], _, _, Row, Row).\n"
+    "'$xsb_med'([C|Cs], Ds, I, Prev, Row) :- '$xsb_med_row'(Ds, C, I, Prev, Cur), I1 is I + 1, '$xsb_med'(Cs, Ds, I1, Cur, Row).\n"
+    "'$xsb_med_row'(Ds, C, I, Prev, [I|Cur]) :- '$xsb_med_cells'(Ds, C, Prev, I, Cur).\n"
+    "'$xsb_med_cells'([], _, _, _, []).\n"
+    "'$xsb_med_cells'([D|Ds], C, [Diag, Up|Prev], Left, [X|Xs]) :- ( C =:= D -> Sub = Diag ; Sub is Diag + 1 ), U1 is Up + 1, L1 is Left + 1, X is min(Sub, min(U1, L1)), '$xsb_med_cells'(Ds, C, [Up|Prev], X, Xs).\n"
+    "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
+    "import(_).\n"
+    "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }

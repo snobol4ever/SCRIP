@@ -7,11 +7,14 @@
     a float 4, a compound or list cell 1 plus the sizes of its arguments; library(terms)' term_size/2 counts SWI's cells and is shadowed when this library is selected (the generator's SHADOWS row;
     prolog_tests/test_term_size). number_digits/2 is XSB's number_chars/2 with the digit characters as the integers 0 to 9 and '-' '.' 'e' '+' as atoms (measured on XSB 5.0.0: number_digits(-23, L) gives
     [-,2,3], number_digits(N, [1,'2']) gives 12, [1,'.'] gives 1.0); invalid text raises syntax_error(List), an integer outside 0 to 9 type_error(digit, List), a non-list type_error(list, X), a non-number
-    first argument type_error(number, X), a partial list instantiation_error (prolog_tests/n2c). is_acyclic/1 is XSB's name for ISO acyclic_term/1 (prolog_tests/large_arity_prolog).
+    first argument type_error(number, X), a partial list instantiation_error (prolog_tests/n2c). compile/1,2 check that the file exists (as F, F.P or F.pl, load_dyn's search) and LOAD NOTHING: XSB's compile writes an object
+    file that SCRIP has no use for, and the program's consult/1 of the same name loads the source (ARCH-PROLOG-DIALECTS sec 5; prolog_tests/altindex, inline). min_ed_dis/3 is the xeddis foreign module's Levenshtein distance between two atoms (measured on XSB 5.0.0: frog and dog are 2 apart,
+    frog and antidisestablishmentarianism 27; foreign_tests/cinter1). import/1 is xsb_builtins' no-op directive plus XSB's renaming form ':- import member/2 from basics as mymember/2.', which defines mymember(A, B) :- member(A, B) (the generator's
+    SHADOWS row removes xsb_builtins' own import/1 when this library is selected; foreign_tests/test_importas). is_acyclic/1 is XSB's name for ISO acyclic_term/1 (prolog_tests/large_arity_prolog).
     term_to_atom/2,3 and term_to_codes/2,3 are XSB's (syslib/string.P) and WRITE ONLY: the term is copied and written as codes, the default options ignore_ops(canonical), quoted(false), numbervars(false), so a
     compound is f(a,b) whatever its operators, a proper list [a,b], an unbound variable _h0, _h1, ... in order of first occurrence (a repeated variable keeps its number), a float as number_codes writes it and
     an atom as its text (quoted(true) quotes what XSB's if_not_need_quote refuses); SWI's term_to_atom/2 parses text, so it stays SWI's outside the XSB dialect (prolog_tests/large_arity_prolog). */
-:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3 ]).
+:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, import/1 ]).
 index(_, _).
 index(_, _, _).
 do_all(G) :- ( call(G), fail ; true ).
@@ -82,3 +85,15 @@ term_to_codes(T, Opts, Cs) :- '$xsb_ttc_opts'(Opts, opt(I, Q, N)), ( var(I) -> I
 '$xsb_ttc_plain1'([C|Cs]) :- ( C >= 97, C =< 122 -> true ; C >= 65, C =< 90 -> true ; C =:= 95 -> true ; C >= 48, C =< 57 ), '$xsb_ttc_plain1'(Cs).
 '$xsb_ttc_dq'([], Cs, Cs).
 '$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).
+compile(F) :- compile(F, []).
+compile(F, Opts) :- ( var(F) -> throw(error(instantiation_error, compile/2)) ; \+ atom(F) -> throw(error(type_error(atom, F), compile/2)) ; true ),
+    ( is_list(Opts) -> true ; throw(error(type_error(list, Opts), compile/2)) ), '$xsb_ld_path'(F, _).
+min_ed_dis(S, T, D) :- atom_codes(S, Cs), atom_codes(T, Ds), length(Ds, N), numlist(0, N, Row0), '$xsb_med'(Cs, Ds, 1, Row0, Row), last(Row, D).
+'$xsb_med'([], _, _, Row, Row).
+'$xsb_med'([C|Cs], Ds, I, Prev, Row) :- '$xsb_med_row'(Ds, C, I, Prev, Cur), I1 is I + 1, '$xsb_med'(Cs, Ds, I1, Cur, Row).
+'$xsb_med_row'(Ds, C, I, Prev, [I|Cur]) :- '$xsb_med_cells'(Ds, C, Prev, I, Cur).
+'$xsb_med_cells'([], _, _, _, []).
+'$xsb_med_cells'([D|Ds], C, [Diag, Up|Prev], Left, [X|Xs]) :- ( C =:= D -> Sub = Diag ; Sub is Diag + 1 ), U1 is Up + 1, L1 is Left + 1, X is min(Sub, min(U1, L1)), '$xsb_med_cells'(Ds, C, [Up|Prev], X, Xs).
+import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).
+import(_).
+'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).
