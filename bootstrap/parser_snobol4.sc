@@ -215,7 +215,24 @@ GoInner     =  FENCE(  '$' '(' *$' ' *Expr *$' ' ')'
                     |  *Call
                     |  (*Id) . thx . *Shift('TT_QLIT', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
                     );
-Target      =  '(' *$' ' *GoInner *$' ' ')'
+/* a goto operand that is not one of those shapes is an expression (snobol4.y goto_label_expr XLPAREN expr0 XRPAREN, sno_goto_operand): the lowest-precedence operator present decides, a value form is wrapped in */
+/* TT_NAME (error 212 in the lowerer), a variable is the label, $ loses one TT_INDIRECT, any other name form (A[1], *X, &K, X @ Y) stands as the expression; each GoV level is the first step of that level's tail */
+GoV0        =  *Expr1 FENCE(*$'=' *Expr0 . *ReduceV('TT_ASSIGN', 2) | *$'  ' '=' (epsilon) . thx . *Shift('TT_QLIT', thx) . *ReduceV('TT_ASSIGN', 2)) . *Reduce('TT_NAME', 1);
+GoV1        =  *Expr2 *$'?' *Expr2 . *Reduce('TT_SCAN', 2) *Expr1t . *Reduce('TT_NAME', 1);
+GoV3        =  *Expr4 *$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t . *Reduce('TT_NAME', 1);
+GoV4        =  *Expr5 *$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t . *Reduce('TT_NAME', 1);
+GoV6        =  *Expr7 *$'  ' ('+' *$'  ' *Expr7 . *ReduceV('TT_ADD', 2) | '-' *$'  ' *Expr7 . *ReduceV('TT_SUB', 2)) *Expr6t . *Reduce('TT_NAME', 1);
+GoV8        =  *Expr9 *$'/' *Expr9 . *ReduceV('TT_DIV', 2) *Expr8t . *Reduce('TT_NAME', 1);
+GoV9        =  *Expr10 *$'*' *Expr10 . *ReduceV('TT_MUL', 2) *Expr9t . *Reduce('TT_NAME', 1);
+GoV11       =  *Expr12 *$'  ' ('**' | '^' | '!') *$'  ' *Expr11 . *ReduceV('TT_POW', 2) . *Reduce('TT_NAME', 1);
+GoV12       =  *Expr13 *$'  ' ('$' *$'  ' *Expr13 . *ReduceV('TT_CAPT_IMMED_ASGN', 2) | '.' *$'  ' *Expr13 . *ReduceV('TT_CAPT_COND_ASGN', 2)) *Expr12tail . *Reduce('TT_NAME', 1);
+GoVU        =  @gu *DIFFER(Src ? (POS(gu) ANY('@~?+-.'))) *Expr14 . *Reduce('TT_NAME', 1);
+GoVL        =  @gl *DIFFER(Src ? (POS(gl) ANY("'" '"' '0123456789'))) *Expr17 . *Reduce('TT_NAME', 1);
+GoX         =  *GoInner | *GoV0 | *GoV1 | *GoV3 | *GoV4 | *GoV6 | *GoV8 | *GoV9 | *GoV11 | *GoV12 | *GoVU | *GoVL
+            |  '(' *$' ' *GoX *$' ' ')'
+            |  '$' *Expr14
+            |  *Expr;
+Target      =  '(' *$' ' *GoX *$' ' ')'
             |  '<' *$' ' *Expr *$' ' '>' . *Reduce('TT_GOTO_DIRECT', 1);
 /* the gotos stand in the statement in written order, :F(x)S(y) as F then S (stmt_ast.c keeps the written order since this landing) */
 Sgo         =  *SGoto *$' ' *Target . *Reduce('TT_GOTO_S', 1) . *IncCounter();
