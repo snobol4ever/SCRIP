@@ -4714,7 +4714,13 @@ static int r_statement(RkP *p, int pos) {
     if (c == ')' || c == ']' || c == '}' || pos >= p->n) return -1;
     if (c == ';') { if (p->build) { rkb_empty(p->B, p->cur_list, p->bk); p->last_real_semi = 1; } return pos; }
     int e;
-    if ((e = r_label(p, pos)) >= 0) return r_statement(p, e);
+    if ((e = r_label(p, pos)) >= 0) {
+        char *lb = p->build ? ct_strndup0(p->s + pos, r_identifier(p, pos) - pos) : NULL;
+        int n0 = p->cur_list ? p->cur_list->n : 0;
+        int f = r_statement(p, e);
+        if (p->build && f >= 0 && lb && p->cur_list && p->cur_list->n > n0) rkb_label_loop(p->B, p->cur_list, n0, lb);
+        return f;
+    }
     p->ctl_ns = 0; p->tv = NULL;
     if ((e = r_statement_control(p, pos)) >= 0) {
         if (p->build && p->tv) { int semi, last; tree_t *t = taketv(p); int ns = p->ctl_ns; stmt_end_info(p, e, &semi, &last); rkb_control(p->B, p->cur_list, p->bk, pos, t, ns, semi, last); }

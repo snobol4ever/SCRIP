@@ -2480,6 +2480,84 @@ tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int 
 /*====================================================================================================================================================================================================*/
 static void app(RkB *b, tree_t *list, tree_t *t, int from) { if (!t) return; if (!t->line) t->line = line_at(b, from); ast_push(list, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_loop_body_idx(const tree_t *l) {
+    if (!l) return -1;
+    switch (l->t) { case TT_WHILE: case TT_UNTIL: case TT_EVERY: return 1; case TT_CLOOP: case TT_FOR_RANGE: return 3; case TT_REPEAT: return 0; default: return -1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_find_loop(tree_t *t, int depth) {
+    if (!t || depth > 4) return NULL;
+    if (rk_loop_body_idx(t) >= 0 && t->n > rk_loop_body_idx(t)) return t;
+    for (int i = 0; i < t->n; i++) { tree_t *l = rk_find_loop(t->c[i], depth + 1); if (l) return l; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_lbl_set(const char *flag, long long v) {
+    tree_t *fv = leaf_sval(TT_VAR, flag);
+    fv->slen |= 4;
+    return expr_binary(TT_ASSIGN, fv, rk_ilit(v));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_lbl_if(const char *flag, tree_e rel, long long v, tree_t *then) {
+    tree_t *ifn = ast_node_new(TT_IF);
+    expr_add_child(ifn, expr_binary(rel, leaf_sval(TT_VAR, flag), rk_ilit(v)));
+    expr_add_child(ifn, then);
+    return ifn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_lbl_walk(tree_t *t, const char *label, const char *flag, int depth) {
+    int crossed = 0;
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (!c || c->t == TT_SUB_DECL || c->t == TT_ANON_BLOCK) continue;
+        if (c->t == TT_FNC && c->v.sval && c->n == 2 && (!strcmp(c->v.sval, "last") || !strcmp(c->v.sval, "next")) && c->c[1] && c->c[1]->t == TT_VAR && c->c[1]->v.sval && !strcmp(c->c[1]->v.sval, label)) {
+            int is_last = !strcmp(c->v.sval, "last");
+            tree_t *ctl = ast_node_new(is_last ? TT_LOOP_BREAK : TT_LOOP_NEXT);
+            if (depth == 0) { t->c[i] = ctl; continue; }
+            tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+            expr_add_child(sq, rk_lbl_set(flag, is_last ? 1 : 2));
+            expr_add_child(sq, ast_node_new(TT_LOOP_BREAK));
+            t->c[i] = sq; crossed = 1; continue;
+        }
+        if (rk_loop_body_idx(c) >= 0) {
+            if (rk_lbl_walk(c, label, flag, depth + 1)) {
+                tree_t *chk = ast_node_new(TT_SEQ_EXPR), *sq = ast_node_new(TT_SEQ_EXPR);
+                if (depth == 0) {
+                    tree_t *t1 = ast_node_new(TT_SEQ_EXPR), *t2 = ast_node_new(TT_SEQ_EXPR);
+                    expr_add_child(t1, rk_lbl_set(flag, 0)); expr_add_child(t1, ast_node_new(TT_LOOP_BREAK));
+                    expr_add_child(t2, rk_lbl_set(flag, 0)); expr_add_child(t2, ast_node_new(TT_LOOP_NEXT));
+                    expr_add_child(chk, rk_lbl_if(flag, TT_EQ, 1, t1)); expr_add_child(chk, rk_lbl_if(flag, TT_EQ, 2, t2));
+                } else expr_add_child(chk, rk_lbl_if(flag, TT_NE, 0, ast_node_new(TT_LOOP_BREAK)));
+                expr_add_child(sq, c); expr_add_child(sq, chk);
+                t->c[i] = sq; crossed = 1;
+            }
+            continue;
+        }
+        if (rk_lbl_walk(c, label, flag, depth)) crossed = 1;
+    }
+    return crossed;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_label_loop(RkB *b, tree_t *list, int first, const char *label) {
+    if (!list || list->n <= first || !label) return;
+    int at = -1;
+    tree_t *stmt = NULL, *loop = NULL;
+    for (int i = first; i < list->n && !loop; i++) { stmt = list->c[i]; loop = rk_find_loop(stmt, 0); at = i; }
+    if (!loop) return;
+    int bi = rk_loop_body_idx(loop);
+    const char *flag = intern(fmt("__lb_%s_%d", label, b->fm_uid++));
+    tree_t *body = loop->c[bi];
+    tree_t *holder = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(holder, body);
+    if (!rk_lbl_walk(holder, label, flag, 0) && holder->c[0] == body) { return; }
+    loop->c[bi] = holder->c[0];
+    tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(sq, rk_lbl_set(flag, 0));
+    expr_add_child(sq, stmt);
+    sq->line = stmt->line;
+    list->c[at] = sq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_empty(RkB *b, tree_t *list, int bk) { (void) b; if (bk == BK_CLASS || bk == BK_GRAMMAR || bk == BK_ITEMS || !list) return; ast_push(list, ast_node_new(TT_SEQ_EXPR)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_swap_nonwhen(RkB *b, int v) { int o = b->nonwhen; b->nonwhen = v; return o; }
