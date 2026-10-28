@@ -19965,6 +19965,7 @@ static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *
 static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2) return -1;
     if (!is_numeric_like(args[1])) { core_runtime_error(90, "dupl second argument is not integer"); *out = FAILDESCR; return 1; }
+    if (args[0].v == DT_P || args[0].v == DT_X) { extern DESCR_t DUPL_fn(DESCR_t, DESCR_t); *out = DUPL_fn(args[0], args[1]); return 1; }
     const char *sv = VARVAL_fn(args[0]);
     if (!sv) sv = "";
     DESCR_t nn = args[1];

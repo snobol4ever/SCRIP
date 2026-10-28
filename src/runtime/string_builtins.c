@@ -7,6 +7,16 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     if (!is_numeric_like(n)) { core_runtime_error(90, "dupl second argument is not integer"); return FAILDESCR; }
+    if (s.v == DT_P || s.v == DT_X) {
+        extern DESCR_t pat_cat(DESCR_t, DESCR_t);
+        extern DESCR_t pat_epsilon(void);
+        int64_t pt = to_int(n);
+        if (pt < 0) return FAILDESCR;
+        if (pt == 0) return pat_epsilon();
+        DESCR_t pr = s;
+        for (int64_t i = 1; i < pt; i++) pr = pat_cat(pr, s);
+        return pr;
+    }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t times = to_int(n);
     if (times < 0) return FAILDESCR;
