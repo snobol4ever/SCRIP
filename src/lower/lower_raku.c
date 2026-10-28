@@ -6522,6 +6522,50 @@ static void rk_ctl_rhs(tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_alias_walk(tree_t * t, const rk_ns_t * attrs, const rk_ns_t * locals) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (c && c->t == TT_VAR && !c->n && c->v.sval && rk_ns_has(attrs, c->v.sval) && !rk_ns_has(locals, c->v.sval) && !(t->t == TT_FNC && i == 0) && t->t != TT_SUB_DECL) {
+            tree_t * f = ast_node_new(TT_TWIGIL_FIELD);
+            f->line = c->line;
+            f->v.sval = c->v.sval;
+            t->c[i] = f;
+            continue;
+        }
+        rk_alias_walk(c, attrs, locals);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_local_names(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if ((t->t == TT_DECL && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) || t->t == TT_ASSIGN) {
+        const tree_t * v = t->t == TT_DECL ? t->c[1] : (t->n > 0 ? t->c[0] : NULL);
+        if (v && v->t == TT_VAR && v->v.sval && (v->slen & 4)) rk_ns_add(out, v->v.sval);
+    }
+    for (int i = 0; i < t->n; i++) rk_local_names(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_attr_aliases(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_attr_aliases(t->c[i]);
+    if (t->t != TT_CLASS_DECL && t->t != TT_ROLE_DECL) return;
+    rk_ns_t attrs = { 0 };
+    for (int j = 1; j < t->n; j++) {
+        const tree_t * m = t->c[j];
+        if (m && m->t == TT_VAR && !m->n && m->v.sval && (isalpha((unsigned char) m->v.sval[0]) || m->v.sval[0] == '_')) rk_ns_add(&attrs, m->v.sval);
+    }
+    if (!attrs.n) return;
+    for (int j = 1; j < t->n; j++) {
+        tree_t * m = t->c[j];
+        if (!m || m->t != TT_SUB_DECL) continue;
+        rk_ns_t locals = { 0 };
+        for (int k = 1; k <= (int) m->v.ival && k < m->n; k++) if (m->c[k] && m->c[k]->t == TT_VAR && m->c[k]->v.sval) rk_ns_add(&locals, m->c[k]->v.sval);
+        rk_local_names(m, &locals);
+        rk_alias_walk(m, &attrs, &locals);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
@@ -6537,6 +6581,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_sub_names(prog, &subs);
         rk_builtin_refs((tree_t *) prog, &subs);
         rk_ctl_rhs((tree_t *) prog);
+        rk_attr_aliases((tree_t *) prog);
     }
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);

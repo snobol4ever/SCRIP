@@ -4558,7 +4558,7 @@ static int r_type_declarator(RkP *p, int pos) {
         int t = r_term(p, q);
         if (t < 0) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
         tree_t *et = NULL;
-        if (p->build) et = p->tm.kind == TK_WORDS && p->tm.name ? rkb_enum(p->B, p->tm.name, (int) strlen(p->tm.name), en, en + enl) : ast_node_new(TT_SEQ_EXPR);
+        if (p->build) et = p->tm.kind == TK_WORDS && p->tm.name ? rkb_enum(p->B, p->tm.name, (int) strlen(p->tm.name), en, en + enl) : p->tm.t ? rkb_enum_tree(p->B, p->tm.t, en, en + enl) : ast_node_new(TT_SEQ_EXPR);
         enum_names_from(p, q, t, p->s + en, enl);
         for (int k = q, quo = 0; k < t; k++) {
             unsigned char b = (unsigned char) p->s[k];

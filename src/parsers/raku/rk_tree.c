@@ -1014,6 +1014,7 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
     const char *s = b->s; SB buf = { 0 };
     typedef struct { int at; int pos; } Mk;
     Mk *mk = NULL; int nmk = 0, cmk = 0;
+#define DQ_PUTCP(X) do { unsigned long _c = (X); if (_c == '$' || _c == '@') { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = -(int) _c; nmk++; } else sb_cp(&buf, _c); } while (0)
     int i = from;
     while (i < to) {
         char c = s[i];
@@ -1027,18 +1028,27 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
                 int j = i + 3; while (j < to && (ishex(s[j]) || s[j] == ',' || s[j] == ' ')) j++;
                 if (j < to && s[j] == ']' && j > i + 3) {
                     const char *p = s + i + 3;
-                    while (p < s + j) { while (p < s + j && (*p == ' ' || *p == ',')) p++; if (p >= s + j) break; char *e; unsigned long cp = strtoul(p, &e, 16); if (e == p) break; sb_cp(&buf, cp);
+                    while (p < s + j) { while (p < s + j && (*p == ' ' || *p == ',')) p++; if (p >= s + j) break; char *e; unsigned long cp = strtoul(p, &e, 16); if (e == p) break; DQ_PUTCP(cp);
                         p = e; }
                     i = j + 1; continue;
                 }
             }
-            if (d == 'x' && i + 2 < to && ishex(s[i + 2])) { int j = i + 2; while (j < to && ishex(s[j])) j++; sb_cp(&buf, strtoul(spn(b, i + 2, j), NULL, 16)); i = j; continue; }
+            if (d == 'x' && i + 2 < to && ishex(s[i + 2])) { int j = i + 2; while (j < to && ishex(s[j])) j++; DQ_PUTCP(strtoul(spn(b, i + 2, j), NULL, 16)); i = j; continue; }
             if (d == 'c' && i + 2 < to && s[i + 2] == '[') {
                 int j = i + 3; while (j < to && s[j] != ']') j++;
-                if (j < to && dq_named_chars(&buf, s + i + 3, j - i - 3)) { i = j + 1; continue; }
+                int nb0 = buf.n;
+                if (j < to && dq_named_chars(&buf, s + i + 3, j - i - 3)) {
+                    char keep[buf.n - nb0 + 1];
+                    memcpy(keep, buf.v + nb0, (size_t) (buf.n - nb0));
+                    int nk = buf.n - nb0;
+                    buf.n = nb0;
+                    for (int q = 0; q < nk; q++) { if (keep[q] == '$' || keep[q] == '@') DQ_PUTCP((unsigned char) keep[q]); else sb_c(&buf, keep[q]); }
+                    i = j + 1;
+                    continue;
+                }
             }
-            if (d == 'c' && i + 2 < to && isdigit((unsigned char) s[i + 2])) { int j = i + 2; while (j < to && isdigit((unsigned char) s[j])) j++; sb_cp(&buf, strtoul(spn(b, i + 2, j), NULL, 10)); i = j; continue; }
-            if (d == 'c' && i + 2 < to && strchr("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_?", s[i + 2])) { sb_cp(&buf, s[i + 2] == '?' ? 127u : (unsigned) (s[i + 2] ^ 0x40)); i += 3; continue; }
+            if (d == 'c' && i + 2 < to && isdigit((unsigned char) s[i + 2])) { int j = i + 2; while (j < to && isdigit((unsigned char) s[j])) j++; DQ_PUTCP(strtoul(spn(b, i + 2, j), NULL, 10)); i = j; continue; }
+            if (d == 'c' && i + 2 < to && strchr("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_?", s[i + 2])) { DQ_PUTCP(s[i + 2] == '?' ? 127u : (unsigned) (s[i + 2] ^ 0x40)); i += 3; continue; }
             if (d == 'b') { sb_c(&buf, '\b'); i += 2; continue; }
             if (d == 'r') { sb_c(&buf, '\r'); i += 2; continue; }
             if (d == 'a') { sb_c(&buf, '\a'); i += 2; continue; }
@@ -2323,6 +2333,7 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         it->t = rk_wc_close(it->t, &ps); return;
     }
     it->npost++; it->to = pf->to;
+    if (pf->k == 'P' && pf->txt && !strncmp(pf->txt, "\xe2\x9a\x9b", 3) && (pf->txt[3] == '+' || pf->txt[3] == '-') && pf->txt[3] == pf->txt[4] && !pf->txt[5]) pf->txt += 3;
     if (pf->k == 'P' && pf->txt) { int ui = rkb_user_op_find(b, 'P', pf->txt); if (ui >= 0) { it->t = rk_user_call1(b, ui, "postfix", e); return; } }
     if (pf->k == 'U' && pf->txt) {
         int ui = rkb_user_op_find(b, 'k', pf->txt);
@@ -2588,6 +2599,20 @@ static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) { tree_t
 void rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d) { (void) b; memset(it, 0, sizeof *it); it->kind = TK_DECL; it->from = from; it->to = it->core_to = to; it->decl = d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void has_items(RkB *b, tree_t *list, RkDecl *d, int from) {
+    if (d->sigil == '(' && d->sig) {
+        for (int i = 0; i < d->sig->n; i++) {
+            tree_t *v = d->sig->c[i];
+            if (!v || v->t != TT_VAR || !v->v.sval || !*v->v.sval) continue;
+            RkDecl one = *d;
+            one.name = (v->v.sval[0] == '@' || v->v.sval[0] == '%' || v->v.sval[0] == '$') ? v->v.sval : fmt("$%s", v->v.sval);
+            one.sigil = one.name[0];
+            one.sig = NULL;
+            one.init = NULL;
+            one.init_op = NULL;
+            has_items(b, list, &one, from);
+        }
+        return;
+    }
     const char *nm = d->name ? d->name : "$";
     int twig = strlen(nm) > 2 && (nm[1] == '.' || nm[1] == '!');
     const char *fn = twig ? nm + 1 : strip_sigil(nm);
@@ -3041,6 +3066,28 @@ tree_t *rkb_enum(RkB *b, const char *text, int n, int from, int to) {
     return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_enum_items(RkB *b, tree_t *t, TL *l, long long *idx) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr")) { for (int i = 1; i < t->n; i++) rk_enum_items(b, t->c[i], l, idx); return; }
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_pair") && t->n == 3 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval) {
+        tree_t *val = t->c[2];
+        if (val && val->t == TT_ILIT) *idx = val->v.ival;
+        tl_add(l, expr_binary(TT_ASSIGN, var_node(b, t->c[1]->v.sval), val));
+        (*idx)++;
+        return;
+    }
+    if ((t->t == TT_QLIT || t->t == TT_VAR) && t->v.sval && *t->v.sval) tl_add(l, expr_binary(TT_ASSIGN, var_node(b, t->v.sval), rk_ilit((*idx)++)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_enum_tree(RkB *b, tree_t *list, int from, int to) {
+    TL l = { 0 }; long long idx = 0;
+    if (to > from) { tree_t *ty = make_call("__rk_typeobj"); char *en = spn(b, from, to); expr_add_child(ty, leaf_sval(TT_QLIT, en)); tl_add(&l, expr_binary(TT_ASSIGN, var_node(b, en), ty)); }
+    rk_enum_items(b, list, &l, &idx);
+    tree_t *seq = make_seq(&l);
+    rk_mark_declared(seq);
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_constant(RkB *b, const char *name, int namelen, RkList *init) {
     tree_t *e = rkb_expr(b, init);
     tree_t *t = expr_binary(TT_ASSIGN, var_node(b, trimdup(name, namelen)), e);
@@ -3117,17 +3164,28 @@ tree_t *rkb_repeat(RkB *b, int until, tree_t *blk, RkList *cond) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_loop_clause(RkB *b, RkList *L) {
+    TL l = { 0 };
+    for (int i = 0; i < L->n; i++) {
+        RkEl *el = &L->v[i];
+        if (el->t0.kind == TK_DECL && el->t0.decl) tl_add(&l, expr_binary(TT_ASSIGN, var_node(b, el->t0.decl->name), rkb_expr(b, el->t0.decl->init)));
+        else tl_add(&l, el_tree(b, el));
+    }
+    return make_seq(&l);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t *blk) {
     if (!parens) return expr_binary(TT_WHILE, rk_ilit(1), blk);
     tree_t *init;
-    if (e1 && e1->nitem == 1 && e1->n && e1->v[0].t0.kind == TK_DECL && e1->v[0].t0.decl) {
+    if (e1 && e1->n > 1) init = rk_loop_clause(b, e1);
+    else if (e1 && e1->nitem == 1 && e1->n && e1->v[0].t0.kind == TK_DECL && e1->v[0].t0.decl) {
         RkDecl *d = e1->v[0].t0.decl;
         tree_t *v = rkb_expr(b, d->init);
         init = expr_binary(TT_ASSIGN, var_node(b, d->name), v);
     }
     else init = rkb_expr(b, e1);
     tree_t *cond = rkb_expr(b, e2);
-    tree_t *incr = rkb_expr(b, e3);
+    tree_t *incr = e3 && e3->n > 1 ? rk_loop_clause(b, e3) : rkb_expr(b, e3);
     return rk_cstyle_loop(init, cond, incr, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
