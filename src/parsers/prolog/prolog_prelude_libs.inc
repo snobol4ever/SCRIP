@@ -3527,6 +3527,9 @@ static const char PL_PRELUDE_LIB_7_SRC[] =
     "\t},\n"
     "\t[Sum =\\= I1].\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
+    { "$chr_attach", 5 },
+    { "$chr_detach", 5 },
+    { "$enumerate_constraints", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
@@ -3558,7 +3561,75 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_8_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_8_SRC[] =
-    "\n";
+    "'$chr_attach'(_, _, _, [], _).\n"
+    "'$chr_attach'(M, I, K, [V|Vs], S) :-\n"
+    "    Bit is 1 << (I - 1),\n"
+    "    (   get_attr(V, M, Att)\n"
+    "    ->  Att =.. [v, Mask|Ls],\n"
+    "        (   Mask /\\ Bit =:= Bit\n"
+    "        ->  '$chr_nth_cons'(I, Ls, S, Ls1),\n"
+    "            Att1 =.. [v, Mask|Ls1]\n"
+    "        ;   Mask1 is Mask \\/ Bit,\n"
+    "            '$chr_nth_put'(I, Ls, [S], Ls1),\n"
+    "            Att1 =.. [v, Mask1|Ls1]\n"
+    "        )\n"
+    "    ;   '$chr_fresh_lists'(1, K, I, S, Ls1),\n"
+    "        Att1 =.. [v, Bit|Ls1]\n"
+    "    ),\n"
+    "    put_attr(V, M, Att1),\n"
+    "    '$chr_attach'(M, I, K, Vs, S).\n"
+    "'$chr_detach'(_, _, _, [], _).\n"
+    "'$chr_detach'(M, I, K, [V|Vs], S) :-\n"
+    "    Bit is 1 << (I - 1),\n"
+    "    (   get_attr(V, M, Att)\n"
+    "    ->  Att =.. [v, Mask|Ls],\n"
+    "        (   Mask /\\ Bit =:= Bit\n"
+    "        ->  '$chr_nth_get'(I, Ls, L),\n"
+    "            'chr sbag_del_element'(L, S, L1),\n"
+    "            (   L1 == []\n"
+    "            ->  Mask1 is Mask /\\ \\ Bit,\n"
+    "                (   Mask1 =:= 0\n"
+    "                ->  del_attr(V, M)\n"
+    "                ;   '$chr_nth_put'(I, Ls, [], Ls1),\n"
+    "                    Att1 =.. [v, Mask1|Ls1],\n"
+    "                    put_attr(V, M, Att1)\n"
+    "                )\n"
+    "            ;   '$chr_nth_put'(I, Ls, L1, Ls1),\n"
+    "                Att1 =.. [v, Mask|Ls1],\n"
+    "                put_attr(V, M, Att1)\n"
+    "            )\n"
+    "        ;   true\n"
+    "        )\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    '$chr_detach'(M, I, K, Vs, S).\n"
+    "'$chr_fresh_lists'(J, K, _, _, []) :- J > K, !.\n"
+    "'$chr_fresh_lists'(J, K, I, S, [L|Ls]) :-\n"
+    "    (   J =:= I\n"
+    "    ->  L = [S]\n"
+    "    ;   L = []\n"
+    "    ),\n"
+    "    J1 is J + 1,\n"
+    "    '$chr_fresh_lists'(J1, K, I, S, Ls).\n"
+    "'$chr_nth_get'(1, [L|_], L) :- !.\n"
+    "'$chr_nth_get'(I, [_|Ls], L) :- I1 is I - 1, '$chr_nth_get'(I1, Ls, L).\n"
+    "'$chr_nth_put'(1, [_|Ls], X, [X|Ls]) :- !.\n"
+    "'$chr_nth_put'(I, [L|Ls], X, [L|Ls1]) :- I1 is I - 1, '$chr_nth_put'(I1, Ls, X, Ls1).\n"
+    "'$chr_nth_cons'(1, [L|Ls], S, [[S|L]|Ls]) :- !.\n"
+    "'$chr_nth_cons'(I, [L|Ls], S, [L|Ls1]) :- I1 is I - 1, '$chr_nth_cons'(I1, Ls, S, Ls1).\n"
+    "'$enumerate_constraints'(C) :-\n"
+    "    (   nonvar(C)\n"
+    "    ->  functor(C, N, A),\n"
+    "        '$chr_constraint'(N/A, _, Key),\n"
+    "        '$chr_enumerate_store'(Key, N, C)\n"
+    "    ;   '$chr_constraint'(N/A, _, Key),\n"
+    "        '$chr_enumerate_store'(Key, N, C)\n"
+    "    ).\n"
+    "'$chr_enumerate_store'(Key, N, C) :-\n"
+    "    nb_current(Key, Store),\n"
+    "    member(S, Store),\n"
+    "    S =.. [_, _, _, _, _, _, _|Args],\n"
+    "    C =.. [N|Args].\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "chr sbag_del_element", 3 },
     { "chr merge_attributes", 3 },

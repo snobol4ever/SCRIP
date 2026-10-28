@@ -48,6 +48,7 @@ tree_t *lower_snocone_tree_at(tree_t *pruned, const char *path);
 tree_t *snocone_resolve_imports(tree_t *prog, const char *path);
 stage2_t *lower_icon_stage2(const tree_t *prog);
 stage2_t *lower_pl_stage2(const tree_t *prog);
+const tree_t *pl_chr_rewrite(const tree_t *prog);
 stage2_t *lower_raku_stage2(const tree_t *prog);
 int lower_raku_refuse(const tree_t *prog, const char *file);
 void lower_raku_source(tree_t *prog, const char *file);

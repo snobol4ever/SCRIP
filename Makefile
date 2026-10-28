@@ -1774,6 +1774,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_snobol4.c \
     $(SRC)/lower/lower_snocone.c \
     $(SRC)/lower/lower_prolog.c \
+    $(SRC)/lower/lower_prolog_chr.c \
     $(SRC)/lower/lower_raku.c \
     $(SRC)/lower/lower_pascal.c \
     $(SRC)/lower/lower_pascal_tree.c \

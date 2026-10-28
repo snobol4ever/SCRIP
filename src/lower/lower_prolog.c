@@ -5569,6 +5569,7 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
     return np;
 }
 stage2_t *lower_pl_stage2(const tree_t *prog) {
+    prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
     prog = pl_ssu_rewrite(prog);
     prog = pl_det_rewrite(prog);
