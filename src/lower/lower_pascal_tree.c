@@ -803,6 +803,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return f;
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
+        { long long _tz = pty_sizeof_low(args->items[0]); if (_tz > 0) return ilit(_tz); }
         if (args->items[0] && args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR) {
             long long z = pas_elem_size(args->items[0]->c[0]->v.sval);
             if (z > 0) return ilit(z);
@@ -5652,6 +5653,9 @@ static pval E_assignment(const tree_t *n) {
                     long long _rlo, _rhi;
                     if (pas_subvar_get(v[1].node->v.sval, &_rlo, &_rhi)) _rhs0 = pas_range_wrap(_rhs0, _rlo, _rhi, pas_is_setvar(v[1].node->v.sval) ? "set" : "6.8.2.2");
                 }
+                int _sm = pty_shortmax(v[1].node);
+                int _scat = n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && n->c[2]->v.sval[0] == '+';
+                if (_sm > 0 && (_scat || !pty_string_within(v[3].node, _sm))) _rhs0 = mk_fnc2("__pas_sstr_fit", _rhs0, ilit(_sm));
                 out.node = pas_trace_assigned(_tl, mk_assign(v[1].node, _rhs0));
             }
             out.node = pas_vt_wrap_stmt(v[1].node, v[3].node, out.node);
@@ -7989,8 +7993,7 @@ static void pas_shortstrings(tree_t *t) {
     for (int i = 0; t && i < t->n; i++) {
         tree_t *c = t->c[i];
         int typepos = (IS(t, TT_DECL) && i >= 1) || ((IS(t, TT_ARRAY_TYPE) || IS(t, TT_FILE_TYPE) || IS(t, TT_SET_TYPE) || IS(t, TT_PTR_TYPE)) && i == t->n - 1);
-        if (typepos && pu_is_shortstring_type(c)) t->c[i] = c->c[0];
-        else pas_shortstrings(c);
+        if (typepos && pu_is_shortstring_type(c)) { pty_note_shortstring(c->c[0], c->c[1]); t->c[i] = c->c[0]; } else pas_shortstrings(c);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

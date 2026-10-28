@@ -15,7 +15,7 @@ struct pscope { pscope_t *up; psym_t *s; };
 typedef struct { const void *key; const pty_t *t; int line; } pty_ent;
 typedef struct { pty_ent *e; long n, cap; } pty_map;
 struct pty_state {
-    pty_map src, low;
+    pty_map src, low, sstr;
     pscope_t *cur;
     int line, fpc;
     pty_t **pend;
@@ -24,6 +24,7 @@ struct pty_state {
     pty_t *tint, *tchar, *tbool, *treal, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
+static struct pty_state *pt_mk(void) { if (!g_lower.pas.sem.pty) g_lower.pas.sem.pty = (struct pty_state *)ct_zalloc(1, sizeof(struct pty_state)); return g_lower.pas.sem.pty; }
 static unsigned long pt_hash(const void *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ULL; return (unsigned long)(x >> 24); }
 static void pt_map_put(pty_map *m, const void *k, const pty_t *t, int line) {
     if (!k) return;
@@ -168,6 +169,7 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
     }
 }
 static pty_t *pt_type(struct pty_state *s, const tree_t *n);
+static pty_t *pt_strbound(long long len);
 static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
     for (int i = 0; body && i < body->n; i++) {
         const tree_t *c = body->c[i];
@@ -194,13 +196,16 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             const char *nm = n->v.sval;
             if (!nm) return NULL;
             if (!strncmp(nm, "$open$", 6)) { pty_t *t = pt_new(PTK_ARRAY, NULL); t->open = 1; t->dyn = 1; t->base = pt_named(s, nm + 6); return t; }
+            const pty_ent *ss = pt_map_get(&s->sstr, n);
+            long long sn;
+            if (ss && ss->t && pt_const(s, (const tree_t *)ss->t->bnd, &sn) && sn >= 1 && sn <= 255) { pty_t *t = pt_new(PTK_STRING, "shortstring"); t->strmax = (int)sn; return t; }
             return pt_named(s, nm);
         }
         case TT_IDX:
         {
             long long v = 255;
             if (n->n != 2 || !PT_IS(n->c[0], TT_VAR) || !n->c[0]->v.sval || strcmp(n->c[0]->v.sval, "string")) return NULL;
-            pty_t *t = pt_new(PTK_STRING, NULL);
+            pty_t *t = pt_new(PTK_STRING, "shortstring");
             t->strmax = pt_const(s, n->c[1], &v) ? (int)v : 255;
             return t;
         }
@@ -375,12 +380,15 @@ static pty_t *pt_call(struct pty_state *s, const tree_t *n) {
     if (bt && n->n == 2) return (s->fpc || bt->k != PTK_CHAR) ? bt : NULL;
     return pt_builtin_call(s, f, n);
 }
+static pty_t *pt_strbound(long long len) { pty_t *t = pt_new(PTK_STRING, "string"); t->strmax = (int)(len < 1 ? 1 : len > 1000000 ? 1000000 : len); return t; }
+static long long pt_strlen_max(const pty_t *t) { return t->k == PTK_CHAR ? 1 : (t->k == PTK_STRING ? t->strmax : 0); }
+static pty_t *pt_catbound(struct pty_state *s, const pty_t *a, const pty_t *b) { long long la = pt_strlen_max(a), lb = pt_strlen_max(b); return (la > 0 && lb > 0) ? pt_strbound(la + lb) : s->tstr; }
 static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {
     const pty_t *a = pt_expr(s, n->c[0]), *b = pt_expr(s, n->c[1]);
     if (!a || !b) return NULL;
     if (a->k == PTK_SET || b->k == PTK_SET) return (pty_t *)(a->k == PTK_SET ? a : b);
-    if (n->t == TT_ADD && (a->k == PTK_STRING || b->k == PTK_STRING)) return s->tstr;
-    if (n->t == TT_ADD && a->k == PTK_CHAR && b->k == PTK_CHAR) return s->fpc ? s->tstr : NULL;
+    if (n->t == TT_ADD && (a->k == PTK_STRING || b->k == PTK_STRING)) return pt_catbound(s, a, b);
+    if (n->t == TT_ADD && a->k == PTK_CHAR && b->k == PTK_CHAR) return s->fpc ? pt_strbound(2) : NULL;
     if (a->k == PTK_POINTER && b->k == PTK_INT) return (pty_t *)a;
     if (a->k == PTK_REAL || b->k == PTK_REAL) return (a->k == PTK_REAL || a->k == PTK_INT) && (b->k == PTK_REAL || b->k == PTK_INT) ? s->treal : NULL;
     if (a->k == PTK_INT && b->k == PTK_INT) return (a->uns || b->uns) ? s->tqword : s->tint;
@@ -393,7 +401,7 @@ static pty_t *pt_expr1(struct pty_state *s, const tree_t *n) {
         case TT_FLIT:
         return s->treal;
         case TT_QLIT:
-        return (n->v.sval && strlen(n->v.sval) == 1) ? s->tchar : s->tstr;
+        return (n->v.sval && strlen(n->v.sval) == 1) ? s->tchar : pt_strbound(n->v.sval ? (long long)strlen(n->v.sval) : 0);
         case TT_CHRLIT:
         return s->tchar;
         case TT_VAR:
@@ -616,8 +624,7 @@ static void pt_block(struct pty_state *s, const tree_t *b) {
     }
 }
 void pty_run(tree_t *prog, int fpc) {
-    struct pty_state *s = (struct pty_state *)ct_zalloc(1, sizeof *s);
-    g_lower.pas.sem.pty = s;
+    struct pty_state *s = pt_mk();
     s->fpc = fpc;
     s->stats = (long *)ct_zalloc(12, sizeof(long));
     s->tint = pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
@@ -690,4 +697,28 @@ void pty_census_report(void) {
     static const char *const nm[] = { "char", "string", "bool", "set" };
     for (int i = 0; i < 4; i++) fprintf(stderr, "PTY-STATS %s asked=%ld answered=%ld agreed=%ld\n", nm[i], s->stats[i], s->stats[4 + i], s->stats[8 + i]);
 }
+void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
+    struct pty_state *s = pt_mk();
+    if (!leaf || !bound) return;
+    pty_t *t = pt_new(PTK_STRING, "shortstring");
+    t->bnd = bound;
+    pt_map_put(&s->sstr, leaf, t, 0);
+}
+int pty_shortmax(const tree_t *low) {
+    const pty_t *t = pty_of_low(low);
+    return (t && t->k == PTK_STRING && t->strmax > 0 && t->strmax < 255 && !strcmp(t->name ? t->name : "", "shortstring")) ? t->strmax : 0;
+}
+int pty_string_within(const tree_t *low, long long n) {
+    const pty_t *t = pty_of_low(low);
+    if (!t || (t->k != PTK_STRING && t->k != PTK_CHAR)) return 1;
+    return t->k == PTK_CHAR || (t->strmax > 0 && t->strmax <= n);
+}
+static long long pt_size(const pty_t *t) {
+    if (!t) return -1;
+    if (t->k == PTK_STRING) return (t->name && !strcmp(t->name, "shortstring") && t->strmax > 0) ? (long long)t->strmax + 1 : -1;
+    if (t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return -1;
+    long long e = pt_size(t->base);
+    return e > 0 ? (t->ix[0]->hi - t->ix[0]->lo + 1) * e : -1;
+}
+long long pty_sizeof_low(const tree_t *low) { return pt_size(pty_of_low(low)); }
 void lower_pascal_dump_types_on(void) { g_lower.pas.dump_types = 1; }

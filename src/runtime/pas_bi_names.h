@@ -8,10 +8,10 @@ enum pas_bi_id {
         PBI_len, PBI_ln, PBI_mark, PBI_mathf, PBI_mkdir, PBI_move, PBI_nlf, PBI_nlg, PBI_now, PBI_open, PBI_ord_check, PBI_paramcount, PBI_paramstr, PBI_pcall, PBI_pchar_deref, PBI_pe, PBI_pos,
         PBI_pow, PBI_qchk, PBI_random, PBI_randomize, PBI_range_check, PBI_rarr, PBI_rdecode, PBI_read_c, PBI_read_c_f, PBI_read_i, PBI_read_i_f, PBI_read_s, PBI_read_s_f, PBI_readln, PBI_readln_f,
         PBI_rebase, PBI_ref_val, PBI_release, PBI_reset, PBI_resundef, PBI_rewrite, PBI_rmdir, PBI_round, PBI_rounde, PBI_rpatch, PBI_rterr, PBI_s2wide, PBI_set, PBI_setdif, PBI_seteq, PBI_setint,
-        PBI_setlength, PBI_setne, PBI_setrange, PBI_setuni, PBI_sin, PBI_sqr, PBI_sqrt, PBI_std_mute, PBI_stdfile, PBI_str_delete, PBI_str_insert, PBI_str_to_int, PBI_strcmp, PBI_strf, PBI_strfill,
-        PBI_stringofchar, PBI_strmove, PBI_subset, PBI_super, PBI_swapendian, PBI_tagmark, PBI_tagset_chk, PBI_tagwhole, PBI_tbuf_get, PBI_tbuf_set, PBI_tget, PBI_ticks, PBI_tput, PBI_treset,
-        PBI_trewrite, PBI_trunc, PBI_udiv, PBI_umod, PBI_undefined_value, PBI_unhandled, PBI_unresolved_target, PBI_upcase, PBI_ustr, PBI_vcheck, PBI_view, PBI_wide2s, PBI_write, PBI_writeln,
-        PBI_COUNT_
+        PBI_setlength, PBI_setne, PBI_setrange, PBI_setuni, PBI_sin, PBI_sqr, PBI_sqrt, PBI_sstr_fit, PBI_std_mute, PBI_stdfile, PBI_str_delete, PBI_str_insert, PBI_str_to_int, PBI_strcmp, PBI_strf,
+        PBI_strfill, PBI_stringofchar, PBI_strmove, PBI_subset, PBI_super, PBI_swapendian, PBI_tagmark, PBI_tagset_chk, PBI_tagwhole, PBI_tbuf_get, PBI_tbuf_set, PBI_tget, PBI_ticks, PBI_tput,
+        PBI_treset, PBI_trewrite, PBI_trunc, PBI_udiv, PBI_umod, PBI_undefined_value, PBI_unhandled, PBI_unresolved_target, PBI_upcase, PBI_ustr, PBI_vcheck, PBI_view, PBI_wide2s, PBI_write,
+        PBI_writeln, PBI_COUNT_
 };
 static const char g_pas_bi_name[][24] = { "__pas_abs", "__pas_alloc", "__pas_alloc_rec", "__pas_alpha_str", "__pas_append", "__pas_arctan", "__pas_arr_copy", "__pas_arr_of", "__pas_arrlit",
     "__pas_assert", "__pas_bound", "__pas_ca_encode", "__pas_ca_pack", "__pas_ca_unpack", "__pas_chr", "__pas_chrlit", "__pas_copy", "__pas_cos", "__pas_deref", "__pas_deref_set", "__pas_display",
@@ -23,9 +23,9 @@ static const char g_pas_bi_name[][24] = { "__pas_abs", "__pas_alloc", "__pas_all
     "__pas_randomize", "__pas_range_check", "__pas_rarr", "__pas_rdecode", "__pas_read_c", "__pas_read_c_f", "__pas_read_i", "__pas_read_i_f", "__pas_read_s", "__pas_read_s_f", "__pas_readln",
     "__pas_readln_f", "__pas_rebase", "__pas_ref_val", "__pas_release", "__pas_reset", "__pas_resundef", "__pas_rewrite", "__pas_rmdir", "__pas_round", "__pas_rounde", "__pas_rpatch", "__pas_rterr",
     "__pas_s2wide", "__pas_set", "__pas_setdif", "__pas_seteq", "__pas_setint", "__pas_setlength", "__pas_setne", "__pas_setrange", "__pas_setuni", "__pas_sin", "__pas_sqr", "__pas_sqrt",
-    "__pas_std_mute", "__pas_stdfile", "__pas_str_delete", "__pas_str_insert", "__pas_str_to_int", "__pas_strcmp", "__pas_strf", "__pas_strfill", "__pas_stringofchar", "__pas_strmove", "__pas_subset",
-    "__pas_super", "__pas_swapendian", "__pas_tagmark", "__pas_tagset_chk", "__pas_tagwhole", "__pas_tbuf_get", "__pas_tbuf_set", "__pas_tget", "__pas_ticks", "__pas_tput", "__pas_treset",
-    "__pas_trewrite", "__pas_trunc", "__pas_udiv", "__pas_umod", "__pas_undefined_value", "__pas_unhandled", "__pas_unresolved_target", "__pas_upcase", "__pas_ustr", "__pas_vcheck", "__pas_view",
-    "__pas_wide2s", "__pas_write", "__pas_writeln", };
+    "__pas_sstr_fit", "__pas_std_mute", "__pas_stdfile", "__pas_str_delete", "__pas_str_insert", "__pas_str_to_int", "__pas_strcmp", "__pas_strf", "__pas_strfill", "__pas_stringofchar",
+    "__pas_strmove", "__pas_subset", "__pas_super", "__pas_swapendian", "__pas_tagmark", "__pas_tagset_chk", "__pas_tagwhole", "__pas_tbuf_get", "__pas_tbuf_set", "__pas_tget", "__pas_ticks",
+    "__pas_tput", "__pas_treset", "__pas_trewrite", "__pas_trunc", "__pas_udiv", "__pas_umod", "__pas_undefined_value", "__pas_unhandled", "__pas_unresolved_target", "__pas_upcase", "__pas_ustr",
+    "__pas_vcheck", "__pas_view", "__pas_wide2s", "__pas_write", "__pas_writeln", };
 #define PAS_BI_COUNT (sizeof(g_pas_bi_name) / sizeof(g_pas_bi_name[0]))
 #endif

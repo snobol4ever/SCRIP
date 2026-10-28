@@ -17596,6 +17596,8 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_171;
         case PBI_stringofchar:
         goto L_pbi_172;
+        case PBI_sstr_fit:
+        goto L_pbi_900;
         case PBI_strf:
         goto L_pbi_182;
         case PBI_dynlen:
@@ -17948,6 +17950,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         if (n < 0) n = 0;
         char *o = rt_wsb_alloc((size_t)n + 1);
         memset(o, IS_INT_fn(args[0]) ? (int)(unsigned char)args[0].i : (c && c[0] ? c[0] : ' '), (size_t)n);
+        o[n] = '\0';
+        *out = STRVAL(o);
+        return 1;
+    }
+    L_pbi_900:
+    ;
+    if (id == PBI_sstr_fit && nargs == 2) {
+        long long n = IS_INT_fn(args[1]) ? args[1].i : 0;
+        const char *c = IS_INT_fn(args[0]) ? NULL : VARVAL_fn(args[0]);
+        if (!c || n < 0 || (long long)strlen(c) <= n) { *out = args[0]; return 1; }
+        char *o = rt_wsb_alloc((size_t)n + 1);
+        memcpy(o, c, (size_t)n);
         o[n] = '\0';
         *out = STRVAL(o);
         return 1;
