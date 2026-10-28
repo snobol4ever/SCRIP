@@ -2729,7 +2729,19 @@ static void rk_discover_nested_subs(const tree_t * d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_discover_block_subs(const tree_t * t) {
     if (!t) return;
-    if (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_MODULE_DECL || t->t == TT_GRAMMAR_DECL) return;
+    if (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL) return;
+    if (t->t == TT_MODULE_DECL) {
+        for (int j = 1; j < t->n; j++) {
+            const tree_t * ch = t->c[j];
+            if (ch && ch->t == TT_STMT) ch = stmt_subj(ch);
+            if (!ch || ch->t != TT_SUB_DECL) continue;
+            const char * nm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+            if (!nm || !*nm) continue;
+            if (!rk_proc_known(nm)) rk_register_proc(ch, nm, (int) ch->v.ival);
+            rk_discover_nested_subs(ch);
+        }
+        return;
+    }
     if (t->t == TT_SUB_DECL) {
         const char * nm = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : NULL;
         if (nm && *nm && !rk_proc_known(nm)) { rk_register_proc(t, nm, (int) t->v.ival); rk_discover_nested_subs(t); }
