@@ -1105,29 +1105,12 @@ function PPDir(tx, b, cmd, rest, sym, val, nm, t, sv, st, md, inc) {
 /* The dialect of a mode directive is a fact of the text, set BEFORE the match (the cto's ruling, CEO-1614): the first {$mode X} ahead of the first of begin var const type procedure function (the window pascal.l's pascal_seen_decl_start gives pascal_mode_directive) and ahead of uses and unit, the only flips that can come first: past one the in-order deferred PasDir decides, so its seen_mode events keep the C order. PasDir's queued pragma events and every flip stay deferred. */
 PmKw = TABLE(8);
 PmKw['begin'] = 1; PmKw['var'] = 1; PmKw['const'] = 1; PmKw['type'] = 1; PmKw['procedure'] = 1; PmKw['function'] = 1; PmKw['uses'] = 1; PmKw['unit'] = 1;
-pm_item = ( SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) | '{$' BREAK('}') . pm_d '}' | '{' FENCE(BREAK('}') '}' | REM) | '(*' FENCE(BREAKX('*') '*)' | REM) | '//' FENCE(BREAK(CHAR(10)) | REM) | "'" FENCE(BREAK("'") "'" | REM) | Id . pm_w | LEN(1) );
-function PasPre(p, q, l, r, m) {
-    p = 0;
-    pm_d = '';
-    pm_w = '';
-    while (Src ? (POS(p) pm_item @q)) {
-        p = q;
-        if (DIFFER(pm_w)) { if (DIFFER(PmKw[lwr(pm_w)])) { return; } }
-        if (DIFFER(pm_d)) {
-            l = lwr(pm_d);
-            if (l ? (POS(0) 'mode')) {
-                r = PasStrip(SUBSTR(l, 5, SIZE(l) - 4));
-                m = '';
-                if (IDENT(r, 'iso')) { m = 'iso'; } else if (IDENT(r, 'objfpc')) { m = 'objfpc'; } else if (IDENT(r, 'delphi')) { m = 'delphi'; } else if (IDENT(r, 'delphiunicode')) { m = 'delphi'; }
-                else if (IDENT(r, 'tp')) { m = 'fpc'; } else if (IDENT(r, 'fpc')) { m = 'fpc'; } else if (IDENT(r, 'macpas')) { m = 'fpc'; }
-                if (DIFFER(m)) { dialect = m; return; }
-            }
-        }
-        pm_d = '';
-        pm_w = '';
-    }
-    return;
-}
+PmDia = TABLE(8);
+PmDia['iso'] = 'iso'; PmDia['objfpc'] = 'objfpc'; PmDia['delphi'] = 'delphi'; PmDia['delphiunicode'] = 'delphi'; PmDia['tp'] = 'fpc'; PmDia['fpc'] = 'fpc'; PmDia['macpas'] = 'fpc';
+pre_ws   = SPAN(' ' CHAR(9) CHAR(10) CHAR(13));
+pre_mode = '{$mode' FENCE(pre_ws | epsilon) ('iso' | 'objfpc' | 'delphiunicode' | 'delphi' | 'tp' | 'fpc' | 'macpas') . pre_n FENCE(pre_ws | epsilon) '}';
+pre_item = ( pre_ws | '{' FENCE(BREAK('}') '}' | REM) | '(*' FENCE(BREAKX('*') '*)' | REM) | '//' FENCE(BREAK(CHAR(10)) | REM) | "'" FENCE(BREAK("'") "'" | REM) | Id $ pre_w *IDENT(PmKw[pre_w]) | NOTANY(&UCASE &LCASE '_') );
+PasPre   = ( *pre_mode | *pre_item *PasPre | epsilon );
 /* ==================================================================================================================== */
 function ParseOne(ptree, i, n_kids) {
     if (Src ? ('{$' | '(*$')) {
@@ -1142,7 +1125,8 @@ function ParseOne(ptree, i, n_kids) {
         }
     }
     PasInit();
-    PasPre();
+    pre_n = '';
+    if (lwr(Src) ? *PasPre) { if (DIFFER(pre_n)) { dialect = PmDia[pre_n]; } }
     if (Src ? "''") { PasLines(); }
     pf_a = TIME();
     InitCounter();
