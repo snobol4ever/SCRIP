@@ -42,7 +42,8 @@ extern "C" int sn4_alt_carrier(void);
 #define DF_STAR() (_.op_df_vslot < 0 && !DF_GVA() && _.op_sval && _.op_sval[0] == '*' && _.op_sval[1])
 #define DF_MERGED() (_.op_df_vslot < 0 && !(g_gva_active && _.op_gva_k >= 0))
 #define DF_DLBL() (DF_STAR() ? std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval) : std::string())
-#define DF_PAIR_LEA(reg) (x86("mov", reg, std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") + x86("lea", reg, RDQ(reg, GRT_AT(sno_defer_cells) + _.op_df_site * 16)))
+#define DF_PAIR_GOT(reg) (x86("mov", reg, std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime"))
+#define DF_PAIR_LEA(reg) (x86("lea", reg, RDQ(reg, GRT_AT(sno_defer_cells) + _.op_df_site * 16)))
 std::string bb_match_defer() {
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
@@ -108,6 +109,7 @@ std::string bb_match_defer() {
              + x86("def", L(10)))
          + IF(DF_MERGED() && _.op_df_site >= 0 && defer_inline() && defer_ic_on(),
                x86("comment", "IR_MATCH_DEFER probe-head")
+             + DF_PAIR_GOT("rcx")
              + DF_PAIR_LEA("rcx")
              + x86("mov", "rax", RDQ("rcx", 0))
              + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
@@ -151,6 +153,7 @@ std::string bb_match_defer() {
              + x86("def", L(22)))
          + IF(DF_MERGED() && _.op_df_site >= 0 && defer_inline() && !defer_ic_on(),
                x86("comment", "IR_MATCH_DEFER inline-read")
+             + DF_PAIR_GOT("rcx")
              + DF_PAIR_LEA("rcx")
              + x86("mov", "rax", RDQ("rcx", 0))
              + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
@@ -182,6 +185,7 @@ std::string bb_match_defer() {
              + x86("def", L(30)))
          + IF(DF_MERGED() && _.op_df_site >= 0 && defer_ic_on() && !defer_inline(),
                x86("comment", "IR_MATCH_DEFER ic")
+             + DF_PAIR_GOT("rsi")
              + DF_PAIR_LEA("rsi")
              + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("mov", "rcx", RDQ("rsi", 0))
