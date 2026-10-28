@@ -336,7 +336,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
             const char * asv = o0 ? IR_LIT(o0).sval : (const char *)0, * sv = IR_LIT(nd).sval;
             z->dsa = (asv && sv) ? stage2_owner_varslot(asv, sv) : -1; z->dsb = (nd->seal >= 1 && nd->seal <= 3) ? -1 : pf_display_off(nd->seal, asv);
         }
-        if (op == IR_BOUND || op == IR_UNMARK || op == IR_CUT) {
+        if (op == IR_BOUND || op == IR_UNMARK || op == IR_CUT || op == IR_LIMIT_GATE) {
             const IR_t * sb = (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_BOUND) ? nd->operands[0] : nd;
             z->relo = (int)rec->v_rel.size(); pf_rel(rec, g, sb, 5); pf_rel(rec, g, sb, 4); pf_rel(rec, g, nd, 4);
         }

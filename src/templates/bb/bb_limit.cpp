@@ -76,5 +76,7 @@ std::string bb_limit_gate() {
            + x86_gamma()
            + x86_beta()
            + IF(_.op_sc >= 0, x86("mov", "rsp", FRQ(_.op_sc)))
+           + IF(_.op_sc >= 0, x86_release_acts(true, 5))
+           + IF(_.op_sc >= 0, x86_release_acts(true, 4))
            + x86_omega());
 }
