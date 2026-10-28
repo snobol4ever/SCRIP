@@ -43,7 +43,6 @@ int zls_g_resume_by_name(const char *name);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_resumable_frame(const IR_graph_t * g);
 int rt_proc_is_generator(const char *name);
-int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_wire_pair_consumed(fname) (((fname) && rt_define_returns_by_frame((fname))) ? 0 : 1)
@@ -162,14 +161,12 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define c2farm() (_.op_fc_wbytes > 0)
 static inline int bcps_pl() { return x86_resumable_frame(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 #define bcps_no_tiny() emit_knob_if_one("SCRIP_NO_TINY")
 #define bcps_b1c_parity() emit_knob_unless_zero("SCRIP_B1C_PARITY")
 #define bcps_slim_pair() emit_knob_unless_zero("SCRIP_SLIM_PAIR")
 #define bcps_no_genidx() emit_knob_if_one("SCRIP_NO_GENIDX")
-#define bcps_tiny_diag() (getenv("SCRIP_TINY_DIAG") != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_nret_got() std::string("[rip@got + __]")
 #define bcps_cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
@@ -220,7 +217,6 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define bcps_sig_disp(slot) (bcps_parse_rsp(FRQB((slot), 0)))
 #define bcps_zref_disp(zoff) (bcps_parse_rsp(x86_zref((zoff), 1)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_undef_fallback(uint64_t) {
@@ -405,160 +401,8 @@ static std::string bcps_det_arm() {
              + bcps_beta_leave(bidx_z)
              + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     }
-    int bidx = bcps_beta_pair_idx(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
-    long det_idx = (!is_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
-    uint64_t detN_fp[5]; static const char *detN_nm[5] = { "rt_proc_call_open_det0", "rt_proc_call_open_det1", "rt_proc_call_open_det2", "rt_proc_call_open_det3", "rt_proc_call_open_det4" };
-    { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp[0] = (uint64_t)(uintptr_t)(void*)f0; }
-    { void *(*f1)(long, DESCR_t*) = rt_proc_call_open_det1; detN_fp[1] = (uint64_t)(uintptr_t)(void*)f1; }
-    { void *(*f2)(long, DESCR_t*, DESCR_t*) = rt_proc_call_open_det2; detN_fp[2] = (uint64_t)(uintptr_t)(void*)f2; }
-    { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
-    { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
-    static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-{ int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1;
-    if (_bnp >= 0) return _bnp != (int)_.op_ival ? x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count")
-        : bcps_det_block_arm(0, off, bidx, argblks, det_idx, (int)_.op_ival, 1); }
-int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
-    int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
-    uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
-    if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
-        snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
-    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[bb_scc_gk_len(_.op_sval)];
-    scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
-    if (bcps_tiny_diag()) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc);
-    if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha()
-        + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist "
-            "as storage on an armed statement; registration and the probe disagreed");
     return x86_alpha()
-         + x86_anchor_enter()
-         + (scc || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))
-            ? [&]() -> std::string {
-                if (bcps_tiny_diag()) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n",
-                    _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc);
-                if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
-                    std::string la = bcps_alpha_cellp_label(_.op_sval); std::string lad = bcps_alpha_cellp_data(_.op_sval);
-                    if (bcps_fnsig()) {
-                        std::vector<long> soff((size_t)_.op_ival); const char * why = "eligible"; std::string bad; int sigok = 1;
-                        for (int i = 0; sigok && i < (int)_.op_ival; i++) {
-                            int slot = bcps_arg_slot(_.node, argblks, i);
-                            if (x86_fc_hit(slot) || x86_fc_hit(slot + 8)) { sigok = 0; why = "fc-hit"; break; }
-                            long dlo = bcps_sig_disp(slot), dhi = bcps_sig_disp(slot + 8);
-                            if (dlo < 0) { sigok = 0; why = "unparsed-operand"; bad = FRQB(slot, 0); break; }
-                            if (dhi != dlo + 8) { sigok = 0; why = "hi-lo-not-adjacent"; bad = FRQB(slot + 8, 0); break; }
-                            soff[i] = dlo; }
-                        bcps_sig_tally("frame", _.op_sval, (long)_.op_ival, sigok, why, bad.c_str());
-                        if (sigok) {
-                            std::string snm = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid);
-                            const struct bb_label_t * sigl = emit_label_intern(snm.c_str());
-                            std::string s = lad + x86_rsp_mark_save()
-                                 + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
-                                 + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
-                                 + x86_ro_rec_head(sigl, (uint64_t)_.op_ival)
-                                 + x86(".quad", L(2))
-                                 + (_.op_ival > 0 ? x86(".quad", L(2)) : x86_ro_rec_tail_ilbl(2));
-                            for (int i = 0; i < (int)_.op_ival; i++) s += (i + 1 < (int)_.op_ival) ? x86(".quad", (uint64_t)soff[i]) : x86_ro_rec_tail_q((uint64_t)soff[i]);
-                            return s + x86_rsp_land(0L);
-                        }
-                        return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
-                            "fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls "
-                                "through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two "
-                                    "calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is "
-                                        "handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs "
-                                            "compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm "
-                                                "declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 "
-                                                    "x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a "
-                                                        "measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run "
-                                                            "SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not "
-                                                                "parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests "
-                                                                    "bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would "
-                                                                        "bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the "
-                                                                            "callee, not a silent decline here. [arm=frame]");
-                    } else {
-                    long Kb = 16L * (long)_.op_ival + 32;
-                    return lad + x86("sub", "rsp", Kb)
-                         + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
-                               return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot, (int)Kb)))
-                                    + x86_rsp_store64(32 + 16 * i, "rax")
-                                    + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot + 8, (int)Kb)))
-                                    + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
-                         + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
-                         + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
-                         + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str());
-                    }
-                }
-                if (!scc) return std::string();
-                return x86_bomb("bb_call_proc_staged: the CALL2BB slice-2 slim road (frame arm) retired 2026-09-27 on a plant proof over the 4659 corpus sources, "
-                                "the 5027 rungs entries compiled and the SNOBOL4, Snocone and Rebus rungs entries run in mode 3 (0 reached it once the role-4 shim "
-                                "took 30 to 60 formals, scripts/gc_rungs_entry_plant_receipt.tsv): the SCC probe held but no tiny or signature arm took the call");
-              }()
-            : std::string(""))
-         + (dc
-            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
-            + x86_call_dc(dc_name, dc_slot)
-            + x86("jmp", L(2))
-            : std::string(""))
-         + (det_fuse || dc ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
-        int slot = bcps_arg_slot(_.node, argblks, i);
-        return stage_arg_inline(i, slot, TEMPLATE_FN_ADDR(rt_arg_stage));
-    }))
-         + (dc ? std::string("")
-            : det_fuse
-            ? x86("mov32", "edi", det_idx)
-            + FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
-            + x86("call", detN_nm[det_nA], detN_fp[det_nA])
-            : det_idx >= 0
-            ? x86("mov32", "edi", (long)det_idx)
-            + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open_det", (uint64_t)TEMPLATE_FN_ADDR(rt_proc_call_open_det))
-            : x86("mov", "rdi", ROQ(0))
-            + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))
-         + IF(!dc, x86_rt_gc_poll())
-         + IF(!dc, x86("test", "rax", "rax")
-         + x86("je", L(1)))
-         + IF(det_idx < 0 && !dc && !bcps_pl(), bcps_open_word_keep())
-         + (dc ? std::string("")
-            : (det_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
-            + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
-            + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 16 * (int)_.op_ival, 61, 62, 60))
-            + IF(!icn_wire_stack_for(_.op_sval) && bcps_slim_pair() && bcps_wire_pair_consumed(_.op_sval), x86("note",
-                    "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN "
-                        "forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to "
-                            "rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed "
-                                "NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the "
-                                    "fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.")
-                                                                                                      + x86("lea", "rcx", L(4))
-                                                                                                      + x86("push", "rcx")
-                                                                                                      + x86("lea", "rcx", L(3))
-                                                                                                      + x86("push", "rcx"))
-            + x86_rsp_mark_save()
-            + bcps_wire_cross(3, 4, _.op_sval)
-            + x86("def", L(3))
-            + bcps_wire_land_site(_.op_sval)
-            + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
-                             : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
-            + x86("jmp", L(2))
-            + x86("def", L(4))
-            + bcps_wire_land_site(_.op_sval)
-            + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
-                             : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
-            + x86("jmp", L(2)))
-         + IF(!dc, x86("def", L(1))
-         + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub)))
-         + x86("def", L(2))
-         + x86_gc_site(X86_SITE_LANDING)
-         + x86_anchor_leave()
-         + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8))))
-         + x86("mov", FRQ(off), "rax")
-         + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "al", (long)DT_FAIL)
-         + x86_omega("je")
-         + x86_gamma()
-         + x86_beta()
-         + bcps_beta_leave(bidx)
-         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
+         + x86_bomb("bb_call_proc_staged: bcps_det_arm flat twin (op_zres 0) retired by CEO-2002, no witness reached it; a program that gets here names itself");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
