@@ -2453,8 +2453,6 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "->") && t->n == 2) { cx->tail_pop = tpop; return pl_lower_ite(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out); }
             if (!strcmp(nm, "*->") && t->n == 2) { cx->tail_pop = tpop; return pl_lower_softcut(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out); }
-            if (!strcmp(nm, "if") && t->n == 3 && g_stage2.pl_dialect != PL_DIALECT_SWI && !pl_db_owned(nm, 3) && !pl_user_defines(nm, 3) && !pl_bb_lookup("if/3", 3))
-                return pl_lower_softcut(cx, pl_cc_fnc1("call", (tree_t *) t->c[0]), pl_cc_fnc1("call", (tree_t *) t->c[1]), pl_cc_fnc1("call", (tree_t *) t->c[2]), γnext, ωfail, entry_out);
             if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out);
             if (!strcmp(nm, "once") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("fail"), γnext, ωfail, entry_out);
             if (!strcmp(nm, "ignore") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("true"), γnext, ωfail, entry_out);
@@ -5887,25 +5885,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                 ast_push(raw, body);
                 tree_t * cl = pl_runtime_clause_tree(raw);
                 if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(pk, ch); if (bb_idx >= 0) { pl_bb_register(pk, 1, bb_idx); pl_new_proc(pk, 1, bb_idx); } } }
-            }
-        }
-        {
-            const char * ik = "if/3";
-            if (g_stage2.pl_dialect != PL_DIALECT_SWI && !pl_bb_lookup(ik, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, ik) && !pl_decl_dyn_is("if", 3)) {
-                tree_t * ch = ast_node_new(TT_CHOICE);
-                ch->v.sval = ct_strdup(ik);
-                tree_t * hd = ast_node_new(TT_FNC);
-                hd->v.sval = ct_strdup("if");
-                ast_push(hd, pl_meta_var("C"));
-                ast_push(hd, pl_meta_var("T"));
-                ast_push(hd, pl_meta_var("E"));
-                tree_t * body = pl_cc_scite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("E")));
-                tree_t * raw = ast_node_new(TT_FNC);
-                raw->v.sval = (char *) ":-";
-                ast_push(raw, hd);
-                ast_push(raw, body);
-                tree_t * cl = pl_runtime_clause_tree(raw);
-                if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(ik, ch); if (bb_idx >= 0) { pl_bb_register(ik, 3, bb_idx); pl_new_proc(ik, 3, bb_idx); } } }
             }
         }
     }
