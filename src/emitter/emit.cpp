@@ -1322,7 +1322,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
         if (!rv) g_emit.op_zread[0] = -1;
-        { int _sa = rv ? bb_slot_get(rv) : -1; if (_sa < 0 && rv) { int _ns = nd_slot(rv); if (_ns >= 0) { bb_slot_register(rv, _ns); _sa = _ns; } } g_emit.op_sa = _sa;
+        { int _sa = rv ? bb_slot_get(rv) : -1; if (_sa < 0 && rv) { int _ns = nd_slot(rv); if (_ns >= 0) _sa = _ns; } g_emit.op_sa = _sa;
             } g_emit.op_dval = IR_LIT(nd).dval;
         if (g_emit.flat_gen && g_emitter.g_suspend_resume_slot >= 0) { g_emit.op_sb = g_emitter.g_suspend_resume_slot; g_emit.lbl_t1_p = g_emit.flat_fail_p;
             g_emit.lbl_t1 = g_emit.flat_fail_p ? g_emit.flat_fail_p->name : (const char *)0; }
@@ -1388,7 +1388,7 @@ static int drive_value_slot(IR_t *nd) {
     if (e >= 0) return e;
     if (nd) {
         int slot = nd_slot(nd);
-        if (slot >= 0) { bb_slot_register(nd, slot); return slot; }
+        if (slot >= 0) return slot;
     }
     if (nd && ir_node_produces_value(nd->op)) {
                 fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no frame slot — planner_stage_graph never granted it. "
@@ -2060,7 +2060,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CONJUNCTION:
-        if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         { int dst = nd_slot(nd); if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
             int src = bb_slot_get(nd->operands[0]);
             if (src >= 0 && dst >= 0 && src != dst && !(g_emit_cfg && g_emit_cfg->spine_cells && g_emit_cfg->pf.home_frame && zrow(nd)->kown == 0)) {
@@ -2234,7 +2233,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_CORET: {
         IR_t * pv = nd->n_operands > 0 ? zrow(nd)->cvn : NULL;
         int sa = pv ? bb_slot_get(pv) : -1;
-        if (sa < 0 && pv) { int _ns = nd_slot(pv); if (_ns >= 0) { bb_slot_register(pv, _ns); sa = _ns; } }
+        if (sa < 0 && pv) { int _ns = nd_slot(pv); if (_ns >= 0) sa = _ns; }
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         if (pv->op == IR_CONJUNCTION && nd_slot(pv) >= 0) sa = nd_slot(pv);
         g_emit.op_sa = sa;
@@ -3115,6 +3114,11 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));
         int * _tpd = (int *)alloca(sizeof(int) * (size_t)(n + 1)); int _tpn = 0;
+    for (int i = 0; i < n; i++) {
+        IR_t * fill_nd = g_planner.codegen_flat_chain_body_nodes[i]; int fill_slot = _pl->zn[i].loff;
+        if (fill_nd->op == IR_CONJUNCTION && fill_nd->n_operands > 0 && fill_nd->operands[0] && nd_slot(fill_nd->operands[0]) >= 0) fill_slot = nd_slot(fill_nd->operands[0]);
+        if (fill_slot >= 0) bb_slot_register(fill_nd, fill_slot);
+    }
     zd_check(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, zd_arm, prefix);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
@@ -3587,10 +3591,6 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         if (g_planner.codegen_flat_chain_body_nodes[i]->ω.node && g_planner.codegen_flat_chain_body_nodes[i]->ω.node->op == IR_FAIL) {
             auto _rf = repalt_by_fail.find(g_planner.codegen_flat_chain_body_nodes[i]->ω.node);
             if (_rf != repalt_by_fail.end()) node_ω = ra_t[_rf->second];
-        }
-        if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_CONJUNCTION && g_planner.codegen_flat_chain_body_nodes[i]->n_operands > 0 && g_planner.codegen_flat_chain_body_nodes[i]->operands[0]) {
-            IR_t * op0 = g_planner.codegen_flat_chain_body_nodes[i]->operands[0];
-            { int _s0 = nd_slot(op0); if (_s0 >= 0 && bb_slot_get(g_planner.codegen_flat_chain_body_nodes[i]) < 0) bb_slot_register(g_planner.codegen_flat_chain_body_nodes[i], _s0); }
         }
         g_emitter.g_limit_gen_beta = NULL;
         g_emitter.g_scan_body_beta = NULL;
@@ -4611,7 +4611,7 @@ IR_t * bb_chain_terminal_staged(IR_t * entry) {
 }
 int bcps_result_slot() {
     IR_t * nd = _.node;
-    { int _s = nd ? zrow(nd)->loff : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
+    { int _s = nd ? zrow(nd)->loff : -1; if (_s >= 0) return _s; }
     return -1;
 }
 int bcps_beta_pair_idx() {
@@ -4628,7 +4628,7 @@ void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const cha
     fprintf(stderr, "[SIG] arm=%s fn=%s nargs=%ld verdict=%s why=%s opnd=%s\n", arm, fn ? fn : "?", n, ok ? "SIG" : "DECLINE", why, (opnd && *opnd) ? opnd : "-");
 }
 int bcfn_result_slot(IR_t * nd) {
-    { int _s = nd ? zrow(nd)->loff : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
+    { int _s = nd ? zrow(nd)->loff : -1; if (_s >= 0) return _s; }
     return -1;
 }
 extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }
