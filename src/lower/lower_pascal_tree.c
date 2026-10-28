@@ -129,6 +129,7 @@ static const char *map_io(const char *fn) {
 static int is_pas_io(const char *fn) { return fn && (!strcmp(fn, "__pas_writeln") || !strcmp(fn, "__pas_write")); }
 static const char *pas_ptrvar_target(const char *v);
 static const char *pas_enumnames_by_idx(int i);
+static long long pas_enumtype_high(const char *n);
 static char pas_typename_class(const char *t);
 static tree_t *pas_vt_unwrap_read(tree_t *e);
 static const char *pas_ptrexpr_target(tree_t *e);
@@ -967,6 +968,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         }
     }
     if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
+    if (name && args && args->count >= 1 && !pas_is_func(name) && !pas_is_proc(name) && pas_enumtype_high(name) >= 0) return args->items[0];
     if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
     if (name && (!strcmp(name, "eof") || !strcmp(name, "eoln")) && args && args->count >= 1) {
