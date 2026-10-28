@@ -191,6 +191,8 @@ function Lf(k, v, i, n) {
 function NoteType(x) {
     NoteType = .dummy;
     if (IDENT(lwr(x), 'string') IDENT(pas_strdecl)) { PasFlip('fpc'); }
+    if (IDENT(lwr(x), 'ansistring')) { PasFlip('fpc'); }
+    if (IDENT(lwr(x), 'pchar')) { PasFlip('fpc'); }
     nreturn;
 }
 /* ==================================================================================================================== */
@@ -468,7 +470,7 @@ SetCtor         =   epsilon . *PushCounter() *$'[' FENCE(*SetMember *SetTail | e
 /* A subscripted variable: a[i] -> TT_IDX(a, i…); the leading nInc counts a itself.        */
 IdxTail         =   epsilon . *IncCounter() *$'[' *ArgFirst ARBNO(*ArgRest) *$']';
 /* A variable access is a primary and any number of postfixes: a[i], r.f, p^.               */
-MethodArgs      =   epsilon . *PushCounter() epsilon . *IncCounter() *$'(' *CallArgs *$')' . *Reduce('TT_FNC', nTop()) . *PopCounter();
+MethodArgs      =   epsilon . *PushCounter() epsilon . *IncCounter() *$'(' (*CallArgs | epsilon) *$')' . *Reduce('TT_FNC', nTop()) . *PopCounter();
 Postfix         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop()) . *PopCounter()
                     | *$' ' ('.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2) FENCE(*MethodArgs | epsilon)
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
@@ -540,7 +542,7 @@ MidStep         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
                     ));
 MethodStmt      =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
-                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' *CallArgs *$')' | epsilon) . *Reduce('TT_FNC', nTop()) . *PopCounter();
+                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
 StmtRest        =   *$';' FENCE(*Command . *IncCounter() | epsilon);
