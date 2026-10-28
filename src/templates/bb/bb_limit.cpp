@@ -64,7 +64,8 @@ std::string bb_limit_gate() {
     return IF(!(_.op_sa >= 0), x86_alpha() + x86_bomb("bb_limit_gate: unhandled (needs the count operand slot)"))
          + IF(_.op_sa >= 0,
               x86_alpha()
-           + IF(_.op_sb >= 0, x86("mov", FRQ(_.op_sb), (long)0) + x86("mov", FRQ(_.op_sb + 8), (long)0))
+           + IF(_.op_sb >= 0, x86("mov", FRQ(_.op_sb), (long)0))
+           + IF(_.op_sb >= 0, x86("mov", FRQ(_.op_sb + 8), (long)0))
            + IF(_.op_sc >= 0, x86("mov", FRQ(_.op_sc), "rsp"))
            + x86("mov", "rdi", FRQ(_.op_sa))
            + x86("mov", "rsi", FRQ(_.op_sa + 8))
