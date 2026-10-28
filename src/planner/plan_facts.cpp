@@ -348,6 +348,8 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         { long d = 0; z->zpk = fc_geom(nd, &d) ? -1 : (int)zw_node_k(nd); }
         if (op == IR_DISJUNCTION) { z->djo = (int)rec->v_dj.size(); pf_dj(rec, nodes, n, i, g, z->djx); }
         if (op == IR_GATE && nd->n_operands > 0) { z->gto = (int)rec->v_gate.size(); pf_gate(rec, nodes, n, i, g); }
+        z->owno = z->loff;
+        if (op == IR_CONJUNCTION && z->o0off >= 0) z->loff = z->o0off;
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
         z->go0off = (op == IR_SCAN && nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->n_operands > 0 && nd->operands[0]->operands[0]) ? zls_off(nd->operands[0]->operands[0]) : -1;

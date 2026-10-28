@@ -872,7 +872,7 @@ void call_prepare(IR_t * nd);
 static void call_fc_fill(IR_t * nd) {
     extern int fc_call_active(const IR_t *); extern long fc_vwpop(const IR_t *); extern int zls_off(const IR_t *);
     g_emit.op_seal = nd->seal;
-    if (zrow(nd)->fcact) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = zrow(nd)->loff; long _w = zrow(nd)->vw; if (_w > 0) g_emit.op_wpop += (int)_w; }
+    if (zrow(nd)->fcact) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = zrow(nd)->owno; long _w = zrow(nd)->vw; if (_w > 0) g_emit.op_wpop += (int)_w; }
 }
 static void call_box_emit(std::string (*box)(void)) {
     int sw = g_emit.op_wpop, sz = g_emit.op_zgpop;
@@ -952,7 +952,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1;
             g_emit.op_zkown[_zi] = -1; g_emit.op_zfres[_zi] = 1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
-    g_emit.op_own = _zn->loff; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd; g_emit.op_xa = _zn->xa;
+    g_emit.op_own = _zn->owno; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd; g_emit.op_xa = _zn->xa;
     g_emit.op_xf_off = _zr->home[_ri];
     for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) { g_emit.op_zread_xf[_zi] = _rd->xf;
         g_emit.op_zkown[_zi] = _rd->kown; g_emit.op_zfres[_zi] = _rd->fres; } }
@@ -2062,7 +2062,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CONJUNCTION:
-        { int dst = zrow(nd)->loff; if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
+        { int dst = zrow(nd)->owno; if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
             int src = bb_slot_get(nd->operands[0]);
             if (src >= 0 && dst >= 0 && src != dst && !(g_emit_cfg && g_emit_cfg->spine_cells && g_emit_cfg->pf.home_frame && zrow(nd)->kown == 0)) {
                 g_emit.op_sa = src; g_emit.op_off = dst;
@@ -3119,11 +3119,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));
         int * _tpd = (int *)alloca(sizeof(int) * (size_t)(n + 1)); int _tpn = 0;
-    for (int i = 0; i < n; i++) {
-        IR_t * fill_nd = g_planner.codegen_flat_chain_body_nodes[i]; int fill_slot = _pl->zn[i].loff;
-        if (fill_nd->op == IR_CONJUNCTION && fill_nd->n_operands > 0 && fill_nd->operands[0] && _pl->zn[i].o0off >= 0) fill_slot = _pl->zn[i].o0off;
-        if (fill_slot >= 0) bb_slot_register(fill_nd, fill_slot);
-    }
+    for (int i = 0; i < n; i++) if (_pl->zn[i].loff >= 0) bb_slot_register(g_planner.codegen_flat_chain_body_nodes[i], _pl->zn[i].loff);
     zd_check(g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, zd_arm, prefix);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
