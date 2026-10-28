@@ -314,7 +314,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
         z->asa = -1; z->asb = -1; z->dsusp = -1;
         if (op == IR_MATCH_ARBNO) { int wl = 0, wb = 0, mo = -1, sp = 0; planner_act_window(nd, &wl, &wb); z->awlo = wl; z->awb = wb;
-            z->apk = planner_body_live(g, nd->n_operands > 2 ? nd->operands[1] : (IR_t *)0, nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0, nd);
+            z->apk = planner_body_live(g, nd->n_operands > 2 ? nd->operands[0] : (IR_t *)0, nd->n_operands > 2 ? nd : (IR_t *)0, nd);
             z->ak16 = (g && nd->n_operands >= 3 && z->apk > 0 && z->aslot == -1) ? 1 : 0; z->abk0 = z->apk == 0 ? 1 : 0; z->abdu = z->apk < 0 ? 1 : 0;
             if (zls_arbno_geom(nd, &mo, &sp)) { z->ach = 1; z->asa = mo; z->asb = (sp + 24 + 15) & ~15; } }
         if (op == IR_MATCH_DEFER) z->dsusp = fc_tail_defer_susp_g((IR_graph_t *)g, nd);

@@ -101,7 +101,7 @@ static void act_mark_chain(const IR_graph_t * g, const IR_t * first, const IR_t 
         { int o = (int)cur->op;
             if (o == IR_MATCH_ALTERNATE) for (int q = 0; 2 * q + 1 < cur->n_operands; q++) act_mark_chain(g, cur->operands[2 * q], cur->operands[2 * q + 1], cur, tag, v);
             else if (o == IR_MATCH_FENCE1 && cur->n_operands >= 2) act_mark_chain(g, cur->operands[0], cur->operands[1], cur, tag, v);
-            else if (o == IR_MATCH_ARBNO && cur->n_operands >= 3) act_mark_chain(g, cur->operands[1], cur->operands[2], cur, tag, v); }
+            else if (o == IR_MATCH_ARBNO && cur->n_operands >= 3) act_mark_chain(g, cur->operands[0], cur, cur, tag, v); }
         if (cur == last) break; cur = zd_chase(cur->γ.node); }
     act_mark_depth--;
 }
@@ -115,9 +115,9 @@ extern "C" void planner_act_build(const IR_graph_t * g, int blob, int head) {
     std::vector<int> arm((size_t)n, -1), body((size_t)n, -1);
     for (int j = 0; j < n; j++) { IR_t * a = g->all[j]; if (!a) continue;
         if (a->op == IR_MATCH_ALTERNATE) for (int q = 0; 2 * q + 1 < a->n_operands; q++) act_mark_chain(g, a->operands[2 * q], a->operands[2 * q + 1], a, arm, j * 64 + q);
-        if (a->op == IR_MATCH_ARBNO && a->n_operands >= 3) act_mark_chain(g, a->operands[1], a->operands[2], a, body, j); }
+        if (a->op == IR_MATCH_ARBNO && a->n_operands >= 3) act_mark_chain(g, a->operands[0], a, a, body, j); }
     for (int j = 0; j < n; j++) { IR_t * nd = g->all[j]; if (!nd) continue; int o = (int)nd->op;
-        if (o == IR_MATCH_ARBNO && nd->n_operands >= 3) { if (planner_body_live(g, nd->operands[1], nd->operands[2], nd) < 0) { int lo = act_idx(g, nd->operands[1]), hi = act_idx(g, nd->operands[2]);
+        if (o == IR_MATCH_ARBNO && nd->n_operands >= 3) { if (planner_body_live(g, nd->operands[0], nd, nd) < 0) { int lo = act_idx(g, nd->operands[1]), hi = act_idx(g, nd->operands[2]);
             g_planner.g_act_cls[(size_t)j] = ACT_CLASS_ARBNO; g_planner.g_act_units[(size_t)j] = 1; g_planner.g_act_cause[(size_t)j] = planner_act_cause(g, nd, ACT_CLASS_ARBNO, lo, hi, 0, 0, 0);
                 } continue; }
         if (o == IR_MATCH_FENCE1 && !act_match_bare(nd) && nd->n_operands >= 2) { if (planner_body_live(g, nd->operands[0], nd->operands[1], nd) < 0) { int lo = act_idx(g, nd->operands[0]),
