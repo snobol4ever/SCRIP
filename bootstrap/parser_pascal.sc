@@ -135,16 +135,17 @@ function PasNum(s, n) {
 }
 /* ==================================================================================================================== */
 /* One {$...} directive, the forms pascal.l gives a rule to and no other; a directive that is not one of them is the comment it is.   */
-function PasDir(d, l, r, m) {
+function PasDir(d, l, r, m, fnc) {
     PasDir = .dummy;
     l = lwr(d);
     if (l ? (POS(0) 'mode')) {
         r = PasStrip(SUBSTR(l, 5, SIZE(l) - 4));
         if (IDENT(r, 'iso')) { PasEv('mode_iso'); if (IDENT(pas_ds)) { dialect = 'iso'; } nreturn; }
         m = '';
-        if (IDENT(r, 'objfpc')) { m = 'objfpc'; } else if (IDENT(r, 'delphi')) { m = 'delphi'; } else if (IDENT(r, 'delphiunicode')) { m = 'delphi'; }
-        else if (IDENT(r, 'tp')) { m = 'fpc'; } else if (IDENT(r, 'fpc')) { m = 'fpc'; } else if (IDENT(r, 'macpas')) { m = 'fpc'; }
-        if (DIFFER(m) IDENT(pas_ds)) { dialect = m; PasEv('seen_mode'); }
+        fnc = 1;
+        if (IDENT(r, 'objfpc')) { m = 'objfpc'; fnc = 0; } else if (IDENT(r, 'delphi')) { m = 'delphi'; } else if (IDENT(r, 'delphiunicode')) { m = 'delphi'; }
+        else if (IDENT(r, 'tp')) { m = 'fpc'; } else if (IDENT(r, 'fpc')) { m = 'fpc'; fnc = 0; } else if (IDENT(r, 'macpas')) { m = 'fpc'; }
+        if (DIFFER(m) IDENT(pas_ds)) { dialect = m; PasEv('seen_mode'); PasEv('fnamecall ' fnc); }
         nreturn;
     }
     if (l ? (POS(0) 'minenumsize')) { r = PasNum(PasStrip(SUBSTR(l, 12, SIZE(l) - 11))); if (GT(r, 0)) { PasEv('minenum ' r); } nreturn; }
