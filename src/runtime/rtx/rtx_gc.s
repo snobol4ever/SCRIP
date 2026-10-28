@@ -1344,7 +1344,7 @@ RTX_ENDF(rt_gc_mark_run)
 .org .Lmk_class + DT_E
 .byte MK_E
 .org .Lmk_class + DT_PLVAR
-.byte MK_PLAIN_I
+.byte MK_SLOW
 .org .Lmk_class + DT_PLREF
 .byte MK_PLAIN_I
 .org .Lmk_class + DT_X

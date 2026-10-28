@@ -1457,6 +1457,44 @@ static void gc_visit_tbblk(struct _TBBLK_t *t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_cell_ref(rt_hblk_t *h, const char *p) {
+    size_t off, cg;
+    uint64_t bit;
+    if (h->type != HB_DVEC) return 0;
+    if (gc_blk_marked(h)) return 1;
+    off = (size_t)(p - (const char *)(h + 1));
+    if (p < (const char *)(h + 1) || (off & 15u) || off + 16 > (size_t)h->size - sizeof(rt_hblk_t)) return 0;
+    cg = (size_t)(p - g_runtime.gc.hp_arena) >> 4;
+    bit = 1ull << (cg & 63);
+    if (g_runtime.abi.hp_fr.vis[cg >> 6] & bit) return 1;
+    g_runtime.abi.hp_fr.vis[cg >> 6] |= bit;
+    gc_wl_push((DESCR_t *)p);
+    return 1;
+}
+static void gc_cells_keep(rt_hblk_t *h) {
+    size_t g0 = (size_t)((char *)h - g_runtime.gc.hp_arena) >> 4;
+    size_t n = (size_t)h->size >> 4;
+    for (size_t i = 1; i < n; i++) { size_t g = g0 + i; if (!((g_runtime.abi.hp_fr.vis[g >> 6] >> (g & 63)) & 1u)) memset(g_runtime.gc.hp_arena + (g << 4), 0, 16); }
+    gc_live_set(g0, n);
+    g_runtime.abi.gc_mk.nmk++;
+    if ((long)h->size > g_runtime.abi.gc_mk.mxs) g_runtime.abi.gc_mk.mxs = (long)h->size;
+}
+static void gc_cells_resolve(void) {
+    const char *arena = g_runtime.gc.hp_arena;
+    size_t nw = (((size_t)(g_hp_top - arena) >> 4) + 63) >> 6;
+    uint64_t *vis = g_runtime.abi.hp_fr.vis;
+    const uint64_t *st = g_runtime.abi.hp_fr.start;
+    for (size_t w = 0; w < nw; w++) {
+        uint64_t x = vis[w] & ~st[w];
+        while (x) {
+            size_t g = (w << 6) + (size_t)__builtin_ctzll(x);
+            rt_hblk_t *h = gc_blk_of(arena + (g << 4));
+            x &= x - 1;
+            if (!h || h->type != HB_DVEC || gc_blk_marked(h)) continue;
+            gc_cells_keep(h);
+        }
+    }
+}
 void gc_visit_one(DESCR_t *d) {
     if (!d) return;
     switch ((int)d->v) {
@@ -1503,6 +1541,7 @@ void gc_visit_one(DESCR_t *d) {
         {
             rt_hblk_t *h = gc_blk_of((const char *)d->p);
             if (!h) return;
+            if (d->v == DT_PLVAR && gc_cell_ref(h, (const char *)d->p)) { gc_slot_reg_tgt((void *)&d->p, h); return; }
             gc_mark_blk(h, 0);
 #if RT_DIAG
             if ((const char *)d->p != (const char *)(h + 1)) g_runtime.gc.gc_interior++;
@@ -3732,6 +3771,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     g_runtime.gc.gc_dvec_elems += g_runtime.abi.gc_mk.dvec_elems;
     g_runtime.gc.gc_dvec_nondvec += g_runtime.abi.gc_mk.dvec_nondvec;
 #endif
+    gc_cells_resolve();
     { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
     { extern void rt_pl_eng_gc_weak(void); rt_pl_eng_gc_weak(); }
 #ifdef SCRIP_GC_AUDIT_B
