@@ -4235,7 +4235,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         }
         pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi);
         pl_libs_meta_specs(pre, &referenced);
-        for (uint32_t i = 0; i < user_defined.len; i++) if (!pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
+        for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
     {
         int exc = pl_cv_has(&user_defined, "exception/3");
