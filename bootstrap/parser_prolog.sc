@@ -203,6 +203,7 @@ op_kind['xfx'] = 'in'; op_kind['xfy'] = 'in'; op_kind['yfx'] = 'in'; op_kind['fy
 band_key = TABLE(24);
 band_key['in200'] = 'in200'; band_key['in400'] = 'in400'; band_key['in500'] = 'in500'; band_key['in600'] = 'in600'; band_key['in700'] = 'in700'; band_key['in900'] = 'in900';
 band_key['pre200'] = 'pre200'; band_key['pre400'] = 'pre400'; band_key['pre500'] = 'pre500'; band_key['pre600'] = 'pre600'; band_key['pre700'] = 'pre700'; band_key['pre900'] = 'pre900';
+band_key['in1100'] = 'in1100'; band_key['in1180'] = 'in1180'; band_key['in1190'] = 'in1190'; band_key['in1200'] = 'in1200'; band_key['pre1150'] = 'pre1150';
 band_key['post200'] = 'post'; band_key['post400'] = 'post'; band_key['post500'] = 'post'; band_key['post600'] = 'post'; band_key['post700'] = 'post'; band_key['post900'] = 'post';
 OpBand  = ( *LE(op_p, 0)   *DIFFER((uop_band[op_kind[op_t] op_n] = '') 'x')
           | *LE(op_p, 200) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '200']) 'x')
@@ -226,7 +227,7 @@ op_goal = (   *$' ' 'op' *$'(' . *PushVal('op') . *PushCounter()
 function UopReg(p, t, n, k, b) {
     k = op_kind[t];
     b = '900';
-    if (LE(p, 200)) { b = '200'; } else if (LE(p, 400)) { b = '400'; } else if (LE(p, 500)) { b = '500'; } else if (LE(p, 600)) { b = '600'; } else if (LE(p, 700)) { b = '700'; }
+    if (LE(p, 200)) { b = '200'; } else if (LE(p, 400)) { b = '400'; } else if (LE(p, 500)) { b = '500'; } else if (LE(p, 600)) { b = '600'; } else if (LE(p, 700)) { b = '700'; } else if (GE(p, 1100)) { b = p; }
     uop_band[k n] = band_key[k b];
     uop_on = uop_tok;
     return;
@@ -293,6 +294,20 @@ function LibOps(lib) {
         UopReg(730, 'yfx', '#\\/');
         UopReg(720, 'yfx', '#\/\');
     }
+    else if (IDENT(lib, 'chr')) {
+        chr_on = epsilon;
+        UopReg(1180, 'xfx', '==>');
+        UopReg(1180, 'xfx', '<=>');
+        UopReg(1150, 'fx', 'constraints');
+        UopReg(1150, 'fx', 'chr_constraint');
+        UopReg(1150, 'fx', 'chr_preprocessor');
+        UopReg(1150, 'fx', 'chr_type');
+        UopReg(1150, 'fx', 'chr_declaration');
+        UopReg(1100, 'xfx', '\');
+        UopReg(1200, 'xfx', '@');
+        UopReg(1190, 'xfx', 'pragma');
+        UopReg(500, 'yfx', '#');
+    }
     else if (IDENT(lib, 'record')) {
         UopReg(1150, 'fx', 'record');
     }
@@ -306,6 +321,15 @@ function LibPeek(p, t, lib) {
     return;
 }
 LibScan   = @lbp *LibPeek(lbp);
+/* a registered infix operator of 1100 or more is not the head of a 700-level operator: cmp_expr would take the < of <=> or the == of ==> and then => or > as a bare atom, and its FENCE would commit */
+function ChrAhead(p, t, b) {
+    Src ? (TAB(p) *Graphic_atom . t);
+    b = uop_band['in' t];
+    if (b ? (POS(0) ('in1100' | 'in1180' | 'in1190' | 'in1200') RPOS(0))) { return; }
+    freturn;
+}
+chr_on    = FAIL;
+chr_stop  = *chr_on *$' ' @cap *ChrAhead(cap);
 /* ==================================================================================================================== */
 arg       = ( *arg_top | (*Graphic_atom | ';') . b_name . *Shift('TT_QLIT', b_name) );
 arg_ite   = ( *unify_expr FENCE( *$'->' *arg_ite  . *Reduce('TT_FNC', 2, '->') | epsilon ) );
@@ -419,6 +443,7 @@ colon_expr = (  *add_expr
              );
 cmp_expr  = (   *colon_expr
                 FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in700') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *chr_stop
                      | *$'is'  *colon_expr  . *Reduce('TT_FNC', 2, 'is')
                      | *$'as'  *colon_expr  . *Reduce('TT_FNC', 2, 'as')
                      | *$'=@=' *colon_expr  . *Reduce('TT_FNC', 2, '=@=')
@@ -450,6 +475,7 @@ pfx_kw_name = (   "dynamic" | "discontiguous" | "meta_predicate" | "multifile"
               );
 /* a prefix declaration keyword (fx 1150) takes a term up to 1149: a comma list or a disjunction */
 body_goal = (   *$' ' (*pfx_kw_name) . pfx_kw *$'  ' . *PushVal(pfx_kw) *disj . *Reduce('TT_FNC', 1, PopVal())
+            |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre1150') *disj . *Reduce('TT_FNC', 1, PopVal())
             |   *$' ' '\+' *$' ' *body_goal  . *Reduce('TT_FNC', 1, '\+')
             |   *op_goal
             |   *unify_expr
@@ -493,7 +519,13 @@ clause_t  = (   *body
                 )
                 *$'.'
             );
-top_form  = ((*LibScan) (*directive | *clause | *dcg_rule | *ssu_rule | *clause_t));
+/* a fact whose principal functor is a user infix operator above 900 (library(chr): '\\' 1100, <=> and ==> 1180, pragma 1190, @ 1200, all xfx); prolog_parse.c takes any 1200 infix as a clause, the bands are the operators' own, tried last */
+chr_h     = ( *conj_arrow FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in1100') *conj_arrow . *Reduce('TT_FNC', 2, PopVal()) | epsilon ) );
+chr_ar    = ( *chr_h FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in1180') *bar . *Reduce('TT_FNC', 2, PopVal()) | epsilon ) );
+chr_pg    = ( *chr_ar FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in1190') *bar . *Reduce('TT_FNC', 2, PopVal()) | epsilon ) );
+chr_top   = ( *chr_pg FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in1200') *chr_pg . *Reduce('TT_FNC', 2, PopVal()) | epsilon ) );
+chr_rule  = ( *chr_top epsilon . *Reduce('TT_CLAUSE', 1) *$'.' );
+top_form  = ((*LibScan) (*directive | *clause | *dcg_rule | *ssu_rule | *clause_t | *chr_rule));
 /* ==================================================================================================================== */
 Compiland = epsilon . *PushCounter()
             POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) FLUSH ) *$' ' RPOS(0)
@@ -523,6 +555,7 @@ while (LE(0, 1)) {
     InitCounter();
     InitStack();
     uop_on = FAIL;
+    chr_on = FAIL;
     uop_band = TABLE(64);
     if (Src ? '#') { FdOps(); }
     if (Src ? *Compiland) {
