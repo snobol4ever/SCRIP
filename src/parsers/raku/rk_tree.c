@@ -2111,6 +2111,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         if (rt) { it->t = make_call(rt); return; }
         if (!strcmp(nm, "callsame") || !strcmp(nm, "samewith") || !strcmp(nm, "callwith") || !strcmp(nm, "nextcallee")) { it->t = make_call(nm); return; }
         if (!strcmp(nm, "nextsame")) { tree_t *r = ast_node_new(TT_RETURN); ast_push(r, make_call("callsame")); it->t = r; return; }
+        if (form == 0 && rk_is_core_routine(nm)) { it->t = make_call(nm); return; }
         if (form == 0) { it->t = var_node(b, nm); return; }
         it->t = make_call(nm); return;
     }

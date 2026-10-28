@@ -435,6 +435,10 @@ static int is_name_n(RkP *p, const char *s, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_is_core_routine(const char *s) {
+    return s && *s >= 'a' && *s <= 'z' && !strchr(s, ':') && core_has(rk_core_routines, sizeof rk_core_routines / sizeof *rk_core_routines, s, (int) strlen(s));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_is_core_type(const char *s) {
     static const char *const vals[] = { "True", "False", "Less", "Same", "More", "Inf", "NaN", "Empty", "Nil", 0 };
     static const char *const natives[] = { "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "byte", "num", "num32", "num64", "str", "bit", "array", "buf8", "buf16", "buf32", "buf64", "blob8", "blob16", "blob32", "blob64", 0 };
