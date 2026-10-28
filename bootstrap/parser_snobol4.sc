@@ -203,8 +203,12 @@ Expr17      =  FENCE(
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
 /* a goto target as snobol4.y goto_label_expr: (L) and ($L) are the label's text, ($'s') the string, ($(e)) the           */
-/* expression, (F(args)) a call, <e> TT_GOTO_DIRECT e                                                                      */
+/* expression, ($A<i>) and ($A[i]) the subscript expression A<i> (goto_sub), (F(args)) a call, <e> TT_GOTO_DIRECT e         */
+GoSub1      =  FENCE(  epsilon . *PushCounter() . *IncCounter() '[' FENCE(*ArgList | epsilon) ']' . *Reduce('TT_IDX', nTop()) . *PopCounter()
+                    |  epsilon . *PushCounter() . *IncCounter() '<' FENCE(*ArgList | epsilon) '>' . *Reduce('TT_IDX', nTop()) . *PopCounter()
+                    );
 GoInner     =  FENCE(  '$' '(' *$' ' *Expr *$' ' ')'
+                    |  '$' (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, SnLT[SnCase], SnUT[SnCase])) *GoSub1 *Expr15t
                     |  '$' "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'"
                     |  '$' '"' (BREAK('"')) . thx . *Shift('TT_QLIT', thx) '"'
                     |  '$' (*Id) . thx . *Shift('TT_QLIT', '$' REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))

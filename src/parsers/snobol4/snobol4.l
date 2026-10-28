@@ -461,9 +461,11 @@ G       ({WS}|{CONT})*
 <GT>[Ff]/[ \t]*"<"      { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
-<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
+<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; if (gt_have_operand) { gt_have_operand=0; return T_LANGLE; } gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 <GT>">"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
 <GT>"$"                 { return T_1DOLLAR; }
+<GT>"["                 { if (gt_depth > 0) { gt_depth++; gt_have_operand=0; return T_LBRACK; } }
+<GT>"]"                 { if (gt_depth > 0) { gt_depth--; gt_have_operand=1; return T_RBRACK; } }
 <GT>{ALPHA}{IDCONT}* {
     gt_have_operand=1;
     strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf);

@@ -77,7 +77,7 @@ static tree_e pat_prim_kind(const char *s) {
 %type <expr> expr9 expr10 expr11 expr12 expr13 expr14 expr15 expr17
 %type <expr> opt_subject subj_amp qsubject opt_pattern opt_repl
 %type <expr> goto_label_expr
-%type <expr> goto_expr goto_atom
+%type <expr> goto_expr goto_atom goto_sub
 %%
 top        : program                                                                                { }
            |                                                                            { }
@@ -127,6 +127,7 @@ goto_label_expr
            | T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=ct_strdup(buf);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN    { $$=$4; }
+           | T_GOTO_LPAREN T_1DOLLAR goto_sub T_GOTO_RPAREN                                  { $$=$3; }
            | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($3.sval);$$=e; }
            | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
@@ -231,6 +232,12 @@ goto_atom  : T_STR    { tree_t*e=ast_node_new(TT_QLIT); e->v.sval=(char*)$1.sval
            | T_FUNCTION{ tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_END     { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($1.sval); tal_open(); tal_fnc_open(_k,(char*)$1.sval); } goto_fnc_args T_GOTO_RPAREN { $$=tal_fnc_close(); }
+           | goto_sub  { $$=$1; }
+           ;
+goto_sub   : T_IDENT T_LBRACK { tal_open(); { tree_t*v=ast_node_new(TT_VAR); v->v.sval=(char*)$1.sval; tal_push(v); } } goto_fnc_args T_RBRACK  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
+           | T_IDENT T_LANGLE { tal_open(); { tree_t*v=ast_node_new(TT_VAR); v->v.sval=(char*)$1.sval; tal_push(v); } } goto_fnc_args T_GOTO_RPAREN  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
+           | goto_sub T_LBRACK { tal_open(); tal_push($1); } goto_fnc_args T_RBRACK  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
+           | goto_sub T_LANGLE { tal_open(); tal_push($1); } goto_fnc_args T_GOTO_RPAREN  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
            ;
 goto_fnc_args : goto_fnc_args T_COMMA goto_expr                                                 { tal_push($3); }
            | goto_fnc_args T_COMMA                                                              { tal_push(ast_node_new(TT_NUL)); }
