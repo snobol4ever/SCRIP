@@ -88,9 +88,9 @@ $'record'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
 $'set'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
 $'type'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'type') epsilon . *PasDS()      *$' ';
 /* The lexer's pragma events (pascal.l pascal_event, pascal_leaf, pascal_flip_dialect): an event is queued where its source token is, and the next leaf made carries it as (TT_ATTR :pragma (TT_QLIT "event")). */
-/* Every action below runs in the order the tokens were matched, so the dialect and the pending list are the lexer's own. pas_dial is pascal.tab.h's enum: 0 ISO_DEFAULT, 1 ISO, 2 FPC, 3 OBJFPC, 4 DELPHI. */
+/* Every action below runs in the order the tokens were matched, so the dialect and the pending list are the lexer's own. dialect is pascal.tab.h's enum as ONE global (CEO-1614, ruled by the cto): the null string is ISO_DEFAULT, then 'iso', 'fpc', 'objfpc', 'delphi'; an explicit 'iso' is sticky by being non-null.   */
 function PasInit() {
-    pas_dial = 0;
+    dialect = '';
     pas_ds = '';
     pas_nev = 0;
     pas_ev = TABLE(15);
@@ -111,7 +111,7 @@ function PasEv(s) {
 /* ==================================================================================================================== */
 function PasFlip(d) {
     PasFlip = .dummy;
-    if (EQ(pas_dial, 0)) { pas_dial = d; PasEv('seen_mode'); }
+    if (IDENT(dialect)) { dialect = d; PasEv('seen_mode'); }
     nreturn;
 }
 /* ==================================================================================================================== */
@@ -140,11 +140,11 @@ function PasDir(d, l, r, m) {
     l = lwr(d);
     if (l ? (POS(0) 'mode')) {
         r = PasStrip(SUBSTR(l, 5, SIZE(l) - 4));
-        if (IDENT(r, 'iso')) { PasEv('mode_iso'); if (IDENT(pas_ds)) { pas_dial = 1; } nreturn; }
-        m = 0;
-        if (IDENT(r, 'objfpc')) { m = 3; } else if (IDENT(r, 'delphi')) { m = 4; } else if (IDENT(r, 'delphiunicode')) { m = 4; }
-        else if (IDENT(r, 'tp')) { m = 2; } else if (IDENT(r, 'fpc')) { m = 2; } else if (IDENT(r, 'macpas')) { m = 2; }
-        if (NE(m, 0) IDENT(pas_ds)) { pas_dial = m; PasEv('seen_mode'); }
+        if (IDENT(r, 'iso')) { PasEv('mode_iso'); if (IDENT(pas_ds)) { dialect = 'iso'; } nreturn; }
+        m = '';
+        if (IDENT(r, 'objfpc')) { m = 'objfpc'; } else if (IDENT(r, 'delphi')) { m = 'delphi'; } else if (IDENT(r, 'delphiunicode')) { m = 'delphi'; }
+        else if (IDENT(r, 'tp')) { m = 'fpc'; } else if (IDENT(r, 'fpc')) { m = 'fpc'; } else if (IDENT(r, 'macpas')) { m = 'fpc'; }
+        if (DIFFER(m) IDENT(pas_ds)) { dialect = m; PasEv('seen_mode'); }
         nreturn;
     }
     if (l ? (POS(0) 'minenumsize')) { r = PasNum(PasStrip(SUBSTR(l, 12, SIZE(l) - 11))); if (GT(r, 0)) { PasEv('minenum ' r); } nreturn; }
@@ -189,7 +189,7 @@ function Lf(k, v, i, n) {
 /* pascal_note_type_ident / pascal_note_type_decl: the type name string, used before the program declares one, is FPC's.  */
 function NoteType(x) {
     NoteType = .dummy;
-    if (IDENT(lwr(x), 'string') IDENT(pas_strdecl)) { PasFlip(2); }
+    if (IDENT(lwr(x), 'string') IDENT(pas_strdecl)) { PasFlip('fpc'); }
     nreturn;
 }
 /* ==================================================================================================================== */
@@ -276,7 +276,7 @@ function StrLeaf(t) {
 /* ==================================================================================================================== */
 function PasOO() {
     PasOO = .dummy;
-    if (LT(pas_dial, 3) NE(pas_dial, 1)) { if (EQ(pas_dial, 0)) { PasEv('seen_mode'); } pas_dial = 3; }
+    if (IDENT(dialect)) { PasEv('seen_mode'); dialect = 'objfpc'; } else if (IDENT(dialect, 'fpc')) { dialect = 'objfpc'; }
     nreturn;
 }
 /* ==================================================================================================================== */
@@ -307,7 +307,7 @@ function PasAttr(ev) {
 /* program: pascal_stamp_dialect on the program name (a program with no header: on the root), then pt_flush_pragmas; stamp = seen_mode if the dialect ended at FPC or above.  */
 function PasStamp(k, i, a, nm) {
     PasStamp = .dummy;
-    if (GT(pas_dial, 1) IDENT(pas_unit)) {
+    if (DIFFER(dialect) DIFFER(dialect, 'iso') IDENT(pas_unit)) {
         if (DIFFER(pas_hasprog)) {
             k = $'@S';
             i = TopCounter() - 1;
@@ -488,14 +488,14 @@ Expr3           =   *$'@'   *Expr3 . *Reduce('TT_ADDR', 1)
                 |   *$'not' *Expr3 . *Reduce('TT_NOT', 1)
                 |   *Expr4;
 /* Multiplying operators: * / div mod and.                                                */
-PowStar         =   FENCE(*$'**' epsilon . *PasFlip(2) *Expr3 . *Reduce('TT_POW', 2) *PowStar | epsilon);
+PowStar         =   FENCE(*$'**' epsilon . *PasFlip('fpc') *Expr3 . *Reduce('TT_POW', 2) *PowStar | epsilon);
 Expr3P          =   *Expr3 *PowStar;
 MulOp           =   ( *$' ' ('*' *$' '   *Expr3P . *Reduce('TT_MUL', 2)
                     | '/' *$' '   *Expr3P . *Reduce('TT_DIV', 2)
                     ) | *$'div' *Expr3P . *Reduce('TT_IDIV', 2)
                     | *$'mod' *Expr3P . *Reduce('TT_MOD', 2)
                     | *$'and' *Expr3P . *Reduce('TT_CONJ', 2)
-                    | *$' ' (*Id $ tx . thy) ( *IDENT(lwr(tx), 'shl') | *IDENT(lwr(tx), 'shr') ) *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() epsilon . *PasFlip(2) *Expr3P . *Reduce('TT_FNC', 3)
+                    | *$' ' (*Id $ tx . thy) ( *IDENT(lwr(tx), 'shl') | *IDENT(lwr(tx), 'shr') ) *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() epsilon . *PasFlip('fpc') *Expr3P . *Reduce('TT_FNC', 3)
                     | *$' ' (*Id $ tx . thy) *IDENT(lwr(tx), 'as') *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() *Expr3P . *Reduce('TT_FNC', 3)
                     );
 Expr2           =   *Expr3P *MulStar;
@@ -569,7 +569,7 @@ case_cmd_rest   =   epsilon . *PushCounter() *$' ' *Expr0 . *IncCounter() *$'of'
                     *CaseArm *ArmStar FENCE(*$';' | epsilon)
                     FENCE(*$'else' epsilon . *PushCounter() FENCE(*StmtFirst *StmtStar | epsilon) . *Reduce('TT_SEQ_EXPR', nTop()) . *PopCounter()
                          . *Reduce('TT_PART', 1, 'else') . *IncCounter()
-                         | *$'otherwise' epsilon . *PasFlip(2) *StmtList . *Reduce('TT_PART', 1, 'otherwise') . *IncCounter() | epsilon)
+                         | *$'otherwise' epsilon . *PasFlip('fpc') *StmtList . *Reduce('TT_PART', 1, 'otherwise') . *IncCounter() | epsilon)
                     *$'end' . *Reduce('TT_CASE', nTop()) . *PopCounter();
 /* with r1, r2 do S -> TT_FNC(TT_VAR __pas_with, r1, r2, S), the oracle's naming for a lowered form  */
 with_cmd_rest   =   epsilon . *PushCounter() *$' '
@@ -679,9 +679,9 @@ ParamDecl       =   ( epsilon . *PushCounter() *$'procedure' *Name . *IncCounter
                     | epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt FENCE(*$':' *TypeId . *IncCounter() | epsilon)
                       . *Reduce('TT_DECL', nTop(), 'function') . *PopCounter()
                     | *$'var' *IdList *$':' *ParamType . *Reduce('TT_DECL', 2, 'var')
-                    | *$'const' *IdList *$':' *ParamType FENCE(*$'=' *Expr0 . *Reduce('TT_DECL', 3, 'const') epsilon . *PasFlip(3) | epsilon . *Reduce('TT_DECL', 2, 'const'))
-                    | *$'out' *IdList *$':' *ParamType . *Reduce('TT_DECL', 2, 'var') epsilon . *PasFlip(3)
-                    | *IdList *$':' *ParamType FENCE(*$'=' *Expr0 . *Reduce('TT_DECL', 3, 'value') epsilon . *PasFlip(3) | epsilon . *Reduce('TT_DECL', 2, 'value'))
+                    | *$'const' *IdList *$':' *ParamType FENCE(*$'=' *Expr0 . *Reduce('TT_DECL', 3, 'const') epsilon . *PasFlip('objfpc') | epsilon . *Reduce('TT_DECL', 2, 'const'))
+                    | *$'out' *IdList *$':' *ParamType . *Reduce('TT_DECL', 2, 'var') epsilon . *PasFlip('objfpc')
+                    | *IdList *$':' *ParamType FENCE(*$'=' *Expr0 . *Reduce('TT_DECL', 3, 'value') epsilon . *PasFlip('objfpc') | epsilon . *Reduce('TT_DECL', 2, 'value'))
                     );
 Params          =   epsilon . *PushCounter() *$'(' *ParamDecl . *IncCounter() ARBNO(*$';' *ParamDecl . *IncCounter()) *$')' . *Reduce('TT_PARAMS', nTop()) . *PopCounter();
 ParamsOpt       =   FENCE(*Params . *IncCounter() | *$'(' *$')' | epsilon);
@@ -691,7 +691,7 @@ Block           =   epsilon . *PushCounter() *Decls *Body . *IncCounter() . *Red
 RdT             =   TABLE(15);
 RdT['inline'] = 1; RdT['cdecl'] = 1; RdT['register'] = 1; RdT['stdcall'] = 1; RdT['pascal'] = 1; RdT['overload'] = 1; RdT['safecall'] = 1;
 RdT['far'] = 1; RdT['near'] = 1; RdT['noinline'] = 1; RdT['nostackframe'] = 1;
-RoutineDir      =   *$' ' (*Id $ tx . thd) *DIFFER(RdT[lwr(tx)]) epsilon . *Lf('TT_VAR', lwr(thd)) epsilon . *Drop() *$';' epsilon . *PasFlip(2);
+RoutineDir      =   *$' ' (*Id $ tx . thd) *DIFFER(RdT[lwr(tx)]) epsilon . *Lf('TT_VAR', lwr(thd)) epsilon . *Drop() *$';' epsilon . *PasFlip('fpc');
 RoutineDirs     =   FENCE(*RoutineDir *RoutineDirs | epsilon);
 ProcTail        =   ( *$'forward' *$';' . *Shift('TT_KEYWORD', 'forward') . *IncCounter()
                     | *RoutineDirs *Block . *IncCounter() *$';'
@@ -708,7 +708,7 @@ func_decl       =   ( epsilon . *PushCounter() *$'function' *QName . *IncCounter
                       . *Reduce('TT_FUNCTION', nTop(), 'class') . *PopCounter()
                     );
 /* A block's declaration parts in any order, as pascal.y's decl_part_list takes them: each part, a procedure or a function is one child in source order.  */
-uses_part       =   epsilon . *PushCounter() *$'uses' epsilon . *PasFlip(2) *IdList . *IncCounter() *$';' . *Reduce('TT_PART', nTop(), 'uses') . *PopCounter();
+uses_part       =   epsilon . *PushCounter() *$'uses' epsilon . *PasFlip('fpc') *IdList . *IncCounter() *$';' . *Reduce('TT_PART', nTop(), 'uses') . *PopCounter();
 DeclPart        =   ( *uses_part | *label_part | *const_part | *type_part | *var_part | *proc_decl | *func_decl ) . *IncCounter() FLUSH;
 Decls           =   FENCE(*DeclPart *Decls | epsilon);
 /* ==================================================================================================================== */
@@ -721,7 +721,7 @@ IntfPart        =   ( *uses_part | *const_part | *type_part | *var_part | *IntfP
 IntfParts       =   FENCE(*IntfPart *IntfParts | epsilon);
 InitPart        =   FENCE( ( *$'initialization' | *$'begin' ) *StmtList . *Reduce('TT_PART', 1, 'initialization') . *IncCounter() | epsilon );
 FiniPart        =   FENCE( *$'finalization' *StmtList . *Reduce('TT_PART', 1, 'finalization') . *IncCounter() | epsilon );
-UnitBody        =   *$'unit' epsilon . *PasFlip(2) epsilon . *PasUnit() *Name . *IncCounter() *$';' *$'interface'
+UnitBody        =   *$'unit' epsilon . *PasFlip('fpc') epsilon . *PasUnit() *Name . *IncCounter() *$';' *$'interface'
                     epsilon . *PushCounter() *IntfParts . *Reduce('TT_PART', nTop(), 'interface') . *PopCounter() . *IncCounter()
                     *$'implementation' epsilon . *PushCounter() *Decls . *Reduce('TT_PART', nTop(), 'implementation') . *PopCounter() . *IncCounter()
                     *InitPart *FiniPart *$'end';
