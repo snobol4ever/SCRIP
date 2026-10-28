@@ -3524,6 +3524,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * ee = pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("source_sink"), pl_tree_copy(t->c[0]));
                 if (k >= 0) return goal(cx, k ? (tree_t *) pl_atom_goal("true") : pl_cc_throw_ar(ee, nm, t->n), γnext, ωfail, entry_out);
             }
+            if (!strcmp(nm, "use_module") && (t->n == 1 || t->n == 2) && t->c[0] && t->c[0]->t == TT_VAR && !pl_user_defines(nm, t->n))
+                return goal(cx, (tree_t *) pl_atom_goal("true"), γnext, ωfail, entry_out);
             if (!strcmp(nm, "ensure_loaded") && t->n == 1 && !pl_user_defines(nm, 1)) {
                 tree_t * o = ast_node_new(TT_MAKELIST);
                 o->v.ival = 0;
