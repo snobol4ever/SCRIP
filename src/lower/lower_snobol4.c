@@ -481,6 +481,7 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res, IR_t ** fuse_base, IR_t ** fuse_idx);
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 static int sno_pat_supported(const tree_t * t);
+static IR_t * sx_scan(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static char * sno_scan_tmp(const char * pfx) {
     int scv = g_lower.sno.sno_scan_tmp_scv_n++;
     char nmb[fmt_len("%s$%d", pfx, scv)];
@@ -1454,42 +1455,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return j;
         }
         case TT_SCAN:
-        {
-            if (t->n < 2) sno_fatal("TT_SCAN with missing subject or pattern", NULL);
-            extern tree_t * ast_stmt_new(tree_e kind);
-            IR_t * pent = NULL;
-            IR_t * pasn = NULL;
-            const tree_t * sbj = t->c[0];
-            const tree_t * pat = sno_pat_valued(cx, &sbj, 0, t->c[1], ω, &pent, &pasn);
-            if (res) {
-                char * tmpn = sno_scan_tmp("SCV");
-                tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
-                capt->slen = 240;
-                ast_push(capt, (tree_t *) pat);
-                tree_t * tv = ast_node_new(TT_VAR);
-                tv->v.sval = tmpn;
-                ast_push(capt, tv);
-                tree_t * sc = ast_stmt_new(TT_SCAN);
-                ast_push(sc, (tree_t *) sbj);
-                ast_push(sc, capt);
-                IR_t * rd = lc_build(cx->g, IR_VAR, γ, ω);
-                IR_LIT(rd).sval = tmpn;
-                IR_t * e = sno_lower_match(cx, sc, NULL, 0, rd, ω, NULL);
-                *res = rd;
-                if (pasn) { lc_γ_to(pasn, e); return pent; }
-                return e;
-            }
-            if (pasn) {
-                tree_t * sc = ast_stmt_new(TT_SCAN);
-                ast_push(sc, (tree_t *) sbj);
-                ast_push(sc, (tree_t *) pat);
-                IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
-                lc_γ_to(pasn, e);
-                return pent;
-            }
-            IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω, NULL);
-            return e;
-        }
+        return sx_scan(cx, t, γ, ω, res);
         case TT_ASSIGN:
         {
             const tree_t * L = (t->n > 0) ? t->c[0] : NULL;
@@ -3713,6 +3679,52 @@ static IR_t * sno_capt_prologue(scx_t * cx, sno_tvec_t * pro, IR_t * entry, IR_t
     pro->n = 0;
     pro->cap = 0;
     return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_scan_body(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (t->n < 2) sno_fatal("TT_SCAN with missing subject or pattern", NULL);
+    extern tree_t * ast_stmt_new(tree_e kind);
+    IR_t * pent = NULL;
+    IR_t * pasn = NULL;
+    const tree_t * sbj = t->c[0];
+    const tree_t * pat = sno_pat_valued(cx, &sbj, 0, t->c[1], ω, &pent, &pasn);
+    if (res) {
+        char * tmpn = sno_scan_tmp("SCV");
+        tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
+        capt->slen = 240;
+        ast_push(capt, (tree_t *) pat);
+        tree_t * tv = ast_node_new(TT_VAR);
+        tv->v.sval = tmpn;
+        ast_push(capt, tv);
+        tree_t * sc = ast_stmt_new(TT_SCAN);
+        ast_push(sc, (tree_t *) sbj);
+        ast_push(sc, capt);
+        IR_t * rd = lc_build(cx->g, IR_VAR, γ, ω);
+        IR_LIT(rd).sval = tmpn;
+        IR_t * e = sno_lower_match(cx, sc, NULL, 0, rd, ω, NULL);
+        *res = rd;
+        if (pasn) { lc_γ_to(pasn, e); return pent; }
+        return e;
+    }
+    if (pasn) {
+        tree_t * sc = ast_stmt_new(TT_SCAN);
+        ast_push(sc, (tree_t *) sbj);
+        ast_push(sc, (tree_t *) pat);
+        IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
+        lc_γ_to(pasn, e);
+        return pent;
+    }
+    IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω, NULL);
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_scan(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    sno_tvec_t cpro = { 0 };
+    const tree_t * p0 = (t->n > 1) ? t->c[1] : NULL;
+    const tree_t * p1 = sno_capt_elem_rewrite(p0, &cpro);
+    if (p1 != p0) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, t->c[0]); ast_push(sc, (tree_t *) p1); t = sc; }
+    IR_t * e = sx_scan_body(cx, t, γ, ω, res);
+    return sno_capt_prologue(cx, &cpro, e, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
