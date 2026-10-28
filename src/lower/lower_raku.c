@@ -6428,6 +6428,15 @@ static void rk_ss_hoist(tree_t * list) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_eval_host_classes(const tree_t * t) {
+    extern void * dat_find_type(const char * name);
+    if (!t) return;
+    const char * nm = (t->t == TT_VAR && t->v.sval) ? t->v.sval + (t->v.sval[0] == ':' && t->v.sval[1] == ':' ? 2 : 0) : NULL;
+    if (nm && nm[0] >= 'A' && nm[0] <= 'Z' && !rk_is_class_name(nm) && dat_find_type(nm)) CV_PUSH(g_lower.rk.class_names, const char *) = nm;
+    for (int i = 0; i < t->n; i++) rk_eval_host_classes(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
@@ -6491,6 +6500,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
     rk_register_classes(prog);
+    if (!want_main) rk_eval_host_classes(prog);
     if (reset_multi) g_lower.rk.multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
