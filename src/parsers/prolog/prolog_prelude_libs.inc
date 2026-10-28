@@ -33966,10 +33966,17 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
-    { "ord_setproduct", 3 },
+    { "index", 2 },
+    { "index", 3 },
+    { "do_all", 1 },
+    { "do_all", 2 },
+    { "term_size", 2 },
+    { "number_digits", 2 },
+    { "is_acyclic", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+    { "term_size", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
@@ -33983,11 +33990,55 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
+    "index(_, _).\n"
+    "index(_, _, _).\n"
+    "do_all(G) :- ( call(G), fail ; true ).\n"
+    "do_all(Gen, Do0) :- ( nonvar(Do0), Do0 = if_none(Do, Else) -> '$xsb_da_vars'(Gen, Do, Vs), findall(Vs, Gen, Vals), ( Vals == [] -> call(Else), fail ; '$xsb_da_each'(Vs, Vals, Do) )\n"
+    "    ; '$xsb_da_vars'(Gen, Do0, Vs), findall(Vs, Gen, Vals), '$xsb_da_each'(Vs, Vals, Do0) ).\n"
+    "do_all(_, _).\n"
+    "'$xsb_da_each'(Vs, Vals, Do) :- sort(Vals, Sorted), member(Vs, Sorted), call(Do), fail.\n"
+    "'$xsb_da_vars'(Gen, Do, Vs) :- term_variables(Gen, GV), term_variables(Do, DV), '$xsb_da_shared'(GV, DV, Vs).\n"
+    "'$xsb_da_shared'([], _, []).\n"
+    "'$xsb_da_shared'([V|Vs], DV, R) :- ( '$xsb_da_memq'(V, DV) -> R = [V|R1] ; R = R1 ), '$xsb_da_shared'(Vs, DV, R1).\n"
+    "'$xsb_da_memq'(V, [W|Ws]) :- ( V == W -> true ; '$xsb_da_memq'(V, Ws) ).\n"
+    "term_size(T, S) :- '$xsb_tsz'(T, 0, S).\n"
+    "'$xsb_tsz'(T, A0, A) :- ( var(T) -> A is A0 + 1 ; float(T) -> A is A0 + 4 ; compound(T) -> functor(T, _, N), A1 is A0 + 1, '$xsb_tsz_args'(1, N, T, A1, A) ; A is A0 + 1 ).\n"
+    "'$xsb_tsz_args'(I, N, T, A0, A) :- ( I > N -> A = A0 ; I =:= N -> arg(I, T, X), '$xsb_tsz'(X, A0, A) ; arg(I, T, X), '$xsb_tsz'(X, A0, A1), I1 is I + 1, '$xsb_tsz_args'(I1, N, T, A1, A) ).\n"
+    "number_digits(N, L) :- ( number(N) -> number_chars(N, Cs), '$xsb_nd_out'(Cs, Ds), L = Ds\n"
+    "    ; nonvar(N) -> throw(error(type_error(number, N), number_digits/2))\n"
+    "    ; var(L) -> throw(error(instantiation_error, number_digits/2))\n"
+    "    ; '$xsb_nd_in'(L, L, Cs0), '$xsb_nd_dot'(Cs0, Cs), catch(number_chars(N, Cs), error(syntax_error(_), _), throw(error(syntax_error(L), number_digits/2))) ).\n"
+    "'$xsb_nd_dot'(Cs0, Cs) :- ( append(_, ['.'], Cs0) -> append(Cs0, ['0'], Cs) ; Cs = Cs0 ).\n"
+    "'$xsb_nd_out'([], []).\n"
+    "'$xsb_nd_out'([C|Cs], [D|Ds]) :- ( char_type(C, digit(W)) -> D = W ; D = C ), '$xsb_nd_out'(Cs, Ds).\n"
+    "'$xsb_nd_in'(L, W, Cs) :- ( var(L) -> throw(error(instantiation_error, number_digits/2)) ; L == [] -> Cs = [] ; L = [D|Ds] -> '$xsb_nd_char'(D, W, C), Cs = [C|Cs1], '$xsb_nd_in'(Ds, W, Cs1)\n"
+    "    ; throw(error(type_error(list, W), number_digits/2)) ).\n"
+    "'$xsb_nd_char'(D, W, C) :- ( integer(D) -> ( D >= 0, D =< 9 -> number_codes(D, [K]), char_code(C, K) ; throw(error(type_error(digit, W), number_digits/2)) )\n"
+    "    ; atom(D), atom_length(D, 1) -> C = D ; throw(error(syntax_error(W), number_digits/2)) ).\n"
+    "is_acyclic(T) :- acyclic_term(T).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+    { "ord_setproduct", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_74_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -34011,20 +34062,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -34137,7 +34188,8 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "ugraphs", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
     { "writef", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
     { "xsb_builtins", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };

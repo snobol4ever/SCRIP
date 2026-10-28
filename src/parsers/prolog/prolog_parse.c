@@ -3708,8 +3708,8 @@ static void pl_libs_meta_specs(PlProgram *pre, const cv_t *referenced) {
     }
     if (mp) ct_drop(mp);
 }
-static int pl_lib_dialect_ok(const char *lib, int swi) { return swi || strcmp(lib, "listing"); }
-static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi) {
+static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
+static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
     PlProgram *lp[nlibs + 1];
@@ -3732,7 +3732,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         }
     }
     for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
     uint32_t bkc = pl_pk_cap(nb);
@@ -3751,7 +3751,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (!pl_clause_is_meta_spec(cl)) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
             ct_drop(lh.t);
         }
     }
@@ -4233,7 +4233,14 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             extern int prolog_dialect_gnu_selected(void);
             for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
-        pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi);
+        int xsb = 0;
+        {
+            extern int prolog_clause_marks_xsb(const PlClause *);
+            extern int prolog_dialect_xsb_selected(void);
+            for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_xsb(c)) { xsb = 1; break; }
+            if (prolog_dialect_xsb_selected()) xsb = 1;
+        }
+        pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
         pl_libs_meta_specs(pre, &referenced);
         for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
