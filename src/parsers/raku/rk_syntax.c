@@ -4356,6 +4356,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     if (is_method && name_from >= 0 && p->npkgs && !(is_method == 2 && p->lang_e)) record_method(p, name_from, name_to, sig_from, sig_to, q);
     if (p->build) {
         if (name_from < 0 && !is_method) rkb_block_term(p->B, &p->tm, pos, e, body, rsig, 1, bl, bn);
+        else if (name_from < 0 && is_method == 1 && !onlystar) rkb_block_term(p->B, &p->tm, pos, e, body, rkb_self_sig(p->B, rsig), 1, bl, bn);
         else { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_BSTMT; p->tm.from = pos; p->tm.to = p->tm.core_to = e;
             p->tm.t = onlystar && is_method && multi == 2 ? ast_node_new(TT_SEQ_EXPR) : rkb_routine(p->B, is_method ? 1 : 0, multi, name_from >= 0 ? p->s + name_from : "", name_from >= 0 ? name_to - name_from : 0, 0, rsig, sig_to > sig_from, body, rtr, nrtr); }
     }

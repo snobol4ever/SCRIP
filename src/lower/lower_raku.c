@@ -6473,6 +6473,55 @@ static void rk_type_terms(tree_t * t, const rk_ns_t * names) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_sub_names(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && *t->c[0]->v.sval) {
+        size_t bl = strcspn(t->c[0]->v.sval, "$");
+        char b[bl + 1];
+        memcpy(b, t->c[0]->v.sval, bl);
+        b[bl] = 0;
+        rk_ns_add(out, intern(b));
+    }
+    for (int i = 0; i < t->n; i++) rk_sub_names(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_builtin_refs(tree_t * t, const rk_ns_t * subs) {
+    if (!t) return;
+    int skip = t->t == TT_SUB_DECL || t->t == TT_ANON_BLOCK || t->t == TT_DECL;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_builtin_refs(c, subs);
+        if (skip || !c || c->t != TT_VAR || c->n || !(c->slen & 1) || !c->v.sval || c->v.sval[0] != '&' || !isalpha((unsigned char) c->v.sval[1]) || strpbrk(c->v.sval + 1, ":*?!<>[]()$@% ") ||
+            rk_ns_has(subs, c->v.sval + 1)) continue;
+        tree_t * ab = ast_node_new(TT_ANON_BLOCK), * sq = ast_node_new(TT_SEQ_EXPR), * fc = ast_node_new(TT_FNC);
+        fc->line = c->line;
+        fc->v.sval = (char *) intern(c->v.sval + 1);
+        ast_push(fc, leaf_sval2(TT_VAR, fc->v.sval));
+        ast_push(fc, leaf_sval2(TT_VAR, "_"));
+        ast_push(sq, fc);
+        ast_push(ab, sq);
+        t->c[i] = ab;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_ctl_rhs(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_ctl_rhs(c);
+        if (!c || c->t != TT_ASSIGN || c->n != 2 || !c->c[1] || (c->c[1]->t != TT_RETURN && c->c[1]->t != TT_LOOP_NEXT && c->c[1]->t != TT_LOOP_BREAK)) continue;
+        tree_t * sq = ast_node_new(TT_SEQ_EXPR), * nil = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
+        sq->line = c->line;
+        nil->v.sval = (char *) "__rk_undef";
+        ast_push(nil, leaf_sval2(TT_VAR, "__rk_undef"));
+        ast_push(as, c->c[0]);
+        ast_push(as, nil);
+        ast_push(sq, c->c[1]);
+        ast_push(sq, as);
+        t->c[i] = sq;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
@@ -6484,6 +6533,10 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_ss_rewrite((tree_t *) prog, &ss, 0);
         rk_module_names(prog, &ss);
         rk_type_terms((tree_t *) prog, &ss);
+        rk_ns_t subs = { 0 };
+        rk_sub_names(prog, &subs);
+        rk_builtin_refs((tree_t *) prog, &subs);
+        rk_ctl_rhs((tree_t *) prog);
     }
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);

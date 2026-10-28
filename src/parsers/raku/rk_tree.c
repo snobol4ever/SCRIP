@@ -2908,6 +2908,13 @@ static void rk_slash_rename(tree_t *t) {
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "/")) t->v.sval = (char *) intern("__slash");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_self_sig(RkB *b, tree_t *sig) {
+    tree_t *ns = ast_node_new(sig ? sig->t : TT_SEQ_EXPR);
+    expr_add_child(ns, var_node(b, "self"));
+    for (int i = 0; sig && i < sig->n; i++) expr_add_child(ns, sig->c[i]);
+    return ns;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr) {
     (void) prefix; (void) has_parens; (void) tr; (void) ntr;
     TL params = { 0 };

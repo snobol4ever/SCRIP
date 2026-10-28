@@ -639,7 +639,10 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **w
                 return 0;
             }
             if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd)) {
-                *why = why_fmt("assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval);
+                IR_t *rhs_nd = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
+                if (!rhs_nd) for (int pi = 0; pi < g->n; pi++) { IR_t *pr = g->all[pi]; if (pr && pr->γ.node == nd) { rhs_nd = pr; break; } }
+                extern const char *bb_op_name(IR_e k);
+                *why = why_fmt("assignment to '%s' has an rhs shape (%s) with no native arm", IR_LIT(nd).sval, rhs_nd ? bb_op_name(rhs_nd->op) : "no producer found");
                 return 0;
             }
         }
