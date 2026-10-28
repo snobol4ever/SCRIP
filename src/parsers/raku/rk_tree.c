@@ -3018,8 +3018,9 @@ tree_t *rkb_regex_decl(RkB *b, int kind, const char *name, int namelen, int brac
     return rd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rkb_enum(RkB *b, const char *text, int n) {
+tree_t *rkb_enum(RkB *b, const char *text, int n, int from, int to) {
     TL l = { 0 }; int idx = 0, i = 0;
+    if (to > from) { tree_t *ty = make_call("__rk_typeobj"); char *en = spn(b, from, to); expr_add_child(ty, leaf_sval(TT_QLIT, en)); tl_add(&l, expr_binary(TT_ASSIGN, var_node(b, en), ty)); }
     while (i < n) {
         while (i < n && (text[i] == ' ' || text[i] == '\t' || text[i] == '\n')) i++;
         if (i >= n) break;

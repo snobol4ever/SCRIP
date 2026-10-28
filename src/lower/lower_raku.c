@@ -52,6 +52,12 @@ static const char * rk_qualified_type_gist(const char * nm) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_version_lit(const char * s) {
+    if (!s || s[0] != 'v' || !isdigit((unsigned char) s[1])) return 0;
+    for (const char * p = s + 1; *p; p++) if (!isdigit((unsigned char) *p) && *p != '.' && *p != '*' && !(*p == '+' && !p[1]) && !(isalpha((unsigned char) *p) && p[-1] == '.' && !p[1])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_modeled_type(const char * ty) {
     if (!ty) return 0;
     static const char * const k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 };
@@ -1345,6 +1351,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = nd;
                 return nd;
             }
+            if ((t->slen & 1) && rk_is_version_lit(t->v.sval)) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
             if (t->v.sval && strchr(t->v.sval, ':') && !(t->slen & RK_VAR_PKG) && !rk_predeclared(t->v.sval, 0)) {
                 IR_t * nd = build(cx, IR_LIT_STRING, γ, ω);
                 IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval);
@@ -2901,6 +2908,11 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
                     pnq->v.sval = (char *)pn;
                     ast_push(mc, pnq);
                     rk_plan[nplan++] = mc;
+                } else if (ty[0] == ':' && ty[1] == ':' && ty[2]) {
+                    tree_t * as = ast_node_new(TT_ASSIGN);
+                    ast_push(as, leaf_sval2(TT_VAR, ty + 2));
+                    ast_push(as, rk_coerce_val(leaf_sval2(TT_VAR, pn), "WHAT"));
+                    rk_plan[nplan++] = as;
                 }
             }
         }
@@ -6437,6 +6449,30 @@ static void rk_eval_host_classes(const tree_t * t) {
     for (int i = 0; i < t->n; i++) rk_eval_host_classes(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_module_names(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_MODULE_DECL && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) rk_ns_add(out, t->c[0]->v.sval);
+    for (int i = 0; i < t->n; i++) rk_module_names(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_type_terms(tree_t * t, const rk_ns_t * names) {
+    if (!t) return;
+    int sm = t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_smartmatch"),
+        dz = t->t == TT_METHCALL && t->n == 3 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && (!strcmp(t->c[1]->v.sval, "does") || !strcmp(t->c[1]->v.sval, "isa"));
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_type_terms(c, names);
+        if (t->t == TT_DECL || t->t == TT_MODULE_DECL || (sm && i == 2) || (dz && i == 2)) continue;
+        if (!c || c->t != TT_VAR || c->n || !(c->slen & 1) || !c->v.sval || !rk_ns_has(names, c->v.sval)) continue;
+        tree_t * to = ast_node_new(TT_FNC);
+        to->line = c->line;
+        to->v.sval = (char *) "__rk_typeobj";
+        ast_push(to, leaf_sval2(TT_VAR, "__rk_typeobj"));
+        ast_push(to, leaf_sval2(TT_QLIT, c->v.sval));
+        t->c[i] = to;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
@@ -6446,6 +6482,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_tv_classes(prog, &cls);
         rk_ss_multi((tree_t *) prog, &ss, &cls, (tree_t *) prog, &mcn);
         rk_ss_rewrite((tree_t *) prog, &ss, 0);
+        rk_module_names(prog, &ss);
+        rk_type_terms((tree_t *) prog, &ss);
     }
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);
@@ -6750,12 +6788,24 @@ int lower_raku_refuse(const tree_t * prog, const char * file) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_source_terms(tree_t * t, const char * given, const char * absolute) {
+static void rk_source_terms(tree_t * t, const char * given, const char * absolute, const char * pkg) {
     for (int i = 0; t && i < t->n; i++) {
         tree_t * c = t->c[i];
-        rk_source_terms(c, given, absolute);
+        int scoped = c && (c->t == TT_MODULE_DECL || c->t == TT_CLASS_DECL || c->t == TT_ROLE_DECL || c->t == TT_GRAMMAR_DECL) && c->n > 0 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval;
+        rk_source_terms(c, given, absolute, scoped ? c->c[0]->v.sval : pkg);
         if (!c || c->t != TT_VAR || !c->v.sval) continue;
-        int prog = !strcmp(c->v.sval, "*PROGRAM"), name = !strcmp(c->v.sval, "*PROGRAM-NAME"), file = !strcmp(c->v.sval, "?FILE");
+        const char * nm = c->v.sval;
+        if (!strcmp(nm, "?BITS") || !strcmp(nm, "?TABSTOP")) { tree_t * k = ast_node_new(TT_ILIT); k->line = c->line; k->v.ival = nm[1] == 'B' ? 64 : 8; t->c[i] = k; continue; }
+        if (!strcmp(nm, "?PACKAGE") || !strcmp(nm, "?MODULE") || !strcmp(nm, "?CLASS") || !strcmp(nm, "?ROLE")) {
+            tree_t * f = ast_node_new(TT_FNC);
+            f->line = c->line;
+            f->v.sval = (char *) "__rk_typeobj";
+            ast_push(f, leaf_sval2(TT_VAR, "__rk_typeobj"));
+            ast_push(f, leaf_sval2(TT_QLIT, pkg ? pkg : "GLOBAL"));
+            t->c[i] = f;
+            continue;
+        }
+        int prog = !strcmp(nm, "*PROGRAM"), name = !strcmp(nm, "*PROGRAM-NAME"), file = !strcmp(nm, "?FILE");
         if (!prog && !name && !file) continue;
         tree_t * f = ast_node_new(TT_FNC);
         f->line = c->line;
@@ -6765,6 +6815,25 @@ static void rk_source_terms(tree_t * t, const char * given, const char * absolut
         ast_push(f, leaf_sval2(TT_QLIT, file ? absolute : given));
         t->c[i] = f;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_reads_var(const tree_t * t, const char * nm) {
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, nm)) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_reads_var(t->c[i], nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_declare_pod(tree_t * prog) {
+    if (!rk_reads_var(prog, "=pod")) return;
+    tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
+    arr->v.sval = (char *) "__rk_arr";
+    ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr"));
+    ast_push(as, leaf_sval2(TT_VAR, "=pod"));
+    ast_push(as, arr);
+    ast_push(prog, as);
+    memmove(prog->c + 1, prog->c, (size_t) (prog->n - 1) * sizeof(tree_t *));
+    prog->c[0] = as;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_raku_source(tree_t * prog, const char * file) {
@@ -6781,7 +6850,8 @@ void lower_raku_source(tree_t * prog, const char * file) {
             ct_drop(cwd);
         }
     }
-    rk_source_terms(prog, lp_strdup(file), absolute);
+    rk_source_terms(prog, lp_strdup(file), absolute, NULL);
+    rk_declare_pod(prog);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }

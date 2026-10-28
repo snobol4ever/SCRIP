@@ -437,6 +437,8 @@ static int is_name_n(RkP *p, const char *s, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_is_core_type(const char *s) {
     static const char *const vals[] = { "True", "False", "Less", "Same", "More", "Inf", "NaN", "Empty", "Nil", 0 };
+    static const char *const natives[] = { "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "byte", "num", "num32", "num64", "str", "bit", "array", "buf8", "buf16", "buf32", "buf64", "blob8", "blob16", "blob32", "blob64", 0 };
+    for (int i = 0; s && natives[i]; i++) if (!strcmp(natives[i], s)) return 1;
     if (!s || !(*s >= 'A' && *s <= 'Z') || strchr(s, ':')) return 0;
     for (int i = 0; vals[i]; i++) if (!strcmp(vals[i], s)) return 0;
     return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, (int) strlen(s));
@@ -4555,7 +4557,7 @@ static int r_type_declarator(RkP *p, int pos) {
         int t = r_term(p, q);
         if (t < 0) panic_at(p, q, "An enum must supply an expression using <>, \xc2\xab\xc2\xbb, or ()");
         tree_t *et = NULL;
-        if (p->build) et = p->tm.kind == TK_WORDS && p->tm.name ? rkb_enum(p->B, p->tm.name, (int) strlen(p->tm.name)) : ast_node_new(TT_SEQ_EXPR);
+        if (p->build) et = p->tm.kind == TK_WORDS && p->tm.name ? rkb_enum(p->B, p->tm.name, (int) strlen(p->tm.name), en, en + enl) : ast_node_new(TT_SEQ_EXPR);
         enum_names_from(p, q, t, p->s + en, enl);
         for (int k = q, quo = 0; k < t; k++) {
             unsigned char b = (unsigned char) p->s[k];
