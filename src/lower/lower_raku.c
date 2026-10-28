@@ -559,7 +559,15 @@ static int rk_proc_known(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_refuse(const tree_t * t, const char * what) { fprintf(stderr, "scrip: raku: line %d: REFUSED -- %s\n", t ? t->line : 0, what); exit(2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
+static IR_t * rk_excise_at(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * nd = build(cx, IR_EXCISED, γ, ω);
+    char kb[48];
+    snprintf(kb, sizeof kb, "tree kind %d with %d children", t ? (int) t->t : -1, t ? t->n : 0);
+    IR_LIT(nd).sval = lp_strdup(kb);
+    if (res) *res = nd;
+    return nd;
+}
+#define rk_excise(cx, γ, ω, res) rk_excise_at(cx, t, γ, ω, res)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 static int rk_use_is_version(const tree_t * s) { return s && s->t == TT_USE_DECL && s->v.sval && s->v.sval[0] == 'v' && s->v.sval[1] >= '0' && s->v.sval[1] <= '9'; }
@@ -4043,18 +4051,40 @@ static void rk_rename_main_refs(tree_t * t) {
 static void rk_listops_to_methcalls(tree_t * t, int is_iter_src) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_listops_to_methcalls(t->c[i], t->t == TT_ITERATE && i == 0);
-    if (is_iter_src || (t->t != TT_MAP && t->t != TT_GREP) || t->n < 2 || !t->c[0] || !t->c[1]) return;
-    tree_t * body = ast_node_new(TT_SEQ_EXPR);
-    ast_push(body, t->c[0]);
-    tree_t * blk = ast_node_new(TT_ANON_BLOCK);
-    ast_push(blk, body);
-    tree_t * src = t->c[1];
-    if (t->n > 2) { src = ast_node_new(TT_FNC); src->v.sval = (char *)"__rk_arr"; ast_push(src, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(src, t->c[i]); }
+    if ((t->t == TT_SORT || t->t == TT_REVERSE) && t->n == 1 && t->c[0]) {
+        tree_t * m = ast_node_new(TT_METHCALL);
+        m->line = t->line;
+        ast_push(m, t->c[0]);
+        ast_push(m, leaf_sval2(TT_QLIT, t->t == TT_SORT ? "sort" : "reverse"));
+        *t = *m;
+        return;
+    }
+    if (!is_iter_src && (t->t == TT_MAP || t->t == TT_GREP) && t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_arr") && t->c[0]->n >= 3) {
+        tree_t * a = t->c[0];
+        t->n = 0;
+        for (int i = 1; i < a->n; i++) ast_push(t, a->c[i]);
+    }
+    if ((t->t != TT_MAP && t->t != TT_GREP) || t->n < 2 || !t->c[0] || !t->c[1]) return;
+    if (is_iter_src && (t->n > 2 || t->c[1]->t == TT_TO || t->c[1]->t == TT_FNC)) return;
+    tree_t * blk = t->c[0];
+    if (blk->t != TT_ANON_BLOCK) { tree_t * body = ast_node_new(TT_SEQ_EXPR); ast_push(body, t->c[0]); blk = ast_node_new(TT_ANON_BLOCK); ast_push(blk, body); }
+    int npos = 0;
+    for (int i = 1; i < t->n; i++) if (!(t->c[i] && t->c[i]->t == TT_FNC && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "__rk_pair"))) npos++;
+    tree_t * src = NULL;
+    if (npos == 1) {
+        for (int i = 1; i < t->n && !src; i++) if (!(t->c[i] && t->c[i]->t == TT_FNC && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "__rk_pair"))) src = t->c[i];
+    } else {
+        src = ast_node_new(TT_FNC);
+        src->v.sval = (char *) "__rk_arr";
+        ast_push(src, leaf_sval2(TT_VAR, "__rk_arr"));
+        for (int i = 1; i < t->n; i++) if (!(t->c[i] && t->c[i]->t == TT_FNC && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "__rk_pair"))) ast_push(src, t->c[i]);
+    }
     tree_t * m = ast_node_new(TT_METHCALL);
     m->line = t->line;
     ast_push(m, src);
     ast_push(m, leaf_sval2(TT_QLIT, t->t == TT_MAP ? "map" : "grep"));
     ast_push(m, blk);
+    for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_FNC && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "__rk_pair")) ast_push(m, t->c[i]);
     *t = *m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6643,6 +6673,32 @@ static void rk_attr_aliases(tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_reads_var(const tree_t * t, const char * nm);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_sub_topic(tree_t * t, int in_pkg) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_sub_topic(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
+    if (t->t != TT_SUB_DECL || t->n < 1) return;
+    int body = in_pkg ? (int) t->v.ival : 1 + (int) t->v.ival;
+    if (body < 1 || body >= t->n) return;
+    int reads = 0;
+    for (int i = 1; i < t->n && !reads; i++) {
+        if (i < body && t->c[i] && t->c[i]->t == TT_VAR && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "_")) return;
+        if (i >= body && rk_reads_var(t->c[i], "_")) reads = 1;
+    }
+    if (!reads) return;
+    tree_t * as = ast_node_new(TT_ASSIGN), * nil = ast_node_new(TT_FNC), * dv = leaf_sval2(TT_VAR, "_");
+    nil->v.sval = (char *) "__rk_typeobj";
+    ast_push(nil, leaf_sval2(TT_VAR, "__rk_typeobj"));
+    ast_push(nil, leaf_sval2(TT_QLIT, "Any"));
+    dv->slen |= 4;
+    ast_push(as, dv);
+    ast_push(as, nil);
+    ast_push(t, as);
+    memmove(t->c + body + 1, t->c + body, (size_t) (t->n - 1 - body) * sizeof(tree_t *));
+    t->c[body] = as;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
@@ -6659,6 +6715,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_builtin_refs((tree_t *) prog, &subs);
         rk_ctl_rhs((tree_t *) prog);
         rk_attr_aliases((tree_t *) prog);
+        rk_sub_topic((tree_t *) prog, 0);
     }
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);
