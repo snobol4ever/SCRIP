@@ -620,18 +620,18 @@ static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, in
     IR_graph_t * g = cx->g;
     IR_t * cmp = lc_build(g, IR_CMP_TEST, γ, ω);
     IR_LIT(cmp).ival = rk;
-    IR_t * cb = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, cmp, ω);
-    IR_LIT(cb).ival = c2;
-    IR_t * ca = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, cb, ω);
+    IR_t * ca = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, cmp, ω);
     IR_LIT(ca).ival = c1;
+    IR_t * cb = lc_build(g, lex ? IR_COERCE_STRING : IR_COERCE_NUMERIC, ca, ω);
+    IR_LIT(cb).ival = c2;
     const tree_t * ax = (t->n > argbase + 0) ? t->c[argbase + 0] : NULL;
     const tree_t * bx = (t->n > argbase + 1) ? t->c[argbase + 1] : NULL;
     IR_t * ar = NULL;
     IR_t * br = NULL;
     IR_t * be;
     IR_t * ae;
-    if (bx) be = sx_lower(cx, bx, ca, ω, &br);
-    else { br = lc_build(g, IR_LIT_STRING, ca, ω); IR_LIT(br).sval = (char *) ""; be = br; }
+    if (bx) be = sx_lower(cx, bx, cb, ω, &br);
+    else { br = lc_build(g, IR_LIT_STRING, cb, ω); IR_LIT(br).sval = (char *) ""; be = br; }
     if (ax) ae = sx_lower(cx, ax, be, ω, &ar);
     else { ar = lc_build(g, IR_LIT_STRING, be, ω); IR_LIT(ar).sval = (char *) ""; ae = ar; }
     ir_operand_push(ca, ar);
