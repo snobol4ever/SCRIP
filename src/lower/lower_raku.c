@@ -4784,7 +4784,7 @@ static void rk_class_body(tree_t * t, int * seq) {
     for (int i = 0; t->t != TT_ATTR && i < t->n; i++) {
         tree_t * st = t->c[i];
         tree_t * d = (st && st->t == TT_STMT) ? (tree_t *) stmt_subj(st) : st;
-        if (!d || d->t != TT_CLASS_DECL) continue;
+        if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
         int nb = 0;
         for (int j = 1; j < d->n; j++) if (!rk_class_member_is_decl(d->c[j])) nb++;
         if (!nb) continue;
@@ -5931,6 +5931,13 @@ static int rk_role_nparams(const tree_t * rd) {
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_role_subst_type(tree_t * t, const char * name, const char * ty) {
+    if (!t) return;
+    if (t->t == TT_NEW && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, name)) t->c[0]->v.sval = (char *) ty;
+    if (t->t == TT_DECL && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, name)) t->c[0]->v.sval = (char *) ty;
+    for (int i = 0; i < t->n; i++) rk_role_subst_type(t->c[i], name, ty);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_role_specialized(tree_t * rd, const char * spec, const tree_t * args) {
     int k = rk_role_nparams(rd);
     const tree_t * vals[k > 0 ? k : 1];
@@ -5954,6 +5961,11 @@ static tree_t * rk_role_specialized(tree_t * rd, const char * spec, const tree_t
     tree_t * cl = spec ? rk_clone_tree(rd) : rd;
     if (spec) cl->c[0]->v.sval = (char *) intern(spec);
     cl->c[0]->n = 0;
+    for (int x = 0; x < k; x++) {
+        const tree_t * tv = vals[x];
+        if (!tv || tv->t != TT_FNC || !tv->v.sval || strcmp(tv->v.sval, "__rk_typeobj") || tv->n < 2 || !tv->c[1] || tv->c[1]->t != TT_QLIT || !tv->c[1]->v.sval) continue;
+        for (int j = 1; j < cl->n; j++) rk_role_subst_type(cl->c[j], names[x], tv->c[1]->v.sval);
+    }
     for (int j = 1; j < cl->n; j++) {
         tree_t * m = cl->c[j];
         if (!m || m->t != TT_SUB_DECL) continue;
