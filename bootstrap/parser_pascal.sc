@@ -412,7 +412,9 @@ ResT['else'] = 1; ResT['end'] = 1; ResT['file'] = 1; ResT['for'] = 1; ResT['func
 ResT['label'] = 1; ResT['mod'] = 1; ResT['not'] = 1; ResT['of'] = 1; ResT['or'] = 1; ResT['packed'] = 1; ResT['procedure'] = 1;
 ResT['program'] = 1; ResT['record'] = 1; ResT['repeat'] = 1; ResT['set'] = 1; ResT['then'] = 1; ResT['to'] = 1; ResT['type'] = 1; ResT['until'] = 1;
 ResT['except'] = 1; ResT['finally'] = 1; ResT['otherwise'] = 1; ResT['initialization'] = 1; ResT['finalization'] = 1; ResT['implementation'] = 1; ResT['var'] = 1; ResT['while'] = 1; ResT['with'] = 1;
-Ident       =   *Id $ tx *IDENT(ResT[lwr(tx)]) . token;
+OoT = TABLE(15);
+OoT['class'] = 1; OoT['try'] = 1; OoT['raise'] = 1; OoT['inherited'] = 1; OoT['constructor'] = 1; OoT['destructor'] = 1; OoT['property'] = 1; OoT['is'] = 1; OoT['as'] = 1;
+Ident       =   *Id $ tx *IDENT(ResT[lwr(tx)]) ( *IDENT(OoT[lwr(tx)]) | *IDENT(dialect) | *IDENT(dialect, 'iso') | *IDENT(dialect, 'fpc') ) . token;
 /* Punctuation.                                                                          */
 $'('        =   *$' ' '(' *$' ';
 $')'        =   *$' ' ')';
