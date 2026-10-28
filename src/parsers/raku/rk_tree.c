@@ -398,7 +398,7 @@ static tree_t *rk_destructure(RkB *b, TL *targets, tree_t *rhs_arr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_rhs(tree_t *rhs);
 static tree_t *stmt_plain(RkB *b, RkList *L);
-static tree_t *rk_for_multi(RkB *b, TL *vars, tree_t *list, tree_t *body, int destr) {
+static tree_t *rk_for_multi(RkB *b, TL *vars, TL *acc, tree_t *list, tree_t *body, int destr) {
     const char *av = fmt("__fm_a_%d", b->fm_uid), *iv = fmt("__fm_i_%d", b->fm_uid); b->fm_uid++;
     int k = vars ? vars->n : 0;
     if (list && list->t == TT_TO && list->n >= 2) list = rk_arr_rhs(list);
@@ -412,7 +412,8 @@ static tree_t *rk_for_multi(RkB *b, TL *vars, tree_t *list, tree_t *body, int de
         tree_t *idx = leaf_sval(TT_VAR, intern(iv));
         if (i && !destr) idx = expr_binary(TT_ADD, idx, rk_ilit(i));
         tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, intern(av))); expr_add_child(get, idx);
-        if (destr) { tree_t *inner = make_call("__rk_arr_at"); expr_add_child(inner, get); expr_add_child(inner, rk_ilit(i)); get = inner; }
+        if (destr && acc && i < acc->n && acc->v[i]) { tree_t *mc = ast_node_new(TT_METHCALL); expr_add_child(mc, get); expr_add_child(mc, acc->v[i]); get = mc; }
+        else if (destr) { tree_t *inner = make_call("__rk_arr_at"); expr_add_child(inner, get); expr_add_child(inner, rk_ilit(i)); get = inner; }
         if (vars->v[i] && vars->v[i]->t == TT_VAR) vars->v[i]->slen |= 4;
         expr_add_child(seq, expr_binary(TT_ASSIGN, vars->v[i], get));
     }
@@ -3189,7 +3190,7 @@ tree_t *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t 
     return rk_cstyle_loop(init, cond, incr, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_unpack_scalars(RkB *b, const char *s, TL *vars) {
+static int rk_unpack_scalars(RkB *b, const char *s, TL *vars, TL *acc) {
     const char *q = s + 1;
     for (;;) {
         while (*q == ' ' || *q == '\t' || *q == '\n') q++;
@@ -3200,6 +3201,22 @@ static int rk_unpack_scalars(RkB *b, const char *s, TL *vars) {
             if (*t != ' ' && *t != '\t') return 0;
             q = t;
             while (*q == ' ' || *q == '\t') q++;
+        }
+        if (*q == ':' && isalpha((unsigned char) q[1])) {
+            const char *w = q + 1, *we = w;
+            while (isalnum((unsigned char) *we) || *we == '_' || *we == '-') we++;
+            if (*we != '(' || we[1] != '$') return 0;
+            const char *v = we + 1, *ve = v + 1;
+            while (isalnum((unsigned char) *ve) || *ve == '_' || ((*ve == '-' || *ve == '\'') && isalpha((unsigned char) ve[1]))) ve++;
+            if (ve == v + 1 || *ve != ')') return 0;
+            while (acc->n < vars->n) tl_add(acc, NULL);
+            tl_add(vars, var_node(b, trimdup(v, (int) (ve - v))));
+            tl_add(acc, leaf_sval(TT_QLIT, trimdup(w, (int) (we - w))));
+            q = ve + 1;
+            while (*q == ' ' || *q == '\t' || *q == '\n') q++;
+            if (*q == ',') { q++; continue; }
+            if (*q != ')') return 0;
+            continue;
         }
         if (*q != '$' && *q != '@' && *q != '%') return 0;
         const char *e = q + 1;
@@ -3265,10 +3282,10 @@ tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
     tree_t *lst;
     if (n > 1) { lst = make_call("__rk_arr"); for (int i = 0; i < n; i++) expr_add_child(lst, el_tree(b, &list->v[i])); }
     else lst = rkb_expr(b, list);
-    if (np > 1) { TL vars = { 0 }; for (int i = 0; i < np; i++) tl_add(&vars, sig->c[i]); return rk_for_multi(b, &vars, lst, blk, 0); }
+    if (np > 1) { TL vars = { 0 }; for (int i = 0; i < np; i++) tl_add(&vars, sig->c[i]); return rk_for_multi(b, &vars, NULL, lst, blk, 0); }
     if (np == 1 && sig->c[0] && sig->c[0]->t == TT_VAR && sig->c[0]->v.sval && sig->c[0]->v.sval[0] == '(') {
-        TL vars = { 0 };
-        if (rk_unpack_scalars(b, sig->c[0]->v.sval, &vars) >= 1) return rk_for_multi(b, &vars, lst, blk, 1);
+        TL vars = { 0 }, acc = { 0 };
+        if (rk_unpack_scalars(b, sig->c[0]->v.sval, &vars, &acc) >= 1) return rk_for_multi(b, &vars, &acc, lst, blk, 1);
     }
     tree_t *gen = expr_unary(TT_ITERATE, lst);
     if (np == 1 && sig->c[0]) { gen->v.sval = sig->c[0]->v.sval; gen->slen |= sig->c[0]->slen & (RK_PV_COPY | RK_PV_RW); }

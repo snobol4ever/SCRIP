@@ -5009,7 +5009,7 @@ static int r_statement_control(RkP *p, int pos) {
         p->tv = NULL;
         return ws(p, t);
     }
-    if ((e = lit(p, pos, "no")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) { int f = r_use_like(p, ws(p, e), "no"); p->tv = NULL; return f; }
+    if ((e = lit(p, pos, "no")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) { int g = ws(p, e); int f = r_use_like(p, g, "no"); p->tv = NULL; if (p->build && at_lit(p, g, "strict") && !wordch_at(p, g + 6)) p->tv = rkb_use(p->B, "no-strict", 9, NULL); return f; }
     if ((e = lit(p, pos, "use")) >= 0 && !wordch_at(p, e) && is_space_cp(cp_at(p, e))) { int f = r_use_like(p, ws(p, e), "use"); p->ctl_ns = 1; return f; }
     if ((e = lit(p, pos, "DOC")) >= 0 && is_hspace_cp(cp_at(p, e))) { int u = hs(p, e); int f = lit(p, u, "use"); if (f >= 0 && !wordch_at(p, f)) return r_use_like(p, ws(p, f), "use"); }
     if ((e = kok(p, pos, "require")) >= 0) {

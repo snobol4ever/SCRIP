@@ -6992,6 +6992,39 @@ static void rk_source_terms(tree_t * t, const char * given, const char * absolut
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_lax_reads(const tree_t * t, const rk_ns_t * assigned, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_VAR && !t->n && t->v.sval &&
+        (t->v.sval[0] == '@' || t->v.sval[0] == '%' || (!(t->slen & 1) && (isalpha((unsigned char) t->v.sval[0]) || t->v.sval[0] == '_') && strcmp(t->v.sval, "_"))) &&
+        !strpbrk(t->v.sval, ":*?!.^=") && !rk_ns_has(assigned, t->v.sval) && strncmp(t->v.sval, "__", 2)) rk_ns_add(out, t->v.sval);
+    for (int i = 0; i < t->n; i++) rk_lax_reads(t->c[i], assigned, out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_declare_lax(tree_t * prog) {
+    int lax = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * st = prog->c[i];
+        if (st && st->t == TT_STMT) st = stmt_subj(st);
+        if (st && st->t == TT_USE_DECL && st->v.sval && !strcmp(st->v.sval, "no-strict")) lax = 1;
+    }
+    if (!lax) return;
+    rk_ns_t assigned = { 0 }, reads = { 0 };
+    rk_lax_reads(prog, &assigned, &reads);
+    for (int i = reads.n - 1; i >= 0; i--) {
+        const char * nm = reads.v[i];
+        tree_t * as = ast_node_new(TT_ASSIGN), * init = ast_node_new(TT_FNC);
+        init->v.sval = (char *) (nm[0] == '%' ? "__rk_hash" : nm[0] == '@' ? "__rk_arr" : "__rk_undef");
+        ast_push(init, leaf_sval2(TT_VAR, init->v.sval));
+        tree_t * dv = leaf_sval2(TT_VAR, nm);
+        dv->slen |= 4;
+        ast_push(as, dv);
+        ast_push(as, init);
+        ast_push(prog, as);
+        memmove(prog->c + 1, prog->c, (size_t) (prog->n - 1) * sizeof(tree_t *));
+        prog->c[0] = as;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_reads_var(const tree_t * t, const char * nm) {
     if (!t) return 0;
     if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, nm)) return 1;
@@ -7004,7 +7037,9 @@ static void rk_declare_pod(tree_t * prog) {
     tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
     arr->v.sval = (char *) "__rk_arr";
     ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr"));
-    ast_push(as, leaf_sval2(TT_VAR, "=pod"));
+    tree_t * pv = leaf_sval2(TT_VAR, "=pod");
+    pv->slen |= 4;
+    ast_push(as, pv);
     ast_push(as, arr);
     ast_push(prog, as);
     memmove(prog->c + 1, prog->c, (size_t) (prog->n - 1) * sizeof(tree_t *));
@@ -7027,6 +7062,7 @@ void lower_raku_source(tree_t * prog, const char * file) {
     }
     rk_source_terms(prog, lp_strdup(file), absolute, NULL);
     rk_declare_pod(prog);
+    rk_declare_lax(prog);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }
