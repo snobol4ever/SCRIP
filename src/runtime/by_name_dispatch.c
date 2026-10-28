@@ -5272,6 +5272,13 @@ static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_goal_arity_ball(void) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_procedure_arity"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *pl_procedure_arity_ball(const char *opname, int request) {
+    extern void *rt_pl_ball_kind1_system_ctx(const char *, const char *, const char *, int, const char *);
+    char msg[64];
+    snprintf(msg, sizeof msg, "limit is %d, request = %d", PROLOG_MAX_PROCEDURE_ARITY, request);
+    return rt_pl_ball_kind1_system_ctx("representation_error", "max_procedure_arity", opname, 1, msg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball, void *root) {
     extern int rt_proc_jmp_entry(const char *name);
     extern void *rt_proc_fn(const char *name);
@@ -10062,7 +10069,7 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
         } else if (!strcmp(fl->nm, "stack_limit")) {
             ok = plw_unify_vals(args[1], INTVAL((int64_t)strtoll(fl->val ? fl->val : "0", (char **)0, 10)), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
-            ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
+            ok = plw_unify_vals(args[1], pl_swi_dialect() ? pl_mk_atom("unbounded") : INTVAL(PROLOG_MAX_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_procedure_arity")) {
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_PROCEDURE_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_char_code")) {
@@ -24899,12 +24906,16 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
     extern void *rt_pl_ball_kind1(const char *, const char *);
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_culprit1(const char *, DESCR_t);
+    extern void *rt_pl_ball_kind1_system_ctx(const char *, const char *, const char *, int, const char *);
     char ob[32];
     const char *op;
+    const char *opname;
     int ar = 0;
     if (nargs != 2) return (void *)0;
     pl_atoms_ready();
     if (!pl_cell_text(args[1], ob, sizeof ob, &op) || !op) op = "assert";
+    opname = op;
+    if (!strcmp(op, "asserta") || !strcmp(op, "assertz")) op = "assert";
     {
         DESCR_t t = rt_pl_deref_val(args[0]);
         if (!strcmp(op, "clref_out")) return pl_iso_unbound(t) ? (void *)0 : rt_pl_ball_culprit1("uninstantiation_error", t);
@@ -24926,6 +24937,7 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             if (!pl_anum_is_text(n)) return rt_pl_ball_kind2("type_error", "atom", n);
             if (a.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", a);
             if ((long long)a.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", a);
+            if (pl_swi_dialect() && (long long)a.i > PROLOG_MAX_PROCEDURE_ARITY) return pl_procedure_arity_ball(opname, (int)a.i);
             if ((long long)a.i > PROLOG_MAX_ARITY) return rt_pl_ball_kind1("representation_error", "max_arity");
             ns = pl_atom_str(n);
             return pl_db_static_ball(root, op, ns ? ns : "?", (int)a.i);
@@ -24941,6 +24953,8 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             }
             if (pl_iso_unbound(h)) return rt_pl_ball_instantiation();
             if (!pl_anum_is_compound(h) && !pl_anum_is_text(h)) return rt_pl_ball_kind2("type_error", "callable", h);
+            if (pl_swi_dialect() && !strcmp(op, "assert") && h.v == (DTYPE_t)DT_PLREF && plc_fid_arity(h.slen) > PROLOG_MAX_PROCEDURE_ARITY)
+                return pl_procedure_arity_ball(opname, plc_fid_arity(h.slen));
             if (hasbody && !strcmp(op, "assert") && pl_db_body_ill_typed(b)) return rt_pl_ball_kind2("type_error", "callable", b);
             if (hasbody && (!strcmp(op, "clause") || (!strcmp(op, "retract") && pl_gnu_dialect()))) {
                 DESCR_t bd = rt_pl_deref_val(b);

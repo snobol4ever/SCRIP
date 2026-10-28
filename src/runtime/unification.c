@@ -3256,6 +3256,37 @@ void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity) {
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_kind1_system_ctx(const char *kind, const char *arg0_atom, const char *nm, int ar, const char *msg) {
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t fe[1];
+    pl_cell_t *fec;
+    pl_cell_t pi[2];
+    pl_cell_t *pic;
+    pl_cell_t sy[2];
+    pl_cell_t *syc;
+    pl_cell_t ct[2];
+    pl_cell_t *ctc;
+    pl_cell_t er[2];
+    fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
+    fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
+    if (!fec) return (void *)0;
+    pi[0] = pl_make_atom(prolog_atom_intern(nm ? nm : "?"));
+    pi[1] = pl_make_int(ar);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    sy[0] = pl_make_atom(prolog_atom_intern("system"));
+    sy[1] = *pic;
+    syc = (pl_cell_t *)rt_pl_compound_cell(":", 2, (void *)sy);
+    if (!syc) return (void *)0;
+    ct[0] = *syc;
+    ct[1] = msg ? pl_make_atom(prolog_atom_intern(msg)) : rt_pl_fresh_var_ref();
+    ctc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)ct);
+    if (!ctc) return (void *)0;
+    er[0] = *fec;
+    er[1] = *ctc;
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit) {
     extern DESCR_t rt_pl_fresh_var_ref(void);
     pl_cell_t fe[2];

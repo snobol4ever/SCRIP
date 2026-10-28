@@ -3031,7 +3031,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 pn = pl_head_key(t->c[0], &ar);
                 if (!pn)
                     return goal(cx,
-                    pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("assert")),
+                    pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal(nm)),
                     pl_cc_fnc1(!strcmp(nm, "asserta") ? "$db_asserta_t" : "$db_assertz_t", (tree_t *) t->c[0])), γnext, ωfail, entry_out);
                 if (pl_pi_is_static_builtin(pn, ar) || !pl_db_writable(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
                 {
