@@ -268,6 +268,14 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     if (xi < xo) return;
     z->xk = zls_off(ow); z->xw = zd_k_own_g(g, ow); z->xd = (int)(xi - xo);
 }
+static int pf_vs(const IR_graph_t * g, int i, const char * name) {
+    if (!name) return -1;
+    int sv = g_planner.g_zd_cur;
+    g_planner.g_zd_cur = i;
+    int c = zst_coord(name);
+    g_planner.g_zd_cur = sv;
+    return c >= 0 ? c : ir_varslot_of(g, name);
+}
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     struct pdef_scope { pdef_scope(const IR_graph_t * x) { planner_pdef_lock(x); } ~pdef_scope() { planner_pdef_unlock(); } } pds(g);
     rec->v_lspine.assign((size_t)(g && g->lnames ? g->nlocals : 0), 0);
@@ -348,6 +356,11 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         if (op == IR_CONJUNCTION && z->o0off >= 0) z->loff = z->o0off;
         z->opo = (int)rec->v_opoff.size();
         for (int k = 0; k < nd->n_operands; k++) rec->v_opoff.push_back(nd->operands[k] ? zls_off(nd->operands[k]) : -1);
+        for (int k = 0; k < nd->n_operands; k++)
+            rec->v_opvs.push_back((nd->operands[k] && (nd->operands[k]->op == IR_VAR || nd->operands[k]->op == IR_VAR_REF || (op == IR_REV_SWAP && k == 0 && nd->operands[k]->op == IR_LIT_STRING))) ?
+            pf_vs(g, i, IR_LIT(nd->operands[k]).sval) : -1);
+        z->vso = (op == IR_VAR || op == IR_VAR_REF || op == IR_ASSIGN || op == IR_REV_SWAP || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE) ? pf_vs(g, i, IR_LIT(nd).sval) : -1;
+        z->vp1vso = (z->vp1 && z->vp1->op == IR_VAR) ? pf_vs(g, i, IR_LIT(z->vp1).sval) : -1;
         z->go0off = (op == IR_SCAN && nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->n_operands > 0 && nd->operands[0]->operands[0]) ? zls_off(nd->operands[0]->operands[0]) : -1;
         z->vp1off = z->vp1 ? zls_off(z->vp1) : -1;
         z->cvnoff = z->cvn ? zls_off(z->cvn) : -1;
@@ -356,8 +369,10 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
             IR_t * pj = (2 * (int)IR_LIT(nd).ival + j < nd->n_operands) ? nd->operands[2 * (int)IR_LIT(nd).ival + j] : (IR_t *)0;
             for (int hops = 0; pj && pj->op == IR_CONJUNCTION && pj->n_operands > 0 && hops < 16; hops++) pj = pj->operands[0];
             rec->v_partoff.push_back(pj ? zls_off(pj) : -1);
+            rec->v_partvs.push_back((pj && (pj->op == IR_VAR || pj->op == IR_ASSIGN)) ? pf_vs(g, i, IR_LIT(pj).sval) : -1);
         }
     }
+    rec->pso0 = (g && g->nparams >= 1 && g->pnames && g->pnames[0]) ? pf_vs(g, -1, g->pnames[0]) : -1;
     {
         std::unordered_set<const IR_t *> rowset(nodes, nodes + n);
         std::vector<IR_t *> pend;
