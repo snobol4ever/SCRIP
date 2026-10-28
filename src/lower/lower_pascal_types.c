@@ -372,7 +372,7 @@ static pty_t *pt_call(struct pty_state *s, const tree_t *n) {
     if (p && p->t && p->t->k == PTK_PROC) return p->t->isfunc ? p->t->base : s->tvoid;
     if (p) return NULL;
     pty_t *bt = pt_builtin(s, f);
-    if (bt && n->n == 2) return bt;
+    if (bt && n->n == 2) return (s->fpc || bt->k != PTK_CHAR) ? bt : NULL;
     return pt_builtin_call(s, f, n);
 }
 static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {

@@ -2959,7 +2959,11 @@ static int pas_is_booltype(const char *name) {
     return 0;
 }
 static int pas_is_boolexpr_legacy(tree_t *e);
-static int pas_is_boolexpr(tree_t *e) { int l = pas_is_boolexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("bool", e, l, pty_answer(e, PTK_BOOL)); return l; }
+static int pas_is_boolexpr(tree_t *e) {
+    int t = pty_answer(e, PTK_BOOL);
+    if (g_lower.pas.dump_types) pty_census("bool", e, pas_is_boolexpr_legacy(e), t);
+    return t >= 0 ? t : pas_is_boolexpr_legacy(e);
+}
 static int pas_is_boolexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e));
@@ -3220,7 +3224,11 @@ static tree_t *pas_vt_unwrap_read(tree_t *e) {
     return e;
 }
 static int pas_is_charexpr_legacy(tree_t *e);
-static int pas_is_charexpr(tree_t *e) { int l = pas_is_charexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("char", e, l, pty_answer(e, PTK_CHAR)); return l; }
+static int pas_is_charexpr(tree_t *e) {
+    int t = pty_answer(e, PTK_CHAR);
+    if (g_lower.pas.dump_types) pty_census("char", e, pas_is_charexpr_legacy(e), t);
+    return t >= 0 ? t : pas_is_charexpr_legacy(e);
+}
 static int pas_is_charexpr_legacy(tree_t *e) {
     e = pas_vt_unwrap_read(e);
     if (!e) return 0;
@@ -3575,7 +3583,7 @@ static const char *pas_field_typename(tree_t *e) {
     return NULL;
 }
 static int pas_is_setexpr_legacy(tree_t *e);
-static int pas_is_setexpr(tree_t *e) { int l = pas_is_setexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("set", e, l, pty_answer(e, PTK_SET)); return l; }
+static int pas_is_setexpr(tree_t *e) { int t = pty_answer(e, PTK_SET); if (g_lower.pas.dump_types) pty_census("set", e, pas_is_setexpr_legacy(e), t); return t >= 0 ? t : pas_is_setexpr_legacy(e); }
 static int pas_is_setexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_VAR && e->v.sval) return pas_is_setvar(e->v.sval);
@@ -3618,7 +3626,11 @@ static int pas_is_qword(tree_t *e) {
     return 0;
 }
 static int pas_is_stringexpr_legacy(tree_t *e);
-static int pas_is_stringexpr(tree_t *e) { int l = pas_is_stringexpr_legacy(e); if (g_lower.pas.dump_types) pty_census("string", e, l, pty_answer(e, PTK_STRING)); return l; }
+static int pas_is_stringexpr(tree_t *e) {
+    int t = pty_answer(e, PTK_STRING);
+    if (g_lower.pas.dump_types) pty_census("string", e, pas_is_stringexpr_legacy(e), t);
+    return t >= 0 ? t : pas_is_stringexpr_legacy(e);
+}
 static int pas_is_stringexpr_legacy(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_CAT) return 1;
