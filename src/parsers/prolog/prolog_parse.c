@@ -3445,7 +3445,54 @@ static void pl_tree_collect_keys(const tree_t *t, cv_t *keys) {
     for (int i = 0; i < t->n; i++) pl_tree_collect_keys(t->c[i], keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_cv_has_key(const cv_t *v, const char *nm, int ar);
+static int pl_pkey_split(const char *k, int *ar) {
+    const char *s = strrchr(k, '/');
+    *ar = s ? atoi(s + 1) : 0;
+    return s ? (int)(s - k) : (int)strlen(k);
+}
+static int pl_pkey_cmp(const char *e, const char *nm, int n, int ar) {
+    int ear, en = pl_pkey_split(e, &ear), c = memcmp(e, nm, (size_t)(en < n ? en : n));
+    if (c) return c;
+    if (en != n) return en < n ? -1 : 1;
+    return ear < ar ? -1 : ear > ar;
+}
+static uint32_t pl_prelude_key_at(const char *nm, int n, int ar, int *found) {
+    uint32_t lo = 0, hi = g_stage2.pl_prelude_keys.len;
+    while (lo < hi) {
+        uint32_t mid = (lo + hi) / 2;
+        int c = pl_pkey_cmp(CV_AT(g_stage2.pl_prelude_keys, char *, mid), nm, n, ar);
+        if (!c) { *found = 1; return mid; }
+        if (c < 0) lo = mid + 1; else hi = mid;
+    }
+    *found = 0;
+    return lo;
+}
+static int pl_prelude_key_has(const char *nm, int ar) { int f; (void)pl_prelude_key_at(nm, (int)strlen(nm), ar, &f); return f; }
+static void pl_prelude_key_ins(const char *nm, int n, int ar, char *key) {
+    int f;
+    uint32_t at = pl_prelude_key_at(nm, n, ar, &f);
+    if (f) return;
+    CV_PUSH(g_stage2.pl_prelude_keys, char *) = key;
+    memmove(&CV_AT(g_stage2.pl_prelude_keys, char *, at + 1), &CV_AT(g_stage2.pl_prelude_keys, char *, at), (size_t)(g_stage2.pl_prelude_keys.len - 1 - at) * sizeof(char *));
+    CV_AT(g_stage2.pl_prelude_keys, char *, at) = key;
+}
+static void pl_prelude_key_add(const char *nm, int ar) {
+    int f, n = (int)strlen(nm);
+    (void)pl_prelude_key_at(nm, n, ar, &f);
+    if (!f) pl_prelude_key_ins(nm, n, ar, pl_pred_key(nm, ar));
+}
+static void pl_prelude_key_add_str(char *k) { int ar, n = pl_pkey_split(k, &ar); pl_prelude_key_ins(k, n, ar, k); }
+static void pl_prelude_keys_seed(PlProgram *pre) {
+    if (g_stage2.pl_prelude_keys.len) return;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) {
+        const char *cn; int car;
+        if (pl_clause_key(cl, &cn, &car) && cn) pl_prelude_key_add(cn, car);
+    }
+    for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+        if (strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm; e++) pl_prelude_key_add(e->nm, e->ar);
+    }
+}
 static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
     for (PlClause *cl = first; cl; cl = cl->next) {
         const char *cn; int car;
@@ -3598,8 +3645,8 @@ static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t
         int n = (int)strlen(e->nm);
         uint32_t hn = pl_pk_hname(e->nm, n);
         if (native_only && !strcmp(e->nm, native_only)) continue;
-        if (ud && pl_pk_has_h(ud, udc, e->nm, n, hn, e->ar)) continue;
         if (!pl_pk_has_h(rk, rkc, e->nm, n, hn, e->ar) && !(e->ar && pl_pk_has_h(rk, rkc, e->nm, n, hn, 0) && (imported || !pl_lib_quiet(lib, e->nm, 0)))) continue;
+        if (ud && pl_pk_has_h(ud, udc, e->nm, n, hn, e->ar)) continue;
         if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
         if (!(bk ? pl_pk_has_h(bk, bkc, e->nm, n, hn, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
     }
@@ -3749,16 +3796,27 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     uint32_t bkc = pl_pk_cap(nb);
     pl_pk_t bk[bkc];
     memset(bk, 0, sizeof bk);
-    for (PlClause *cl = pre->head; cl; cl = cl->next) {
-        const char *cn; int car;
-        if (pl_clause_key(cl, &cn, &car) && cn) pl_pk_put(bk, bkc, cn, (int)strlen(cn), car);
-        if (cl == base_last) break;
+    const char *bcn[nb + 1];
+    int bcar[nb + 1];
+    {
+        uint32_t bi = 0;
+        for (PlClause *cl = pre->head; cl; cl = cl->next, bi++) {
+            const char *cn = (const char *)0; int car = 0;
+            bcn[bi] = (pl_clause_key(cl, &cn, &car) && cn) ? cn : (const char *)0;
+            bcar[bi] = car;
+            if (bcn[bi]) pl_pk_put(bk, bkc, cn, (int)strlen(cn), car);
+            if (cl == base_last) break;
+        }
     }
     for (int changed = 1; changed;) {
         changed = 0;
         for (int i = 0; i < nlibs; i++) {
             pl_pk_set_t lh = { 0 };
             if (!lp[i] || seen[i]) continue;
+            uint32_t ncl = 0;
+            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) ncl++;
+            lh.cap = pl_pk_cap(ncl);
+            lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t));
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (!pl_clause_is_meta_spec(cl)) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
@@ -3806,9 +3864,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         {
             int j = 0;
             for (PlClause *cl = pre->head; cl; cl = cl->next, j++) {
-                const char *cn;
-                int car;
-                if (pl_clause_key(cl, &cn, &car) && cn) pl_ri_put(ri, &nr, hd, hc, cn, car, -1, j, cl);
+                if (bcn[j]) pl_ri_put(ri, &nr, hd, hc, bcn[j], bcar[j], -1, j, cl);
                 if (cl == base_last) break;
             }
         }
@@ -3905,7 +3961,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
                 cp->dq_forced = 3 + 1;
                 if ((hd = pl_lib_clause_head(cp, &dg)) != (tree_t *)0) {
                     hd->v.sval = pl_lib_private_name(i, nm);
-                    if (!pl_cv_has_key(&g_stage2.pl_prelude_keys, hd->v.sval, ar)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(hd->v.sval, ar);
+                    pl_prelude_key_add(hd->v.sval, ar);
                     if (!ph) ph = cp; else pt->next = cp;
                     pt = cp;
                 }
@@ -4232,6 +4288,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
+    pl_prelude_keys_seed(pre);
     int agg_native = 0;
     for (PlClause *cl = prog->head; cl; cl = cl->next) agg_native += pl_agg_native_calls(cl->tr);
     const char *native_only = (agg_native && agg_native == pl_word_count(user_src, "aggregate_all")) ? "aggregate_all" : NULL;
@@ -4269,7 +4326,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             int ar;
             if (cl->dq_forced == 3 + 1 || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_lib_export_of(&bk, &bv, nm, ar) != -1) continue;
             char *k = pl_pred_key(nm, ar), *sn = pl_lib_private_name(-2, nm);
-            if (pl_cv_has(&user_defined, k) || pl_cv_has_key(&g_stage2.pl_prelude_keys, sn, ar)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
+            if (pl_cv_has(&user_defined, k) || pl_prelude_key_has(sn, ar)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
         }
         for (PlClause *cl = bk.len ? pre->head : (PlClause *)0; cl; cl = cl->next) {
             const char *nm;
@@ -4283,7 +4340,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             cp->next = NULL;
             if ((hd = pl_lib_clause_head(cp, &dg)) == (tree_t *)0) continue;
             hd->v.sval = pl_lib_private_name(-2, nm);
-            if (!pl_cv_has_key(&g_stage2.pl_prelude_keys, hd->v.sval, ar)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(hd->v.sval, ar);
+            pl_prelude_key_add(hd->v.sval, ar);
             if (!ph) ph = cp; else pt->next = cp;
             pt = cp;
         }
@@ -4361,16 +4418,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     ct_drop(pre);
     (void)pl_prelude_defines("", -1);
-    for (uint32_t i = 0; i < wanted.len; i++) if (!pl_cv_has(&g_stage2.pl_prelude_keys, CV_AT(wanted, char *, i))) CV_PUSH(g_stage2.pl_prelude_keys, char *) = CV_AT(wanted, char *, i);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_cv_has_key(const cv_t *v, const char *nm, int ar) {
-    size_t n = strlen(nm);
-    for (uint32_t i = 0; i < v->len; i++) {
-        const char *e = CV_AT(*v, char *, i);
-        if (!strncmp(e, nm, n) && e[n] == '/' && (int)strtol(e + n + 1, (char **)0, 10) == ar) return 1;
-    }
-    return 0;
+    for (uint32_t i = 0; i < wanted.len; i++) pl_prelude_key_add_str(CV_AT(wanted, char *, i));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_lib_exports(const char *nm, int ar) {
@@ -4387,17 +4435,10 @@ int pl_prelude_defines(const char *nm, int ar) {
     if (!g_stage2.pl_prelude_keys.len) {
         PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
         if (!pre) return 0;
-        for (PlClause *cl = pre->head; cl; cl = cl->next) {
-            const char *cn; int car;
-            if (pl_clause_key(cl, &cn, &car) && cn && !pl_cv_has_key(&g_stage2.pl_prelude_keys, cn, car)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(cn, car);
-        }
-        for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
-            if (strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
-            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm; e++) if (!pl_cv_has_key(&g_stage2.pl_prelude_keys, e->nm, e->ar)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(e->nm, e->ar);
-        }
+        pl_prelude_keys_seed(pre);
         ct_drop(pre);
     }
-    return pl_cv_has_key(&g_stage2.pl_prelude_keys, nm, ar);
+    return pl_prelude_key_has(nm, ar);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog);

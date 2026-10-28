@@ -394,7 +394,11 @@ Token lexer_peek(Lexer *lx) {
     return lx->peek;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int lx_dialect_marker(const char *s) { return strstr(s, ":- use_module(") || strstr(s, ":-use_module(") || strstr(s, ":- module(") || strstr(s, ":-module("); }
+static int lx_marker_word(const char *q) { return !strncmp(q, "use_module(", 11) || !strncmp(q, "module(", 7); }
+static int lx_dialect_marker(const char *s) {
+    for (const char *p = strstr(s, ":-"); p; p = strstr(p + 2, ":-")) if (lx_marker_word(p + 2) || (p[2] == ' ' && lx_marker_word(p + 3))) return 1;
+    return 0;
+}
 void lexer_init(Lexer *lx, const char *src) {
     lx->src      = src ? src : "";
     lx->pos      = 0;
