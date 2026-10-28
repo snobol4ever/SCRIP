@@ -151,6 +151,74 @@ static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) l
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 static tree_t * leaf_sval2(tree_e kind, const char * s) { tree_t * n = ast_node_new(kind); n->v.sval = (char *)s; return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_destr_count(const char * pn) { if (!pn || (pn[0] != '[' && pn[0] != '(')) return 0; int n = 1; for (const char * q = pn; *q; q++) if (*q == ',') n++; return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_destr_plan(const char * pn, const tree_t ** plan, int nplan) {
+    if (!pn || (pn[0] != '[' && pn[0] != '(')) return nplan;
+    const char * q = pn + 1;
+    int idx = 0;
+    for (;;) {
+        while (*q == ' ' || *q == '\t' || *q == '\n') q++;
+        if (!*q || *q == ']' || *q == ')') break;
+        int slurp = 0;
+        if (*q == '*') { slurp = 1; q++; }
+        const char * sg = q;
+        tree_t * rhs = NULL, * nm = NULL;
+        if (*q == '$' || *q == '@' || *q == '%') {
+            const char * e = q + 1;
+            while (isalnum((unsigned char) *e) || *e == '_' || ((*e == '-' || *e == '\'') && isalpha((unsigned char) e[1]))) e++;
+            if (e > q + 1) {
+                char nb[(size_t) (e - q) + 1];
+                memcpy(nb, q, (size_t) (e - q));
+                nb[e - q] = 0;
+                nm = leaf_sval2(TT_VAR, *q == '$' ? lp_strdup(nb + 1) : lp_strdup(nb));
+                if (*q == '$' && !slurp) {
+                    rhs = ast_node_new(TT_ARR_GET);
+                    ast_push(rhs, leaf_sval2(TT_VAR, pn));
+                    tree_t * ix = ast_node_new(TT_ILIT);
+                    ix->v.ival = idx;
+                    ast_push(rhs, ix);
+                } else {
+                    rhs = ast_node_new(TT_METHCALL);
+                    ast_push(rhs, leaf_sval2(TT_VAR, pn));
+                    ast_push(rhs, leaf_sval2(TT_QLIT, "skip"));
+                    tree_t * ix = ast_node_new(TT_ILIT);
+                    ix->v.ival = idx;
+                    ast_push(rhs, ix);
+                }
+            }
+            q = e;
+        } else if (*q == ':' && isalpha((unsigned char) q[1])) {
+            const char * w = q + 1, * e = w;
+            while (isalnum((unsigned char) *e) || *e == '_' || *e == '-') e++;
+            if (*e == '(' && e[1] == '$') {
+                const char * v = e + 2, * ve = v;
+                while (isalnum((unsigned char) *ve) || *ve == '_' || *ve == '-') ve++;
+                if (ve > v && *ve == ')') {
+                    char wb[(size_t) (e - w) + 1], vb[(size_t) (ve - v) + 1];
+                    memcpy(wb, w, (size_t) (e - w));
+                    wb[e - w] = 0;
+                    memcpy(vb, v, (size_t) (ve - v));
+                    vb[ve - v] = 0;
+                    nm = leaf_sval2(TT_VAR, lp_strdup(vb));
+                    rhs = ast_node_new(TT_METHCALL);
+                    ast_push(rhs, leaf_sval2(TT_VAR, pn));
+                    ast_push(rhs, leaf_sval2(TT_QLIT, lp_strdup(wb)));
+                    q = ve + 1;
+                    idx--;
+                }
+            }
+        }
+        (void) sg;
+        if (nm && rhs) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, nm); ast_push(as, rhs); plan[nplan++] = as; }
+        idx++;
+        int depth = 0;
+        while (*q && !((*q == ',' || *q == ']' || *q == ')') && depth == 0)) { if (*q == '[' || *q == '(') depth++; else if (*q == ']' || *q == ')') depth--; q++; }
+        if (*q == ',') q++;
+    }
+    return nplan;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_coerce_base(const char * ty) {
     if (!ty) return NULL;
     const char * lp = strchr(ty, '(');
@@ -2876,7 +2944,9 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     int rk_np = 0;
     if (pd && !is_multi) for (int k = 1; k < pd->n && pd->c[k] && pd->c[k]->t == TT_VAR; k++) rk_np++;
     int rk_bstart = rk_np + 1, rk_bn = (pd && pd->n > rk_bstart) ? pd->n - rk_bstart : 0;
-    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) ct_zalloc((size_t) (rk_bn + rk_np), sizeof(const tree_t *)) : NULL;
+    int rk_destr_extra = 0;
+    for (int k = 1; k <= rk_np; k++) if (pd->c[k] && pd->c[k]->t == TT_VAR) rk_destr_extra += rk_destr_count(pd->c[k]->v.sval);
+    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) ct_zalloc((size_t) (rk_bn + rk_np + rk_destr_extra), sizeof(const tree_t *)) : NULL;
     if (rk_plan) {
         int nplan = 0, bi = 0;
         for (int k = 1; k <= rk_np; k++) {
@@ -2884,6 +2954,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             const char * pn = (pv && pv->t == TT_VAR) ? pv->v.sval : NULL;
             const char * tgt = (bi < rk_bn) ? rk_prologue_target(pd->c[rk_bstart + bi]) : NULL;
             if (pn && tgt && !strcmp(tgt, pn)) rk_plan[nplan++] = pd->c[rk_bstart + bi++];
+            if (pn) nplan = rk_destr_plan(pn, rk_plan, nplan);
             if (pn && pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) {
                 const char * ty = pv->c[0]->v.sval;
                 const char * cbase = rk_coerce_base(ty);
@@ -2935,6 +3006,12 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         const tree_t * s = pd->c[i];
         if (!s) continue;
         if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+        if (s->t == TT_VAR && is_multi && rk_destr_count(s->v.sval) > 0 && rk_destr_count(s->v.sval) <= 32) {
+            const tree_t * dp[32];
+            int nd = rk_destr_plan(s->v.sval, dp, 0);
+            for (int di = nd - 1; di >= 0; di--) { IR_t * r = NULL; IR_t * e = lower_rv(&cx, dp[di], sentry, fail, &r); if (e) { entry = e; sentry = e; } }
+            continue;
+        }
         if (s->t == TT_VAR) continue;
         IR_t * r = NULL;
         IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
