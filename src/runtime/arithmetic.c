@@ -624,10 +624,9 @@ static DESCR_t rt_sno_pow_real(double x, double y) {
     int odd = 0;
     if (x < 0.0) {
         x = -x;
-        if (!(fabs(y) < 9223372036854775808.0)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; }
         double c = trunc(y);
         if (c - y != 0.0) { core_runtime_error(311, "exponentiation of negative base to non-integral power"); return FAILDESCR; }
-        odd = (int)((int64_t)c & 1);
+        odd = fabs(y) < 9223372036854775808.0 ? (int)((int64_t)c & 1) : 0;
     }
     double r = exp(log(x) * y);
     if (!isfinite(r)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; }
