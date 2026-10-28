@@ -36,6 +36,18 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.frame_bytes = zls_g_frame_bytes(g);
     g->pf.fp_total = zls_g_fp_total(g);
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
+    {
+        extern int zls_g_region(const IR_graph_t *);
+        extern int zls_g_resume(const IR_graph_t *);
+        extern int zls_g_zeta_mark(const IR_graph_t *);
+        extern int zls_off(const IR_t *);
+        int cm = -1;
+        g->pf.region = zls_g_region(g);
+        g->pf.resume = zls_g_resume(g);
+        g->pf.zeta_mark = zls_g_zeta_mark(g);
+        for (int j = 0; j < g->n; j++) if (g->all[j] && g->all[j]->op == IR_MATCH_ASSIGN_SAVE) { int o = zls_off(g->all[j]); if (o >= 0 && (cm < 0 || o < cm)) cm = o; }
+        g->pf.cap_min = cm;
+    }
     { extern const char * zls_graph_name_get(const IR_graph_t *); g->pf.name = zls_graph_name_get(g); }
     {
         extern int zdp_scan_pure(const IR_t *);

@@ -782,7 +782,6 @@ int binop_slot_kind(IR_t *nd) {
 extern "C" int zls_off(const IR_t *);
 extern "C" int zls_frame_off(const IR_graph_t *, const IR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int nd_slot(const IR_t *nd) { return nd ? zls_off(nd) : -1; }
 static int xf_diag_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_XF_DIAG"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_binop_opnd_slot(IR_t *o, int own) {
@@ -4115,27 +4114,17 @@ int emit_rtx_entry_is(const char * sym) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_jmp_entry_arm_region(IR_graph_t *g) {
-    extern int zls_g_region(const IR_graph_t *);
-    extern int zls_g_resume(const IR_graph_t *);
-    extern int zls_g_zeta_mark(const IR_graph_t *);
-    int rg = g ? zls_g_region(g) : -1;
-    int so = g ? zls_g_resume(g) : -1;
-    if (so < 0 && g) so = zls_g_zeta_mark(g);
-    if (so < 0 && g) { extern int zls_g_locals(const IR_graph_t *); so = zls_g_locals(g); if (so < 0) so = rg; }
+    int rg = g ? g->pf.region : -1;
+    int so = g ? g->pf.resume : -1;
+    if (so < 0 && g) so = g->pf.zeta_mark;
+    if (so < 0 && g) { so = g->pf.locals; if (so < 0) so = rg; }
     int capen; { if (g_emitter.emit_jmp_entry_arm_region_v < 0) { const char *e = getenv("SCRIP_CAP_NOFILL"); g_emitter.emit_jmp_entry_arm_region_v = e ? (atoi(e) != 0) : 1;
         } capen = g_emitter.emit_jmp_entry_arm_region_v; }
-    g_emit.flat_cap_n = 0; int capovf = !capen;
-    if (g) for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (nd && nd->op == IR_MATCH_ASSIGN_SAVE) { int off = nd_slot(nd); if (off < 0) continue;
-        if (!capovf) { cv_reserve(&g_emit.flat_cap_off, (uint32_t)sizeof(int), (uint64_t)g_emit.flat_cap_n + 1, "flat_cap_off"); CV_AT(g_emit.flat_cap_off, int, g_emit.flat_cap_n) = off;
-            g_emit.flat_cap_n++; continue; }
-        if (so < 0 || off < so) so = off; } }
-    if (g_emit.flat_cap_n > 1) { int * co = &CV_AT(g_emit.flat_cap_off, int, 0); int u = 1;
-        qsort(co, (size_t)g_emit.flat_cap_n, sizeof(int), [](const void * a, const void * b) -> int { int x = *(const int *)a, y = *(const int *)b; return (x > y) - (x < y); });
-        for (int k = 1; k < g_emit.flat_cap_n; k++) if (co[k] != co[u - 1]) co[u++] = co[k]; g_emit.flat_cap_n = u; }
+    if (!capen && g && g->pf.cap_min >= 0 && (so < 0 || g->pf.cap_min < so)) so = g->pf.cap_min;
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; { extern int zls_g_frame_bytes(const IR_graph_t *); g_emit.flat_frame_bytes = g_emit_cfg ? zls_g_frame_bytes(g_emit_cfg) : ((FLAT_FRAME_ALLOWANCE + 15) & ~15); }
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = g_emit_cfg ? g_emit_cfg->pf.frame_bytes : ((FLAT_FRAME_ALLOWANCE + 15) & ~15);
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -4174,7 +4163,7 @@ static void zop_audit_report(void) {
     }
 }
 extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_flat_frame_floor = 0; g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0;
-    g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_deep_arrival = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; g_emit.flat_lcl_proc = 0;
+    g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_deep_arrival = 0; g_flat_dc_np = -1; g_emit.flat_lcl_proc = 0;
     g_emit.zframe_graph = 0; g_emit.frame_retained = 0; }
 int emit_graph_has_suspend(IR_graph_t *g) { return ir_graph_has_suspend(g); }
 static int emit_graph_has_deep_arrival(IR_graph_t *g) { if (!g) return 1; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (!c) continue;

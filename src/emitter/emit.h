@@ -513,8 +513,6 @@ typedef struct {
     int op_define_role;
     const int * op_arbno_zq;
     int op_arbno_nzq;
-    cv_t flat_cap_off;
-    int flat_cap_n;
     int op_arbno_dt;
     int op_arbno_dt_susp;
     int op_defer_leaf_susp;

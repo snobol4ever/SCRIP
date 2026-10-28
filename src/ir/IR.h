@@ -314,6 +314,10 @@ struct IR_graph_t {
         int choice_n;
         int choice_leaf;
         int choice_fence;
+        int region;
+        int resume;
+        int zeta_mark;
+        int cap_min;
     } pf;
 };
 static inline int ir_graph_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
