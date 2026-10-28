@@ -460,7 +460,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         if (zls_home_why(nd))
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0,
             "limit.mark (rsp at a homed gate's alpha: a spent limit leaves through the gate's beta, which restores it past the frame of the generator it cuts)", nd);
-        return 1;
+        return zls_home_why(nd) ? 2 : 1;
         case IR_LIMIT:
         if (g && g->home_frame) return 0;
         zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter", nd);
