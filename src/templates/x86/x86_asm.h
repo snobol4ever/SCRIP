@@ -2520,7 +2520,7 @@ inline int x86_zdp_rbp_frames() {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" long zsm_declared_word(const IR_graph_t * g, const IR_t * nd, int op_zres, int op_subj_cell, long owner);
+extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, long owner);
 extern "C" int bb_node_id(IR_t * nd);
 inline long x86_zsm_owner(const IR_t * nd) { if (!nd || (nd->op != IR_MATCH_END && nd->op != IR_MATCH_REPLACE) || nd->n_operands < 1 || !nd->operands[0] || nd->operands[0]->op != IR_MATCH_BEGIN)
     return 0L;
@@ -2537,7 +2537,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov", "rsi", "rbp")
          + (own > 0L ? x86_movabs_r64("rcx", (uint64_t)(kind | ((long)_.op_node_kind << 8)) | ((uint64_t)own << 24)) : x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8))))
          + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
-         + x86_movabs_r64("r9", (uint64_t)zsm_declared_word(g_emit_cfg, _.node, _.op_zres, _.op_subj_cell, own) | ((uint64_t)(_.op_xrec & 12) << 50))
+         + x86_movabs_r64("r9", (uint64_t)emit_zsm_word(_.node, _.op_zres, _.op_subj_cell, own) | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")

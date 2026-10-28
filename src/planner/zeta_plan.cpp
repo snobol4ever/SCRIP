@@ -2282,22 +2282,6 @@ void planner_restore(zeta_plan_t * rec) {
     g_planner.g_zd_rec_p = rec;
 }
 extern "C" int zls_retains_why(const IR_graph_t * g, const IR_t * nd);
-extern "C" long zsm_declared_word(const IR_graph_t * g, const IR_t * nd, int op_zres, int op_subj_cell, long owner) {
-    int n = g_planner.g_zd_plan_n, i = (nd && g_planner.g_zd_plan_nodes && g_planner.g_zd_plan_on) ? nidx(g_planner.g_zd_plan_nodes, n, nd) : -1;
-    if (i < 0 || !g_planner.g_zd_plan_on[i]) return 0L;
-    int rel = g_planner.g_zd_nodes_p == g_planner.g_zd_plan_nodes && g_planner.g_zd_n == n && g_planner.g_zd_gp_p && g_planner.g_zd_wp_p;
-    long k = zd_k_g(g, (IR_t *)nd), gp = rel ? g_planner.g_zd_gp_p[i] : 0, wp = rel ? g_planner.g_zd_wp_p[i] : 0;
-    int o = (int)nd->op, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE;
-    IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
-    int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
-    int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
-    int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
-    long own = o == IR_MATCH_BEGIN ? 64L + planner_act_extra(nd) - ((!op_zres && op_subj_cell) ? 16L : 0L) : 0L;
-    int end = (o == IR_MATCH_END || o == IR_MATCH_REPLACE) && owner > 0L;
-    int ret = zls_retains_why(g, nd) != 0;
-    return ((k + own) & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) |
-        ((long)(own != 0L) << 55) | ((long)end << 56) | ((long)ret << 57);
-}
 extern "C" const char * zls_graph_name_get(const IR_graph_t * g);
 extern "C" int zls_g_frame_region(const IR_graph_t * g);
 extern "C" int zls_g_resident_bytes(const IR_graph_t * g);
@@ -2305,6 +2289,22 @@ extern "C" int zls_g_key_class(const IR_graph_t * g, int off);
 static int zsm_frame_on(void) {
     if (g_planner.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_planner.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
     return g_planner.zsm_frame_on;
+}
+extern "C" int planner_zsm_on(void) { return zsm_frame_on(); }
+extern "C" long planner_zsm_row_word(const IR_graph_t * g, const zeta_plan_t * rec, int i, int * own0) {
+    *own0 = 0;
+    if (!rec || i < 0 || i >= rec->n || !rec->on[i]) return 0L;
+    const IR_t * nd = rec->nodes[i];
+    int rel = rec->gp && rec->wp;
+    long k = zd_k_g(g, (IR_t *)nd), gp = rel ? rec->gp[i] : 0, wp = rel ? rec->wp[i] : 0;
+    int o = (int)nd->op, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE;
+    IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
+    int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
+    int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
+    int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
+    int ret = zls_retains_why(g, nd) != 0;
+    if (o == IR_MATCH_BEGIN) *own0 = 64 + planner_act_extra(nd);
+    return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) | ((long)ret << 57);
 }
 static void zsm_frame_report(void) {
     for (const auto & r : g_planner.zsm_frames)

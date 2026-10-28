@@ -3009,6 +3009,15 @@ extern "C" int emit_zrow_zchk(const IR_t * nd) {
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
 extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
 extern "C" int emit_zrow_tret(const IR_t * nd) { return zrow(nd)->tret; }
+extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, long owner) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p;
+    int i = (r && nd && r->nodes) ? nidx(r->nodes, r->n, nd) : -1;
+    if (i < 0 || !r->on[i]) return 0L;
+    const znode_t * z = &r->zn[i];
+    long own = z->zsmown ? (long)z->zsmown - ((!op_zres && op_subj_cell) ? 16L : 0L) : 0L;
+    int end = (nd->op == IR_MATCH_END || nd->op == IR_MATCH_REPLACE) && owner > 0L;
+    return (z->zsmw & ~0xFFFFL) | (((z->zsmw & 0xFFFFL) + own) & 0xFFFFL) | ((long)(own != 0L) << 55) | ((long)end << 56);
+}
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
