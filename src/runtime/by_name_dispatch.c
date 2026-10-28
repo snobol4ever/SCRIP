@@ -8623,6 +8623,8 @@ PL_CX_LEAF_HEAD(char_code, 2)
         else if (c.v == DT_I) { char c2[8]; int bl = rt_pl_u8_put(c2, (int)c.i); c2[bl] = 0; ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, (size_t)bl), cx); } else ok = 0;
     }
 PL_CX_LEAF_TAIL
+static int pl_swi_string_zero_quote(const char *t) { return pl_swi_dialect() && t && t[0] == '0' && t[1] == '\'' && !t[2]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) {
     char b[4096];
     const char *s;
@@ -8630,6 +8632,7 @@ static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) {
     {
         DESCR_t num, l = rt_pl_deref_val(args[1]);
         const char *t = l.v == DT_S ? pl_skip_layout(l.s ? l.s : "") : pl_list_text_heap(args[1]);
+        if (l.v == DT_S && pl_swi_string_zero_quote(t)) return plw_unify_vals(args[0], INTVAL(0), cx);
         if (t && pl_parse_number(t, &num)) return plw_unify_vals(args[0], num, cx);
     }
     if (a.v == DT_I || a.v == DT_R || a.v == DT_BIG) { if (!pl_cell_text(a, b, sizeof b, &s)) return 0; return plw_unify_vals(args[1], pl_text_list(s, codes), cx); }
@@ -25381,7 +25384,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
         extern const char *pl_skip_layout(const char *);
         DESCR_t num;
         const char *p = pl_skip_layout(l.s ? l.s : "");
-        return (strcmp(atom_type, "number") || (*p && pl_parse_number(p, &num))) ? (void *)0 : rt_pl_ball_kind1("syntax_error", "illegal_number");
+        return (strcmp(atom_type, "number") || pl_swi_string_zero_quote(p) || (*p && pl_parse_number(p, &num))) ? (void *)0 : rt_pl_ball_kind1("syntax_error", "illegal_number");
     }
     if (pl_swi_dialect()) return pl_anum_swi_list(a, l, atom_type);
     if (pl_iso_unbound(a)) {
