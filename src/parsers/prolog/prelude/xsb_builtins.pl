@@ -12,8 +12,9 @@
     dynamic_code_function reports them (prolog_tests/test_dphc). set_arg/3 is XSB machine's set_arg(Term, Index, Arg) :- term_set_arg(Term, Index, Arg, -1), the backtrackable destructive
     assignment (XSB syslib/machine.P; constraint_tests/testsetarg's ref shows the old argument back after a failure), which is SWI's setarg/3 with its arguments reordered. load_dyn/1 is XSB consult.P's load_dyn(File) :- load_dyn(File, 1, usermod): the file is
     found as named when the name has an extension, else as File.P, File.pl or File (search_module's order), each clause is asserted at the end (direction 1, z) and each
-    directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, CEO-1960). */
-:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1 ]).
+    directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, CEO-1960). load_dync/1 is consult/1 and ensure_dync_loaded/1 consults a file once, both down the dialect(xsb) load_files road that reads
+    the file's table directives (ARCH-PROLOG-WFS-TABLING.md section 8 R1, hq_packages 2026-10-28, CEO-2005). */
+:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1 ]).
 import(_).
 export(_).
 index(_).
@@ -25,6 +26,10 @@ dynamic_pred_has_clauses(H, F) :- ( var(H) -> throw(error(instantiation_error, d
     ; predicate_property(H, dynamic) -> ( \+ \+ clause(H, _) -> F = 1 ; F = 0 ) ; throw(error(permission_error(access, non_dynamic, H), dynamic_pred_has_clauses/2)) ).
 set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).
 load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).
+load_dync(File) :- consult(File).
+ensure_dync_loaded(File) :- '$lf_list'(File, Fs), '$xsb_edl'(Fs).
+'$xsb_edl'([]).
+'$xsb_edl'([F|Fs]) :- catch(load_files(F, [dialect(xsb), if(not_loaded)]), error(E, load_files/2), throw(error(E, ensure_dync_loaded/1))), '$xsb_edl'(Fs).
 '$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),
     ( sub_atom(F, _, _, _, '.'), exists_file(F) -> P = F ; atom_concat(F, '.P', P), exists_file(P) -> true ; atom_concat(F, '.pl', P), exists_file(P) -> true ; exists_file(F) -> P = F
     ; throw(error(existence_error('file/module', F), load_dyn/1)) ).

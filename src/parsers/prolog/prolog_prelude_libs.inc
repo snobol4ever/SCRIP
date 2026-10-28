@@ -34003,6 +34003,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "dynamic_pred_has_clauses", 2 },
     { "set_arg", 3 },
     { "load_dyn", 1 },
+    { "load_dync", 1 },
+    { "ensure_dync_loaded", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
@@ -34030,6 +34032,10 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "    ; predicate_property(H, dynamic) -> ( \\+ \\+ clause(H, _) -> F = 1 ; F = 0 ) ; throw(error(permission_error(access, non_dynamic, H), dynamic_pred_has_clauses/2)) ).\n"
     "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
     "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
+    "load_dync(File) :- consult(File).\n"
+    "ensure_dync_loaded(File) :- '$lf_list'(File, Fs), '$xsb_edl'(Fs).\n"
+    "'$xsb_edl'([]).\n"
+    "'$xsb_edl'([F|Fs]) :- catch(load_files(F, [dialect(xsb), if(not_loaded)]), error(E, load_files/2), throw(error(E, ensure_dync_loaded/1))), '$xsb_edl'(Fs).\n"
     "'$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \\+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),\n"
     "    ( sub_atom(F, _, _, _, '.'), exists_file(F) -> P = F ; atom_concat(F, '.P', P), exists_file(P) -> true ; atom_concat(F, '.pl', P), exists_file(P) -> true ; exists_file(F) -> P = F\n"
     "    ; throw(error(existence_error('file/module', F), load_dyn/1)) ).\n"

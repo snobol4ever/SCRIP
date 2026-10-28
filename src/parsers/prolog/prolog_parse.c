@@ -2856,7 +2856,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$emit_list'([],_,_,_,_)-->[].\n"
     "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n"
     "consult(F):- current_prolog_flag('$dialect',gnu),!,(atom(F),F\\==[]->'$gnu_consult'(F);'$gnu_atom_list'(F,consult/1),'$gnu_consult_list'(F)).\n"
+    "consult(F):- current_prolog_flag('$dialect',xsb),!,'$xsb_consult'(F).\n"
     "consult(F):-'$consult_path'(F,P),open(P,read,S),catch('$consult_loop'(S,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
+    "'$xsb_consult'(F):-var(F),!,throw(error(instantiation_error,consult/1)).\n"
+    "'$xsb_consult'(F):-'$lf_list'(F,Fs),'$xsb_consult_all'(Fs).\n"
+    "'$xsb_consult_all'([]).\n"
+    "'$xsb_consult_all'([F|Fs]):-catch(load_files(F,[dialect(xsb)]),error(E,load_files/2),throw(error(E,consult/1))),'$xsb_consult_all'(Fs).\n"
     "'$gnu_consult_list'([]).\n"
     "'$gnu_consult_list'([F|Fs]):-'$gnu_consult'(F),'$gnu_consult_list'(Fs).\n"
     "'$gnu_atom_list'(L,P):-var(L),!,throw(error(instantiation_error,P)).\n"
@@ -4144,6 +4149,14 @@ static int pl_incremental_dynamics(PlProgram *prog, int rewrite) {
     return (int)(incr.len + mono.len);
 }
 void prolog_rewrite_incremental_dynamics(PlProgram *prog) { if (prog) pl_incremental_dynamics(prog, 1); }
+static int pl_program_is_xsb(const PlProgram *prog) {
+    extern int prolog_clause_marks_xsb(const PlClause *);
+    extern int prolog_dialect_gnu_selected(void);
+    extern int prolog_dialect_xsb_selected(void);
+    if (prolog_dialect_xsb_selected()) return 1;
+    for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_xsb(c)) return 1;
+    return 0;
+}
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     int hooked_dyn = pl_incremental_dynamics(prog, 0);
@@ -4178,6 +4191,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); }
     if (pl_cv_has(&referenced, "source_file")) pl_cv_add(&referenced, "$src_file_add");
+    if ((pl_cv_has(&referenced, "consult") || pl_cv_has(&referenced, "load_dync") || pl_cv_has(&referenced, "ensure_dync_loaded")) && pl_program_is_xsb(prog)) pl_cv_add(&referenced, "load_files");
     if (pl_cv_has(&referenced, "load_files")) {
         pl_cv_add(&referenced, "tfindall");
         pl_cv_add(&referenced, "$tbl_call");
@@ -4307,13 +4321,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             extern int prolog_dialect_gnu_selected(void);
             for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
-        int xsb = 0;
-        {
-            extern int prolog_clause_marks_xsb(const PlClause *);
-            extern int prolog_dialect_xsb_selected(void);
-            for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_xsb(c)) { xsb = 1; break; }
-            if (prolog_dialect_xsb_selected()) xsb = 1;
-        }
+        int xsb = pl_program_is_xsb(prog);
         pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
         pl_libs_meta_specs(pre, &referenced);
         for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
