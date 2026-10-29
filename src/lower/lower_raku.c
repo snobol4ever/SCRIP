@@ -7110,8 +7110,8 @@ static int rk_reads_var(const tree_t * t, const char * nm) {
 static void rk_declare_pod(tree_t * prog) {
     if (!rk_reads_var(prog, "=pod")) return;
     tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
-    arr->v.sval = (char *) "__rk_arr";
-    ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr"));
+    arr->v.sval = (char *) "__rk_arr_lit";
+    ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr_lit"));
     tree_t * pv = leaf_sval2(TT_VAR, "=pod");
     pv->slen |= 4;
     ast_push(as, pv);
