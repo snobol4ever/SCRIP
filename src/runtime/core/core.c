@@ -3044,6 +3044,8 @@ void core_runtime_error(int code, const char *msg) {
             memcpy(lbl, SXL, sizeof lbl);
             SXL[0] = '\0';
             if (g_runtime.abi.kw_errlimit > 0) g_runtime.abi.kw_errlimit--;
+            if (G_ERROR_IS_EVAL(g_runtime.abi.error) && G_ERROR_EVAL_LEVEL(g_runtime.abi.error) == G_ERROR_EVAL_LEVEL(G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel))) g_runtime.abi.error =
+                G_ERROR_EVAL_ERRED_AT(g_runtime.abi.kw_fnclevel);
             rt_kw_publish_error(code, msg);
             if (strcmp(lbl, "ABORT")) {
                 extern uint64_t g_rtccb[32];
