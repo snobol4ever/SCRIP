@@ -1106,7 +1106,7 @@ DESCR_t code_at(const char *src, long base) {
             nmt += !stmt_attr_find(c, ":lbl") && !stmt_attr_find(c, ":subj") && !stmt_attr_find(c, ":pat") && !stmt_attr_find(c, ":eq") && !stmt_goto_find(c, TT_GOTO_S) &&
                 !stmt_goto_find(c, TT_GOTO_F) && !stmt_goto_find(c, TT_GOTO_U);
         }
-        if (nst && nmt == nst) empty = nst;
+        if (!nst) { prog = ast_stmt_new(TT_PROGRAM); tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 1)); ast_push(prog, st); empty = 1; } else if (nmt == nst) empty = nst;
     }
     const char *parse_err = sno_error_captured();
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
