@@ -2946,10 +2946,6 @@ extern "C" void emit_zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int o
     if (!r) return;
     int c = cls >= 0 ? cls : (off >= 0 && off / 8 < g->pf.kcls_n) ? g->pf.kcls[off / 8] : 0;
     if (c == 0 && off >= r->region + 16 && off < r->total) c = 1;
-    if (g_emitter.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_emitter.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
-    if (g_emitter.zsm_frame_diag && (c == 0 || c == 3))
-        fprintf(stderr, "[ZSM-FRAME-ADDR] graph=%s class=%s op=%s off=%d region=%d form=%s\n", r->name.c_str(), c ? "outside" : "unbacked", nd ? bb_op_name(nd->op) : "-", off,
-            r->region, rsp_form ? "rsp" : "frame");
     r->addrs++;
     r->cls[c & 3]++;
     r->rsp_form += rsp_form ? 1 : 0;

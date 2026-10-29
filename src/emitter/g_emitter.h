@@ -54,7 +54,6 @@ struct g_emitter_t {
     std::vector<zsm_frame_rec_t> zsm_frames;
     int zsm_frames_last = -1;
     int zsm_frame_on = -1;
-    int zsm_frame_diag = -1;
     int g_zd_abs = 0;
     int g_zd_def = 1;
     int g_zd_cutd = -1;
