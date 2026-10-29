@@ -1369,6 +1369,29 @@ static IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_state_flag(const char * vn) { char fl[256]; snprintf(fl, sizeof fl, "%s_init", (vn[0] == '@' || vn[0] == '%') ? vn + 1 : vn); return intern(fl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_state_desugar(const tree_t * t) {
+    const char * vn = t->c[0]->v.sval;
+    const char * fn = rk_state_flag(vn);
+    tree_t * set = ast_node_new(TT_ASSIGN);
+    ast_push(set, leaf_sval2(TT_VAR, fn));
+    ast_push(set, rk_ti(1));
+    tree_t * once = ast_node_new(TT_SEQ_EXPR);
+    ast_push(once, set);
+    ast_push(once, t->c[1]);
+    tree_t * un = ast_node_new(TT_UNLESS);
+    ast_push(un, leaf_sval2(TT_VAR, fn));
+    ast_push(un, once);
+    tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+    seq->line = t->line;
+    ast_push(seq, un);
+    tree_t * dv = leaf_sval2(TT_VAR, vn);
+    dv->slen = t->c[0]->slen;
+    ast_push(seq, dv);
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -2100,6 +2123,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             *res = LOOP;
             return bentry;
         }
+        case TT_STATIC_DECL:
+        if (t->n == 2 && t->c[0] && t->c[0]->v.sval && t->c[1]) return lower_rv(cx, rk_state_desugar(t), γ, ω, res);
+        return rk_excise(cx, γ, ω, res);
         case TT_LABEL_DEF:
         { cx->loop_label = (t->n == 1 && rk_is_loop_node(t->c[0])) ? t->v.sval : NULL; IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res); cx->loop_label = NULL; return le; }
         case TT_LOOP_BREAK:
@@ -3194,6 +3220,7 @@ static void rk_register_state_globals(const tree_t * t) {
     extern int is_global(const char *);
     if (!t) return;
     if (t->t == TT_VAR && t->v.sval) { const char * n = t->v.sval; const char * b = (n[0] == '@' || n[0] == '%') ? n + 1 : n; if (!strncmp(b, "__rk_st", 7) && !is_global(n)) global_register(n); }
+    if (t->t == TT_STATIC_DECL && t->n == 2 && t->c[0] && t->c[0]->v.sval) { const char * fn = rk_state_flag(t->c[0]->v.sval); if (!strncmp(fn, "__rk_st", 7) && !is_global(fn)) global_register(fn); }
     for (int i = 0; i < t->n; i++) rk_register_state_globals(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

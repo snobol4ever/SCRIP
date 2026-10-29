@@ -2553,9 +2553,7 @@ static tree_t *decl_node(RkB *b, const char *type, tree_t *var, tree_t *val) {
 static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     if (d->scope == 6 && d->sigil != '(' && d->name && d->name[0]) {
         d->scope = 0; tree_t *once = build_decl(b, d, outer, ofirst); d->scope = 6;
-        tree_t *flag = var_node(b, fmt("$%s_init", d->name + 1));
-        tree_t *seq = ast_node_new(TT_SEQ_EXPR); ast_push(seq, expr_binary(TT_ASSIGN, flag, rk_ilit(1))); ast_push(seq, once);
-        tree_t *u = ast_node_new(TT_UNLESS); ast_push(u, rk_tree_clone(flag)); ast_push(u, seq); return u;
+        tree_t *st = ast_node_new(TT_STATIC_DECL); ast_push(st, var_node(b, d->name)); ast_push(st, once); return st;
     }
     RkEl **rs = NULL; int nrs = 0, crs = 0;
     if (d->init) for (int i = 0; i < d->init->n; i++) { GROW(rs, nrs, crs, RkEl *); rs[nrs++] = &d->init->v[i]; }
