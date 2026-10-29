@@ -247,6 +247,7 @@ extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 static int zd_pl_home(const IR_graph_t * cg) { return (zls_g_home_frame(cg) && zls_g_resumable_frame(cg)) ? 1 : 0; }
 extern "C" int rt_proc_is_registered(const char *); extern "C" int rt_proc_is_generator(const char *); extern "C" int rt_proc_dyn_scope(const char *); extern "C" int rt_proc_index_of(const char *);
+extern "C" int rt_proc_pinned(const char *);
 extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate);
 extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd) {
     if (cg && nd && nd->op == IR_CALL_VALUE) return (zd_pl_home(cg) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal") && !zls_home_why(nd)) ? 1 : 0;
@@ -255,7 +256,7 @@ extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd)
     if (!fn || !fn[0] || !rt_proc_is_registered(fn) || !rt_proc_is_generator(fn) || rt_proc_dyn_scope(fn) || rt_proc_index_of(fn) < 0) return 0;
     int i = bb_proc_find(fn), bi = i >= 0 ? g_stage2.proc_table[i].bb_idx : -1;
     const IR_graph_t * tg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (const IR_graph_t *)0;
-    return (tg && zls_g_resumable_frame(tg)) ? 1 : 0;
+    return tg ? (zls_g_resumable_frame(tg) ? 1 : 0) : (rt_proc_pinned(fn) ? 1 : 0);
 }
 static int zd_pl_home_dyn(const IR_graph_t * cg, IR_t * nd) { return zd_pl_home(cg) && (zls_home_why(nd) || zd_edge_retains_g(cg, nd) || planner_home_dyn(cg, nd)) ? 1 : 0; }
 #include "box_cell_shapes.inc"
