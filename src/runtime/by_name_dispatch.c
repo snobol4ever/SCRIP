@@ -24645,21 +24645,11 @@ extern int rt_pl_tbl_chain_set(void *, int64_t);
 extern int rt_pl_tbl_abolish_id(void *, int64_t);
 extern void rt_pl_pseg_ball(void);
 typedef struct pl_psched_s pl_psched_t;
-typedef struct {
-    char *orig_lo;
-    uint64_t len;
-    char *tbase;
-    uint64_t tn;
-    uint64_t rbp, rbx, r12, r13, r14, r15;
-    uint64_t planes[4];
-    int64_t k_level;
-    pl_psched_t *sched;
-    uint64_t clen, sched_t, hdr;
-} pl_pseg_t;
-struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; void *cur; };
+typedef rt_pseg_t pl_pseg_t;
+struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; };
 typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
-static char * pl_pseg_bytes(pl_pseg_t *b) { return (char *)(b + 1); }
-static char * pl_pseg_trail(pl_pseg_t *b) { return (char *)(b + 1) + b->len; }
+static char * pl_pseg_bytes(pl_pseg_t *b) { return rt_pseg_bytes(b); }
+static char * pl_pseg_trail(pl_pseg_t *b) { return rt_pseg_trail(b); }
 static DESCR_t * pl_st_arg(DESCR_t st, int k) {
     DESCR_t *t = plw_cell_deref(plw_entry(&st));
     if (t->v != (DTYPE_t)DT_PLREF || !t->p || (int)plc_fid_arity(t->slen) < k) return (DESCR_t *)0;
@@ -24667,7 +24657,7 @@ static DESCR_t * pl_st_arg(DESCR_t st, int k) {
 }
 static int64_t pl_st_int(DESCR_t st, int k) { DESCR_t *a = pl_st_arg(st, k); return (a && a->v == (DTYPE_t)DT_I) ? a->i : 0; }
 static void pl_st_put(DESCR_t st, int k, int64_t v) { DESCR_t *t = plw_cell_deref(plw_entry(&st)); if (t->v == (DTYPE_t)DT_PLREF && t->p) ((DESCR_t *)t->p)[k - 1] = (DESCR_t){ .v = DT_I, .i = v }; }
-static pl_pseg_t * pl_pseg_of(DESCR_t st) { return (pl_pseg_t *)(uintptr_t)pl_st_int(st, 1); }
+static pl_pseg_t * pl_pseg_of(DESCR_t st) { DESCR_t *a = pl_st_arg(st, 1); return (a && a->v == (DTYPE_t)DT_P) ? (pl_pseg_t *)a->p : (pl_pseg_t *)0; }
 static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
     void *root = (void *)(uintptr_t)s->r14;
     DESCR_t sts[4096];
@@ -24710,7 +24700,7 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
         return (pl_pseg_pair_t){ (void *)0, (void *)s };
     }
     {
-        char *now = (char *)(uintptr_t)s->r12, *xg = b->orig_lo + b->len, *rsp_r = (char *)(uintptr_t)s->entry_rsp;
+        char *now = (char *)(uintptr_t)s->r12, *xg = b->orig_lo + b->len, *rsp_r = (char *)(uintptr_t)(s->entry_rsp + 8);
         char *hi = xg < rsp_r ? xg : rsp_r, *lo_t = now > b->tbase ? now : b->tbase, *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
         b->clen = hi > b->orig_lo ? (uint64_t)(hi - b->orig_lo) : 0;
         for (char *p = now; p < b->tbase; p += PL_TR_ENTRY_BYTES) memset(p, 0, PL_TR_ENTRY_BYTES);
@@ -24735,17 +24725,32 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
                     w[0] = s->ret_pc;
                     w[1] = (uint64_t)(uintptr_t)&rt_pl_pseg_ball;
                     w[2] = s->rbp;
+                    if (getenv("SCRIP_SL_TRACE")) fprintf(stderr, "[SL] rewrite ra=%p w0=%#lx w1=%#lx w2=%#lx orig=%p hi=%p\n", (void *)ra, (unsigned long)w[0], (unsigned long)w[1], (unsigned long)w[2], (void *)b->orig_lo, (void *)hi);
                 }
             }
             if (getenv("SCRIP_SL_TRACE"))
                 fprintf(stderr, "[SL] triple hdr=%p rec=%#lx rbp=%#lx pc=%#lx\n", (void *)(uintptr_t)b->hdr, (unsigned long)c[12].i, (unsigned long)c[13].i, (unsigned long)c[14].i);
         }
         b->sched = s;
-        s->cur = (void *)b;
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
         g_runtime.abi.rt_k_level = (int)b->k_level;
         return (pl_pseg_pair_t){ (void *)b, (void *)s };
     }
+}
+static pl_pseg_t * pl_sched_resumed(pl_psched_t *s) {
+    void *root = (void *)(uintptr_t)s->r14;
+    DESCR_t sts[4096];
+    for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
+        pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
+        if (!sl) break;
+        for (int neg = 0; neg < 2; neg++) {
+            int n = pl_list_to_arr(neg ? sl->ncons : sl->pcons, sts, 4096);
+            for (int k = 0; k < n; k++) { pl_pseg_t *b = pl_pseg_of(sts[k]); if (b && b->sched == (void *)s) return b; }
+        }
+        if (x == s->leader) break;
+        x = sl->next;
+    }
+    return (pl_pseg_t *)0;
 }
 void * rt_pl_pseg_ball_c(void *root, char *r12) {
     pl_psched_t *s = (pl_psched_t *)0;
@@ -24756,7 +24761,7 @@ void * rt_pl_pseg_ball_c(void *root, char *r12) {
         x = sl->next;
     }
     if (!s) { fprintf(stderr, "FATAL rt_pl_pseg_ball: a ball left a generator with no resuming leader on the chain\n"); * (volatile char *) NULL; }
-    { pl_pseg_t *b = (pl_pseg_t *)s->cur; if (b) { rt_pl_tr_unwind_to(r12, (char *)(uintptr_t)b->r12); pl_pseg_unrebind(b); b->sched = (pl_psched_t *)0; } }
+    { pl_pseg_t *b = pl_sched_resumed(s); if (b) { rt_pl_tr_unwind_to(r12, (char *)(uintptr_t)b->r12); pl_pseg_unrebind(b); b->sched = (pl_psched_t *)0; } }
     for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         int64_t nx;
@@ -24782,7 +24787,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
         }
         {
             uint64_t len = (uint64_t)(xg - orig_lo), tn = (uint64_t)(top - tbase) / PL_TR_ENTRY_BYTES;
-            pl_pseg_t *b = (pl_pseg_t *)rt_str_alloc((long)(sizeof(pl_pseg_t) + len + tn * 64 + 16));
+            pl_pseg_t *b = (pl_pseg_t *)rt_pl_struct_alloc(HB_PSEG, rt_pseg_size(orig_lo, len, tn));
             b->orig_lo = orig_lo;
             b->len = len;
             b->tbase = tbase;
@@ -24796,6 +24801,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
             for (int k = 0; k < 4; k++) b->planes[k] = g_rtccb[5 + k];
             b->k_level = g_runtime.abi.rt_k_level;
             b->sched = (pl_psched_t *)0;
+            b->link = (void *)0;
             b->hdr = (uint64_t)(uintptr_t)h;
             memcpy(pl_pseg_bytes(b), orig_lo, len);
             for (uint64_t i = 0; i < tn; i++) {
@@ -24805,7 +24811,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
                 if (e->cell) memcpy(dst + PL_TR_ENTRY_BYTES, (void *)e->cell, sizeof(DESCR_t));
                 else memset(dst + PL_TR_ENTRY_BYTES, 0, sizeof(DESCR_t));
             }
-            { DESCR_t one = (DESCR_t){ .v = DT_I, .i = 1 }, bv = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)b }; rt_pl_setarg_cell(&one, &args[0], &bv, cx, 0); }
+            { DESCR_t *t = plw_cell_deref(plw_entry(&args[0])); if (t->v == (DTYPE_t)DT_PLREF && t->p) ((DESCR_t *)t->p)[0] = (DESCR_t){ .v = DT_P, .p = (void *)b }; }
             if (old && old->sched) {
                 pl_psched_t *s = old->sched;
                 old->sched = (pl_psched_t *)0;

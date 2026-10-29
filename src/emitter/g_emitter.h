@@ -154,6 +154,7 @@ struct g_emitter_t {
     bb_label_t g_gc_map_lbl;
     int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
     unsigned g_gc_map_flags = 0;
+    int tbl_hdr_off = -1;
     uint64_t g_gc_map_link = 0;
     cv_t g_gc_map_names_v;
     int gc_sites_report_on_v = -1;

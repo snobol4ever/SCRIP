@@ -1230,7 +1230,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST: bb_emit_x86(bb_setexit_test()); return 0;
     case IR_CLEANUP: bb_emit_x86(bb_cleanup()); return 0;
-    case IR_TABLE_HDR: { g_emit.op_off = _zn->loff; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_table_hdr()); } return 0;
+    case IR_TABLE_HDR: { g_emit.op_off = _zn->loff; g_emit.op_fc_bytes = 0; g_emitter.tbl_hdr_off = _zn->loff; bb_emit_x86(bb_table_hdr()); } return 0;
     case IR_LINE_MARK: if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval;
         if (g_emit.icn_line_cur > 0) emit_stno_row(0, (int32_t)g_emit.icn_line_cur, g_emit.icn_file_cur); bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
@@ -2041,6 +2041,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_TABLE_HDR: {
         g_emit.op_off = zrow(nd)->loff; g_emit.op_fc_bytes = 0;
         if (g_emit.op_off < 0) { drive_guard_refused(nd, __LINE__); break; }
+        g_emitter.tbl_hdr_off = g_emit.op_off;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_UNMARK: {
@@ -2956,7 +2957,7 @@ static void emit_gc_map_data(const char * fam) {
     if (g_emitter.g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_emitter.g_blob_lay.p; lay_n = (int)g_emitter.g_blob_lay.len; }
     else if (g_emit_cfg) { int gaps = 0, conf = 0;
         int n = g_emit_cfg->pf.lay_n; gaps = g_emit_cfg->pf.lay_gaps; conf = g_emit_cfg->pf.lay_conf;
-        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 2) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 2), "g_zls_lay");
+        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 3) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 3), "g_zls_lay");
         for (int k = 0; k < n; k++) ((uint64_t *)g_emitter.g_zls_lay_v.p)[k] = g_emit_cfg->pf.lay[k];
         uint64_t * g_zls_lay = (uint64_t *)g_emitter.g_zls_lay_v.p;
         if (n >= 0 && g_emit_cfg->root_graph) { int rg = g_emit_cfg->pf.value_region, nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
@@ -2967,7 +2968,9 @@ static void emit_gc_map_data(const char * fam) {
                 "LLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_emitter.g_gc_value_bytes); abort(); }
             if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
             if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
+        if (n >= 0 && g_emitter.tbl_hdr_off >= 0) { g_zls_lay[n++] = GC_LAY_Q(g_emitter.tbl_hdr_off + 16 + 16 * 12, GC_LAY_DESCR, 48); g_emitter.g_gc_map_flags |= GC_FRAME_MAP_TBL_HDR; }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_emitter.g_zls_lay_gaps = gaps; g_emitter.g_zls_lay_conf = conf; } }
+    g_emitter.tbl_hdr_off = -1;
     emit_sep_rule('-');
     if (g_is_text) emit_textf(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n");
     emit_label_define_bb(&g_emitter.g_gc_map_lbl);

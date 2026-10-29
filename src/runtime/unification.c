@@ -3970,6 +3970,7 @@ void pl_trie_gc_visit(uint16_t type, void *p) {
         rt_gc_visit_descr(&t->data);
         if (t->sl.pcons.v) rt_gc_visit_descr(&t->sl.pcons);
         if (t->sl.ncons.v) rt_gc_visit_descr(&t->sl.ncons);
+        if (t->sl.sched) rt_gc_visit_raw((const char **)(void *)&t->sl.sched);
         return;
     }
     {
