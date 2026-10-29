@@ -2375,9 +2375,7 @@ inline std::string x86_scan_env_store() {
 inline std::string x86_scan_env_load_rr() {
     return x86("push", "rax") + x86("push", "rdx")
          + x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
-         + x86("mov", "r13", "[rax + 0]")
          + x86("mov", "r14", "[rax + 8]")
-         + x86("mov", "r15", "[rax + 16]")
          + x86("mov", RDQ("rax", 0), 0L)
          + x86("mov", RDQ("rax", 8), 0L)
          + x86("mov", RDQ("rax", 16), 0L)

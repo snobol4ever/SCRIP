@@ -1722,7 +1722,10 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         rt_c2bb_hit("gen_h.coro", name);
 #endif
         uint64_t out2[2] = { 0, 0 };
+        uint64_t keep[3];
+        memcpy(keep, rt_co_env(), sizeof keep);
         int ok = (int)scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO).rc;
+        memcpy(rt_co_env(), keep, sizeof keep);
         return rt_genp_triage(g, ok, out2, hout);
     }
     if (hout) *hout = (void *)0;
@@ -1751,7 +1754,10 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
             uint64_t out2[2] = { 0, 0 };
             g_runtime.abi.rt_k_level++;
             rt_k_level_mirror();
+            uint64_t keep[3];
+            memcpy(keep, rt_co_env(), sizeof keep);
             int ok = (int)scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO).rc;
+            memcpy(rt_co_env(), keep, sizeof keep);
             g_runtime.abi.rt_k_level--;
             rt_k_level_mirror();
             return rt_genp_triage(g, ok, out2, hslot);
