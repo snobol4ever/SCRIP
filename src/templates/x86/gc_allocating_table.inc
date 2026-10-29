@@ -673,6 +673,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "eval_lf_protect", GC_RET_OTHER },
     { "eval_open", GC_RET_OTHER },
     { "eval_string_transient", GC_RET_DESCR },
+    { "eval_text_raise", GC_RET_VOID },
     { "eval_thunks_emit_from", GC_RET_OTHER },
     { "fh_capture_begin", GC_RET_OTHER },
     { "fh_memsink_open", GC_RET_OTHER },

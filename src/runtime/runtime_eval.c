@@ -572,7 +572,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
             if (depth) { st = 0; break; }
             return eval_sb_fail(223, code, msg);
             default:
-            if (el == 33 && (st != 2 || !depth)) return 0;
+            if (el == 33 && st == 2 && !depth) return 0;
             if (st == 1) return eval_sb_fail(221, code, msg);
             if (depth) return eval_sb_fail(lev[depth - 1] == 3 ? 229 : 226, code, msg);
             return 0;
@@ -658,6 +658,29 @@ static void code_compile_raise(const char *src, int pe, const char *pm) {
     rt_eval_raise(code, msg ? msg : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long eval_top_mark(const char *s) {
+    int d = 0;
+    char q = 0;
+    for (long i = 0; s[i]; i++) {
+        char c = s[i];
+        if (q) { if (c == q) q = 0; continue; }
+        if (c == '\'' || c == '"') q = c;
+        else if (c == '(' || c == '<' || c == '[') d++;
+        else if ((c == ')' || c == '>' || c == ']') && d > 0) d--;
+        else if ((c == ':' || c == ';') && d == 0) return i;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_text_raise(const char *s) {
+    int code = 0;
+    const char *msg = (const char *)0;
+    long m = eval_top_mark(s);
+    if (m >= 0 && !s[m + 1]) { rt_eval_raise(103, "eval argument is not expression"); return; }
+    if (eval_sb_syntax(s, &code, &msg)) { rt_eval_raise(code, msg); return; }
+    if (m >= 0) rt_eval_raise(103, "eval argument is not expression");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_eval_syntax_raise(const char *s) { int code = 0; const char *msg = (const char *)0; if (!s || !eval_sb_syntax(s, &code, &msg)) return; rt_eval_raise(code, msg); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t mark, size_t built, int thunks, int keep) {
@@ -674,7 +697,7 @@ static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
         int pe = 0;
         const char *pm = (const char *)0;
         fn = eval_build_chain(s, &pe, &pm, &thunks);
-        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s + (s[0] == '\001' ? 1 : 0)); } return -1; }
+        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else eval_text_raise(s + (s[0] == '\001' ? 1 : 0)); } return -1; }
         built = bb_pool_mark();
         made = 1;
         keep = mark < eval_retain_budget();
@@ -1218,7 +1241,7 @@ static int conve_is_bare_name(const char *s) {
 DESCR_t CONVE_fn(DESCR_t str_d) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     const char *s = VARVAL_fn(str_d);
-    if (!s || !*s) return FAILDESCR;
+    if (!s || !*s) s = " ";
     if (conve_is_bare_name(s)) {
         extern void *bb_dstar_rec_intern(const char *, uint32_t);
         size_t nl = strlen(s);
@@ -1234,7 +1257,7 @@ DESCR_t CONVE_fn(DESCR_t str_d) {
     int pe = 0, thunks = 0;
     const char *pm = (const char *)0;
     eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
-    if (!fn) { rt_code_pool_check(); return FAILDESCR; }
+    if (!fn) { rt_code_pool_check(); if (eval_top_mark(s) < 0) { int code = 0; const char *msg = (const char *)0; if (eval_sb_syntax(s, &code, &msg)) rt_eval_raise(code, msg); } return FAILDESCR; }
     DESCR_t d = {0};
     d.v = DT_E;
     d.slen = RT_CONVE_CHAIN_MARK;
