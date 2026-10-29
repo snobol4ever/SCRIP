@@ -42,6 +42,7 @@ int zls_key_unbacked(const IR_graph_t * g, int off);
 int zls_g_key_class(const IR_graph_t * g, int off);
 int zls_retains_why(const IR_graph_t * g, const IR_t * nd);
 int zls_g_resident_bytes(const IR_graph_t * g);
+const unsigned char * zls_g_key_map(const IR_graph_t * g, int * n);
 void zls_frame_resident_mark(const IR_t * nd);
 int zls_frame_home(const IR_t * nd);
 int zls_frame_resident(const IR_t * nd);

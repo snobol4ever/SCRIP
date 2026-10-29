@@ -2893,13 +2893,54 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
 static int gc_maps_report_on(void) { if (g_emitter.gc_maps_report_on_v < 0) g_emitter.gc_maps_report_on_v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return g_emitter.gc_maps_report_on_v; }
+static int emit_zsm_frame_on(void) {
+    if (g_emitter.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_emitter.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
+    return g_emitter.zsm_frame_on;
+}
+static void emit_zsm_frame_report(void) {
+    for (const auto & r : g_emitter.zsm_frames)
+        fprintf(stderr, "[ZSM-FRAME] graph=%s total=%d region=%d resident=%d frames=%d addrs=%d word=%d resident_addrs=%d outside=%d unbacked=%d rsp_form=%d\n", r.name.c_str(), r.total,
+            r.region, r.resident, r.frames, r.addrs, r.cls[1], r.cls[2], r.cls[3], r.cls[0], r.rsp_form);
+}
+static g_emitter_t::zsm_frame_rec_t * emit_zsm_frame_rec(const IR_graph_t * g) {
+    if (!g) return (g_emitter_t::zsm_frame_rec_t *)0;
+    int L = g_emitter.zsm_frames_last;
+    if (L >= 0 && L < (int)g_emitter.zsm_frames.size() && g_emitter.zsm_frames[(size_t)L].g == g) return &g_emitter.zsm_frames[(size_t)L];
+    for (size_t k = 0; k < g_emitter.zsm_frames.size(); k++) if (g_emitter.zsm_frames[k].g == g) { g_emitter.zsm_frames_last = (int)k; return &g_emitter.zsm_frames[k]; }
+    if (g_emitter.zsm_frames.empty()) atexit(emit_zsm_frame_report);
+    g_emitter_t::zsm_frame_rec_t r = { g, std::string(g->pf.name ? g->pf.name : "?"), g->pf.frame_region, g->pf.resident, 0, 0, { 0, 0, 0, 0 }, 0, 0 };
+    g_emitter.zsm_frames.push_back(r);
+    g_emitter.zsm_frames_last = (int)g_emitter.zsm_frames.size() - 1;
+    return &g_emitter.zsm_frames.back();
+}
+extern "C" void emit_zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form) {
+    if (!emit_zsm_frame_on()) return;
+    g_emitter_t::zsm_frame_rec_t * r = emit_zsm_frame_rec(g);
+    if (!r) return;
+    int c = cls >= 0 ? cls : (off >= 0 && off / 8 < g->pf.kcls_n) ? g->pf.kcls[off / 8] : 0;
+    if (c == 0 && off >= r->region + 16 && off < r->total) c = 1;
+    if (g_emitter.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_emitter.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
+    if (g_emitter.zsm_frame_diag && (c == 0 || c == 3))
+        fprintf(stderr, "[ZSM-FRAME-ADDR] graph=%s class=%s op=%s off=%d region=%d form=%s\n", r->name.c_str(), c ? "outside" : "unbacked", nd ? bb_op_name(nd->op) : "-", off,
+            r->region, rsp_form ? "rsp" : "frame");
+    r->addrs++;
+    r->cls[c & 3]++;
+    r->rsp_form += rsp_form ? 1 : 0;
+}
+static void emit_zsm_frame_carve(const IR_graph_t * g, int frame_bytes) {
+    if (!emit_zsm_frame_on()) return;
+    g_emitter_t::zsm_frame_rec_t * r = emit_zsm_frame_rec(g);
+    if (!r) return;
+    r->frames++;
+    if (frame_bytes > r->total) r->total = frame_bytes;
+}
 extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link) {
     if (frame_rel == 2 ? (value_bytes < 16 || value_bytes != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (value_bytes < 0 || (value_bytes & 15) || value_bytes + 16 > frame_bytes))
         { fprintf(stderr,
         "FATAL emit_gc_map_register: value_bytes=%d frame_bytes=%d frame_rel=%d (the value region is 16-aligned and the 16 reserved bytes after it lie inside the frame; a blob's region is the wh"
             "ole frame below its base "
         "and carries GC_FRAME_MAP_BLOB)\n", value_bytes, frame_bytes, frame_rel); abort(); }
-    zsm_frame_carve(g_emit_cfg, frame_bytes);
+    emit_zsm_frame_carve(g_emit_cfg, frame_bytes);
     g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_value_bytes = value_bytes; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");

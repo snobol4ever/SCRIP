@@ -2264,10 +2264,9 @@ void planner_restore(zeta_plan_t * rec) {
     g_planner.g_zd_rec_p = rec;
 }
 extern "C" int zls_retains_why(const IR_graph_t * g, const IR_t * nd);
-extern "C" const char * zls_graph_name_get(const IR_graph_t * g);
 extern "C" int zls_g_frame_region(const IR_graph_t * g);
 extern "C" int zls_g_resident_bytes(const IR_graph_t * g);
-extern "C" int zls_g_key_class(const IR_graph_t * g, int off);
+extern "C" const unsigned char * zls_g_key_map(const IR_graph_t * g, int * n);
 static int zsm_frame_on(void) {
     if (g_planner.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_planner.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
     return g_planner.zsm_frame_on;
@@ -2288,43 +2287,9 @@ extern "C" long planner_zsm_row_word(const IR_graph_t * g, const zeta_plan_t * r
     if (o == IR_MATCH_BEGIN) *own0 = 64 + planner_act_extra(nd);
     return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) | ((long)ret << 57);
 }
-static void zsm_frame_report(void) {
-    for (const auto & r : g_planner.zsm_frames)
-        fprintf(stderr, "[ZSM-FRAME] graph=%s total=%d region=%d resident=%d frames=%d addrs=%d word=%d resident_addrs=%d outside=%d unbacked=%d rsp_form=%d\n", r.name.c_str(), r.total,
-            r.region, r.resident, r.frames, r.addrs, r.cls[1], r.cls[2], r.cls[3], r.cls[0], r.rsp_form);
-}
-static g_planner_t::zsm_frame_rec_t * zsm_frame_rec(const IR_graph_t * g) {
-    if (!g) return (g_planner_t::zsm_frame_rec_t *)0;
-    int L = g_planner.zsm_frames_last;
-    if (L >= 0 && L < (int)g_planner.zsm_frames.size() && g_planner.zsm_frames[(size_t)L].g == g) return &g_planner.zsm_frames[(size_t)L];
-    for (size_t k = 0; k < g_planner.zsm_frames.size(); k++) if (g_planner.zsm_frames[k].g == g) { g_planner.zsm_frames_last = (int)k; return &g_planner.zsm_frames[k]; }
-    if (g_planner.zsm_frames.empty()) atexit(zsm_frame_report);
-    const char * nm = zls_graph_name_get(g);
-    g_planner_t::zsm_frame_rec_t r = { g, std::string(nm ? nm : "?"), zls_g_frame_region(g), zls_g_resident_bytes(g), 0, 0, { 0, 0, 0, 0 }, 0, 0 };
-    g_planner.zsm_frames.push_back(r);
-    g_planner.zsm_frames_last = (int)g_planner.zsm_frames.size() - 1;
-    return &g_planner.zsm_frames.back();
-}
-extern "C" void zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form) {
-    if (!zsm_frame_on()) return;
-    g_planner_t::zsm_frame_rec_t * r = zsm_frame_rec(g);
-    if (!r) return;
-    int c = cls >= 0 ? cls : zls_g_key_class(g, off);
-    if (c == 0 && off >= r->region + 16 && off < r->total) c = 1;
-    if (g_planner.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_planner.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
-    if (g_planner.zsm_frame_diag && (c == 0 || c == 3))
-        fprintf(stderr, "[ZSM-FRAME-ADDR] graph=%s class=%s op=%s off=%d region=%d form=%s\n", r->name.c_str(), c ? "outside" : "unbacked", nd ? bb_op_name(nd->op) : "-", off,
-            r->region, rsp_form ? "rsp" : "frame");
-    r->addrs++;
-    r->cls[c & 3]++;
-    r->rsp_form += rsp_form ? 1 : 0;
-}
-extern "C" void zsm_frame_carve(const IR_graph_t * g, int frame_bytes) {
-    if (!zsm_frame_on()) return;
-    g_planner_t::zsm_frame_rec_t * r = zsm_frame_rec(g);
-    if (!r) return;
-    r->frames++;
-    if (frame_bytes > r->total) r->total = frame_bytes;
+static void planner_zsm_graph_facts(IR_graph_t * g) {
+    int n = 0;
+    g->pf.kcls = zls_g_key_map(g, &n); g->pf.kcls_n = n; g->pf.frame_region = zls_g_frame_region(g); g->pf.resident = zls_g_resident_bytes(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void planner_report_at_exit(void) {
@@ -2350,6 +2315,7 @@ zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * pr
         abort();
     }
     g_planner.planner_hits++;
+    if (g && zsm_frame_on()) planner_zsm_graph_facts(g);
     planner_restore(it->second);
     return it->second;
 }

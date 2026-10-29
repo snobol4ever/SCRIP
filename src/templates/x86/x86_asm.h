@@ -1070,9 +1070,8 @@ inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 <
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
-extern "C" void zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form);
-extern "C" void zsm_frame_carve(const IR_graph_t * g, int frame_bytes);
-inline void x86_zsm_frame_addr(int off, int cls, int rsp_form) { zsm_frame_addr(g_emit_cfg, _.node, off, cls, rsp_form); }
+extern "C" void emit_zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form);
+inline void x86_zsm_frame_addr(int off, int cls, int rsp_form) { emit_zsm_frame_addr(g_emit_cfg, _.node, off, cls, rsp_form); }
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline int x86_zop_operand_hit(int k, int off) {

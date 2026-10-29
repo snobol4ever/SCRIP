@@ -2354,6 +2354,14 @@ int zls_g_key_class(const IR_graph_t * g, int off) {
     }
     return off / 8 < r->kmap_n ? r->kmap[off / 8] : 0;
 }
+const unsigned char * zls_g_key_map(const IR_graph_t * g, int * n) {
+    zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
+    *n = 0;
+    if (!r || r->first_scope < 0 || zls_g_keys_only(g)) return (const unsigned char *)0;
+    zls_g_key_class(g, 0);
+    *n = r->kmap_n;
+    return r->kmap;
+}
 int zls_g_resident_bytes(const IR_graph_t * g) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     if (!r || r->first_scope < 0 || zls_g_keys_only(g)) return 0;

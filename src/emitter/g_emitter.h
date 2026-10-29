@@ -40,6 +40,11 @@ typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 struct zeta_plan_t;
 struct g_emitter_t {
+    struct zsm_frame_rec_t { const IR_graph_t * g; std::string name; int region; int resident; int frames; int addrs; int cls[4]; int rsp_form; int total; };
+    std::vector<zsm_frame_rec_t> zsm_frames;
+    int zsm_frames_last = -1;
+    int zsm_frame_on = -1;
+    int zsm_frame_diag = -1;
     int g_zd_abs = 0;
     int g_zd_def = 1;
     int g_zd_cutd = -1;

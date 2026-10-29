@@ -20,7 +20,6 @@
 struct zeta_plan_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_planner_t {
-    struct zsm_frame_rec_t { const IR_graph_t * g; std::string name; int region; int resident; int frames; int addrs; int cls[4]; int rsp_form; int total; };
     const int * g_zd_cut_p = 0;
     const int * g_zd_claim_p = 0;
     const int * g_zd_xb_p = 0;
@@ -29,10 +28,7 @@ struct g_planner_t {
     const int * g_zd_gp_p = 0;
     const int * g_zd_out_p = 0;
     const int * g_zd_wp_p = 0;
-    std::vector<zsm_frame_rec_t> zsm_frames;
-    int zsm_frames_last = -1;
     int zsm_frame_on = -1;
-    int zsm_frame_diag = -1;
     IR_t ** g_zd_nodes_p = 0;
     int g_zd_n = 0;
     int g_zd_cur = -1;
