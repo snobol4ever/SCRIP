@@ -58,5 +58,5 @@ const planner_road_t * planner_road_of(const IR_t * entry) {
 void planner_stage_main(IR_graph_t * bbg, const char * prefix) { planner_road_t rd; planner_road_none(&rd); planner_stage_chain(bbg, bbg->entry, prefix, &rd); }
 int planner_stage_rt(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) { if (!entry || planner_entry_planned(entry)) return 0; planner_stage_chain(g, entry, prefix, rd);
     g_planner.planner_rt++; return 1; }
-void planner_stage_release(IR_t * entry) { planner_table_forget(entry); }
+void planner_stage_release(IR_t * entry) { planner_table_forget(entry); g_planner.g_act_g = (const IR_graph_t *)0; }
 }
