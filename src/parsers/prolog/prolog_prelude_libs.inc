@@ -34270,6 +34270,13 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "min_ed_dis", 3 },
     { "gc_dynamic", 1 },
     { "retract_nr", 1 },
+    { "file_write", 2 },
+    { "file_flush", 2 },
+    { "file_seek", 4 },
+    { "file_truncate", 3 },
+    { "print_file_contents", 1 },
+    { "rm", 1 },
+    { "xsb_configuration", 2 },
     { "import", 1 },
     { 0, 0 }
 };
@@ -34289,6 +34296,18 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
+    "file_write(S, T) :- write(S, T).\n"
+    "file_flush(S, 0) :- flush_output(S).\n"
+    "file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).\n"
+    "'$xsb_fseek'(0, fseek0) :- !.\n"
+    "'$xsb_fseek'(1, fseek1) :- !.\n"
+    "'$xsb_fseek'(2, fseek2) :- !.\n"
+    "'$xsb_fseek'(W, _) :- throw(error(domain_error(file_seek_place, W), file_seek/4)).\n"
+    "file_truncate(S, Len, 0) :- '$gnu_os'(ftruncate, S, Len).\n"
+    "print_file_contents(F) :- setup_call_cleanup(open(F, read, S), '$xsb_pfc'(S), close(S)).\n"
+    "'$xsb_pfc'(S) :- get_char(S, C), ( C == end_of_file -> true ; put_char(C), '$xsb_pfc'(S) ).\n"
+    "rm(F) :- '$gnu_os'(unlink, F, _).\n"
+    "xsb_configuration(os_type, 'linux-gnu').\n"
     "gc_dynamic(N) :- ( var(N) -> N = 0 ; throw(error(type_error(variable, N), gc_dynamic/1)) ).\n"
     "retract_nr(C) :- retract(C).\n"
     "index(_, _).\n"

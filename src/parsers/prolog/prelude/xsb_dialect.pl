@@ -13,8 +13,20 @@
     SHADOWS row removes xsb_builtins' own import/1 when this library is selected; foreign_tests/test_importas). is_acyclic/1 is XSB's name for ISO acyclic_term/1 (prolog_tests/large_arity_prolog).
     term_to_atom/2,3 and term_to_codes/2,3 are XSB's (syslib/string.P) and WRITE ONLY: the term is copied and written as codes, the default options ignore_ops(canonical), quoted(false), numbervars(false), so a
     compound is f(a,b) whatever its operators, a proper list [a,b], an unbound variable _h0, _h1, ... in order of first occurrence (a repeated variable keeps its number), a float as number_codes writes it and
-    an atom as its text (quoted(true) quotes what XSB's if_not_need_quote refuses); SWI's term_to_atom/2 parses text, so it stays SWI's outside the XSB dialect (prolog_tests/large_arity_prolog). gc_dynamic/1 (syslib/standard.P: check_var, then the count of retracted clauses the delayed reclamation freed) answers 0, SCRIP frees a retracted clause at once so none is pending, and a bound argument is type_error(variable, N); XSB's own count is its storage's timing and no answer (CEO-1934, CEO-2012 (c)), so the retract_tests *_gc_* programs print it on lines the package mask replaces. retract_nr/1 is retract/1 (assert.P: the same retraction without reclaiming the clause; XSB prints an obsolete warning on stderr; retract_tests *_gc_*). */
-:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, import/1 ]).
+    an atom as its text (quoted(true) quotes what XSB's if_not_need_quote refuses); SWI's term_to_atom/2 parses text, so it stays SWI's outside the XSB dialect (prolog_tests/large_arity_prolog). gc_dynamic/1 (syslib/standard.P: check_var, then the count of retracted clauses the delayed reclamation freed) answers 0, SCRIP frees a retracted clause at once so none is pending, and a bound argument is type_error(variable, N); XSB's own count is its storage's timing and no answer (CEO-1934, CEO-2012 (c)), so the retract_tests *_gc_* programs print it on lines the package mask replaces. retract_nr/1 is retract/1 (assert.P: the same retraction without reclaiming the clause; XSB prints an obsolete warning on stderr; retract_tests *_gc_*). file_write/2 (xsb_writ), file_flush/2, file_seek/4 (place 0 set, 1 current, 2 end), file_truncate/3 (truncates the file and leaves the position at the new end, measured on XSB 5.0.0), print_file_contents/1 (file_io) and rm/1 (shell) are XSB's file routines over the streams file_open/3 returns, each answering 0 for its status argument (io_tests/io_basics); xsb_configuration/2 answers os_type linux-gnu, measured on XSB 5.0.0. */
+:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, file_write/2, file_flush/2, file_seek/4, file_truncate/3, print_file_contents/1, rm/1, xsb_configuration/2, import/1 ]).
+file_write(S, T) :- write(S, T).
+file_flush(S, 0) :- flush_output(S).
+file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).
+'$xsb_fseek'(0, fseek0) :- !.
+'$xsb_fseek'(1, fseek1) :- !.
+'$xsb_fseek'(2, fseek2) :- !.
+'$xsb_fseek'(W, _) :- throw(error(domain_error(file_seek_place, W), file_seek/4)).
+file_truncate(S, Len, 0) :- '$gnu_os'(ftruncate, S, Len).
+print_file_contents(F) :- setup_call_cleanup(open(F, read, S), '$xsb_pfc'(S), close(S)).
+'$xsb_pfc'(S) :- get_char(S, C), ( C == end_of_file -> true ; put_char(C), '$xsb_pfc'(S) ).
+rm(F) :- '$gnu_os'(unlink, F, _).
+xsb_configuration(os_type, 'linux-gnu').
 gc_dynamic(N) :- ( var(N) -> N = 0 ; throw(error(type_error(variable, N), gc_dynamic/1)) ).
 retract_nr(C) :- retract(C).
 index(_, _).

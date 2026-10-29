@@ -11562,6 +11562,17 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 else if (!strcmp(op, "st_mtime")) ok = plw_unify_vals(args[2], REALVAL((double)sb.st_mtim.tv_sec + (double)sb.st_mtim.tv_nsec / 1e9), cx);
                 else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
             }
+        } else if (!strncmp(op, "fseek", 5) || !strcmp(op, "ftruncate")) {
+            extern FILE *fh_get(int);
+            FILE *fp = (FILE *)0;
+            if ((int)a.v == DT_PLREF && plc_fid_name(a.slen) == prolog_atom_intern("$stream") && plc_fid_arity(a.slen) == 1) {
+                DESCR_t sa = rt_pl_deref_val(((DESCR_t *)a.p)[0]);
+                if (sa.v == DT_I && (int)sa.i >= 0 && (int)sa.i < FH_N) fp = fh_get((int)sa.i);
+            }
+            if (fp && b.v == (DTYPE_t)DT_I) {
+                if (op[1] == 't') ok = fflush(fp) == 0 && ftruncate(fileno(fp), (off_t)b.i) == 0 && fseek(fp, (long)b.i, SEEK_SET) == 0;
+                else ok = fseek(fp, (long)b.i, op[5] == '1' ? SEEK_CUR : op[5] == '2' ? SEEK_END : SEEK_SET) == 0;
+            }
         } else if (!strcmp(op, "cwd")) {
             DESCR_t cwa = pl_os_cwd_atom();
             if (!IS_FAIL_fn(cwa)) ok = plw_unify_vals(args[2], cwa, cx);
