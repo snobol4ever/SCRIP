@@ -169,6 +169,11 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
     }
 }
 static pty_t *pt_type(struct pty_state *s, const tree_t *n);
+static const char *pt_spelling(const tree_t *x) {
+    for (int i = 0; x && i < x->n; i++) if (PT_IS(x->c[i], TT_ATTR) && x->c[i]->v.sval && !strcmp(x->c[i]->v.sval, ":spelling") && x->c[i]->n > 0 && x->c[i]->c[0]->v.sval) return x->c[i]->c[0]
+        ->v.sval;
+    return x ? x->v.sval : NULL;
+}
 static pty_t *pt_strbound(long long len);
 static int pt_leaf_ansi(const tree_t *n) {
     for (int i = 0; i < n->n; i++) if (PT_IS(n->c[i], TT_ATTR) && n->c[i]->n && PT_IS(n->c[i]->c[0], TT_QLIT) && n->c[i]->c[0]->v.sval && !strcmp(n->c[i]->c[0]->v.sval, "ansistr")) return 1;
@@ -219,7 +224,13 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         case TT_ENUM_TYPE:
         {
             pty_t *t = pt_ord(PTK_ENUM, NULL, 0, n->n - 1);
-            for (int i = 0; i < n->n; i++) { if (!n->c[i] || !n->c[i]->v.sval) continue; psym_t *p = ps_def(s, n->c[i]->v.sval, 'e', t); p->iv = i; p->hv = 1; pt_add_field(t, n->c[i]->v.sval, NULL); }
+            for (int i = 0; i < n->n; i++) {
+                if (!n->c[i] || !n->c[i]->v.sval) continue;
+                psym_t *p = ps_def(s, n->c[i]->v.sval, 'e', t);
+                p->iv = i;
+                p->hv = 1;
+                pt_add_field(t, pt_spelling(n->c[i]), NULL);
+            }
             return t;
         }
         case TT_SUBRANGE:

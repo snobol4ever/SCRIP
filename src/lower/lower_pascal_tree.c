@@ -5492,6 +5492,10 @@ static void tok_events(const tree_t *x) {
     }
 }
 static char *tok_s(const tree_t *x) { tok_events(x); return x->v.sval; }
+static const char *pas_spelling(const tree_t *x) {
+    for (int i = 0; x && i < x->n; i++) if (IS(x->c[i], TT_ATTR) && x->c[i]->v.sval && !strcmp(x->c[i]->v.sval, ":spelling") && x->c[i]->n > 0 && x->c[i]->c[0]->v.sval) return x->c[i]->c[0]->v.sval;
+    return x ? x->v.sval : NULL;
+}
 static const char *pas_ptrcast_target(const tree_t *n) {
     const char *t = (IS(n, TT_FNC) && n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval) ? pas_alias_resolve(n->c[0]->v.sval) : NULL;
     return (t && !pas_is_func(t) && !pas_is_proc(t)) ? pas_ptrtype_target(t) : NULL;
@@ -7329,7 +7333,8 @@ static pval E_simple_type(const tree_t *n) {
                 tree_t *_id = v[2].list->items[i];
                 if (_id && _id->v.sval) {
                     if (_eo > 0) strncat(g_lower.pas.sem.pas_pend_enum_names, ",", sizeof g_lower.pas.sem.pas_pend_enum_names - strlen(g_lower.pas.sem.pas_pend_enum_names) - 1);
-                    strncat(g_lower.pas.sem.pas_pend_enum_names, _id->v.sval, sizeof g_lower.pas.sem.pas_pend_enum_names - strlen(g_lower.pas.sem.pas_pend_enum_names) - 1);
+                    strncat(g_lower.pas.sem.pas_pend_enum_names, i < n->n ? pas_spelling(n->c[i]) : _id->v.sval,
+                        sizeof g_lower.pas.sem.pas_pend_enum_names - strlen(g_lower.pas.sem.pas_pend_enum_names) - 1);
                     pas_const_add(_id->v.sval, (long long)(_eo));
                     pas_const_mark_enum(_id->v.sval);
                     _eo++;

@@ -191,7 +191,7 @@ tree_t *pascal_last_ident_qlit(void);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 175 "pascal.y"
+#line 186 "pascal.y"
  tree_t *node; 
 
 #line 198 "pascal.tab.h"
