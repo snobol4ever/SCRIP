@@ -234,15 +234,6 @@ typedef struct {
     int pas_nhdrfile;
     struct { char *name; long long lo; int uid; int nostr; long long n; } pas_chararrs[256];
     int pas_nchararr;
-    tree_t *pas_cafield_marks[2048];
-    long long pas_cafield_lo[2048];
-    long long pas_cafield_hi[2048];
-    int pas_ncafield;
-    tree_t *pas_nafield_marks[2048];
-    long long pas_nafield_lo[2048];
-    int pas_nnafield;
-    tree_t *pas_cvfield_marks[2048];
-    int pas_ncvfield;
     struct { char *name; long long lo; } pas_strarrs[128];
     int pas_nstrarr;
     struct {

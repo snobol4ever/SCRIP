@@ -12,7 +12,7 @@ typedef struct psym psym_t;
 struct psym { const char *name; int k; pty_t *t; long long iv; int hv; const tree_t *rt; psym_t *next; };
 typedef struct pscope pscope_t;
 struct pscope { pscope_t *up; psym_t *s; };
-typedef struct { const void *key; const pty_t *t; int line; } pty_ent;
+typedef struct { const void *key; const pty_t *t; int line, fld; } pty_ent;
 typedef struct { pty_ent *e; long n, cap; } pty_map;
 struct pty_state {
     pty_map src, low, sstr, scp;
@@ -21,6 +21,9 @@ struct pty_state {
     pty_t **pend;
     int npend, cpend;
     long *stats;
+    const char *cmpn[32];
+    long cmps[96];
+    int ncmp;
     pty_t *tint, *tchar, *tbool, *treal, *tsingle, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
@@ -501,7 +504,14 @@ static pty_t *pt_expr1(struct pty_state *s, const tree_t *n) {
         return NULL;
     }
 }
-static pty_t *pt_expr(struct pty_state *s, const tree_t *n) { if (!n) return NULL; pty_t *t = pt_expr1(s, n); if (t) pt_map_put(&s->src, n, t, s->line); return t; }
+static pty_t *pt_expr(struct pty_state *s, const tree_t *n) {
+    if (!n) return NULL;
+    pty_t *t = pt_expr1(s, n);
+    if (!t) return t;
+    pt_map_put(&s->src, n, t, s->line);
+    if (PT_IS(n, TT_FIELD) || (PT_IS(n, TT_VAR) && n->v.sval && ps_find(s, n->v.sval) && ps_find(s, n->v.sval)->k == 'd')) ((pty_ent *)pt_map_get(&s->src, n))->fld = 1;
+    return t;
+}
 static const pty_t *pt_of_src_mut(struct pty_state *s, const tree_t *n) { const pty_ent *e = pt_map_get(&s->src, n); return e ? e->t : NULL; }
 static void pt_block(struct pty_state *s, const tree_t *b);
 static void pt_stmt(struct pty_state *s, const tree_t *n);
@@ -700,8 +710,9 @@ void pty_note_low(const tree_t *low, const tree_t *src) {
     if (!e || !e->t) return;
     const pty_t *t = e->t;
     if (t->k == PTK_PROC && low->t == TT_FNC && low->n > 0 && low->c[0] && low->c[0]->v.sval && !strcmp(low->c[0]->v.sval, "__pas_pcall")) t = t->isfunc ? t->base : NULL;
-    if (t) pt_map_put(&s->low, low, t, e->line);
+    if (t) { pt_map_put(&s->low, low, t, e->line); ((pty_ent *)pt_map_get(&s->low, low))->fld = e->fld; }
 }
+int pty_is_field(const tree_t *low) { struct pty_state *s = pt_st(); const pty_ent *x = s ? pt_map_get(&s->low, low) : NULL; return x ? x->fld : 0; }
 const void *pty_enter(const tree_t *src) {
     struct pty_state *s = pt_st();
     if (!s) return NULL;
@@ -753,11 +764,23 @@ void pty_census(const char *pred, const tree_t *low, int typer) {
     s->stats[4 + id]++;
     s->stats[8 + id]++;
 }
+void pty_cmp(const char *pred, const char *what, int legacy, int typer) {
+    struct pty_state *s = pt_st();
+    if (!s || !g_lower.pas.dump_types) return;
+    int id = 0;
+    while (id < s->ncmp && strcmp(s->cmpn[id], pred)) id++;
+    if (id == s->ncmp) { if (id >= 32) return; s->cmpn[id] = pred; s->ncmp++; }
+    s->cmps[id * 3]++;
+    if (typer < 0) { s->cmps[id * 3 + 1]++; fprintf(stderr, "PTYC-UNK %s %s legacy=%d\n", pred, what ? what : "", legacy); return; }
+    if (typer == legacy) { s->cmps[id * 3 + 2]++; return; }
+    fprintf(stderr, "PTYC %s %s legacy=%d typer=%d\n", pred, what ? what : "", legacy, typer);
+}
 void pty_census_report(void) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     static const char *const nm[] = { "char", "string", "bool", "set" };
     for (int i = 0; i < 4; i++) fprintf(stderr, "PTY-STATS %s asked=%ld answered=%ld agreed=%ld\n", nm[i], s->stats[i], s->stats[4 + i], s->stats[8 + i]);
+    for (int i = 0; i < s->ncmp; i++) fprintf(stderr, "PTYC-STATS %s asked=%ld unknown=%ld agreed=%ld\n", s->cmpn[i], s->cmps[i * 3], s->cmps[i * 3 + 1], s->cmps[i * 3 + 2]);
 }
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
     struct pty_state *s = pt_mk();
