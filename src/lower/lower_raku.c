@@ -8,12 +8,13 @@
 #include <math.h>
 #include "lower.h"
 #include "g_lower.h"
+typedef struct rk_loopfr_s { const char * label; IR_t * exit; IR_t * next; IR_t * redo; struct rk_loopfr_s * up; } rk_loopfr_t;
 typedef struct {
     int try_depth;
     IR_graph_t * g;
     IR_t * try_catch;
-    IR_t * loop_exit;
-    IR_t * loop_next;
+    rk_loopfr_t * loops;
+    const char * loop_label;
     IR_t * proc_exit;
     const tree_t * cur_proc;
     uint64_t cur_byref_mask;
@@ -236,6 +237,36 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
     if (ω && ir_is_generator_kind(ω->op)) lc_ω_to_β(nd, ω);
     return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_loop_open(rcx_t * cx, rk_loopfr_t * lf, IR_t * exit, IR_t * next) {
+    lf->label = cx->loop_label;
+    lf->exit = exit;
+    lf->next = next;
+    lf->redo = NULL;
+    lf->up = cx->loops;
+    cx->loop_label = NULL;
+    cx->loops = lf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_loop_close(rcx_t * cx, rk_loopfr_t * lf, IR_t * body) { cx->loops = lf->up; if (lf->redo && body) { γ_to(lf->redo, body); ω_to(lf->redo, body); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rk_loopfr_t * rk_loop_find(rcx_t * cx, const char * label) { rk_loopfr_t * lf = cx->loops; while (lf && label && (!lf->label || strcmp(lf->label, label))) lf = lf->up; return lf; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_loop_node(const tree_t * t) { return t && (t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_REPEAT || t->t == TT_CLOOP || t->t == TT_FOR_RANGE || t->t == TT_EVERY); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_loop_ctl(rcx_t * cx, const tree_t * t, const char * nm, IR_t * ω, IR_t ** res) {
+    const char * lb = (t->n == 2 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+    rk_loopfr_t * lf = rk_loop_find(cx, lb);
+    if (t->n > 2 || (t->n == 2 && (!lb || !lf))) return NULL;
+    IR_t * tgt = ω;
+    if (lf && !strcmp(nm, "last")) tgt = lf->exit;
+    if (lf && !strcmp(nm, "next")) tgt = lf->next;
+    if (lf && !strcmp(nm, "redo") && !lf->redo) lf->redo = build(cx, IR_GOTO, NULL, ω);
+    if (lf && !strcmp(nm, "redo")) tgt = lf->redo;
+    IR_t * j = build(cx, IR_GOTO, tgt, tgt);
+    *res = NULL;
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
@@ -1798,6 +1829,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
             if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+            if (nm && (!strcmp(nm, "last") || !strcmp(nm, "next") || !strcmp(nm, "redo")) && !rk_user_proc_exists(nm)) { IR_t * lc = rk_loop_ctl(cx, t, nm, ω, res); if (lc) return lc; }
             if (nm && !strcmp(nm, "__rk_test_throws_like") && t->slen != 80 && t->n > 3 && t->c[1] && t->c[1]->t == TT_VAR) return lower_rv(cx, rk_throws_like_box_attrs(t), γ, ω, res);
             if (nm && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) {
                 int swap = (!strcmp(nm, "split") || !strcmp(nm, "comb") || !strcmp(nm, "first") || !strcmp(nm, "roll")) && t->n == 3;
@@ -2000,13 +2032,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_WHILE:
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, LOOP);
             IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
             bb_src_note(centry, "rk_while_cond", 0);
             γ_to(LOOP, centry);
@@ -2018,13 +2047,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
             IR_t * incr_entry = lower_rblock(cx, t->c[2], LOOP, ω, NULL);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = incr_entry;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, incr_entry);
             IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
             bb_src_note(centry, "rk_cloop_cond", 0);
             if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr", 0);
@@ -2037,13 +2063,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_UNTIL:
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, LOOP);
             IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
             bb_src_note(centry, "rk_until_cond", 0);
             γ_to(LOOP, centry);
@@ -2055,13 +2078,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.ival != 0 && t->n > 1) {
             IR_t * BACK = build(cx, IR_GOTO, NULL, ω);
             IR_t * centry = (t->v.ival == 1) ? lower_cond(cx, t->c[1], BACK, γ) : lower_cond(cx, t->c[1], γ, BACK);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = centry;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, centry);
             IR_t * bentry = lower_rblock(cx, t->c[0], centry, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             bb_src_note(bentry, "rk_repeat_body", 0);
             bb_src_note(centry, "rk_repeat_cond", 0);
             γ_to(BACK, bentry);
@@ -2070,22 +2090,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return bentry;
         } else {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = ω;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, ω, LOOP);
             IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body", 0);
             γ_to(LOOP, bentry);
             ω_to(LOOP, bentry);
             *res = LOOP;
             return bentry;
         }
+        case TT_LABEL_DEF:
+        { cx->loop_label = (t->n == 1 && rk_is_loop_node(t->c[0])) ? t->v.sval : NULL; IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res); cx->loop_label = NULL; return le; }
         case TT_LOOP_BREAK:
         case TT_LOOP_NEXT:
-        { IR_t * tgt = (t->t == TT_LOOP_BREAK) ? cx->loop_exit : cx->loop_next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
+        { IR_t * tgt = !cx->loops ? NULL : (t->t == TT_LOOP_BREAK) ? cx->loops->exit : cx->loops->next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
         case TT_EVERY:
         if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && !t->c[0]->v.sval) {
             char sn[48];
@@ -2122,12 +2141,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (src && src->t == TT_FNC && src->v.sval && rk_proc_is_generator(src->v.sval)) {
                 IR_t * rcall = NULL;
                 IR_t * centry = lower_rv(cx, src, NULL, γ, &rcall);
-                IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-                cx->loop_exit = γ;
-                cx->loop_next = rcall;
+                rk_loopfr_t lf;
+                rk_loop_open(cx, &lf, γ, rcall);
                 IR_t * inner = rk_xf_body(cx, xf, xfk, vname, rcall, body, rcall, ω);
-                cx->loop_exit = sv_exit;
-                cx->loop_next = sv_next;
+                rk_loop_close(cx, &lf, inner);
                 γ_to(rcall, inner);
                 *res = rcall;
                 return centry;
@@ -2142,12 +2159,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ir_operand_push(to, rlo);
                 ir_operand_push(to, rhi);
                 if (rhi && ir_is_generator_kind(to->op)) lc_γ_to(rhi, to);
-                IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-                cx->loop_exit = γ;
-                cx->loop_next = to;
+                rk_loopfr_t lf;
+                rk_loop_open(cx, &lf, γ, to);
                 IR_t * inner = rk_xf_body(cx, xf, xfk, vname, to, body, to, ω);
-                cx->loop_exit = sv_exit;
-                cx->loop_next = sv_next;
+                rk_loop_close(cx, &lf, inner);
                 γ_to(to, inner);
                 *res = to;
                 return elo;
@@ -2264,12 +2279,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             ir_operand_push(to, rhi);
             if (rhi && ir_is_generator_kind(to->op)) lc_γ_to(rhi, to);
             ir_operand_push(va, to);
-            IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = to;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, to);
             IR_t * bentry = lower_rblock(cx, t->c[3], to, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             γ_to(va, bentry);
             *res = to;
             return elo;
@@ -2914,8 +2927,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     cx.try_depth = 0;
     cx.g = g;
     cx.try_catch = NULL;
-    cx.loop_exit = NULL;
-    cx.loop_next = NULL;
+    cx.loops = NULL;
+    cx.loop_label = NULL;
     cx.cur_proc = pd;
     cx.cur_byref_mask = 0;
     cx.cur_nparams = 0;
@@ -6858,8 +6871,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         tcx.try_depth = 0;
         tcx.g = tg;
         tcx.try_catch = NULL;
-        tcx.loop_exit = NULL;
-        tcx.loop_next = NULL;
+        tcx.loops = NULL;
+        tcx.loop_label = NULL;
         tcx.cur_proc = NULL;
         tcx.cur_byref_mask = 0;
         tcx.cur_nparams = 0;
