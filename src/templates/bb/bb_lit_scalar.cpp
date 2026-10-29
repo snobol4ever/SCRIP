@@ -126,6 +126,7 @@ std::string bb_lit_scalar() {
              + x86_gamma()
              + x86_beta_trampoline()
              + x86(".quad_ro", L(0), LS(0), _.op_sval ? _.op_sval : "")
+             + x86(".cset_hdr", _.op_sval)
              + x86("label", LS(0))
              + (_.op_a_node_kind >= 0
                  ? x86(".string", _.op_sval ? _.op_sval : "", (unsigned long)_.op_a_ival_sg)

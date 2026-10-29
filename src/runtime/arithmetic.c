@@ -602,7 +602,7 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
         if (!icn_cset_operand_ok(b)) {
             const char *cs = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen);
             ur = cset_union(cs, aslen, "", 0, &outlen);
-            core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : ""), b);
+            core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : kw_cset_empty()), b);
             core_icn_error(120, b);
             return FAILDESCR;
         }
@@ -611,7 +611,7 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
     if (op == BINOP_CUNION) ur = cset_union(as, aslen, bs, bslen, &outlen);
     else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);
     else ur = cset_inter(as, aslen, bs, bslen, &outlen);
-    return CSETVAL(outlen > 0 ? ur : "");
+    return CSETVAL(outlen > 0 ? ur : kw_cset_empty());
 }
 static DESCR_t rt_int_neg_div(int64_t li, int strict) {
     if (li != INT64_MIN) return INTVAL(-li);

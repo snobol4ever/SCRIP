@@ -1,4 +1,5 @@
 #include <string.h>
+#include "../ir/cset_block.h"
 #include "g_runtime.h"
 #include "ct_arena.h"
 #include <stdlib.h>
@@ -236,7 +237,7 @@ static const char * icn_cset_canon(const char * s, int len, int * out_len) {
     for (int c = 0; c < 256; c++) if (seen[c]) buf[n++] = (char) c;
     buf[n] = 0;
     if (out_len) *out_len = n;
-    { char * p = (char *) ct_alloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
+    { char * b = (char *) ct_alloc((size_t) CSET_BLK_HDR + (size_t) n + 1); return b ? cset_block_init(b, buf, n) : b; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) { IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) len; ir_operand_push(nd, ln); }

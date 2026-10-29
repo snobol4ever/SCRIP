@@ -8,6 +8,7 @@
 #include "rt/rt_coexpr.h"
 #include "rtx/rtcc.h"
 #include "../ir/ab_abi.h"
+#include "../ir/cset_block.h"
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
@@ -104,6 +105,13 @@ const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi) {
     memcpy(&sv, w, sizeof sv);
     return (IS_CSET_fn(sv) && sv.s) ? kw_cset_bits(sv.s) : (const unsigned char *)0;
 }
+static char *kw_cset_block_new(const char *chars, int len) {
+    extern void *rt_wsb_alloc(size_t);
+    char *base = (char *)rt_wsb_alloc((size_t)CSET_BLK_HDR + (size_t)(len > 0 ? len : 0) + 1u);
+    return cset_block_init(base, chars, len);
+}
+static char kw_cset_empty_store[CSET_BLK_HDR + 8];
+const char *kw_cset_empty(void) { if (!kw_cset_empty_store[CSET_BLK_HDR + CSET_BLK_MAGIC_OFF]) cset_block_init(kw_cset_empty_store, "", 0); return kw_cset_empty_store + CSET_BLK_HDR; }
 static void kw_cset_append(const char *ptr, const char *name, int len) {
     kw_cset_grow();
     g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count].ptr = ptr;
@@ -118,18 +126,15 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].name, kw_name))
         return CSETVAL(g_runtime.kw.kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars, (int)strlen(chars));
-    char *stable = rt_heap_strdup_c(arena);
-    int clen = (int)strlen(stable);
+    int clen = (int)strlen(arena);
+    char *stable = kw_cset_block_new(arena, clen);
     kw_cset_append(stable, kw_name, clen);
     return CSETVAL(stable);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].name, name)) return;
-    extern void *rt_wsb_alloc(size_t);
-    char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
-    memcpy(stable, chars, (size_t)len);
-    stable[len] = '\0';
+    char *stable = kw_cset_block_new(chars, len);
     kw_cset_append(stable, name, len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -178,14 +183,7 @@ const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
     if (!canon) { canon = ""; if (len > 0) len = 0; }
     if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_runtime.kw.kw_cset_names[hit].ptr; }
-    {
-        extern void *rt_wsb_alloc(size_t);
-        char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
-        memcpy(stable, canon, (size_t)len);
-        stable[len] = '\0';
-        kw_cset_append(stable, NULL, len);
-        return stable;
-    }
+    { char *stable = kw_cset_block_new(canon, len); kw_cset_append(stable, NULL, len); return stable; }
 }
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;

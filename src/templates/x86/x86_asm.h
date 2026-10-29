@@ -10,6 +10,7 @@
 #include <cstdio>
 #include "emit.h"
 #include "pin_va.h"
+#include "../../ir/cset_block.h"
 extern "C" {
 extern uint64_t g_rtccb[32];
 void rt_pl_tr_refuse(const char *);
@@ -1811,6 +1812,14 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind != XK_ILBL) { fprintf(stderr, "FATAL x86: .quad_ro takes an internal label L(n) first, then the target's text name and its binary value\n"); abort(); }
         if (MEDIUM_BINARY) return x86_deflabel_id(a.lbl) + x86_Lrec(u64le(xc.tag == 2 ? xc.u : (uint64_t)(uintptr_t)(xc.s ? xc.s : "")));
         return x86_ro_cell(x86_internal_name(a.lbl), std::string(xb.s ? xb.s : "0"));
+    }
+    if (X86_MEQ(mnem, ".cset_hdr")) {
+        uint64_t hq[CSET_BLK_HDR / 8];
+        std::string hr;
+        if (MEDIUM_BINARY || !xa.s) return std::string();
+        memcpy(hq, xa.s + CSET_BLK_LEN_OFF, sizeof hq);
+        for (size_t hi = 0; hi < CSET_BLK_HDR / 8; hi++) hr += std::string(" .quad ") + std::to_string((unsigned long long)hq[hi]) + "\n";
+        return hr;
     }
     if (X86_MEQ(mnem, ".string")) {
         if (MEDIUM_BINARY) return std::string();

@@ -760,6 +760,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "k_seq", GC_RET_OTHER },
     { "k_span", GC_RET_OTHER },
     { "key_of_head_tree", GC_RET_OTHER },
+    { "kw_cset_block_new", GC_RET_OTHER },
     { "kw_cset_intern", GC_RET_OTHER },
     { "kw_cset_len", GC_RET_OTHER },
     { "kw_cset_name", GC_RET_OTHER },

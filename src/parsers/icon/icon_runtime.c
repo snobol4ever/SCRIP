@@ -2,6 +2,7 @@
 extern void rt_icn_cset_register(const char *ptr, int len);
 extern const unsigned char *kw_cset_bits(const char *ptr);
 extern const char *kw_cset_intern(const char *canon, int len);
+extern const char *kw_cset_empty(void);
 extern int kw_cset_len(const char *ptr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cset_bits_of(const char *s, int len, unsigned char w[32]) {
@@ -17,7 +18,7 @@ static const char *cset_from_bits(const unsigned char w[32], int *outlen) {
         for (int by = base; by < base + 8; by++) { unsigned m = w[by]; while (m) { int bit = __builtin_ctz(m); buf[n++] = (char)(by * 8 + bit); m &= m - 1; } } }
     buf[n] = '\0';
     if (outlen) *outlen = n;
-    return n ? kw_cset_intern(buf, n) : "";
+    return n ? kw_cset_intern(buf, n) : kw_cset_empty();
 }
 static int cset_is_canonical(const char *s, int len) {
     for (int i = 1; i < len; i++) if ((unsigned char)s[i] <= (unsigned char)s[i - 1]) return 0;
@@ -44,7 +45,7 @@ const char *cset_inter(const char *a, int alen, const char *b, int blen, int *ou
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *cset_canonical(const char *cs, int len) {
-    if (!cs || len <= 0) return "";
+    if (!cs || len <= 0) return kw_cset_empty();
     if (cset_is_canonical(cs, len) && kw_cset_bits(cs) && kw_cset_len(cs) == len) return cs;
     unsigned char x[32]; cset_bits_of(cs, len, x);
     return cset_from_bits(x, (int *)0);
