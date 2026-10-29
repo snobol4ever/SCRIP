@@ -34294,6 +34294,19 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "$ats_drop", 2 },
     { "$ats_opts", 1 },
     { "$atp_goal", 2 },
+    { "variant_get_residual", 2 },
+    { "table_state", 4 },
+    { "truth_value", 2 },
+    { "get_calls_for_table", 2 },
+    { "abolish_table_subgoal", 1 },
+    { "abolish_table_subgoal", 2 },
+    { "abolish_nonincremental_tables", 0 },
+    { "abolish_nonincremental_tables", 1 },
+    { "delete_return", 2 },
+    { "delete_return", 3 },
+    { "$xt_tv1", 2 },
+    { "$xt_ntp", 1 },
+    { "$tbl $xt_ntp", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
@@ -34347,7 +34360,36 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "'$ats_opts'([]):-!.\n"
     "'$ats_opts'(O):-is_list(O),(memberchk(abolish_tables_transitively,O);memberchk(abolish_tables_singly,O)),!.\n"
     "'$ats_opts'(O):-is_list(O),!,throw(error(domain_error([abolish_tables_transitively,abolish_tables_singly],O),abolish_table_subgoals/2)).\n"
-    "'$ats_opts'(O):-throw(error(type_error(list,O),abolish_table_subgoals/2)).\n";
+    "'$ats_opts'(O):-throw(error(type_error(list,O),abolish_table_subgoals/2)).\n"
+    "variant_get_residual(CallSkel,DelayList):-get_call(CallSkel,S,R),get_returns_and_dls(S,R,DLs),(DLs==[]->DelayList=[];DLs=[DL]->DelayList=DL;member(DelayList,DLs)).\n"
+    "table_state(Call,PT,CT,AS):-'$tbl_strip'(Call,_,G),'$xt_state'(Call,G,PT,CT,AS).\n"
+    "'$xt_state'(Call,_,variant,producer,AS):-get_call(Call,T,_),!,'$tbl_table_status'(T,S,_,_),'$xt_as'(S,AS).\n"
+    "'$xt_state'(_,G,variant,no_entry,undefined):-callable(G),predicate_property(G,tabled),!.\n"
+    "'$xt_state'(_,_,undefined,undefined,undefined).\n"
+    "'$xt_as'(complete,complete):-!.\n"
+    "'$xt_as'(invalid,incremental_needs_reeval):-!.\n"
+    "'$xt_as'(_,incomplete).\n"
+    "truth_value(Goal,TV):-('$tbl_strip'(Goal,_,G),callable(G),predicate_property(G,tabled)->(call(Goal),fail;true),'$xt_tv1'(Goal,TV);'$xt_ntp_tv'(Goal,TV)).\n"
+    "'$xt_ntp_tv'(Goal,TV):-abolish_table_subgoal('$xt_ntp'(Goal)),('$xt_ntp'(Goal),fail;true),'$xt_tv1'('$xt_ntp'(Goal),TV).\n"
+    "'$xt_ntp'(G):-'$tbl_call'('$xt_ntp'(G),'$tbl $xt_ntp'(G)).\n"
+    "'$tbl $xt_ntp'(G):-call(G).\n"
+    "'$xt_tv1'(Goal,TV):-table_state(Goal,_,_,AS),(AS==complete->(\\+ \\+ call(Goal)->variant_get_residual(Goal,Resid),(Resid==[]->TV=true;TV=undefined);TV=false);throw(error(permission_error(obtain_models_truth_value,AS,Goal),context(model_tv/2,_)))).\n"
+    "get_calls_for_table(PS,Call):-'$xt_spec'(PS,Call),'$tbl_strip'(Call,_,G),(predicate_property(G,tabled)->true;throw(error(permission_error('table access','non-tabled or non incremental predicate',G),context(get_calls/3,_)))),get_calls(Call,_,_).\n"
+    "'$xt_spec'(PS,Call):-nonvar(PS),PS=P/N,!,functor(Call,P,N).\n"
+    "'$xt_spec'(PS,Call):-'$tbl_strip'(PS,M,G),functor(G,P,N),functor(G2,P,N),(atom(M),M\\==user->'$tbl_qual'(M,G2,Call);Call=G2).\n"
+    "abolish_table_subgoal(MG):-'$ats_goal'(MG,QG),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$xt_vsplit'(L,QG,A,R),'$ats_close'(A,R,All),'$ats_drop'(All,VT).\n"
+    "abolish_table_subgoal(MG,O):-'$ats_opts'(O),abolish_table_subgoal(MG).\n"
+    "'$xt_vsplit'([],_,[],[]).\n"
+    "'$xt_vsplit'([E|L],G,A,R):-E=e(_,V,_),('$xt_variant'(V,G)->A=[E|A1],R=R1;A=A1,R=[E|R1]),'$xt_vsplit'(L,G,A1,R1).\n"
+    "'$xt_variant'(V,G):-(V=@=G;V=@=tabled_call(G);V=@=incr_tabled_call(G)),!.\n"
+    "abolish_nonincremental_tables:-'$xt_ani'(error).\n"
+    "abolish_nonincremental_tables(O):-('$xt_opt'(O,X)->true;throw(error(domain_error([on_incomplete/1],O),abolish_nonincremental_tables/1))),'$xt_ani'(X).\n"
+    "'$xt_opt'(O,X):-nonvar(O),(O=on_incomplete(X);O=[on_incomplete(X)]),memberchk(X,[skip,error]).\n"
+    "'$xt_ani'(Act):-'$tbl_vt'(VT),'$trie_entries'(VT,L),'$xt_ani_drop'(L,VT,Act).\n"
+    "'$xt_ani_drop'([],_,_).\n"
+    "'$xt_ani_drop'([e(_,V,T)|L],VT,Act):-'$tbl_unqual'(V,_,G),functor(G,F,N),(\\+ '$tbl_isincr'(F/N)->('$tbl_answered'(T)->('$trie_delete'(VT,V,_)->true;true),'$trie_destroy'(T);Act==error->throw(error(table_error('abolishing incomplete tabled call'),abolish_nonincremental_tables/0));true);true),'$xt_ani_drop'(L,VT,Act).\n"
+    "delete_return(T,N):-'$trie_id'(T,I),'$trie_entries'(I,As),nth1(N,As,e(_,R,_)),('$trie_delete'(I,R,_)->true;true),!.\n"
+    "delete_return(T,N,_):-delete_return(T,N).\n";
 static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "aggregate", PL_PRELUDE_LIB_0_EXPORTS, PL_PRELUDE_LIB_0_OPS, PL_PRELUDE_LIB_0_SHADOWS, PL_PRELUDE_LIB_0_QUIET, PL_PRELUDE_LIB_0_SRC, PL_PRELUDE_LIB_0_METAS, PL_PRELUDE_LIB_0_LOADS, 0 },
     { "apply", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC, PL_PRELUDE_LIB_1_METAS, PL_PRELUDE_LIB_1_LOADS, 0 },
