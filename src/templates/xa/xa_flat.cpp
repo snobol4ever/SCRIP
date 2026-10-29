@@ -53,97 +53,83 @@ extern "C" { struct rt_sxt_fr_s; extern struct rt_sxt_fr_s * const rt_sxt_fr_p; 
 extern "C" struct gv_s g_call_args;
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_dc_stub_str(void) {
-    x86_begin();
-    int kt = g_emit.flat_frame_bytes;
-    int anchor = -1;
-    int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
-    extern int g_flat_dc_np;
-    int np = g_flat_dc_np;
-    static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (g_emit_cfg && g_emit_cfg->pf.block_args) {
-        int nb = g_emit_cfg->nparams;
-        if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
-        std::string zs = x86("comment",
+extern int g_flat_dc_np;
+static const char * const zf_dc_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+static std::string zf_dc_rets(long n) {
+    return x86_deflabel_id(2)
+         + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, (int)n)
+         + x86("add", "rsp", n)
+         + x86("ret")
+         + x86_deflabel_id(3)
+         + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, (int)n)
+         + x86("add", "rsp", n)
+         + x86("mov32", "eax", 104L)
+         + x86("xor", "edx", "edx")
+         + x86("ret");
+}
+static std::string zf_dc_block_head(int nb) {
+    return x86("comment",
             "the block protocol, Raku regime: the direct-call stub builds the callee's argument block on the spine from "
                 "the caller's cells and jumps past the staged entry; no rt_arg_stage, no poll (nothing can allocate between here and the callee's first safe point)")
             + x86("pop", "rax")
             + x86("push", "rax")
             + x86("push", "rax")
             + IF(nb > 0, x86("sub", "rsp", (long)(16 * nb)));
-        for (int i = 0; i < np; i++)
-            zs += x86("mov", "rax", "[" + std::string(argreg[i]) + " + 0]")
-                + x86("mov", "rdi", "[" + std::string(argreg[i]) + " + 8]")
-                + x86("mov", RDQ("rsp", 16 * i), "rax")
-                + x86("mov", RDQ("rsp", 16 * i + 8), "rdi");
-        for (int i = np; i < nb; i++)
-            zs += x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
-                + x86("mov", RDQ("rsp", 16 * i + 8), 0L);
-        zs += x86_lea_id("rcx", 2)
-            + x86_lea_id("rdx", 3)
-            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?")
-            + x86_deflabel_id(2)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("ret")
-            + x86_deflabel_id(3)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("mov32", "eax", 104L)
-            + x86("xor", "edx", "edx")
-            + x86("ret");
-        return zs;
-    }
-    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) {
-        static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
-        bool need_align_pad = (np > 0) && (np % 2 == 1);
-        std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
+}
+static std::string zf_dc_block_pass(int i) {
+    return x86("mov", "rax", "[" + std::string(zf_dc_argreg[i]) + " + 0]")
+         + x86("mov", "rdi", "[" + std::string(zf_dc_argreg[i]) + " + 8]")
+         + x86("mov", RDQ("rsp", 16 * i), "rax")
+         + x86("mov", RDQ("rsp", 16 * i + 8), "rdi");
+}
+static std::string zf_dc_block_snul(int i) {
+    return x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
+         + x86("mov", RDQ("rsp", 16 * i + 8), 0L);
+}
+static std::string zf_dc_block(int np, int nb) {
+    return (np > nb || nb > 12) ? x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters")
+         : emit_seq({zf_dc_block_head(nb), FOR(0, np, zf_dc_block_pass), FOR(np, nb, zf_dc_block_snul),
+                     x86_lea_id("rcx", 2) + x86_lea_id("rdx", 3) + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?") + zf_dc_rets(8)});
+}
+static int zf_dc_pad(int np) {
+    return (np > 0 && np % 2 == 1) ? 1 : 0;
+}
+static int zf_dc_pushbytes(int np) {
+    return np * 8 + (zf_dc_pad(np) ? 8 : 0);
+}
+static std::string zf_dc_zf_head(int np) {
+    return emit_seq({x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
             + x86("pop", "rax")
             + x86("push", "rax")
-            + x86("push", "rax");
-        if (need_align_pad) zs += x86("push", "rax");
-        for (int i = np - 1; i >= 0; i--) zs += x86("push", dcarg4[i]);
-        int push_bytes = np * 8 + (need_align_pad ? 8 : 0);
-        for (int i = 0; i < np; i++) {
-            zs += x86("mov", "rax", "[rsp + " + std::to_string(i * 8) + "]")
+            + x86("push", "rax"),
+        IF(zf_dc_pad(np), x86("push", "rax")),
+        FOR(0, np, [&](int j) { return x86("push", zf_dc_argreg[np - 1 - j]); })});
+}
+static std::string zf_dc_zf_stage(int i) {
+            return x86("mov", "rax", "[rsp + " + std::to_string(i * 8) + "]")
                 + x86("mov32", "edi", (long)i)
                 + x86("mov", "rsi", "[rax + 0]")
                 + x86("mov", "rdx", "[rax + 8]")
                 + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
-           + x86_rt_gc_poll();
-        }
-        if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
-        if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
-            zs += x86_lea_id("rcx", 3) + x86("push", "rcx")
-                + x86_lea_id("rcx", 2) + x86("push", "rcx")
-                + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
-                + x86_deflabel_id(2)
-                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
-                + x86("add", "rsp", 24L)
-                + x86("ret")
-                + x86_deflabel_id(3)
-                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
-                + x86("add", "rsp", 24L)
-                + x86("mov32", "eax", 104L)
-                + x86("xor", "edx", "edx")
-                + x86("ret");
-            return zs;
-        }
-        zs += x86_lea_id("rcx", 2)
-            + x86_lea_id("rdx", 3)
-            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
-            + x86_deflabel_id(2)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("ret")
-            + x86_deflabel_id(3)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("mov32", "eax", 104L)
-            + x86("xor", "edx", "edx")
-            + x86("ret");
-        return zs;
-    }
+         + x86_rt_gc_poll();
+}
+static std::string zf_dc_zf_wire(void) {
+    return x86_lea_id("rcx", 3) + x86("push", "rcx")
+         + x86_lea_id("rcx", 2) + x86("push", "rcx")
+         + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
+         + zf_dc_rets(24);
+}
+static std::string zf_dc_zf_plain(void) {
+    return x86_lea_id("rcx", 2)
+         + x86_lea_id("rdx", 3)
+         + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
+         + zf_dc_rets(8);
+}
+static std::string zf_dc_zf(int np) {
+    return emit_seq({zf_dc_zf_head(np), FOR(0, np, zf_dc_zf_stage), IF(zf_dc_pushbytes(np) > 0, x86("add", "rsp", (long)zf_dc_pushbytes(np))),
+                     (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_dc_zf_wire() : zf_dc_zf_plain()});
+}
+static std::string zf_dc_pl(int kt, int np) {
     return x86("comment", "PL-DC direct-call entry: retaddr -> kt-32 pad, wires -> local ret-shims, one prep crossing, shared body")
          + x86("pop", "rax")
          + x86("sub", "rsp", (long)(kt + 16))
@@ -154,10 +140,9 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("mov", FRQ(kt - 24), "rax")
          + x86_lea_id("rax", 3)
          + x86("mov", FRQ(kt - 16), "rax")
-         + IF(anchor >= 0, x86("mov", FRQ(anchor), "rsp"))
-         + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), argreg[i]); })
+         + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), zf_dc_argreg[i]); })
          + x86("mov", "rdi", "rsp")
-         + x86("mov32", "esi", (long)suffix)
+         + x86("mov32", "esi", (long)(g_emit.flat_seed_off >= 16 ? g_emit.flat_seed_off : 16))
          + x86("mov32", "edx", (long)(kt - 32))
          + x86("mov32", "ecx", (long)np)
          + x86("mov32", "r8d", (long)np)
@@ -183,22 +168,18 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("push", "r11")
          + x86_jmpfn("rt_pl_dc_leave_ω", TEMPLATE_FN_ADDR(rt_pl_dc_leave_ω));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_block_staged_entry_str(void) {
+static std::string zf_dc(int kt, int np) {
+    return (g_emit_cfg && g_emit_cfg->pf.block_args) ? zf_dc_block(np, g_emit_cfg->nparams)
+         : (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) ? zf_dc_zf(np)
+         : zf_dc_pl(kt, np);
+}
+static std::string xa_flat_dc_stub_str(void) {
     x86_begin();
-    int nb = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    if (nb <= 0) return std::string();
-    if (nb > 12) return x86_bomb("xa_flat_block_staged_entry: more than 12 parameters");
-    std::string s = x86("comment",
-        "the staged entry of a block-protocol graph (every by-name road, glue and C entry stages g_call_args and jumps "
-            "here): build the argument block on the spine from the staged cells, a cell beyond the medium's capacity a "
-                "null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
-        + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
-        + x86("mov", "rdi", "[rsi + 0]")
-        + x86("mov", "esi", RDD("rsi", 12))
-        + x86("sub", "rsp", (long)(16 * nb));
-    for (int i = 0; i < nb; i++) {
-        s += x86("cmp", "esi", (long)(i + 1))
+    return zf_dc(g_emit.flat_frame_bytes, g_flat_dc_np);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string zf_bse_cell(int i) {
+        return x86("cmp", "esi", (long)(i + 1))
            + x86_jcc_id("jb", 2 * i)
            + x86("mov", "rax", "[rdi + " + std::to_string(16 * i) + "]")
            + x86("mov", RDQ("rsp", 16 * i), "rax")
@@ -209,8 +190,22 @@ static std::string xa_flat_block_staged_entry_str(void) {
            + x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
            + x86("mov", RDQ("rsp", 16 * i + 8), 0L)
            + x86_deflabel_id(2 * i + 1);
-    }
-    return s;
+}
+static std::string zf_bse(int nb) {
+    return nb <= 0 ? std::string() : nb > 12 ? x86_bomb("xa_flat_block_staged_entry: more than 12 parameters")
+         : emit_seq({x86("comment",
+        "the staged entry of a block-protocol graph (every by-name road, glue and C entry stages g_call_args and jumps "
+            "here): build the argument block on the spine from the staged cells, a cell beyond the medium's capacity a "
+                "null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
+        + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
+        + x86("mov", "rdi", "[rsi + 0]")
+        + x86("mov", "esi", RDD("rsi", 12))
+        + x86("sub", "rsp", (long)(16 * nb)),
+                     FOR(0, nb, zf_bse_cell)});
+}
+static std::string xa_flat_block_staged_entry_str(void) {
+    x86_begin();
+    return zf_bse(g_emit_cfg ? g_emit_cfg->nparams : 0);
 }
 extern "C" void xa_flat_block_staged_entry(void) { bb_emit_x86(xa_flat_block_staged_entry_str()); }
 extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }
