@@ -2303,8 +2303,8 @@ RTX_FUNC(rt_gc_site_find_a)
     jg      .Lsf_es_miss
     lea     rbp, [rax + rdx]
     sar     rbp, 1
-    mov     r11, rbp
-    shl     r11, 4
+    lea     r11, [rbp + rbp*2]
+    shl     r11, 3
     add     r11, r8
     cmp     qword ptr [r11], rdi
     je      .Lsf_hit

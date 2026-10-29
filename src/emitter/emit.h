@@ -529,6 +529,8 @@ typedef struct {
     int zop_seen;
     int op_zdepth;
     int op_zrun;
+    int op_wk_off, op_wk_n, op_wk_e, op_wk_pre;
+    const uint64_t * op_wk_pool;
     int op_zxb;
     int op_vdj_live;
     int op_zres;

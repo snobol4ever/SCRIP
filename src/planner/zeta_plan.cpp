@@ -290,13 +290,32 @@ static int zd_bcs_words(const IR_graph_t * cg, const IR_t * nd, int w) {
     if (w == -5) return planner_alt_k(cg, nd);
     return w;
 }
-int zd_k_own_g(const IR_graph_t * cg, IR_t * nd) {
+static int zd_bcs_pick(const IR_graph_t * cg, IR_t * nd) {
     int op = (int)nd->op;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
         if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(cg, nd, box_cell_shapes[r].when)) continue;
-        return zd_bcs_words(cg, nd, box_cell_shapes[r].words);
+        return (int)r;
     }
-    return 16;
+    return -1;
+}
+int zd_k_own_g(const IR_graph_t * cg, IR_t * nd) {
+    int r = zd_bcs_pick(cg, nd);
+    return r < 0 ? 16 : zd_bcs_words(cg, nd, box_cell_shapes[r].words);
+}
+void zd_wk_own(const IR_graph_t * cg, IR_t * nd, std::vector<char> & w) {
+    int r = zd_bcs_pick(cg, nd), nw = (r < 0 ? 16 : zd_bcs_words(cg, nd, box_cell_shapes[r].words)) / 8;
+    w.assign((size_t)(nw > 0 ? nw : 0), 0);
+    if (r < 0) { if (nw > 0) w[0] = 1; }
+    else {
+        const auto & b = box_cell_shapes[r];
+        int fill_n = nw - b.wk_pre_n - b.wk_suf_n;
+        for (int i = 0; i < b.wk_pre_n && i < nw; i++) if ((b.wk_pre >> i) & 1u) w[(size_t)i] = 1;
+        if (b.wk_fill == 1) for (int i = 0; i < fill_n; i += 2) w[(size_t)(b.wk_pre_n + i)] = 1;
+        if (b.wk_fill && fill_n >= 0) for (int i = 0; i < b.wk_suf_n; i++) if ((b.wk_suf >> i) & 1u) w[(size_t)(b.wk_pre_n + fill_n + i)] = 1;
+    }
+    int ow = (int)w.size(), st = zst_s_of(nd) / 16, kw = zd_k_g(cg, nd) / 8;
+    w.resize((size_t)(kw > 0 ? kw : 0), 0);
+    for (int j = 0; j < st && ow + 2 * j < kw; j++) w[(size_t)(ow + 2 * j)] = 1;
 }
 static int zd_map_on(void) { if (g_planner.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_planner.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_planner.zd_map_on__m; }
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
@@ -2017,6 +2036,57 @@ static int zd_cross_code(const IR_graph_t * cg, IR_t ** nodes, int n, int k, int
     unsigned fin = mk[(size_t)i] | mk[jo + (size_t)i];
     for (int c = 3; c <= 11; c++) if (fin & (1u << c)) return c;
     return 0;
+}
+void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
+    rec->v_wk.clear();
+    std::vector<int> E((size_t)n, -1), X((size_t)n, -1);
+    std::vector<std::vector<uint64_t>> in((size_t)n);
+    for (int i = 0; i < n; i++) {
+        znode_t * z = &rec->zn[i];
+        z->wkoff = -1; z->wkn = 0; z->wke = 0;
+        if (!rec->on[i] || !rec->xb || rec->xb[i] == INT_MIN || rec->out[i] < 0) continue;
+        int e = z->zrunb + z->xbp, x = e + z->k;
+        if (z->k < 0 || (e & 7) || (x & 7) || e < 0) continue;
+        E[(size_t)i] = e; X[(size_t)i] = x; in[(size_t)i].assign((size_t)((e / 8 + 63) / 64), 0u);
+    }
+    std::vector<char> own;
+    for (int pass = 0, ch = 1; ch && pass < 4; pass++) {
+        ch = 0;
+        for (int j = 0; j < n; j++) {
+            if (E[(size_t)j] < 0) continue;
+            std::vector<uint64_t> st = in[(size_t)j];
+            st.resize((size_t)((X[(size_t)j] / 8 + 63) / 64), 0u);
+            zd_wk_own(g, nodes[j], own);
+            for (size_t c = 0; c < own.size(); c++) if (own[c]) { int w = X[(size_t)j] / 8 - 1 - (int)c; if (w >= 0) st[(size_t)w / 64] |= 1ull << (w % 64); }
+            IR_t * sc[1 + 64]; int ns = 0, o2 = (int)nodes[j]->op;
+            sc[ns++] = nodes[j]->γ.node;
+            if (zd_check_arm_env(o2)) {
+                int na = (o2 == IR_DISJUNCTION) ? (int)IR_LIT(nodes[j]).ival : -1;
+                for (int q = 0; q < nodes[j]->n_operands && ns < 65; q++) if (na < 0 || (q < 2 * na && !(q & 1))) sc[ns++] = nodes[j]->operands[q];
+            }
+            for (int s = 0; s < ns; s++) {
+                IR_t * t = sc[s] ? zd_chase(sc[s]) : (IR_t *)0;
+                int y = t ? nidx(nodes, n, t) : -1;
+                if (y < 0 || E[(size_t)y] < 0) continue;
+                int lim = E[(size_t)y] / 8 < X[(size_t)j] / 8 ? E[(size_t)y] / 8 : X[(size_t)j] / 8;
+                for (int q = 0; q * 64 < lim; q++) {
+                    uint64_t v = st[(size_t)q];
+                    if (q * 64 + 64 > lim) v &= (1ull << (lim - q * 64)) - 1ull;
+                    if (v & ~in[(size_t)y][(size_t)q]) { in[(size_t)y][(size_t)q] |= v; ch = 1; }
+                }
+            }
+        }
+    }
+    for (int i = 0; i < n; i++) {
+        if (E[(size_t)i] < 0) continue;
+        int nb = E[(size_t)i] / 8, any = 0;
+        std::vector<uint64_t> asc((size_t)((nb + 63) / 64), 0u);
+        for (int w = 0; w < nb; w++) if ((in[(size_t)i][(size_t)w / 64] >> (w % 64)) & 1ull) { int b = nb - 1 - w; asc[(size_t)b / 64] |= 1ull << (b % 64); any = 1; }
+        if (!any) continue;
+        znode_t * z = &rec->zn[i];
+        z->wkoff = (int)rec->v_wk.size(); z->wkn = nb; z->wke = E[(size_t)i];
+        rec->v_wk.insert(rec->v_wk.end(), asc.begin(), asc.end());
+    }
 }
 static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zarm, const int * zcps, const int * zcpd) {
     const IR_graph_t * g = cg;

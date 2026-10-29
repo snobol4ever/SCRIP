@@ -444,6 +444,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
     for (int i = 0; i < n; i++) rec->zn[i].bu = bu[i];
     for (int i = 0; i < n; i++) pf_scan_t0(rec, nodes, n, i, g, bu);
     for (int i = 0; i < n; i++) pf_cells(rec, nodes, n, i, g);
+    zd_wk_fold(rec, nodes, n, g);
 }
 static int pf_blob_patv_reader(const IR_t * nd) { const char * sv = (nd && nd->op == IR_VAR) ? IR_LIT(nd).sval : (const char *)0; const char * d = sv ? strstr(sv, "$V") : (const char *)0;
     if (!d || strncmp(sv, "PAT$", 4)) return 0; char * e = (char *)0; (void) strtol(d + 2, &e, 10); return (e && e != d + 2 && !*e) ? 1 : 0; }

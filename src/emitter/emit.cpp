@@ -2761,6 +2761,11 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth;
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
+    e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0;
+    if ((rule == 0 || rule == 4) && g_emit.op_wk_off >= 0 && g_emit.op_wk_pool) {
+        int nw = (g_emit.op_wk_n + 63) / 64;
+        e->wk_off = (int32_t)g_emitter.g_gc_sites_wk.len; e->wk_n = g_emit.op_wk_n; e->wk_e = g_emit.op_wk_e; e->wk_pre = g_emit.op_wk_pre;
+        for (int q = 0; q < nw; q++) CV_PUSH(g_emitter.g_gc_sites_wk, uint64_t) = g_emit.op_wk_pool[g_emit.op_wk_off + q]; }
     return (int)g_emitter.g_gc_sites_v.len - 1;
 }
 static void emit_gc_rsp_reset(void) { x86_rsp_reset_all(); }
@@ -2768,7 +2773,7 @@ extern "C++" int emit_gc_site_raw(int kind, int rule, int depth) {
     if (!g_emitter.g_gc_sites_armed) return -1;
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = 0; e->fcb = 0; e->fcbase = 0;
         e->demit = depth;
-        e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
+        e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node; e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0;
     return (int)g_emitter.g_gc_sites_v.len - 1;
 }
 static int emit_gc_match_reaches(const IR_t * b, const IR_t * nd) {
@@ -2851,6 +2856,17 @@ extern "C" int emit_gc_sites_offs_n(void) { return (int)g_emitter.g_gc_sites_off
 extern "C" int emit_gc_sites_off(int k) { return (k >= 0 && (uint32_t)k < g_emitter.g_gc_sites_offs_v.len) ? CV_AT(g_emitter.g_gc_sites_offs_v, int, k) : -1; }
 extern "C" int emit_gc_sites_names_n(void) { return g_emitter.g_gc_sites_names_n; }
 extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_emitter.g_gc_sites_names_n) ? CV_AT(g_emitter.g_gc_sites_names_v, char *, k) : "?"; }
+static int emit_gc_site_mask(const gc_site_t * e, std::vector<uint64_t> & out) {
+    out.clear();
+    if (e->wk_off < 0 || (e->rule != 0 && e->rule != 4)) return 0;
+    int D = e->depth, delta = D - e->wk_pre - e->wk_e;
+    if (D <= 0 || (D & 7) || delta < 0 || (delta & 7) || (e->wk_pre & 7)) return -1;
+    int nb = D / 8, sh = delta / 8;
+    out.assign((size_t)((nb + 63) / 64), 0u);
+    for (int j = 0; j < e->wk_n && j + sh < nb; j++)
+        if ((CV_AT(g_emitter.g_gc_sites_wk, uint64_t, e->wk_off + j / 64) >> (j % 64)) & 1ull) out[(size_t)(j + sh) / 64] |= 1ull << ((j + sh) % 64);
+    return 1;
+}
 static void emit_gc_sites_data(const char * fam, int frameless) {
      int n = (int)g_emitter.g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", g_emitter.emit_gc_sites_data_seq++);
     if (frameless && n == 0) { g_emitter.g_gc_sites_last_off = -1; return; }
@@ -2865,10 +2881,17 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         int ord[n > 0 ? n : 1];
         for (int i = 0; i < n; i++) ord[i] = i;
         std::stable_sort(ord, ord + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).pc < CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).pc; });
+        std::vector<uint64_t> pool, mk;
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
-            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
+            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = 0;
+            if (emit_gc_site_mask(e, mk) > 0) { if (gc_sites_report_on())
+                fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d arrival=%d pre=%d words=%zu mask0=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i, e->nd ? bb_op_name(e->nd->op) : "?",
+                (int)e->rule, (int)e->depth, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[0]);
+                if (e->depth <= 512) third = mk[0]; else { third = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size(); pool.insert(pool.end(), mk.begin(), mk.end());
+                } }
             t = " .quad " + emit_gc_site_label(i) + (g_emit.gc_code_lbl.name ? std::string("-") + g_emit.gc_code_lbl.name : std::string()) + "\n .quad "
-                + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
+                + std::to_string((unsigned long long)w) + "\n .quad " + std::to_string((unsigned long long)third) + "\n"; emit_text_n(t.data(), t.size()); }
+        for (size_t q = 0; q < pool.size(); q++) { t = " .quad " + std::to_string((unsigned long long)pool[q]) + "\n"; emit_text_n(t.data(), t.size()); }
         emit_textf(".popsection\n");
         g_emitter.g_gc_sites_last_off = 0;
     } else {
@@ -2879,11 +2902,17 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
             qsort(&CV_AT(g_emitter.g_gc_sites_v, gc_site_t, 0), (size_t)n, sizeof(gc_site_t), [](const void * a, const void * b) -> int { uint64_t x = ((const gc_site_t *)a)->pc,
                 y = ((const gc_site_t *)b)->pc;
             return (x > y) - (x < y); });
-        for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
-            bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); }
+        std::vector<uint64_t> pool, mk;
+        for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32),
+            third = 0;
+            if (emit_gc_site_mask(e, mk) > 0) { if (e->depth <= 512) third = mk[0]; else { third = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size(); pool.insert(pool.end(), mk.begin(), mk.end());
+                } }
+            bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); bb_emit_u64(third); }
+        for (size_t q = 0; q < pool.size(); q++) bb_emit_u64(pool[q]);
     }
     CV_PUSH(g_emitter.g_gc_sites_names_v, char *) = ct_strdup(tl.name); g_emitter.g_gc_sites_names_n++;
     g_emitter.g_gc_sites_v.len = 0;
+    g_emitter.g_gc_sites_wk.len = 0;
     (void)fam;
 }
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
@@ -3257,7 +3286,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     if (text_externalise && g_is_text && !fn_face_dead) emit_label_define_bb(&lbl_α);
     else if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) emit_label_define_bb(&lbl_α);
     if (g_is_text) g_emit_pos += 7;
-    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.flat_gen_above = 0; g_emit.op_zxb = 0;
+    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.flat_gen_above = 0; g_emit.op_zxb = 0; g_emit.op_wk_off = -1;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && g_emit_cfg->pf.block_args && !g_emit_cfg->pf.det_block) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
@@ -3767,6 +3796,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
           g_emit.op_zrun = _pl->zn[i].zrunb + _sigk + _sph + (g_emit.flat_gen ? _pl->zn[i].xbp : 0);
           g_emit.op_zxb = g_emit.flat_gen ? 0 : _pl->zn[i].xbp;
           g_emit.op_vdj_live = zd_vl[i];
+          g_emit.op_wk_off = _pl->zn[i].wkoff; g_emit.op_wk_n = _pl->zn[i].wkn; g_emit.op_wk_e = _pl->zn[i].wke; g_emit.op_wk_pre = _sigk + _sph; g_emit.op_wk_pool = _pl->v_wk.data();
           g_emitter.g_zd_fence_exit =
               (zd_arm && zd_arm[i] >= 0 && g_planner.codegen_flat_chain_body_nodes[zd_arm[i]]->op == IR_MATCH_FENCE1 &&
               _pl->zn[i].gt == g_planner.codegen_flat_chain_body_nodes[zd_arm[i]]) ? 1 : 0;

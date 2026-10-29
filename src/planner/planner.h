@@ -17,6 +17,7 @@ struct znode_t {
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
     int go0off, vp1off, cvnoff, pto, owno, vso, vp1vso, cft;
+    int wkoff, wkn, wke;
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
@@ -89,6 +90,7 @@ struct zeta_plan_t {
     std::vector<unsigned char> v_lspine;
     std::vector<int> v_rel;
     std::vector<uint64_t> v_blob_lay;
+    std::vector<uint64_t> v_wk;
 };
 enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
 const char * zeta_name(int z);
@@ -105,6 +107,8 @@ void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
+void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g);
+void zd_wk_own(const IR_graph_t * cg, IR_t * nd, std::vector<char> & w);
 void planner_blob_facts(zeta_plan_t * rec);
 void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon);
 void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char * prefix);

@@ -1637,15 +1637,16 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi) {
     for (int i = 0; i < g_runtime.gc.gc_maps_n; i++) if ((const void *)g_runtime.gc.gc_maps[i] < lo || (const void *)g_runtime.gc.gc_maps[i] >= hi) g_runtime.gc.gc_maps[w++] = g_runtime.gc.gc_maps[i];
     g_runtime.gc.gc_maps_n = w;
 }
-typedef struct { uint64_t off; uint16_t kind, rule; int32_t depth; } gc_site_ent_t;
+typedef struct { uint64_t off; uint16_t kind, rule; int32_t depth; uint64_t mask; } gc_site_ent_t;
 #define GC_SITE_RULE(e) ((int)((e)->rule & 255u))
 #define GC_SITE_EXT(e) ((int)((e)->rule >> 8))
-_Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12,
-    "A SITE ENTRY IS LAID OUT EXACTLY AS THE EMITTED (pc, word) PAIR, word = kind | rule << 16 | depth << 32 little-endian (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-"
-    "per-blo" "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before")
-    ;
+_Static_assert(sizeof(gc_site_ent_t) == 24 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12 &&
+    __builtin_offsetof(gc_site_ent_t, mask) == 16,
+    "A SITE ENTRY IS LAID OUT EXACTLY AS THE EMITTED (pc, word, mask) TRIPLE, word = kind | rule << 16 | depth << 32 little-endian, mask = the word-kind bits of a rule 0 or 4 site (inline to 512 byt"
+    "es of depth, else a byte offset from the table start into the pool after the entries) (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-" "per-blo"
+    "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before") ;
 typedef struct gc_site_blk { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; uint64_t code; } gc_site_blk_t;
-_Static_assert(sizeof(gc_site_blk_t) == 80 && sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_blk_t, lo) == 16 && __builtin_offsetof(gc_site_blk_t, hi) == 24 &&
+_Static_assert(sizeof(gc_site_blk_t) == 80 && sizeof(gc_site_ent_t) == 24 && __builtin_offsetof(gc_site_blk_t, lo) == 16 && __builtin_offsetof(gc_site_blk_t, hi) == 24 &&
     __builtin_offsetof(gc_site_blk_t, maxhi) == 32 && __builtin_offsetof(gc_site_blk_t, n) == 40 && __builtin_offsetof(gc_site_blk_t, ents) == 64,
     "rt_gc_site_find_a (rtx_gc.s) searches the site blocks and their entries at these offsets");
 static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->off, y = ((const gc_site_ent_t *)b)->off; return x < y ? -1 : x > y ? 1 : 0; }
@@ -1666,20 +1667,21 @@ static void gc_site_blk_add1(const void *tab, int dedup_n, int fix_maxhi) {
     n = (int)t[0];
     m = (const gc_frame_map_t *)(uintptr_t)t[1];
     if (m && m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-SITES] rt_gc_frame_sites_add: table %p names no frame map (%p)\n", tab, (const void *)m); abort(); }
-    for (int i = 0; i < n && inplace; i++) { uint64_t pc = t[4 + 2 * i], w = t[5 + 2 * i]; if (!pc || (w & 255u) == 4u || (w & 255u) == 5u || (i > 0 && pc <= t[2 + 2 * i])) inplace = 0; }
+    for (int i = 0; i < n && inplace; i++) { uint64_t pc = t[4 + 3 * i], w = t[5 + 3 * i]; if (!pc || (w & 255u) == 4u || (w & 255u) == 5u || (i > 0 && pc <= t[1 + 3 * i])) inplace = 0; }
     if (inplace) {
         e = n > 0 ? (const gc_site_ent_t *)(const void *)(t + 4) : (const gc_site_ent_t *)0;
         k = n;
     } else {
         gc_site_ent_t *c = n > 0 ? (gc_site_ent_t *)gcbk_alloc((size_t)n * sizeof *c) : (gc_site_ent_t *)0;
         for (int i = 0; i < n; i++) {
-            uint64_t pc = t[4 + 2 * i], w = t[5 + 2 * i];
+            uint64_t pc = t[4 + 3 * i], w = t[5 + 3 * i];
             if (!pc) continue;
             if ((w & 255u) == 4u || (w & 255u) == 5u) continue;
             c[k].off = pc;
             c[k].kind = (uint16_t)(w & 0xFFFFu);
             c[k].rule = (uint16_t)((w >> 16) & 0xFFFFu);
             c[k].depth = (int32_t)(uint32_t)(w >> 32);
+            c[k].mask = t[6 + 3 * i];
             k++;
         }
         if (k > 1) qsort(c, (size_t)k, sizeof *c, gc_site_ent_cmp);

@@ -36,7 +36,17 @@ struct emit_dir_ref { cv_t * chunks; cv_t * names; cv_t * hix; int * n; size_t e
 typedef struct { unsigned char set[256]; int nempty, impure, unknown; } blob_fg_t;
 typedef struct { cv_t var; cv_t thunk; } blob_fg_deps_t;
 typedef struct { const char * var; const char * thunk; const char * from; int conflict; } blob_fg_bind_t;
-typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
+typedef struct {
+    uint64_t pc;
+    int32_t depth;
+    uint16_t kind;
+    uint16_t rule;
+    int32_t zdepth, fcb, fcbase, demit;
+    const char * bk;
+    int mn;
+    const IR_t * nd;
+    int32_t wk_off, wk_n, wk_e, wk_pre;
+} gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 struct zeta_plan_t;
 struct g_emitter_t {
@@ -158,6 +168,7 @@ struct g_emitter_t {
     cv_t g_gc_map_names_v;
     int gc_sites_report_on_v = -1;
     cv_t g_gc_sites_v;
+    cv_t g_gc_sites_wk;
     int g_gc_sites_armed = 0, g_gc_sites_last_off = -1, g_gc_sites_names_n = 0;
     cv_t g_gc_sites_names_v;
     gc_match_lvl_t g_gc_match_out;
