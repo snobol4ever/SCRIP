@@ -3027,7 +3027,6 @@ static int zrow_opoff(const IR_t * nd, int k) { return (k >= 0 && k < nd->n_oper
 static int zrow_partoff(const IR_t * nd, int j) { return g_planner.g_zd_rec_p->v_partoff[(size_t)(zrow(nd)->pto + j)]; }
 static int zrow_opvs(const IR_t * nd, int k) { return (nd && k >= 0 && k < nd->n_operands) ? g_planner.g_zd_rec_p->v_opvs[(size_t)(zrow(nd)->opo + k)] : -1; }
 static int zrow_partvs(const IR_t * nd, int j) { return g_planner.g_zd_rec_p->v_partvs[(size_t)(zrow(nd)->pto + j)]; }
-extern "C" int emit_zrow_opvs(const IR_t * nd, int k) { return zrow_opvs(nd, k); }
 extern "C" int emit_zrow_actoff(const IR_t * nd) { return zrow(nd)->actoff; }
 extern "C" int emit_zrow_bspk(const IR_t * nd) { return zrow(nd)->bspk; }
 extern "C" int emit_zrow_xabs(const IR_t * nd) {
@@ -3044,7 +3043,6 @@ extern "C" int emit_zrow_zchk(const IR_t * nd) {
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
 extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
 extern "C" int emit_zrow_tret(const IR_t * nd) { return zrow(nd)->tret; }
-extern "C" int emit_zrow_cft(const IR_t * nd) { return zrow(nd)->cft; }
 extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, long owner) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     int i = (r && nd && r->nodes) ? nidx(r->nodes, r->n, nd) : -1;
