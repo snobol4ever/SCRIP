@@ -3098,7 +3098,7 @@ static int gc_sw_links_c(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char 
         unsigned lk = GC_LAY_KIND(q);
         if (lk != GC_LAY_PTR_FRAME && lk != GC_LAY_PTR_FRAME_H) continue;
         for (int k = 0; k < GC_LAY_SIZE(q); k += 8) {
-            const char *c = f->base + GC_LAY_OFF(q) + k, *v = *(const char *const *)c, *why = (const char *)0;
+            const char *c = f->base + GC_LAY_OFF(q) + k, *v = gc_seg_ptr(&s->x.tr, *(const char *const *)c), *why = (const char *)0;
             const char *hdr = (const char *)0;
             uint64_t beta = 0;
             const gc_site_blk_t *b;
@@ -3347,10 +3347,16 @@ static void gc_visit_pseg(rt_hblk_t *h) {
     ent.r = bytes + 8;
     ent.rbp = (const void *)rbp;
     gc_sw_go(&s, bytes, bytes + b->len, &ent, (const scrip_coctx_t *)0, 0, 1, (rt_gc_frame_fn)0, (void *)0, &tr);
-    if (s.n == 0 || !(s.lastf.map->flags & GC_FRAME_MAP_TBL_HDR) || (s.stop != 5 && s.stop != 7 && s.stop != 8))
+    if (s.n == 0 || !(s.lastf.map->flags & GC_FRAME_MAP_TBL_HDR) || (s.stop != 5 && s.stop != 7 && s.stop != 8)) {
+        const gc_site_ent_t *se = (const gc_site_ent_t *)0;
+        const gc_site_blk_t *sb = gc_site_find(s.x.pc, &se);
+        fprintf(stderr, "[GC-PSEG] REFUSED: block len=%lu tn=%lu frames=%ld stop=%d last=%s lastflags=%u | walker pc=%p site=%s r=%p rbp=%p | entry pc=%p seg=[%p,%p)\n", (unsigned long)b->len,
+            (unsigned long)b->tn, s.n, s.stop, s.n ? (s.lastf.map->graph_name ? s.lastf.map->graph_name : "?") : "-", s.n ? s.lastf.map->flags : 0u, (void *)(uintptr_t)s.x.pc,
+            sb && se ? (sb->map && sb->map->graph_name ? sb->map->graph_name : "mapless") : "NONE", (const void *)s.x.r, (const void *)s.x.rbp, ent.pc, (const void *)b->orig_lo, (const void *)tr.ohi);
         rt_bomb(
-        "gc: a parked segment's walk did not end at the tabled generator's record -- a frame of the segment has no site, or the generator's frame map lacks GC_FRAME_MAP_TBL_HDR (ARCH-PROLOG-WFS-TABL"
-        "ING 8.10)");
+            "gc: a parked segment's walk did not end at the tabled generator's record -- a frame of the segment has no site, or the generator's frame map lacks GC_FRAME_MAP_TBL_HDR (ARCH-PROLOG-WFS-"
+            "TABLING 8.10)");
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
