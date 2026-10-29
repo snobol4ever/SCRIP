@@ -490,7 +490,11 @@ void planner_blob_facts(zeta_plan_t * rec) {
             rec->spgd = (rec->spgd == -1 || rec->spgd == d) ? d : -2; }
     }
     for (int i = 0; i < n; i++) {
-        znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; z->hrsp = (rec->sph > 0 && rec->on[i]) ? rec->out[i] + rec->sph - 8 : -1; z->dtk = -1; z->dtph = 0; z->dtd = 0;
+        znode_t * z = &rec->zn[i]; IR_t * nd = nodes[i]; z->dtk = -1; z->dtph = 0; z->dtd = 0;
+        int envb = 0;
+        for (int p = rec->arm[i], gd = 0; p >= 0 && gd++ < 4096; p = rec->arm[p]) envb += nodes[p]->op == IR_MATCH_ALTERNATE ? 32 : nodes[p]->op == IR_MATCH_FENCE1 ?
+            planner_fence_k(rec->cfg, nodes[p]) : 0;
+        z->hrsp = (rec->sph > 0 && rec->on[i]) ? rec->out[i] + rec->sph - 8 + envb : -1;
         z->f0f = nd->op == IR_MATCH_FENCE0 ? pf_fence0_dyn_floor(rec, nd) : 0;
         if (nd->op != IR_MATCH_DEFER) continue;
         for (int a = 0; a < nd->n_operands; a++) { IR_t * so = nd->operands[a];
