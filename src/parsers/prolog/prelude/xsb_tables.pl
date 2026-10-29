@@ -17,7 +17,7 @@
 :- module(xsb_tables, [ gc_tables/1, abolish_table_info/0, close_open_tables/1, xsb_error_get_tag/2, xsb_error_get_message/2, abolish_module_tables/1, '$amt_drop'/3, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
                         '$ats_split'/4, '$ats_close'/3, '$ats_dep'/4, '$ats_hits'/2, '$ats_lit'/2, '$ats_drop'/2, '$ats_opts'/1, '$atp_goal'/2,
                         variant_get_residual/2, table_state/4, truth_value/2, get_calls_for_table/2, abolish_table_subgoal/1, abolish_table_subgoal/2, abolish_nonincremental_tables/0, abolish_nonincremental_tables/1,
-                        delete_return/2, delete_return/3, '$xt_state'/4, '$xt_tv1'/2, '$xt_ntp'/1, '$tbl $xt_ntp'/1 ]).
+                        delete_return/2, delete_return/3, get_returns_and_tvs/3, '$xt_state'/4, '$xt_tv1'/2, '$xt_ntp'/1, '$tbl $xt_ntp'/1 ]).
 gc_tables(0).
 abolish_table_info.
 close_open_tables(_).
@@ -85,3 +85,4 @@ abolish_nonincremental_tables(O):-('$xt_opt'(O,X)->true;throw(error(domain_error
 '$xt_ani_drop'([e(_,V,T)|L],VT,Act):-'$tbl_unqual'(V,_,G),functor(G,F,N),(\+ '$tbl_isincr'(F/N)->('$tbl_answered'(T)->('$trie_delete'(VT,V,_)->true;true),'$trie_destroy'(T);Act==error->throw(error(table_error('abolishing incomplete tabled call'),abolish_nonincremental_tables/0));true);true),'$xt_ani_drop'(L,VT,Act).
 delete_return(T,N):-'$trie_id'(T,I),'$trie_entries'(I,As),nth1(N,As,e(_,R,_)),('$trie_delete'(I,R,_)->true;true),!.
 delete_return(T,N,_):-delete_return(T,N).
+get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).

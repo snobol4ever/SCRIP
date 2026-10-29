@@ -34304,6 +34304,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "abolish_nonincremental_tables", 1 },
     { "delete_return", 2 },
     { "delete_return", 3 },
+    { "get_returns_and_tvs", 3 },
     { "$xt_tv1", 2 },
     { "$xt_ntp", 1 },
     { "$tbl $xt_ntp", 1 },
@@ -34389,7 +34390,8 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "'$xt_ani_drop'([],_,_).\n"
     "'$xt_ani_drop'([e(_,V,T)|L],VT,Act):-'$tbl_unqual'(V,_,G),functor(G,F,N),(\\+ '$tbl_isincr'(F/N)->('$tbl_answered'(T)->('$trie_delete'(VT,V,_)->true;true),'$trie_destroy'(T);Act==error->throw(error(table_error('abolishing incomplete tabled call'),abolish_nonincremental_tables/0));true);true),'$xt_ani_drop'(L,VT,Act).\n"
     "delete_return(T,N):-'$trie_id'(T,I),'$trie_entries'(I,As),nth1(N,As,e(_,R,_)),('$trie_delete'(I,R,_)->true;true),!.\n"
-    "delete_return(T,N,_):-delete_return(T,N).\n";
+    "delete_return(T,N,_):-delete_return(T,N).\n"
+    "get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).\n";
 static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "aggregate", PL_PRELUDE_LIB_0_EXPORTS, PL_PRELUDE_LIB_0_OPS, PL_PRELUDE_LIB_0_SHADOWS, PL_PRELUDE_LIB_0_QUIET, PL_PRELUDE_LIB_0_SRC, PL_PRELUDE_LIB_0_METAS, PL_PRELUDE_LIB_0_LOADS, 0 },
     { "apply", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC, PL_PRELUDE_LIB_1_METAS, PL_PRELUDE_LIB_1_LOADS, 0 },
