@@ -29,7 +29,7 @@ typedef struct RkLang {
     int start; int stop; int stop2; int nrep;
     const char *here; int here_len;
 } RkLang;
-typedef struct { char *delim; int dlen; RkLang lang; } RkHere;
+typedef struct { char *delim; int dlen; RkLang lang; tree_t *node; } RkHere;
 typedef struct { int prec; int sub; int assoc; int from; int to; } StackOp;
 typedef struct RkP {
     const char *s; int n; const char *file;
@@ -1209,10 +1209,14 @@ static int r_heredoc_bodies(RkP *p, int pos) {
         p->nhere--;
         RkLang L = h.lang;
         L.here = h.delim; L.here_len = h.dlen; L.start = 0;
+        RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
+        p->qc = NULL; p->nqc = 0; p->cqc = 0;
         int e; r_nibble_until(p, pos, &L, &e);
         if (e < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
         int s = here_stopper(p, e, &L);
         if (s < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
+        if (p->build && h.node) rkb_heredoc_body(p->B, h.node, pos, e, NSPAN(p, e, ck(is_hspace_cp)) - e, L.sc || L.clos, p->qc, p->nqc);
+        p->qc = sq; p->nqc = sn; p->cqc = sc;
         pos = s;
     }
     return pos;
@@ -3210,8 +3214,10 @@ static int r_quote_raw(RkP *p, int pos);
 static int r_quote(RkP *p, int pos) {
     RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
     p->qc = NULL; p->nqc = 0; p->cqc = 0;
+    int nh = p->nhere;
     int e = r_quote_raw(p, pos);
-    if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc);
+    if (e >= 0 && p->build && p->nhere > nh) { rkb_heredoc_stub(p->B, &p->tm, pos, e); p->here[p->nhere - 1].node = p->tm.t; }
+    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc);
     p->qc = sq; p->nqc = sn; p->cqc = sc;
     return e;
 }

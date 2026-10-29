@@ -3424,6 +3424,39 @@ static void mark_arrays(RkB *b, tree_t *t) {
     for (int i = 0; i < t->n; i++) mark_arrays(b, t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_heredoc_stub(RkB *b, RkTerm *it, int from, int to) {
+    (void) b;
+    memset(it, 0, sizeof *it);
+    it->kind = TK_QUOTE;
+    it->from = from;
+    it->to = it->core_to = to;
+    it->t = leaf_sval(TT_QLIT, "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_dedent(tree_t *t, int indent, int *bol) {
+    if (!t) return;
+    if (t->t == TT_CAT) {
+        for (int i = 0; i < t->n; i++) rk_dedent(t->c[i], indent, bol);
+        return;
+    }
+    if (t->t != TT_QLIT || !t->v.sval) { *bol = 0; return; }
+    SB out = { 0 };
+    for (const char *c = t->v.sval; *c; c++) {
+        if (*bol) { int k = 0; while (k < indent && (*c == ' ' || *c == '\t')) { c++; k++; } *bol = 0; if (!*c) break; }
+        sb_c(&out, *c);
+        if (*c == '\n') *bol = 1;
+    }
+    t->v.sval = sb_str(&out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_heredoc_body(RkB *b, tree_t *node, int from, int to, int indent, int interp, RkClosure *cl, int ncl) {
+    tree_t *t = interp ? b_dq(b, cl, ncl, from, to) : b_sq(b, from, to);
+    int bol = 1;
+    if (indent > 0) rk_dedent(t, indent, &bol);
+    t->line = node->line;
+    *node = *t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_finish(RkB *b, tree_t *list, const char *text, int len) {
     (void) b;
     if (!list) return;
