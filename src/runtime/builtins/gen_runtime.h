@@ -14,11 +14,6 @@ static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-typedef struct { const char *subj; int pos; int depth; long len; } ScanState;
-void *rt_scan_state_capture(void *prev);
-void rt_scan_state_apply(void *saved);
-void rt_scan_state_reset(void);
-unsigned long rt_scan_state_size(void);
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi);
@@ -28,7 +23,6 @@ DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char 
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
 void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
 uint64_t rt_scan_sync_in(void);
-ScanSubjRegs rt_scan_live_regs(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 int frame_lookup(tree_t *n, long *out);
 int frame_lookup_sv(tree_t *n, long *out, const char **sv);

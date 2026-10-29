@@ -34,6 +34,7 @@ typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_NAMED 4096
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
+#define RK_PV_RAW 32768
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 struct RkDecl {
@@ -116,7 +117,9 @@ tree_t  *rkb_regex_decl(RkB *b, int kind, const char *name, int namelen, int bra
 void     rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d);
 tree_t  *rkb_self_sig(RkB *b, tree_t *sig);
 void     rkb_user_name(RkB *b, RkTerm *it, int from, int to, int namelen);
-void     rkb_label_loop(RkB *b, tree_t *list, int first, const char *label);
+void     rkb_label(RkB *b, tree_t *list, int first, const char *label);
+RkList  *rkb_item_tree(RkB *b, tree_t *t);
+void     rkb_label_item(RkB *b, RkList *L, const char *label);
 tree_t  *rkb_enum_tree(RkB *b, tree_t *list, int from, int to);
 tree_t  *rkb_enum(RkB *b, const char *text, int n, int from, int to);
 tree_t  *rkb_constant(RkB *b, const char *name, int namelen, RkList *init);

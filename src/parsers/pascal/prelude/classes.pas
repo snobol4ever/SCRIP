@@ -67,6 +67,8 @@ type
     function AddObject(const S: string; AObject: TObject): Integer;
     procedure Append(const S: string);
     procedure AddStrings(Source: TStringList);
+    procedure AddStrings(const __sh_a: array of string);
+    function ToStringArray: TStringArray;
     procedure Insert(Index: Integer; const S: string);
     procedure InsertObject(Index: Integer; const S: string; AObject: TObject);
     procedure Delete(Index: Integer);
@@ -321,6 +323,18 @@ procedure TStringList.AddStrings(Source: TStringList);
 var k: Integer;
 begin
   for k := 0 to Source.Count - 1 do AddObject(Source.Strings[k], Source.Objects[k])
+end;
+procedure TStringList.AddStrings(const __sh_a: array of string);
+var __sh_k: Integer;
+begin
+  for __sh_k := 0 to High(__sh_a) do Add(__sh_a[__sh_k])
+end;
+function TStringList.ToStringArray: TStringArray;
+var __sh_r: TStringArray; __sh_k: Integer;
+begin
+  SetLength(__sh_r, FCount);
+  for __sh_k := 0 to FCount - 1 do __sh_r[__sh_k] := FStrings[__sh_k];
+  ToStringArray := __sh_r
 end;
 procedure TStringList.Insert(Index: Integer; const S: string);
 begin

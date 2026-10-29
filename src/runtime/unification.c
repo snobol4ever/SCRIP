@@ -1321,7 +1321,7 @@ static const char *plc_atom_op_text_n(pl_cell_t *t, char *buf, size_t bufsz, siz
         r = rt_big_str(*d);
     } else if (pl_rat_is(*d)) {
         size_t n = pl_rat_text(*d, (char *)0, 0) + 1;
-        char *o = n <= bufsz ? buf : (char *)rt_wsb_alloc(n);
+        char *o = (char *)rt_wsb_alloc(n);
         (void)pl_rat_text(*d, o, n);
         r = o;
     } else if ((int)d->v == DT_R) {
@@ -2314,8 +2314,8 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     return PLR_DESCEND;
 }
 PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref)
-#define PLC_CMP_DEPTH 1024
 #define PLC_CMP_MAP 16384
+typedef struct { pl_cell_t *a, *b; int i, n; } plc_cmp_fr_t;
 static const void *plc_cmp_find(const void **mk, const void **mv, const void *p) {
     for (int g = 0; g < PLC_CMP_MAP; g++) {
         size_t h = ((uintptr_t)p >> 4) * 0x9E3779B97F4A7C15ull >> 50;
@@ -2326,8 +2326,8 @@ static const void *plc_cmp_find(const void **mk, const void **mv, const void *p)
     return p;
 }
 static int plc_cmp_bounded(pl_cell_t *ca, pl_cell_t *cb, int use_map, int *ok) {
-    pl_cell_t *fa[PLC_CMP_DEPTH], *fb[PLC_CMP_DEPTH];
-    int fi[PLC_CMP_DEPTH], fn[PLC_CMP_DEPTH], top = 0, used = 0;
+    int cap = 64, top = 0, used = 0;
+    plc_cmp_fr_t *fr = (plc_cmp_fr_t *)alloca(sizeof *fr * (size_t)cap);
     long steps = 0;
     const void **mk = (const void **)0, **mv = (const void **)0;
     if (use_map) { mk = (const void **)alloca(sizeof(void *) * PLC_CMP_MAP); mv = (const void **)alloca(sizeof(void *) * PLC_CMP_MAP); memset(mk, 0, sizeof(void *) * PLC_CMP_MAP); }
@@ -2352,21 +2352,22 @@ static int plc_cmp_bounded(pl_cell_t *ca, pl_cell_t *cb, int use_map, int *ok) {
                     }
                 } else if (A->p == B->p) same = 1;
                 if (!same && ar > 0) {
-                    while (top > 0 && fi[top - 1] >= fn[top - 1]) top--;
-                    if (top >= PLC_CMP_DEPTH || (!use_map && ++steps > (1L << 16))) { *ok = 0; return 0; }
-                    fa[top] = (pl_cell_t *)A->p;
-                    fb[top] = (pl_cell_t *)B->p;
-                    fi[top] = 0;
-                    fn[top] = ar;
+                    while (top > 0 && fr[top - 1].i >= fr[top - 1].n) top--;
+                    if (!use_map && ++steps > (1L << 16)) { *ok = 0; return 0; }
+                    if (top >= cap) { plc_cmp_fr_t *nf = (plc_cmp_fr_t *)alloca(sizeof *nf * (size_t)cap * 2u); memcpy(nf, fr, sizeof *fr * (size_t)top); fr = nf; cap *= 2; }
+                    fr[top].a = (pl_cell_t *)A->p;
+                    fr[top].b = (pl_cell_t *)B->p;
+                    fr[top].i = 0;
+                    fr[top].n = ar;
                     top++;
                 }
             } else if (r) return r;
         }
-        while (top > 0 && fi[top - 1] >= fn[top - 1]) top--;
+        while (top > 0 && fr[top - 1].i >= fr[top - 1].n) top--;
         if (top == 0) return 0;
-        ca = &fa[top - 1][fi[top - 1]];
-        cb = &fb[top - 1][fi[top - 1]];
-        fi[top - 1]++;
+        ca = &fr[top - 1].a[fr[top - 1].i];
+        cb = &fr[top - 1].b[fr[top - 1].i];
+        fr[top - 1].i++;
     }
 }
 static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
@@ -3437,8 +3438,8 @@ void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom) {
     pl_cell_t er[2];
     const char *sep = arg0_atom ? strchr(arg0_atom, 1) : (const char *)0;
     if (sep) {
-        char nm[64];
-        size_t k = (size_t)(sep - arg0_atom) < sizeof nm - 1 ? (size_t)(sep - arg0_atom) : sizeof nm - 1;
+        size_t k = (size_t)(sep - arg0_atom);
+        char nm[k + 1];
         pl_cell_t ia[1];
         pl_cell_t *ic;
         memcpy(nm, arg0_atom, k);
@@ -3750,8 +3751,9 @@ int rt_pl_nb_set(void *root, int64_t k, void *val) {
         if (!cell) return 0;
         pl_cell_t *t = pl_deref((pl_cell_t *)val);
         pl_cell_t stored = plc_copy_x(t, 1);
-        pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
+        pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(2);
         if (!box) return 0;
+        box[1].v = (DTYPE_t)DT_RAW;
         *box = stored;
         *cell = box;
         if ((int)stored.v == DT_PLREF || (int)stored.v == DT_PLVAR) rt_pl_tr_freeze();
@@ -3776,13 +3778,18 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
         stored.slen = 0;
         stored.p = (void *)j;
         if (*cell) {
+            pl_cell_t *box = *cell;
             char probe;
             char *floor_ = &probe;
-            if (pl_tr_needs_log(cx, *cell, floor_) && !pl_tr_kept_since_choice(cx, *cell)) pl_tr_push_keep(cx, *cell);
-            **cell = stored;
+            if (pl_tr_needs_log(cx, box, floor_)) {
+                int64_t mark = (int64_t)(intptr_t) *(const char * const *) cx->b;
+                if (box[1].i != mark) { pl_tr_push_keep(cx, box); pl_tr_push_keep(cx, &box[1]); box[1].i = mark; }
+            }
+            *box = stored;
         } else {
-            pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
+            pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(2);
             if (!box) return 0;
+            box[1].v = (DTYPE_t)DT_RAW;
             *box = pl_make_int(0);
             box->slen = PLC_GVAR_ABSENT;
             *cell = box;

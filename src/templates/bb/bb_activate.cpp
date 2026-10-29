@@ -15,7 +15,10 @@ std::string bb_activate() {
          + IF(_.op_off >= 0 && _.op_sa >= 0,
                x86("comment", "IR_ACTIVATE")
              + x86_alpha()
-             + x86_scan_sync_out_force()
+             + x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+             + x86("mov", "[rax + 0]", "r13")
+             + x86("mov", "[rax + 8]", "r14")
+             + x86("mov", "[rax + 16]", "r15")
              + x86("mov", "rdi", FRQ(_.op_sa + 8))
              + IF(_.op_sb >= 0,
                    x86("mov", "rsi", FRQ(_.op_sb))
@@ -27,7 +30,9 @@ std::string bb_activate() {
              + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
              + x86("mov", "r9", FRQ(_.op_sa))
              + x86("call", "scrip_coexpr_activate", (uint64_t)(uintptr_t)(void *)scrip_coexpr_activate)
-             + x86_scan_switch_reload_force()
+             + x86("mov", "r13", "[rdx + 0]")
+             + x86("mov", "r14", "[rdx + 8]")
+             + x86("mov", "r15", "[rdx + 16]")
              + x86("test", "rax", "rax")
              + x86_omega("je")
              + x86_rt_gc_poll()

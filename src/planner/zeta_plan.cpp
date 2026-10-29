@@ -1981,6 +1981,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
         rec->rd[q].fres = 1; }
     planner_consumers_build(g);
     int cur_saved = g_planner.g_zd_cur;
+    int cr_r = 0, cr_f = 0, cr_s = 0, cr_sc[16] = {0}; const char * cr_e = getenv("SCRIP_ZD_CHECK"); const int cr_on = (cr_e && *cr_e == '1') ? 1 : 0;
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; zrd_t * rd = rec->rd + rec->rdo[i]; int no = nd->n_operands;
         g_planner.g_zd_cur = i;
@@ -2059,6 +2060,9 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 { const IR_t * lh = zd_local_home_node(cg, p); if (lh) rd[j].fr = planner_varslot(cg, IR_LIT(lh).sval);
                     else if (zd_dj_cellless(nodes, n, zarm, k) && zls_off(p) >= 0) rd[j].fr = zls_off(p); }
                 rd[j].kind = (int)ir_norm_call_kind(p->op);
+                if (cr_on) { int lo = k < i ? k : i, hi = k < i ? i : k, rc = 0;
+                    for (int x = lo + 1; x < hi && !rc; x++) rc = planner_retains_g(cg, nodes[x]);
+                    if (rc) { cr_r++; if (rd[j].xf != -1 || rd[j].fr >= 0 || !zon[k] || planner_frame_slot(g, p) != -1) cr_f++; else { cr_s++; cr_sc[rc & 15]++; } } }
             }
             if (nd->op == IR_MATCH_REPLACE) { rd[2].dist = -1; rd[2].kind = -1; IR_t * mb2 = (IR_t *)0; int jh2 = -1;
                 for (int zj = i - 1; zj >= 0; zj--) if (nodes[zj]->op == IR_MATCH_BEGIN) { mb2 = nodes[zj]; jh2 = zj; break; }
@@ -2073,6 +2077,9 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
     }
     g_planner.g_zd_grec_off = -1; g_planner.g_zd_wrec_off = -1; g_planner.g_zd_grec_res = 0; g_planner.g_zd_wrec_res = 0; g_planner.g_zd_cpsx = -1; g_planner.g_zd_cpdx = -1; g_planner.g_zd_cps = -1;
     g_planner.g_zd_cpd = -1; g_planner.g_zd_cur = cur_saved;
+    if (cr_on) { fprintf(stderr, "[ZD-CHECK] CROSS graph=%s reads=%d via_frame=%d via_rsp=%d rsp_codes=", zls_graph_name_get(cg), cr_r, cr_f, cr_s);
+        for (int c = 1; c < 16; c++) if (cr_sc[c]) fprintf(stderr, "%d:%d,", c, cr_sc[c]);
+        fprintf(stderr, "\n"); }
 }
 zeta_plan_t * planner_chain_plan(const IR_graph_t * cg, IR_t * entry, const char * prefix) {
     int CH_MAX = 65536; if (cg && cg->n + 1024 > CH_MAX) CH_MAX = cg->n + 1024; int Q_MAX = CH_MAX * 16;

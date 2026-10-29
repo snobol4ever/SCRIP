@@ -210,6 +210,30 @@ static long sno_text_illegal_at(const char *s) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *eval_lf_protect(const char *s, char *pc) {
+    int used[256] = { 0 };
+    long nl = 0;
+    char q = 0;
+    for (const char *p = s; *p; p++) { used[(unsigned char)*p] = 1; if (q) { if (*p == q) q = 0; else if (*p == '\n') nl++; } else if (*p == '\'' || *p == '"') q = *p; }
+    if (!nl) return (char *)0;
+    int c = 1;
+    while (c < 32 && (used[c] || c == '\n' || c == '\r' || c == '\t' || c == '\v' || c == '\f')) c++;
+    if (c >= 32) return (char *)0;
+    size_t n = strlen(s);
+    char *r = (char *)rt_wsb_alloc(n + 1);
+    if (!r) return (char *)0;
+    q = 0;
+    for (size_t i = 0; i <= n; i++) { char ch = s[i]; if (q) { if (ch == q) q = 0; else if (ch == '\n') ch = (char)c; } else if (ch == '\'' || ch == '"') q = ch; r[i] = ch; }
+    *pc = (char)c;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_lf_restore(tree_t *t, char pc) {
+    if (!t) return;
+    if (t->t == TT_QLIT && t->v.sval) for (char *p = (char *)t->v.sval; *p; p++) if (*p == pc) *p = '\n';
+    for (int i = 0; i < t->n; i++) eval_lf_restore(t->c[i], pc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_top_comma(const char *s) {
     int d = 0;
     char q = 0;
@@ -240,13 +264,16 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     size_t n = strlen(s);
     char *src = (char *)rt_wsb_alloc(n + 4);
     if (!src) return NULL;
-    snprintf(src, n + 4, "(%s)", s);
+    char lfc = 0;
+    const char *lfs = eval_lf_protect(s, &lfc);
+    snprintf(src, n + 4, "(%s)", lfs ? lfs : s);
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
+    if (lfs) eval_lf_restore(e, lfc);
     extern int sno_preeval_expr(const tree_t *, const char **);
     if (!e || sno_error_captured()) {
         const char *cap = sno_error_captured(), *fm = (const char *)0;
@@ -545,7 +572,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
             if (depth) { st = 0; break; }
             return eval_sb_fail(223, code, msg);
             default:
-            if (el == 33 && (st != 2 || !depth)) return 0;
+            if (el == 33 && st == 2 && !depth) return 0;
             if (st == 1) return eval_sb_fail(221, code, msg);
             if (depth) return eval_sb_fail(lev[depth - 1] == 3 ? 229 : 226, code, msg);
             return 0;
@@ -631,6 +658,29 @@ static void code_compile_raise(const char *src, int pe, const char *pm) {
     rt_eval_raise(code, msg ? msg : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long eval_top_mark(const char *s) {
+    int d = 0;
+    char q = 0;
+    for (long i = 0; s[i]; i++) {
+        char c = s[i];
+        if (q) { if (c == q) q = 0; continue; }
+        if (c == '\'' || c == '"') q = c;
+        else if (c == '(' || c == '<' || c == '[') d++;
+        else if ((c == ')' || c == '>' || c == ']') && d > 0) d--;
+        else if ((c == ':' || c == ';') && d == 0) return i;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_text_raise(const char *s) {
+    int code = 0;
+    const char *msg = (const char *)0;
+    long m = eval_top_mark(s);
+    if (m >= 0 && !s[m + 1]) { rt_eval_raise(103, "eval argument is not expression"); return; }
+    if (eval_sb_syntax(s, &code, &msg)) { rt_eval_raise(code, msg); return; }
+    if (m >= 0) rt_eval_raise(103, "eval argument is not expression");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_eval_syntax_raise(const char *s) { int code = 0; const char *msg = (const char *)0; if (!s || !eval_sb_syntax(s, &code, &msg)) return; rt_eval_raise(code, msg); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t mark, size_t built, int thunks, int keep) {
@@ -647,7 +697,7 @@ static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
         int pe = 0;
         const char *pm = (const char *)0;
         fn = eval_build_chain(s, &pe, &pm, &thunks);
-        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s + (s[0] == '\001' ? 1 : 0)); } return -1; }
+        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else eval_text_raise(s + (s[0] == '\001' ? 1 : 0)); } return -1; }
         built = bb_pool_mark();
         made = 1;
         keep = mark < eval_retain_budget();
@@ -1032,9 +1082,12 @@ DESCR_t code_at(const char *src, long base) {
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
+    char lfc = 0;
+    const char *lfs = eval_lf_protect(src, &lfc);
     sno_error_quiet_begin();
-    tree_t *prog = sno_parse_string_ast(src, NULL);
+    tree_t *prog = sno_parse_string_ast(lfs ? lfs : src, NULL);
     sno_error_quiet_end();
+    if (lfs) eval_lf_restore(prog, lfc);
     int empty = 0;
     if (!prog || prog->n == 0) {
         const char *cap = sno_error_captured();
@@ -1053,7 +1106,7 @@ DESCR_t code_at(const char *src, long base) {
             nmt += !stmt_attr_find(c, ":lbl") && !stmt_attr_find(c, ":subj") && !stmt_attr_find(c, ":pat") && !stmt_attr_find(c, ":eq") && !stmt_goto_find(c, TT_GOTO_S) &&
                 !stmt_goto_find(c, TT_GOTO_F) && !stmt_goto_find(c, TT_GOTO_U);
         }
-        if (nst && nmt == nst) empty = nst;
+        if (!nst) { prog = ast_stmt_new(TT_PROGRAM); tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 1)); ast_push(prog, st); empty = 1; } else if (nmt == nst) empty = nst;
     }
     const char *parse_err = sno_error_captured();
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
@@ -1188,7 +1241,7 @@ static int conve_is_bare_name(const char *s) {
 DESCR_t CONVE_fn(DESCR_t str_d) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     const char *s = VARVAL_fn(str_d);
-    if (!s || !*s) return FAILDESCR;
+    if (!s || !*s) s = " ";
     if (conve_is_bare_name(s)) {
         extern void *bb_dstar_rec_intern(const char *, uint32_t);
         size_t nl = strlen(s);
@@ -1204,7 +1257,12 @@ DESCR_t CONVE_fn(DESCR_t str_d) {
     int pe = 0, thunks = 0;
     const char *pm = (const char *)0;
     eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
-    if (!fn) { rt_code_pool_check(); return FAILDESCR; }
+    if (!fn) {
+        rt_code_pool_check();
+        long m = eval_top_mark(s);
+        if (m < 0 || s[m + 1]) { int code = 0; const char *msg = (const char *)0; if (eval_sb_syntax(s, &code, &msg)) rt_eval_raise(code, msg); }
+        return FAILDESCR;
+    }
     DESCR_t d = {0};
     d.v = DT_E;
     d.slen = RT_CONVE_CHAIN_MARK;

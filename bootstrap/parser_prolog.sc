@@ -223,104 +223,30 @@ op_goal = (   *$' ' 'op' *$'(' . *PushVal('op') . *PushCounter()
           );
 /* ==================================================================================================================== */
 /* library operators (prolog_parse.c register_lib_ops over prolog_prelude_libs.inc, generated from it): a clause that opens with        */
-/* :- use_module(library(L)) declares L's operators, in the bands op/3 uses, for the clauses that follow                                 */
-function UopReg(p, t, n, k, b) {
-    k = op_kind[t];
-    b = '900';
-    if (LE(p, 200)) { b = '200'; } else if (LE(p, 400)) { b = '400'; } else if (LE(p, 500)) { b = '500'; } else if (LE(p, 600)) { b = '600'; } else if (LE(p, 700)) { b = '700'; } else if (GE(p, 1100)) { b = p; }
-    uop_band[k n] = band_key[k b];
-    uop_on = uop_tok;
-    return;
-}
-/* the operators prolog_parse.c has built in beyond the ISO ladder (BIN_OPS and PREFIX_OPS entries named #..., generated from them): declared when the source has a # */
-function FdOps() {
-    UopReg(750, 'xfy', '#<=>');
-    UopReg(750, 'xfy', '#\<=>');
-    UopReg(740, 'xfy', '#==>');
-    UopReg(740, 'xfy', '#\==>');
-    UopReg(730, 'xfy', '##');
-    UopReg(730, 'yfx', '#\/');
-    UopReg(730, 'yfx', '#\\/');
-    UopReg(720, 'yfx', '#/\');
-    UopReg(720, 'yfx', '#\/\');
-    UopReg(700, 'xfx', '#=');
-    UopReg(700, 'xfx', '#\=');
-    UopReg(700, 'xfx', '#<');
-    UopReg(700, 'xfx', '#=<');
-    UopReg(700, 'xfx', '#>');
-    UopReg(700, 'xfx', '#>=');
-    UopReg(700, 'xfx', '#=#');
-    UopReg(700, 'xfx', '#\=#');
-    UopReg(700, 'xfx', '#<#');
-    UopReg(700, 'xfx', '#=<#');
-    UopReg(700, 'xfx', '#>#');
-    UopReg(700, 'xfx', '#>=#');
-    UopReg(710, 'fy', '#\');
-    return;
-}
-/* ==================================================================================================================== */
-/* ==================================================================================================================== */
-function LibOps(lib) {
-    if (IDENT(lib, 'clpfd')) {
-        UopReg(760, 'yfx', '#<==>');
-        UopReg(750, 'xfy', '#==>');
-        UopReg(750, 'yfx', '#<==');
-        UopReg(740, 'yfx', '#\/');
-        UopReg(730, 'yfx', '#\');
-        UopReg(720, 'yfx', '#/\');
-        UopReg(710, 'fy', '#\');
-        UopReg(700, 'xfx', '#>');
-        UopReg(700, 'xfx', '#<');
-        UopReg(700, 'xfx', '#>=');
-        UopReg(700, 'xfx', '#=<');
-        UopReg(700, 'xfx', '#=');
-        UopReg(700, 'xfx', '#\=');
-        UopReg(700, 'xfx', 'in');
-        UopReg(700, 'xfx', 'ins');
-        UopReg(700, 'xfx', 'in_set');
-        UopReg(450, 'xfx', '..');
-    }
-    else if (IDENT(lib, 'gnu_fd')) {
-        UopReg(700, 'xfx', '#=#');
-        UopReg(700, 'xfx', '#\=#');
-        UopReg(700, 'xfx', '#<#');
-        UopReg(700, 'xfx', '#>#');
-        UopReg(700, 'xfx', '#=<#');
-        UopReg(700, 'xfx', '#>=#');
-        UopReg(750, 'xfy', '#<=>');
-        UopReg(750, 'xfy', '#\<=>');
-        UopReg(740, 'xfy', '#\==>');
-        UopReg(730, 'xfy', '##');
-        UopReg(730, 'yfx', '#\\/');
-        UopReg(720, 'yfx', '#\/\');
-    }
-    else if (IDENT(lib, 'chr')) {
-        chr_on = epsilon;
-        UopReg(1180, 'xfx', '==>');
-        UopReg(1180, 'xfx', '<=>');
-        UopReg(1150, 'fx', 'constraints');
-        UopReg(1150, 'fx', 'chr_constraint');
-        UopReg(1150, 'fx', 'chr_preprocessor');
-        UopReg(1150, 'fx', 'chr_type');
-        UopReg(1150, 'fx', 'chr_declaration');
-        UopReg(1100, 'xfx', '\');
-        UopReg(1200, 'xfx', '@');
-        UopReg(1190, 'xfx', 'pragma');
-        UopReg(500, 'yfx', '#');
-    }
-    else if (IDENT(lib, 'record')) {
-        UopReg(1150, 'fx', 'record');
-    }
-    return;
-}
-/* ==================================================================================================================== */
-function LibPeek(p, t, lib) {
-    Src ? (TAB(p) (LEN(160) | REM) . t);
-    if (t ? (POS(0) ':-' SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) 'use_module' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon) 'library' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon)
-                SPAN('abcdefghijklmnopqrstuvwxyz_0123456789') . lib)) { LibOps(lib); }
-    return;
-}
-LibScan   = @lbp *LibPeek(lbp);
+/* :- use_module(library(L)) declares L's operators, in the bands op/3 uses, for the clauses that follow; lib_ops[L] is L's operators as    */
+/* 'priority type name;' triples (fd: the # operators prolog_parse.c has built in, declared when the source has a #)                      */
+lib_ops   = TABLE(8);
+lib_ops['fd'] = '750 xfy #<=>;750 xfy #\<=>;740 xfy #==>;740 xfy #\==>;730 xfy ##;730 yfx #\/;730 yfx #\\/;720 yfx #/\;720 yfx #\/\;700 xfx #=;700 ' 'xfx #\=;700 xfx #<;700 xfx #=<;700 xfx #>;700 xfx #>=;700 xfx #=#;700 xfx #\=#;700 xfx #<#;700 xfx #=<#;700 xfx #>#;700 xfx #>=#;7' '10 fy #\;';
+lib_ops['clpfd'] = '760 yfx #<==>;750 xfy #==>;750 yfx #<==;740 yfx #\/;730 yfx #\;720 yfx #/\;710 fy #\;700 xfx #>;700 xfx #<;700 xfx #>=;700 xfx #=<' ';700 xfx #=;700 xfx #\=;700 xfx in;700 xfx ins;700 xfx in_set;450 xfx ..;';
+lib_ops['gnu_fd'] = '700 xfx #=#;700 xfx #\=#;700 xfx #<#;700 xfx #>#;700 xfx #=<#;700 xfx #>=#;750 xfy #<=>;750 xfy #\<=>;740 xfy #\==>;730 xfy ##;730' ' yfx #\\/;720 yfx #\/\;';
+lib_ops['chr'] = '1180 xfx ==>;1180 xfx <=>;1150 fx constraints;1150 fx chr_constraint;1150 fx chr_preprocessor;1150 fx chr_type;1150 fx chr_declara' 'tion;1100 xfx \;1200 xfx @;1190 xfx pragma;500 yfx #;';
+lib_ops['record'] = '1150 fx record;';
+ur_pick   = ( *LE(ur_p, 200)  *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '200']) 'x')
+            | *LE(ur_p, 400)  *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '400']) 'x')
+            | *LE(ur_p, 500)  *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '500']) 'x')
+            | *LE(ur_p, 600)  *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '600']) 'x')
+            | *LE(ur_p, 700)  *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '700']) 'x')
+            | *GE(ur_p, 1100) *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] ur_p]) 'x')
+            | *DIFFER((uop_band[op_kind[ur_t] ur_n] = band_key[op_kind[ur_t] '900']) 'x')
+            );
+UopRegPat = (SPAN('0123456789') $ ur_p) (' ' SPAN('abcdefghijklmnopqrstuvwxyz') $ ur_t) (' ' BREAK(';') $ ur_n) ';' *ur_pick *DIFFER((uop_on = uop_tok) 'x');
+UopRegs   = ARBNO(*UopRegPat);
+LibRegister = *DIFFER(lib_ops[lbn]) *DIFFER(lib_ops[lbn] ? (POS(0) *UopRegs RPOS(0))) ( *IDENT(lbn, 'chr') *DIFFER((chr_on = epsilon) 'x') | epsilon );
+LibTry    = ( *DIFFER(Src ? (TAB(lbp) (LEN(160) | REM) . lbt))
+              *DIFFER(lbt ? (POS(0) ':-' SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) 'use_module' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon) 'library' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon)
+                SPAN('abcdefghijklmnopqrstuvwxyz_0123456789') . lbn)) *LibRegister
+            | epsilon );
+LibScan   = @lbp *LibTry;
 /* a registered infix operator of 1100 or more is not the head of a 700-level operator: cmp_expr would take the < of <=> or the == of ==> and then => or > as a bare atom, and its FENCE would commit */
 chr_on    = FAIL;
 chr_stop  = *chr_on *$' ' @cap *DIFFER(Src ? (POS(cap) *Graphic_atom . chr_t)) ( *IDENT(uop_band['in' chr_t], 'in1100') | *IDENT(uop_band['in' chr_t], 'in1180') | *IDENT(uop_band['in' chr_t], 'in1190') | *IDENT(uop_band['in' chr_t], 'in1200') );
@@ -551,7 +477,7 @@ while (LE(0, 1)) {
     uop_on = FAIL;
     chr_on = FAIL;
     uop_band = TABLE(64);
-    if (Src ? '#') { FdOps(); }
+    if (Src ? '#') { lib_ops['fd'] ? (POS(0) *UopRegs RPOS(0)); }
     if (Src ? *Compiland) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);

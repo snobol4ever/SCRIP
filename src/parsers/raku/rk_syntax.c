@@ -3842,7 +3842,7 @@ static void mark_param_traits(tree_t *tv, const RkTrait *tr, int n, int pref) {
     tree_t *v = param_var_of(tv);
     if (!v) return;
     for (int i = 0; i < n; i++) if (tr[i].word && tr[i].name && !strcmp(tr[i].word, "is")) { if (!strcmp(tr[i].name, "copy")) v->slen |= RK_PV_COPY; if (!strcmp(tr[i].name, "rw")) v->slen |= RK_PV_RW; }
-    if (pref == '\\') v->slen |= RK_PV_RW;
+    if (pref == '\\') v->slen |= RK_PV_RW | RK_PV_RAW;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
@@ -4719,12 +4719,13 @@ static int r_statement(RkP *p, int pos) {
         char *lb = p->build ? ct_strndup0(p->s + pos, r_identifier(p, pos) - pos) : NULL;
         int n0 = p->cur_list ? p->cur_list->n : 0;
         int f = r_statement(p, e);
-        if (p->build && f >= 0 && lb && p->cur_list && p->cur_list->n > n0) rkb_label_loop(p->B, p->cur_list, n0, lb);
+        if (p->build && f >= 0 && lb && p->bk == BK_ITEMS) rkb_label_item(p->B, p->stmt_list, lb);
+        else if (p->build && f >= 0 && lb && p->cur_list && p->cur_list->n > n0) rkb_label(p->B, p->cur_list, n0, lb);
         return f;
     }
     p->ctl_ns = 0; p->tv = NULL;
     if ((e = r_statement_control(p, pos)) >= 0) {
-        if (p->build && p->tv) { int semi, last; tree_t *t = taketv(p); int ns = p->ctl_ns; stmt_end_info(p, e, &semi, &last); rkb_control(p->B, p->cur_list, p->bk, pos, t, ns, semi, last); }
+        if (p->build && p->tv) { int semi, last; tree_t *t = taketv(p); int ns = p->ctl_ns; stmt_end_info(p, e, &semi, &last); if (p->bk == BK_ITEMS) p->stmt_list = rkb_item_tree(p->B, t); else rkb_control(p->B, p->cur_list, p->bk, pos, t, ns, semi, last); }
         else if (p->build) { int semi, last; stmt_end_info(p, e, &semi, &last); }
         return e;
     }

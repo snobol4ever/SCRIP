@@ -11,6 +11,7 @@ function FpcMinDouble(a, b: double): double;
 function IntPower(base: real; exponent: integer): real;
 procedure SinCos(theta: double; var sinv, cosv: double);
 function Sign(x: double): integer;
+function CompareValue(a, b: double): integer;
 implementation
 function Power(base, exponent: real): real;
 var r: real; k, i: integer;
@@ -69,5 +70,9 @@ end;
 function Sign(x: double): integer;
 begin
   if x > 0 then Sign := 1 else if x < 0 then Sign := -1 else Sign := 0
+end;
+function CompareValue(a, b: double): integer;
+begin
+  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1
 end;
 end.

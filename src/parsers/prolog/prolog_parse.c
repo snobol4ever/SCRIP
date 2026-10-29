@@ -4278,6 +4278,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply") && strcmp(PL_PRELUDE_LIBS[li].lib, "ordsets")) continue;
             for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
         }
+        if (pl_program_is_xsb(prog)) for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+            if (strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_builtins") && strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_dialect") && strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_ordsets")) continue;
+            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
+        }
     }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
@@ -4640,6 +4644,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.synerr   = (const char *)0;
     p.wrap_tail = src && !strncmp(src, "'$rd'((", 7) ? (int)strlen(src) - 4 : -1;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
+    { extern int rt_pl_dialect_xsb(void); if (rt_pl_dialect_xsb()) p.lx.swi = 1; }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);

@@ -1344,7 +1344,7 @@ RTX_ENDF(rt_gc_mark_run)
 .org .Lmk_class + DT_E
 .byte MK_E
 .org .Lmk_class + DT_PLVAR
-.byte MK_PLAIN_I
+.byte MK_SLOW
 .org .Lmk_class + DT_PLREF
 .byte MK_PLAIN_I
 .org .Lmk_class + DT_X
@@ -3995,6 +3995,8 @@ RTX_FUNC(gc_collect_ex)
     jmp     .Lgx_rd
 .Lgx_rdd:
     RTX_CALL(kw_cset_gc_weak)
+    RTX_CALL(rt_pl_eng_gc_weak)
+    RTX_CALL(gc_cells_resolve)
     mov     rax, GXHP(0)
     sub     rax, GRT(G_RT_OFF_GC_HP_ARENA)
     shr     rax, 4

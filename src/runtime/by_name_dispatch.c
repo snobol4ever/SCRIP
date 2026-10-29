@@ -4766,42 +4766,43 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     const char *mro[bnd_dat_need(cname, 0)];
     int mn = dat_mro(cname, mro, (int)(sizeof mro / sizeof mro[0]));
     if (mn == 0) { mro[0] = cname; mn = 1; }
-    static char acc_names[256][192];
-    static char acc_types[256][8][32];
-    int nacc = 0;
     int pcount = rt_proc_enum_count();
-    for (int ci = 0; ci < mn && nacc < 256; ci++) {
+    int cidx[pcount * mn + 1], cpl[pcount * mn + 1], nc = 0;
+    for (int ci = 0; ci < mn; ci++) {
         if (!mro[ci]) continue;
         char prefix[fmt_len("%s__%s$", mro[ci], mname)];
         int pl = snprintf(prefix, sizeof prefix, "%s__%s$", mro[ci], mname);
-        for (int pi = 0; pi < pcount && nacc < 256; pi++) {
-            const char *pn = rt_proc_enum_name(pi);
-            if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
-            const char *p = pn + pl;
-            const char *e = strchr(p, '$');
-            int arity = atoi(p);
-            if (arity != nm) continue;
-            int nt = 0;
-            const char *q = e ? e + 1 : (const char *)0;
-            while (q && nt < 8) {
-                const char *nx = strchr(q, '$');
-                int len = nx ? (int)(nx - q) : (int)strlen(q);
-                if (len > 31) len = 31;
-                memcpy(acc_types[nacc][nt], q, (size_t)len);
-                acc_types[nacc][nt][len] = 0;
-                nt++;
-                if (!nx) break;
-                q = nx + 1;
-            }
-            int ok = 1;
-            for (int i = 0; i < nm && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
-            if (!ok) continue;
-            int dup = 0;
-            for (int k = 0; k < nacc; k++) if (!strcmp(acc_names[k], pn)) { dup = 1; break; }
-            if (dup) continue;
-            snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn);
-            nacc++;
+        for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { cidx[nc] = pi; cpl[nc] = pl; nc++; } }
+    }
+    char acc_types[nc + 1][8][32];
+    const char *acc_pn[nc + 1];
+    int nacc = 0;
+    for (int cj = 0; cj < nc; cj++) {
+        const char *pn = rt_proc_enum_name(cidx[cj]);
+        const char *p = pn + cpl[cj];
+        const char *e = strchr(p, '$');
+        int arity = atoi(p);
+        if (arity != nm) continue;
+        int nt = 0;
+        const char *q = e ? e + 1 : (const char *)0;
+        while (q && nt < 8) {
+            const char *nx = strchr(q, '$');
+            int len = nx ? (int)(nx - q) : (int)strlen(q);
+            if (len > 31) len = 31;
+            memcpy(acc_types[nacc][nt], q, (size_t)len);
+            acc_types[nacc][nt][len] = 0;
+            nt++;
+            if (!nx) break;
+            q = nx + 1;
         }
+        int ok = 1;
+        for (int i = 0; i < nm && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
+        if (!ok) continue;
+        int dup = 0;
+        for (int k = 0; k < nacc; k++) if (!strcmp(acc_pn[k], pn)) { dup = 1; break; }
+        if (dup) continue;
+        acc_pn[nacc] = pn;
+        nacc++;
     }
     if (nacc == 0) return 0;
     int win = -1;
@@ -4815,7 +4816,7 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     DESCR_t ca[total];
     ca[0] = args[0];
     for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
-    *out = invoke_method_proc_rq(acc_names[win], ca, total, rq);
+    *out = invoke_method_proc_rq(acc_pn[win], ca, total, rq);
     return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
@@ -5439,10 +5440,9 @@ const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
     if (isinf(fv)) { snprintf(fb, (size_t)bufsz, "1.0Inf"); return fb; }
     if (prec) snprintf(fb, (size_t)bufsz, "%.*g", prec, fv);
     else for (prec = 15; prec <= 17; prec++) { snprintf(fb, (size_t)bufsz, "%.*g", prec, fv); if (strtod(fb, (char **)0) == fv) break; }
-    if (!strchr(fb, '.')) {
-        char * x = strpbrk(fb, "eE");
-        size_t at = x ? (size_t)(x - fb) : strlen(fb), n = strlen(fb);
-        if (n + 2 < (size_t)bufsz) { memmove(fb + at + 2, fb + at, n - at + 1); fb[at] = '.'; fb[at + 1] = '0'; }
+    if (!strchr(fb, '.') && strlen(fb) + 2 < (size_t)bufsz) {
+        if (strpbrk(fb, "eE")) snprintf(fb, (size_t)bufsz, "%.1e", fv);
+        else { size_t n = strlen(fb); fb[n] = '.'; fb[n + 1] = '0'; fb[n + 2] = '\0'; }
     }
     { char * x = strpbrk(fb, "eE"); if (x && (x[1] == '+' || x[1] == '-') && x[2] == '0' && x[3] && rt_pl_dialect_swi()) { x[2] = x[3]; x[3] = '\0'; } }
     return fb;
@@ -5661,20 +5661,28 @@ static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
     out[o] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_diag_to(const char *msg, int force_err) {
+    FILE *o = (!force_err && g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto) ? stdout : stderr;
+    fprintf(o, "# %s\n", msg ? msg : "");
+    fflush(o);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_diag(const char *msg) { rk_tap_diag_to(msg, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tap_exit(void) {
     int code = 0;
     char b[160];
     if (!g_runtime.tap.tap_no_plan && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
         if (!g_runtime.tap.tap_done_run) {
             snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
-            fprintf(stderr, "# %s\n", b);
+            rk_tap_diag(b);
         }
         code = 255;
     }
     if (g_runtime.tap.tap_failed > 0) {
         if (!g_runtime.tap.tap_done_run) {
             snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
-            fprintf(stderr, "# %s\n", b);
+            rk_tap_diag(b);
         }
         code = g_runtime.tap.tap_failed > 254 ? 254 : (int) g_runtime.tap.tap_failed;
     }
@@ -5695,7 +5703,6 @@ static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
     return cond;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_diag(const char *msg) { fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_subtest_open(const char *nm) {
     DESCR_t st[10];
@@ -6862,7 +6869,7 @@ static int pl_cell_text_n(DESCR_t v, char *buf, size_t n, const char **out, size
     if (pl_rat_is(d)) {
         extern void *rt_wsb_alloc(size_t);
         size_t m = pl_rat_text(d, (char *)0, 0) + 1;
-        char *rb = m <= n ? buf : (char *)rt_wsb_alloc(m);
+        char *rb = (char *)rt_wsb_alloc(m);
         if (!rb) return 0;
         (void)pl_rat_text(d, rb, m);
         *out = rb;
@@ -7356,6 +7363,7 @@ static int pl_sp_xprop(int i, int j, DESCR_t *out) {
     if (j < g_fh[i].nmir) { *out = pl_mk_cmp1("mirror", pl_mk_stream(g_fh[i].mir[j])); return 1; }
     return 0;
 }
+static DESCR_t pl_gnu_fn(const char *f, int ar, const DESCR_t *a);
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
     if (pidx == 13) {
@@ -7410,7 +7418,14 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
             long off;
             if (!fp || i < 3) return 0;
             off = ftell(g_fh[i].raw ? g_fh[i].raw : fp);
-            if (off < 0) return 0;
+            if (off < 0) {
+                extern int fh_in_position(int, long *, long *, long *);
+                extern long fh_pipe_bytes(int);
+                long c, l, p;
+                if (g_fh[i].mode != 'r' || fh_in_position(i, &c, &l, &p) != 1) return 0;
+                *out = pl_mk_cmp1("position", pl_gnu_fn("$stream_position", 4, (DESCR_t[]) { INTVAL(c), INTVAL(l + 1), INTVAL(p), INTVAL(fh_pipe_bytes(i)) }));
+                return 1;
+            }
             *out = pl_mk_cmp1("position", pl_mk_cmp1("$stream_position", INTVAL((long long)off)));
             return 1;
         }
@@ -10485,7 +10500,7 @@ PL_CX_LEAF_HEAD(sha_hash, 3)
                 pl_sha256(m, n, h);
                 hl = 32;
             } else cx->ball = rt_pl_ball_kind2("domain_error", "algorithm", al);
-            if (hl) { DESCR_t el[32]; for (int j = 0; j < hl; j++) el[j] = INTVAL(h[j]); ok = plw_unify_vals(args[2], pl_list_from_arr(el, hl), cx); }
+            if (hl) { DESCR_t el[hl]; for (int j = 0; j < hl; j++) el[j] = INTVAL(h[j]); ok = plw_unify_vals(args[2], pl_list_from_arr(el, hl), cx); }
         }
     }
 PL_CX_LEAF_TAIL
@@ -14214,19 +14229,14 @@ static int rk_fast_rat_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { char name[64]; int req; } rk_mc_named_t;
+typedef struct { const char *name; int nlen; int req; } rk_mc_named_t;
+static int rk_mc_named_is(const rk_mc_named_t *d, const char *key) { return !strncmp(d->name, key, (size_t)d->nlen) && !key[d->nlen]; }
 static int rk_mc_named_of(const char *types, int arity, rk_mc_named_t *out, int max) {
     int seg = 0, n = 0;
     for (const char *q = types; q; seg++) {
         const char *nx = strchr(q, '$');
         int len = nx ? (int)(nx - q) : (int)strlen(q);
-        if (seg >= arity && len > 4 && !strncmp(q, "N_", 2) && n < max) {
-            int nl = len - 4 > 63 ? 63 : len - 4;
-            memcpy(out[n].name, q + 2, (size_t) nl);
-            out[n].name[nl] = 0;
-            out[n].req = q[len - 1] == 'R';
-            n++;
-        }
+        if (seg >= arity && len > 4 && !strncmp(q, "N_", 2) && n < max) { out[n].name = q + 2; out[n].nlen = len - 4; out[n].req = q[len - 1] == 'R'; n++; }
         q = nx ? nx + 1 : (const char *)0;
     }
     return n;
@@ -14235,19 +14245,17 @@ static int rk_mc_named_of(const char *types, int arity, rk_mc_named_t *out, int 
 static const char *rk_multi_named_winner(const char *base, const DESCR_t *pos, int npos, const DESCR_t *kv, int nkv, int *none) {
     char prefix[fmt_len("%s$", base)];
     int pl = snprintf(prefix, sizeof prefix, "%s$", base);
-    static char acc_names[256][160];
-    static char acc_types[256][8][32];
-    static int acc_var[256];
-    static int acc_fixed[256];
-    static int acc_nn[256];
-    int nacc = 0, ncand = 0;
     extern int rt_proc_enum_count(void);
     extern const char *rt_proc_enum_name(int i);
     int pcount = rt_proc_enum_count();
-    for (int pi = 0; pi < pcount && nacc < 256; pi++) {
+    int cidx[pcount + 1], nc = 0;
+    for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) cidx[nc++] = pi; }
+    char acc_types[nc + 1][8][32];
+    int acc_var[nc + 1], acc_fixed[nc + 1], acc_nn[nc + 1], acc_idx[nc + 1];
+    int nacc = 0, ncand = nc;
+    for (int cj = 0; cj < nc; cj++) {
+        int pi = cidx[cj];
         const char *pn = rt_proc_enum_name(pi);
-        if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
-        ncand++;
         const char *p = pn + pl;
         const char *e = strchr(p, '$');
         int arity = atoi(p), nt = 0;
@@ -14274,20 +14282,20 @@ static const char *rk_multi_named_winner(const char *base, const DESCR_t *pos, i
             char kb[128];
             const char *key = to_cstring(kv[2 * k], kb, sizeof kb);
             int hit = 0;
-            for (int i = 0; i < nnm; i++) if (key && !strcmp(nmd[i].name, key)) hit = 1;
+            for (int i = 0; i < nnm; i++) if (key && rk_mc_named_is(&nmd[i], key)) hit = 1;
             if (!hit) ok = 0;
         }
         for (int i = 0; i < nnm && ok; i++) {
             if (!nmd[i].req) continue;
             int hit = 0;
-            for (int k = 0; k < nkv; k++) { char kb[128]; const char *key = to_cstring(kv[2 * k], kb, sizeof kb); if (key && !strcmp(nmd[i].name, key)) hit = 1; }
+            for (int k = 0; k < nkv; k++) { char kb[128]; const char *key = to_cstring(kv[2 * k], kb, sizeof kb); if (key && rk_mc_named_is(&nmd[i], key)) hit = 1; }
             if (!hit) ok = 0;
         }
         if (!ok) continue;
         acc_var[nacc] = isvar;
         acc_fixed[nacc] = fixed;
         acc_nn[nacc] = nnm;
-        snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn);
+        acc_idx[nacc] = pi;
         nacc++;
     }
     *none = ncand == 0;
@@ -14300,25 +14308,23 @@ static const char *rk_multi_named_winner(const char *base, const DESCR_t *pos, i
         if (!beaten && (win < 0 || acc_nn[i] > acc_nn[win])) win = i;
     }
     if (win < 0) win = 0;
-    return acc_names[win];
+    return rt_proc_enum_name(acc_idx[win]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
     char prefix[fmt_len("%s$", base)];
     int pl = snprintf(prefix, sizeof prefix, "%s$", base);
-    static int acc_idx[256];
-    static char acc_names[256][160];
-    static char acc_types[256][8][32];
-    static int acc_var[256];
-    static int acc_fixed[256];
-    static int acc_nn[256];
-    int nacc = 0;
     extern int rt_proc_enum_count(void);
     extern const char *rt_proc_enum_name(int i);
     int pcount = rt_proc_enum_count();
-    for (int pi = 0; pi < pcount && nacc < 256; pi++) {
+    int cidx[pcount + 1], nc = 0;
+    for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) cidx[nc++] = pi; }
+    char acc_types[nc + 1][8][32];
+    int acc_idx[nc + 1], acc_var[nc + 1], acc_fixed[nc + 1], acc_nn[nc + 1];
+    int nacc = 0;
+    for (int cj = 0; cj < nc; cj++) {
+        int pi = cidx[cj];
         const char *pn = rt_proc_enum_name(pi);
-        if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
         const char *p = pn + pl;
         const char *e = strchr(p, '$');
         int arity = atoi(p);
@@ -14348,7 +14354,6 @@ const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
         acc_fixed[nacc] = fixed;
         acc_nn[nacc] = nnm;
         acc_idx[nacc] = pi;
-        snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn);
         nacc++;
     }
     if (nacc == 0) return (const char *)0;
@@ -14360,8 +14365,7 @@ const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
         if (!beaten && (win < 0 || acc_nn[i] > acc_nn[win])) win = i;
     }
     if (win < 0) win = 0;
-    (void)acc_idx;
-    return acc_names[win];
+    return rt_proc_enum_name(acc_idx[win]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_arr_set_impl(DESCR_t *args, DESCR_t *out) {
@@ -14933,7 +14937,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(H.d[1]) };
             return 1;
         }
-        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag(d); *out = NULVCL; return 1; }
+        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag_to(d, 1); *out = NULVCL; return 1; }
         if (!strcmp(op, "todo")) {
             const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
             long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
@@ -15505,9 +15509,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         const char * pn = rt_proc_pname(to_cstring(args[0], nb, sizeof nb), (int) args[1].i);
         const char * vs = to_cstring(args[2], vb, sizeof vb);
         const char * tn = rk_value_type(args[2]);
-        char mm[512];
-        snprintf(mm, sizeof mm, "Parameter '$%s' expects a writable container (variable) as an argument,\nbut got '%s' (%s) as a value without a container.", pn ? pn : "", vs ? vs : "",
-            tn ? tn : "Any");
+        const char * mf = "Parameter '$%s' expects a writable container (variable) as an argument,\nbut got '%s' (%s) as a value without a container.";
+        const char * pnn = pn ? pn : "", * vsn = vs ? vs : "", * tnn = tn ? tn : "Any";
+        size_t mn = (size_t)snprintf((char *)0, 0, mf, pnn, vsn, tnn);
+        char mm[mn + 1];
+        snprintf(mm, mn + 1, mf, pnn, vsn, tnn);
         rk_exc_init();
         rk_exc_throw(DATCON_fn("X::Parameter::RW", STRVAL(rt_heap_strdup_c(mm))));
         *out = FAILDESCR;

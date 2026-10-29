@@ -28,7 +28,6 @@ typedef struct scrip_coctx_t {
     uint64_t park_pc;
     char *park_r;
     char *park_srbp;
-    int sigma_live;
     char *image;
     const char *image_src;
     size_t image_span;
@@ -39,8 +38,7 @@ typedef struct scrip_coctx_t {
     sem_t created;
     int started;
     int eager;
-    void *scan_state;
-    int inherit_scan;
+    uint64_t env[3];
     uint64_t rtcc_spill[32];
     long serial;
     long activations;
@@ -64,10 +62,12 @@ typedef struct scrip_coctx_t {
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint64_t epc, char *efp);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
 extern scrip_coctx_t *g_scrip_co_current;
-void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
+typedef struct { uint64_t rc; uint64_t *env; } scrip_co_ret_t;
+uint64_t *rt_co_env(void);
+uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
 void scrip_cofail(void);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname);
-int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw);
+scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw);
 scrip_coctx_t *scrip_co_gc_head(void);
 scrip_coctx_t *scrip_co_gc_root(void);
 void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg);

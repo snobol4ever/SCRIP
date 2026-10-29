@@ -260,19 +260,14 @@ Paren     = ( epsilon . *PushCounter()
             );
 /* { s1; s2 } is C's parse_block_or_expr: each statement may take one trailing ';', a bare ';' is the leaf &null, and */
 /* when the token before '}' is a ';' one more &null closes the block; {} is an empty TT_SEQ_EXPR, one item stands alone. */
-/* The ';' is tracked by the deferred actions themselves (IcnSemi), which run in match order, inner blocks first.         */
-function IcnSemi(f) { icnSemiFlag = f; IcnSemi = .dummy; nreturn; }
-function IcnBlockEnd() {
-    IcnBlockEnd = .dummy;
-    if (IDENT(icnSemiFlag, 1)) { Shift('TT_VAR', '&null'); IncCounter(); }
-    nreturn;
-}
-CompoundItem  = FENCE( *$' ' *$';' . *Shift('TT_VAR', '&null') . *IncCounter() . *IcnSemi(1)
-                     | *$' ' *Expr . *IncCounter() *$' ' FENCE( *$';' . *IcnSemi(1) | epsilon . *IcnSemi(0) ) );
+/* a ';' directly before the '}' is read ahead, and one more &null closes the block                                                */
+CompoundClose = *$' ' @cl *IDENT(SUBSTR(Src, cl + 1, 1), '}') epsilon . *Shift('TT_VAR', '&null') . *IncCounter();
+CompoundItem  = FENCE( *$' ' *$';' . *Shift('TT_VAR', '&null') . *IncCounter() FENCE(*CompoundClose | epsilon)
+                     | *$' ' *Expr . *IncCounter() *$' ' FENCE( *$';' FENCE(*CompoundClose | epsilon) | epsilon ) );
 CompoundItems = FENCE( *CompoundItem *CompoundItems | epsilon );
 Compound      = ( epsilon . *PushCounter()
                   *$'{'
-                  ( *$' ' *$'}' | epsilon . *IcnSemi(0) *CompoundItems *$' ' *$'}' . *IcnBlockEnd() )
+                  ( *$' ' *$'}' | *CompoundItems *$' ' *$'}' )
                   . *Reduce('TT_SEQ_EXPR', *(DIFFER(nTop(), 1) nTop()))
                   . *PopCounter()
                 );
@@ -741,54 +736,52 @@ function PPDir(dl, nc, cmd, rest, sym, r2, dv, nm, t, sv, d, st) {
     }
     nreturn;
 }
-function ParseOne(ptree, i, n_kids) {
-    if (Src ? ANY('$_')) {
-        PPInit();
-        if (Src ? *pp_need) {
-            if (Src ? *Preprocess) { ; } else { pp_err = 1; }
-            if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
-            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; return; }
-            Src = pp_out pp_buf;
-        }
-    }
-    pf_a = TIME();
-    InitCounter();
-    InitStack();
-    if (Src ? *Compiland) {
-        ptree = Pop();
-        pf_parse = pf_parse + (TIME() - pf_a);
-        if (DIFFER(ptree)) {
-            i = 1;
-            n_kids = n(ptree);
-            while (LE(i, n_kids)) {
-                TreeDump(c(ptree)[i]);
-                i = i + 1;
-            }
-            TreeDumpEnd();
-        } else OUTPUT = 'Parse Error';
-    } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
-    return;
-}
 pf_list = HOST(4, 'PARSER_FILES');
-if (IDENT(pf_list)) {
-    INPUT(.INPUT, 9, '[-f0 -r16777215]');
-    Src = INPUT;
-    ParseOne();
-} else {
-    pf_n = 0;
-    pf_bytes = 0;
-    pf_parse = 0;
-    pf_parse1 = 0;
-    INPUT(.pf_names, 8, pf_list);
-    while (pf_name = pf_names) {
+pf_n = 0;
+pf_bytes = 0;
+pf_parse = 0;
+pf_parse1 = 0;
+if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
+while (LE(0, 1)) {
+    if (IDENT(pf_list)) {
+        Src = INPUT;
+    } else {
+        if (~(pf_name = pf_names)) break;
         INPUT(.INPUT, 9, pf_name '[-r16777215]');
         Src = INPUT;
         ENDFILE(9);
         pf_bytes = pf_bytes + SIZE(Src);
         OUTPUT = '== ' pf_name;
-        ParseOne();
-        pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
     }
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
+    pf_refused = '';
+    if (Src ? ANY('$_')) {
+        PPInit();
+        if (Src ? *pp_need) {
+            if (Src ? *Preprocess) { ; } else { pp_err = 1; }
+            if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
+            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; pf_refused = 1; } else { Src = pp_out pp_buf; }
+        }
+    }
+    if (IDENT(pf_refused)) {
+        pf_a = TIME();
+        InitCounter();
+        InitStack();
+        if (Src ? *Compiland) {
+            ptree = Pop();
+            pf_parse = pf_parse + (TIME() - pf_a);
+            if (DIFFER(ptree)) {
+                pf_i = 1;
+                pf_nk = n(ptree);
+                while (LE(pf_i, pf_nk)) {
+                    TreeDump(c(ptree)[pf_i]);
+                    pf_i = pf_i + 1;
+                }
+                TreeDumpEnd();
+            } else OUTPUT = 'Parse Error';
+        } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
+    }
+    pf_n = pf_n + 1;
+    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+    if (IDENT(pf_list)) break;
 }
+if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;

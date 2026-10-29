@@ -1144,13 +1144,11 @@ inline const char * ZLOCD(int o) { return x86_zref(16 + o, 0); }
 inline const char * ZLOC_B(int o) { return x86_zref(_.op_ztail + 16 + o, 1); }
 inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 1, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
+inline const char * x86_strkeep(const std::string & v);
 inline const char * ZOPFS(int off, int sp) {
-    static char b[16][48]; static int i;
     const char * a = x86_zop(off, 1, 0), * p = strrchr(a, '+');
     if (!strncmp(a, "qword ptr [rbp ", 15) || !p || p[1] != ' ') return a;
-    i = (i + 1) & 15;
-    snprintf(b[i], 48, "%.*s+ %d]", (int)(p - a), a, atoi(p + 2) + sp);
-    return b[i];
+    return x86_strkeep(std::string(a, (size_t)(p - a)) + "+ " + std::to_string(atoi(p + 2) + sp) + "]");
 }
 inline const char * ZOPQS(int k, int sp, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return ZOPFS(_.op_zread_fr[k] + w, sp);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + sp + w, 1); }
@@ -2360,26 +2358,11 @@ inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 extern "C" void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
 extern "C" uint64_t rt_scan_sync_in(void);
-typedef struct { uint64_t ptr; uint64_t len; } ScanLiveRegs_t;
-extern "C" ScanLiveRegs_t rt_scan_live_regs(void);
 inline std::string x86_scan_sync_out_force() {
     return x86("mov", "rdi", "r13")
          + x86("mov", "esi", "r15d")
          + x86("mov", "rdx", "r14")
          + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_switch_reload_force() {
-    return x86("push", "rax")
-         + x86("push", "rdx")
-         + x86("comment", "co-expression switch: &subject and &pos are global (iconx), so r13/r15 and r14 reload from the rooted global the other thread set or the collector moved")
-         + x86("call", "rt_scan_live_regs", (uint64_t)(uintptr_t)(void *)rt_scan_live_regs)
-         + x86("mov", "r13", "rax")
-         + x86("mov", "r15", "rdx")
-         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-         + x86("mov", "r14", "rax")
-         + x86("pop", "rdx")
-         + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_in_rr_force() {

@@ -1708,7 +1708,6 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         g->done = 0;
         if (p->gen_region_ft > 0) g->region_ft = (long)p->gen_region_ft;
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
-        g->co.inherit_scan = 1;
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head;
         g_genp_head = g;
@@ -1716,7 +1715,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         rt_c2bb_hit("gen_h.coro", name);
 #endif
         uint64_t out2[2] = { 0, 0 };
-        int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
+        int ok = (int)scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO).rc;
         return rt_genp_triage(g, ok, out2, hout);
     }
     if (hout) *hout = (void *)0;
@@ -1745,7 +1744,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
             uint64_t out2[2] = { 0, 0 };
             g_runtime.abi.rt_k_level++;
             rt_k_level_mirror();
-            int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
+            int ok = (int)scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO).rc;
             g_runtime.abi.rt_k_level--;
             rt_k_level_mirror();
             return rt_genp_triage(g, ok, out2, hslot);

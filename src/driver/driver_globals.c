@@ -103,7 +103,7 @@ static void fh_pos_fold(fh_slot_t *gs, fh_slot_t *ws, const char *p, size_t n){
     while(q<e&&(q=memchr(q,'\n',(size_t)(e-q)))!=(const char *)0){ nl++; last=q; q++; }
     if(gs){ gs->gpos_chars+=(long)n; gs->gpos_lines+=nl; gs->gpos_lpos=last?(long)(e-last-1):gs->gpos_lpos+(long)n; }
     if(!ws) return;
-    for(;k+32<=n;k+=32){ uint64_t x[4]; memcpy(x,p+k,32); hi|=x[0]|x[1]|x[2]|x[3]; }
+    for(;k+32<=n;k+=32){ uint64_t x0,x1,x2,x3; memcpy(&x0,p+k,8); memcpy(&x1,p+k+8,8); memcpy(&x2,p+k+16,8); memcpy(&x3,p+k+24,8); hi|=x0|x1|x2|x3; }
     for(;k+8<=n;k+=8){ uint64_t x; memcpy(&x,p+k,8); hi|=x; }
     for(;k<n;k++) hi|=(unsigned char)p[k];
     if(hi&0x8080808080808080ull) for(k=0;k<n;k++) if(((unsigned char)p[k]&0xC0)==0x80) cont++;
@@ -209,6 +209,19 @@ static int fh_std_position(int idx, long *chars, long *lines, long *lpos){
     *lpos=h[1].pos_lpos;
     return 1;
 }
+static int fh_pipe_position(fh_slot_t *s) {
+    struct stat st;
+    FILE *in=s->fp;
+    long cp, fill, head;
+    if(!in||!in->_IO_read_base||fstat(fileno(in),&st)||!(S_ISFIFO(st.st_mode)||S_ISSOCK(st.st_mode))) return -2;
+    cp=(long)(in->_IO_read_ptr-in->_IO_read_base);
+    fill=(long)(in->_IO_read_end-in->_IO_read_base);
+    head=fill>0?(long)(unsigned char)in->_IO_read_base[0]*256+(fill>1?(long)(unsigned char)in->_IO_read_base[1]:0):0;
+    if(fill!=s->in_fill||cp<s->in_fold||head!=s->in_head){ s->in_fill=fill; s->in_fold=0; s->in_head=head; }
+    if(cp>s->in_fold){ fh_pos_fold((fh_slot_t *)0,s,in->_IO_read_base+s->in_fold,(size_t)(cp-s->in_fold)); s->pos_off+=cp-s->in_fold; s->in_fold=cp; }
+    return 1;
+}
+long fh_pipe_bytes(int idx) { fh_ensure_init(); return idx>=0&&idx<FH_N?g_fh[idx].pos_off:0; }
 int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
     fh_ensure_init();
     if(idx<0||idx>=FH_N||!g_fh[idx].fp) return 0;
@@ -217,7 +230,7 @@ int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
     fh_slot_t *s=&g_fh[idx];
     int r;
     if(idx!=0&&s->mode!='r') r=fh_out_position(s);
-    else { long off=ftell(s->fp); if(off<0) return -2; r=fh_pos_scan(s,fileno(s->fp),off); }
+    else { long off=ftell(s->fp); r=off<0?(idx==0?-2:fh_pipe_position(s)):fh_pos_scan(s,fileno(s->fp),off); }
     if(r!=1) return r;
     *chars=s->pos_chars;
     *lines=s->pos_lines;
@@ -268,6 +281,9 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->pos_chars=0;
     s->pos_lines=0;
     s->pos_lpos=0;
+    s->in_head=0;
+    s->in_fold=0;
+    s->in_fill=0;
     s->rd_line=0;
     s->rd_col=0;
     s->raw=NULL;

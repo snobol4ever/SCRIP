@@ -100,6 +100,8 @@ function PasInit() {
     pas_hasprog = '';
     pas_strdecl = '';
     pas_h = '';
+    pas_hs = TABLE(15);
+    pas_hn = 0;
     pas_unit = '';
     pas_ek = 0;
     pas_eln = TABLE(31);
@@ -143,7 +145,9 @@ function PasDir(d, l, r, m, fnc) {
     PasDir = .dummy;
     l = lwr(d);
     if (l ? (POS(0) 'mode')) {
-        r = PasStrip(SUBSTR(l, 5, SIZE(l) - 4));
+        r = SUBSTR(l, 5, SIZE(l) - 4);
+        r ? (POS(0) SPAN(' ' CHAR(9) CHAR(10) CHAR(13))) = ;
+        r ? (SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) RPOS(0)) = ;
         if (IDENT(r, 'iso')) { PasEv('mode_iso'); if (IDENT(pas_ds)) { dialect = 'iso'; } nreturn; }
         m = '';
         fnc = 1;
@@ -166,8 +170,8 @@ function PasDir(d, l, r, m, fnc) {
     if (IDENT(l, 'h+')) { pas_h = 1; nreturn; }
     if (IDENT(l, 'h-')) { pas_h = 0; nreturn; }
     if (l ? (POS(0) 'longstrings' SPAN(' ' CHAR(9)) ('on' | 'off') . r FENCE(SPAN(' ' CHAR(9)) | epsilon) RPOS(0))) { pas_h = (IDENT(r, 'on') 1, 0); nreturn; }
-    if (IDENT(l, 'push')) { PasEv('push'); nreturn; }
-    if (IDENT(l, 'pop')) { PasEv('pop'); nreturn; }
+    if (IDENT(l, 'push')) { PasEv('push'); pas_hn = pas_hn + 1; pas_hs[pas_hn] = pas_h; nreturn; }
+    if (IDENT(l, 'pop')) { PasEv('pop'); if (GT(pas_hn, 0)) { pas_h = pas_hs[pas_hn]; pas_hn = pas_hn - 1; } nreturn; }
     if (IDENT(l, 'r+')) { PasEv('range 1'); nreturn; }
     if (IDENT(l, 'r-')) { PasEv('range 0'); nreturn; }
     if (IDENT(l, 'q+')) { PasEv('overflow 1'); nreturn; }
@@ -553,8 +557,10 @@ MidStep         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
                     | *$' ' ('.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
                     ));
-MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | *FuncCall ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
-                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) . *Reduce('TT_FNC', nTop()) . *PopCounter();
+MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | (*String | *$'(' *Expr0 *$')') *MidStep ARBNO(*MidStep) ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
+                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) *$' ' @mlk *DIFFER(SUBSTR(Src, mlk + 1, 1), '.') *DIFFER(SUBSTR(Src, mlk + 1, 1), '[') *DIFFER(SUBSTR(Src, mlk + 1, 1), '^') . *Reduce('TT_FNC', nTop()) . *PopCounter();
+/* a call statement whose designator holds a call, a literal or a parenthesised receiver: the expression grammar's own primary and postfixes (pascal.y call_with_args, recv_primary), ending in the ')' of a call  */
+CallStmt        =   *Primary *Postfix *PostStar @cse *IDENT(SUBSTR(Src, cse, 1), ')');
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
 StmtRest        =   *$';' FENCE(*Command . *IncCounter() | epsilon);
@@ -604,6 +610,7 @@ Command         =   *$' ' ( *kw_cmd
                     | *label_cmd
                     | *assign_cmd
                     | *MethodStmt
+                    | *CallStmt
                     | *ProcCall
                     | *empty_cmd
                     );
@@ -1131,7 +1138,24 @@ pre_mode = '{$mode' FENCE(pre_ws | epsilon) ('iso' | 'objfpc' | 'delphiunicode' 
 pre_item = ( pre_ws | '{' FENCE(BREAK('}') '}' | REM) | '(*' FENCE(BREAKX('*') '*)' | REM) | '//' FENCE(BREAK(CHAR(10)) | REM) | "'" FENCE(BREAK("'") "'" | REM) | Id $ pre_w *IDENT(PmKw[pre_w]) | NOTANY(&UCASE &LCASE '_') );
 PasPre   = ( *pre_mode | *pre_item *PasPre | epsilon );
 /* ==================================================================================================================== */
-function ParseOne(ptree, i, n_kids) {
+pf_list = HOST(4, 'PARSER_FILES');
+pf_n = 0;
+pf_bytes = 0;
+pf_parse = 0;
+pf_parse1 = 0;
+if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
+while (LE(0, 1)) {
+    if (IDENT(pf_list)) {
+        Src = INPUT;
+    } else {
+        if (~(pf_name = pf_names)) break;
+        INPUT(.INPUT, 9, pf_name '[-r16777215]');
+        Src = INPUT;
+        ENDFILE(9);
+        pf_bytes = pf_bytes + SIZE(Src);
+        OUTPUT = '== ' pf_name;
+    }
+    pf_refused = '';
     if (Src ? ('{$' | '(*$')) {
         if (lwr(Src) ? (('{$' | '(*$') ('if' | 'else' | 'endif' | 'endc' | 'define' | 'undef' | 'setc' | 'include' | 'i' ANY(' ' CHAR(9) CHAR(10) CHAR(13))))) {
             PPInit();
@@ -1139,52 +1163,33 @@ function ParseOne(ptree, i, n_kids) {
             if (DIFFER(pf_name)) { pp_cur = PPDirOf(pf_name); }
             if (Src ? *Preprocess) { ; } else { pp_err = 1; }
             if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
-            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; return; }
-            Src = pp_out pp_buf;
+            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; pf_refused = 1; } else { Src = pp_out pp_buf; }
         }
     }
-    PasInit();
-    pre_n = '';
-    if (lwr(Src) ? *PasPre) { if (DIFFER(pre_n)) { dialect = PmDia[pre_n]; } }
-    if (Src ? "''") { PasLines(); }
-    pf_a = TIME();
-    InitCounter();
-    InitStack();
-    if (Src ? *Compiland) {
-        ptree = Pop();
-        pf_parse = pf_parse + (TIME() - pf_a);
-        if (DIFFER(ptree)) {
-            i = 1;
-            n_kids = n(ptree);
-            while (LE(i, n_kids)) {
-                TreeDump(c(ptree)[i]);
-                i = i + 1;
+    if (IDENT(pf_refused)) {
+        PasInit();
+        pre_n = '';
+        if (lwr(Src) ? *PasPre) { if (DIFFER(pre_n)) { dialect = PmDia[pre_n]; } }
+        if (Src ? "''") { PasLines(); }
+        pf_a = TIME();
+        InitCounter();
+        InitStack();
+        if (Src ? *Compiland) {
+            ptree = Pop();
+            pf_parse = pf_parse + (TIME() - pf_a);
+            if (DIFFER(ptree)) {
+                pf_i = 1;
+                pf_nk = n(ptree);
+                while (LE(pf_i, pf_nk)) {
+                    TreeDump(c(ptree)[pf_i]);
+                    pf_i = pf_i + 1;
+                }
             }
-        }
-        TreeDumpEnd();
-    } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
-    return;
-}
-pf_list = HOST(4, 'PARSER_FILES');
-if (IDENT(pf_list)) {
-    INPUT(.INPUT, 9, '[-f0 -r16777215]');
-    Src = INPUT;
-    ParseOne();
-} else {
-    pf_n = 0;
-    pf_bytes = 0;
-    pf_parse = 0;
-    pf_parse1 = 0;
-    INPUT(.pf_names, 8, pf_list);
-    while (pf_name = pf_names) {
-        INPUT(.INPUT, 9, pf_name '[-r16777215]');
-        Src = INPUT;
-        ENDFILE(9);
-        pf_bytes = pf_bytes + SIZE(Src);
-        OUTPUT = '== ' pf_name;
-        ParseOne();
-        pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+            TreeDumpEnd();
+        } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
     }
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
+    pf_n = pf_n + 1;
+    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+    if (IDENT(pf_list)) break;
 }
+if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;

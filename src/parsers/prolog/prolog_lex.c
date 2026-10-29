@@ -65,7 +65,7 @@ static Token err_tok_s(int line, const char *msg, const char *swi) {
     return t;
 }
 static const char *swi_culprit1(const char *name, int ch) {
-    char b[96];
+    char b[strlen(name) + 4];
     snprintf(b, sizeof b, "%s\001%c", name, ch);
     return ct_strdup(b);
 }

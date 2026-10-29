@@ -583,6 +583,8 @@ typedef struct {
     int * op_zslot;
     int * op_zkown;
     int * op_zfres;
+    int * op_opvs;
+    int op_cft;
     int op_zslot_n;
     int op_own, op_kown, op_fres, op_xk, op_xw, op_xd, op_xa;
     int op_res_alias;

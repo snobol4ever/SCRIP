@@ -54,11 +54,10 @@ void rt_gen_spine_resume_enter(void);
 #define CV_UNFILLED() (std::count_if(_.op_arg_slot, _.op_arg_slot + _.op_arg_slot_n, [](int s) { return s < 0; }) > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_zrow_sprec(const IR_t * nd);
-static const char * cv_r9(const char * a) {
-    static char b[16][64]; static int i;
+static std::string cv_r9(const char * a) {
     const char * p = !strncmp(a, "qword ptr [rsp# + ", 18) ? a + 18 : !strncmp(a, "qword ptr [rsp + ", 17) ? a + 17 : (const char *)0;
     if (!p) return a;
-    i = (i + 1) & 15; snprintf(b[i], 64, "qword ptr [r9 + %d]", atoi(p)); return b[i];
+    return std::string("qword ptr [r9 + ") + std::to_string(atoi(p)) + "]";
 }
 static std::string cv_pl_spine_box() {
     return x86_alpha()

@@ -8,12 +8,13 @@
 #include <math.h>
 #include "lower.h"
 #include "g_lower.h"
+typedef struct rk_loopfr_s { const char * label; IR_t * exit; IR_t * next; IR_t * redo; struct rk_loopfr_s * up; } rk_loopfr_t;
 typedef struct {
     int try_depth;
     IR_graph_t * g;
     IR_t * try_catch;
-    IR_t * loop_exit;
-    IR_t * loop_next;
+    rk_loopfr_t * loops;
+    const char * loop_label;
     IR_t * proc_exit;
     const tree_t * cur_proc;
     uint64_t cur_byref_mask;
@@ -92,6 +93,7 @@ static int rk_name_is_byref(rcx_t * cx, const char * name) {
 #define RK_PV_NAMED 4096
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
+#define RK_PV_RAW 32768
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 static int rk_is_scalar_bind(const tree_t * t);
@@ -236,6 +238,43 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
     if (ω && ir_is_generator_kind(ω->op)) lc_ω_to_β(nd, ω);
     return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_loop_open(rcx_t * cx, rk_loopfr_t * lf, IR_t * exit, IR_t * next) {
+    lf->label = cx->loop_label;
+    lf->exit = exit;
+    lf->next = next;
+    lf->redo = NULL;
+    lf->up = cx->loops;
+    cx->loop_label = NULL;
+    cx->loops = lf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_loop_close(rcx_t * cx, rk_loopfr_t * lf, IR_t * body) { cx->loops = lf->up; if (lf->redo && body) { γ_to(lf->redo, body); ω_to(lf->redo, body); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rk_loopfr_t * rk_loop_find(rcx_t * cx, const char * label) { rk_loopfr_t * lf = cx->loops; while (lf && label && (!lf->label || strcmp(lf->label, label))) lf = lf->up; return lf; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_reads_var(const tree_t * t, const char * nm);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_loop_node(const tree_t * t) { return t && (t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_REPEAT || t->t == TT_CLOOP || t->t == TT_FOR_RANGE || t->t == TT_EVERY); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_multi_for(const tree_t * t) {
+    return t && t->t == TT_SEQ && t->n == 2 && t->c[0] && t->c[0]->t == TT_ASSIGN && t->c[0]->n == 2 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval && !strncmp(t->c[0]->c[0]->v.sval, "__fm_a_", 7) &&
+        rk_is_loop_node(t->c[1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_loop_ctl(rcx_t * cx, const tree_t * t, const char * nm, IR_t * ω, IR_t ** res) {
+    const char * lb = (t->n == 2 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
+    rk_loopfr_t * lf = rk_loop_find(cx, lb);
+    if (t->n > 2 || (t->n == 2 && (!lb || !lf))) return NULL;
+    IR_t * tgt = ω;
+    if (lf && !strcmp(nm, "last")) tgt = lf->exit;
+    if (lf && !strcmp(nm, "next")) tgt = lf->next;
+    if (lf && !strcmp(nm, "redo") && !lf->redo) lf->redo = build(cx, IR_GOTO, NULL, ω);
+    if (lf && !strcmp(nm, "redo")) tgt = lf->redo;
+    IR_t * j = build(cx, IR_GOTO, tgt, tgt);
+    *res = NULL;
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
@@ -697,11 +736,12 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_param_is_rw(const tree_t * pv);
+static int rk_param_is_raw(const tree_t * pv) { if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; return pv && pv->t == TT_VAR && (pv->slen & RK_PV_RAW); }
 static tree_t * rk_ti(long long v);
 static int rk_callee_param_rw(const char * nm, int k) {
     for (int i = 0; nm && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) {
         const tree_t * pr = (const tree_t *) g_stage2.proc_table[i].proc;
-        return pr && pr->t == TT_SUB_DECL && (1 + k) < pr->n && rk_param_is_rw(pr->c[1 + k]);
+        return pr && pr->t == TT_SUB_DECL && (1 + k) < pr->n && rk_param_is_rw(pr->c[1 + k]) && !rk_param_is_raw(pr->c[1 + k]);
     }
     return 0;
 }
@@ -1338,6 +1378,29 @@ static IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_state_flag(const char * vn) { char fl[strlen(vn) + 8]; snprintf(fl, sizeof fl, "%s_init", (vn[0] == '@' || vn[0] == '%') ? vn + 1 : vn); return intern(fl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_state_desugar(const tree_t * t) {
+    const char * vn = t->c[0]->v.sval;
+    const char * fn = rk_state_flag(vn);
+    tree_t * set = ast_node_new(TT_ASSIGN);
+    ast_push(set, leaf_sval2(TT_VAR, fn));
+    ast_push(set, rk_ti(1));
+    tree_t * once = ast_node_new(TT_SEQ_EXPR);
+    ast_push(once, set);
+    ast_push(once, t->c[1]);
+    tree_t * un = ast_node_new(TT_UNLESS);
+    ast_push(un, leaf_sval2(TT_VAR, fn));
+    ast_push(un, once);
+    tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+    seq->line = t->line;
+    ast_push(seq, un);
+    tree_t * dv = leaf_sval2(TT_VAR, vn);
+    dv->slen = t->c[0]->slen;
+    ast_push(seq, dv);
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -1798,6 +1861,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
             if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+            if (nm && (!strcmp(nm, "last") || !strcmp(nm, "next") || !strcmp(nm, "redo")) && !rk_user_proc_exists(nm)) { IR_t * lc = rk_loop_ctl(cx, t, nm, ω, res); if (lc) return lc; }
             if (nm && !strcmp(nm, "__rk_test_throws_like") && t->slen != 80 && t->n > 3 && t->c[1] && t->c[1]->t == TT_VAR) return lower_rv(cx, rk_throws_like_box_attrs(t), γ, ω, res);
             if (nm && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) {
                 int swap = (!strcmp(nm, "split") || !strcmp(nm, "comb") || !strcmp(nm, "first") || !strcmp(nm, "roll")) && t->n == 3;
@@ -2000,13 +2064,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_WHILE:
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, LOOP);
             IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
             bb_src_note(centry, "rk_while_cond", 0);
             γ_to(LOOP, centry);
@@ -2018,13 +2079,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
             IR_t * incr_entry = lower_rblock(cx, t->c[2], LOOP, ω, NULL);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = incr_entry;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, incr_entry);
             IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
             bb_src_note(centry, "rk_cloop_cond", 0);
             if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr", 0);
@@ -2037,13 +2095,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_UNTIL:
         {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, LOOP);
             IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
             bb_src_note(centry, "rk_until_cond", 0);
             γ_to(LOOP, centry);
@@ -2055,13 +2110,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->v.ival != 0 && t->n > 1) {
             IR_t * BACK = build(cx, IR_GOTO, NULL, ω);
             IR_t * centry = (t->v.ival == 1) ? lower_cond(cx, t->c[1], BACK, γ) : lower_cond(cx, t->c[1], γ, BACK);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = centry;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, centry);
             IR_t * bentry = lower_rblock(cx, t->c[0], centry, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             bb_src_note(bentry, "rk_repeat_body", 0);
             bb_src_note(centry, "rk_repeat_cond", 0);
             γ_to(BACK, bentry);
@@ -2070,22 +2122,34 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return bentry;
         } else {
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
-            IR_t * sv_exit = cx->loop_exit;
-            IR_t * sv_next = cx->loop_next;
-            cx->loop_exit = ω;
-            cx->loop_next = LOOP;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, ω, LOOP);
             IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω, NULL) : LOOP;
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body", 0);
             γ_to(LOOP, bentry);
             ω_to(LOOP, bentry);
             *res = LOOP;
             return bentry;
         }
+        case TT_STATIC_DECL:
+        if (t->n == 2 && t->c[0] && t->c[0]->v.sval && t->c[1]) return lower_rv(cx, rk_state_desugar(t), γ, ω, res);
+        return rk_excise(cx, γ, ω, res);
+        case TT_LABEL_DEF:
+        {
+            cx->loop_label = (t->n == 1 && (rk_is_loop_node(t->c[0]) || rk_is_multi_for(t->c[0]))) ? t->v.sval : NULL;
+            IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res);
+            cx->loop_label = NULL;
+            if (!t->v.sval || !t->n || !rk_reads_var(t->c[0], t->v.sval)) return le;
+            tree_t * decl = ast_node_new(TT_ASSIGN);
+            ast_push(decl, leaf_sval2(TT_VAR, t->v.sval));
+            ast_push(decl, leaf_sval2(TT_QLIT, t->v.sval));
+            IR_t * rd = NULL;
+            return lower_rv(cx, decl, le, ω, &rd);
+        }
         case TT_LOOP_BREAK:
         case TT_LOOP_NEXT:
-        { IR_t * tgt = (t->t == TT_LOOP_BREAK) ? cx->loop_exit : cx->loop_next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
+        { IR_t * tgt = !cx->loops ? NULL : (t->t == TT_LOOP_BREAK) ? cx->loops->exit : cx->loops->next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
         case TT_EVERY:
         if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && !t->c[0]->v.sval) {
             char sn[48];
@@ -2122,12 +2186,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (src && src->t == TT_FNC && src->v.sval && rk_proc_is_generator(src->v.sval)) {
                 IR_t * rcall = NULL;
                 IR_t * centry = lower_rv(cx, src, NULL, γ, &rcall);
-                IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-                cx->loop_exit = γ;
-                cx->loop_next = rcall;
+                rk_loopfr_t lf;
+                rk_loop_open(cx, &lf, γ, rcall);
                 IR_t * inner = rk_xf_body(cx, xf, xfk, vname, rcall, body, rcall, ω);
-                cx->loop_exit = sv_exit;
-                cx->loop_next = sv_next;
+                rk_loop_close(cx, &lf, inner);
                 γ_to(rcall, inner);
                 *res = rcall;
                 return centry;
@@ -2142,12 +2204,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ir_operand_push(to, rlo);
                 ir_operand_push(to, rhi);
                 if (rhi && ir_is_generator_kind(to->op)) lc_γ_to(rhi, to);
-                IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-                cx->loop_exit = γ;
-                cx->loop_next = to;
+                rk_loopfr_t lf;
+                rk_loop_open(cx, &lf, γ, to);
                 IR_t * inner = rk_xf_body(cx, xf, xfk, vname, to, body, to, ω);
-                cx->loop_exit = sv_exit;
-                cx->loop_next = sv_next;
+                rk_loop_close(cx, &lf, inner);
                 γ_to(to, inner);
                 *res = to;
                 return elo;
@@ -2264,12 +2324,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             ir_operand_push(to, rhi);
             if (rhi && ir_is_generator_kind(to->op)) lc_γ_to(rhi, to);
             ir_operand_push(va, to);
-            IR_t * sv_exit = cx->loop_exit, * sv_next = cx->loop_next;
-            cx->loop_exit = γ;
-            cx->loop_next = to;
+            rk_loopfr_t lf;
+            rk_loop_open(cx, &lf, γ, to);
             IR_t * bentry = lower_rblock(cx, t->c[3], to, ω, NULL);
-            cx->loop_exit = sv_exit;
-            cx->loop_next = sv_next;
+            rk_loop_close(cx, &lf, bentry);
             γ_to(va, bentry);
             *res = to;
             return elo;
@@ -2914,8 +2972,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     cx.try_depth = 0;
     cx.g = g;
     cx.try_catch = NULL;
-    cx.loop_exit = NULL;
-    cx.loop_next = NULL;
+    cx.loops = NULL;
+    cx.loop_label = NULL;
     cx.cur_proc = pd;
     cx.cur_byref_mask = 0;
     cx.cur_nparams = 0;
@@ -3019,8 +3077,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         const tree_t * s = pd->c[i];
         if (!s) continue;
         if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-        if (s->t == TT_VAR && is_multi && rk_destr_count(s->v.sval) > 0 && rk_destr_count(s->v.sval) <= 32) {
-            const tree_t * dp[32];
+        if (s->t == TT_VAR && is_multi && rk_destr_count(s->v.sval) > 0) {
+            const tree_t * dp[rk_destr_count(s->v.sval)];
             int nd = rk_destr_plan(s->v.sval, dp, 0);
             for (int di = nd - 1; di >= 0; di--) { IR_t * r = NULL; IR_t * e = lower_rv(&cx, dp[di], sentry, fail, &r); if (e) { entry = e; sentry = e; } }
             continue;
@@ -3181,6 +3239,7 @@ static void rk_register_state_globals(const tree_t * t) {
     extern int is_global(const char *);
     if (!t) return;
     if (t->t == TT_VAR && t->v.sval) { const char * n = t->v.sval; const char * b = (n[0] == '@' || n[0] == '%') ? n + 1 : n; if (!strncmp(b, "__rk_st", 7) && !is_global(n)) global_register(n); }
+    if (t->t == TT_STATIC_DECL && t->n == 2 && t->c[0] && t->c[0]->v.sval) { const char * fn = rk_state_flag(t->c[0]->v.sval); if (!strncmp(fn, "__rk_st", 7) && !is_global(fn)) global_register(fn); }
     for (int i = 0; i < t->n; i++) rk_register_state_globals(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5070,7 +5129,7 @@ static void rk_subst_meth_walk(tree_t * t) {
     int iscode = rk_closure_block(rep) || (rep && rep->t == TT_ANON_BLOCK && rep->v.sval);
     int rx = pat && pat->t == TT_FNC && pat->v.sval && !strcmp(pat->v.sval, "__rk_regex");
     if (!rx && !(pat && pat->t == TT_QLIT && pat->v.sval)) return;
-    long mode = 128, xmin = 0, xmax = 0, nth[8];
+    long mode = 128, xmin = 0, xmax = 0, nth[t->n];
     int hasx = 0, nnth = 0, zerox = 0;
     for (int i = 4; i < t->n; i++) {
         const tree_t * a = t->c[i];
@@ -5089,7 +5148,7 @@ static void rk_subst_meth_walk(tree_t * t) {
             continue;
         }
         if (!strcmp(nm, "x") && v->t == TT_VAR && v->v.sval && !strcmp(v->v.sval, "*")) { mode |= 32; xmin = 0; xmax = -1; hasx = 1; continue; }
-        if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1 && nnth < 8) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
+        if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
         return;
     }
     if (zerox) { tree_t * r = t->c[0]; t->t = r->t; t->v = r->v; t->slen = r->slen; t->n = 0; for (int i = 0; i < r->n; i++) ast_push(t, r->c[i]); return; }
@@ -6680,6 +6739,8 @@ static void rk_attr_aliases(tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_reads_var(const tree_t * t, const char * nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_prologue_target(const tree_t * s);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_sub_topic(tree_t * t, int in_pkg) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_sub_topic(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
@@ -6692,6 +6753,7 @@ static void rk_sub_topic(tree_t * t, int in_pkg) {
         if (i >= body && rk_reads_var(t->c[i], "_")) reads = 1;
     }
     if (!reads) return;
+    for (int k = 0, np = (int) t->v.ival; k < np && body < t->n && rk_prologue_target(t->c[body]); k++) body++;
     tree_t * as = ast_node_new(TT_ASSIGN), * nil = ast_node_new(TT_FNC), * dv = leaf_sval2(TT_VAR, "_");
     nil->v.sval = (char *) "__rk_typeobj";
     ast_push(nil, leaf_sval2(TT_VAR, "__rk_typeobj"));
@@ -6858,8 +6920,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         tcx.try_depth = 0;
         tcx.g = tg;
         tcx.try_catch = NULL;
-        tcx.loop_exit = NULL;
-        tcx.loop_next = NULL;
+        tcx.loops = NULL;
+        tcx.loop_label = NULL;
         tcx.cur_proc = NULL;
         tcx.cur_byref_mask = 0;
         tcx.cur_nparams = 0;
@@ -7097,8 +7159,8 @@ static int rk_reads_var(const tree_t * t, const char * nm) {
 static void rk_declare_pod(tree_t * prog) {
     if (!rk_reads_var(prog, "=pod")) return;
     tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
-    arr->v.sval = (char *) "__rk_arr";
-    ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr"));
+    arr->v.sval = (char *) "__rk_arr_lit";
+    ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr_lit"));
     tree_t * pv = leaf_sval2(TT_VAR, "=pod");
     pv->slen |= 4;
     ast_push(as, pv);
