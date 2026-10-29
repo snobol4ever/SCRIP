@@ -73,6 +73,7 @@ typedef struct {
     long pos_pre;
     long in_fold;
     long in_fill;
+    long in_head;
     long gpos_chars;
     long gpos_lines;
     long gpos_lpos;

@@ -7363,6 +7363,7 @@ static int pl_sp_xprop(int i, int j, DESCR_t *out) {
     if (j < g_fh[i].nmir) { *out = pl_mk_cmp1("mirror", pl_mk_stream(g_fh[i].mir[j])); return 1; }
     return 0;
 }
+static DESCR_t pl_gnu_fn(const char *f, int ar, const DESCR_t *a);
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
     if (pidx == 13) {
@@ -7417,7 +7418,14 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
             long off;
             if (!fp || i < 3) return 0;
             off = ftell(g_fh[i].raw ? g_fh[i].raw : fp);
-            if (off < 0) return 0;
+            if (off < 0) {
+                extern int fh_in_position(int, long *, long *, long *);
+                extern long fh_pipe_bytes(int);
+                long c, l, p;
+                if (g_fh[i].mode != 'r' || fh_in_position(i, &c, &l, &p) != 1) return 0;
+                *out = pl_mk_cmp1("position", pl_gnu_fn("$stream_position", 4, (DESCR_t[]) { INTVAL(c), INTVAL(l + 1), INTVAL(p), INTVAL(fh_pipe_bytes(i)) }));
+                return 1;
+            }
             *out = pl_mk_cmp1("position", pl_mk_cmp1("$stream_position", INTVAL((long long)off)));
             return 1;
         }
