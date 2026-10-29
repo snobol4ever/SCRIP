@@ -210,6 +210,30 @@ static long sno_text_illegal_at(const char *s) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *eval_lf_protect(const char *s, char *pc) {
+    int used[256] = { 0 };
+    long nl = 0;
+    char q = 0;
+    for (const char *p = s; *p; p++) { used[(unsigned char)*p] = 1; if (q) { if (*p == q) q = 0; else if (*p == '\n') nl++; } else if (*p == '\'' || *p == '"') q = *p; }
+    if (!nl) return (char *)0;
+    int c = 1;
+    while (c < 32 && (used[c] || c == '\n' || c == '\r' || c == '\t' || c == '\v' || c == '\f')) c++;
+    if (c >= 32) return (char *)0;
+    size_t n = strlen(s);
+    char *r = (char *)rt_wsb_alloc(n + 1);
+    if (!r) return (char *)0;
+    q = 0;
+    for (size_t i = 0; i <= n; i++) { char ch = s[i]; if (q) { if (ch == q) q = 0; else if (ch == '\n') ch = (char)c; } else if (ch == '\'' || ch == '"') q = ch; r[i] = ch; }
+    *pc = (char)c;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_lf_restore(tree_t *t, char pc) {
+    if (!t) return;
+    if (t->t == TT_QLIT && t->v.sval) for (char *p = (char *)t->v.sval; *p; p++) if (*p == pc) *p = '\n';
+    for (int i = 0; i < t->n; i++) eval_lf_restore(t->c[i], pc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_top_comma(const char *s) {
     int d = 0;
     char q = 0;
@@ -240,13 +264,16 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     size_t n = strlen(s);
     char *src = (char *)rt_wsb_alloc(n + 4);
     if (!src) return NULL;
-    snprintf(src, n + 4, "(%s)", s);
+    char lfc = 0;
+    const char *lfs = eval_lf_protect(s, &lfc);
+    snprintf(src, n + 4, "(%s)", lfs ? lfs : s);
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
+    if (lfs) eval_lf_restore(e, lfc);
     extern int sno_preeval_expr(const tree_t *, const char **);
     if (!e || sno_error_captured()) {
         const char *cap = sno_error_captured(), *fm = (const char *)0;
@@ -1032,9 +1059,12 @@ DESCR_t code_at(const char *src, long base) {
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
+    char lfc = 0;
+    const char *lfs = eval_lf_protect(src, &lfc);
     sno_error_quiet_begin();
-    tree_t *prog = sno_parse_string_ast(src, NULL);
+    tree_t *prog = sno_parse_string_ast(lfs ? lfs : src, NULL);
     sno_error_quiet_end();
+    if (lfs) eval_lf_restore(prog, lfc);
     int empty = 0;
     if (!prog || prog->n == 0) {
         const char *cap = sno_error_captured();

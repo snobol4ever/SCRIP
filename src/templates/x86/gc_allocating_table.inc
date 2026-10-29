@@ -670,6 +670,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "eval_frame_land", GC_RET_DESCR },
     { "eval_frame_open", GC_RET_OTHER },
     { "eval_if_condition_tree", GC_RET_OTHER },
+    { "eval_lf_protect", GC_RET_OTHER },
     { "eval_open", GC_RET_OTHER },
     { "eval_string_transient", GC_RET_DESCR },
     { "eval_thunks_emit_from", GC_RET_OTHER },
