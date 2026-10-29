@@ -117,11 +117,6 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_le
     rt_scan_subj_len_set(g_runtime.abi.scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta) {
-    g_runtime.abi.scan_subj = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
-    rt_scan_subj_len_set(g_runtime.abi.scan_subj, subj ? (long)(uint32_t)len : 0);
-    g_runtime.abi.scan_pos = (int)delta + 1;
-}
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : ""); }
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;

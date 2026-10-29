@@ -89,6 +89,7 @@ static const char * icn_static_mangled(const icx_t * cx, const char * nm) {
 }
 static int icn_operand_derefs_late(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_VAR || !t->v.sval || t->v.sval[0] == '&') return 0; return !icn_is_local(cx, t->v.sval); }
 static int icn_tree_is_kw_var(const tree_t * t) { return t && (t->t == TT_KEYWORD || t->t == TT_VAR) && t->v.sval && t->v.sval[0] == '&' && icn_kw_assignable(t->v.sval); }
+static int icn_tree_is_kw_scan(const tree_t * t) { return t && (t->t == TT_KEYWORD || t->t == TT_VAR) && t->v.sval && (!strcmp(t->v.sval, "&pos") || !strcmp(t->v.sval, "&subject")); }
 static int icn_builtin_reassigned(const char * nm);
 static int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return 1; return 0; }
 static int icn_call_yields_a_variable(icx_t * cx, const char * nm) { (void) cx; return nm && icn_is_proc(nm); }
@@ -473,7 +474,7 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
     if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
     if (a->t == TT_SECTION || a->t == TT_SECTION_PLUS || a->t == TT_SECTION_MINUS) return 1;
-    if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_arg_stages(cx, a->c[0]);
+    if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_tree_is_kw_scan(a->c[0]) ? 0 : icn_arg_stages(cx, a->c[0]);
     if (icn_tree_is_kw_var(a)) return 1;
     if (a->t == TT_FNC && a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval && icn_callee_is_name(cx, a->c[0]) && icn_call_yields_a_variable((icx_t *) cx, a->c[0]->v.sval)) return 1;
     if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
@@ -1475,8 +1476,11 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             IR_t * rtc = NULL;
             IR_t * rtn = icn_trace_named_prep(cx, "__trace_return", cx->pname, ret, ω, &rtc);
             IR_t * vtgt = rtn ? rtn : ret;
+            int kwv = t->n > 0 && t->c[0] && icn_tree_is_kw_scan(t->c[0]);
+            IR_t * kvr = NULL;
+            IR_t * kent = kwv ? lower(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &kvr) : NULL;
             if (cx->scan_sp > 0) {
-                IR_t * tgt = ret;
+                IR_t * tgt = kwv ? kent : ret;
                 for (int _k = 0; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
                 IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO);
                 lc_γ_to(tramp, tgt);
@@ -1484,8 +1488,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                 vtgt = tramp;
             }
             if (t->n > 0 && t->c[0]) {
-                IR_t * vr = NULL;
-                IR_t * entry = lower_result_operand(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr);
+                IR_t * vr = kwv ? kvr : NULL;
+                IR_t * entry = kwv ? (cx->scan_sp > 0 ? vtgt : kent) : lower_result_operand(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr);
                 ir_operand_push(ret, vr);
                 if (vr && rtc) ir_operand_push(rtc, vr);
                 *res = ret;
@@ -1604,10 +1608,11 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             IR_t * ev = NULL;
             IR_t * e_entry = sn;
             IR_t * eβ = NULL;
+            int kwv = t->n > 0 && t->c[0] && icn_tree_is_kw_scan(t->c[0]);
             if (t->n > 0 && t->c[0]) {
                 cx->beta = ω;
-                if (icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1;
-                e_entry = lower_trace_operand(cx, t->c[0], sn, ω, &ev);
+                if (!kwv && icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1;
+                e_entry = kwv ? lower(cx, t->c[0], sn, ω, &ev) : lower_trace_operand(cx, t->c[0], sn, ω, &ev);
                 if (cx->beta && cx->beta != ω) eβ = cx->beta;
             }
             ir_operand_push(sn, ev);
@@ -1627,11 +1632,12 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
                     lvs[nlv++] = lv;
                 }
-                lc_γ_to(lvs[nlv - 1], ytgt);
+                lc_γ_to(lvs[nlv - 1], kwv ? e_entry : ytgt);
                 lc_ω_to(lvs[nlv - 1], rrt0);
                 for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;
-                lc_γ_to(sn, lvs[0]);
+                lc_γ_to(sn, kwv ? ytgt : lvs[0]);
                 rrt = lvs[nlv - 1];
+                if (kwv) e_entry = lvs[0];
             }
             ir_operand_push(sn, rrt);
             *res = sn;
@@ -2289,7 +2295,7 @@ static const char * icn_synth_local(icx_t * cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_trace_var_form(const icx_t * cx, const tree_t * t) {
     if (!t) return 0;
-    if (icn_tree_is_kw_var(t)) return 1;
+    if (icn_tree_is_kw_var(t)) return !icn_tree_is_kw_scan(t);
     if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') return !icn_is_local(cx, t->v.sval);
     if ((t->t == TT_IDX || t->t == TT_SECTION || t->t == TT_SECTION_PLUS || t->t == TT_SECTION_MINUS) && t->n >= 2 && t->c[0]) return icn_trace_var_form(cx, t->c[0]);
     if (t->t == TT_ITERATE && t->n > 0 && t->c[0]) return 1;
@@ -2360,7 +2366,7 @@ static IR_t * lower_trace_operand(icx_t * cx, const tree_t * t, IR_t * γ, IR_t 
 static int icn_ret_base_global(const icx_t * cx, const tree_t * b) { return b && ((b->t == TT_VAR && icn_ret_global_name(cx, b->v.sval)) || icn_tree_is_kw_var(b)); }
 static int icn_return_var_form(icx_t * cx, const tree_t * t) {
     if (!t) return 0;
-    if (icn_tree_is_kw_var(t)) return 1;
+    if (icn_tree_is_kw_var(t)) return !icn_tree_is_kw_scan(t);
     if (t->t == TT_VAR) return icn_ret_global_name(cx, t->v.sval);
     if (t->t == TT_FIELD) return t->n > 0 && t->c[0] != NULL;
     if (t->t == TT_IDX) return t->n >= 2 && t->c[0] != NULL;

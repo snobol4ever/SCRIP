@@ -12,8 +12,8 @@ DESCR_t rt_keyword_var(const char *name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define KI_BOMB() (!(_.op_off >= 0) && !_.op_zres)
-#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
-#define KI_SCANKW() (!strcmp(_.op_sval, "&subject") || !strcmp(_.op_sval, "&pos"))
+#define KI_SCANKW() (_.op_sval && (!strcmp(_.op_sval, "&subject") || !strcmp(_.op_sval, "&pos")))
+#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&' && !KI_SCANKW())
 #define KI_RESULT() \
     (IF(_.op_zres, \
          x86("note", ZRESN()) \
@@ -29,8 +29,6 @@ std::string bb_keyword_icon() {
     return IF(KI_BOMB(), x86_alpha() + x86_bomb("bb_keyword: no slot"))
          + IF(!KI_BOMB() && KI_VARFORM(),
                x86_alpha()
-             + IF(KI_SCANKW(), x86("comment", "KEYWORD_var of &subject or &pos: the register environment (r13, r14, r15) is written to the runtime's scan state first, so the variable reads it"))
-             + IF(KI_SCANKW(), x86_scan_sync_out_force())
              + x86("mov", "rdi", ROQ(0))
              + x86("call", "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
              + KI_RESULT()

@@ -2356,14 +2356,6 @@ inline std::string x86_srf_floater(int wire_disp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
-extern "C" void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
-inline std::string x86_scan_sync_out_force() {
-    return x86("mov", "rdi", "r13")
-         + x86("mov", "esi", "r15d")
-         + x86("mov", "rdx", "r14")
-         + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" uint64_t *rt_co_env(void);
 inline std::string x86_scan_env_store() {
     return x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
