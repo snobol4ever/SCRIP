@@ -3878,6 +3878,8 @@ typedef struct {
     int tx_pins;
     void *ix;
     int ix_off;
+    int data_on;
+    int data_off;
 } pl_db_t;
 #define PL_DB_FRAG_PAGES(f) (((f) >> 20) & 0x3FF)
 #define PL_DB_FRAG_HELD 0x40000000
@@ -3945,8 +3947,9 @@ static int64_t pl_ix_target_key(const pl_db_t *db, const void *target) {
     pl_cell_t *tg = pl_deref((pl_cell_t *)target), *s0;
     if (db->n < 1) return 0;
     s0 = pl_deref((pl_cell_t *)&db->s[0].cl);
-    if ((int)tg->v != DT_PLREF || !tg->p || (int)s0->v != DT_PLREF || tg->slen != s0->slen) return 0;
-    return pl_ix_head_key(db, &((pl_cell_t *)tg->p)[0]);
+    if ((int)s0->v != DT_PLREF || !s0->p) return 0;
+    if ((int)tg->v == DT_PLREF && tg->p && tg->slen == s0->slen) return pl_ix_head_key(db, &((pl_cell_t *)tg->p)[0]);
+    return pl_ix_head_key(db, tg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_ix_ent_t * pl_ix_find(pl_ix_t *x, int64_t key) {
@@ -4031,6 +4034,33 @@ int rt_pl_db_cand_next(void *db_v, int i, void *target) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || i < 0 || i >= db->n) return 1;
+    for (int j = rt_pl_db_cand_next(db_v, i, target); j >= 0; j = rt_pl_db_cand_next(db_v, j, target)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    pl_cell_t *pair, *sh, *th, *sa, *ta;
+    if (!db || i < 0 || i >= db->n) return 0;
+    pair = pl_deref(&db->s[i].cl);
+    if ((int)pair->v != DT_PLREF || !pair->p) return 0;
+    sh = pl_deref(&((pl_cell_t *)pair->p)[0]);
+    th = pl_deref((pl_cell_t *)target);
+    if ((int)th->v == DT_PLREF && th->p && th->slen == pair->slen) th = pl_deref(&((pl_cell_t *)th->p)[0]);
+    if ((int)sh->v != DT_PLREF || (int)th->v != DT_PLREF || th->slen != sh->slen || !sh->p || !th->p) return 0;
+    sa = (pl_cell_t *)sh->p;
+    ta = (pl_cell_t *)th->p;
+    for (int j = 0, n = plc_fid_arity(sh->slen); j < n; j++) {
+        pl_cell_t *sv = pl_deref(&sa[j]);
+        pl_cell_t w = ((int)sv->v == DT_PLREF) ? plc_copy(sv) : *sv;
+        if (!plc_unify_cells_cx(&ta[j], &w, cx)) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_db_get(void *root, int64_t k) {
     if (!root || k < 0) return (void *)0;
     {
@@ -4055,6 +4085,8 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->tx_pins = 0;
             d->ix = (void *)0;
             d->ix_off = 0;
+            d->data_on = 0;
+            d->data_off = 0;
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -4924,6 +4956,90 @@ int rt_pl_db_ref_at(void *db_v, int i) { pl_db_t *db = (pl_db_t *)db_v; if (!db 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_seed(void *root, void *db_v, void *clause_term) { return pl_db_store(root, db_v, clause_term, 0, 1, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_ground(const pl_cell_t *c) {
+    pl_cell_t *d = pl_deref((pl_cell_t *)c);
+    for (;;) {
+        int n;
+        if (pl_cell_unbound(d) || pl_attv_is(d)) return 0;
+        if ((int)d->v != DT_PLREF || !d->p) return 1;
+        n = plc_fid_arity(d->slen);
+        if (n < 1) return 1;
+        for (int j = 0; j < n - 1; j++) if (!pl_db_ground(&((pl_cell_t *)d->p)[j])) return 0;
+        d = pl_deref(&((pl_cell_t *)d->p)[n - 1]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_data_fact(const pl_db_t *db, int i) {
+    pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl), *body, *head;
+    if ((int)pair->v != DT_PLREF || !pair->p) return 0;
+    body = pl_deref(&((pl_cell_t *)pair->p)[1]);
+    head = pl_deref(&((pl_cell_t *)pair->p)[0]);
+    if ((int)body->v != DT_PLATOM || (int)body->i != g_runtime.atoms.atom_true || (int)head->v != DT_PLREF || plc_fid_arity(head->slen) < 1) return 0;
+    return pl_db_ground(head);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_define_data(void *root, const char *nm, int arity, const char *skey) {
+    extern void * rt_pl_clause_tree(void *);
+    extern void * pl_runtime_clause_tree(void *);
+    extern void * pl_runtime_define_pred(const char *, const void *, int, void *);
+    extern void * rt_pl_choice_new(const char *);
+    extern void rt_pl_choice_add(void *, void *);
+    extern int prolog_atom_intern(const char *);
+    pl_cell_t *hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t));
+    pl_cell_t head, th[1], body, kids[2], pair;
+    void *raw, *cl, *ch;
+    if (!hargs) return 0;
+    for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], -1);
+    head = pl_make_compound(prolog_atom_intern(nm), arity, hargs);
+    th[0] = head;
+    body = pl_make_compound(prolog_atom_intern("$db_data"), 1, (void *)th);
+    kids[0] = head;
+    kids[1] = body;
+    pair = pl_make_compound(prolog_atom_intern(":-"), 2, (void *)kids);
+    raw = rt_pl_clause_tree((void *)&pair);
+    cl = raw ? pl_runtime_clause_tree(raw) : (void *)0;
+    if (!cl) return 0;
+    ch = rt_pl_choice_new(skey);
+    rt_pl_choice_add(ch, cl);
+    return pl_runtime_define_pred(skey, ch, arity, root) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_data_enter(void *root, pl_db_t *db, int i) {
+    extern int rt_proc_is_registered(const char *);
+    extern int pl_runtime_install_packet_entry(const char *, int, const char *);
+    int ar = 0;
+    const char *nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
+    if (!nm || ar < 1) return 0;
+    {
+        PL_DB_KEY_VLA(key, nm, ar);
+        char skey[fmt_len("%s@data", key)];
+        snprintf(skey, sizeof skey, "%s@data", key);
+        if (!rt_proc_is_registered(skey) && !pl_db_define_data(root, nm, ar, skey)) return 0;
+        return pl_runtime_install_packet_entry(key, ar, skey);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_data_leave(void *root, pl_db_t *db, int upto) { db->data_off = 1; db->data_on = 0; for (int j = 0; j < upto; j++) if (!db->s[j].erased) pl_db_fragment(root, db, j); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_install_first(pl_db_t *db) {
+    extern int pl_runtime_install_packet_entry(const char *, int, const char *);
+    int ar = 0, first = -1;
+    const char *nm;
+    for (int j = db->head_idx; j >= 0 && first < 0; j = db->s[j].next_idx) if (!db->s[j].erased && db->s[j].ridx >= 0) first = j;
+    nm = first >= 0 ? pl_db_head_name((void *)&db->s[first].cl, &ar) : (const char *)0;
+    if (!nm) return;
+    { PL_DB_KEY_VLA(key, nm, ar); char hkey[fmt_len("%s@%d", key, first)]; snprintf(hkey, sizeof hkey, "%s@%d", key, first); pl_runtime_install_packet_entry(key, ar, hkey); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_place(void *root, pl_db_t *db, int i) {
+    int leaving;
+    if (!db->data_off && pl_db_data_fact(db, i)) { if (!db->data_on && pl_db_data_enter(root, db, i)) db->data_on = 1; if (db->data_on) return; }
+    leaving = !db->data_off;
+    if (leaving) pl_db_data_leave(root, db, i);
+    pl_db_fragment(root, db, i);
+    if (leaving) pl_db_install_first(db);
+}
 static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int recompile, int tx) {
     extern int prolog_atom_intern(const char *);
     pl_db_t *db = (pl_db_t *)db_v;
@@ -4975,7 +5091,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
             db->n++;
             pl_ix_note(db, i, prepend);
             if (tx) pl_db_tx_note(root, db, 0, i);
-            if (recompile) pl_db_fragment(root, db, i);
+            if (recompile) pl_db_place(root, db, i);
         }
         return 1;
     }
@@ -5321,6 +5437,7 @@ int rt_pl_db_abolish(void *root, void *db_v) {
     pl_db_reclaim_report(db);
     db->killed = 1;
     if (hi >= 0) { const char *nm = pl_db_head_name((void *)&db->s[hi].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); pl_db_define_absent(root, key, ar); }
+    db->data_on = 0;
     pl_db_reclaim(db);
     return 1;
 }

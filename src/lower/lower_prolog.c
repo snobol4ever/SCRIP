@@ -2036,6 +2036,32 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     return to;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_data(lcx_t * cx, int k, const tree_t * target, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * uni = build(cx, IR_CALL, γnext, ωfail);
+    IR_LIT(uni).sval = "$db_data_unify";
+    IR_t * to = build(cx, IR_TO, uni, ωfail);
+    IR_LIT(to).sval = (char *) "db:trl:det";
+    IR_t * z = build(cx, IR_LIT_INTEGER, to, ωfail);
+    IR_LIT(z).ival = 0;
+    IR_t * te = NULL;
+    IR_t * tv = term_e(cx, target, &te);
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail);
+    IR_LIT(kn).ival = k;
+    lc_γ_to(kn, te ? te : tv);
+    lc_ω_to(kn, ωfail);
+    lc_γ_to(tv, z);
+    lc_ω_to(tv, ωfail);
+    ir_operand_push(to, kn);
+    ir_operand_push(to, z);
+    ir_operand_push(to, tv);
+    ir_operand_push(uni, kn);
+    ir_operand_push(uni, to);
+    ir_operand_push(uni, tv);
+    lc_ω_to_β(uni, to);
+    if (entry_out) *entry_out = kn;
+    return to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_enum_ref(lcx_t * cx, const tree_t * target, const tree_t * refterm, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * un2 = build(cx, IR_CALL, γnext, ωfail);
     IR_LIT(un2).sval = "$unify";
@@ -3010,6 +3036,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
             if (!strcmp(nm, "read_term") && t->n == 3) return pl_leaf_lv(cx, "$read_term_opts_s", t, 3, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_decls") && t->n >= 1) return pl_leaf_lv(cx, "$db_decls", t, t->n, γnext, ωfail, entry_out);
+            if (!strcmp(nm, "$db_data") && t->n == 1) {
+                int dar = 0;
+                const char * dpn = pl_head_key(t->c[0], &dar);
+                if (!dpn) return goal(cx, pl_cc_perm_access(nm, 1), γnext, ωfail, entry_out);
+                return pl_db_data(cx, pl_dyn_index_or_add(dpn, dar), t->c[0], γnext, ωfail, entry_out);
+            }
             if (t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ":") && t->c[0]->n == 2 && pl_name_in(nm, pl_db_mq_builtins)) {
                 tree_t * g2 = ast_node_new(TT_FNC);
                 g2->v = t->v;

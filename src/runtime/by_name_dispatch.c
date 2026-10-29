@@ -25009,6 +25009,22 @@ DESCR_t rt_pl_dop_db_copy_c(DESCR_t *args, int nargs, void *root) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_data_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern int rt_pl_db_data_unify(void *, int, void *, pl_tr_ctx_t *);
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    {
+        char *tr0 = cx->tr;
+        void *db = pl_db_cell_of(args, root);
+        DESCR_t iv = rt_pl_deref_val(args[1]);
+        int ok = db && iv.v == DT_I && rt_pl_db_data_unify(db, (int)iv.i, (void *)&args[2], cx);
+        if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+        rt_pl_tr_gc_sync(cx->tr);
+        return ok ? pl_ok() : FAILDESCR;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); return rt_pl_db_abolish(root, db) ? pl_ok() : FAILDESCR; }

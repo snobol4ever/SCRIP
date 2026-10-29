@@ -162,6 +162,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_db_assertz_t", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_db_at_r", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_db_copy", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_db_data_unify", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_db_erase", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_db_erase_ref", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_db_erase_t", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

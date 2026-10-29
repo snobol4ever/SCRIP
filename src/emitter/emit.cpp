@@ -4667,7 +4667,8 @@ DESCR_t rt_pl_dop_co_finish(DESCR_t *, int); DESCR_t rt_pl_dop_co_mark(DESCR_t *
 DESCR_t rt_pl_dop_engine_new(DESCR_t *, int); DESCR_t rt_pl_dop_engine_next(DESCR_t *, int); DESCR_t rt_pl_dop_engine_yield(DESCR_t *, int); DESCR_t rt_pl_dop_engine_destroy(DESCR_t *, int);
 DESCR_t rt_pl_dop_engine_self(DESCR_t *, int); DESCR_t rt_pl_dop_engine_id(DESCR_t *, int); DESCR_t rt_pl_dop_engine_list(DESCR_t *, int); DESCR_t rt_pl_dop_engine_reaped(DESCR_t *, int);
     DESCR_t rt_pl_dop_engine_stats(DESCR_t *, int); DESCR_t rt_pl_dop_gc_now(DESCR_t *, int);
-DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
+DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_db_data_unify(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int);
+    DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
@@ -4764,6 +4765,7 @@ DESCR_t rt_rk_byref_assign(DESCR_t *, int);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     static const struct { char nm[34]; int ar; char sy[34]; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
         { "$clause_unify", 2, "rt_pl_dop_clause_unify", rt_pl_dop_clause_unify },
+        { "$db_data_unify", 3, "rt_pl_dop_db_data_unify", rt_pl_dop_db_data_unify },
         { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
         { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
         { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl },

@@ -122,6 +122,27 @@ RTX_FUNC(rt_pl_dop_ball_pending)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_pl_dop_ball_pending)
+RTX_FUNC(rt_pl_dop_db_data_unify)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, r14
+    call rt_pl_dop_db_data_unify_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdu_ret
+    test    rcx, rcx
+    jz      .Lpdu_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdu_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdu_ret:
+    ret
+RTX_ENDF(rt_pl_dop_db_data_unify)
 RTX_FUNC(rt_pl_dop_clause_unify)
     RTX_SUB_RSP(CTX_FRAME)
     CTX_SAVE
