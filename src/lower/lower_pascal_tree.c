@@ -1001,7 +1001,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *src = args->items[0];
         tree_t *sv = args->items[2];
         tree_t *pos = args->items[4];
-        if (src && src->t == TT_FNC && src->n == 2 && src->c[0] && src->c[0]->v.sval && !strcmp(src->c[0]->v.sval, "__pas_chrlit") && src->c[1] && src->c[1]->t == TT_ILIT) {
+        if (src && src->t == TT_FNC && src->n == 2 && src->c[0] && src->c[0]->v.sval && !strcmp(src->c[0]->v.sval, "__pas_chrlit") && src->c[1] && src->c[1]->t == TT_ILIT && src->c[1]->v.ival != 0) {
             char _cb[2];
             _cb[0] = (char)src->c[1]->v.ival;
             _cb[1] = '\0';
@@ -3665,7 +3665,7 @@ static int pas_is_stringexpr_legacy(tree_t *e) {
 }
 static tree_t *pas_concat_operand(tree_t *e) {
     if (!e || pas_is_stringexpr(e) || !pas_is_charexpr(e)) return e;
-    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_chrlit") && e->c[1] && e->c[1]->t == TT_ILIT) {
+    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_chrlit") && e->c[1] && e->c[1]->t == TT_ILIT && e->c[1]->v.ival != 0) {
         char *cb = (char *)ct_zalloc(2, 1);
         cb[0] = (char)e->c[1]->v.ival;
         tree_t *q = ast_node_new(TT_QLIT);

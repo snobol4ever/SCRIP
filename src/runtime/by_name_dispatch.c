@@ -4266,18 +4266,19 @@ static DESCR_t pas_chars_of(DESCR_t v, long lo) {
     o[oi] = '\0';
     return STRVAL(o);
 }
+static size_t pas_slen(DESCR_t v, const char *s) { return (v.v == DT_S && v.slen != 0 && v.slen != 0xFFFFFFFFu) ? (size_t)v.slen : strlen(s); }
 static DESCR_t pas_str_setch(DESCR_t v, long eidx, unsigned char ch) {
     char rb[64];
     const char *cur = (v.v == DT_I && v.i == 0) ? "" : pas_cell_cstring(v, rb, sizeof rb);
     if (!cur) cur = "";
-    size_t flen = strlen(cur);
+    size_t flen = (v.v == DT_S) ? pas_slen(v, cur) : strlen(cur);
     size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen;
     char *o = rt_str_alloc((long)nflen);
     memcpy(o, cur, flen);
     memset(o + flen, ' ', nflen - flen);
     o[eidx - 1] = (char)ch;
     o[nflen] = '\0';
-    return STRVAL(o);
+    return BSTRVAL(o, nflen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bnd_dat_need(const char *c, int what) {
@@ -14070,9 +14071,10 @@ DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
     const char *cur = VARVAL_fn(args[0]);
     if (!cur) cur = "";
     long idx = rk_ival(args[1]);
-    if (idx < 0 || !*cur) return FAILDESCR;
-    if (idx >= 1 && (size_t)idx <= strlen(cur)) return INTVAL((long long)(unsigned char)cur[idx - 1]);
-    return (idx == 0) ? elem_to_descr(cur, strlen(cur)) : FAILDESCR;
+    size_t clen = pas_slen(args[0], cur);
+    if (idx < 0 || !clen) return FAILDESCR;
+    if (idx >= 1 && (size_t)idx <= clen) return INTVAL((long long)(unsigned char)cur[idx - 1]);
+    return (idx == 0) ? elem_to_descr(cur, clen) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
@@ -14090,8 +14092,8 @@ DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
     const char *rv = to_cstring(args[2], rb, sizeof rb);
     size_t rvl = strlen(rv);
     if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; return STRVAL(e0); }
-    if (idx < 1 || (size_t)idx > strlen(cur)) return FAILDESCR;
-    return pas_str_setch(STRVAL((char *) cur), idx, pas_ch_of(args[2]));
+    if (idx < 1 || (size_t)idx > pas_slen(args[0], cur)) return FAILDESCR;
+    return pas_str_setch(args[0], idx, pas_ch_of(args[2]));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_elem_ref(DESCR_t *args, int nargs) {
@@ -18095,11 +18097,11 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_sstr_fit && nargs == 2) {
         long long n = IS_INT_fn(args[1]) ? args[1].i : 0;
         const char *c = IS_INT_fn(args[0]) ? NULL : VARVAL_fn(args[0]);
-        if (!c || n < 0 || (long long)strlen(c) <= n) { *out = args[0]; return 1; }
+        if (!c || n < 0 || (long long)pas_slen(args[0], c) <= n) { *out = args[0]; return 1; }
         char *o = rt_wsb_alloc((size_t)n + 1);
         memcpy(o, c, (size_t)n);
         o[n] = '\0';
-        *out = STRVAL(o);
+        *out = BSTRVAL(o, n);
         return 1;
     }
     L_pbi_182:
@@ -18190,7 +18192,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_len && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr) { const ARBLK_t *b = (const ARBLK_t *) args[0].arr; *out = INTVAL((long long)b->hi - b->lo + 1); return 1; }
         const char *sv = VARVAL_fn(args[0]);
-        *out = INTVAL(sv ? (long long)strlen(sv) : 0);
+        *out = INTVAL(sv ? (long long)pas_slen(args[0], sv) : 0);
         return 1;
     }
     L_pbi_258:
@@ -18224,11 +18226,12 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_strfill && nargs == 4) {
         const char *sv = VARVAL_fn(args[0]);
         if (!sv) sv = "";
-        long long len = (long long)strlen(sv), idx = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, cnt = IS_INT_fn(args[2]) ? (long long)args[2].i : 0;
+        long long len = (long long)pas_slen(args[0], sv), idx = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, cnt = IS_INT_fn(args[2]) ? (long long)args[2].i : 0;
         char *o = rt_wsb_alloc((size_t)len + 1);
-        memcpy(o, sv, (size_t)len + 1);
+        memcpy(o, sv, (size_t)len);
+        o[len] = '\0';
         for (long long i = idx; i < idx + cnt && i <= len; i++) if (i >= 1) o[i - 1] = (char)(IS_INT_fn(args[3]) ? args[3].i : 0);
-        *out = STRVAL(o);
+        *out = BSTRVAL(o, len);
         return 1;
     }
     L_pbi_288:
@@ -18273,7 +18276,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_setlength && nargs == 2) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";
-        long oldlen = (long)strlen(s);
+        long oldlen = (long)pas_slen(args[0], s);
         long newlen = IS_INT_fn(args[1]) ? (long)args[1].i : 0;
         if (newlen < 0) newlen = 0;
         long copy = oldlen < newlen ? oldlen : newlen;
@@ -18281,7 +18284,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         if (copy > 0) memcpy(o, s, (size_t)copy);
         if (newlen > copy) memset(o + copy, ' ', (size_t)(newlen - copy));
         o[newlen] = '\0';
-        *out = STRVAL(o);
+        *out = BSTRVAL(o, newlen);
         return 1;
     }
     L_pbi_329:
@@ -18506,7 +18509,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     ;
     if (id == PBI_copy && nargs == 3) {
         const char *sv = VARVAL_fn(args[0]);
-        long long len = sv ? (long long)strlen(sv) : 0, i = IS_INT_fn(args[1]) ? args[1].i : 1, n = IS_INT_fn(args[2]) ? args[2].i : 0;
+        long long len = sv ? (long long)pas_slen(args[0], sv) : 0, i = IS_INT_fn(args[1]) ? args[1].i : 1, n = IS_INT_fn(args[2]) ? args[2].i : 0;
         if (i < 1) i = 1;
         long long avail = len - (i - 1);
         if (avail < 0) avail = 0;
@@ -18628,11 +18631,11 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_str_delete && nargs == 3) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";
-        size_t len = strlen(s);
+        size_t len = pas_slen(args[0], s);
         long long pos = IS_INT_fn(args[1]) ? args[1].i : 1;
         long long cnt = IS_INT_fn(args[2]) ? args[2].i : 0;
         if (pos < 1) pos = 1;
-        if ((size_t)pos > len || cnt <= 0) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+        if ((size_t)pos > len || cnt <= 0) { *out = args[0]; return 1; }
         size_t start = (size_t)pos - 1;
         size_t n = (size_t)cnt;
         if (start + n > len) n = len - start;
@@ -18640,17 +18643,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         memcpy(buf, s, start);
         memcpy(buf + start, s + start + n, len - start - n);
         buf[len - n] = '\0';
-        *out = STRVAL(buf);
+        *out = BSTRVAL(buf, len - n);
         return 1;
     }
     L_pbi_622:
     ;
     if (id == PBI_str_insert && nargs == 3) {
-        const char *src = VARVAL_fn(args[0]);
+        char cb1 = IS_INT_fn(args[0]) ? (char)args[0].i : 0;
+        const char *src = IS_INT_fn(args[0]) ? &cb1 : VARVAL_fn(args[0]);
         if (!src) src = "";
         const char *s = VARVAL_fn(args[1]);
         if (!s) s = "";
-        size_t slen = strlen(src), len = strlen(s);
+        size_t slen = IS_INT_fn(args[0]) ? 1 : pas_slen(args[0], src), len = pas_slen(args[1], s);
         long long pos = IS_INT_fn(args[2]) ? args[2].i : 1;
         if (pos < 1) pos = 1;
         if ((size_t)pos > len + 1) pos = (long long)len + 1;
@@ -18660,7 +18664,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         memcpy(buf + at, src, slen);
         memcpy(buf + at + slen, s + at, len - at);
         buf[len + slen] = '\0';
-        *out = STRVAL(buf);
+        *out = BSTRVAL(buf, len + slen);
         return 1;
     }
     L_pbi_640:
@@ -22263,8 +22267,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         const char *needle = to_cstring(args[0], nb, sizeof nb);
         char hb[64];
         const char *hay = to_cstring(args[1], hb, sizeof hb);
-        const char *hit = (needle && needle[0]) ? strstr(hay, needle) : NULL;
-        *out = INTVAL(hit ? (long long)(hit - hay) + 1 : 0);
+        size_t nl_ = needle ? pas_slen(args[0], needle) : 0, hl_ = hay ? pas_slen(args[1], hay) : 0;
+        long long at_ = 0;
+        for (size_t k_ = 0; nl_ && hl_ >= nl_ && k_ + nl_ <= hl_ && !at_; k_++) if (!memcmp(hay + k_, needle, nl_)) at_ = (long long)k_ + 1;
+        *out = INTVAL(at_);
         return 1;
     }
     L_bidjmp_5171:
@@ -22320,7 +22326,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 pas_put_rjust(_dest, _rb, _pfmtlen, _fw);
             } else {
                 const char *_ps = VARVAL_fn(av);
-                if (_ps) { if (w == -2) { putc((int)(unsigned char)_ps[0], _dest); } else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); } else { fputs(_ps, _dest); } }
+                if (_ps) { if (w == -2) { putc((int)(unsigned char)_ps[0], _dest); } else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); } else { fwrite(_ps, 1, pas_slen(av, _ps), _dest); } }
             }
         }
         if (nl) fputc('\n', _dest);
