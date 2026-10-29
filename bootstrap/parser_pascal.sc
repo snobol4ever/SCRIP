@@ -145,7 +145,9 @@ function PasDir(d, l, r, m, fnc) {
     PasDir = .dummy;
     l = lwr(d);
     if (l ? (POS(0) 'mode')) {
-        r = PasStrip(SUBSTR(l, 5, SIZE(l) - 4));
+        r = SUBSTR(l, 5, SIZE(l) - 4);
+        r ? (POS(0) SPAN(' ' CHAR(9) CHAR(10) CHAR(13))) = ;
+        r ? (SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) RPOS(0)) = ;
         if (IDENT(r, 'iso')) { PasEv('mode_iso'); if (IDENT(pas_ds)) { dialect = 'iso'; } nreturn; }
         m = '';
         fnc = 1;
@@ -555,8 +557,10 @@ MidStep         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
                     | *$' ' ('.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
                     ));
-MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | *FuncCall ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
-                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) *$' ' @mlk *DIFFER(SUBSTR(Src, mlk + 1, 1), '.') . *Reduce('TT_FNC', nTop()) . *PopCounter();
+MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | (*String | *$'(' *Expr0 *$')') *MidStep ARBNO(*MidStep) ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
+                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) *$' ' @mlk *DIFFER(SUBSTR(Src, mlk + 1, 1), '.') *DIFFER(SUBSTR(Src, mlk + 1, 1), '[') *DIFFER(SUBSTR(Src, mlk + 1, 1), '^') . *Reduce('TT_FNC', nTop()) . *PopCounter();
+/* a call statement whose designator holds a call, a literal or a parenthesised receiver: the expression grammar's own primary and postfixes (pascal.y call_with_args, recv_primary), ending in the ')' of a call  */
+CallStmt        =   *Primary *Postfix *PostStar @cse *IDENT(SUBSTR(Src, cse, 1), ')');
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
 StmtRest        =   *$';' FENCE(*Command . *IncCounter() | epsilon);
@@ -606,6 +610,7 @@ Command         =   *$' ' ( *kw_cmd
                     | *label_cmd
                     | *assign_cmd
                     | *MethodStmt
+                    | *CallStmt
                     | *ProcCall
                     | *empty_cmd
                     );
