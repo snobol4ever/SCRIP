@@ -2432,7 +2432,19 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         case TT_FNC:
         {
             const char * nm = t->v.sval ? t->v.sval : "?";
-            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) {
+            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1] && t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user") &&
+                g_stage2.pl_dialect == PL_DIALECT_XSB) {
+                const char * mn = t->c[0]->v.sval;
+                char fp[fmt_len("%s.P", mn)], fl[fmt_len("%s.pl", mn)];
+                snprintf(fp, sizeof fp, "%s.P", mn);
+                snprintf(fl, sizeof fl, "%s.pl", mn);
+                tree_t * beside =
+                    pl_cc_fnc2(";", pl_cc_fnc3("$gnu_os", (tree_t *) pl_atom_goal("access"), (tree_t *) pl_atom_goal(ct_strdup(fp)), pl_cc_ilit(0)),
+                    pl_cc_fnc3("$gnu_os", (tree_t *) pl_atom_goal("access"), (tree_t *) pl_atom_goal(ct_strdup(fl)), pl_cc_ilit(0)));
+                tree_t * load = pl_cc_ite(beside, pl_cc_fnc1("ensure_loaded", (tree_t *) t->c[0]), (tree_t *) pl_atom_goal("true"));
+                return goal(cx, pl_cc_fnc2(",", load, pl_cc_fnc2("$xsb_q", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
+            }
+            if ((!strcmp(nm, ":") || !strcmp(nm, "$xsb_q")) && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) {
                 const char * sv = cx->umod;
                 IR_t * qr;
                 cx->tail_pop = tpop;
