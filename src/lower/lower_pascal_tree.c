@@ -5738,12 +5738,51 @@ static tree_t *pas_format_call(const tree_t *n) {
     for (int i = 0; i < st->n; i++) { tree_t *x = E_expression(st->c[i]).node; ast_push(e, pas_is_charexpr(x) ? mk_chr_wrap(x) : x); }
     return e;
 }
+static int pas_split_opt_arg(const tree_t *a) {
+    const pty_t *t = pty_of_src(a);
+    const tree_t *m = IS(a, TT_FIELD) && a->n == 2 ? a->c[1] : a;
+    if (t) return t->k == PTK_ENUM;
+    return IS(m, TT_VAR) && m->v.sval && (!strcasecmp(m->v.sval, "none") || !strcasecmp(m->v.sval, "excludeempty") || !strcasecmp(m->v.sval, "excludelastempty"));
+}
+static int pas_strhlp_type_recv(const tree_t *r) {
+    static const char *const T[] = { "string", "ansistring", "unicodestring", 0 };
+    for (int i = 0; IS(r, TT_VAR) && r->v.sval && T[i]; i++) if (!strcasecmp(r->v.sval, T[i])) return 1;
+    return 0;
+}
+static tree_t *pas_strhlp_call(const tree_t *n) {
+    const tree_t *r = n->c[0]->c[0], *mt = n->c[0]->c[1];
+    const char *m = IS(mt, TT_VAR) ? mt->v.sval : NULL;
+    const pty_t *rt = pty_of_src(r);
+    int na = n->n - 1;
+    tree_t *c = NULL;
+    if (!m || !r) return NULL;
+    if (!strcasecmp(m, "join") && pas_strhlp_type_recv(r) && (na == 2 || na == 4)) {
+        c = ast_node_new(TT_FNC);
+        ast_push(c, leaf_s(TT_VAR, na == 2 ? "__strhlp_join" : "__strhlp_join_r"));
+        for (int i = 1; i <= na; i++) ast_push(c, n->c[i]);
+    } else if (!strcasecmp(m, "split") && rt && rt->k == PTK_STRING && na >= 1 && na <= 3) {
+        const pty_t *st = pty_of_src(n->c[1]);
+        tree_t *seps = n->c[1], *cnt = NULL, *opt = NULL;
+        if (!IS(seps, TT_SET) && !(st && st->k == PTK_ARRAY)) { seps = ast_node_new(TT_SET); ast_push(seps, n->c[1]); }
+        if (na == 2) { if (pas_split_opt_arg(n->c[2])) opt = n->c[2]; else cnt = n->c[2]; }
+        if (na == 3) { cnt = n->c[2]; opt = n->c[3]; }
+        c = ast_node_new(TT_FNC);
+        ast_push(c, leaf_s(TT_VAR, "__strhlp_split"));
+        ast_push(c, (tree_t *)r);
+        ast_push(c, seps);
+        ast_push(c, cnt ? cnt : ilit(0));
+        ast_push(c, opt ? opt : ilit(0));
+    }
+    if (c) c->line = n->line;
+    return c;
+}
 static pval E_call_with_args(const tree_t *n) {
     pval v[7];
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
+        if (n->n >= 2 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *sh = pas_strhlp_call(n); if (sh) return E_call_with_args(sh); }
         const char *src0 = tok_s(n->c[0]);
         const char *dflt = NULL;
         int onp = 0;
@@ -6272,7 +6311,7 @@ static pval E_for_statement(const tree_t *n) {
             if (coll->t == TT_VAR && coll->v.sval && pas_array_high_get(coll->v.sval, &ah)) {
                 lo = ilit(pas_array_nonparam_low(coll->v.sval));
                 hi = ilit(ah);
-            } else if (pas_is_dynexpr(coll)) {
+            } else if (pas_is_dynexpr(coll) || (pty_of_low(coll) && pty_of_low(coll)->k == PTK_ARRAY && pty_of_low(coll)->dyn)) {
                 lo = ilit(0);
                 hi = bin(TT_SUB, mk_fnc1("__pas_dynlen", pas_tree_clone(base)), ilit(1));
             } else {
@@ -7923,6 +7962,11 @@ static void pu_idents(const tree_t *t, tree_t *names) {
     if (IS(t, TT_VAR) && t->v.sval && !pu_has(names, t->v.sval)) ast_push(names, leaf_s(TT_VAR, t->v.sval));
     for (int i = 0; i < t->n; i++) pu_idents(t->c[i], names);
 }
+static int pu_strhlp_ref(const tree_t *refs, const char *nm) {
+    if (!nm || strncmp(nm, "__strhlp_", 9)) return 0;
+    for (int i = 0; i < refs->n; i++) { const char *r = refs->c[i]->v.sval; size_t l = r ? strlen(r) : 0; if (l && !strncasecmp(nm + 9, r, l) && (!nm[9 + l] || nm[9 + l] == '_')) return 1; }
+    return 0;
+}
 static void pu_prune_routines(tree_t *nb, tree_t *ur) {
     tree_t *cand = ast_node_new(TT_VLIST), *refs = ast_node_new(TT_VLIST), *keep = ast_node_new(TT_VLIST);
     for (int i = 0; i < ur->n; i++) { const char *nm = pu_routine_name(ur->c[i]); if (nm && !strstr(nm, "__pc_")) ast_push(cand, ur->c[i]); }
@@ -7931,7 +7975,7 @@ static void pu_prune_routines(tree_t *nb, tree_t *ur) {
         grew = 0;
         for (int i = 0; i < cand->n; i++) {
             const char *nm = pu_routine_name(cand->c[i]);
-            if (pu_listed(keep, cand->c[i]) || !pu_has(refs, nm)) continue;
+            if (pu_listed(keep, cand->c[i]) || !(pu_has(refs, nm) || pu_strhlp_ref(refs, nm))) continue;
             ast_push(keep, cand->c[i]);
             for (int j = 1; j < cand->c[i]->n; j++) pu_idents(cand->c[i]->c[j], refs);
             grew = 1;

@@ -4,7 +4,8 @@ interface
 type
   TDateTime = double;
   TFileName = string;
-  TStringSplitOptions = (None, ExcludeEmpty);
+  TStringSplitOptions = (None, ExcludeEmpty, ExcludeLastEmpty);
+  TStringArray = array of string;
   TSearchRec = record
     Time: LongInt;
     Size: Int64;
@@ -98,7 +99,72 @@ function EncodeTime(hour, minute, sec, msec: integer): double;
 procedure DecodeTime(dt: double; var hour, minute, sec, msec: word);
 function DayOfWeek(dt: double): integer;
 function FormatDateTime(fmt: string; dt: double): string;
+function __strhlp_split(const __sh_s: string; const __sh_seps: array of string; __sh_cnt: integer; __sh_opts: TStringSplitOptions): TStringArray;
+function __strhlp_join(const __sh_sep: string; const __sh_v: array of string): string;
+function __strhlp_join_r(const __sh_sep: string; const __sh_v: array of string; __sh_start, __sh_cnt: integer): string;
 implementation
+function __strhlp_at(const __sh_s: string; __sh_i: integer; const __sh_sep: string): boolean;
+var __sh_j, __sh_n: integer; __sh_ok: boolean;
+begin
+  __sh_n := length(__sh_sep);
+  __sh_ok := (__sh_n > 0) and (__sh_i + __sh_n - 1 <= length(__sh_s));
+  __sh_j := 1;
+  while __sh_ok and (__sh_j <= __sh_n) do
+  begin
+    if __sh_s[__sh_i + __sh_j - 1] <> __sh_sep[__sh_j] then __sh_ok := false;
+    __sh_j := __sh_j + 1
+  end;
+  __strhlp_at := __sh_ok
+end;
+function __strhlp_split(const __sh_s: string; const __sh_seps: array of string; __sh_cnt: integer; __sh_opts: TStringSplitOptions): TStringArray;
+var __sh_res: TStringArray; __sh_piece: string; __sh_i, __sh_j, __sh_k, __sh_n, __sh_start, __sh_l: integer; __sh_fin: boolean;
+begin
+  SetLength(__sh_res, 0);
+  __sh_l := length(__sh_s);
+  __sh_start := 1; __sh_i := 1; __sh_n := 0; __sh_fin := false;
+  repeat
+    __sh_k := -1;
+    if __sh_i <= __sh_l then
+      for __sh_j := 0 to High(__sh_seps) do
+        if (__sh_k < 0) and __strhlp_at(__sh_s, __sh_i, __sh_seps[__sh_j]) then __sh_k := __sh_j;
+    if (__sh_k >= 0) or (__sh_i > __sh_l) then
+    begin
+      __sh_piece := copy(__sh_s, __sh_start, __sh_i - __sh_start);
+      if not ((__sh_opts = ExcludeEmpty) and (__sh_piece = '')) then
+      begin
+        if __sh_n = length(__sh_res) then SetLength(__sh_res, __sh_n * 2 + 4);
+        __sh_res[__sh_n] := __sh_piece;
+        __sh_n := __sh_n + 1;
+        if (__sh_cnt > 0) and (__sh_n >= __sh_cnt) then __sh_fin := true
+      end;
+      if __sh_i > __sh_l then __sh_fin := true;
+      if __sh_k >= 0 then
+      begin
+        __sh_i := __sh_i + length(__sh_seps[__sh_k]);
+        __sh_start := __sh_i
+      end
+    end
+    else __sh_i := __sh_i + 1
+  until __sh_fin;
+  if (__sh_opts = ExcludeLastEmpty) and (__sh_n > 0) and (__sh_res[__sh_n - 1] = '') then __sh_n := __sh_n - 1;
+  SetLength(__sh_res, __sh_n);
+  __strhlp_split := __sh_res
+end;
+function __strhlp_join_r(const __sh_sep: string; const __sh_v: array of string; __sh_start, __sh_cnt: integer): string;
+var __sh_i: integer; __sh_r: string;
+begin
+  __sh_r := '';
+  for __sh_i := __sh_start to __sh_start + __sh_cnt - 1 do
+  begin
+    if __sh_i > __sh_start then __sh_r := __sh_r + __sh_sep;
+    __sh_r := __sh_r + __sh_v[__sh_i]
+  end;
+  __strhlp_join_r := __sh_r
+end;
+function __strhlp_join(const __sh_sep: string; const __sh_v: array of string): string;
+begin
+  __strhlp_join := __strhlp_join_r(__sh_sep, __sh_v, 0, length(__sh_v))
+end;
 constructor Exception.Create(const msg: string);
 begin
   FMessage := msg

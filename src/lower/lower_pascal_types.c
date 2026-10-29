@@ -366,7 +366,14 @@ static pty_t *pt_builtin_call(struct pty_state *s, const char *f, const tree_t *
 static pty_t *pt_call(struct pty_state *s, const tree_t *n) {
     const tree_t *cal = n->n ? n->c[0] : NULL;
     for (int i = 1; i < n->n; i++) pt_expr(s, n->c[i]);
-    if (PT_IS(cal, TT_FIELD)) { pt_expr(s, cal->c[0]); return NULL; }
+    if (PT_IS(cal, TT_FIELD)) {
+        const char *m = (cal->n >= 2 && PT_IS(cal->c[1], TT_VAR)) ? cal->c[1]->v.sval : NULL;
+        int tn = PT_IS(cal->c[0], TT_VAR) && cal->c[0]->v.sval && !strcasecmp(cal->c[0]->v.sval, "string");
+        const pty_t *rt = pt_expr(s, cal->c[0]);
+        if (m && tn && !strcasecmp(m, "join")) return s->tstr;
+        if (m && !tn && rt && rt->k == PTK_STRING && !strcasecmp(m, "split")) { pty_t *a = pt_new(PTK_ARRAY, NULL); a->dyn = 1; a->base = s->tstr; return a; }
+        return NULL;
+    }
     if (!PT_IS(cal, TT_VAR) || !cal->v.sval) return NULL;
     const char *f = cal->v.sval;
     if (!strcmp(f, "xor") && n->n == 3) {

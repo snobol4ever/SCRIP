@@ -51,6 +51,7 @@ static tree_t *pc_if(tree_t *c, tree_t *t, tree_t *e) { tree_t *n = pc_n2(TT_IF,
 static tree_t *pc_fnc(const char *fn) { return pc_n1(TT_FNC, pc_var(fn)); }
 static const char *pc_sv(const tree_t *t) { return t ? t->v.sval : NULL; }
 static int pc_eq(const char *a, const char *b) { return a && b && !strcasecmp(a, b); }
+static int pc_ovfam(const char *name, const char *n) { size_t l = n ? strlen(n) : 0; return name && n && !strncasecmp(name, n, l) && (name[l] == 0 || !strncmp(name + l, "__ov", 4)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pc_clone(const tree_t *e) {
     if (!e) return NULL;
@@ -95,6 +96,9 @@ static pc_class *pc_class_new(pc_ctx *x, const char *name, const char *raw) {
     return c;
 }
 static pc_meth *pc_meth_add(pc_class *c, const char *name, const char *kind, int isfunc, tree_t *params, tree_t *rtype) {
+    int dup = 0;
+    for (int i = 0; i < c->nm; i++) if (pc_ovfam(c->m[i].name, name)) dup++;
+    if (dup) { char b[snprintf(NULL, 0, "%d", dup) + 1]; snprintf(b, sizeof b, "%d", dup); name = pc_name(name, "__ov", b); }
     if (c->nm >= c->cm) { c->cm = c->cm ? c->cm * 2 : 8; c->m = ct_grow(c->m, (size_t)c->cm * sizeof *c->m); }
     pc_meth *m = &c->m[c->nm++];
     memset(m, 0, sizeof *m);
@@ -121,6 +125,34 @@ static pc_prop *pc_prop_add(pc_class *c, const char *name, tree_t *type) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pc_meth *pc_find_meth(pc_class *c, const char *n) { for (; c; c = c->parent) for (int i = 0; i < c->nm; i++) if (pc_eq(c->m[i].name, n)) return &c->m[i]; return NULL; }
+static int pc_nparams(tree_t *ps) {
+    int k = 0;
+    for (int i = 0; ps && i < ps->n; i++) k += (PC_IS(ps->c[i], TT_DECL) && ps->c[i]->n > 0 && PC_IS(ps->c[i]->c[0], TT_VLIST)) ? ps->c[i]->c[0]->n : 1;
+    return k;
+}
+static tree_t *pc_ptype(tree_t *ps, int k) {
+    for (int i = 0; ps && i < ps->n; i++) {
+        tree_t *d = ps->c[i];
+        int w = (PC_IS(d, TT_DECL) && d->n > 0 && PC_IS(d->c[0], TT_VLIST)) ? d->c[0]->n : 1;
+        if (k < w) return PC_IS(d, TT_DECL) && d->n > 1 ? d->c[d->n - 1] : NULL;
+        k -= w;
+    }
+    return NULL;
+}
+static int pc_type_eq(tree_t *a, tree_t *b) {
+    if (!a || !b) return a == b;
+    if (a->t != b->t) return 0;
+    if (PC_IS(a, TT_VAR)) return pc_eq(a->v.sval, b->v.sval);
+    if (a->n != b->n) return 0;
+    for (int i = 0; i < a->n; i++) if (!pc_type_eq(a->c[i], b->c[i])) return 0;
+    return 1;
+}
+static int pc_sig_eq(tree_t *a, tree_t *b) { int n = pc_nparams(a); if (n != pc_nparams(b)) return 0; for (int k = 0; k < n; k++) if (!pc_type_eq(pc_ptype(a, k), pc_ptype(b, k))) return 0; return 1; }
+static pc_meth *pc_def_meth(pc_class *c, const char *n, tree_t *ps) {
+    pc_meth *first = NULL;
+    for (int i = 0; c && i < c->nm; i++) { if (!pc_ovfam(c->m[i].name, n)) continue; if (!first) first = &c->m[i]; if (pc_sig_eq(c->m[i].params, ps)) return &c->m[i]; }
+    return first ? first : pc_find_meth(c, n);
+}
 static pc_field *pc_find_field(pc_class *c, const char *n) { for (; c; c = c->parent) for (int i = 0; i < c->nf; i++) if (pc_eq(c->f[i].name, n)) return &c->f[i]; return NULL; }
 static pc_prop *pc_find_prop(pc_class *c, const char *n) { for (; c; c = c->parent) for (int i = 0; i < c->np; i++) if (pc_eq(c->p[i].name, n)) return &c->p[i]; return NULL; }
 static pc_prop *pc_find_default(pc_class *c) { for (; c; c = c->parent) for (int i = 0; i < c->np; i++) if (c->p[i].dflt) return &c->p[i]; return NULL; }
@@ -192,7 +224,10 @@ static void pc_scan_impls(pc_ctx *x, tree_t *t) {
     if (!t) return;
     if ((PC_IS(t, TT_PROCEDURE) || PC_IS(t, TT_FUNCTION)) && t->n > 0 && PC_IS(t->c[0], TT_FIELD) && t->c[0]->n == 2) {
         pc_class *c = pc_class_named(x, pc_sv(t->c[0]->c[0]));
-        for (int i = 0; c && i < c->nm; i++) if (pc_eq(c->m[i].name, pc_sv(t->c[0]->c[1]))) c->m[i].has_impl = 1;
+        tree_t *dps = NULL;
+        for (int k = 1; k < t->n; k++) if (PC_IS(t->c[k], TT_PARAMS)) dps = t->c[k];
+        pc_meth *dm = c ? pc_def_meth(c, pc_sv(t->c[0]->c[1]), dps) : NULL;
+        if (dm && dm->owner == c) dm->has_impl = 1;
     }
     for (int i = 0; i < t->n; i++) pc_scan_impls(x, t->c[i]);
 }
@@ -357,6 +392,33 @@ static pc_ty pc_type(pc_ctx *x, tree_t *e) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pc_arraylike(pc_ctx *x, tree_t *a) {
+    if (PC_IS(a, TT_SET)) return 1;
+    if (PC_IS(a, TT_FNC) && a->n >= 1 && PC_IS(a->c[0], TT_FIELD) && a->c[0]->n == 2 && pc_eq(pc_sv(a->c[0]->c[1]), "split")) return 1;
+    pc_ty t = pc_type(x, a);
+    return PC_IS(t.t, TT_ARRAY_TYPE);
+}
+static int pc_argfit(pc_ctx *x, tree_t *pt, tree_t *arg) {
+    pc_ty p = pc_resolve(x, pt), a = pc_type(x, arg);
+    if (p.cls) return a.cls && !a.ref ? 3 : 0;
+    if (PC_IS(p.t, TT_ARRAY_TYPE)) return pc_arraylike(x, arg) ? 3 : 0;
+    return !a.cls && !pc_arraylike(x, arg) ? 1 : 0;
+}
+static pc_meth *pc_pick(pc_ctx *x, pc_class *c, const char *n, tree_t *call, int from) {
+    pc_meth *first = pc_find_meth(c, n), *best = NULL;
+    int fam = 0, bs = -1, na = call ? call->n - from : 0;
+    if (!first) return NULL;
+    for (pc_class *k = c; k; k = k->parent) for (int i = 0; i < k->nm; i++) fam += pc_ovfam(k->m[i].name, n);
+    if (fam < 2) return first;
+    for (pc_class *k = c; k; k = k->parent) for (int i = 0; i < k->nm; i++) {
+        pc_meth *m = &k->m[i];
+        if (!pc_ovfam(m->name, n) || pc_nparams(m->params) != na) continue;
+        int sc = 1;
+        for (int j = 0; j < na; j++) sc += pc_argfit(x, pc_ptype(m->params, j), call->c[from + j]);
+        if (sc > bs) { best = m; bs = sc; }
+    }
+    return best ? best : first;
+}
 static void pc_add_var(pc_ctx *x, const char *name, tree_t *type) {
     if (!x->vars) { x->vars = ast_node_new(TT_PART); x->vars->v.sval = "var"; }
     ast_push(x->vars, pc_vdecl(name, type));
@@ -421,7 +483,7 @@ static tree_t *pc_read_member(pc_ctx *x, tree_t *obj, pc_class *c, const char *n
     if (f) return pc_ofld(obj, n);
     pc_prop *p = pc_find_prop(c, n);
     if (p && p->rd) { if (pc_find_field(c, p->rd)) return pc_ofld(obj, p->rd); pc_meth *g = pc_find_meth(c, p->rd); if (g) return pc_mcall(x, obj, g, idx, 1, 0); }
-    pc_meth *m = pc_find_meth(c, n);
+    pc_meth *m = pc_pick(x, c, n, idx, 1);
     if (m) return pc_mcall(x, obj, m, idx, 1, 0);
     return pc_fld(obj, n);
 }
@@ -470,7 +532,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
         pc_ty b = pc_type(x, e->c[0]);
         const char *n = pc_sv(e->c[1]);
         if (b.cls && b.ref) {
-            pc_meth *m = pc_find_meth(b.cls, n);
+            pc_meth *m = pc_pick(x, b.cls, n, NULL, 0);
             if (m && pc_eq(m->kind, "constructor")) return pc_fnc(pc_new_fn(x, b.cls, m));
             if (pc_eq(n, "classname")) return pc_leaf(TT_QLIT, b.cls->raw);
             if (m && pc_eq(m->kind, "class")) return pc_mcall(x, NULL, m, NULL, 0, 0);
@@ -511,14 +573,14 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
             }
             if (pc_eq(n, "as") && e->n == 3 && !s) return pc_expr(x, e->c[1]);
             if (e->n == 2 && s && s->kind == 'k') return pc_expr(x, e->c[1]);
-            if (pc_ident_is_member(x, n)) { pc_class *c = pc_member_owner(x, n); pc_meth *m = pc_find_meth(c, n); if (m) return pc_mcall(x, pc_self(x, n), m, e, 1, 0); }
+            if (pc_ident_is_member(x, n)) { pc_class *c = pc_member_owner(x, n); pc_meth *m = pc_pick(x, c, n, e, 1); if (m) return pc_mcall(x, pc_self(x, n), m, e, 1, 0); }
             for (int i = 1; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
             return e;
         }
         if (PC_IS(h, TT_FIELD) && h->n == 2) {
             pc_ty b = pc_type(x, h->c[0]);
             const char *n = pc_sv(h->c[1]);
-            pc_meth *m = b.cls ? pc_find_meth(b.cls, n) : NULL;
+            pc_meth *m = b.cls ? pc_pick(x, b.cls, n, e, 1) : NULL;
             if (m && b.ref) {
                 if (pc_eq(m->kind, "constructor")) { tree_t *c = pc_fnc(pc_new_fn(x, b.cls, m)); for (int i = 1; i < e->n; i++) ast_push(c, pc_expr(x, e->c[i])); return c; }
                 return pc_mcall(x, NULL, m, e, 1, 0);
@@ -756,7 +818,7 @@ static void pc_routine(pc_ctx *x, tree_t *r) {
     x->depth++;
     if (PC_IS(r->c[0], TT_FIELD) && r->c[0]->n == 2) {
         pc_class *c = pc_class_named(x, pc_sv(r->c[0]->c[0]));
-        pc_meth *m = c ? pc_find_meth(c, pc_sv(r->c[0]->c[1])) : NULL;
+        pc_meth *m = c ? pc_def_meth(c, pc_sv(r->c[0]->c[1]), ps) : NULL;
         if (c && m && m->owner == c) {
             const char *impl = pc_impl_name(c, m->name);
             r->c[0] = pc_var(impl);
