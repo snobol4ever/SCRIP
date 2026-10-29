@@ -18,8 +18,6 @@ int             snobol4_lex(YYSTYPE *yylval_param);
 void            snobol4_error(void *p, const char *msg);
 static Lex     *g_lx;
 static int      g_err_lineno;
-static int sno_target_value(const tree_t *t) { return t && (t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_QLIT || t->t == TT_NAME); }
-static void sno_target_refuse(void) { sno_error(snobol4_get_stmt_lineno(), "value used where name is required"); }
 static tree_t *sno_goto_operand(tree_t *e) {
     extern int sno_goto_operand_value(const tree_t *);
     if (sno_goto_operand_value(e)) { tree_t *w = ast_node_new(TT_NAME); expr_add_child(w, e); return w; }
@@ -27,10 +25,6 @@ static tree_t *sno_goto_operand(tree_t *e) {
     if (e && e->t == TT_INDIRECT && e->n == 1) return e->c[0];
     return e;
 }
-void sno_error_voice(int, const char *, int);
-static int sno_fold_refused_line = -1;
-static int sno_tree_has_call(const tree_t *t) { if (!t) return 0; if (t->t == TT_FNC) return 1; for (int k = 0; k < t->n; k++) if (sno_tree_has_call(t->c[k])) return 1; return 0; }
-static void sno_fold_refuse(const tree_t *t) { extern int sno_preeval_expr(const tree_t *, const char **); extern int sno_error_quiet_on(void); const char *m = (const char *)0; int c, ln; if (sno_tree_has_call(t) || sno_error_quiet_on()) return; c = sno_preeval_expr(t, &m); ln = snobol4_get_stmt_lineno(); if (c && ln != sno_fold_refused_line) { sno_error_voice(c, m ? m : "", ln); sno_fold_refused_line = ln; } }
 #define TAL_MAX 512
 #define TAL_DEPTH 64
 static tree_t *g_tal[TAL_MAX];
@@ -140,8 +134,8 @@ goto_label_expr
            | T_GOTO_XLPAREN expr0 T_GOTO_XRPAREN                                             { $$=sno_goto_operand($2); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
-expr0      : expr1 T_2EQUAL expr0                                                             { if (sno_target_value($1)) sno_target_refuse(); $$=expr_binary(TT_ASSIGN,          $1,$3); }
-           | expr1 T_2EQUAL                                                                        { if (sno_target_value($1)) sno_target_refuse(); tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup("");$$=expr_binary(TT_ASSIGN,$1,e); }
+expr0      : expr1 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
+           | expr1 T_2EQUAL                                                                        { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup("");$$=expr_binary(TT_ASSIGN,$1,e); }
            | expr1                                                                                 { $$=$1; }
            ;
 expr1      : expr1 T_2QUEST      expr2                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
@@ -159,41 +153,41 @@ expr4      : expr4 T_CONCAT expr5                                               
 expr5      : expr6 T_2AT    expr5                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("@"); $$=_e; }
            | expr6                                                                                 { $$=$1; }
            ;
-expr6      : expr6 T_2PLUS   expr7                                                             { $$=expr_binary(TT_ADD,             $1,$3); sno_fold_refuse($$); }
-           | expr6 T_2MINUS expr7                                                            { $$=expr_binary(TT_SUB,             $1,$3); sno_fold_refuse($$); }
+expr6      : expr6 T_2PLUS   expr7                                                             { $$=expr_binary(TT_ADD,             $1,$3); }
+           | expr6 T_2MINUS expr7                                                            { $$=expr_binary(TT_SUB,             $1,$3); }
            | expr7                                                                                 { $$=$1; }
            ;
 expr7      : expr7 T_2POUND      expr8                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("#"); $$=_e; }
            | expr8                                                                                 { $$=$1; }
            ;
-expr8      : expr8 T_2SLASH   expr9                                                             { $$=expr_binary(TT_DIV,             $1,$3); sno_fold_refuse($$); }
+expr8      : expr8 T_2SLASH   expr9                                                             { $$=expr_binary(TT_DIV,             $1,$3); }
            | expr9                                                                                 { $$=$1; }
            ;
-expr9      : expr9 T_2STAR expr10                                                        { $$=expr_binary(TT_MUL,             $1,$3); sno_fold_refuse($$); }
+expr9      : expr9 T_2STAR expr10                                                        { $$=expr_binary(TT_MUL,             $1,$3); }
            | expr10                                                                                { $$=$1; }
            ;
 expr10     : expr10 T_2PERCENT   expr11                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("%"); $$=_e; }
            | expr11                                                                                { $$=$1; }
            ;
-expr11     : expr12 T_2CARET expr11                                                       { $$=expr_binary(TT_POW,             $1,$3); sno_fold_refuse($$); }
+expr11     : expr12 T_2CARET expr11                                                       { $$=expr_binary(TT_POW,             $1,$3); }
            | expr12                                                                                { $$=$1; }
            ;
-expr12     : expr12 T_2DOLLAR expr13                                                     { if (sno_target_value($3)) sno_target_refuse(); $$=expr_binary(TT_CAPT_IMMED_ASGN,$1,$3); }
-           | expr12 T_2DOT      expr13                                                     { if (sno_target_value($3)) sno_target_refuse(); $$=expr_binary(TT_CAPT_COND_ASGN, $1,$3); }
+expr12     : expr12 T_2DOLLAR expr13                                                     { $$=expr_binary(TT_CAPT_IMMED_ASGN,$1,$3); }
+           | expr12 T_2DOT      expr13                                                     { $$=expr_binary(TT_CAPT_COND_ASGN, $1,$3); }
            | expr13                                                                                { $$=$1; }
            ;
 expr13     : expr14 T_2TILDE     expr13                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("~"); $$=_e; }
            | expr14                                                                                { $$=$1; }
            ;
-expr14     : T_1AT      expr14                                                             { if (sno_target_value($2)) sno_target_refuse(); $$=expr_unary(TT_CAPT_CURSOR,     $2); }
+expr14     : T_1AT      expr14                                                             { $$=expr_unary(TT_CAPT_CURSOR,     $2); }
            | T_1TILDE        expr14                                                             { $$=expr_unary(TT_NOT,             $2); }
            | T_1QUEST expr14                                                            { $$=expr_unary(TT_INTERROGATE,     $2); }
-           | T_1AMP    expr14                                                             { if (sno_target_value($2)) sno_target_refuse(); tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("&"); $$=_e; }
-           | T_1PLUS         expr14                                                             { $$=expr_unary(TT_PLS,             $2); sno_fold_refuse($$); }
-           | T_1MINUS        expr14                                                             { $$=expr_unary(TT_MNS,             $2); sno_fold_refuse($$); }
+           | T_1AMP    expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("&"); $$=_e; }
+           | T_1PLUS         expr14                                                             { $$=expr_unary(TT_PLS,             $2); }
+           | T_1MINUS        expr14                                                             { $$=expr_unary(TT_MNS,             $2); }
            | T_1STAR     expr14                                                             { $$=expr_unary(TT_DEFER,           $2); }
            | T_1DOLLAR  expr14                                                             { $$=expr_unary(TT_INDIRECT,        $2); }
-           | T_1DOT       expr14                                                             { if ($2 && ($2->t==TT_ILIT || $2->t==TT_FLIT || $2->t==TT_QLIT)) sno_error(g_err_lineno,"value used where name is required"); $$=expr_unary(TT_NAME, $2); }
+           | T_1DOT       expr14                                                             { $$=expr_unary(TT_NAME, $2); }
            | T_1BANG  expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("!"); $$=_e; }
            | T_1PERCENT      expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("%"); $$=_e; }
            | T_1SLASH        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("/"); $$=_e; }
@@ -266,7 +260,6 @@ void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_err_lineno,"pars
 static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,int has_eq,tree_t *repl,tree_t *gu,tree_t *gs,tree_t *gf){
     PP *pp=(PP*)param;
     STMT_t *s=stmt_new();
-    { const tree_t *s0=subj; while(s0&&(s0->t==TT_SCAN||s0->t==TT_SEQ)&&s0->n>0&&s0->c[0]) s0=s0->c[0]; if(has_eq&&sno_target_value(s0)) sno_target_refuse(); }
     s->goto_f_first=sno4_goto_f_first; sno4_goto_f_first=0;
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
     { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void); extern const char *snobol4_get_stmt_kwfile(void);
