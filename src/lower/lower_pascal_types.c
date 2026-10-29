@@ -15,13 +15,13 @@ struct pscope { pscope_t *up; psym_t *s; };
 typedef struct { const void *key; const pty_t *t; int line; } pty_ent;
 typedef struct { pty_ent *e; long n, cap; } pty_map;
 struct pty_state {
-    pty_map src, low, sstr;
-    pscope_t *cur;
+    pty_map src, low, sstr, scp;
+    pscope_t *cur, *ecur;
     int line, fpc;
     pty_t **pend;
     int npend, cpend;
     long *stats;
-    pty_t *tint, *tchar, *tbool, *treal, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
+    pty_t *tint, *tchar, *tbool, *treal, *tsingle, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
 static struct pty_state *pt_mk(void) { if (!g_lower.pas.sem.pty) g_lower.pas.sem.pty = (struct pty_state *)ct_zalloc(1, sizeof(struct pty_state)); return g_lower.pas.sem.pty; }
@@ -92,7 +92,7 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     static const char *const chars[] = { "char", "ansichar", "widechar", "unicodechar", 0 };
     static const char *const bools[] = { "boolean", "boolean8", "boolean16", "boolean32", "boolean64", 0 };
     static const char *const wbools[] = { "bytebool", "wordbool", "longbool", 0 };
-    static const char *const reals[] = { "real", "single", "double", "extended", "comp", "currency", "real48", "valreal", 0 };
+    static const char *const reals[] = { "real", "double", "extended", "comp", "currency", "real48", "valreal", 0 };
     static const char *const strs[] = { "string", "ansistring", "unicodestring", "widestring", "rawbytestring", "utf8string", "openstring", 0 };
     if (!n) return NULL;
     if (pt_in(n, ints)) return s->tint;
@@ -105,6 +105,7 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     if (pt_in(n, chars)) return s->tchar;
     if (pt_in(n, bools)) return s->tbool;
     if (pt_in(n, wbools)) { pty_t *t = pt_ord(PTK_BOOL, n, 0, 1); t->wbool = 1; return t; }
+    if (!strcmp(n, "single")) return s->tsingle;
     if (pt_in(n, reals)) return s->treal;
     if (pt_in(n, strs)) return s->tstr;
     if (!strcmp(n, "shortstring")) return s->tshort;
@@ -616,6 +617,7 @@ static void pt_routine(struct pty_state *s, const tree_t *r) {
     if (name) { psym_t *p = ps_def(s, name, 'f', res); p->rt = r; }
     if (!body) return;
     ps_push(s);
+    pt_map_put(&s->scp, r, (const pty_t *)s->cur, 0);
     if (!ps && name) for (pscope_t *c = s->cur->up; c && !ps; c = c->up) for (psym_t *p = c->s; p && !ps; p = p->next) if (p->k == 'f' && p->rt && p->rt != r && p->name && !strcmp(p->name, name)) {
         for (int i = 1; i < p->rt->n; i++) if (PT_IS(p->rt->c[i], TT_PARAMS)) ps = p->rt->c[i];
     }
@@ -659,7 +661,7 @@ static void pt_block(struct pty_state *s, const tree_t *b) {
 void pty_run(tree_t *prog, int fpc) {
     struct pty_state *s = pt_mk();
     s->fpc = fpc;
-    s->stats = (long *)ct_zalloc(12, sizeof(long));
+    s->stats = (long *)ct_zalloc(64, sizeof(long));
     s->tint = pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
     s->tqword = pt_ord(PTK_INT, "qword", 0, 0);
     s->tqword->uns = 1;
@@ -667,6 +669,7 @@ void pty_run(tree_t *prog, int fpc) {
     s->tchar = pt_ord(PTK_CHAR, "char", 0, 255);
     s->tbool = pt_ord(PTK_BOOL, "boolean", 0, 1);
     s->treal = pt_new(PTK_REAL, "real");
+    s->tsingle = pt_new(PTK_REAL, "single");
     s->tstr = pt_new(PTK_STRING, "string");
     s->tshort = pt_new(PTK_STRING, "shortstring");
     s->tshort->strmax = 255;
@@ -678,10 +681,13 @@ void pty_run(tree_t *prog, int fpc) {
     s->tpchar = pt_new(PTK_POINTER, "pchar");
     s->tpchar->base = s->tchar;
     ps_push(s);
+    pt_map_put(&s->scp, prog, (const pty_t *)s->cur, 0);
+    ps_def(s, "input", 'v', s->ttext);
+    ps_def(s, "output", 'v', s->ttext);
+    if (fpc) ps_def(s, "returnnilifgrowheapfails", 'v', s->tbool);
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t *c = prog->c[i];
-        if (PT_IS(c, TT_VLIST)) for (int j = 0; j < c->n; j++) if (c->c[j] && c->c[j]->v.sval)
-            ps_def(s, c->c[j]->v.sval, 'v', (!strcmp(c->c[j]->v.sval, "input") || !strcmp(c->c[j]->v.sval, "output")) ? s->ttext : NULL);
+        if (PT_IS(c, TT_VLIST)) for (int j = 0; j < c->n; j++) if (c->c[j] && c->c[j]->v.sval) ps_def(s, c->c[j]->v.sval, 'v', s->ttext);
     }
     for (int i = 0; prog && i < prog->n; i++) if (PT_IS(prog->c[i], TT_BLOCK)) pt_block(s, prog->c[i]);
 }
@@ -695,6 +701,31 @@ void pty_note_low(const tree_t *low, const tree_t *src) {
     const pty_t *t = e->t;
     if (t->k == PTK_PROC && low->t == TT_FNC && low->n > 0 && low->c[0] && low->c[0]->v.sval && !strcmp(low->c[0]->v.sval, "__pas_pcall")) t = t->isfunc ? t->base : NULL;
     if (t) pt_map_put(&s->low, low, t, e->line);
+}
+const void *pty_enter(const tree_t *src) {
+    struct pty_state *s = pt_st();
+    if (!s) return NULL;
+    const void *prev = s->ecur;
+    const pty_ent *e = pt_map_get(&s->scp, src);
+    if (e) s->ecur = (pscope_t *)e->t;
+    return prev;
+}
+void pty_leave(const void *prev) { struct pty_state *s = pt_st(); if (s) s->ecur = (pscope_t *)prev; }
+static psym_t *pe_find(struct pty_state *s, const char *name) {
+    for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next)
+        if (p->name && !strcmp(p->name, name) && (p->k == 'v' || p->k == 'r' || p->k == 'p' || p->k == 'R' || p->k == 'c')) return p;
+    return NULL;
+}
+int pty_is_pchar(const pty_t *t) { struct pty_state *s = pt_st(); return s && t && t == s->tpchar; }
+const pty_t *pty_name_type(const char *name) { struct pty_state *s = pt_st(); if (!s || !s->ecur) return NULL; psym_t *p = pe_find(s, name); return p ? p->t : NULL; }
+int pty_name_is(const char *name, pty_kind want) {
+    struct pty_state *s = pt_st();
+    if (!s || !s->ecur) return -1;
+    psym_t *p = pe_find(s, name);
+    if (!p) return -1;
+    if (!p->t || p->t->k == PTK_UNKNOWN) return -1;
+    if (p->t->k == PTK_BOOL && p->t->wbool) return want == PTK_INT;
+    return p->t->k == want;
 }
 void pty_note_kind(const tree_t *low, pty_kind k) { struct pty_state *s = pt_mk(); if (low) pt_map_put(&s->low, low, pt_new(k, NULL), 0); }
 int pty_answer(const tree_t *low, pty_kind want) {

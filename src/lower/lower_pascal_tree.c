@@ -257,22 +257,13 @@ static int pas_is_pcharvar(const char *name);
 static char *pas_pchar_off_name(const char *n);
 static int pas_pchar_castname(tree_t *e);
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
-static void pas_tfilevar_add(const char *name);
-static void pas_tfilevar_mark(void);
-static void pas_tfilevar_release(void);
 static int pas_is_tfilevar(const char *name);
 static void pas_tfiletype_add(const char *name);
 static int pas_is_tfiletype(const char *name);
 static int pas_rectype_has_file(const char *rn);
 static int pas_is_tfile_node(const tree_t *e);
 static int pas_is_booltype(const char *name);
-static void pas_boolvar_add(const char *name);
-static void pas_boolvar_add_outer(const char *name);
 static tree_t *pas_field_region(tree_t *base, const char *rt, int fi, tree_t *e);
-static void pas_scoped_release(void);
-static void pas_scoped_save(void **sv, int *svn);
-static void pas_scoped_restore(void **sv, int *svn);
-static void pas_charvar_add_outer(const char *name);
 static int pas_is_boolvar(const char *name);
 static int pas_is_boolexpr(tree_t *e);
 static int pas_is_filevar(const char *name);
@@ -281,7 +272,6 @@ static int pas_is_stdstream(const char *name);
 static const char *pas_sconst_get(const char *name);
 static int pas_is_hdrfile(const char *name);
 static int pas_proc_param_is_var(const char *name, int idx);
-static void pas_filevar_add(const char *name);
 static int pas_is_chararr(const char *name);
 static long long pas_chararr_lo(const char *name);
 static int pas_is_strarr(const char *name);
@@ -2257,12 +2247,8 @@ static const char *pas_ptrvar_target(const char *v) {
 }
 static void pas_recvar_mark(void) { if (g_lower.pas.sem.pas_nrvmark < PAS_NEST_MAX_PV) g_lower.pas.sem.pas_rvmarks[g_lower.pas.sem.pas_nrvmark++] = g_lower.pas.sem.pas_nrecvar; }
 static void pas_recvar_release(void) { if (g_lower.pas.sem.pas_nrvmark > 0) g_lower.pas.sem.pas_nrecvar = g_lower.pas.sem.pas_rvmarks[--g_lower.pas.sem.pas_nrvmark]; }
-static void pas_ptrvar_mark(void) { pas_tfilevar_mark(); if (g_lower.pas.sem.pas_npvmark < PAS_NEST_MAX_PV) g_lower.pas.sem.pas_pvmarks[g_lower.pas.sem.pas_npvmark++] = g_lower.pas.sem.pas_nptrvar; }
-static void pas_ptrvar_release(void) {
-    pas_tfilevar_release();
-    if (g_lower.pas.sem.pas_npvmark > 0) g_lower.pas.sem.pas_nptrvar = g_lower.pas.sem.pas_pvmarks[--g_lower.pas.sem.pas_npvmark];
-    pas_scoped_release();
-}
+static void pas_ptrvar_mark(void) { if (g_lower.pas.sem.pas_npvmark < PAS_NEST_MAX_PV) g_lower.pas.sem.pas_pvmarks[g_lower.pas.sem.pas_npvmark++] = g_lower.pas.sem.pas_nptrvar; }
+static void pas_ptrvar_release(void) { if (g_lower.pas.sem.pas_npvmark > 0) g_lower.pas.sem.pas_nptrvar = g_lower.pas.sem.pas_pvmarks[--g_lower.pas.sem.pas_npvmark]; }
 static void pas_fwd_save(const char *pn, PNodeList *params) {
     if (!pn || g_lower.pas.sem.pas_nfwdpv >= 64 || (g_lower.pas.sem.pas_npvmark == 0 && g_lower.pas.sem.pas_nrvmark == 0)) return;
     int k = g_lower.pas.sem.pas_nfwdpv++;
@@ -2270,7 +2256,6 @@ static void pas_fwd_save(const char *pn, PNodeList *params) {
     g_lower.pas.sem.pas_fwdpv[k].params = params;
     g_lower.pas.sem.pas_fwdpv[k].n = 0;
     g_lower.pas.sem.pas_fwdpv[k].rvn = 0;
-    pas_scoped_save(g_lower.pas.sem.pas_fwdpv[k].sv, g_lower.pas.sem.pas_fwdpv[k].svn);
     if (g_lower.pas.sem.pas_npvmark > 0) for (int i = g_lower.pas.sem.pas_pvmarks[g_lower.pas.sem.pas_npvmark - 1]; i < g_lower.pas.sem.pas_nptrvar && g_lower.pas.sem.pas_fwdpv[k].n < 16; i++) {
         g_lower.pas.sem.pas_fwdpv[k].vnames[g_lower.pas.sem.pas_fwdpv[k].n] = g_lower.pas.sem.pas_ptrvars[i].vname;
         g_lower.pas.sem.pas_fwdpv[k].rnames[g_lower.pas.sem.pas_fwdpv[k].n] = g_lower.pas.sem.pas_ptrvars[i].rname;
@@ -2289,7 +2274,6 @@ static void pas_fwd_restore(const char *pn) {
     if (!pn) return;
     for (int i = 0; i < g_lower.pas.sem.pas_nfwdpv; i++) if (g_lower.pas.sem.pas_fwdpv[i].pname && !strcmp(g_lower.pas.sem.pas_fwdpv[i].pname, pn)) {
         for (int j = 0; j < g_lower.pas.sem.pas_fwdpv[i].n; j++) pas_ptrvar_add(g_lower.pas.sem.pas_fwdpv[i].vnames[j], g_lower.pas.sem.pas_fwdpv[i].rnames[j]);
-        pas_scoped_restore(g_lower.pas.sem.pas_fwdpv[i].sv, g_lower.pas.sem.pas_fwdpv[i].svn);
         for (int j = 0; j < g_lower.pas.sem.pas_fwdpv[i].rvn && g_lower.pas.sem.pas_nrecvar < PAS_REC_MAX; j++) g_lower.pas.sem.pas_recvars[g_lower.pas.sem.pas_nrecvar++] =
             g_lower.pas.sem.pas_fwdpv[i].rvsave[j];
         return;
@@ -2876,40 +2860,8 @@ static long long pas_settype_pack(const char *name) {
     for (int i = 0; i < g_lower.pas.sem.pas_nsettype; i++) if (g_lower.pas.sem.pas_settypes[i].name && !strcmp(g_lower.pas.sem.pas_settypes[i].name, name)) return g_lower.pas.sem.pas_settypes[i].pack;
     return 0;
 }
-static void pas_setvar_add(const char *name) {
-    if (g_lower.pas.sem.pas_nsetvar < 256 && name) {
-        g_lower.pas.sem.pas_setvars[g_lower.pas.sem.pas_nsetvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_setvars[g_lower.pas.sem.pas_nsetvar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
-static int pas_is_setvar(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nsetvar; i++) if (g_lower.pas.sem.pas_setvars[i].name && !strcmp(g_lower.pas.sem.pas_setvars[i].name, name)) return 1;
-    return 0;
-}
-static void pas_charvar_add(const char *name) {
-    if (g_lower.pas.sem.pas_ncharvar < 256 && name) {
-        g_lower.pas.sem.pas_charvars[g_lower.pas.sem.pas_ncharvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_charvars[g_lower.pas.sem.pas_ncharvar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
-static void pas_charvar_add_outer(const char *name) {
-    if (g_lower.pas.sem.pas_ncharvar < 256 && name) {
-        g_lower.pas.sem.pas_charvars[g_lower.pas.sem.pas_ncharvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_charvars[g_lower.pas.sem.pas_ncharvar++].depth = g_lower.pas.sem.pas_npvmark > 0 ? g_lower.pas.sem.pas_npvmark - 1 : 0;
-    }
-}
-static void pas_singlevar_add(const char *name) {
-    if (g_lower.pas.sem.pas_nsinglevar < 256 && name) {
-        g_lower.pas.sem.pas_singlevars[g_lower.pas.sem.pas_nsinglevar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_singlevars[g_lower.pas.sem.pas_nsinglevar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
-static int pas_is_singlevar(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nsinglevar; i++) if (g_lower.pas.sem.pas_singlevars[i].name && !strcmp(g_lower.pas.sem.pas_singlevars[i].name, name)) return 1;
-    return 0;
-}
+static int pas_is_setvar(const char *name) { return pty_name_is(name, PTK_SET) > 0; }
+static int pas_is_singlevar(const char *name) { const pty_t *t = pty_name_type(name); return t && t->k == PTK_REAL && t->name && !strcmp(t->name, "single"); }
 static int pas_is_currencyvar(const char *name) {
     int u = pas_scope_uid(name);
     for (int i = g_lower.pas.sem.pas_nscalarvartype - 1; name && i >= 0; i--)
@@ -2923,25 +2875,8 @@ static int pas_is_currencyexpr(tree_t *e) {
     if (e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL || e->t == TT_DIV || e->t == TT_MNS) { for (int i = 0; i < e->n; i++) if (pas_is_currencyexpr(e->c[i])) return 1; }
     return 0;
 }
-static void pas_pcharvar_add(const char *name) {
-    if (g_lower.pas.sem.pas_npcharvar < 256 && name) {
-        g_lower.pas.sem.pas_pcharvars[g_lower.pas.sem.pas_npcharvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_pcharvars[g_lower.pas.sem.pas_npcharvar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
-static int pas_is_pcharvar(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_npcharvar; i++) if (g_lower.pas.sem.pas_pcharvars[i].name && !strcmp(g_lower.pas.sem.pas_pcharvars[i].name, name)) return 1;
-    return 0;
-}
-static void pas_tfilevar_add(const char *name) { if (g_lower.pas.sem.pas_ntfilevar < 128 && name) g_lower.pas.sem.pas_tfilevars[g_lower.pas.sem.pas_ntfilevar++].name = ct_strdup(name); }
-static void pas_tfilevar_mark(void) { if (g_lower.pas.sem.pas_ntfvmark < PAS_NEST_MAX_PV) g_lower.pas.sem.pas_tfvmarks[g_lower.pas.sem.pas_ntfvmark++] = g_lower.pas.sem.pas_ntfilevar; }
-static void pas_tfilevar_release(void) { if (g_lower.pas.sem.pas_ntfvmark > 0) g_lower.pas.sem.pas_ntfilevar = g_lower.pas.sem.pas_tfvmarks[--g_lower.pas.sem.pas_ntfvmark]; }
-static int pas_is_tfilevar(const char *name) {
-    if (!name) return 0;
-    for (int i = g_lower.pas.sem.pas_ntfilevar - 1; i >= 0; i--) if (g_lower.pas.sem.pas_tfilevars[i].name && !strcmp(g_lower.pas.sem.pas_tfilevars[i].name, name)) return 1;
-    return 0;
-}
+static int pas_is_pcharvar(const char *name) { return pty_is_pchar(pty_name_type(name)); }
+static int pas_is_tfilevar(const char *name) { return pty_name_is(name, PTK_FILE) > 0; }
 static void pas_tfiletype_add(const char *name) { if (g_lower.pas.sem.pas_ntfiletype < 64 && name) g_lower.pas.sem.pas_tfiletypes[g_lower.pas.sem.pas_ntfiletype++].name = ct_strdup(name); }
 static int pas_is_tfiletype(const char *name) {
     if (!name) return 0;
@@ -2949,23 +2884,7 @@ static int pas_is_tfiletype(const char *name) {
     return 0;
 }
 static int pas_is_tfile_node(const tree_t *e) { return e && e->t == TT_VAR && e->v.sval && pas_is_tfilevar(e->v.sval); }
-static void pas_boolvar_add(const char *name) {
-    if (g_lower.pas.sem.pas_nboolvar < 512 && name) {
-        g_lower.pas.sem.pas_boolvars[g_lower.pas.sem.pas_nboolvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_boolvars[g_lower.pas.sem.pas_nboolvar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
-static void pas_boolvar_add_outer(const char *name) {
-    if (g_lower.pas.sem.pas_nboolvar < 512 && name) {
-        g_lower.pas.sem.pas_boolvars[g_lower.pas.sem.pas_nboolvar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_boolvars[g_lower.pas.sem.pas_nboolvar++].depth = g_lower.pas.sem.pas_npvmark > 0 ? g_lower.pas.sem.pas_npvmark - 1 : 0;
-    }
-}
-static int pas_is_boolvar(const char *name) {
-    if (!name) return 0;
-    for (int i = g_lower.pas.sem.pas_nboolvar - 1; i >= 0; i--) if (g_lower.pas.sem.pas_boolvars[i].name && !strcmp(g_lower.pas.sem.pas_boolvars[i].name, name)) return 1;
-    return 0;
-}
+static int pas_is_boolvar(const char *name) { return pty_name_is(name, PTK_BOOL) > 0; }
 static void pas_booltype_add(const char *name) { if (g_lower.pas.sem.pas_nbooltype < 64 && name) g_lower.pas.sem.pas_booltypes[g_lower.pas.sem.pas_nbooltype++].name = ct_strdup(name); }
 static int pas_is_booltype(const char *name) {
     if (!name) return 0;
@@ -2974,57 +2893,9 @@ static int pas_is_booltype(const char *name) {
     return 0;
 }
 static int pas_is_boolexpr(tree_t *e) { int t = pty_answer(e, PTK_BOOL); if (g_lower.pas.dump_types) pty_census("bool", e, t); return t > 0; }
-static int pas_is_charvar(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_ncharvar; i++) if (g_lower.pas.sem.pas_charvars[i].name && !strcmp(g_lower.pas.sem.pas_charvars[i].name, name)) return 1;
-    return 0;
-}
-static void pas_filevar_add(const char *name) {
-    if (g_lower.pas.sem.pas_nfilevar < 256 && name) {
-        for (int i = 0; i < g_lower.pas.sem.pas_nfilevar; i++) if (g_lower.pas.sem.pas_filevars[i].name && !strcmp(g_lower.pas.sem.pas_filevars[i].name, name)) return;
-        g_lower.pas.sem.pas_filevars[g_lower.pas.sem.pas_nfilevar].name = ct_strdup(name);
-        g_lower.pas.sem.pas_filevars[g_lower.pas.sem.pas_nfilevar++].depth = g_lower.pas.sem.pas_npvmark;
-    }
-}
+static int pas_is_charvar(const char *name) { return pty_name_is(name, PTK_CHAR) > 0; }
 static int pas_std_shadowed(const char *name) { return pas_decl_string_kind(name) > 0 || pas_is_charvar(name); }
-static int pas_is_filevar(const char *name) {
-    if (!name) return 0;
-    if (!strcmp(name, "input") || !strcmp(name, "output")) return !pas_std_shadowed(name);
-    for (int i = 0; i < g_lower.pas.sem.pas_nfilevar; i++) if (g_lower.pas.sem.pas_filevars[i].name && !strcmp(g_lower.pas.sem.pas_filevars[i].name, name)) return 1;
-    return 0;
-}
-#define PAS_SCOPED_FNS(T, ARR, CNT) static void T##_release(void) { int w = 0; for (int i = 0; i < CNT; i++) if (ARR[i].depth <= g_lower.pas.sem.pas_npvmark) ARR[w++] = ARR[i]; CNT = w; } static int \
-    T##_save(void **buf) { int n = 0; if (g_lower.pas.sem.pas_npvmark <= 0) return 0; for (int i = 0; i < CNT; i++) if (ARR[i].depth == g_lower.pas.sem.pas_npvmark) n++; if (!n) return 0; __typeof__ \
-    (ARR[0]) *b = ct_zalloc((size_t)n, sizeof ARR[0]); int k = 0; for (int i = 0; i < CNT; i++) if (ARR[i].depth == g_lower.pas.sem.pas_npvmark) b[k++] = ARR[i]; *buf = b; return n; } static void T \
-    ##_restore(void *buf, int n) { __typeof__(ARR[0]) *b = buf; for (int i = 0; i < n && CNT < (int)(sizeof ARR / sizeof ARR[0]); i++) { ARR[CNT] = b[i]; ARR[CNT++].depth = g_lower.pas.sem. \
-    pas_npvmark; } }
-PAS_SCOPED_FNS(pas_boolvar, g_lower.pas.sem.pas_boolvars, g_lower.pas.sem.pas_nboolvar) PAS_SCOPED_FNS(pas_setvar, g_lower.pas.sem.pas_setvars, g_lower.pas.sem.pas_nsetvar)
-    PAS_SCOPED_FNS(pas_charvar, g_lower.pas.sem.pas_charvars, g_lower.pas.sem.pas_ncharvar) PAS_SCOPED_FNS(pas_singlevar, g_lower.pas.sem.pas_singlevars, g_lower.pas.sem.pas_nsinglevar)
-    PAS_SCOPED_FNS(pas_pcharvar, g_lower.pas.sem.pas_pcharvars, g_lower.pas.sem.pas_npcharvar) PAS_SCOPED_FNS(pas_filevar, g_lower.pas.sem.pas_filevars, g_lower.pas.sem.pas_nfilevar)
-    static void pas_scoped_release(void) {
-    pas_boolvar_release();
-    pas_setvar_release();
-    pas_charvar_release();
-    pas_singlevar_release();
-    pas_pcharvar_release();
-    pas_filevar_release();
-}
-static void pas_scoped_save(void **sv, int *svn) {
-    svn[0] = pas_boolvar_save(&sv[0]);
-    svn[1] = pas_setvar_save(&sv[1]);
-    svn[2] = pas_charvar_save(&sv[2]);
-    svn[3] = pas_singlevar_save(&sv[3]);
-    svn[4] = pas_pcharvar_save(&sv[4]);
-    svn[5] = pas_filevar_save(&sv[5]);
-}
-static void pas_scoped_restore(void **sv, int *svn) {
-    pas_boolvar_restore(sv[0], svn[0]);
-    pas_setvar_restore(sv[1], svn[1]);
-    pas_charvar_restore(sv[2], svn[2]);
-    pas_singlevar_restore(sv[3], svn[3]);
-    pas_pcharvar_restore(sv[4], svn[4]);
-    pas_filevar_restore(sv[5], svn[5]);
-}
+static int pas_is_filevar(const char *name) { const pty_t *t = pty_name_type(name); return t && (t->k == PTK_TEXT || (t->k == PTK_ARRAY && t->base && t->base->k == PTK_TEXT)); }
 static int pas_is_filevar_elem(tree_t *e) {
     long long _ah;
     return e && e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_filevar(e->c[0]->v.sval) && pas_array_high_get(e->c[0]->v.sval, &_ah);
@@ -4722,7 +4593,7 @@ static void pas_formal_tfiles(const char *sig, PNodeList *params) {
         tree_t *id = params->items[i];
         if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 1);
-        if (t && pas_is_tfiletype(t)) { pas_tfilevar_add(id->v.sval); pas_tfcomp_add(id->v.sval, 0, -1, 0); }
+        if (t && pas_is_tfiletype(t)) { pas_tfcomp_add(id->v.sval, 0, -1, 0); }
     }
 }
 static void pas_formal_strtypes(const char *sig, PNodeList *params) {
@@ -5967,23 +5838,20 @@ static pval E_const_decl(const tree_t *n) {
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && IS(n->c[1], TT_QLIT)) {
         v[1].str = tok_s(n->c[0]);
         v[3].str = tok_s(n->c[1]);
-        {
-            pas_scope_define(v[1].str);
-            if (v[3].str && strlen(v[3].str)==1) { pas_const_add(v[1].str,(long long)(unsigned char)v[3].str[0]); pas_charvar_add(v[1].str); } else pas_sconst_add(v[1].str,v[3].str);
-        }
+        { pas_scope_define(v[1].str); if (v[3].str && strlen(v[3].str)==1) { pas_const_add(v[1].str,(long long)(unsigned char)v[3].str[0]); } else pas_sconst_add(v[1].str,v[3].str); }
         return out;
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && IS(n->c[1], TT_CHRLIT)) {
         v[1].str = tok_s(n->c[0]);
         v[3].ival = tok_i(n->c[1]);
-        { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); pas_charvar_add(v[1].str); }
+        { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); }
         return out;
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && IS(n->c[1], TT_FNC) && n->c[1]->n == 2 && n->c[1]->c[0] && n->c[1]->c[0]->v.sval && !strcmp(n->c[1]->c[0]->v.sval, "chr") &&
         IS(n->c[1]->c[1], TT_ILIT)) {
         v[1].str = tok_s(n->c[0]);
         v[3].ival = n->c[1]->c[1]->v.ival;
-        { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); pas_charvar_add(v[1].str); }
+        { pas_scope_define(v[1].str); pas_const_add(v[1].str, v[3].ival); }
         return out;
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && n->c[1] &&
@@ -6000,7 +5868,7 @@ static pval E_const_decl(const tree_t *n) {
             if (k == 1) pas_const_add(v[1].str, iv);
             else if (k == 2) pas_rconst_add(v[1].str, dv);
             else if (k == 3) pas_sconst_add(v[1].str, sv);
-            else { pas_const_add(v[1].str, iv); pas_charvar_add(v[1].str); }
+            else { pas_const_add(v[1].str, iv); }
             return out;
         }
     }
@@ -6202,7 +6070,6 @@ static pval E_file_id_list_opt(const tree_t *n) {
             if (v[2].list) for (int i = 0; i < v[2].list->count; i++) {
                 tree_t *id = v[2].list->items[i];
                 if (id && id->v.sval && strcmp(id->v.sval, "input") && strcmp(id->v.sval, "output")) {
-                    pas_filevar_add(id->v.sval);
                     if (g_lower.pas.sem.pas_nhdrfile < 32) g_lower.pas.sem.pas_hdrfiles[g_lower.pas.sem.pas_nhdrfile++] = ct_strdup(id->v.sval);
                 }
             }
@@ -6441,9 +6308,6 @@ static pval E_parameter_decl(const tree_t *n) {
         {
             pas_open_type_ensure(v[4].str);
             pas_pf_section('r', v[2].list, v[4].str);
-            if (!strcmp(v[4].str, "text")) for (int i = 0; i < v[2].list->count; i++) if (v[2].list->items[i] && v[2].list->items[i]->v.sval) pas_filevar_add(v[2].list->items[i]->v.sval);
-            if (pas_is_booltype(v[4].str)) for (int i = 0; i < v[2].list->count; i++) if (v[2].list->items[i] && v[2].list->items[i]->v.sval) pas_boolvar_add(v[2].list->items[i]->v.sval);
-            if (pas_is_settype(v[4].str)) for (int i = 0; i < v[2].list->count; i++) if (v[2].list->items[i] && v[2].list->items[i]->v.sval) pas_setvar_add(v[2].list->items[i]->v.sval);
             const char *_pt = pas_ptrtype_target(v[4].str);
             if (_pt) for (int i = 0; i < v[2].list->count; i++) if (v[2].list->items[i] && v[2].list->items[i]->v.sval) pas_ptrvar_add(v[2].list->items[i]->v.sval, _pt);
             {
@@ -6491,17 +6355,10 @@ static pval E_parameter_decl(const tree_t *n) {
             pas_open_type_ensure(v[3].str);
             pas_value_formal_file_check(v[1].list, v[3].str);
             pas_pf_section('v', v[1].list, v[3].str);
-            if (pas_is_booltype(v[3].str)) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_boolvar_add(v[1].list->items[i]->v.sval);
-            if (pas_is_settype(v[3].str)) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_setvar_add(v[1].list->items[i]->v.sval);
             const char *_pt = pas_ptrtype_target(v[3].str);
             if (_pt) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_ptrvar_add(v[1].list->items[i]->v.sval, _pt);
-            if (!strcmp(v[3].str, "char")) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_charvar_add(v[1].list->items[i]->v.sval);
-            if (!strcmp(v[3].str, "single")) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_singlevar_add(v[1].list->items[i]->v.sval);
             if (pas_is_realtypename(v[3].str)) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i]) ast_push(v[1].list->items[i], ast_node_new(TT_FLIT));
-            if (!strcmp(v[3].str, "pchar")) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i]) {
-                ast_push(v[1].list->items[i], ast_node_new(TT_QLIT));
-                if (v[1].list->items[i]->v.sval) pas_pcharvar_add(v[1].list->items[i]->v.sval);
-            }
+            if (!strcmp(v[3].str, "pchar")) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i]) { ast_push(v[1].list->items[i], ast_node_new(TT_QLIT)); }
             {
                 {
                     const char *_ap = pas_arrptr_target(v[3].str);
@@ -6592,7 +6449,9 @@ static pval E_pf_sections(const tree_t *n, int from, int to) {
     }
     return out;
 }
-static pval E_procedure_decl(const tree_t *n) {
+static pval E_procedure_decl_in(const tree_t *n);
+static pval E_procedure_decl(const tree_t *n) { const void *pc = pty_enter(n); pval o = E_procedure_decl_in(n); pty_leave(pc); return o; }
+static pval E_procedure_decl_in(const tree_t *n) {
     pval v[13];
     pval out;
     memset(v, 0, sizeof v);
@@ -6630,8 +6489,6 @@ static pval E_procedure_decl(const tree_t *n) {
             pas_scope_fwd_save(v[2].str, v[4].list, _sg);
             pas_func_add(v[2].str);
             pas_proc_vparams(v[2].str, v[4].list);
-            if (v[6].str && !strcmp(v[6].str, "char")) pas_charvar_add_outer(v[2].str);
-            if (pas_is_booltype(v[6].str)) pas_boolvar_add_outer(v[2].str);
             if (v[6].str) pas_scalarvartype_add(v[2].str, v[6].str);
             if (v[6].str && pas_arrtype_isdyn(v[6].str) && !pas_array_isdyn(v[2].str)) { pas_array_add(v[2].str, -1); pas_array_mark_dyn(v[2].str, pas_arrtype_isdyn(v[6].str)); }
             pas_fwd_save(v[2].str, v[4].list);
@@ -6684,8 +6541,6 @@ static pval E_procedure_decl(const tree_t *n) {
             pas_array_param_uids(_pa0);
             pas_func_add(v[2].str);
             pas_proc_vparams(v[2].str, pas_scope_fwd_params(v[2].str, v[4].list));
-            if (v[6].str && !strcmp(v[6].str, "char")) pas_charvar_add_outer(v[2].str);
-            if (pas_is_booltype(v[6].str)) pas_boolvar_add_outer(v[2].str);
             if (v[6].str) pas_scalarvartype_add(v[2].str, v[6].str);
             if (v[6].str && pas_arrtype_isdyn(v[6].str) && !pas_array_isdyn(v[2].str)) { pas_array_add(v[2].str, -1); pas_array_mark_dyn(v[2].str, pas_arrtype_isdyn(v[6].str)); }
             pas_proc_enter();
@@ -6746,7 +6601,9 @@ static pval E_procedure_decl(const tree_t *n) {
     elab_bad("procedure_decl", n);
     return out;
 }
-static pval E_program(const tree_t *n) {
+static pval E_program_in(const tree_t *n);
+static pval E_program(const tree_t *n) { const void *pc = pty_enter(n); pval o = E_program_in(n); pty_leave(pc); return o; }
+static pval E_program_in(const tree_t *n) {
     pval v[9];
     pval out;
     memset(v, 0, sizeof v);
@@ -7660,7 +7517,6 @@ static pval E_var_decl(const tree_t *n) {
                         } else if (_ty3 >= 0) {
                             long long _varnc = (g_lower.pas.sem.pas_pend_arr_ncols >= 0) ? g_lower.pas.sem.pas_pend_arr_ncols : pas_arrtype_ncols(g_lower.pas.sem.pas_pend_typename);
                             if (g_lower.pas.sem.pas_pend_ischar && !g_lower.pas.sem.pas_pend_arr_ischar && _varnc < 0 && g_lower.pas.sem.pas_pend_nf == 0) {
-                                pas_charvar_add(id->v.sval);
                             } else if (_varnc >= 0) {
                                 pas_array_add2d(id->v.sval, _ty3, _varnc);
                                 if (g_lower.pas.sem.pas_pend_arr_ischar || pas_arrtype_ischar(g_lower.pas.sem.pas_pend_typename)) pas_array_mark_char(id->v.sval);
@@ -7689,11 +7545,7 @@ static pval E_var_decl(const tree_t *n) {
                                     pas_enumarr_add(id->v.sval, g_lower.pas.sem.pas_pend_typename);
                             }
                         }
-                        if (_ty3 == -2) pas_setvar_add(id->v.sval);
-                        if (_ty3 < 0 && g_lower.pas.sem.pas_pend_ischar) pas_charvar_add(id->v.sval);
-                        if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_lower.pas.sem.pas_pend_isbool) pas_boolvar_add(id->v.sval);
                         if (_ty3 < 0 && g_lower.pas.sem.pas_pend_istfile) {
-                            pas_tfilevar_add(id->v.sval);
                             pas_tfcomp_add(id->v.sval, g_lower.pas.sem.pas_pend_frng_lo, g_lower.pas.sem.pas_pend_frng_hi, g_lower.pas.sem.pas_pend_frng_ischar);
                         }
                         if (_ty3 < 0 && !g_lower.pas.sem.pas_pend_istfile && g_lower.pas.sem.pas_pend_nf == 0 && !g_lower.pas.sem.pas_pend_isarr && g_lower.pas.sem.pas_pend_sub_high >= 0) {
@@ -7704,8 +7556,6 @@ static pval E_var_decl(const tree_t *n) {
                             pas_subvar_add(id->v.sval, pas_subtype_low(g_lower.pas.sem.pas_pend_typename), pas_subtype_high(g_lower.pas.sem.pas_pend_typename));
                         }
                         if (_ty3 < 0 && g_lower.pas.sem.pas_pend_nf > 0) { pas_recvar_add(id->v.sval, _pk3); pas_array_add(id->v.sval, (long long)(g_lower.pas.sem.pas_pend_nf - 1)); }
-                        if (g_lower.pas.sem.pas_pend_typename && !strcmp(g_lower.pas.sem.pas_pend_typename, "text")) pas_filevar_add(id->v.sval);
-                        if (g_lower.pas.sem.pas_pend_typename && !strcmp(g_lower.pas.sem.pas_pend_typename, "pchar")) pas_pcharvar_add(id->v.sval);
                         pas_scalarvartype_add(id->v.sval, g_lower.pas.sem.pas_pend_typename ? g_lower.pas.sem.pas_pend_typename : "?");
                     }
                     pas_local_add(id->v.sval);
@@ -8430,7 +8280,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
     pas_var_inits(flat);
     pty_run(flat, g_lower.pas.sem.pas_dialect_fpc);
-    if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_boolvar_add("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
+    if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
     tree_t *root = E_program(flat).node;
     pty_census_report();
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors, nlim = g_lower.pas.sem.pas_limit_errors;
