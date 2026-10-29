@@ -290,7 +290,6 @@ typedef struct {
     int64_t op_ival;
     int op_node_kind;
     double op_dval;
-    int64_t op_counter;
     const char * op_a_sval;
     int op_a_node_kind;
     int op_a_slot;

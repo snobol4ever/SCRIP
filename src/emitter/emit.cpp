@@ -1012,7 +1012,6 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)_zn->srole; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
-    g_emit.op_counter = 0;
     IR_t *op_a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
     g_emit.op_a_sval = op_a ? IR_LIT(op_a).sval : (const char *)0;
     g_emit.op_a_node_kind = op_a ? (int)ir_norm_call_kind(op_a->op) : -1;
@@ -4488,7 +4487,6 @@ uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void 
 #include "templates/bb/bb_pl_leaf_kinds.h"
 int elem_access_kind(const IR_t * nd) { return nd ? nd->elem_access : 0; }
 extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_flat_frame_floor; }
-IR_t * bb_chain_terminal_staged(IR_t * entry);
 int zf_display_level(void) {
     if (!g_emit_cfg || g_emit_cfg->cell_frame) return 0;
     int dl = g_emit_cfg->decl_level;
@@ -4555,19 +4553,10 @@ long bcps_parse_rsp(const char * t) {
     long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
     return (*p == ']') ? v : -1;
 }
-int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
+int bcps_arg_slot(IR_t * call, int i) {
     IR_t * a = ir_call_arg(call, i);
-    if (a) {
-    int s = bb_slot_get(a);
-    if (s < 0) s = zrow_opoff(call, i);
-    if (s >= 0) return s;
-}
-    IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
-}
-IR_t * bb_chain_terminal_staged(IR_t * entry) {
-    IR_t * n = entry; int guard = 0;
-    while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
-    return n;
+    if (a) { int s = bb_slot_get(a); if (s < 0) s = zrow_opoff(call, i); if (s >= 0) return s; }
+    return 0;
 }
 int bcps_result_slot() {
     IR_t * nd = _.node;
@@ -5013,8 +5002,8 @@ static void call_fnlbl_set(const std::string & fl, int guard) {
     if (!guard) { g_emit.op_call_fnlbl_fresh = 1; return; }
     { bb_label_t * dm = emit_label_intern((fl + "$def").c_str()); g_emit.op_call_fnlbl_fresh = (!dm || !bb_label_defined(dm)) ? 1 : 0; if (g_emit.op_call_fnlbl_fresh && dm) dm->offset = 0; }
 }
-static void call_pl_prepare(IR_t * nd, const char * fn, int narg, IR_graph_t ** subs, int fnroute) {
-    const char * op = 0; int k = pl_leaf_kind(fn, narg, &op); IR_t * a0 = (subs && subs[0]) ? subs[0]->entry : (fnroute ? ir_call_arg(nd, 0) : (IR_t *)0);
+static void call_pl_prepare(IR_t * nd, const char * fn, int narg, int fnroute) {
+    const char * op = 0; int k = pl_leaf_kind(fn, narg, &op); IR_t * a0 = fnroute ? ir_call_arg(nd, 0) : (IR_t *)0;
     g_emit.op_pl_kind = k; g_emit.op_pl_op = op ? op : "";
     g_emit.op_pl_sub = k == PLK_AX ? pl_ax_sub(op) : k == PLK_TYPE ? pl_type_sub(op) : k == PLK_ATOP ? pl_atop_sub(op) : 0;
     g_emit.op_pl_tags = k == PLK_TYPE ? pl_type_tags(op) : "";
@@ -5028,7 +5017,7 @@ static void call_pl_prepare(IR_t * nd, const char * fn, int narg, IR_graph_t ** 
 }
 void call_prepare(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int narg = (int)g_emit.op_ival; int strict = g_emit.op_strict; IR_e kind = nd->op; int route = lower_call_route(nd);
-    int fnroute = (route == CALL_ROUTE_FN); int zd = (kind == IR_CALL_GEN) ? 0 : g_emit.op_zres; IR_graph_t ** subs = (IR_graph_t **)(intptr_t)g_emit.op_counter;
+    int fnroute = (route == CALL_ROUTE_FN); int zd = (kind == IR_CALL_GEN) ? 0 : g_emit.op_zres;
     g_emit.op_call_route = route; g_emit.op_call_refuse = CALL_REFUSE_NONE; g_emit.op_call_try = 0; g_emit.op_call_sym = ""; g_emit.op_call_fp = 0; g_emit.op_call_try_sym = "";
         g_emit.op_call_try_fp = 0;
     g_emit.op_call_open_sym = ""; g_emit.op_call_open_fp = 0; g_emit.op_call_bid = -1; g_emit.op_call_idx = -1; g_emit.op_call_argbase = -1; g_emit.op_call_resoff = -1; g_emit.op_call_rec_off = -1;
@@ -5045,7 +5034,7 @@ void call_prepare(IR_t * nd) {
     }
     if (fnroute && !g_emit.op_call_refuse && nd->seal == IR_SEAL_CALL_DET_LEAF && kind != IR_CALL_DIRECT && kind != IR_CALL_PL_LEAF) g_emit.op_call_refuse = CALL_REFUSE_DET_LEAF;
     if (!zd && !g_emit.op_call_refuse) { call_margs_reserve(narg); g_emit.op_marg_n = narg;
-        for (int i = narg - 1; i >= 0; i--) call_marg_plan(i, (subs && subs[i]) ? subs[i]->entry : (fnroute ? ir_call_arg(nd, i) : (IR_t *)0), g_emit.op_call_argbase + 16 * i, nd); }
+        for (int i = narg - 1; i >= 0; i--) call_marg_plan(i, fnroute ? ir_call_arg(nd, i) : (IR_t *)0, g_emit.op_call_argbase + 16 * i, nd); }
     g_emit.op_call_bid = bid_bake_of(fn);
     g_emit.op_call_elem_access = fnroute ? elem_access_kind(nd) : 0;
     g_emit.op_call_sb_exit = (fnroute && zd && g_emit.op_sb) ? 1 : 0;
@@ -5056,7 +5045,7 @@ void call_prepare(IR_t * nd) {
     if (kind == IR_CALL_GEN) g_emit.op_call_scansync = lower_call_is_scan_builtin(fn);
     switch (kind) {
     case IR_CALL_DIRECT: { const char * s = 0; g_emit.op_call_fp = (uint64_t)(uintptr_t)dop_direct_fp(fn, (int64_t)narg, &s); g_emit.op_call_sym = s ? s : ""; break; }
-    case IR_CALL_PL_LEAF: call_pl_prepare(nd, fn, narg, subs, fnroute); break;
+    case IR_CALL_PL_LEAF: call_pl_prepare(nd, fn, narg, fnroute); break;
     case IR_CALL_PAS_BI: g_emit.op_call_idx = lower_call_pas_bi(fn); break;
     case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: {
         g_emit.op_call_rec_lbl = call_cv_text(&g_emit.op_call_rec_lbl_buf, std::string(".Lcallee_") + bb_ab_sym_name(fn)); g_emit.op_call_rec_addr = (uint64_t)(uintptr_t)bb_callee_rec_addr(fn); break;
