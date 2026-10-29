@@ -2715,6 +2715,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_write_canonical_cell", GC_RET_VOID },
     { "rt_pl_write_cell", GC_RET_VOID },
     { "rt_pl_write_cell_fp", GC_RET_VOID },
+    { "rt_pl_write_cell_fp_p", GC_RET_VOID },
     { "rt_pl_write_term_cell", GC_RET_OTHER },
     { "rt_pl_writeq_cell", GC_RET_VOID },
     { "rt_pl_zguard_cold", GC_RET_DESCR },

@@ -13,11 +13,15 @@
     assignment (XSB syslib/machine.P; constraint_tests/testsetarg's ref shows the old argument back after a failure), which is SWI's setarg/3 with its arguments reordered. load_dyn/1 is XSB consult.P's load_dyn(File) :- load_dyn(File, 1, usermod): the file is
     found as named when the name has an extension, else as File.P, File.pl or File (search_module's order), each clause is asserted at the end (direction 1, z) and each
     directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, CEO-1960). load_dync/1 is consult/1 and ensure_dync_loaded/1 consults a file once, both down the dialect(xsb) load_files road that reads
-    the file's table directives (ARCH-PROLOG-WFS-TABLING.md section 8 R1, hq_packages 2026-10-28, CEO-2005). */
-:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1 ]).
+    the file's table directives (ARCH-PROLOG-WFS-TABLING.md section 8 R1, hq_packages 2026-10-28, CEO-2005). edb/1, ti/1, thread_shared/1 and document_export/1 are XSB's declarations (the package prelude declares their operators) that change nothing SCRIP answers, so each directive succeeds silently (hq_packages 2026-10-28). */
+:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1, edb/1, ti/1, thread_shared/1, document_export/1 ]).
 import(_).
 export(_).
 index(_).
+edb(_).
+ti(_).
+thread_shared(_).
+document_export(_).
 compiler_options(L) :- ( is_list(L) -> true ; throw(error(type_error(list, L), compiler_options/1)) ).
 term_depth(T, D) :- ( compound(T) -> functor(T, _, N), '$xsb_td_args'(N, T, 0, M), D is M + 1 ; float(T) -> D = 2 ; D = 1 ).
 '$xsb_td_args'(0, _, M, M) :- !.

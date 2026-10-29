@@ -175,7 +175,9 @@ static int plc_is_nil(pl_cell_t *d) { if ((int)d->v == DT_PLATOM) return (int)d-
 int rt_pl_u8_get(const char *s, int *adv);
 static int plc_atom_needs_quoting(const char *name) {
     static const char *const graphic = "#$&*+-./:<=>?@\\^~";
+    extern int rt_pl_dialect_xsb(void);
     if (!name || !name[0]) return 1;
+    if (rt_pl_dialect_xsb() && (!strcmp(name, "{}") || !strcmp(name, ";"))) return 1;
     if (!strcmp(name, "[]") || !strcmp(name, "{}") || !strcmp(name, "!") || !strcmp(name, ";")) return 0;
     if (isupper((unsigned char)name[0]) || name[0] == '_') return 1;
     {
@@ -650,7 +652,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             int wrap = op_prec > maxp;
             if (wrap) fputc('(', fp);
             if (ar == 2) {
-                int lop = !kel && plc_is_op_atom(pl_deref(&aa[0])), rop = !kel && plc_is_op_atom(pl_deref(&aa[1]));
+                int xsbp = rt_pl_dialect_xsb() && !quoted;
+                int lop = !kel && !xsbp && plc_is_op_atom(pl_deref(&aa[0])), rop = !kel && !xsbp && plc_is_op_atom(pl_deref(&aa[1]));
                 if (lop) fputc('(', fp);
                 PLC_KID(&aa[0], depth+1, lop ? 1200 : lmax);
                 if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
@@ -664,7 +667,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 } else if (!strcmp(fn, ",") || !strcmp(fn, "|")) {
                     fputc(fn[0], fp);
                     if (m->space_args || m->next_arg) fputc(' ', fp);
-                } else if (m->space_args) {
+                } else if (m->space_args || (rt_pl_dialect_xsb() && strcmp(fn, ";"))) {
                     fputc(' ', fp);
                     plc_wt_atom(fp, fn, quoted);
                     fputc(' ', fp);
@@ -674,7 +677,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     int lglue = !lop && plc_is_graphic_char((unsigned char)fn[0]) && (kel || plc_term_prio(&aa[0], ignore_ops) <= lmax) &&
                         plc_is_graphic_char(plc_last_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl));
                     if (lglue) fputc(' ', fp);
-                    plc_wt_atom(fp, fn, quoted);
+                    plc_wt_atom(fp, fn, quoted && strcmp(fn, ";"));
                     if (lglue || (!rop && (kel || plc_term_prio(&aa[1], ignore_ops) <= rmax) && plc_is_graphic_char(plc_first_char_d(&aa[1], quoted, ignore_ops, numbervars, kdl)))) fputc(' ', fp);
                 }
                 if (rop) fputc('(', fp);
@@ -693,11 +696,12 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     int alnum_op = isalnum((unsigned char)fn[0]) || fn[0] == '_';
                     extern int rt_big_sign(DESCR_t);
                     int a_num = !kel && (((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0));
-                    int a_opatom = !kel && plc_is_op_atom(a0);
+                    int a_opatom = !kel && !(rt_pl_dialect_xsb() && !quoted) && plc_is_op_atom(a0);
                     int a_digit = !kel && !strcmp(fn, "-") && isdigit(plc_first_char(a0, quoted, ignore_ops, numbervars));
                     int swi_numop = rt_pl_dialect_swi() && !kel && !strcmp(fn, "-") && (a_num || a_digit);
-                    int needp = (ap > rmax) || a_opatom || (!swi_numop && ((a_num && !strcmp(fn, "-")) || a_digit));
-                    int sep = needp || swi_numop || (!alnum_op && plc_is_graphic_char(plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl)));
+                    int xsbw = rt_pl_dialect_xsb() && !quoted;
+                    int needp = (ap > rmax) || a_opatom || (!swi_numop && !xsbw && ((a_num && !strcmp(fn, "-")) || (!rt_pl_dialect_xsb() && a_digit)));
+                    int sep = needp || swi_numop || rt_pl_dialect_xsb() || (!alnum_op && plc_is_graphic_char(plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl)));
                     if (alnum_op) fprintf(fp, "%s ", fn);
                     else plc_wt_atom(fp, fn, quoted);
                     if ((sep || m->space_args) && !alnum_op) fputc(' ', fp);
@@ -714,7 +718,14 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     fprintf(fp, "(");
     int nb = ar;
     if (max_depth > 0 && !wx && rt_pl_dialect_gnu() && max_depth - depth < ar) nb = (int)(max_depth - depth);
-    for (int i = 0; i < nb; i++) { if (i) fputs(m->space_args || m->next_arg ? ", " : ",", fp); PLC_KID(&aa[i], depth+1, 999); if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; } }
+    for (int i = 0; i < nb; i++) {
+        int opq = quoted && rt_pl_dialect_xsb() && !ignore_ops && plc_is_op_atom(pl_deref(&aa[i])) && strcmp(plc_atom_text(pl_deref(&aa[i])), "|");
+        if (i) fputs(m->space_args || m->next_arg ? ", " : ",", fp);
+        if (opq) fputc('(', fp);
+        PLC_KID(&aa[i], depth+1, 999);
+        if (opq) fputc(')', fp);
+        if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+    }
     if (nb < ar) fputs(m->space_args || m->next_arg ? ", ..." : ",...", fp);
     fprintf(fp, ")");
 }
@@ -844,11 +855,11 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     plc_ws_end(wx, mark);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_write(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 0, 0, 1, 0, 0, 1200, m); }
+static void plc_write(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 0, 0, 1, 0, 0, rt_pl_dialect_xsb() ? 1000 : 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, 1200, m); }
+static void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, rt_pl_dialect_xsb() ? 1000 : 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, rt_pl_dialect_swi() ? 3 : PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
+static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, (rt_pl_dialect_swi() || rt_pl_dialect_xsb()) ? 3 : PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_atoms_ready(void) { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -884,6 +895,23 @@ void rt_pl_write_cell_fp(void *cell, FILE *fp) {
     m.space_args = 0;
     m.next_arg = 0;
     plc_write((pl_cell_t *)cell, &m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_write_cell_fp_p(void *cell, FILE *fp, int maxp) {
+    plc_atoms_ready();
+    plc_vmap m;
+    m.n = 0;
+    m.vnc = 0;
+    m.fp = fp ? fp : plc_out();
+    m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
+    m.pthrown = (void *)0;
+    m.cx = (pl_tr_ctx_t *)0;
+    m.pheld = 0;
+    m.pgoal = (pl_cell_t *)0;
+    m.popts = (pl_cell_t *)0;
+    m.space_args = 0;
+    m.next_arg = 0;
+    plc_wt((pl_cell_t *)cell, 0, 0, 1, 0, 0, maxp, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell) {
@@ -964,7 +992,8 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
     m.next_arg = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"), nolists = 0, nobraces = 0;
+    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = rt_pl_dialect_xsb() ? 1000 : 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"), nolists = 0,
+        nobraces = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {

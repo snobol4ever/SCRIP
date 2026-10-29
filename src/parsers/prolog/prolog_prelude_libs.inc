@@ -34068,6 +34068,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "load_dyn", 1 },
     { "load_dync", 1 },
     { "ensure_dync_loaded", 1 },
+    { "edb", 1 },
+    { "ti", 1 },
+    { "thread_shared", 1 },
+    { "document_export", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
@@ -34087,6 +34091,10 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
+    "edb(_).\n"
+    "ti(_).\n"
+    "thread_shared(_).\n"
+    "document_export(_).\n"
     "compiler_options(L) :- ( is_list(L) -> true ; throw(error(type_error(list, L), compiler_options/1)) ).\n"
     "term_depth(T, D) :- ( compound(T) -> functor(T, _, N), '$xsb_td_args'(N, T, 0, M), D is M + 1 ; float(T) -> D = 2 ; D = 1 ).\n"
     "'$xsb_td_args'(0, _, M, M) :- !.\n"

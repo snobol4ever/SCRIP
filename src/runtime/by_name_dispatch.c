@@ -7068,7 +7068,26 @@ DESCR_t rt_pl_atop_cold_c(DESCR_t *args, int nargs, const char *op) {
 }
 DESCR_t dop_pl_writeq(DESCR_t *args, int nargs) { if (nargs != 1) return FAILDESCR; rt_pl_writeq_cell(&args[0]); return pl_ok(); }
 DESCR_t dop_pl_write_canonical(DESCR_t *args, int nargs) { if (nargs != 1) return FAILDESCR; rt_pl_write_canonical_cell(&args[0]); return pl_ok(); }
-DESCR_t dop_pl_writeln(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); if (nargs != 1) return FAILDESCR; dop_write(args, 1); fputc('\n', fh_cur_out_fp()); return pl_ok(); }
+DESCR_t dop_pl_writeln(DESCR_t *args, int nargs) {
+    extern FILE *fh_cur_out_fp(void);
+    extern int rt_pl_dialect_xsb(void);
+    extern void rt_pl_write_cell_fp_p(void *, FILE *, int);
+    if (nargs != 1) return FAILDESCR;
+    {
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        if (rt_pl_dialect_xsb() && (v.v == (DTYPE_t)DT_PLREF || v.v == (DTYPE_t)DT_PLVAR)) {
+            FILE *wd = fh_cur_out_fp();
+            DESCR_t pt = v;
+            fflush(wd);
+            rt_pl_write_cell_fp_p(plw_entry(&pt), wd, 999);
+            fputc('\n', wd);
+            return pl_ok();
+        }
+    }
+    dop_write(args, 1);
+    fputc('\n', fh_cur_out_fp());
+    return pl_ok();
+}
 DESCR_t dop_pl_tab(DESCR_t *args, int nargs) {
     extern FILE *fh_cur_out_fp(void);
     if (nargs != 1) return FAILDESCR;
