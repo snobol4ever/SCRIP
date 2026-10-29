@@ -260,19 +260,14 @@ Paren     = ( epsilon . *PushCounter()
             );
 /* { s1; s2 } is C's parse_block_or_expr: each statement may take one trailing ';', a bare ';' is the leaf &null, and */
 /* when the token before '}' is a ';' one more &null closes the block; {} is an empty TT_SEQ_EXPR, one item stands alone. */
-/* The ';' is tracked by the deferred actions themselves (IcnSemi), which run in match order, inner blocks first.         */
-function IcnSemi(f) { icnSemiFlag = f; IcnSemi = .dummy; nreturn; }
-function IcnBlockEnd() {
-    IcnBlockEnd = .dummy;
-    if (IDENT(icnSemiFlag, 1)) { Shift('TT_VAR', '&null'); IncCounter(); }
-    nreturn;
-}
-CompoundItem  = FENCE( *$' ' *$';' . *Shift('TT_VAR', '&null') . *IncCounter() . *IcnSemi(1)
-                     | *$' ' *Expr . *IncCounter() *$' ' FENCE( *$';' . *IcnSemi(1) | epsilon . *IcnSemi(0) ) );
+/* a ';' directly before the '}' is read ahead, and one more &null closes the block                                                */
+CompoundClose = *$' ' @cl *IDENT(SUBSTR(Src, cl + 1, 1), '}') epsilon . *Shift('TT_VAR', '&null') . *IncCounter();
+CompoundItem  = FENCE( *$' ' *$';' . *Shift('TT_VAR', '&null') . *IncCounter() FENCE(*CompoundClose | epsilon)
+                     | *$' ' *Expr . *IncCounter() *$' ' FENCE( *$';' FENCE(*CompoundClose | epsilon) | epsilon ) );
 CompoundItems = FENCE( *CompoundItem *CompoundItems | epsilon );
 Compound      = ( epsilon . *PushCounter()
                   *$'{'
-                  ( *$' ' *$'}' | epsilon . *IcnSemi(0) *CompoundItems *$' ' *$'}' . *IcnBlockEnd() )
+                  ( *$' ' *$'}' | *CompoundItems *$' ' *$'}' )
                   . *Reduce('TT_SEQ_EXPR', *(DIFFER(nTop(), 1) nTop()))
                   . *PopCounter()
                 );
