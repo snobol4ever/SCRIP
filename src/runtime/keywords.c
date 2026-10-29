@@ -110,8 +110,8 @@ static char *kw_cset_block_new(const char *chars, int len) {
     char *base = (char *)rt_wsb_alloc((size_t)CSET_BLK_HDR + (size_t)(len > 0 ? len : 0) + 1u);
     return cset_block_init(base, chars, len);
 }
-static char kw_cset_empty_store[CSET_BLK_HDR + 8];
-const char *kw_cset_empty(void) { if (!kw_cset_empty_store[CSET_BLK_HDR + CSET_BLK_MAGIC_OFF]) cset_block_init(kw_cset_empty_store, "", 0); return kw_cset_empty_store + CSET_BLK_HDR; }
+static const char kw_cset_empty_store[CSET_BLK_HDR + 8] = { 0, 0, 0, 0, 0x75, 0xB1, 0xE7, 0xC5 };
+const char *kw_cset_empty(void) { return kw_cset_empty_store + CSET_BLK_HDR; }
 static void kw_cset_append(const char *ptr, const char *name, int len) {
     kw_cset_grow();
     g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count].ptr = ptr;
