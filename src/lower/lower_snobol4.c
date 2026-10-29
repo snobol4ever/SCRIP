@@ -301,7 +301,12 @@ static int sno_pe_value_form(const tree_t * t) {
     }
 }
 int sno_goto_operand_value(const tree_t * t) { return sno_pe_value_form(t); }
-static int sno_pe_target_value(const tree_t * t) { return (t && t->t == TT_SCAN && t->n == 2) ? sno_pe_value_form(t->c[0]) : sno_pe_value_form(t); }
+static const tree_t * sno_seq_head(const tree_t * t) { while (t && (t->t == TT_SEQ || t->t == TT_CAT) && t->n == 2) t = t->c[0]; return t; }
+static int sno_pe_target_value(const tree_t * t) {
+    if (t && t->t == TT_SCAN && t->n == 2) return sno_pe_value_form(t->c[0]);
+    if (t && (t->t == TT_SEQ || t->t == TT_CAT) && t->n == 2) return sno_pe_value_form(sno_seq_head(t));
+    return sno_pe_value_form(t);
+}
 static int sno_pe_byname_value(const tree_t * t) {
     if (!t) return 0;
     if ((t->t == TT_NAME || t->t == TT_CAPT_CURSOR) && t->n == 1) return sno_pe_value_form(t->c[0]);
@@ -3556,6 +3561,26 @@ static IR_t * sx_assign_body(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
     const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
     if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
     if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
+    if ((L->t == TT_SEQ || L->t == TT_CAT) && L->n == 2 && (L->c[0]->t == TT_SEQ || L->c[0]->t == TT_CAT) && L->c[0]->n == 2) {
+        extern tree_t * ast_stmt_new(tree_e kind);
+        const tree_t * head = sno_seq_head(L);
+        tree_t * rest = NULL;
+        const tree_t * spine[64];
+        int ns = 0;
+        for (const tree_t * q = L; q != head && ns < 64; q = q->c[0]) spine[ns++] = q->c[1];
+        for (int k = ns - 1; k >= 0; k--) { if (!rest) { rest = (tree_t *) spine[k]; continue; } tree_t * sq = ast_stmt_new(TT_SEQ); ast_push(sq, rest); ast_push(sq, (tree_t *) spine[k]); rest = sq; }
+        tree_t * sc0 = ast_stmt_new(TT_SCAN);
+        ast_push(sc0, (tree_t *) head);
+        ast_push(sc0, rest);
+        L = sc0;
+    }
+    if (L->t == TT_SEQ && L->n == 2 && !sno_pe_value_form(L->c[0]) && res) {
+        extern tree_t * ast_stmt_new(tree_e kind);
+        tree_t * sc1 = ast_stmt_new(TT_SCAN);
+        ast_push(sc1, (tree_t *) L->c[0]);
+        ast_push(sc1, (tree_t *) L->c[1]);
+        L = sc1;
+    }
     if (L->t == TT_SCAN && L->n >= 2) {
         extern tree_t * ast_stmt_new(tree_e kind);
         IR_t * pent = NULL;
