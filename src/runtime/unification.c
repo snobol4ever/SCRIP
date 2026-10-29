@@ -43,9 +43,13 @@ int rt_unify_const(int slot, int kind, long ival, const char *sval, double dval)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_var_var(int lslot, int rslot) { (void)lslot; (void)rslot; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_cells_init(void **cells, int n) { char *base = (char *)cells; for (int i = 0; i < n; i++) pl_init_var((pl_cell_t *)(base + (size_t)16 * (size_t)i), i); }
+void rt_pl_cells_init(void **cells, int n) { char *base = (char *)cells; for (int i = 0; i < n; i++) pl_init_var((pl_cell_t *)(base + (size_t)16 * (size_t)i), (const pl_tr_ctx_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_gz_init(void *frame, int nslots) { prolog_atom_init(); char *base = (char *)frame; for (int i = 0; i < nslots; i++) pl_init_var((pl_cell_t *)(base + 8 + (size_t)16 * (size_t)i), i); }
+void rt_pl_gz_init(void *frame, int nslots) {
+    prolog_atom_init();
+    char *base = (char *)frame;
+    for (int i = 0; i < nslots; i++) pl_init_var((pl_cell_t *)(base + 8 + (size_t)16 * (size_t)i), (const pl_tr_ctx_t *)0);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words) {
     pl_cell_t *src = (pl_cell_t *)arg_words;
@@ -815,7 +819,7 @@ static pl_cell_t plc_fz_var(plc_fz_t *z, long k) {
         *a = pl_make_atom(prolog_atom_intern(nb));
         return pl_make_compound(prolog_atom_intern("$VAR"), 1, a);
     }
-    { pl_cell_t *v = (pl_cell_t *)rt_ws_alloc_descr(1); pl_init_var(v, -1); return pl_make_ref(v, (int)v->slen); }
+    { pl_cell_t *v = (pl_cell_t *)rt_ws_alloc_descr(1); pl_init_var(v, (const pl_tr_ctx_t *)0); return pl_make_ref(v, -1); }
 }
 static plc_fz_ent_t *plc_fz_slot(plc_fz_t *z, void *blk) {
     long i = (long)(((uintptr_t)blk >> 4) * 0x9E3779B97F4A7C15ull >> 20) & z->mask;
@@ -1307,7 +1311,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
     } else {
         if (!d1 || !plc_is_atomlike(d1)) { return 0; }
         pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)ar * sizeof(pl_cell_t));
-        for (long i = 0; i < ar; i++) pl_init_var(&args[i], -1);
+        for (long i = 0; i < ar; i++) pl_init_var(&args[i], cx);
         built = pl_make_compound(plc_swi_list_build(plc_atom_id_of(d1), (int)ar), (int)ar, args);
     }
     if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
@@ -2435,7 +2439,7 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     if ((int)a->v == DT_I && (int)b->v == DT_I) return a->i < b->i ? -1 : (a->i > b->i ? 1 : 0);
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
-    if (cla == 0) return a == b ? 0 : ((uintptr_t)a < (uintptr_t)b ? -1 : 1);
+    if (cla == 0) { uint64_t sa = pl_var_serial(a), sb = pl_var_serial(b); if (a == b) return 0; if (sa != sb) return sa < sb ? -1 : 1; return (uintptr_t)a < (uintptr_t)b ? -1 : 1; }
     if (cla == 1 && (pl_rat_is(*a) || pl_rat_is(*b))) {
         if ((int)a->v == DT_R || (int)b->v == DT_R) {
             double x = (int)a->v == DT_R ? a->r : pl_rat_real(*a), y = (int)b->v == DT_R ? b->r : pl_rat_real(*b);
@@ -2556,18 +2560,15 @@ __attribute__((noinline)) int rt_pl_bind_vv(pl_cell_t *A, pl_cell_t *B) {
     int as = (char *)A > &probe, bs = (char *)B > &probe;
     pl_cell_t *from = as && bs ? (A < B ? A : B) : as ? A : bs ? B : (A > B ? A : B);
     pl_cell_t *to = from == A ? B : A;
-    pl_cell_t r;
-    r.v = (DTYPE_t)DT_PLVAR;
-    r.slen = 0;
-    r.p = (void *)to;
-    if ((int)to->v != DT_PLVAR || to->p != (void *)to) *to = r;
+    pl_cell_t r = pl_make_ref(to, 0);
+    if ((int)to->v != DT_PLVAR || to->p != (void *)to) pl_init_var(to, (const pl_tr_ctx_t *)0);
     *from = r;
     return 1;
 }
 static int plc_unify_leaf(pl_cell_t *A, pl_cell_t *B, void *ctx) {
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
     (void)ctx;
-    if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)(pl_attv_is(A) ? A : B); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
+    if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r = pl_make_ref(pl_attv_is(A) ? A : B, 0); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
     if (av && bv) return rt_pl_bind_vv(A, B);
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
@@ -3257,7 +3258,8 @@ static int plc_copy_run(void *wv) {
             fresh = (pl_cell_t *)rt_ws_alloc_descr(at ? 2 : 1);
             if (!fresh) *w->d = *d;
             else {
-                if (at) { fresh[0].v = (DTYPE_t)DT_PLVAR; fresh[0].slen = PL_ATTV_SLEN; fresh[0].p = (void *)fresh; } else pl_init_var(fresh, -1);
+                if (at) pl_var_make(fresh, w->cx, 1);
+                else pl_init_var(fresh, w->cx);
                 if (at && pl_tr_residue_on(w->cx)) { memset(&fresh[1], 0, sizeof fresh[1]); pl_tr_push_residue(w->cx, fresh + 1); }
                 memcpy(&w0, d, 8);
                 plr_push(&w->lg, d, d->p, w0);
@@ -3341,7 +3343,8 @@ static int plc_copy_share_run(void *wv) {
             int at = w->atts && pl_attv_is(d);
             if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) return plc_sh_more(w);
             fresh = (pl_cell_t *)rt_ws_alloc_descr(at ? 2 : 1);
-            if (at) { fresh[0].v = (DTYPE_t)DT_PLVAR; fresh[0].slen = PL_ATTV_SLEN; fresh[0].p = (void *)fresh; } else pl_init_var(fresh, -1);
+            if (at) pl_var_make(fresh, w->cx, 1);
+            else pl_init_var(fresh, w->cx);
             if (at && pl_tr_residue_on(w->cx)) { memset(&fresh[1], 0, sizeof fresh[1]); pl_tr_push_residue(w->cx, fresh + 1); }
             memcpy(&w0, d, 8);
             plr_push(&w->lg, d, d->p, w0);
@@ -3464,7 +3467,7 @@ void *rt_pl_ball_evaluable(const char *name, int arity) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t pi[2];
     pl_cell_t *pic;
     pl_cell_t te[2];
@@ -3479,12 +3482,12 @@ void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int
     tec = (pl_cell_t *)rt_pl_compound_cell(kind ? kind : "type_error", 2, (void *)te);
     if (!tec) return (void *)0;
     er[0] = *tec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t ee[1];
     pl_cell_t *eec;
     pl_cell_t pi[2];
@@ -3500,7 +3503,7 @@ void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity) {
     pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
     if (!pic) return (void *)0;
     ct[0] = *pic;
-    ct[1] = rt_pl_fresh_var_ref();
+    ct[1] = rt_pl_fresh_var_ref(0);
     ctc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)ct);
     if (!ctc) return (void *)0;
     er[0] = *eec;
@@ -3509,7 +3512,7 @@ void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind1_system_ctx(const char *kind, const char *arg0_atom, const char *nm, int ar, const char *msg) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t fe[1];
     pl_cell_t *fec;
     pl_cell_t pi[2];
@@ -3531,7 +3534,7 @@ void *rt_pl_ball_kind1_system_ctx(const char *kind, const char *arg0_atom, const
     syc = (pl_cell_t *)rt_pl_compound_cell(":", 2, (void *)sy);
     if (!syc) return (void *)0;
     ct[0] = *syc;
-    ct[1] = msg ? pl_make_atom(prolog_atom_intern(msg)) : rt_pl_fresh_var_ref();
+    ct[1] = msg ? pl_make_atom(prolog_atom_intern(msg)) : rt_pl_fresh_var_ref(0);
     ctc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)ct);
     if (!ctc) return (void *)0;
     er[0] = *fec;
@@ -3540,7 +3543,7 @@ void *rt_pl_ball_kind1_system_ctx(const char *kind, const char *arg0_atom, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t fe[2];
     pl_cell_t *fec;
     pl_cell_t er[2];
@@ -3549,12 +3552,12 @@ void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
     fec = (pl_cell_t *)rt_pl_compound_cell(kind, 2, (void *)fe);
     if (!fec) return (void *)0;
     er[0] = *fec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_occurs(DESCR_t *var, DESCR_t *term) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t oc[2];
     pl_cell_t *occ;
     pl_cell_t er[2];
@@ -3565,7 +3568,7 @@ void *rt_pl_ball_occurs(DESCR_t *var, DESCR_t *term) {
     occ = (pl_cell_t *)rt_pl_compound_cell("occurs_check", 2, (void *)oc);
     if (!occ) return (void *)0;
     er[0] = rt_pl_cell_snapshot(occ);
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3601,7 +3604,7 @@ void *rt_pl_ball_set_pi(void *ball, const char *nm, int ar) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t fe[1];
     pl_cell_t *fec;
     pl_cell_t er[2];
@@ -3609,12 +3612,12 @@ void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit) {
     fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
     if (!fec) return (void *)0;
     er[0] = *fec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t fe[1];
     pl_cell_t *fec;
     pl_cell_t er[2];
@@ -3634,7 +3637,7 @@ void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom) {
     fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
     if (!fec) return (void *)0;
     er[0] = *fec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 void *rt_pl_cap_error(void) { return rt_pl_ball_kind1("resource_error", "stack"); }
@@ -3647,15 +3650,15 @@ void *rt_pl_cap_ball(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_instantiation(void) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t er[2];
     er[0] = pl_make_atom(prolog_atom_intern("instantiation_error"));
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_permission_pi(const char *op, const char *type, const char *nm, int ar) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t pi[2];
     pl_cell_t *pic;
     pl_cell_t pe[3];
@@ -3671,12 +3674,12 @@ void *rt_pl_ball_permission_pi(const char *op, const char *type, const char *nm,
     pec = (pl_cell_t *)rt_pl_compound_cell("permission_error", 3, (void *)pe);
     if (!pec) return (void *)0;
     er[0] = *pec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_permission3(const char *op, const char *type, DESCR_t culprit) {
-    extern DESCR_t rt_pl_fresh_var_ref(void);
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t pe[3];
     pl_cell_t *pec;
     pl_cell_t er[2];
@@ -3686,7 +3689,7 @@ void *rt_pl_ball_permission3(const char *op, const char *type, DESCR_t culprit) 
     pec = (pl_cell_t *)rt_pl_compound_cell("permission_error", 3, (void *)pe);
     if (!pec) return (void *)0;
     er[0] = *pec;
-    er[1] = rt_pl_fresh_var_ref();
+    er[1] = rt_pl_fresh_var_ref(0);
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4123,14 +4126,9 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
         if (!cell) return 0;
         pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1);
         if (!j) return 0;
-        j->v = (DTYPE_t)DT_PLVAR;
-        j->slen = 0;
-        j->p = (void *)j;
+        pl_init_var(j, cx);
         if (!plc_unify_cells_cx(j, (pl_cell_t *)val, cx)) return 0;
-        pl_cell_t stored;
-        stored.v = (DTYPE_t)DT_PLVAR;
-        stored.slen = 0;
-        stored.p = (void *)j;
+        pl_cell_t stored = pl_make_ref(j, 0);
         if (*cell) {
             pl_cell_t *box = *cell;
             char probe;
@@ -4500,8 +4498,8 @@ static pl_cell_t pl_trie_key_term(pl_trie_node_t *n) {
                 for (int k = ar - 1; k >= 0; k--) slots[sp++] = &aa[k];
             } else if (c->kind == 3) {
                 int k = (int)c->tok.i;
-                if (!vars[k]) { vars[k] = (pl_cell_t *)rt_ws_alloc_descr(1); pl_init_var(vars[k], -1); }
-                *dst = pl_make_ref(vars[k], (int)vars[k]->slen);
+                if (!vars[k]) { vars[k] = (pl_cell_t *)rt_ws_alloc_descr(1); pl_init_var(vars[k], (const pl_tr_ctx_t *)0); }
+                *dst = pl_make_ref(vars[k], -1);
             } else *dst = c->tok;
         }
     }
@@ -5402,7 +5400,9 @@ static int pl_db_define_absent(void *root, const char *key, int arity) {
     if (arity > 0) {
         hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t));
         if (!hargs) return 0;
-        for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], -1);
+        pl_tr_ctx_t rcx = { 0 };
+        rcx.r14 = (uint64_t)(uintptr_t)root;
+        for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], &rcx);
         head = pl_make_compound(nid, arity, hargs);
     } else head = pl_make_atom(nid);
     pi[0] = pl_make_atom(nid);

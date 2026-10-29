@@ -378,7 +378,12 @@ static std::string zf_pro_resumable(int kt) {
     return x86("comment",
             "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the arguments are the caller's block at [rbp+kt+16i], "
                 "never copied; the value region [0, kt-64) is zeroed inline so every mapped slot is a null DESCR at the first poll")
-           + zf_pro_zero(kt - 64);
+           + zf_pro_zero(kt - 64)
+           + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
+                x86("comment",
+                    "the creation serial: standing cell 255 is the next unbound cell's tag word, seeded to serial 1 after the value region is zeroed; every unbound-cell creation reads it and adds 51"
+                    "2 (PL_SERIAL_CELL)")
+              + x86("mov", RDQ("rsp", kt - 64 - PL_SERIAL_OFF), (long)((long)DT_PLVAR | PL_SERIAL_STEP)));
 }
 static std::string zf_pro_block_args(int kt) {
     return x86("comment",
