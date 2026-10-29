@@ -2385,6 +2385,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         { IR_t * lr = NULL; IR_t * b = lower_rblock(cx, t, γ, ω, &lr); *res = lr ? lr : b; return b; }
         case TT_PROGRAM:
         case TT_SEQ_EXPR:
+        if (t->t == TT_SEQ_EXPR && !t->n) { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_undef"; *res = nd; return nd; }
         { IR_t * lr = NULL; IR_t * b = lower_rblock(cx, t, γ, ω, &lr); *res = lr ? lr : b; return b; }
         case TT_METHCALL:
         {
