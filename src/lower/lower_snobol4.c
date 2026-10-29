@@ -482,6 +482,7 @@ static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 static int sno_pat_supported(const tree_t * t);
 static IR_t * sx_scan(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * sx_assign(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static char * sno_scan_tmp(const char * pfx) {
     int scv = g_lower.sno.sno_scan_tmp_scv_n++;
     char nmb[fmt_len("%s$%d", pfx, scv)];
@@ -1458,190 +1459,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_SCAN:
         return sx_scan(cx, t, γ, ω, res);
         case TT_ASSIGN:
-        {
-            const tree_t * L = (t->n > 0) ? t->c[0] : NULL;
-            const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
-            if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
-            if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
-            if (L->t == TT_SCAN && L->n >= 2) {
-                extern tree_t * ast_stmt_new(tree_e kind);
-                IR_t * pent = NULL;
-                IR_t * pasn = NULL;
-                const tree_t * pat = sno_pat_valued(cx, NULL, 1, L->c[1], ω, &pent, &pasn);
-                if (pasn) { tree_t * l2 = ast_stmt_new(TT_SCAN); ast_push(l2, (tree_t *) L->c[0]); ast_push(l2, (tree_t *) pat); L = l2; }
-                if (res && L->c[0] && L->c[0]->t == TT_VAR && L->c[0]->v.sval) {
-                    IR_t * rv = lc_build(cx->g, IR_VAR, γ, ω);
-                    IR_LIT(rv).sval = L->c[0]->v.sval;
-                    IR_t * ev = sno_lower_match(cx, L, R, 1, rv, ω, NULL);
-                    *res = rv;
-                    if (pasn) { lc_γ_to(pasn, ev); return pent; }
-                    return ev;
-                }
-                IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω, NULL);
-                if (res) *res = NULL;
-                if (pasn) { lc_γ_to(pasn, e); return pent; }
-                return e;
-            }
-            if (L->t == TT_SEQ && L->n >= 2) {
-                extern tree_t * ast_stmt_new(tree_e kind);
-                const tree_t * pat = (L->n == 2) ? L->c[1] : NULL;
-                if (!pat) { tree_t * ps = ast_stmt_new(TT_SEQ); for (int k = 1; k < L->n; k++) ast_push(ps, (tree_t *) L->c[k]); pat = ps; }
-                IR_t * pent = NULL;
-                IR_t * pasn = NULL;
-                pat = sno_pat_valued(cx, NULL, 1, pat, ω, &pent, &pasn);
-                tree_t * sc = ast_stmt_new(TT_SCAN);
-                ast_push(sc, (tree_t *) L->c[0]);
-                ast_push(sc, (tree_t *) pat);
-                IR_t * e = sno_lower_match(cx, sc, R, 1, γ, ω, NULL);
-                if (res) *res = NULL;
-                if (pasn) { lc_γ_to(pasn, e); e = pent; }
-                return e;
-            }
-            if (L->t == TT_VAR && L->v.sval) {
-                sno_reg_var(L->v.sval);
-                IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω);
-                IR_LIT(asn).sval = L->v.sval;
-                if (!res && R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
-                    extern tree_t * ast_stmt_new(tree_e kind);
-                    IR_t * pent = NULL;
-                    IR_t * pasn = NULL;
-                    const tree_t * sbj = R->c[0];
-                    const tree_t * pat = sno_pat_valued(cx, &sbj, 0, R->c[1], ω, &pent, &pasn);
-                    tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
-                    capt->slen = 240;
-                    ast_push(capt, (tree_t *) pat);
-                    tree_t * tv = ast_node_new(TT_VAR);
-                    tv->v.sval = L->v.sval;
-                    ast_push(capt, tv);
-                    tree_t * sc = ast_stmt_new(TT_SCAN);
-                    ast_push(sc, (tree_t *) sbj);
-                    ast_push(sc, capt);
-                    IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
-                    if (pasn) { lc_γ_to(pasn, e); return pent; }
-                    return e;
-                }
-                IR_t * vr = NULL;
-                IR_t * e = sx_lower(cx, R, asn, ω, &vr);
-                ir_operand_push(asn, vr);
-                if (res) *res = asn;
-                return e;
-            }
-            if (L->t == TT_INDIRECT && L->n > 0) {
-                IR_t * nv = NULL;
-                IR_t * e1 = sx_nameval(cx, L->c[0], NULL, ω, &nv);
-                IR_t * vv = NULL;
-                IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                lc_γ_to(nv, e2);
-                IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                lc_γ_to(vv, asn);
-                ir_operand_push(asn, nv);
-                ir_operand_push(asn, vv);
-                if (res) *res = asn;
-                return e1;
-            }
-            if (L->t == TT_IDX && L->n >= 2) {
-                IR_t * vr = NULL, * fb = NULL, * fi = NULL;
-                IR_t * e1 = sx_subscript_lv_fused(cx, L->c[0], (const tree_t * const *) &L->c[1], L->n - 1, ω, &vr, &fb, &fi);
-                IR_t * vv = NULL;
-                IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                IR_t * asn;
-                if (fb) {
-                    lc_γ_to(fb, e2);
-                    asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                    lc_γ_to(vv, asn);
-                    ir_operand_push(asn, fb);
-                    ir_operand_push(asn, fi);
-                    ir_operand_push(asn, vv);
-                    sx_sub_container_only(asn);
-                } else {
-                    lc_γ_to(vr, e2);
-                    asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                    lc_γ_to(vv, asn);
-                    ir_operand_push(asn, vr);
-                    ir_operand_push(asn, vv);
-                }
-                if (res) *res = asn;
-                return e1;
-            }
-            if (L->t == TT_FNC) {
-                const char * fname = L->v.sval;
-                int argbase = 0;
-                if (!fname && L->n > 0 && L->c[0] && L->c[0]->t == TT_VAR) { fname = L->c[0]->v.sval; argbase = 1; }
-                int fnargs = L->n - argbase;
-                if (fname && !strcmp(fname, "ITEM") && fnargs >= 2) {
-                    IR_t * vr = NULL;
-                    IR_t * e1 = sx_subscript_lv(cx, L->c[argbase], (const tree_t * const *) &L->c[argbase + 1], fnargs - 1, ω, &vr);
-                    IR_t * vv = NULL;
-                    IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                    lc_γ_to(vr, e2);
-                    IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                    lc_γ_to(vv, asn);
-                    ir_operand_push(asn, vr);
-                    ir_operand_push(asn, vv);
-                    if (res) *res = asn;
-                    return e1;
-                }
-                {
-                    extern int rt_dat_field_of_any(const char *);
-                    if (fname && fnargs == 1 && rt_dat_field_of_any(fname)) {
-                        IR_t * br = NULL;
-                        IR_t * e1 = sx_lower(cx, L->c[argbase], NULL, ω, &br);
-                        IR_t * fv = lc_build(cx->g, IR_FIELD_VAR, NULL, ω);
-                        IR_LIT(fv).sval = (char *) lp_strdup(fname);
-                        lc_γ_to(br, fv);
-                        ir_operand_push(fv, br);
-                        IR_t * vv = NULL;
-                        IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                        lc_γ_to(fv, e2);
-                        IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                        lc_γ_to(vv, asn);
-                        ir_operand_push(asn, fv);
-                        ir_operand_push(asn, vv);
-                        if (res) *res = asn;
-                        return e1;
-                    }
-                }
-                {
-                    IR_t * cv = NULL;
-                    IR_t * e1 = sno_lower_byname(cx, L, NULL, ω, &cv);
-                    IR_t * vv = NULL;
-                    IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                    lc_γ_to(cv, e2);
-                    IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-                    lc_γ_to(vv, asn);
-                    ir_operand_push(asn, cv);
-                    ir_operand_push(asn, vv);
-                    if (res) *res = asn;
-                    return e1;
-                }
-            }
-            if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
-                IR_t * kv = NULL;
-                IR_t * ke = sx_lower(cx, R, NULL, ω, &kv);
-                IR_t * kw = lc_build(cx->g, IR_KW_ASSIGN_SNOBOL4, γ, ω);
-                IR_LIT(kw).sval = L->v.sval;
-                lc_γ_to(kv, kw);
-                ir_operand_push(kw, kv);
-                if (res) *res = kw;
-                return ke;
-            }
-            if (L->t == TT_KEYWORD && L->v.sval) {
-                IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
-                IR_LIT(mk).sval = (char *) "SNO$KWSET";
-                IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
-                IR_LIT(nl).sval = L->v.sval;
-                IR_t * vv = NULL;
-                IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-                lc_γ_to(nl, e2);
-                lc_γ_to(vv, mk);
-                ir_operand_push(mk, nl);
-                ir_operand_push(mk, vv);
-                if (res) *res = mk;
-                return nl;
-            }
-            sno_fatal("TT_ASSIGN lhs form outside the landed subset (VAR/INDIRECT/IDX/ITEM/DATA-field/KEYWORD)", NULL);
-            return NULL;
-        }
+        return sx_assign(cx, t, γ, ω, res);
         case TT_IF:
         {
             const tree_t * C = (t->n > 0) ? t->c[0] : NULL;
@@ -3726,6 +3544,228 @@ static IR_t * sx_scan(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t *
     if (p1 != p0) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, t->c[0]); ast_push(sc, (tree_t *) p1); t = sc; }
     IR_t * e = sx_scan_body(cx, t, γ, ω, res);
     return sno_capt_prologue(cx, &cpro, e, ω);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_assign_body(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const tree_t * L = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * R = (t->n > 1) ? t->c[1] : NULL;
+    if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
+    if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
+    if (L->t == TT_SCAN && L->n >= 2) {
+        extern tree_t * ast_stmt_new(tree_e kind);
+        IR_t * pent = NULL;
+        IR_t * pasn = NULL;
+        const tree_t * pat = sno_pat_valued(cx, NULL, 1, L->c[1], ω, &pent, &pasn);
+        if (pasn) { tree_t * l2 = ast_stmt_new(TT_SCAN); ast_push(l2, (tree_t *) L->c[0]); ast_push(l2, (tree_t *) pat); L = l2; }
+        if (res && L->c[0] && L->c[0]->t == TT_VAR && L->c[0]->v.sval) {
+            IR_t * rv = lc_build(cx->g, IR_VAR, γ, ω);
+            IR_LIT(rv).sval = L->c[0]->v.sval;
+            IR_t * ev = sno_lower_match(cx, L, R, 1, rv, ω, NULL);
+            *res = rv;
+            if (pasn) { lc_γ_to(pasn, ev); return pent; }
+            return ev;
+        }
+        IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω, NULL);
+        if (res) *res = NULL;
+        if (pasn) { lc_γ_to(pasn, e); return pent; }
+        return e;
+    }
+    if (L->t == TT_SEQ && L->n >= 2) {
+        extern tree_t * ast_stmt_new(tree_e kind);
+        const tree_t * pat = (L->n == 2) ? L->c[1] : NULL;
+        if (!pat) { tree_t * ps = ast_stmt_new(TT_SEQ); for (int k = 1; k < L->n; k++) ast_push(ps, (tree_t *) L->c[k]); pat = ps; }
+        IR_t * pent = NULL;
+        IR_t * pasn = NULL;
+        pat = sno_pat_valued(cx, NULL, 1, pat, ω, &pent, &pasn);
+        tree_t * sc = ast_stmt_new(TT_SCAN);
+        ast_push(sc, (tree_t *) L->c[0]);
+        ast_push(sc, (tree_t *) pat);
+        IR_t * e = sno_lower_match(cx, sc, R, 1, γ, ω, NULL);
+        if (res) *res = NULL;
+        if (pasn) { lc_γ_to(pasn, e); e = pent; }
+        return e;
+    }
+    if (L->t == TT_VAR && L->v.sval) {
+        sno_reg_var(L->v.sval);
+        IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω);
+        IR_LIT(asn).sval = L->v.sval;
+        if (!res && R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
+            extern tree_t * ast_stmt_new(tree_e kind);
+            IR_t * pent = NULL;
+            IR_t * pasn = NULL;
+            const tree_t * sbj = R->c[0];
+            const tree_t * pat = sno_pat_valued(cx, &sbj, 0, R->c[1], ω, &pent, &pasn);
+            tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
+            capt->slen = 240;
+            ast_push(capt, (tree_t *) pat);
+            tree_t * tv = ast_node_new(TT_VAR);
+            tv->v.sval = L->v.sval;
+            ast_push(capt, tv);
+            tree_t * sc = ast_stmt_new(TT_SCAN);
+            ast_push(sc, (tree_t *) sbj);
+            ast_push(sc, capt);
+            IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
+            if (pasn) { lc_γ_to(pasn, e); return pent; }
+            return e;
+        }
+        IR_t * vr = NULL;
+        IR_t * e = sx_lower(cx, R, asn, ω, &vr);
+        ir_operand_push(asn, vr);
+        if (res) *res = asn;
+        return e;
+    }
+    if (L->t == TT_INDIRECT && L->n > 0) {
+        IR_t * nv = NULL;
+        IR_t * e1 = sx_nameval(cx, L->c[0], NULL, ω, &nv);
+        IR_t * vv = NULL;
+        IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+        lc_γ_to(nv, e2);
+        IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+        lc_γ_to(vv, asn);
+        ir_operand_push(asn, nv);
+        ir_operand_push(asn, vv);
+        if (res) *res = asn;
+        return e1;
+    }
+    if (L->t == TT_IDX && L->n >= 2) {
+        IR_t * vr = NULL, * fb = NULL, * fi = NULL;
+        IR_t * e1 = sx_subscript_lv_fused(cx, L->c[0], (const tree_t * const *) &L->c[1], L->n - 1, ω, &vr, &fb, &fi);
+        IR_t * vv = NULL;
+        IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+        IR_t * asn;
+        if (fb) {
+            lc_γ_to(fb, e2);
+            asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, fb);
+            ir_operand_push(asn, fi);
+            ir_operand_push(asn, vv);
+            sx_sub_container_only(asn);
+        } else {
+            lc_γ_to(vr, e2);
+            asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, vr);
+            ir_operand_push(asn, vv);
+        }
+        if (res) *res = asn;
+        return e1;
+    }
+    if (L->t == TT_FNC) {
+        const char * fname = L->v.sval;
+        int argbase = 0;
+        if (!fname && L->n > 0 && L->c[0] && L->c[0]->t == TT_VAR) { fname = L->c[0]->v.sval; argbase = 1; }
+        int fnargs = L->n - argbase;
+        if (fname && !strcmp(fname, "ITEM") && fnargs >= 2) {
+            IR_t * vr = NULL;
+            IR_t * e1 = sx_subscript_lv(cx, L->c[argbase], (const tree_t * const *) &L->c[argbase + 1], fnargs - 1, ω, &vr);
+            IR_t * vv = NULL;
+            IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+            lc_γ_to(vr, e2);
+            IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, vr);
+            ir_operand_push(asn, vv);
+            if (res) *res = asn;
+            return e1;
+        }
+        {
+            extern int rt_dat_field_of_any(const char *);
+            if (fname && fnargs == 1 && rt_dat_field_of_any(fname)) {
+                IR_t * br = NULL;
+                IR_t * e1 = sx_lower(cx, L->c[argbase], NULL, ω, &br);
+                IR_t * fv = lc_build(cx->g, IR_FIELD_VAR, NULL, ω);
+                IR_LIT(fv).sval = (char *) lp_strdup(fname);
+                lc_γ_to(br, fv);
+                ir_operand_push(fv, br);
+                IR_t * vv = NULL;
+                IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+                lc_γ_to(fv, e2);
+                IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, fv);
+                ir_operand_push(asn, vv);
+                if (res) *res = asn;
+                return e1;
+            }
+        }
+        {
+            IR_t * cv = NULL;
+            IR_t * e1 = sno_lower_byname(cx, L, NULL, ω, &cv);
+            IR_t * vv = NULL;
+            IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+            lc_γ_to(cv, e2);
+            IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+            lc_γ_to(vv, asn);
+            ir_operand_push(asn, cv);
+            ir_operand_push(asn, vv);
+            if (res) *res = asn;
+            return e1;
+        }
+    }
+    if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
+        IR_t * kv = NULL;
+        IR_t * ke = sx_lower(cx, R, NULL, ω, &kv);
+        IR_t * kw = lc_build(cx->g, IR_KW_ASSIGN_SNOBOL4, γ, ω);
+        IR_LIT(kw).sval = L->v.sval;
+        lc_γ_to(kv, kw);
+        ir_operand_push(kw, kv);
+        if (res) *res = kw;
+        return ke;
+    }
+    if (L->t == TT_KEYWORD && L->v.sval) {
+        IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
+        IR_LIT(mk).sval = (char *) "SNO$KWSET";
+        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
+        IR_LIT(nl).sval = L->v.sval;
+        IR_t * vv = NULL;
+        IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+        lc_γ_to(nl, e2);
+        lc_γ_to(vv, mk);
+        ir_operand_push(mk, nl);
+        ir_operand_push(mk, vv);
+        if (res) *res = mk;
+        return nl;
+    }
+    sno_fatal("TT_ASSIGN lhs form outside the landed subset (VAR/INDIRECT/IDX/ITEM/DATA-field/KEYWORD)", NULL);
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_assign(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    extern tree_t * ast_stmt_new(tree_e kind);
+    sno_tvec_t apro = { 0 };
+    const tree_t * lt = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * rt = (t->n > 1) ? t->c[1] : NULL;
+    const tree_t * l1 = lt;
+    const tree_t * r1 = rt;
+    if (lt && lt->t == TT_SCAN && lt->n > 1) {
+        const tree_t * p = sno_capt_elem_rewrite(lt->c[1], &apro);
+        if (p != lt->c[1]) { tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, lt->c[0]); ast_push(sc, (tree_t *) p); l1 = sc; }
+    } else if (lt && lt->t == TT_SEQ && lt->n > 1) {
+        tree_t * sq = NULL;
+        for (int k = 0; k < lt->n; k++) {
+            const tree_t * ck = lt->c[k];
+            const tree_t * rk = (k > 0) ? sno_capt_elem_rewrite(ck, &apro) : ck;
+            if (rk != ck && !sq) { sq = ast_stmt_new(TT_SEQ); sq->v = lt->v; for (int m = 0; m < k; m++) ast_push(sq, lt->c[m]); }
+            if (sq) ast_push(sq, (tree_t *) rk);
+        }
+        if (sq) l1 = sq;
+    }
+    if (rt && rt->t == TT_SCAN && rt->n > 1) {
+        const tree_t * p = sno_capt_elem_rewrite(rt->c[1], &apro);
+        if (p != rt->c[1]) { tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, rt->c[0]); ast_push(sc, (tree_t *) p); r1 = sc; }
+    }
+    if (l1 != lt || r1 != rt) {
+        tree_t * as = ast_stmt_new(TT_ASSIGN);
+        as->v = t->v;
+        as->line = t->line;
+        ast_push(as, (tree_t *) l1);
+        ast_push(as, (tree_t *) r1);
+        for (int k = 2; k < t->n; k++) ast_push(as, t->c[k]);
+        t = as;
+    }
+    IR_t * e = sx_assign_body(cx, t, γ, ω, res);
+    return sno_capt_prologue(cx, &apro, e, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
