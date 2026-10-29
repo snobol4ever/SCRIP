@@ -24631,30 +24631,71 @@ DESCR_t rt_pl_dop_tbl_open_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *ro
 }
 extern DESCR_t * rt_pl_tbh_current(void *);
 extern uint64_t g_rtccb[32];
+extern pl_trie_sl_t * rt_pl_trie_sl(void *, int64_t);
+extern int rt_pl_trie_count(void *, int64_t);
+extern int64_t rt_pl_tbh_table(void *);
+extern int64_t rt_pl_tbl_chain_get(void *);
+extern int rt_pl_tbl_chain_set(void *, int64_t);
 typedef struct pl_psched_s pl_psched_t;
 typedef struct { char *orig_lo; uint64_t len; char *tbase; uint64_t tn; uint64_t rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; pl_psched_t *sched; } pl_pseg_t;
-struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t n, i; pl_pseg_t *blk[]; };
+struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; };
 typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
 static char * pl_pseg_bytes(pl_pseg_t *b) { return (char *)(b + 1); }
 static char * pl_pseg_trail(pl_pseg_t *b) { return (char *)(b + 1) + b->len; }
-static pl_pseg_t * pl_pseg_of(DESCR_t st) {
+static DESCR_t * pl_st_arg(DESCR_t st, int k) {
     DESCR_t *t = plw_cell_deref(plw_entry(&st));
-    if (t->v != (DTYPE_t)DT_PLREF || !t->p) return (pl_pseg_t *)0;
-    { DESCR_t *a = plw_cell_deref(&((DESCR_t *)t->p)[0]); return a->v == (DTYPE_t)DT_I ? (pl_pseg_t *)(uintptr_t)a->i : (pl_pseg_t *)0; }
+    if (t->v != (DTYPE_t)DT_PLREF || !t->p || (int)plc_fid_arity(t->slen) < k) return (DESCR_t *)0;
+    return plw_cell_deref(&((DESCR_t *)t->p)[k - 1]);
+}
+static int64_t pl_st_int(DESCR_t st, int k) { DESCR_t *a = pl_st_arg(st, k); return (a && a->v == (DTYPE_t)DT_I) ? a->i : 0; }
+static void pl_st_put(DESCR_t st, int k, int64_t v) { DESCR_t *t = plw_cell_deref(plw_entry(&st)); if (t->v == (DTYPE_t)DT_PLREF && t->p) ((DESCR_t *)t->p)[k - 1] = (DESCR_t){ .v = DT_I, .i = v }; }
+static pl_pseg_t * pl_pseg_of(DESCR_t st) { return (pl_pseg_t *)(uintptr_t)pl_st_int(st, 1); }
+static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
+    void *root = (void *)(uintptr_t)s->r14;
+    DESCR_t sts[4096];
+    for (int neg = 0; neg < 2; neg++) for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
+        pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
+        if (!sl) break;
+        {
+            int cnt = rt_pl_trie_count(root, x), n = pl_list_to_arr(neg ? sl->ncons : sl->pcons, sts, 4096);
+            for (int k = 0; k < n; k++) {
+                pl_pseg_t *b = pl_pseg_of(sts[k]);
+                if (!b) continue;
+                if (getenv("SCRIP_SL_TRACE"))
+                    fprintf(stderr, "[SL] leader=%ld tbl=%ld neg=%d cnt=%d cur=%ld st=%ld blk=%p\n", (long)s->leader, (long)x, neg, cnt, (long)pl_st_int(sts[k], 3), (long)pl_st_int(sts[k], 5),
+                    (void *)b);
+                if (!neg && cnt > pl_st_int(sts[k], 3)) return b;
+                if (neg && sl->uncond == 0 && pl_st_int(sts[k], 5) == 0) { pl_st_put(sts[k], 5, 1); return b; }
+            }
+        }
+        if (x == s->leader) break;
+        x = sl->next;
+    }
+    return (pl_pseg_t *)0;
+}
+static void pl_pseg_unrebind(pl_pseg_t *b) {
+    for (uint64_t i = b->tn; i-- > 0; ) {
+        char *src = pl_pseg_trail(b) + i * 64;
+        pl_tr_entry_t *e = (pl_tr_entry_t *)src;
+        if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), sizeof(DESCR_t));
+    }
 }
 pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
-    if (s->i >= s->n) { for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k]; g_runtime.abi.rt_k_level = (int)s->k_level; return (pl_pseg_pair_t){ (void *)0, (void *)s }; }
+    pl_pseg_t *b = pl_sched_pick(s);
+    if (!b) { for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k]; g_runtime.abi.rt_k_level = (int)s->k_level; return (pl_pseg_pair_t){ (void *)0, (void *)s }; }
     {
-        pl_pseg_t *b = s->blk[s->i++];
         char *now = (char *)(uintptr_t)s->r12;
         if (now > b->tbase) { fprintf(stderr, "FATAL rt_pl_pseg_next: the resumer's trail top %p is above the generator's base %p\n", (void *)now, (void *)b->tbase); * (volatile char *) NULL; }
         for (char *p = now; p < b->tbase; p += PL_TR_ENTRY_BYTES) memset(p, 0, PL_TR_ENTRY_BYTES);
         for (uint64_t i = 0; i < b->tn; i++) {
-            char *src = pl_pseg_trail(b) + i * 48, *dst = b->tbase + i * PL_TR_ENTRY_BYTES;
+            char *src = pl_pseg_trail(b) + i * 64, *dst = b->tbase + i * PL_TR_ENTRY_BYTES;
             memcpy(dst, src, PL_TR_ENTRY_BYTES);
             {
                 pl_tr_entry_t *e = (pl_tr_entry_t *)dst;
-                if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
+                if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) {
+                    memcpy(src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), (void *)e->cell, sizeof(DESCR_t));
+                    memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
+                }
             }
         }
         b->sched = s;
@@ -24675,7 +24716,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
         }
         {
             uint64_t len = (uint64_t)(xg - orig_lo), tn = (uint64_t)(top - tbase) / PL_TR_ENTRY_BYTES;
-            pl_pseg_t *b = (pl_pseg_t *)rt_str_alloc((long)(sizeof(pl_pseg_t) + len + tn * 48 + 16));
+            pl_pseg_t *b = (pl_pseg_t *)rt_str_alloc((long)(sizeof(pl_pseg_t) + len + tn * 64 + 16));
             b->orig_lo = orig_lo;
             b->len = len;
             b->tbase = tbase;
@@ -24691,24 +24732,29 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
             b->sched = (pl_psched_t *)0;
             memcpy(pl_pseg_bytes(b), orig_lo, len);
             for (uint64_t i = 0; i < tn; i++) {
-                char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 48;
+                char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 64;
                 pl_tr_entry_t *e = (pl_tr_entry_t *)src;
                 memcpy(dst, src, PL_TR_ENTRY_BYTES);
                 if (e->cell) memcpy(dst + PL_TR_ENTRY_BYTES, (void *)e->cell, sizeof(DESCR_t));
                 else memset(dst + PL_TR_ENTRY_BYTES, 0, sizeof(DESCR_t));
             }
             { DESCR_t one = (DESCR_t){ .v = DT_I, .i = 1 }, bv = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)b }; rt_pl_setarg_cell(&one, &args[0], &bv, cx, 0); }
-            if (old && old->sched) { pl_psched_t *s = old->sched; old->sched = (pl_psched_t *)0; cx->tr = rt_pl_tr_unwind_to(cx->tr, tbase); return (void *)s; }
+            if (old && old->sched) {
+                pl_psched_t *s = old->sched;
+                old->sched = (pl_psched_t *)0;
+                cx->tr = rt_pl_tr_unwind_to(cx->tr, (char *)(uintptr_t)old->r12);
+                pl_pseg_unrebind(old);
+                return (void *)s;
+            }
             return (void *)0;
         }
     }
 }
 pl_pseg_pair_t rt_pl_pseg_resume(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
-    DESCR_t sts[1024];
-    int n = nargs == 1 ? pl_list_to_arr(args[0], sts, 1024) : -1;
-    if (n < 0) { fprintf(stderr, "FATAL rt_pl_pseg_resume: the argument is not a list of parked consumers\n"); * (volatile char *) NULL; }
+    int64_t leader;
+    if (nargs != 1 || !pl_trie_leaf_int(args[0], &leader)) { fprintf(stderr, "FATAL rt_pl_pseg_resume: the argument is not a leader table\n"); * (volatile char *) NULL; }
     {
-        pl_psched_t *s = (pl_psched_t *)rt_str_alloc((long)(sizeof(pl_psched_t) + (size_t)n * sizeof(pl_pseg_t *) + 16));
+        pl_psched_t *s = (pl_psched_t *)rt_str_alloc((long)(sizeof(pl_psched_t) + 16));
         s->entry_rsp = (uint64_t)(uintptr_t)(lrbp + 8);
         s->ret_pc = *(uint64_t *)(lrbp + 8);
         s->rbp = *(uint64_t *)lrbp;
@@ -24719,10 +24765,67 @@ pl_pseg_pair_t rt_pl_pseg_resume(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char
         s->r15 = cx->r15;
         for (int k = 0; k < 4; k++) s->planes[k] = g_rtccb[5 + k];
         s->k_level = g_runtime.abi.rt_k_level;
-        s->n = 0;
-        s->i = 0;
-        for (int k = 0; k < n; k++) { pl_pseg_t *b = pl_pseg_of(sts[k]); if (b) s->blk[s->n++] = b; }
+        s->leader = leader;
         return rt_pl_pseg_next(s);
+    }
+}
+DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    int64_t op, t;
+    if (nargs != 3 || !pl_trie_leaf_int(args[0], &op) || !pl_trie_leaf_int(args[1], &t)) return FAILDESCR;
+    {
+        pl_trie_sl_t *sl = rt_pl_trie_sl(root, t);
+        if (!sl) return FAILDESCR;
+        switch (op) {
+            case 1:
+            {
+                int64_t h = rt_pl_tbl_chain_get(root);
+                pl_trie_sl_t *hs = h >= 0 ? rt_pl_trie_sl(root, h) : (pl_trie_sl_t *)0;
+                sl->depth = hs ? hs->depth + 1 : 0;
+                sl->low = sl->depth;
+                sl->next = h;
+                sl->done = 0;
+                sl->uncond = 0;
+                sl->pcons = pl_nil();
+                sl->ncons = pl_nil();
+                return rt_pl_tbl_chain_set(root, t) ? pl_ok() : FAILDESCR;
+            }
+            case 2:
+            case 3:
+            {
+                int64_t g = rt_pl_tbh_table(root);
+                pl_trie_sl_t *gs = g >= 0 ? rt_pl_trie_sl(root, g) : (pl_trie_sl_t *)0;
+                DESCR_t st = rt_pl_deref_val(args[2]);
+                if (op == 2) sl->pcons = pl_cons(st, sl->pcons);
+                else sl->ncons = pl_cons(st, sl->ncons);
+                if (gs && sl->depth < gs->low) gs->low = sl->depth;
+                return pl_ok();
+            }
+            case 7:
+            sl->uncond++;
+            return pl_ok();
+            case 4:
+            return sl->low >= sl->depth ? pl_ok() : FAILDESCR;
+            case 5:
+            { int64_t p = rt_pl_tbh_table(root); pl_trie_sl_t *ps = p >= 0 ? rt_pl_trie_sl(root, p) : (pl_trie_sl_t *)0; if (ps && sl->low < ps->low) ps->low = sl->low; return pl_ok(); }
+            case 6:
+            {
+                DESCR_t ids[4096];
+                int n = 0;
+                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0 && n < 4096; ) {
+                    pl_trie_sl_t *xs = rt_pl_trie_sl(root, x);
+                    if (!xs) break;
+                    ids[n++] = INTVAL(x);
+                    xs->pcons = pl_nil();
+                    xs->ncons = pl_nil();
+                    xs->done = 1;
+                    if (x == t) { rt_pl_tbl_chain_set(root, xs->next); break; }
+                    x = xs->next;
+                }
+                return pl_trie_leaf_close(plw_unify_vals(args[2], pl_list_from_arr(ids, n), cx), cx);
+            }
+            default:
+            return FAILDESCR;
+        }
     }
 }
 DESCR_t rt_pl_dop_tbh_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {

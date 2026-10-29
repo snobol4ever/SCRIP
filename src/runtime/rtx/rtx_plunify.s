@@ -679,6 +679,7 @@ PL_ROOTCTX_LEAF(trie_meta_get)
 PL_ROOTCTX_LEAF(tbl_vt)
 PL_ROOTCTX_LEAF(tbl_open)
 PL_ROOTCTX_LEAF(tbh_close)
+PL_ROOTCTX_LEAF(tbl_sl)
 #define PSEG_ORIG 0
 #define PSEG_LEN 8
 #define PSEG_RBP 32

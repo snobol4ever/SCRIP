@@ -12,6 +12,24 @@
     cell 9 of a pass is its Deps; '$tbl_dcall' records a dynamic source and '$tbl_dchange' is the one change entry; a monotonic step is a semi-naive run under mono(Src,R,Delta) in cell 6. */
 :- module(tabling, [ '$tbl_call'/2, '$tbl_icall'/2, '$tbl_isincr'/1, '$tbl_incrs'/1, '$incr_inval'/0, '$incr_guard'/2, '$incr_drop'/3, subgoal_property/2, '$tbl_vmap'/2, incr_assert/1, incr_asserta/1, incr_assertz/1, incr_retract/1, incr_retractall/1, incr_invalidate_calls/1, incr_invalidate_call/1, xwam_state/2, '$tbl_mcall'/3, '$tbl_get'/4, '$tbl_valid'/4, '$tbl_noattv'/1, '$tbh_v'/3, '$tbl_dl'/1, '$tbl_msplit'/7, '$tbl_mindex'/1, '$tbl_mcheck'/1, '$tbl_mterm'/2, '$tbl_enter'/6, '$tbl_leading'/0, '$tbl_inprog'/1, '$tbl_lead'/1, '$tbl_eval1'/1, '$tbl_cycg'/1, '$tbl_restrain'/2, '$tbl_rs'/1, '$tbl_rsa'/2, '$tbl_gdeeper'/2, '$tbl_deeper'/2, '$tbl_atrip'/1, '$tbl_trip'/1, '$tbl_trip'/2, '$tbl_ans2'/3, '$tbl_chk'/2, '$tbl_chk2'/3, '$tbl_eval1n'/1, '$tbl_nest'/4, '$tbl_dup'/1, '$tbl_scc'/4, '$tbl_indep'/2, '$tbl_srounds'/1, '$tbl_upto'/4, '$tbl_fin_all'/1, '$tbl_depn'/1, '$tbl_pos'/2, '$tbl_idx'/4, '$tbl_dmin'/3, '$tbl_done'/1, '$tbl_wfsrun'/0, '$tbl_alt'/1, '$tbl_alt2'/2, '$tbl_reset'/1, '$tbl_renew'/3, '$tbl_count'/3, '$tbl_snapw'/2, '$tbl_snapins'/2, '$tbl_final'/1, '$tbl_final1'/1, '$tbl_wdrop'/1, '$tbl_finvals'/2, tnot/1, '$tnot_split'/2, '$tnot_impl'/2, '$tnot_st'/3, '$tnot_u'/2, '$tnot_i'/3, undefined/0, '$tbl undefined'/0, not_exists/1, tabled_call/1, '$tbl tabled_call'/1, use_subsumptive_tabling/0, get_residual/2, call_residual_program/2, '$call_residual_m'/3, '$tbl_rprog'/4, '$tbl_rshare'/3, '$tbl_rcls'/4, '$tbl_rneg'/2, '$tbl_ratoms'/2, '$tbl_resq'/2, '$tbl_rsk'/6, '$tbl_rval'/2, '$tbl_answered'/1, '$tbl_resid'/3, sk_not/1, get_calls/3, get_returns/2, get_call/3, get_returns_and_dls/3, '$grd'/3, '$grd_u'/3, excess_vars/4, '$xs_q'/4, '$xs_minus'/3, '$xs_memv'/2, get_returns/3, '$gr_idx'/4, get_returns_for_call/2, '$tbl_unql'/2, '$tbl_unqe'/2, call_delays/2, '$call_delays_m'/3, '$tbl_unqlm'/3, '$tbl_unqem'/3, '$tbl_conj'/2, '$tbl_del'/3, '$tbl_rounds'/0, '$tbl_round'/3, '$tbl_eval'/2, '$tbl_gshort'/2, '$tbl_runs'/5, '$tbl_run'/5, '$tbl_app'/3, '$tbl_snap'/2, '$tbl_snapat'/3, '$tbl_slice'/2, '$tbl_use'/1, '$tbl_range'/3, '$tbl_addk'/5, '$tbl_mcond'/3, '$tbl_unpair'/2, '$tbl_radd'/5, '$tbl_rput'/5, '$tbl_rhas'/2, '$tbl_fa'/3, '$tbl_ph'/1, '$tbl_raise'/0, '$tbl_dlpush'/1, '$tbl_w'/2, '$tbl_wany'/2, '$tbl_wtin'/2, '$tbl_add'/5, '$tbl_answer'/2, '$tbl_aval'/4, '$tbl_ucons'/2, '$tbl_manswer'/4, '$tbl_madd'/6, '$tbl_mput'/6, '$tbl_same'/2, '$tbl_mupd'/4, '$tbl_mupds'/4, '$tbl_mupd1'/4, '$tbl_mclos'/2, '$tbl_complete'/1, '$tbl_abort'/0, '$tbl_drop'/2, '$tbl_dgoal'/2, abolish_all_tables/0, '$tbl_drop_all'/1, '$tbl_local_variant_table'/1, current_table/2, '$tbl_strip'/3, '$tbl_lookup'/4, '$tbl_qual'/3, '$tbl_unqual'/3, '$tbl_table_status'/4, '$idg_forced'/1, '$idg_mono_affects_lazy'/5, transaction/1, snapshot/1 ]).
 '$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).
+'$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,T1),'$tbl_sl_read'(T1,G).
+'$tbl_sl_get'(none,VT,G,I,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_run'(T).
+'$tbl_sl_get'(T,_,_,_,T).
+'$tbl_sl_run'(T):-('$tbl_sl_gen'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T).
+'$tbl_sl_gen'(T):-'$trie_meta_get'(T,1,d(G,I,_,_,_,_)),term_variables(G,Vs),Sk=..[ret|Vs],'$tbl_hdr','$tbh_own'(1,T),'$tbl_dlset'([]),call(I),'$tbl_dl'(D),'$tbh_get'(1,Tg),'$tbl_sl_ins'(Tg,Sk,D),fail.
+'$tbl_sl_ins'(T,Sk,[]):-!,'$trie_insert'(T,0,Sk,true,R),(R>=0->'$tbl_sl'(7,T,_);true).
+'$tbl_sl_ins'(T,Sk,D):-'$trie_insert'(T,0,Sk,u([Sk-D]),_).
+'$tbl_sl_after'(T):-('$tbl_sl'(4,T,_)->'$tbl_sl'(6,T,Ts),'$tbl_sl_fin'(Ts);'$tbl_sl'(5,T,_)).
+'$tbl_sl_fin'([]).
+'$tbl_sl_fin'([X|Xs]):-'$trie_meta_set'(X,0,complete),'$tbl_sl_fin'(Xs).
+'$tbl_sl_read'(T,G):-'$trie_meta_get'(T,0,S),(S==complete->'$tbl_answer'(T,G);'$tbl_sl_consume'(T,G)).
+'$tbl_sl_consume'(A,G):-'$trie_meta_get'(A,1,d(Q0,_,_,_,_,_)),copy_term(Q0,Q),term_variables(Q,Vs),Sk=..[ret|Vs],Q=G,St=st(0,A,0,0,0),'$tbl_sl'(2,A,St),repeat,('$tbl_sl_next'(A,St,Sk,V)->'$tbl_sl_val'(V,G);'$tbl_park'(St)->fail;!,fail).
+'$tbl_sl_next'(A,St,Sk,V):-arg(3,St,C),'$trie_count'(A,N),C<N,C1 is C+1,nb_setarg(3,St,C1),'$trie_entries'(A,L),nth0(C,L,e(_,K,V)),K=Sk.
+'$tbl_sl_val'(true,_):-!.
+'$tbl_sl_val'(_,G):-'$tbl_dlpush'(G).
+'$tbl_sl_tnot'(complete,T,G):-!,('$trie_count'(T,0)->true;'$tbl_sl_uncond'(T)->fail;'$tbl_dlpush'(tnot(G))).
+'$tbl_sl_tnot'(_,T,G):-St=st(0,T,0,1,0),'$tbl_sl'(3,T,St),repeat,('$tbl_park'(St)->true;!,fail),'$tbl_dlpush'(tnot(G)).
+'$tbl_sl_uncond'(T):-'$trie_entries'(T,L),memberchk(e(_,_,true),L).
 '$tbl_kcall'(G,I,subs):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_sget'(G,I,T),'$tbl_sanswer'(T,G).
 '$tbl_sget'(G,_,T):-'$tbl_vt'(VT),\+'$trie_lookup'(VT,G,_),'$trie_entries'(VT,L),'$tbl_sfind'(L,VT,G,T0),!,T=T0.
 '$tbl_sget'(G,I,T):-'$tbl_get'(G,I,plain,subs,T).
@@ -222,6 +240,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_wdrop'(S):-(S==none->true;'$trie_destroy'(S)).
 '$tbl_finvals'([],_).
 '$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).
+tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),'$tnot_kind'(G1,plain),!,'$tbl_noattv'(G1),'$tbl_vt'(VT),('$trie_lookup'(VT,G1,T0)->'$tbl_valid'(T0,VT,G1,T);T=none),'$tbl_sl_get'(T,VT,G1,I,T1),'$trie_meta_get'(T1,0,S),'$tbl_sl_tnot'(S,T1,G1).
 tnot(G):-'$tnot_split'(G,G1),'$tbl_vt'(VT),'$trie_lookup'(VT,G1,T),\+ '$trie_meta_get'(T,0,invalid),!,'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).
 tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),!,'$tnot_kind'(G1,TK),'$tbl_get'(G1,I,plain,TK,T),'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).
 tnot(G):- \+ G.
