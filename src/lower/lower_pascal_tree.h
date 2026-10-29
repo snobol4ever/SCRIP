@@ -3,7 +3,6 @@
 typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #define PAS_CA_NOSTR 2
 #define PAS_FIELD_IDX_MARK 0x46494458
-#define PAS_DISPLAY_LEVELS 16
 struct pas_pend_frame;
 typedef union { tree_t *node; PNodeList *list; char *str; long long ival; double dval; } pval;
 typedef struct { const char *name; const char *sig; const char *owner; const char *alias; const char *ov; int depth, rid, formal, uid, fld; } PasDef;

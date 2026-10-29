@@ -2978,7 +2978,7 @@ static void pas_proc_enter(void) {
 }
 static void pas_proc_exit(void) { if (g_lower.pas.sem.pas_ldepth > 0) g_lower.pas.sem.pas_ldepth--; if (g_lower.pas.sem.pas_level > 1) g_lower.pas.sem.pas_level--; }
 static void pas_local_add(const char *name) {
-    if (g_lower.pas.sem.pas_level < 2 || g_lower.pas.sem.pas_ldepth == 0 || g_lower.pas.sem.pas_ldepth > PAS_DISPLAY_LEVELS || !name) return;
+    if (g_lower.pas.sem.pas_level < 2 || g_lower.pas.sem.pas_ldepth == 0 || !name) return;
     int d = g_lower.pas.sem.pas_ldepth - 1;
     if (g_lower.pas.sem.pas_lstk[d].n >= g_lower.pas.sem.pas_lstk[d].cap) {
         g_lower.pas.sem.pas_lstk[d].cap = g_lower.pas.sem.pas_lstk[d].cap ? g_lower.pas.sem.pas_lstk[d].cap * 2 : 64;
@@ -2986,12 +2986,8 @@ static void pas_local_add(const char *name) {
     }
     g_lower.pas.sem.pas_lstk[d].names[g_lower.pas.sem.pas_lstk[d].n++] = ct_strdup(name);
 }
-static void pas_curfunc_push(const char *fname) {
-    if (g_lower.pas.sem.pas_ldepth > 0 && g_lower.pas.sem.pas_ldepth <= PAS_DISPLAY_LEVELS) g_lower.pas.sem.pas_lstk[g_lower.pas.sem.pas_ldepth - 1].func_name = fname;
-}
-static const char *pas_curfunc_name(void) {
-    return (g_lower.pas.sem.pas_ldepth > 0 && g_lower.pas.sem.pas_ldepth <= PAS_DISPLAY_LEVELS) ? g_lower.pas.sem.pas_lstk[g_lower.pas.sem.pas_ldepth - 1].func_name : NULL;
-}
+static void pas_curfunc_push(const char *fname) { if (g_lower.pas.sem.pas_ldepth > 0) g_lower.pas.sem.pas_lstk[g_lower.pas.sem.pas_ldepth - 1].func_name = fname; }
+static const char *pas_curfunc_name(void) { return (g_lower.pas.sem.pas_ldepth > 0) ? g_lower.pas.sem.pas_lstk[g_lower.pas.sem.pas_ldepth - 1].func_name : NULL; }
 static int pas_is_declared_local_here(const char *name) {
     if (!name || g_lower.pas.sem.pas_ldepth <= 0) return 0;
     int d = g_lower.pas.sem.pas_ldepth - 1;
@@ -6699,7 +6695,7 @@ static pval E_procedure_decl_in(const tree_t *n) {
         v[7] = E_block(tail);
         {
             int d = g_lower.pas.sem.pas_ldepth - 1;
-            int d_ok = (d >= 0 && d < PAS_DISPLAY_LEVELS);
+            int d_ok = (d >= 0 && d < g_lower.pas.sem.pas_ldepth);
             int dl = d_ok ? g_lower.pas.sem.pas_lstk[d].decl_level : 1;
             const char **ln = d_ok ? g_lower.pas.sem.pas_lstk[d].names : NULL;
             int lc = d_ok ? g_lower.pas.sem.pas_lstk[d].n : 0;
@@ -6739,7 +6735,7 @@ static pval E_procedure_decl_in(const tree_t *n) {
         if (resrec && v[9].node) { tree_t *rb = ast_node_new(TT_PROGRAM); ast_push(rb, bin(TT_ASSIGN, leaf_s(TT_VAR, v[2].str), mk_rec_init_type(v[6].str))); ast_push(rb, v[9].node); v[9].node = rb; }
         {
             int d = g_lower.pas.sem.pas_ldepth - 1;
-            int d_ok = (d >= 0 && d < PAS_DISPLAY_LEVELS);
+            int d_ok = (d >= 0 && d < g_lower.pas.sem.pas_ldepth);
             int dl = d_ok ? g_lower.pas.sem.pas_lstk[d].decl_level : 1;
             const char **ln = d_ok ? g_lower.pas.sem.pas_lstk[d].names : NULL;
             int lc = d_ok ? g_lower.pas.sem.pas_lstk[d].n : 0;
@@ -6769,7 +6765,7 @@ static pval E_procedure_decl_in(const tree_t *n) {
         v[6] = E_block(tail);
         {
             int d = g_lower.pas.sem.pas_ldepth - 1;
-            int d_ok = (d >= 0 && d < PAS_DISPLAY_LEVELS);
+            int d_ok = (d >= 0 && d < g_lower.pas.sem.pas_ldepth);
             int dl = d_ok ? g_lower.pas.sem.pas_lstk[d].decl_level : 1;
             const char **ln = d_ok ? g_lower.pas.sem.pas_lstk[d].names : NULL;
             int lc = d_ok ? g_lower.pas.sem.pas_lstk[d].n : 0;
