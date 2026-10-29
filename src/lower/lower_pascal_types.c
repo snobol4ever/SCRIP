@@ -21,9 +21,6 @@ struct pty_state {
     pty_t **pend;
     int npend, cpend;
     long *stats;
-    const char *cmpn[32];
-    long cmps[96];
-    int ncmp;
     pty_t *tint, *tchar, *tbool, *treal, *tsingle, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
@@ -764,23 +761,11 @@ void pty_census(const char *pred, const tree_t *low, int typer) {
     s->stats[4 + id]++;
     s->stats[8 + id]++;
 }
-void pty_cmp(const char *pred, const char *what, int legacy, int typer) {
-    struct pty_state *s = pt_st();
-    if (!s || !g_lower.pas.dump_types) return;
-    int id = 0;
-    while (id < s->ncmp && strcmp(s->cmpn[id], pred)) id++;
-    if (id == s->ncmp) { if (id >= 32) return; s->cmpn[id] = pred; s->ncmp++; }
-    s->cmps[id * 3]++;
-    if (typer < 0) { s->cmps[id * 3 + 1]++; fprintf(stderr, "PTYC-UNK %s %s legacy=%d\n", pred, what ? what : "", legacy); return; }
-    if (typer == legacy) { s->cmps[id * 3 + 2]++; return; }
-    fprintf(stderr, "PTYC %s %s legacy=%d typer=%d\n", pred, what ? what : "", legacy, typer);
-}
 void pty_census_report(void) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     static const char *const nm[] = { "char", "string", "bool", "set" };
     for (int i = 0; i < 4; i++) fprintf(stderr, "PTY-STATS %s asked=%ld answered=%ld agreed=%ld\n", nm[i], s->stats[i], s->stats[4 + i], s->stats[8 + i]);
-    for (int i = 0; i < s->ncmp; i++) fprintf(stderr, "PTYC-STATS %s asked=%ld unknown=%ld agreed=%ld\n", s->cmpn[i], s->cmps[i * 3], s->cmps[i * 3 + 1], s->cmps[i * 3 + 2]);
 }
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
     struct pty_state *s = pt_mk();

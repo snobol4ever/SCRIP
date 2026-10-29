@@ -30,7 +30,6 @@ const pty_t *pty_name_type(const char *name);
 int pty_is_pchar(const pty_t *t);
 int pty_answer(const tree_t *low, pty_kind want);
 void pty_census(const char *pred, const tree_t *low, int typer);
-void pty_cmp(const char *pred, const char *what, int legacy, int typer);
 const char *pty_kind_name(pty_kind k);
 void pty_census_report(void);
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound);
