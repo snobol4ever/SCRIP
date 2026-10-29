@@ -3442,7 +3442,7 @@ static int r_term_name(RkP *p, int pos) {
             int t2 = ws(p, tn >= 0 ? tn : t);
             if (ch(p, t2) == ')') e = t2 + 1;
         }
-        if (p->build) rkb_name(p->B, &p->tm, pos, e, nl);
+        if (p->build) { int ui = user_name_index(p, p->s + pos, nl); if (!is_t && ui >= 0 && p->names[ui].value) rkb_user_name(p->B, &p->tm, pos, e, nl); else rkb_name(p->B, &p->tm, pos, e, nl); }
         return e;
     }
     int q = e;
@@ -3683,7 +3683,7 @@ static int r_trait(RkP *p, int pos) {
         if (e < 0) panic_at(p, t, "Invalid name");
         rt.word = "is"; rt.name = ct_strndup0(p->s + t, name_part_len(p, t, e));
         int c = ch(p, e);
-        if (c == '(' || c == '[' || c == '<' || c == '{' || cp_at(p, e) == 0xAB) { int f = r_circumfix(p, e); if (f >= 0) e = f; }
+        if (c == '(' || c == '[' || c == '<' || c == '{' || cp_at(p, e) == 0xAB) { int f = r_circumfix(p, e); if (f >= 0) { if (p->build && c == '(' && !strcmp(rt.name, "default")) rt.args = p->tm.t; e = f; } }
     }
     else if ((q = kw(p, pos, "hides")) >= 0 || (q = kw(p, pos, "does")) >= 0 || (q = kw(p, pos, "of")) >= 0) {
         int t = ws(p, q);
@@ -4595,6 +4595,7 @@ static int r_type_declarator(RkP *p, int pos) {
         int cnf = q;
         int n = r_identifier(p, q);
         if (n >= 0) { while (ch(p, n) == ':' && ch(p, n + 1) != ':' && ch(p, n + 1) != '=') { int f = r_colonpair(p, n); if (f < 0) break; n = f; } add_name_n(p, p->s + q, name_part_len(p, q, n));
+            { char *cn = ct_strndup0(p->s + q, name_part_len(p, q, n)); if (rk_is_core_type(cn)) p->names[p->nnames - 1].value = 1; }
             register_user_op(p, q, n); q = n; }
         else if (ch(p, q) == '$' || ch(p, q) == '@' || ch(p, q) == '%' || ch(p, q) == '&') { int v = r_variable(p, q); if (v >= 0) { if (ch(p, q) == '&') register_user_op(p, q + 1, v); q = v; } }
         p->in_decl = sd;

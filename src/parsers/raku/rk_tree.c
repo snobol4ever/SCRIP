@@ -389,8 +389,16 @@ static tree_t *rk_destructure(RkB *b, TL *targets, tree_t *rhs_arr) {
     const char *tmp = fmt("__destr_%d", b->destr_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), rhs_arr));
+    int slurped = 0;
     for (int i = 0; targets && i < targets->n; i++) {
         tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, tmp)); expr_add_child(get, rk_ilit(i));
+        if (slurped) get = make_call("__rk_undef");
+        else if (targets->v[i] && targets->v[i]->t == TT_VAR && targets->v[i]->v.sval && targets->v[i]->v.sval[0] == '@') {
+            tree_t *mc = ast_node_new(TT_METHCALL);
+            expr_add_child(mc, leaf_sval(TT_VAR, tmp)); expr_add_child(mc, leaf_sval(TT_QLIT, "skip")); expr_add_child(mc, rk_ilit(i));
+            get = mc;
+            slurped = 1;
+        }
         expr_add_child(seq, rk_quiet_store(targets->v[i], get));
     }
     return seq;
@@ -2036,6 +2044,12 @@ void rkb_words(RkB *b, RkTerm *it, int from, int to, int ifrom, int ito) {
 static tree_t *mkbool_lit(int v) { tree_t *bl = ast_node_new(TT_FNC); bl->v.sval = (char *) intern("__rk_mkbool"); ast_push(bl, leaf_sval(TT_VAR, "__rk_mkbool")); ast_push(bl, rk_ilit(v)); return bl;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_user_name(RkB *b, RkTerm *it, int from, int to, int namelen) {
+    memset(it, 0, sizeof *it); it->kind = TK_NAME; it->from = from; it->to = it->core_to = to;
+    char *nm = spn(b, from, from + namelen); it->name = nm;
+    it->t = var_node(b, nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_name(RkB *b, RkTerm *it, int from, int to, int namelen) {
     memset(it, 0, sizeof *it); it->kind = TK_NAME; it->from = from; it->to = it->core_to = to;
     char *nm = spn(b, from, from + namelen); it->name = nm;
@@ -2625,6 +2639,11 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     }
     if (!d->init_op || !nrs) {
         tree_t *var = var_node(b, name);
+        if (sig == '$') for (int i = 0; i < d->ntr; i++) if (d->tr[i].word && d->tr[i].name && d->tr[i].args && !strcmp(d->tr[i].word, "is") && !strcmp(d->tr[i].name, "default")) {
+            tree_t *dv = d->tr[i].args;
+            if (dv->t == TT_FNC && dv->v.sval && !strcmp(dv->v.sval, "__rk_arr") && dv->n == 2) dv = dv->c[1];
+            return type ? decl_node(b, type, var, dv) : expr_binary(TT_ASSIGN, var, dv);
+        }
         if (type) return decl_node(b, type, var, NULL);
         if (sig == '$') { tree_t *nul = ast_node_new(TT_NUL); nul->v.ival = 1; return expr_binary(TT_ASSIGN, var, nul); }
         return expr_binary(TT_ASSIGN, var, make_call("__rk_undef"));

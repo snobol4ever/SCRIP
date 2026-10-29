@@ -115,6 +115,7 @@ tree_t  *rkb_subset(RkB *b, const char *name, int namelen, const char *base, tre
 tree_t  *rkb_regex_decl(RkB *b, int kind, const char *name, int namelen, int brace);
 void     rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d);
 tree_t  *rkb_self_sig(RkB *b, tree_t *sig);
+void     rkb_user_name(RkB *b, RkTerm *it, int from, int to, int namelen);
 void     rkb_label_loop(RkB *b, tree_t *list, int first, const char *label);
 tree_t  *rkb_enum_tree(RkB *b, tree_t *list, int from, int to);
 tree_t  *rkb_enum(RkB *b, const char *text, int n, int from, int to);
