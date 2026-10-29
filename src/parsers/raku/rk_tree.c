@@ -3424,6 +3424,20 @@ static void mark_arrays(RkB *b, tree_t *t) {
     for (int i = 0; i < t->n; i++) mark_arrays(b, t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_finish(RkB *b, tree_t *list, const char *text, int len) {
+    (void) b;
+    if (!list) return;
+    char *raw = (char *) ct_alloc((size_t) len + 1);
+    memcpy(raw, text, (size_t) len);
+    raw[len] = 0;
+    tree_t *v = leaf_sval(TT_VAR, "=finish");
+    v->slen |= 4;
+    tree_t *as = expr_binary(TT_ASSIGN, v, leaf_sval(TT_QLIT, raw));
+    ast_push(list, as);
+    memmove(list->c + 1, list->c, (size_t) (list->n - 1) * sizeof(tree_t *));
+    list->c[0] = as;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_program(RkB *b, tree_t *list) {
     TL l = { 0 };
     for (int i = 0; list && i < list->n; i++) tl_add(&l, list->c[i]);

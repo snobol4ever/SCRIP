@@ -51,7 +51,7 @@ typedef struct RkP {
     RkName *names; int nnames; int cnames;
     int depth; int st_uid;
     char *pkg;
-    int finished;
+    int finished, finish_from;
     int comp_unit_begin;
     RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block; int lang_e;
     RkPkg *pkgs; int npkgs; int cpkgs;
@@ -691,14 +691,14 @@ static int r_pod(RkP *p, int pos) {
     if (!(is_word_cp(c) || c == '\\')) return -1;
     q++;
     int nl; int e = pod_ident(p, q, &nl);
-    if (nl == 6 && !memcmp(p->s + q, "finish", 6)) { p->finished = 1; return p->n; }
+    if (nl == 6 && !memcmp(p->s + q, "finish", 6)) { p->finished = 1; p->finish_from = line_end(p, e); return p->n; }
     if (nl == 5 && !memcmp(p->s + q, "begin", 5)) {
         int r = e;
         r = NSPAN(p, r, ck(is_hspace_cp));
         int bl; int be = pod_ident(p, r, &bl);
         if (bl == 0) panic_at(p, q, "Pod block without a name after =begin");
         const char *name = p->s + r;
-        if (bl == 6 && !memcmp(name, "finish", 6)) { p->finished = 1; return p->n; }
+        if (bl == 6 && !memcmp(name, "finish", 6)) { p->finished = 1; p->finish_from = line_end(p, be); return p->n; }
         int depth = 1;
         int l = line_end(p, be);
         while (l < p->n) {
@@ -5084,7 +5084,7 @@ static int r_comp_unit(RkP *p) {
     p->comp_unit_begin = 0;
     scope_enter(p);
     int e = r_statementlist(p, q);
-    if (p->build) { if (p->last_real_semi) rkb_empty(p->B, list, BK_MAIN); p->tv = rkb_program(p->B, list); }
+    if (p->build) { if (p->last_real_semi) rkb_empty(p->B, list, BK_MAIN); if (p->finished) rkb_finish(p->B, list, p->s + p->finish_from, p->n - p->finish_from); p->tv = rkb_program(p->B, list); }
     e = ws(p, e);
     if (e < p->n && !p->finished) {
         int c = ch(p, e);

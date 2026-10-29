@@ -78,6 +78,7 @@ tree_t  *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren);
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto);
 void     rkb_adverb(RkB *b, tree_t *t, RkTerm *tm);
 tree_t  *rkb_expr(RkB *b, RkList *L);
+void     rkb_finish(RkB *b, tree_t *list, const char *text, int len);
 void     rkb_cross(RkB *b, const char *op, RkList *L, RkList **rs, int nr);
 void     rkb_sequence(RkB *b, const char *op, RkList *L, RkList *R);
 int      rkb_compound_base(const char *op, int *lv, int *k);
