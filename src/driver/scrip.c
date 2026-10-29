@@ -1684,6 +1684,10 @@ int main(int argc, char **argv) {
                 target_name = argv[argi] + 9;
                 mode_compile = 1;
                 argi++;
+            } else if (strncmp(argv[argi], "--out=", 6) == 0) {
+                if (argv[argi][6] == '\0') { fprintf(stderr, "scrip: --out= needs a filename\n"); return 2; }
+                output_path = argv[argi] + 6;
+                argi++;
             } else if (strcmp(argv[argi], "--syntax") == 0) {
                 extern int rk_syntax_file(const char *path);
                 if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n"); return 2; }
@@ -1843,6 +1847,14 @@ int main(int argc, char **argv) {
     }
     for (int oi = argi; oi < argc; oi++) {
         if (strcmp(argv[oi], "--") == 0) break;
+        if (strncmp(argv[oi], "--out=", 6) == 0) {
+            if (argv[oi][6] == '\0') { fprintf(stderr, "scrip: --out= needs a filename\n"); return 2; }
+            output_path = argv[oi] + 6;
+            for (int mj = oi; mj + 1 < argc; mj++) argv[mj] = argv[mj + 1];
+            argc -= 1;
+            oi--;
+            continue;
+        }
         if (argv[oi][0] == '-' && argv[oi][1] == 'o') {
             int eat = 1;
             if (argv[oi][2] != '\0') output_path = argv[oi] + 2;
@@ -1905,8 +1917,9 @@ int main(int argc, char **argv) {
         fprintf(stderr,
             "usage: scrip [mode] [options] <file> [-- program-args...]\n" "\n" "Execution modes (default: --run):\n"
             "  --run            build flat-wired x86 BB blobs in a sealed slab and jump in  [DEFAULT]\n" "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
-            "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n" "\n" "Diagnostic options:\n" "  --dump-ast       print AST after frontend\n"
-            "  --syntax FILE    check a Raku source file's syntax only (as raku -c): rc 0 accept, rc 1 reject with the error, rc 2 not a Raku file\n"
+            "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n"
+            "  --out=FILE       write the --compile assembly to FILE instead of stdout (SPITBOL's -o=file is the listing sink, a different switch)\n" "\n" "Diagnostic options:\n"
+            "  --dump-ast       print AST after frontend\n" "  --syntax FILE    check a Raku source file's syntax only (as raku -c): rc 0 accept, rc 1 reject with the error, rc 2 not a Raku file\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
             "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
