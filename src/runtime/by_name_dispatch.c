@@ -5942,6 +5942,7 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
+static int pl_ax_eval_d(DESCR_t t, DESCR_t *out, void **ball, int depth);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_float_to_int(double r, DESCR_t *out) {
     extern DESCR_t rt_big_from_str(const char *);
@@ -6157,7 +6158,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (a.v != DT_I && a.v != DT_R && a.v != DT_BIG) {
         void *bl = (void *)0;
         DESCR_t ev;
-        if (pl_ax_eval(a, &ev, &bl)) a = ev;
+        if (pl_ax_eval_d(a, &ev, &bl, 1)) a = ev;
         else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; }
     }
     if (nargs == 1 && (pl_rat_is(a) || !strcmp(op, "rat") || !strcmp(op, "ratz") || !strcmp(op, "numer") || !strcmp(op, "denom"))) {
@@ -6183,7 +6184,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             int swi = pl_swi_dialect();
-            if (!arl && swi) { *out = a; return 1; }
+            if (!arl && (swi || pl_xsb_dialect())) { *out = a; return 1; }
             if (arl && !isfinite(ad) && swi) { *out = a; return 1; }
             if (!arl) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
             if (swi && !strcmp(op, "round")) return pl_ax_swi_round(ad, out);
@@ -6303,7 +6304,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (b.v != DT_I && b.v != DT_R && b.v != DT_BIG) {
         void *bl = (void *)0;
         DESCR_t ev;
-        if (pl_ax_eval(b, &ev, &bl)) b = ev;
+        if (pl_ax_eval_d(b, &ev, &bl, 1)) b = ev;
         else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; }
     }
     if (!strcmp(op, "div") && (pl_rat_is(a) || pl_rat_is(b)) && pl_rat_exact(b) && pl_rat_cmp(b, INTVAL(0)) == 0 && pl_float_flag("float_zero_div", "infinity")) {
@@ -6521,11 +6522,13 @@ static int pl_ax_powm(DESCR_t *args, DESCR_t *out, void **ball) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { DESCR_t root; int proven; } pl_ax_cx_t;
 static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_cx_t *cx);
-static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
+static const char *pl_ax_sfx_rt(const char *nm, int ar) { return (ar == 2 && nm && !strcmp(nm, "><") && pl_xsb_dialect()) ? "xor" : pl_ax_suffix_any(nm, ar); }
+static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) { return pl_ax_eval_d(t, out, ball, 0); }
+static int pl_ax_eval_d(DESCR_t t, DESCR_t *out, void **ball, int depth) {
     extern int rt_pl_acyclic_cell(void *);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     pl_ax_cx_t cx = { t, 0 };
-    if (pl_ax_eval_r(t, out, ball, 0, &cx)) return 1;
+    if (pl_ax_eval_r(t, out, ball, depth, &cx)) return 1;
     if (!cx.proven && ball && *ball) { DESCR_t r = rt_pl_deref_val(t); if ((int)r.v == DT_PLREF && !rt_pl_acyclic_cell(&r)) *ball = rt_pl_ball_kind2("type_error", "expression", r); }
     return 0;
 }
@@ -6541,15 +6544,16 @@ static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_c
     if (d.v == DT_S) { const char *one = pl_atom_str(d); int adv = 0; if (one && one[0]) { long long cp = (long long)rt_pl_u8_get(one, &adv); if (one[adv] == '\0') { *out = INTVAL(cp); return 1; } } }
     if ((int)d.v == DT_PLATOM || d.v == DT_S) {
         const char *nm = pl_atom_str(d);
-        const char *sfx = pl_ax_suffix_any(nm, 0);
+        const char *sfx = pl_ax_sfx_rt(nm, 0);
         if (sfx) { DESCR_t none = FAILDESCR; dop_ax(sfx, &none, 0, out, ball); return out->v != DT_FAIL; }
+        if (pl_xsb_dialect()) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); *ball = rt_pl_ball_kind2("type_error", "evaluable", d); return 0; }
         *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", 0);
         return 0;
     }
     if ((int)d.v == DT_PLREF) {
         int ar = plc_fid_arity(d.slen);
         const char *nm = prolog_atom_name(plc_fid_name(d.slen));
-        const char *sfx = pl_ax_suffix_any(nm, ar);
+        const char *sfx = pl_ax_sfx_rt(nm, ar);
         DESCR_t *kids = (DESCR_t *)d.p;
         DESCR_t ev[3];
         if (depth >= 256 && !cx->proven) {
@@ -6559,7 +6563,7 @@ static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_c
             if (!rt_pl_acyclic_cell(&r)) { *ball = rt_pl_ball_kind2("type_error", "expression", r); return 0; }
             cx->proven = 1;
         }
-        if (ar == 2 && nm && !strcmp(nm, ".") && kids) {
+        if (ar == 2 && nm && !strcmp(nm, ".") && kids && !pl_xsb_dialect()) {
             DESCR_t tl = rt_pl_deref_val(kids[1]), hd = rt_pl_deref_val(kids[0]);
             if ((int)tl.v == DT_PLATOM && pl_atom_str(tl) && !strcmp(pl_atom_str(tl), "[]")) {
                 if (hd.v == (DTYPE_t)DT_PLVAR) { *ball = rt_pl_ball_instantiation(); return 0; }
@@ -6582,7 +6586,12 @@ static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_c
             fesetround(saved);
             return r;
         }
-        if (!sfx || ar < 1 || ar > 3 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
+        if (!sfx || ar < 1 || ar > 3 || !kids) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            *ball = pl_xsb_dialect() ? rt_pl_ball_kind2("type_error", "evaluable", (depth == 0 && ar == 1 && kids) ? rt_pl_deref_val(kids[0]) : d) :
+                rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar);
+            return 0;
+        }
         for (int k = 0; k < ar; k++) if (!pl_ax_eval_r(kids[k], &ev[k], ball, depth + 1, cx)) { *out = ev[k]; return 0; }
         dop_ax(sfx, ev, ar, out, ball);
         return out->v != DT_FAIL;

@@ -610,7 +610,7 @@ static const char * pl_cmp_op_suffix(const char * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pl_ax_suffix(const char * s, int ar) { return pl_ax_suffix_of(s, ar); }
+static const char * pl_ax_suffix(const char * s, int ar) { return (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(s, "><")) ? "xor" : pl_ax_suffix_of(s, ar); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_divides(const char * sfx) { if (!sfx) return 0; return !strcmp(sfx, "div") || !strcmp(sfx, "idiv") || !strcmp(sfx, "divf") || !strcmp(sfx, "mod") || !strcmp(sfx, "rem"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

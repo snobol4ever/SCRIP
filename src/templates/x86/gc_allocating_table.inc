@@ -1011,6 +1011,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_attv_user", GC_RET_OTHER },
     { "pl_attv_word", GC_RET_DESCR },
     { "pl_ax_eval", GC_RET_OTHER },
+    { "pl_ax_eval_d", GC_RET_OTHER },
     { "pl_ax_eval_r", GC_RET_OTHER },
     { "pl_ax_float_result", GC_RET_OTHER },
     { "pl_ax_float_to_int", GC_RET_OTHER },
