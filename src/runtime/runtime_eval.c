@@ -1257,7 +1257,12 @@ DESCR_t CONVE_fn(DESCR_t str_d) {
     int pe = 0, thunks = 0;
     const char *pm = (const char *)0;
     eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
-    if (!fn) { rt_code_pool_check(); if (eval_top_mark(s) < 0) { int code = 0; const char *msg = (const char *)0; if (eval_sb_syntax(s, &code, &msg)) rt_eval_raise(code, msg); } return FAILDESCR; }
+    if (!fn) {
+        rt_code_pool_check();
+        long m = eval_top_mark(s);
+        if (m < 0 || s[m + 1]) { int code = 0; const char *msg = (const char *)0; if (eval_sb_syntax(s, &code, &msg)) rt_eval_raise(code, msg); }
+        return FAILDESCR;
+    }
     DESCR_t d = {0};
     d.v = DT_E;
     d.slen = RT_CONVE_CHAIN_MARK;
