@@ -29,12 +29,6 @@ extern int * const rt_k_level_p;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_entry_dispatch_str(void) {
-    return IF_M4(IF(g_is_text,
-               std::string("  cmp esi, 0\n")
-             + "  je " + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
-             + "  jmp " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n"));
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
     return IF_M4(IF(g_flat_data_any,
@@ -44,8 +38,7 @@ static std::string xa_flat_data_section_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void) {
-    auto s = xa_entry_dispatch_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
+    bb_emit_x86(x86_bomb("xa_entry_dispatch: no lowerer constructs an XA_ENTRY_DISPATCH node (CEO-2009 under CEO-2002); a program that gets here names itself"));
 }
 extern "C" void xa_flat_data_section(void) {
     auto s = xa_flat_data_section_str();
@@ -666,20 +659,20 @@ const char * xa_icn_trace_pname(void) {
          : g_emit.flat_fam;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_zframe_epilogue_γ_str(void) {
-    if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
-        return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
+static int zf_epi_kt(void) {
+    return g_emit.flat_frame_bytes + ((g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
+}
+extern int xa_icn_block_size(void);
+static std::string zf_epg_gen(int kt) {
+    return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
-    }
-    extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
-        return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
+}
+static std::string zf_epg_wire(int kt) {
+    return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
          + x86("push", "rax")
@@ -697,8 +690,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
                             + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
                             : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
-    if (zf_pas_nest_graph())
-        return x86("mov", "rdi", "rax")
+}
+static std::string zf_epg_nest(int kt) {
+    return x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
              + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
@@ -706,8 +700,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
-    if (x86_resumable_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
-        return x86("comment",
+}
+static std::string zf_epg_pkt(int kt) {
+    return x86("comment",
             "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the "
                 "clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the "
                     "choice and exits det; B younger -> the clause's own beta; B older -> a cut ran, det")
@@ -752,16 +747,16 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("def", L(233))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + x86("xor", "eax", "eax") + zf_release(kt) + zf_pin_restore(kt)
-             + x86("jmp", "rcx"); }
-    if (x86_resumable_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
-        int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
-        return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
+             + x86("jmp", "rcx");
+}
+static std::string zf_epg_pl(int kt) {
+    return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
              + x86("comment",
                  "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
              + x86("mov32", "edi", (long)DT_I)
              + x86("mov32", "esi", 1L)
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 24))
-             + IF(_plretain,
+             + IF(!(g_emit_cfg && g_emit_cfg->root_graph),
                    x86("mov", "rax", RDQ(x86_hb(), kt - 40))
                  + x86("cmp", "r13", "rax")
                  + x86("je", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_altdet_p)
@@ -773,7 +768,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("xor", "eax", "eax")
              + zf_release(kt)
              + zf_pin_restore(kt)
-             + x86("jmp", "rcx"); }
+             + x86("jmp", "rcx");
+}
+static std::string zf_epg_plain(int kt) {
     return x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", RDQ(x86_hb(), kt - 24))
@@ -783,13 +780,20 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          + std::string("")
          + x86("jmp", "rcx");
 }
+static std::string zf_epg(int kt) {
+    return (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epg_gen(kt)
+         : (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epg_wire(kt)
+         : zf_pas_nest_graph() ? zf_epg_nest(kt)
+         : (x86_resumable_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) ? zf_epg_pkt(kt)
+         : (x86_resumable_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) ? zf_epg_pl(kt)
+         : zf_epg_plain(kt);
+}
+static std::string xa_flat_zframe_epilogue_γ_str(void) {
+    return xa_flat_class_zf() ? zf_epg(zf_epi_kt()) : std::string();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_zframe_epilogue_ω_str(void) {
-    if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
-        return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
+static std::string zf_epo_wire(int kt) {
+    return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))
@@ -805,18 +809,18 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
                             + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
                             : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_ω();
-    if (zf_pas_nest_graph())
-        return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
+}
+static std::string zf_epo_nest(int kt) {
+    return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
              + zf_display_restore(kt)
              + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
              + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
-    if (x86_resumable_frame() && g_emit.flat_pkt) {
-        int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot; int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
-        if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
-        return x86_def_ext(g_emit.flat_pkt_chainω_p)
+}
+static std::string zf_epo_pkt_walk(int kt, int k, int i, int np) {
+    return x86_def_ext(g_emit.flat_pkt_chainω_p)
              + IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
              + x86("comment",
                  "PACKET FRAGMENT chain-omega (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): undo this clause's bindings, restore B and "
@@ -870,14 +874,19 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_walk_p)
              + x86("def", L(225)) + IF(np > 0,
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
-    }
-    if (x86_resumable_frame())
-        return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
+}
+static std::string zf_epo_pkt(int kt, int k, int i, int np) {
+    return (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) ? x86_bomb("packet fragment chain-omega without its labels") : zf_epo_pkt_walk(kt, k, i, np);
+}
+static std::string zf_epo_pl(int kt) {
+    return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx");
+}
+static std::string zf_epo_plain(int kt) {
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is "
                           "WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
@@ -886,6 +895,16 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
          + zf_pin_restore(kt)
          + std::string("")
          + x86("jmp", "rcx");
+}
+static std::string zf_epo(int kt) {
+    return (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epo_wire(kt)
+         : zf_pas_nest_graph() ? zf_epo_nest(kt)
+         : (x86_resumable_frame() && g_emit.flat_pkt) ? zf_epo_pkt(kt, g_emit.flat_pkt_cell, g_emit.flat_pkt_slot, zf_pro_np())
+         : x86_resumable_frame() ? zf_epo_pl(kt)
+         : zf_epo_plain(kt);
+}
+static std::string xa_flat_zframe_epilogue_ω_str(void) {
+    return xa_flat_class_zf() ? zf_epo(zf_epi_kt()) : std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
