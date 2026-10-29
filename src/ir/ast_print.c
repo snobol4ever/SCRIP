@@ -36,7 +36,7 @@ static void print_indent(int depth, FILE * f) { for (int i = 0; i < depth * 2; i
 #define FLAT_TOO_LONG 99999
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int value_is_text(const tree_t * e) {
-    switch (e->t) { case TT_QLIT: case TT_CSET: case TT_CLAUSE: case TT_SUB_DECL: case TT_REGEX_DECL: case TT_AUGOP: case TT_VLIST: return 0; default: break; }
+    switch (e->t) { case TT_QLIT: case TT_CSET: case TT_CLAUSE: case TT_SUB_DECL: case TT_REGEX_DECL: case TT_AUGOP: case TT_VLIST: case TT_ILIT: case TT_FLIT: case TT_NUL: return 0; default: break; }
     return e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->v.sval[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

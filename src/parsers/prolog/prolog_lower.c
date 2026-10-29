@@ -569,7 +569,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *fil
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *mod; const char *name; int ar; } pl_mkey_t;
-typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; } pl_mods_t;
+typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; int reflects; } pl_mods_t;
 typedef struct { char nm[27]; int ar; char spec[27]; } pl_mspec_t;
 static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
     { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
@@ -736,7 +736,7 @@ static int pl_mod_qualified(pl_mods_t *ms, tree_t *g) {
     *g = *in;
     return 1;
 }
-static void pl_mod_clause_reflect(tree_t *g) {
+static void pl_mod_clause_reflect(pl_mods_t *ms, tree_t *g) {
     tree_t *h = g->c[0], *c1, *c2, *own, *v1, *v2;
     const char *hn = h ? h->v.sval : (const char *)0, *colon;
     char vn[40];
@@ -747,7 +747,7 @@ static void pl_mod_clause_reflect(tree_t *g) {
         k = (size_t)(colon - hn);
         for (const char *q = hn; q < colon; q++) if (!isalnum((unsigned char)*q) && *q != '_') k = 0;
     }
-    snprintf(vn, sizeof vn, "$cb%lx", (unsigned long)(uintptr_t)g);
+    snprintf(vn, sizeof vn, "$cb%d", ms->reflects++);
     own = ast_node_new(TT_QLIT);
     own->v.sval = k ? ct_strndup(hn, k) : ct_strdup("user");
     v1 = ast_node_new(TT_VAR);
@@ -960,7 +960,7 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
     if ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz") || (ar == 1 && !strcmp(nm, "retract")))) { pl_mod_clause_term(ms, m1, m2, g->c[0], trans); return; }
     if (ar == 2 && !strcmp(nm, "clause")) {
         pl_mod_head(ms, m1, m2, g->c[0]);
-        pl_mod_clause_reflect(g);
+        pl_mod_clause_reflect(ms, g);
         return;
     }
     if ((ar == 1 && !strcmp(nm, "retractall")) || (ar == 2 && !strcmp(nm, "predicate_property"))) { pl_mod_head(ms, m1, m2, g->c[0]); return; }
