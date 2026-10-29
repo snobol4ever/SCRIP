@@ -1635,14 +1635,6 @@ static DESCR_t _INTEGER_(DESCR_t *a, int n) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _REAL_(DESCR_t *a, int n) {
-    if (n < 1) return FAILDESCR;
-    if (IS_REAL(a[0])) return a[0];
-    if (IS_INT(a[0])) return REALVAL((double)a[0].i);
-    if (IS_STR(a[0]) && a[0].s) { const char *p0 = rt_cstr_d(a[0]); double v; if (rt_str_to_real(p0, &v)) return REALVAL(v); }
-    return FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SIZE_(DESCR_t *a, int n) {
     if (n < 1) return INTVAL(0);
     if (IS_STR(a[0]) && a[0].slen) return INTVAL((int64_t)a[0].slen);
@@ -2792,7 +2784,6 @@ void core_lib_init(void) {
     register_fn_lit("__num_pos", _b_pos, 1, 1);
     register_fn_lit("PLS", _b_pos, 1, 1);
     register_fn_lit("INTEGER", _INTEGER_, 1, 1);
-    register_fn_lit("REAL", _REAL_, 1, 1);
     register_fn_lit("SIZE", _SIZE_, 1, 1);
     register_fn_lit("IDENT", _IDENT_, 0, 2);
     register_fn_lit("DIFFER", _DIFFER_, 0, 2);
