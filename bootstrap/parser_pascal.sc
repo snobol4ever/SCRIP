@@ -100,6 +100,8 @@ function PasInit() {
     pas_hasprog = '';
     pas_strdecl = '';
     pas_h = '';
+    pas_hs = TABLE(15);
+    pas_hn = 0;
     pas_unit = '';
     pas_ek = 0;
     pas_eln = TABLE(31);
@@ -166,8 +168,8 @@ function PasDir(d, l, r, m, fnc) {
     if (IDENT(l, 'h+')) { pas_h = 1; nreturn; }
     if (IDENT(l, 'h-')) { pas_h = 0; nreturn; }
     if (l ? (POS(0) 'longstrings' SPAN(' ' CHAR(9)) ('on' | 'off') . r FENCE(SPAN(' ' CHAR(9)) | epsilon) RPOS(0))) { pas_h = (IDENT(r, 'on') 1, 0); nreturn; }
-    if (IDENT(l, 'push')) { PasEv('push'); nreturn; }
-    if (IDENT(l, 'pop')) { PasEv('pop'); nreturn; }
+    if (IDENT(l, 'push')) { PasEv('push'); pas_hn = pas_hn + 1; pas_hs[pas_hn] = pas_h; nreturn; }
+    if (IDENT(l, 'pop')) { PasEv('pop'); if (GT(pas_hn, 0)) { pas_h = pas_hs[pas_hn]; pas_hn = pas_hn - 1; } nreturn; }
     if (IDENT(l, 'r+')) { PasEv('range 1'); nreturn; }
     if (IDENT(l, 'r-')) { PasEv('range 0'); nreturn; }
     if (IDENT(l, 'q+')) { PasEv('overflow 1'); nreturn; }
@@ -554,7 +556,7 @@ MidStep         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
                     ));
 MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | *FuncCall ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
-                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) . *Reduce('TT_FNC', nTop()) . *PopCounter();
+                    epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) *$' ' @mlk *DIFFER(SUBSTR(Src, mlk + 1, 1), '.') . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
 StmtRest        =   *$';' FENCE(*Command . *IncCounter() | epsilon);
