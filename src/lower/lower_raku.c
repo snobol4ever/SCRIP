@@ -254,6 +254,8 @@ static void rk_loop_close(rcx_t * cx, rk_loopfr_t * lf, IR_t * body) { cx->loops
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rk_loopfr_t * rk_loop_find(rcx_t * cx, const char * label) { rk_loopfr_t * lf = cx->loops; while (lf && label && (!lf->label || strcmp(lf->label, label))) lf = lf->up; return lf; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_reads_var(const tree_t * t, const char * nm);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_loop_node(const tree_t * t) { return t && (t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_REPEAT || t->t == TT_CLOOP || t->t == TT_FOR_RANGE || t->t == TT_EVERY); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_for(const tree_t * t) {
@@ -2138,7 +2140,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             cx->loop_label = (t->n == 1 && (rk_is_loop_node(t->c[0]) || rk_is_multi_for(t->c[0]))) ? t->v.sval : NULL;
             IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res);
             cx->loop_label = NULL;
-            return le;
+            if (!t->v.sval || !t->n || !rk_reads_var(t->c[0], t->v.sval)) return le;
+            tree_t * decl = ast_node_new(TT_ASSIGN);
+            ast_push(decl, leaf_sval2(TT_VAR, t->v.sval));
+            ast_push(decl, leaf_sval2(TT_QLIT, t->v.sval));
+            IR_t * rd = NULL;
+            return lower_rv(cx, decl, le, ω, &rd);
         }
         case TT_LOOP_BREAK:
         case TT_LOOP_NEXT:
