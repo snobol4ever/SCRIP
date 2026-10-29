@@ -9959,6 +9959,13 @@ static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char
     int idx;
     DESCR_t f = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if ((int)f.v == DT_PLREF && plc_fid_name(f.slen) == prolog_atom_intern("$stream") && plc_fid_arity(f.slen) == 1) {
+        extern FILE *fh_get(int);
+        DESCR_t sa = rt_pl_deref_val(((DESCR_t *)f.p)[0]);
+        if (sa.v != DT_I || (int)sa.i < 0 || (int)sa.i >= FH_N || !fh_get((int)sa.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", f); return 0; }
+        if (is_out) { fh_set_output((int)sa.i); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input((int)sa.i); g_runtime.bn.pl_edin_in_name = ""; }
+        return 1;
+    }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
     if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_runtime.bn.pl_edin_in_name = ""; } return 1; }
     fp = fopen(fn, fmode);
@@ -10331,7 +10338,8 @@ PL_CX_LEAF_HEAD(telling, 1)
         extern int fh_current_output(void);
         ok =
             plw_unify_vals(args[0],
-            (fh_current_output() == 1 || !g_runtime.bn.pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_runtime.bn.pl_edin_out_name, strlen(g_runtime.bn.pl_edin_out_name)), cx);
+            fh_current_output() == 1 ? pl_mk_atom("user") : !g_runtime.bn.pl_edin_out_name[0] ? pl_mk_stream(fh_current_output()) :
+            pl_mk_atom_dup(g_runtime.bn.pl_edin_out_name, strlen(g_runtime.bn.pl_edin_out_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -10340,7 +10348,8 @@ PL_CX_LEAF_HEAD(seeing, 1)
         extern int fh_current_input(void);
         ok =
             plw_unify_vals(args[0],
-            (fh_current_input() == 0 || !g_runtime.bn.pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_runtime.bn.pl_edin_in_name, strlen(g_runtime.bn.pl_edin_in_name)), cx);
+            fh_current_input() == 0 ? pl_mk_atom("user") : !g_runtime.bn.pl_edin_in_name[0] ? pl_mk_stream(fh_current_input()) :
+            pl_mk_atom_dup(g_runtime.bn.pl_edin_in_name, strlen(g_runtime.bn.pl_edin_in_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
