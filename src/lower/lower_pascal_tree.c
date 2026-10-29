@@ -7513,6 +7513,10 @@ static pval E_type(const tree_t *n) {
         v[1] = E_packed_opt(off ? n->c[0] : NULL);
         { g_lower.pas.sem.pas_recbody_depth++; if (g_lower.pas.sem.pas_recbody_depth > 1) pas_pend_nest_save(); }
         v[4] = E_record_body(n->c[off]);
+        if (g_lower.pas.dump_types)
+            pty_lay_check(n, g_lower.pas.sem.pas_pend_nf, g_lower.pas.sem.pas_pend_fields, g_lower.pas.sem.pas_pend_fldchar, g_lower.pas.sem.pas_pend_fldca, g_lower.pas.sem.pas_pend_fldca_lo,
+            g_lower.pas.sem.pas_pend_fldca_hi, g_lower.pas.sem.pas_pend_fldna, g_lower.pas.sem.pas_pend_fldna_lo, g_lower.pas.sem.pas_pend_fldna_hi, g_lower.pas.sem.pas_pend_fldfile,
+            g_lower.pas.sem.pas_pend_fldptrto, g_lower.pas.sem.pas_pend_fldrec, g_lower.pas.sem.pas_pend_fldenum, g_lower.pas.sem.pas_pend_fldov);
         {
             if (g_lower.pas.sem.pas_recbody_depth > 1) {
                 char _anm[32];

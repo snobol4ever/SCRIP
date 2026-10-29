@@ -15,8 +15,12 @@ struct pty {
     const void *bnd;
     int cap;
     int var;
+    struct pty_lay *lay;
 };
 struct pty_state;
+struct pty_lay;
+void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
+    char **fldptrto, char **fldrec, char **fldenum, long long *fldov);
 void pty_run(tree_t *prog, int fpc);
 const pty_t *pty_of_src(const tree_t *n);
 const pty_t *pty_of_low(const tree_t *e);

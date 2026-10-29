@@ -188,18 +188,52 @@ static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
     if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
     return pt_named(s, n->v.sval);
 }
+struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; };
+static void lb_add(struct pty_lay *L, const char *name, const pty_t *ft, int named) {
+    if (!L || !name) return;
+    if (L->nf >= L->cap) {
+        int nc = L->cap ? L->cap * 2 : 16;
+        L->name = (const char **)ct_grow(L->name, (size_t)nc * sizeof *L->name);
+        L->ft = (const pty_t **)ct_grow(L->ft, (size_t)nc * sizeof *L->ft);
+        L->ov = (long long *)ct_grow(L->ov, (size_t)nc * sizeof *L->ov);
+        L->named = (unsigned char *)ct_grow(L->named, (size_t)nc);
+        L->cap = nc;
+    }
+    L->name[L->nf] = name;
+    L->ft[L->nf] = ft;
+    L->ov[L->nf] = (long long)L->nf;
+    L->named[L->nf] = (unsigned char)named;
+    L->nf++;
+}
 static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
     for (int i = 0; body && i < body->n; i++) {
         const tree_t *c = body->c[i];
         if (PT_IS(c, TT_DECL) && c->v.sval && !strcmp(c->v.sval, "field") && c->n >= 2) {
             pty_t *ft = pt_type(s, c->c[1]);
             const tree_t *ids = c->c[0];
-            if (PT_IS(ids, TT_VLIST)) { for (int j = 0; j < ids->n; j++) if (ids->c[j]) pt_add_field(r, ids->c[j]->v.sval, ft); } else if (PT_IS(ids, TT_VAR)) pt_add_field(r, ids->v.sval, ft);
+            if (PT_IS(ids, TT_VLIST)) {
+                for (int j = 0; j < ids->n; j++) if (ids->c[j]) { pt_add_field(r, ids->c[j]->v.sval, ft); lb_add(r->lay, ids->c[j]->v.sval, ft, PT_IS(c->c[1], TT_VAR)); }
+            } else if (PT_IS(ids, TT_VAR)) {
+                pt_add_field(r, ids->v.sval, ft);
+                lb_add(r->lay, ids->v.sval, ft, PT_IS(c->c[1], TT_VAR));
+            }
         } else if (PT_IS(c, TT_CASE)) {
             int k = 0;
+            const char *tag = NULL;
+            pty_t *tagt = NULL;
             r->var = 1;
-            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) { pt_add_field(r, c->c[0]->v.sval, pt_leaf(s, c->c[1])); k = 2; } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) k = 1;
+            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) {
+                tag = c->c[0]->v.sval;
+                tagt = pt_leaf(s, c->c[1]);
+                pt_add_field(r, tag, tagt);
+                k = 2;
+            } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) {
+                k = 1;
+                tag = c->c[0]->v.sval;
+                tagt = pt_leaf(s, c->c[0]);
+            }
             for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) pt_rec_fields(s, r, c->c[j]->c[1]);
+            if (tag) lb_add(r->lay, tag, tagt, k == 2 ? 3 : 5);
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
     }
 }
@@ -263,7 +297,14 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             return t;
         }
         case TT_RECORD:
-        { pty_t *t = pt_new(PTK_RECORD, NULL); t->packed = off; for (int i = off; i < n->n; i++) pt_rec_fields(s, t, n->c[i]); return t; }
+        {
+            pty_t *t = pt_new(PTK_RECORD, NULL);
+            t->packed = off;
+            t->lay = (struct pty_lay *)ct_zalloc(1, sizeof *t->lay);
+            for (int i = off; i < n->n; i++) pt_rec_fields(s, t, n->c[i]);
+            pt_map_put(&s->src, n, t, s->line);
+            return t;
+        }
         case TT_SET_TYPE:
         { pty_t *t = pt_new(PTK_SET, NULL); t->packed = off; t->base = n->n > off ? pt_type(s, n->c[n->n - 1]) : NULL; return t; }
         case TT_FILE_TYPE:
@@ -668,7 +709,7 @@ static void pt_block(struct pty_state *s, const tree_t *b) {
 void pty_run(tree_t *prog, int fpc) {
     struct pty_state *s = pt_mk();
     s->fpc = fpc;
-    s->stats = (long *)ct_zalloc(64, sizeof(long));
+    s->stats = (long *)ct_zalloc(80, sizeof(long));
     s->tint = pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
     s->tqword = pt_ord(PTK_INT, "qword", 0, 0);
     s->tqword->uns = 1;
@@ -761,11 +802,92 @@ void pty_census(const char *pred, const tree_t *low, int typer) {
     s->stats[4 + id]++;
     s->stats[8 + id]++;
 }
+static int lf_has_file(const pty_t *t) {
+    if (!t) return 0;
+    if (t->k == PTK_FILE || t->k == PTK_TEXT) return 1;
+    if (t->k == PTK_RECORD) for (int i = 0; i < t->nf; i++) if (lf_has_file(t->f[i].type)) return 1;
+    return 0;
+}
+static int lf_char(const pty_t *t) { return !t ? 0 : t->k == PTK_CHAR ? 1 : t->k == PTK_BOOL ? 2 : 0; }
+static int lf_rec(const pty_t *t) { while (t && t->k == PTK_ARRAY) t = t->base; return t && t->k == PTK_RECORD && t->lay && t->lay->nf > 0; }
+static int lf_eff_char(const struct pty_lay *L, int i);
+static int lf_leak_bool(const struct pty_lay *L) { for (int i = L->nf - 1; i >= 0; i--) { if (L->named[i] & 2) continue; return lf_eff_char(L, i) == 2; } return 0; }
+static int lf_eff_char(const struct pty_lay *L, int i) {
+    const pty_t *ft = L->ft[i];
+    if (L->named[i] & 4) return i > 0 && lf_eff_char(L, i - 1) == 2 ? 2 : 0;
+    if (ft && ft->k == PTK_RECORD && ft->lay && ft->lay->nf > 0 && lf_leak_bool(ft->lay)) return 2;
+    return lf_char(ft);
+}
+static int lf_arr(const pty_t *t, int *ischar, long long *lo, long long *hi) {
+    if (!t || t->k != PTK_ARRAY) return 0;
+    const pty_t *e = t->base;
+    while (e && e->k == PTK_ARRAY) e = e->base;
+    *ischar = e && e->k == PTK_CHAR;
+    if (t->dyn || t->open) { *lo = 0; *hi = *ischar ? -1 : 0; return 1; }
+    if (t->nix < 1 || !t->ix || !t->ix[0]) return 0;
+    *lo = t->ix[0]->lo;
+    *hi = t->ix[0]->hi;
+    if (t->nix == 2 && t->ix[1]) { *lo = 0; *hi = (t->ix[0]->hi + 1) * (t->ix[1]->hi + 1) - 1; }
+    return 1;
+}
+void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
+    char **fldptrto, char **fldrec, char **fldenum, long long *fldov) {
+    struct pty_state *s = pt_st();
+    if (!s || !g_lower.pas.dump_types) return;
+    const pty_ent *e = pt_map_get(&s->src, rec);
+    const pty_t *t = e ? e->t : NULL;
+    s->stats[64 + 0]++;
+    if (!t || t->k != PTK_RECORD || !t->lay) { fprintf(stderr, "PTYL-UNK line=%d nf=%d\n", rec ? rec->line : 0, nf); return; }
+    const struct pty_lay *L = t->lay;
+    int bad = 0;
+    if (L->nf != nf) {
+        fprintf(stderr, "PTYL nf legacy=%d typer=%d legacy-names:", nf, L->nf);
+        for (int i = 0; i < nf; i++) fprintf(stderr, " %s", fields[i] ? fields[i] : "?");
+        fprintf(stderr, " | typer-names:");
+        for (int i = 0; i < L->nf; i++) fprintf(stderr, " %s", L->name[i]);
+        fprintf(stderr, "\n");
+        return;
+    }
+    for (int i = 0; i < nf; i++) {
+        const pty_t *ft = L->ft[i];
+        int ph = (L->named[i] & 4) != 0, nm = L->named[i] & 1;
+        if (ph && i > 0) { ft = L->ft[i - 1]; nm = L->named[i - 1] & 1; }
+        int ischar = 0, c = ph ? 0 : lf_eff_char(L, i);
+        long long lo = 0, hi = -1;
+        int ar = lf_arr(ft, &ischar, &lo, &hi);
+        if (ar && ft->nix == 2 && !ft->dyn && !nm && ft->ix[1]) { lo = ft->ix[1]->lo; hi = ft->ix[1]->hi; }
+        int ca = ar && ischar, na = ar && !ischar;
+        if (ph && !nm) { ca = 0; na = 0; }
+        if (ca && !nm && !ph) c = 1;
+        if (ph) c = lf_eff_char(L, i);
+        int file = lf_has_file(ft), ptr = !ph && ft && ft->k == PTK_POINTER && (ft->base || ft->fwd), rc = lf_rec(ft), en = ft && ft->k == PTK_ENUM && ft->name && ft->nf > 0;
+        const char *what = NULL;
+        if (!fields[i] || !L->name[i] || strcmp(fields[i], L->name[i])) what = "name";
+        else if (fldchar[i] != c) what = "char";
+        else if ((fldca[i] != 0) != ca) what = "ca";
+        else if (ca && (ca_lo[i] != (lo > 0 ? lo : 0) || ca_hi[i] != hi)) what = "ca-bounds";
+        else if ((fldna[i] != 0) != na) what = "na";
+        else if (na && (na_lo[i] != lo || na_hi[i] != hi)) what = "na-bounds";
+        else if ((fldfile[i] != 0) != file) what = "file";
+        else if ((fldptrto[i] != NULL) != ptr) what = "ptr";
+        else if ((fldrec[i] != NULL) != rc) what = "rec";
+        else if ((fldenum[i] != NULL) != en) what = "enum";
+        if (what) {
+            bad++;
+            fprintf(stderr,
+                "PTYL %s line=%d field=%s legacy[char=%d ca=%d na=%d file=%d ptr=%d rec=%d enum=%d bounds=%lld..%lld/%lld..%lld] typer[kind=%s char=%d arr=%d ischar=%d %lld..%lld named=%d]\n", what,
+                rec->line, fields[i] ? fields[i] : "?", fldchar[i], fldca[i], fldna[i], fldfile[i], fldptrto[i] != NULL, fldrec[i] != NULL, fldenum[i] != NULL, ca_lo[i], ca_hi[i], na_lo[i], na_hi[i],
+                ft ? pty_kind_name(ft->k) : "-", c, ar, ischar, lo, hi, (int)L->named[i]);
+        }
+    }
+    s->stats[64 + 1] += bad ? 0 : 1;
+}
 void pty_census_report(void) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     static const char *const nm[] = { "char", "string", "bool", "set" };
     for (int i = 0; i < 4; i++) fprintf(stderr, "PTY-STATS %s asked=%ld answered=%ld agreed=%ld\n", nm[i], s->stats[i], s->stats[4 + i], s->stats[8 + i]);
+    fprintf(stderr, "PTYL-STATS checked=%ld clean=%ld\n", s->stats[64], s->stats[65]);
 }
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
     struct pty_state *s = pt_mk();
