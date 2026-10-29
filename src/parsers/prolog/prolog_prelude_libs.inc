@@ -34185,6 +34185,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "ti", 1 },
     { "thread_shared", 1 },
     { "document_export", 1 },
+    { "read_canonical", 1 },
+    { "read_canonical", 2 },
+    { "file_open", 3 },
+    { "file_close", 1 },
+    { "file_read", 3 },
+    { "str_cat", 3 },
+    { "gc_strings", 0 },
+    { "set_xsb_param", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
@@ -34217,6 +34225,25 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
     "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
     "load_dync(File) :- consult(File).\n"
+    "read_canonical(Term) :- read_term(Term, []).\n"
+    "read_canonical(Stream, Term) :- read_term(Stream, Term, []).\n"
+    "file_open(Name, Mode, Stream) :- '$xsb_fo_mode'(Mode, M), ( M == string -> open_string(Name, Stream) ; open(Name, M, Stream) ).\n"
+    "'$xsb_fo_mode'(0, read) :- !.\n"
+    "'$xsb_fo_mode'(1, write) :- !.\n"
+    "'$xsb_fo_mode'(2, append) :- !.\n"
+    "'$xsb_fo_mode'(3, string) :- !.\n"
+    "'$xsb_fo_mode'(M, read) :- ( M == r ; M == rb ), !.\n"
+    "'$xsb_fo_mode'(M, write) :- ( M == w ; M == wb ), !.\n"
+    "'$xsb_fo_mode'(M, append) :- ( M == a ; M == ab ), !.\n"
+    "'$xsb_fo_mode'(M, _) :- throw(error(domain_error(file_mode, M), file_open/3)).\n"
+    "file_close(Stream) :- close(Stream).\n"
+    "file_read(Stream, Term, Vars) :- read_term(Stream, Term, [variable_names(Bs), variables(Ws)]), '$xsb_vv'(Ws, Bs, Vars).\n"
+    "'$xsb_vv'([], _, _).\n"
+    "'$xsb_vv'([W|Ws], Bs, [vv(N, W)|Vs]) :- ( member(N0 = V0, Bs), V0 == W -> N = N0 ; N = '_' ), '$xsb_vv'(Ws, Bs, Vs).\n"
+    "str_cat(A, B, C) :- atom_concat(A, B, C).\n"
+    "gc_strings.\n"
+    "set_xsb_param(float_display_format, Opts) :- !, ( memberchk(precision(N), Opts) -> true ; N = 15 ), create_prolog_flag('$xsb_float_precision', N, []).\n"
+    "set_xsb_param(_, _).\n"
     "ensure_dync_loaded(File) :- '$lf_list'(File, Fs), '$xsb_edl'(Fs).\n"
     "'$xsb_edl'([]).\n"
     "'$xsb_edl'([F|Fs]) :- catch(load_files(F, [dialect(xsb), if(not_loaded)]), error(E, load_files/2), throw(error(E, ensure_dync_loaded/1))), '$xsb_edl'(Fs).\n"

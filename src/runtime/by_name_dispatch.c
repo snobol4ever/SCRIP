@@ -5437,7 +5437,9 @@ const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
     extern int rt_pl_dialect_swi(void);
     extern int rt_pl_dialect_gnu(void);
     extern int rt_pl_dialect_xsb(void);
-    int prec = rt_pl_dialect_xsb() ? 15 : rt_pl_dialect_gnu() ? 17 : 0;
+    extern const char *rt_pl_flag_text(const char *);
+    const char *xfp = rt_pl_dialect_xsb() ? rt_pl_flag_text("$xsb_float_precision") : (const char *)0;
+    int prec = rt_pl_dialect_xsb() ? (xfp ? atoi(xfp) : 15) : rt_pl_dialect_gnu() ? 17 : 0;
     if (isnan(fv)) { snprintf(fb, (size_t)bufsz, "1.5NaN"); return fb; }
     if (isinf(fv) && fv < 0) { snprintf(fb, (size_t)bufsz, "-1.0Inf"); return fb; }
     if (isinf(fv)) { snprintf(fb, (size_t)bufsz, "1.0Inf"); return fb; }
@@ -7133,12 +7135,21 @@ static void *pl_format_body(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     d0 = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(d0)) return rt_pl_ball_instantiation();
     if (d0.v == DT_I || d0.v == DT_R) return rt_pl_ball_kind2("type_error", "atom", d0);
+    if (pl_xsb_dialect() && pl_is_cons(d0)) {
+        int kind = 0;
+        for (DESCR_t c = d0; pl_is_cons(c); c = rt_pl_deref_val(((DESCR_t *)c.p)[1])) {
+            DESCR_t e = rt_pl_deref_val(((DESCR_t *)c.p)[0]);
+            int k = e.v == DT_I ? 1 : 2;
+            if (kind && kind != k) return rt_pl_ball_kind2("type_error", "text", d0);
+            kind = k;
+        }
+    }
     if (pl_is_nil(d0)) fmt = "";
     else if (!pl_cell_text(args[0], fb, sizeof fb, &fmt)) return rt_pl_ball_kind2("type_error", "atom", d0);
     lst = pl_nil();
     if (nargs == 2) {
         DESCR_t cur = rt_pl_deref_val(args[1]);
-        if (pl_swi_dialect() && !pl_is_cons(cur) && !pl_is_nil(cur)) return rt_pl_format_run(fmt, (lst = pl_cons(args[1], pl_nil()), &lst), cx);
+        if ((pl_swi_dialect() || pl_xsb_dialect()) && !pl_is_cons(cur) && !pl_is_nil(cur)) return rt_pl_format_run(fmt, (lst = pl_cons(args[1], pl_nil()), &lst), cx);
         while (pl_is_cons(cur)) cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]);
         if (pl_val_unbound(cur)) return rt_pl_ball_instantiation();
         if (!pl_is_nil(cur)) return rt_pl_ball_kind2("type_error", "list", rt_pl_deref_val(args[1]));
@@ -9659,9 +9670,19 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
         for (int i = 0; pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return 1;
         if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs") || !strcmp(on, "spacing")) return 1;
         if (!strcmp(on, "module") && !pl_gnu_dialect()) return 1;
+        if (pl_xsb_dialect() &&
+            (!strcmp(on, "portable") || !strcmp(on, "integer_prefix") || !strcmp(on, "integer_base") || !strcmp(on, "radix") || !strcmp(on, "float_precision") || !strcmp(on, "float_specifier")))
+            return 1;
         return 2;
     }
     as = pl_atom_str(a);
+    if (pl_xsb_dialect()) {
+        if (!strcmp(on, "portable") || !strcmp(on, "integer_prefix")) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
+        if (!strcmp(on, "float_precision")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
+        if (!strcmp(on, "float_specifier")) return (as && (!strcmp(as, "f") || !strcmp(as, "e") || !strcmp(as, "g"))) ? 0 : 2;
+        if (!strcmp(on, "integer_base")) return ((a.v == DT_I && a.i >= 2 && a.i <= 36) || (as && (!strcmp(as, "hex") || !strcmp(as, "octal") || !strcmp(as, "decimal")))) ? 0 : 2;
+        if (!strcmp(on, "radix")) return (as && (!strcmp(as, "hex") || !strcmp(as, "octal") || !strcmp(as, "decimal"))) ? 0 : 2;
+    }
     if (!strcmp(on, "portray_goal")) return 0;
     if (!strcmp(on, "blobs")) return as ? 0 : 2;
     if (!strcmp(on, "spacing")) { *culprit = a; return !as ? 4 : (!strcmp(as, "standard") || !strcmp(as, "next_argument")) ? 0 : 6; }

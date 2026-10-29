@@ -350,7 +350,7 @@ S_QUOTED:
                                                                                                                                          : "invalid escape sequence in double-quoted token",
                                                                                     e0[1] == 'u' || e0[1] == 'U' ? "Illegal \\u or \\U sequence" : swi_culprit1("undefined_char_escape", (unsigned char)e0[1])); }
                                                                                                                                                goto S_QUOTED;      }
-    if ((PEEK(0) == '\n' && !lx->swi) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
+    if ((PEEK(0) == '\n' && !lx->nlq) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
                                                                                                                     : "unescaped layout character in double-quoted token"); }
                                                                      {  if (PEEK(0) == '\n') NL(); sb_put(lx, PEEK(0)); ADV(1);                goto S_QUOTED;      }
 S_GRAPHIC:
@@ -411,6 +411,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->fenced = 0;
     lx->iso = 0;
     lx->swi = lx_dialect_marker(lx->src);
+    lx->nlq = lx->swi;
     lx->tstart = 0; lx->last_end = 0; lx->cm = NULL; lx->ncm = 0; lx->ccm = 0;
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0; lx->run0 = 0; lx->pc = NULL;
     memset(&lx->peek, 0, sizeof lx->peek);

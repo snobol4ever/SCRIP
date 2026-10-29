@@ -60,6 +60,7 @@ typedef struct {
     int         run0;
     int         iso;
     int         swi;
+    int         nlq;
     int         tstart;
     int         last_end;
     int        *cm;

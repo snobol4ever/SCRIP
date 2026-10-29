@@ -78,6 +78,13 @@ struct plc_vmap {
     int next_arg;
     pl_cell_t *pgoal;
     pl_cell_t *popts;
+    int ibase;
+    int inamed;
+    int ipfx;
+    int xstr;
+    int fprec;
+    char fspec;
+    int xopf;
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_atom_text(pl_cell_t *d);
@@ -516,6 +523,65 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_put_float(plc_vmap *m, pl_cell_t *d) {
+    int prec = m->fprec;
+    char spec = m->fspec, fmt[16], buf[512];
+    if (prec < 0) { plc_wt_num(m->fp, d); return; }
+    if (prec == 0) prec = 17;
+    snprintf(fmt, sizeof fmt, "%%.%d%c", prec, spec ? spec : 'g');
+    snprintf(buf, sizeof buf, fmt, d->r);
+    if (!spec || spec == 'g') {
+        char *e = strchr(buf, 'e');
+        if (!strchr(buf, '.') && !strchr(buf, 'n') && !strchr(buf, 'i')) { if (e) { memmove(e + 2, e, strlen(e) + 1); e[0] = '.'; e[1] = '0'; } else strcat(buf, ".0"); }
+    }
+    fputs(buf, m->fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_put_int(plc_vmap *m, long v) {
+    FILE *fp = m->fp;
+    unsigned long u;
+    char buf[72];
+    int n = 0;
+    if (m->ibase < 2) { fprintf(fp, "%ld", v); return; }
+    u = v < 0 ? 0UL - (unsigned long)v : (unsigned long)v;
+    do { int dg = (int)(u % (unsigned long)m->ibase); buf[n++] = (char)(dg < 10 ? '0' + dg : 'a' + dg - 10); u /= (unsigned long)m->ibase; } while (u);
+    if (v < 0) fputc('-', fp);
+    if (m->ipfx) { if (m->inamed) fputs(m->ibase == 16 ? "0x" : "0o", fp); else fprintf(fp, "%d'", m->ibase); }
+    while (n) fputc(buf[--n], fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_xsb_codes(plc_vmap *m, pl_cell_t *d) {
+    FILE *fp = m->fp;
+    pl_cell_t *cur = d;
+    long n = 0;
+    for (;;) {
+        pl_cell_t *ca = (pl_cell_t *)cur->p;
+        pl_cell_t *hd = pl_deref(&ca[0]), *tl;
+        long c;
+        if ((int)hd->v != DT_I) return 0;
+        c = (long)hd->i;
+        if (!(c == 9 || c == 10 || (c >= 32 && c <= 126))) return 0;
+        if (++n > 1000000) return 0;
+        tl = pl_deref(&ca[1]);
+        if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) { cur = tl; continue; }
+        if (!plc_is_nil(tl) && !pl_cell_unbound(tl)) return 0;
+        break;
+    }
+    fputc('"', fp);
+    cur = d;
+    for (;;) {
+        pl_cell_t *ca = (pl_cell_t *)cur->p;
+        long c = (long)pl_deref(&ca[0])->i;
+        pl_cell_t *tl = pl_deref(&ca[1]);
+        if (c == '"' || c == '\\') fputc((int)c, fp);
+        fputc((int)c, fp);
+        if ((int)tl->v != DT_PLREF || !tl->p) break;
+        cur = tl;
+    }
+    fputc('"', fp);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m);
 #define PLC_KID(cl, dp, mp) do { if (wx) plc_wt((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); else plc_wt_lv((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); } \
     while (0)
@@ -533,8 +599,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     if (pl_cell_unbound(d)) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
     if (tg == DT_S) { plc_wt_string(fp, d, quoted); return; }
     if (tg == DT_PLATOM) { plc_wt_atom_n(fp, plc_atom_text(d), plc_atom_len(d), quoted); return; }
-    if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
-    if (tg == DT_R) { plc_wt_num(fp, d); return; }
+    if (tg == DT_I) { plc_put_int(m, (long)d->i); return; }
+    if (tg == DT_R) { plc_put_float(m, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
     if (pl_rat_is(*d)) { pl_rat_fput(*d, fp); return; }
     if (rt_pl_eng_inst_is(*d)) { fprintf(fp, "<engine>(%ld,0x%lx)", (long)rt_pl_eng_inst_id(*d), (unsigned long)(uintptr_t)d->u); return; }
@@ -560,6 +626,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
     if ((!ignore_ops || (ignore_ops & 2)) && fnid == g_runtime.atoms.atom_dot && ar == 2) {
+        if (m->xstr && !wx && plc_xsb_codes(m, d)) return;
         if (max_depth > 0 && !wx && rt_pl_dialect_gnu()) {
             long rem = max_depth - depth;
             int first = 1;
@@ -595,9 +662,9 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         for (;;) {
             pl_cell_t *ca = (pl_cell_t *)cur->p;
             pl_cell_t *tl;
-            if (max_depth > 0 && n > 0 && depth + 1 + n >= max_depth) { fprintf(fp, "|..."); break; }
+            if (max_depth > 0 && n > 0 && depth + (m->xstr ? 0 : 1) + n >= max_depth) { fprintf(fp, "|..."); break; }
             if (n) fputs(m->space_args || m->next_arg ? ", " : ",", fp);
-            PLC_KID(&ca[0], depth + 1 + n, 999);
+            PLC_KID(&ca[0], depth + 1 + (m->xstr ? 0 : n), 999);
             n++;
             if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
             tl = pl_deref(&ca[1]);
@@ -608,7 +675,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 if (wx) { plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort); }
                 continue;
             }
-            if (!plc_is_nil(tl)) { if (max_depth > 0 && depth + 1 + n >= max_depth) fputs("|...", fp); else { fputc('|', fp); PLC_KID(tl, depth + 1 + n, 999); } }
+            if (!plc_is_nil(tl)) { if (max_depth > 0 && depth + (m->xstr ? 0 : 1) + n >= max_depth) fputs("|...", fp); else { fputc('|', fp); PLC_KID(tl, depth + 1 + n, 999); } }
             break;
         }
         fputc(']', fp);
@@ -714,8 +781,14 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             return;
         }
     }
-    plc_wt_atom(fp, fn, quoted || (fn[0] == '.' && fn[1] == 0));
+    {
+        int xopf = m->xopf && quoted && ignore_ops && ((fn[0] == '.' && fn[1] == 0) || plc_op_info(fn, 1, &(int){0}, &(int){0}, &(int){0}) || plc_op_info(fn, 2, &(int){0}, &(int){0}, &(int){0}));
+        if (xopf) fputc('(', fp);
+        plc_wt_atom(fp, fn, quoted || (fn[0] == '.' && fn[1] == 0 && !rt_pl_dialect_xsb()));
+        if (xopf) fputc(')', fp);
+    }
     fprintf(fp, "(");
+    if (max_depth > 0 && ar > 0 && depth + 1 >= max_depth && rt_pl_dialect_xsb() && !wx) { fputs("...)", fp); return; }
     int nb = ar;
     if (max_depth > 0 && !wx && rt_pl_dialect_gnu() && max_depth - depth < ar) nb = (int)(max_depth - depth);
     for (int i = 0; i < nb; i++) {
@@ -868,6 +941,13 @@ void rt_pl_write_cell(void *cell) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -885,6 +965,13 @@ void rt_pl_write_cell_fp(void *cell, FILE *fp) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = fp ? fp : plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -902,6 +989,13 @@ void rt_pl_write_cell_fp_p(void *cell, FILE *fp, int maxp) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = fp ? fp : plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -919,6 +1013,13 @@ void rt_pl_writeq_cell(void *cell) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -936,6 +1037,13 @@ void rt_pl_write_canonical_cell(void *cell) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -953,6 +1061,13 @@ void *rt_pl_display_cell_ball(void *cell) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -983,6 +1098,13 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = plc_out();
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -992,8 +1114,8 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
     m.next_arg = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = rt_pl_dialect_xsb() ? 1000 : 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"), nolists = 0,
-        nobraces = 0;
+    int portable = 0, quoted = 0, ignore_ops = 0, numbervars = 0, prio = rt_pl_dialect_xsb() ? 1000 : 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"),
+        nolists = 0, nobraces = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -1014,7 +1136,29 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
             else if (on && (!strcmp(on, "no_lists") || !strcmp(on, "dotlists"))) nolists = plc_opt_is_true(o);
             else if (on && !strcmp(on, "brace_terms")) nobraces = !plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
-            else if (on && !strcmp(on, "space_args")) m.space_args = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "portable") && rt_pl_dialect_xsb()) portable = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "float_precision") && rt_pl_dialect_xsb()) {
+                pl_cell_t *a = pl_deref(&oa[0]);
+                if ((int)a->v == DT_I && a->i >= 0) m.fprec = (int)a->i;
+            } else if (on && !strcmp(on, "float_specifier") && rt_pl_dialect_xsb()) {
+                pl_cell_t *a = pl_deref(&oa[0]);
+                const char *an = (int)a->v == DT_PLATOM ? plc_atom_text(a) : (const char *)0;
+                if (an && an[0] && !an[1] && strchr("feg", an[0])) m.fspec = an[0];
+            } else if (on && !strcmp(on, "integer_prefix") && rt_pl_dialect_xsb()) m.ipfx = plc_opt_is_true(o);
+            else if (on && (!strcmp(on, "integer_base") || !strcmp(on, "radix")) && rt_pl_dialect_xsb()) {
+                pl_cell_t *a = pl_deref(&oa[0]);
+                const char *an = (int)a->v == DT_PLATOM ? plc_atom_text(a) : (const char *)0;
+                if ((int)a->v == DT_I) {
+                    m.ibase = (int)a->i;
+                    m.inamed = 0;
+                } else if (an && !strcmp(an, "hex")) {
+                    m.ibase = 16;
+                    m.inamed = 1;
+                } else if (an && !strcmp(an, "octal")) {
+                    m.ibase = 8;
+                    m.inamed = 1;
+                } else m.ibase = 0;
+            } else if (on && !strcmp(on, "space_args")) m.space_args = plc_opt_is_true(o);
             else if (on && !strcmp(on, "spacing")) {
                 pl_cell_t *a = pl_deref(&oa[0]);
                 m.next_arg = (int)a->v == DT_PLATOM && !strcmp(plc_atom_text(a), "next_argument");
@@ -1043,6 +1187,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
         lst = pl_deref(&pair[1]);
     }
     if (ignore_ops && rt_pl_dialect_swi()) ignore_ops = 1 | (nolists ? 0 : 2) | (nobraces ? 0 : 4);
+    if (rt_pl_dialect_xsb()) { if (portable) ignore_ops = 1 | 2 | 4; m.xstr = ignore_ops != 1; m.xopf = 1; }
     pl_cell_t *tt = pl_deref((pl_cell_t *)term_cell);
     int br = 0, p1 = 0, p2 = 0, lm, rm;
     if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }
@@ -1124,7 +1269,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
     pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t nameV, arityV;
-        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0) {
+        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0 && !rt_pl_dialect_xsb()) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             if (cx) cx->ball = rt_pl_ball_kind2("domain_error", "compound_non_zero_arity", *d0);
             return 0;
@@ -1184,7 +1329,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t lst = plc_atom_id_cell(prolog_atom_intern("[]"));
-        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0) {
+        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0 && !rt_pl_dialect_xsb()) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             if (cx) cx->ball = rt_pl_ball_kind2("domain_error", "compound_non_zero_arity", *d0);
             return 0;
@@ -1749,7 +1894,7 @@ static void plc_fb_stop(plc_fb *f, long target) {
         if (f->b) f->b[f->n] = '\0';
         long w[nf > 0 ? nf : 1];
         for (int i = 0; i < nf; i++) w[i] = pad / nf;
-        for (long r = 0; r < pad % nf; r++) w[(nf / 2 + r) % nf]++;
+        for (long r = 0; r < pad % nf; r++) w[rt_pl_dialect_xsb() ? nf - 1 - r : (nf / 2 + r) % nf]++;
         for (size_t k = 0; k <= segn; k++) {
             while (fi < nf && f->fpos[fi] - base == k) { for (long j = 0; j < w[fi]; j++) plc_fb_u8(f, (unsigned)f->fchr[fi]); fi++; }
             if (k < segn) plc_fb_raw(f, seg + k, 1);
@@ -1769,6 +1914,13 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
     if (!ms) return (void *)0;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = ms;
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;
@@ -1832,6 +1984,7 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball) {
     b = (char *)ct_alloc(cap);
     if (!b) return 0;
     lst = pl_deref(h);
+    int kind = 0;
     while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) {
         pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst);
         pl_cell_t *e = pl_deref(&aa[0]);
@@ -1839,6 +1992,7 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball) {
         const char *cs = (const char *)0;
         size_t cl = 0;
         if (pl_cell_unbound(e)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+        if (rt_pl_dialect_xsb()) { int k = pl_is_int(e) ? 1 : 2; if (kind && kind != k) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *h); return 0; } kind = k; }
         if (pl_is_int(e)) ch = (long)pl_int_val(e);
         else if (plc_fmt_is_atom(e)) { cs = plc_atom_text(e); cl = cs ? strlen(cs) : 0; } else { ct_drop(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e); return 0; }
         if (n + cl + 6 > cap) { while (n + cl + 6 > cap) cap *= 2; char *nb = (char *)ct_grow(b, cap); if (!nb) { ct_drop(b); return 0; } b = nb; }
@@ -1983,7 +2137,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             if (have_n) fill = (int)nval;
         }
         if (*p == ':') { colon = 1; p++; }
-        if (!*p) { if (rt_pl_dialect_gnu()) ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell("")); break; }
+        if (!*p) { if (rt_pl_dialect_gnu() || rt_pl_dialect_xsb()) ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell("")); break; }
         if (*p == '~') { plc_fb_add(&f, "~", 1); continue; }
         if (*p == 'n') { long r = have_n ? nval : 1; for (long i = 0; i < r; i++) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 'N') { if (plc_fb_colat(&f, f.n)) plc_fb_add(&f, "\n", 1); continue; }
@@ -1994,6 +2148,16 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         {
             pl_cell_t *h = plc_fmt_next_arg(&args);
             if (!h) { ball = plc_fmt_exhausted(all); break; }
+            if (rt_pl_dialect_xsb() && (*p == 'w' || *p == 'q')) {
+                pl_cell_t *hd = pl_deref(h);
+                if ((int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(hd->slen)), "+")) {
+                    pl_cell_t *pa = (pl_cell_t *)hd->p;
+                    void *tb = plc_fb_term(&f, &pa[0], *p == 'q' ? 1 : 0, 0, 0);
+                    if (!tb) { plc_fb_add(&f, "+", 1); tb = plc_fb_term(&f, &pa[1], *p == 'q' ? 1 : 0, 0, 0); }
+                    if (tb) { ball = tb; break; }
+                    continue;
+                }
+            }
             if (*p == 'w') plc_fb_term(&f, h, 0, 0, 0);
             else if (*p == 'p') {
                 void *tb;
@@ -2119,12 +2283,23 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                     }
                     lst = pl_deref(&aa[1]);
                 }
+                if (rt_pl_dialect_xsb()) {
+                    pl_cell_t *hd = pl_deref(h);
+                    if (quoted && iops) { plc_fb_term(&f, h, 2, 0, 0); continue; }
+                    if (!iops && (int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(hd->slen)), "+")) {
+                        pl_cell_t *pa = (pl_cell_t *)hd->p;
+                        void *tb = plc_fb_term(&f, &pa[0], 3, quoted, iops);
+                        if (!tb) { plc_fb_add(&f, "+", 1); tb = plc_fb_term(&f, &pa[1], 3, quoted, iops); }
+                        if (tb) { ball = tb; break; }
+                        continue;
+                    }
+                }
                 plc_fb_term(&f, h, 3, quoted, iops);
             }
         }
     }
     if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
-    { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
+    { fd = plc_out(); if (f.n && !(ball && rt_pl_dialect_xsb())) fwrite(f.b, 1, f.n, fd); }
     ct_drop(f.b);
     plc_ws_end(cx, mark);
     return ball;
@@ -3044,6 +3219,13 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ct
     plc_vmap m;
     m.n = 0;
     m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
     m.fp = ms;
     m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
     m.pthrown = (void *)0;

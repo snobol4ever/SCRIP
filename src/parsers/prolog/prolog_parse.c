@@ -32,6 +32,7 @@ typedef struct {
     TreeScope   ts;
     int         incl_depth;
     int         iso;
+    int         xsb;
     const char *synerr;
     int         wrap_tail;
 } Parser;
@@ -766,7 +767,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             }
             if (strcmp(tk.text, "-") == 0) {
                 Token pk3 = lexer_peek(&p->lx);
-                int neg_adj = !syn_swi(p) || pk3.start == tk.end;
+                int neg_adj = !syn_swi(p) || p->xsb || pk3.start == tk.end;
                 if (pk3.kind == TK_INT && !pk3.uni && neg_adj) {
                     Token num = lexer_next(&p->lx);
                     if (num.big && num.text) {
@@ -1334,6 +1335,14 @@ static void iso_directive(Parser *p, const tree_t *goal) {
     if (!strcmp(v->v.sval, "true")) p->iso = 1; else if (!strcmp(v->v.sval, "false")) p->iso = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void xsb_directive(Parser *p, const tree_t *goal) {
+    if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
+    const char *f = goal->v.sval;
+    if (goal->n == 1 && !strcmp(f, "import")) { if (goal->c[0] && goal->c[0]->t == TT_FNC && goal->c[0]->n == 2 && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "from")) p->xsb = 1; return; }
+    if (goal->n == 1 && (!strcmp(f, "compiler_options") || !strcmp(f, "hilog") || !strcmp(f, "ti"))) p->xsb = 1;
+    else if (!strcmp(f, "index") && goal->n >= 2 && goal->n <= 3) p->xsb = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static PlClause *parse_clause(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
@@ -1355,7 +1364,7 @@ static PlClause *parse_clause(Parser *p) {
             if (fdot.kind != TK_DOT) perror_syn(p, fdot, SYN_END, "expected . at end of clause");
             tree_t *_fcl = ast_node_new(TT_CLAUSE);
             if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
-            else if (fnc->n == 1) { register_op_directive(fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
+            else if (fnc->n == 1) { register_op_directive(fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); xsb_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
             else ast_push(_fcl, fnc);
             cl->tr = _fcl;
             return cl;
@@ -1364,7 +1373,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_syn(p, dot, SYN_END, "expected . after directive");
-        register_op_directive(body_tr, p->lx.swi); iso_directive(p, body_tr);
+        register_op_directive(body_tr, p->lx.swi); iso_directive(p, body_tr); xsb_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
@@ -2898,6 +2907,27 @@ static const char * const PL_PRELUDE_SRC =
     "'$gnu_pfile_of'(N,A,F,K):-catch('$gnu_pfile'(N,A,F,K),error(existence_error(_,_),_),fail),!.\n"
     "'$gnu_pfile_of'(_,_,user_input,0).\n"
     "listing(PI):-current_prolog_flag('$dialect',swi),!,'$swi_listing'(PI).\n"
+    "listing(PI):-current_prolog_flag('$dialect',xsb),!,'$xsb_listing'(PI).\n"
+    "listing:-current_prolog_flag('$dialect',xsb),!,(current_predicate(N/A),functor(H,N,A),predicate_property(H,dynamic),'$xsb_lst0'(H),fail;true).\n"
+    "'$xsb_listing'(X):-var(X),!,listing.\n"
+    "'$xsb_listing'(M:X):-atom(M),!,'$xsb_listing'(X).\n"
+    "'$xsb_listing'([]):-!.\n"
+    "'$xsb_listing'([S|Ss]):-!,'$xsb_lst0'(S),'$xsb_listing'(Ss).\n"
+    "'$xsb_listing'(P/A):-!,functor(H,P,A),'$xsb_lst0'(H).\n"
+    "'$xsb_listing'(H):-atom(H),!,findall(H0,(current_predicate(H/A0),functor(H0,H,A0),predicate_property(H0,dynamic)),Hs),'$xsb_listing'(Hs).\n"
+    "'$xsb_listing'(H):-'$xsb_lst0'(H).\n"
+    "'$xsb_lst0'(H):-nonvar(H),H=(_/_),!.\n"
+    "'$xsb_lst0'(H):-functor(H,N,A),\\+predicate_property(H,dynamic),predicate_property(H,defined),!,throw(error(permission_error(access,static_private_predicate,N/A),context(clause0/2,_))).\n"
+    "'$xsb_lst0'(H):-clause(H,B),copy_term(H-B,H1-B1),numbervars(H1-B1,0,_),write(H1),'$xsb_pp'(B1),fail.\n"
+    "'$xsb_lst0'(H):-(clause(H,_)->nl;true).\n"
+    "'$xsb_pp'(true):-!,write('.'),nl.\n"
+    "'$xsb_pp'(B):-write(' :-'),nl,tab(4),'$xsb_pp0'(B,4),write('.'),nl.\n"
+    "'$xsb_pp0'((F,R),I):-!,'$xsb_pp0'(F,I),write(','),nl,'$xsb_ppb'(R,I).\n"
+    "'$xsb_pp0'((B->T;E),I):-!,write('('),I1 is I+1,'$xsb_pp0'(B,I1),nl,tab(I1),write('-> '),I2 is I1+3,'$xsb_pp0'(T,I2),nl,tab(I1),write(';  '),'$xsb_pp0'(E,I2),nl,tab(I),write(')').\n"
+    "'$xsb_pp0'((B->T),I):-!,write('('),I1 is I+1,'$xsb_pp0'(B,I1),nl,tab(I1),write('-> '),I2 is I1+3,'$xsb_pp0'(T,I2),nl,tab(I),write(')').\n"
+    "'$xsb_pp0'((F;R),I):-!,write('('),I1 is I+1,'$xsb_pp0'(F,I1),nl,tab(I1),write(';'),nl,'$xsb_ppb'(R,I1),nl,tab(I),write(')').\n"
+    "'$xsb_pp0'(F,_):-write(F).\n"
+    "'$xsb_ppb'(F,I):-tab(I),'$xsb_pp0'(F,I).\n"
     "'$swi_listing'(PI):-var(PI),!,throw(error(instantiation_error,listing/1)).\n"
     "'$swi_listing'([]):-!.\n"
     "'$swi_listing'([P|Ps]):-!,'$swi_listing'(P),'$swi_listing'(Ps).\n"
@@ -4641,10 +4671,11 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.quiet    = quiet;
     p.prec     = 0;
     p.incl_depth = 0;
+    p.xsb      = 0;
     p.synerr   = (const char *)0;
     p.wrap_tail = src && !strncmp(src, "'$rd'((", 7) ? (int)strlen(src) - 4 : -1;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
-    { extern int rt_pl_dialect_xsb(void); if (rt_pl_dialect_xsb()) p.lx.swi = 1; }
+    { extern int rt_pl_dialect_xsb(void); p.xsb = rt_pl_dialect_xsb(); if (p.xsb) p.lx.nlq = 1; }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
