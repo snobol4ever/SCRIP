@@ -20086,6 +20086,7 @@ static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return -1;
+    if (rt_str_arg_bad(args[0])) { core_runtime_error(200, "trim argument is not a string"); *out = FAILDESCR; return 1; }
     const char *sv = VARVAL_fn(args[0]);
     if (!sv) sv = "";
     size_t n = sv_len(args[0], sv);
@@ -20100,7 +20101,7 @@ static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *
 static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2) return -1;
     if (!is_numeric_like(args[1])) { core_runtime_error(90, "dupl second argument is not integer"); *out = FAILDESCR; return 1; }
-    if (args[0].v == DT_P || args[0].v == DT_X) { extern DESCR_t DUPL_fn(DESCR_t, DESCR_t); *out = DUPL_fn(args[0], args[1]); return 1; }
+    if (args[0].v == DT_P || args[0].v == DT_X || rt_str_arg_bad(args[0])) { extern DESCR_t DUPL_fn(DESCR_t, DESCR_t); *out = DUPL_fn(args[0], args[1]); return 1; }
     const char *sv = VARVAL_fn(args[0]);
     if (!sv) sv = "";
     DESCR_t nn = args[1];
@@ -20123,6 +20124,8 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
     static struct { unsigned char v, n; char rm_from[63], rm_to[63], rm_map[256]; } g_rm[4];
     static int g_rm_off = -1;
     if (nargs != 3) return -1;
+    if (rt_str_arg_bad(args[2])) { core_runtime_error(168, "replace third argument is not a string"); *out = FAILDESCR; return 1; }
+    if (rt_str_arg_bad(args[1])) { core_runtime_error(169, "replace second argument is not a string"); *out = FAILDESCR; return 1; }
     const char *sv, *fv, *tv;
     size_t sl, fl, tl;
     const int _plf = !repl_pl_off();
@@ -20130,6 +20133,7 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
     BN_PTRLEN(args[1], fv, fl, _plf);
     BN_PTRLEN(args[2], tv, tl, _plf);
     if (fl != tl || !fl) { core_runtime_error(171, "null or unequally long 2nd, 3rd args to replace"); *out = FAILDESCR; return 1; }
+    if (rt_str_arg_bad(args[0])) { core_runtime_error(170, "replace first argument is not a string"); *out = FAILDESCR; return 1; }
     if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
     char mloc[256];
     char *map = mloc;
@@ -20181,7 +20185,7 @@ static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_
     if (nargs != 1) return -1;
     DESCR_t av = args[0];
     if (IS_INT_fn(av)) { *out = NULVCL; return 1; }
-    if (IS_REAL_fn(av)) { *out = FAILDESCR; return 1; }
+    if (IS_REAL_fn(av) || rt_name_textless(av)) { *out = FAILDESCR; return 1; }
     const char *sv = IS_STR(av) ? rt_cstr_d(av) : VARVAL_fn(av);
     if (!sv) sv = "";
     const char *p = sv;
@@ -21291,12 +21295,7 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
             if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
             if (!strcmp(tu, "INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
             if (!strcmp(tu, "REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
-            if (!strcmp(tu, "STRING")) {
-                if (a.v == DT_A || a.v == DT_T || a.v == DT_P || a.v == DT_C || a.v == DT_E || a.v == DT_X || IS_DATA_INST_fn(a) || rt_name_textless(a)) { *out = FAILDESCR; return 1; }
-                const char *sv = VARVAL_fn(a);
-                *out = STRVAL(rt_heap_strdup_c(sv ? sv : ""));
-                return 1;
-            }
+            if (!strcmp(tu, "STRING")) { if (rt_str_arg_bad(a)) { *out = FAILDESCR; return 1; } const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
             return 0;
         }
     }
@@ -23948,7 +23947,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu,"INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
         if (!strcmp(tu,"REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
-        if (!strcmp(tu,"STRING")) { if (rt_name_textless(a)) { *out = FAILDESCR; return 1; } const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
+        if (!strcmp(tu,"STRING")) { if (rt_str_arg_bad(a)) { *out = FAILDESCR; return 1; } const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
         return 0;
     }
     L_bidjmp_6521:

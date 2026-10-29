@@ -2193,7 +2193,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (val.v == DT_S && val.s) val.s = (char *)rt_cstr_d(val);
     const char *type = VARVAL_fn(a[1]);
     if (!type) return FAILDESCR;
-    if (strcmp(type, "STRING") == 0) { const char *s = VARVAL_fn(val); return s ? STRVAL(rt_heap_strdup_c(s)) : NULVCL; }
+    if (strcmp(type, "STRING") == 0) { if (rt_str_arg_bad(val)) return FAILDESCR; const char *s = VARVAL_fn(val); return s ? STRVAL(rt_heap_strdup_c(s)) : NULVCL; }
     if (strcmp(type, "INTEGER") == 0) return rt_sno_cnv_num(val, 'I');
     if (strcmp(type, "REAL") == 0) return rt_sno_cnv_num(val, 'R');
     if (strcmp(type, "ARRAY") == 0) {
@@ -4045,6 +4045,7 @@ int rt_name_textless(DESCR_t v) {
     for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == (DESCR_t *)v.ptr || (e->is_gva && e->cell == (DESCR_t *)v.ptr)) return 0;
     return 1;
 }
+int rt_str_arg_bad(DESCR_t d) { return d.v == DT_P || d.v == DT_A || d.v == DT_T || d.v == DT_C || d.v == DT_E || d.v == DT_X || IS_DATA_INST_fn(d) || rt_name_textless(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
