@@ -83,6 +83,9 @@ $'goto'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'goto')      *$' ';
 $'in'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'in')        *$' ';
 $'label'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'label')     *$' ';
 $'of'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'of')        *$' ';
+$'absolute' =   *$' ' *Id $ tx *IDENT(lwr(tx), 'absolute')  *$' ';
+$'object'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'object')    *$' ';
+$'exports'  =   *$' ' *Id $ tx *IDENT(lwr(tx), 'exports') *DIFFER(dialect, 'iso')  *$' ';
 $'packed'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'packed')    *$' ';
 $'record'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
 $'set'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
@@ -503,11 +506,12 @@ Expr3           =   *$'@'   *Expr3 . *Reduce('TT_ADDR', 1)
 /* Multiplying operators: * / div mod and.                                                */
 PowStar         =   FENCE(*$'**' epsilon . *PasFlip('fpc') *Expr3 . *Reduce('TT_POW', 2) *PowStar | epsilon);
 Expr3P          =   *Expr3 *PowStar;
-MulOp           =   ( *$' ' ('*' *$' '   *Expr3P . *Reduce('TT_MUL', 2)
-                    | '/' *$' '   *Expr3P . *Reduce('TT_DIV', 2)
-                    ) | *$'div' *Expr3P . *Reduce('TT_IDIV', 2)
-                    | *$'mod' *Expr3P . *Reduce('TT_MOD', 2)
-                    | *$'and' *Expr3P . *Reduce('TT_CONJ', 2)
+MulSgn          =   ( *$'-' *Expr3P . *Reduce('TT_MNS', 1) | *Expr3P );
+MulOp           =   ( *$' ' ('*' *$' '   *MulSgn . *Reduce('TT_MUL', 2)
+                    | '/' *$' '   *MulSgn . *Reduce('TT_DIV', 2)
+                    ) | *$'div' *MulSgn . *Reduce('TT_IDIV', 2)
+                    | *$'mod' *MulSgn . *Reduce('TT_MOD', 2)
+                    | *$'and' *MulSgn . *Reduce('TT_CONJ', 2)
                     | *$' ' (*Id $ tx . thy) ( *IDENT(lwr(tx), 'shl') | *IDENT(lwr(tx), 'shr') ) *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() epsilon . *PasFlip('fpc') *Expr3P . *Reduce('TT_FNC', 3)
                     | *$' ' (*Id $ tx . thy) *IDENT(lwr(tx), 'as') *DIFFER(dialect, 'iso') *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() *Expr3P . *Reduce('TT_FNC', 3)
                     );
@@ -549,7 +553,7 @@ MidStep         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
                     | *$' ' ('.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
                     | '^' *$' ' . *Reduce('TT_DEREF', 1)
                     ));
-MethodStmt      =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
+MethodStmt      =   ( (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) ARBNO(*MidStep) | *FuncCall ) *$' ' '.' *$' ' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Reduce('TT_FIELD', 2)
                     epsilon . *PushCounter() epsilon . *IncCounter() FENCE(*$'(' (*CallArgs | epsilon) *$')' | epsilon) . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
@@ -610,7 +614,10 @@ Name            =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx));
 TypeId          =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *NoteType(thx);
 IdList          =   epsilon . *PushCounter() *Name . *IncCounter() ARBNO(*$',' *Name . *IncCounter()) . *Reduce('TT_VLIST', nTop()) . *PopCounter();
 /* A type name, or string[n] -> TT_IDX(string, n).  */
-TypeName        =   (*Ident) . tnm . *Lf('TT_VAR', lwr(tnm)) FENCE(*$'[' *Expr0 *$']' . *Reduce('TT_IDX', 2) | epsilon) epsilon . *NoteType(tnm);
+TypeName        =   (*Ident) . tnm . *Lf('TT_VAR', lwr(tnm)) FENCE(*$'.' (*Ident) . tnq . *Lf('TT_VAR', lwr(tnq)) . *Reduce('TT_FIELD', 2) epsilon . *NoteType(tnq)
+                                                          | *$'[' *Expr0 *$']' . *Reduce('TT_IDX', 2) epsilon . *NoteType(tnm) | epsilon . *NoteType(tnm));
+/* A function's result type: a unit-qualified name is its last name (pascal.y result_type).  */
+ResType         =   ( (*Ident) *$'.' *TypeId | *TypeId );
 /* A type denoter, ISO 7185 6.4.  */
 EnumType        =   epsilon . *PushCounter() *$'(' *Name . *IncCounter() ARBNO(*$',' *Name . *IncCounter()) *$')' . *Reduce('TT_ENUM_TYPE', nTop()) . *PopCounter();
 SimpleType      =   ( *EnumType
@@ -655,8 +662,8 @@ ClassType       =   epsilon . *PushCounter() *$'class' epsilon . *PasOO() epsilo
                                                           | epsilon . *PushCounter() *ClassMembers . *Reduce('TT_VLIST', nTop()) . *PopCounter() . *IncCounter() *$'end' . *Reduce('TT_CLASS_DECL', nTop()) )
                     | epsilon . *PushCounter() *ClassMembers . *Reduce('TT_VLIST', nTop()) . *PopCounter() . *IncCounter() *$'end' . *Reduce('TT_CLASS_DECL', nTop())
                     ) . *PopCounter();
-ProcType        =   ( epsilon . *PushCounter() *$'procedure' *ParamsOpt . *Reduce('TT_DECL', nTop(), 'proctype') . *PopCounter()
-                    | epsilon . *PushCounter() *$'function' *ParamsOpt *$':' *TypeId . *IncCounter() . *Reduce('TT_DECL', nTop(), 'functype') . *PopCounter()
+ProcType        =   ( epsilon . *PushCounter() *$'procedure' *ParamsOpt FENCE(*$'of' *$'object' | epsilon) . *Reduce('TT_DECL', nTop(), 'proctype') . *PopCounter()
+                    | epsilon . *PushCounter() *$'function' *ParamsOpt *$':' *ResType . *IncCounter() FENCE(*$'of' *$'object' | epsilon) . *Reduce('TT_DECL', nTop(), 'functype') . *PopCounter()
                     );
 TypeSpec        =   ( *Structured
                     | *ClassType
@@ -681,15 +688,17 @@ const_part      =   epsilon . *PushCounter() *$'const' *ConstDecl *ConstDecls . 
 TypeDecl        =   (*Ident) . tdn . *Lf('TT_VAR', lwr(tdn)) *$'=' *TypeSpec *$';' epsilon . *NoteDecl(tdn) . *Reduce('TT_DECL', 2, 'type') . *IncCounter();
 TypeDecls       =   FENCE(*TypeDecl *TypeDecls | epsilon);
 type_part       =   epsilon . *PushCounter() *$'type' *TypeDecl *TypeDecls . *Reduce('TT_PART', nTop(), 'type') . *PopCounter();
-VarGroup        =   *IdList *$':' *TypeSpec FENCE(*$'=' *TypedValue . *Reduce('TT_DECL', 3, 'var') | epsilon . *Reduce('TT_DECL', 2, 'var')) *$';' . *IncCounter();
+VarGroup        =   *IdList *$':' *TypeSpec FENCE(*$'=' *TypedValue . *Reduce('TT_DECL', 3, 'var') | *$'absolute' *Name . *Reduce('TT_DECL', 1, 'absolute') . *Reduce('TT_DECL', 3, 'var') | epsilon . *Reduce('TT_DECL', 2, 'var')) *$';' . *IncCounter();
 VarGroups       =   FENCE(*VarGroup *VarGroups | epsilon);
 var_part        =   epsilon . *PushCounter() *$'var' *VarGroup *VarGroups . *Reduce('TT_PART', nTop(), 'var') . *PopCounter();
+exports_part    =   *$'exports' *IdList *$';' . *Reduce('TT_PART', 1, 'exports');
 /* Parameters: TT_PARAMS of TT_DECL value|var|const|procedure|function rows; an empty list builds nothing.  */
 ParamType       =   ( *$'array' *$'of' *TypeId . *Reduce('TT_ARRAY_TYPE', 1)
+                    | (*Ident) . tnm . *Lf('TT_VAR', lwr(tnm)) *$'.' (*Ident) . tnq . *Lf('TT_VAR', lwr(tnq)) . *Reduce('TT_FIELD', 2) epsilon . *NoteType(tnq)
                     | *TypeId
                     );
 ParamDecl       =   ( epsilon . *PushCounter() *$'procedure' *Name . *IncCounter() *ParamsOpt . *Reduce('TT_DECL', nTop(), 'procedure') . *PopCounter()
-                    | epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt FENCE(*$':' *TypeId . *IncCounter() | epsilon)
+                    | epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt FENCE(*$':' *ResType . *IncCounter() | epsilon)
                       . *Reduce('TT_DECL', nTop(), 'function') . *PopCounter()
                     | *$'var' *IdList *$':' *ParamType . *Reduce('TT_DECL', 2, 'var')
                     | *$'const' *IdList *$':' *ParamType FENCE(*$'=' *Expr0 . *Reduce('TT_DECL', 3, 'const') epsilon . *PasFlip('objfpc') | epsilon . *Reduce('TT_DECL', 2, 'const'))
@@ -715,21 +724,21 @@ proc_decl       =   ( epsilon . *PushCounter() *$'procedure' *QName . *IncCounte
                     | epsilon . *PushCounter() *$'destructor' *QName . *IncCounter() *ParamsOpt *$';' *ProcTail . *Reduce('TT_PROCEDURE', nTop(), 'destructor') . *PopCounter()
                     | epsilon . *PushCounter() *$'class' epsilon . *PasOO() *$'procedure' *QName . *IncCounter() *ParamsOpt *$';' *ProcTail . *Reduce('TT_PROCEDURE', nTop(), 'class') . *PopCounter()
                     );
-func_decl       =   ( epsilon . *PushCounter() *$'function' *QName . *IncCounter() *ParamsOpt FENCE(*$':' *TypeId . *IncCounter() | epsilon) *$';' *ProcTail
+func_decl       =   ( epsilon . *PushCounter() *$'function' *QName . *IncCounter() *ParamsOpt FENCE(*$':' *ResType . *IncCounter() | epsilon) *$';' *ProcTail
                       . *Reduce('TT_FUNCTION', nTop()) . *PopCounter()
-                    | epsilon . *PushCounter() *$'class' epsilon . *PasOO() *$'function' *QName . *IncCounter() *ParamsOpt FENCE(*$':' *TypeId . *IncCounter() | epsilon) *$';' *ProcTail
+                    | epsilon . *PushCounter() *$'class' epsilon . *PasOO() *$'function' *QName . *IncCounter() *ParamsOpt FENCE(*$':' *ResType . *IncCounter() | epsilon) *$';' *ProcTail
                       . *Reduce('TT_FUNCTION', nTop(), 'class') . *PopCounter()
                     );
 /* A block's declaration parts in any order, as pascal.y's decl_part_list takes them: each part, a procedure or a function is one child in source order.  */
 uses_part       =   epsilon . *PushCounter() *$'uses' epsilon . *PasFlip('fpc') *IdList . *IncCounter() *$';' . *Reduce('TT_PART', nTop(), 'uses') . *PopCounter();
-DeclPart        =   ( *uses_part | *label_part | *const_part | *type_part | *var_part | *proc_decl | *func_decl ) . *IncCounter() FLUSH;
+DeclPart        =   ( *uses_part | *label_part | *const_part | *type_part | *var_part | *exports_part | *proc_decl | *func_decl ) . *IncCounter() FLUSH;
 Decls           =   FENCE(*DeclPart *Decls | epsilon);
 /* ==================================================================================================================== */
 /* Compiland — program header, then the block: TT_VAR <name>, the program parameters as a TT_VLIST, TT_BLOCK.  */
 /* ==================================================================================================================== */
 program_head    =   FENCE(*$'program' *Name . *IncCounter() epsilon . *PasProg() ARBNO(*$'.' (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *Drop()) FENCE(*$'(' *IdList *$')' . *IncCounter() | epsilon) *$';' | epsilon);
 IntfProc        =   epsilon . *PushCounter() *$'procedure' *Name . *IncCounter() *ParamsOpt *$';' . *Reduce('TT_PROCEDURE', nTop()) . *PopCounter();
-IntfFunc        =   epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt *$':' *TypeId . *IncCounter() *$';' . *Reduce('TT_FUNCTION', nTop()) . *PopCounter();
+IntfFunc        =   epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt *$':' *ResType . *IncCounter() *$';' . *Reduce('TT_FUNCTION', nTop()) . *PopCounter();
 IntfPart        =   ( *uses_part | *const_part | *type_part | *var_part | *IntfProc | *IntfFunc ) . *IncCounter() FLUSH;
 IntfParts       =   FENCE(*IntfPart *IntfParts | epsilon);
 InitPart        =   FENCE( ( *$'initialization' | *$'begin' ) *StmtList . *Reduce('TT_PART', 1, 'initialization') . *IncCounter() | epsilon );
