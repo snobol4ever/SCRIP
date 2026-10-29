@@ -560,6 +560,21 @@ extern "C" int planner_node_definite(const IR_graph_t * g, const IR_t * nd) {
     return 0;
 }
 static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd);
+static int zd_bound_arm_resumes(const IR_graph_t * g, const IR_t * nd, const IR_t * ig) {
+    std::vector<const IR_t *> seen(1, nd), stk(1, nd);
+    while (!stk.empty()) {
+        const IR_t * x = stk.back();
+        stk.pop_back();
+        if (x != nd && (x->op == IR_SUSPEND || x->op == IR_DISJUNCTION || zd_edge_retains_g(g, x))) return 1;
+        for (int e = -2; e < x->n_operands; e++) {
+            const IR_t * y = e == -2 ? x->γ.node : e == -1 ? x->ω.node : x->operands[e];
+            if (!y || y == ig || y == ig->γ.node || y == ig->ω.node || std::find(seen.begin(), seen.end(), y) != seen.end()) continue;
+            seen.push_back(y);
+            stk.push_back(y);
+        }
+    }
+    return 0;
+}
 static int zd_pl_freezes(const IR_graph_t * g) { return g && zls_g_resumable_frame(g) && zls_g_home_frame(g); }
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
     if (!nd || nd->op != IR_BOUND) return 0;
@@ -611,6 +626,7 @@ static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
         }
         r = o == 2;
     }
+    if (!r && zd_bound_arm_resumes(g, nd, ig)) r = 1;
     return r ? 0 : 1;
 }
 extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate) {
