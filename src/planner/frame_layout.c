@@ -413,7 +413,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_SCAN:
         if (nd) {
             zls_field(scope_id, off, 16, ZK_DESCR, 0,
-                "scan.suspend-leave live subject cell: a DT_S cell {tag, slen = the inner subject's carried length, s = the subject pointer rt_scan_live_subj banks across the suspension}, which rt_s"
+                "scan.suspend-leave live subject cell: a DT_S cell {tag, slen = the inner subject's carried length, s = the subject pointer the scan banks across the suspension}, which rt_s"
                 "can_reenter_live takes back at resume -- a collected-heap pointer the walker relocates as a cell, so a generator suspended off the chain keeps it through the spine sweep (ARCH-GC 13"
                 ".5, the PTR_GC word converted at STEP B)", nd);
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0,

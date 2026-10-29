@@ -15,51 +15,7 @@
 #include <stdio.h>
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
-const char g_scan_empty[1] = "";
-long rt_scan_subj_len(void);
-void rt_scan_subj_len_set(const char *p, long n);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_scan_active(void) { return (g_runtime.abi.scan_depth > 0) || (g_runtime.abi.scan_subj && g_runtime.abi.scan_subj[0] != 0) || (g_runtime.abi.scan_pos != 1); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_scan_subj_len(void) {
-    if (!g_runtime.abi.scan_subj) return -1;
-    if (g_runtime.abi.scan_subj_ptr == g_runtime.abi.scan_subj && g_runtime.abi.scan_subj_len >= 0) return g_runtime.abi.scan_subj_len;
-    fflush(stdout);
-    fprintf(stderr,
-        "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
-        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)g_runtime.abi.scan_subj, (const void *)g_runtime.abi.scan_subj_ptr,
-        g_runtime.abi.scan_subj_len);
-    abort();
-}
-void rt_scan_subj_len_set(const char *p, long n) { g_runtime.abi.scan_subj_ptr = p; g_runtime.abi.scan_subj_len = n; }
-ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
-    uint64_t w[2];
-    w[0] = lo;
-    w[1] = hi;
-    DESCR_t sv;
-    memcpy(&sv, w, sizeof sv);
-    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); } else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
-    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
-    g_runtime.abi.scan_depth++;
-    rt_gc_point(&sv, (const char **)0);
-    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
-    if (!s) s = "";
-    g_runtime.abi.scan_subj = s;
-    g_runtime.abi.scan_pos = 1;
-    uint64_t L;
-    if (IS_CSET_fn(sv)) {
-        extern int kw_cset_len(const char *);
-        int kn = sv.s ? kw_cset_len(sv.s) : -1;
-        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
-    } else L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_runtime.abi.scan_subj_ptr = s;
-    g_runtime.abi.scan_subj_len = (long)L;
-    ScanSubjRegs r;
-    r.ptr = (uint64_t)(uintptr_t)s;
-    r.len = L;
-    return r;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     uint64_t w[2];
@@ -107,26 +63,6 @@ ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi) {
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
     r.len = L;
-    return r;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
-    if (g_runtime.abi.scan_depth > 0) g_runtime.abi.scan_depth--;
-    g_runtime.abi.scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
-    g_runtime.abi.scan_pos = (int)outer_delta + 1;
-    rt_scan_subj_len_set(g_runtime.abi.scan_subj, outer_sigma ? (long)outer_len : 0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : ""); }
-ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
-    const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
-    long n = (s == g_scan_empty) ? 0 : (long)(uint32_t)len;
-    g_runtime.abi.scan_depth++;
-    g_runtime.abi.scan_subj = s;
-    rt_scan_subj_len_set(s, n);
-    ScanSubjRegs r;
-    r.ptr = (uint64_t)(uintptr_t)s;
-    r.len = (uint64_t)n;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -207,12 +143,6 @@ DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char 
     return sub;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_subject(void) {
-    if (!g_runtime.abi.scan_subj) return NULVCL;
-    { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
-}
-DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)g_runtime.abi.scan_pos); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long cvpos_of(DESCR_t v, long len, int *ok) {
     long i;
     *ok = 1;
@@ -225,26 +155,9 @@ static long cvpos_of(DESCR_t v, long len, int *ok) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_pos_set_strict(DESCR_t v) {
-    extern int core_icn_error(int, DESCR_t);
-    extern int core_icn_int_ok_d(DESCR_t);
-    extern DESCR_t rt_keyword_pos_set(DESCR_t);
-    if (!core_icn_int_ok_d(v)) { core_icn_error(101, v); return FAILDESCR; }
-    return rt_keyword_pos_set(v);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    long len = g_runtime.abi.scan_subj ? rt_scan_subj_len() : 0;
-    int ok;
-    long p = cvpos_of(v, len, &ok);
-    if (!ok) return FAILDESCR;
-    g_runtime.abi.scan_pos = (int)p;
-    return INTVAL((int64_t)p);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
     if (kind == 0) return vp ? *vp : NULVCL;
-    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)g_runtime.abi.scan_pos);
+    if (kind == 1) return INTVAL(spill[0] + 1);
     if (kind == 3) { return INTVAL((int64_t)g_runtime.abi.random); }
     if (kind == 4) { return INTVAL((int64_t)g_runtime.abi.error); }
     if (kind == 6) { return INTVAL((int64_t)g_runtime.abi.dump); }
@@ -254,15 +167,7 @@ static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
-    if (kind == 1) {
-        long len = spill ? (long)spill[1] : (g_runtime.abi.scan_subj ? rt_scan_subj_len() : 0);
-        int ok;
-        long p = cvpos_of(v, len, &ok);
-        if (!ok) return 0;
-        if (spill) spill[0] = (int64_t)(p - 1);
-        else g_runtime.abi.scan_pos = (int)p;
-        return 1;
-    }
+    if (kind == 1) { int ok; long p = cvpos_of(v, (long)spill[1], &ok); if (!ok) return 0; spill[0] = (int64_t)(p - 1); return 1; }
     extern DESCR_t rt_keyword_random_set(DESCR_t), rt_keyword_error_set(DESCR_t), rt_keyword_dump_set(DESCR_t);
     if (kind == 3) return !IS_FAIL_fn(rt_keyword_random_set(v));
     if (kind == 4) return !IS_FAIL_fn(rt_keyword_error_set(v));
@@ -285,51 +190,6 @@ DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR
     if (!rsw_set(lkind, lp, spill, save[0])) return FAILDESCR;
     rsw_set(rkind, rp, spill, save[1]);
     return FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_keyword_subject_set_strict(uint64_t lo, uint64_t hi) {
-    uint64_t w[2];
-    w[0] = lo;
-    w[1] = hi;
-    DESCR_t sv;
-    memcpy(&sv, w, sizeof sv);
-    {
-        extern int rt_big_is(DESCR_t);
-        extern int core_icn_error(int, DESCR_t);
-        extern ScanSubjRegs rt_keyword_subject_set(uint64_t, uint64_t);
-        int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
-        if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
-    }
-    return rt_keyword_subject_set(lo, hi);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
-    uint64_t w[2];
-    w[0] = lo;
-    w[1] = hi;
-    DESCR_t sv;
-    memcpy(&sv, w, sizeof sv);
-    {
-        extern int rt_big_is(DESCR_t);
-        int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
-        if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
-    }
-    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
-    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
-    const char *s = sv.s ? sv.s : "";
-    uint64_t L;
-    if (IS_CSET_fn(sv)) {
-        extern int kw_cset_len(const char *);
-        int kn = kw_cset_len(s);
-        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
-    } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_runtime.abi.scan_subj = s;
-    g_runtime.abi.scan_pos = 1;
-    rt_scan_subj_len_set(s, (long)L);
-    ScanSubjRegs r;
-    r.ptr = (uint64_t)(uintptr_t)s;
-    r.len = L;
-    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_random_set(DESCR_t v) {
@@ -382,9 +242,3 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 #include "../../driver/driver_private.h"
 #include <time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gen_gc_roots(void) {
-    extern void rt_gc_visit_descr(DESCR_t *d);
-    extern void rt_gc_visit_raw(const char **loc);
-    if (g_runtime.abi.scan_subj_ptr == g_runtime.abi.scan_subj) rt_gc_visit_raw(&g_runtime.abi.scan_subj_ptr);
-    rt_gc_visit_raw(&g_runtime.abi.scan_subj);
-}

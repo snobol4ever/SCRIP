@@ -3585,7 +3585,6 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     extern void kw_cset_gc_roots(void);
     extern void core_gc_roots(void);
     extern void dat_gc_roots(void);
-    extern void gen_gc_roots(void);
     extern void pas_gc_roots(void);
     extern void pl_gc_roots(void);
     extern void rt_gc_root_args(void);
@@ -3593,7 +3592,6 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     extern void lower_gc_roots(void);
     extern void bnd_gc_roots(void);
     extern void drv_gc_roots(void);
-    extern int rt_scan_active(void);
 #if RT_DIAG
     char anchor;
     long words = 0, interior = 0;
@@ -3699,7 +3697,6 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     kw_cset_gc_roots();
     core_gc_roots();
     dat_gc_roots();
-    gen_gc_roots();
     pas_gc_roots();
     pl_gc_roots();
     { extern void rt_pl_eng_gc_roots(void); rt_pl_eng_gc_roots(); }
@@ -3740,7 +3737,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
 #endif
     if (g_runtime.gc.gc_shield_r && *g_runtime.gc.gc_shield_r) {
         extern const char *Σ;
-        if (*g_runtime.gc.gc_shield_r == Σ || *g_runtime.gc.gc_shield_r == g_runtime.abi.scan_subj) rt_gc_visit_raw(g_runtime.gc.gc_shield_r);
+        if (*g_runtime.gc.gc_shield_r == Σ) rt_gc_visit_raw(g_runtime.gc.gc_shield_r);
         else if (!g_runtime.gc.gc_shield_r_is_probe) gc_shield_refuse((const char *)*g_runtime.gc.gc_shield_r);
     }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }

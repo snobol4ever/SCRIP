@@ -45,7 +45,6 @@ struct gc_mk_t {
     long hcap, hn, tb_h, code_unsorted, census, maps, diag, trap, plant, verify, telem, chain;
 };
 struct rt_proc_s;
-extern const char g_scan_empty[1];
 typedef struct {
     rt_hp_fr_t hp_fr;
     rt_sxt_fr_t sxt_fr;
@@ -84,11 +83,6 @@ typedef struct {
     struct DESCR_t *dcap_nv_cell[RT_DCAP_NVCACHE_N];
     unsigned long dcap_nv_seen[RT_DCAP_NVCACHE_N];
     uint64_t sno_defer_cells[2048];
-    const char *scan_subj;
-    long scan_subj_len;
-    const char *scan_subj_ptr;
-    int scan_pos;
-    int scan_depth;
     int repl_trace;
     int rt_k_level;
     unsigned long zdp_anchor_rsp;

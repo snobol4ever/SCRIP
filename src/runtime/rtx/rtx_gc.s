@@ -3942,7 +3942,6 @@ RTX_FUNC(gc_collect_ex)
     RTX_CALL(kw_cset_gc_roots)
     RTX_CALL(core_gc_roots)
     RTX_CALL(dat_gc_roots)
-    RTX_CALL(gen_gc_roots)
     RTX_CALL(pas_gc_roots)
     RTX_CALL(pl_gc_roots)
     RTX_CALL(rt_gc_root_args)
@@ -3958,8 +3957,6 @@ RTX_FUNC(gc_collect_ex)
     je      .Lgx_sh0
     mov     rcx, qword ptr [rip + Σ@GOTPCREL]
     cmp     rdx, qword ptr [rcx]
-    je      .Lgx_shv
-    cmp     rdx, GRT(G_RT_OFF_SCAN_SUBJ)
     je      .Lgx_shv
     cmp     GRTD(G_RT_OFF_GC_GC_SHIELD_R_IS_PROBE), 0
     jne     .Lgx_sh0
