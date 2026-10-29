@@ -322,6 +322,10 @@ struct IR_graph_t {
         int kcls_n;
         int frame_region;
         int resident;
+        int zstatic;
+        int uniform;
+        int callee_fp;
+        int gen_ft;
     } pf;
 };
 static inline int ir_graph_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }

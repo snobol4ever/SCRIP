@@ -835,6 +835,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_zrow_tret(const IR_t * nd);
+extern "C" int emit_zrow_cft(const IR_t * nd);
 static std::string bcps_block_beta(int act);
 static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     int kt = g_emit.flat_frame_bytes;
@@ -1164,7 +1165,7 @@ static std::string bcps_spine_gen_arm() {
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx, sprec);
     if (sprec) return x86_alpha() + x86_bomb("bb_call_proc_staged: the plan puts this call's resume record on the spine, but the call does not take the block protocol");
     int n2_fb = -1, cb_np = 0, cb_va = 0, callee_blk = (gi_idx >= 0 && _.op_sval) ? bb_proc_target_icn_block(_.op_sval, &cb_np, &cb_va) : 0;
-    if ((icn_gen_regime() || callee_blk) && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
+    if ((icn_gen_regime() || callee_blk) && _.op_sval) n2_fb = emit_zrow_cft(_.node);
     if ((icn_gen_regime() || callee_blk) && n2_fb <= 0) return x86_alpha()
         + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta()
             + x86_bomb("N-3: beta re-entry into a refused generator call site");

@@ -95,7 +95,7 @@ static void n2_host_scan_diag(const stage2_t *s2) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_fb_prepass_diag(const stage2_t *s2) {
+static void n2_region_diag(const stage2_t *s2) {
     if (!s2 || !getenv("SCRIP_N2_FB_PREPASS")) return;
     for (int i = 0; i < s2->proc_count; i++) {
         const char *pn = s2->proc_table[i].name;
@@ -130,25 +130,6 @@ static void n2_xgraph_probe(const stage2_t *s2) {
     fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_fb_prepass_register(const stage2_t *s2) {
-    if (!s2) return;
-    extern void emit_patzeta_register(const char *, int, int, int);
-    for (int i = 0; i < s2->proc_count; i++) {
-        if (!s2->proc_table[i].is_generator) continue;
-        const char *pn = s2->proc_table[i].name;
-        int gi = s2->proc_table[i].bb_idx;
-        if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
-        IR_graph_t *g = s2->bbp.table[gi];
-        {
-            int _zfA = (g->zframe_graph && !g->cell_frame);
-            int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
-            if (getenv("SCRIP_N2_FT_PROBE"))
-                fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n", pn, g->nparams, g->nlocals, _zfA, g->cell_frame, g->jcon_value_region, _fp,
-                ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
-            emit_patzeta_register(pn, g->jcon_value_region, _fp, 0);
-        }
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void sno_setexit_fire_on_end(void);
 __attribute__((used, noinline)) static void icn_zf_exit_g_body(void) { sno_setexit_fire_on_end(); exit(0); }
@@ -2365,9 +2346,8 @@ int main(int argc, char **argv) {
             register_procs_all(s2);
             { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             drive_slots_all(s2);
-            n2_fb_prepass_diag(s2);
+            n2_region_diag(s2);
             n2_xgraph_probe(s2);
-            n2_fb_prepass_register(s2);
             {
                 extern void rt_proc_set_frame(const char *, int, int);
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2511,11 +2491,6 @@ int main(int argc, char **argv) {
                 if (proc_ispat_buf[n_procs] && pname)
                     emit_textf("  .section .data.rel.ro\n  .p2align 4\n.Lthk_%s:\n  .quad %s\n  .long %d, %d\n  .section .text\n  .intel_syntax noprefix\n", asm_sym_name(pname), asm_fn_sym(pname),
                     proc_fb_buf[n_procs], proc_zstatic_buf[n_procs]);
-                {
-                    extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform;
-                    extern void emit_patzeta_register(const char *, int, int, int);
-                    if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
-                }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname ? ct_strdup(pname) : NULL;
@@ -2812,9 +2787,8 @@ int main(int argc, char **argv) {
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             drive_slots_all(s2);
-            n2_fb_prepass_diag(s2);
+            n2_region_diag(s2);
             n2_xgraph_probe(s2);
-            n2_fb_prepass_register(s2);
             {
                 extern void rt_proc_set_frame(const char *, int, int);
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) {

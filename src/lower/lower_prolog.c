@@ -3875,7 +3875,6 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     extern bb_box_fn compile_chain(IR_graph_t *, IR_t *, FILE *, const char *);
     extern void rt_proc_set_frame_bytes(const char *, int);
     extern void rt_proc_set_dyn_scope(const char *, int);
-    extern void emit_patzeta_register(const char *, int, int, int);
     extern void rt_proc_set_generator(const char *, int);
     extern void rt_proc_set_jmpentry(const char *, int);
     extern void rt_proc_set_zstatic(const char *, int);
@@ -3883,8 +3882,6 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     extern int rt_pl_dialect_swi(void);
     extern int rt_pl_dialect_xsb(void);
     extern int g_last_flat_frame_bytes;
-    extern int g_last_flat_fp;
-    extern int g_last_flat_uniform;
     extern int g_last_flat_zstatic;
     int idx;
     IR_graph_t * g;
@@ -3992,7 +3989,6 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     rt_proc_set_fn(key, fn);
     bb_ab_seal_entry_cells(key, (void *)fn, 1);
     rt_proc_set_zstatic(key, g_last_flat_zstatic);
-    emit_patzeta_register(key, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
     { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); rt_proc_set_dcfn(key, (g_last_dc_off >= 0) ? (void *)((char *)fn + g_last_dc_off) : (void *)0); }
     if (!gout) {
         extern void zls_reset(void);

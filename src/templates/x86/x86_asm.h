@@ -1058,7 +1058,6 @@ inline const char * RDD(const char * base, int off);
 inline int icn_gen_regime();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 extern "C" int rt_proc_is_registered(const char * name);
 extern "C" int rt_proc_is_generator(const char * name);
 extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);

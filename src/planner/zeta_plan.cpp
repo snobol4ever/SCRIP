@@ -343,6 +343,21 @@ extern "C" int bb_proc_target_retains(const char *fname) {
     }
     return 1;
 }
+extern "C" int planner_callee_uniform_ft(const char * fname, int * ft) {
+    int i = fname ? bb_proc_find(fname) : -1;
+    int bi = i >= 0 ? g_stage2.proc_table[i].bb_idx : -1;
+    IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
+    if (!cg) return 0;
+    if (ft) *ft = cg->pf.gen_ft;
+    return cg->pf.uniform;
+}
+extern "C" int planner_callee_gen_ft(const char * fname) {
+    int i = fname ? bb_proc_find(fname) : -1;
+    if (i < 0 || g_stage2.proc_table[i].dyn_scope) return -1;
+    int bi = g_stage2.proc_table[i].bb_idx;
+    IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
+    return cg ? cg->pf.gen_ft : -1;
+}
 static int planner_fence0_whack_on() { if (g_planner.fence0_whack_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_WHACK"); g_planner.fence0_whack_on_v = (e && *e == '0') ? 0 : 1;
     } return g_planner.fence0_whack_on_v; }
 int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd) {

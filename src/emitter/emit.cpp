@@ -83,7 +83,6 @@ static const char * flat_label_kind_of(IR_t * nd) {
     return flat_label_kind(nd->op);
 }
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
-extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 static bb_label_t * emit_floater_label(int k) { static const char * const fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0;
     if (!g_emitter.g_flt_lbl[k]) g_emitter.g_flt_lbl[k] = g_emitter.g_flt_fam ? emit_label_alloc("%s_%s", fn[k], g_emitter.g_flt_fam) : emit_label_alloc("%s", fn[k]); return g_emitter.g_flt_lbl[k]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -584,12 +583,9 @@ static long flat_buf_max_v() { if (g_emitter.flat_buf_max_v_v < 0) { const char 
 int g_flat_node_id = 0;
 int g_last_flat_frame_bytes = 0;
 int g_last_flat_zstatic = 0;
-int g_last_flat_fp = 0;
-int g_last_flat_uniform = 0;
 extern "C" int zls_g_fp_total(IR_graph_t *);
 extern "C" int zls_node_has_fields(const IR_t *);
 extern "C" int zls_g_block_args(const IR_graph_t *); extern "C" int zls_g_det_block(const IR_graph_t *); extern "C" int zls_g_resumable_frame(const IR_graph_t *);
-extern "C" int emit_patzeta_lookup(const char *, int *);
 extern "C" int fc_tail_defer_susp_g(IR_graph_t *, const IR_t *);
 extern "C" int fc_tail_dfr(const IR_t *);
 extern "C" int sno_name_prologue_bound(const char *);
@@ -3048,6 +3044,7 @@ extern "C" int emit_zrow_zchk(const IR_t * nd) {
 extern "C" int emit_zrow_sprec(const IR_t * nd) { return zrow(nd)->sprec; }
 extern "C" int emit_zrow_gcell(const IR_t * nd) { return zrow(nd)->gcell; }
 extern "C" int emit_zrow_tret(const IR_t * nd) { return zrow(nd)->tret; }
+extern "C" int emit_zrow_cft(const IR_t * nd) { return zrow(nd)->cft; }
 extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, long owner) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     int i = (r && nd && r->nodes) ? nidx(r->nodes, r->n, nd) : -1;
@@ -4237,14 +4234,11 @@ static int emit_fb_stmt_scan(IR_graph_t * g) {
         fprintf(stderr, "[FB-STMT] refine=1 n=%d rsp_nodes=%d\n", g_emitter.g_fbm_n, z); }
     return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int emit_graph_zstatic(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && (c->op == IR_MATCH_DEFER || c->op == IR_MATCH_VALUE)) return 0;
-    } return 1; }
-static int emit_graph_uniform(IR_graph_t *g) { if (!emit_graph_zstatic(g)) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && c->op == IR_MATCH_ARBNO) return 0; } return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_icn_n2_gen_region_ft(const char *pname, int is_generator, IR_graph_t *g) {
     if (!pname || !is_generator || !g || !g->cell_frame || g->zframe_graph || !emit_graph_has_suspend(g)) return 0;
-    { int ft = 0; if (!emit_patzeta_frame_reserve(pname, &ft) || ft <= 0) return 0; return ft; }
+    return g->pf.gen_ft > 0 ? g->pf.gen_ft : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
@@ -4279,9 +4273,7 @@ static void emit_chain_prepare(IR_t * entry) {
             g_emit_cfg->cell_frame ? 1 : 0, g_emit.flat_lcl_proc ? 1 : 0, _rg, g_emit.flat_frame_bytes, _np, _nl, g_emit_cfg->pf.fp_total,
                 g_emit.zframe_graph ? g_emit.flat_frame_bytes : g_emit.flat_frame_bytes + (_np + _nl) * 16, g_emit.zframe_graph ? ((48 + _rg + 15) & ~15) : ((48 + _rg + 15) & ~15) + (_np + _nl) * 16);
                     } }
-    g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;
-    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : g_emit_cfg->pf.fp_total)) : 0;
-    g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
+    g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? g_emit_cfg->pf.zstatic : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {

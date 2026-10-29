@@ -16,7 +16,7 @@ struct znode_t {
     int bu, sbk, sbb, sbp;
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
-    int go0off, vp1off, cvnoff, pto, owno, vso, vp1vso;
+    int go0off, vp1off, cvnoff, pto, owno, vso, vp1vso, cft;
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };

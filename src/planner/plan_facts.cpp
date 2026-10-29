@@ -2,6 +2,7 @@
 #include "planner.h"
 extern "C" int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd);
 extern "C" int bb_proc_target_retains(const char * fname);
+extern "C" int planner_callee_gen_ft(const char * fname);
 extern "C" int planner_zsm_on(void);
 extern "C" long planner_zsm_row_word(const IR_graph_t * g, const zeta_plan_t * rec, int i, int * own0);
 }
@@ -251,6 +252,7 @@ static void pf_cells(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gr
     z->fres = zls_frame_resident(nd); z->xk = -1; z->xw = 0; z->xd = -1; z->xa = 0;
     z->gcell = (nd->op == IR_GATE || (nd->op == IR_GATE_ARM && nd->n_operands > 1)) ? planner_gate_cells(g, nd->op == IR_GATE ? nd : nd->operands[1]) : 0;
     z->tret = nd->op == IR_CALL_PROC_STAGED ? bb_proc_target_retains(IR_LIT(nd).sval) : 0;
+    z->cft = (nd->op == IR_CALL_PROC_STAGED || nd->op == IR_PROC_GEN) ? planner_callee_gen_ft(IR_LIT(nd).sval) : -1;
     z->zsmown = 0;
     z->zsmw = planner_zsm_on() ? planner_zsm_row_word(g, rec, i, &z->zsmown) : 0L;
     for (int j = 0; j <= nd->n_operands; j++) { IR_t * op = j < nd->n_operands ? nd->operands[j] : (IR_t *)0; rd[j].kown = op ? zd_k_own_g(g, op) : -1; rd[j].fres = op ? zls_frame_resident(op) : 1; }

@@ -753,7 +753,7 @@ static int zls_scope_new(int parent, int klass, const char * name) {
 int fc_alt_fpmax(const IR_t *);
 int fc_alt_extent(const IR_t *, int *, int *);
 int fc_geom(const IR_t *, long *);
-int emit_patzeta_lookup(const char *, int *);
+int planner_callee_uniform_ft(const char *, int *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fct_defer_susp(const IR_t * nd) {
     if (!nd || (nd->op != IR_MATCH_DEFER) || nd->seal != 2) return -1;
@@ -763,7 +763,7 @@ static int fct_defer_susp(const IR_t * nd) {
         if (o && o->op == IR_LIT_STRING && IR_LIT(o).sval && !strncmp(IR_LIT(o).sval, "PAT$", 4)) { pn = IR_LIT(o).sval; break; }
     }
     int susp = 0;
-    if (!pn || !emit_patzeta_lookup(pn, &susp) || susp <= 0) return -1;
+    if (!pn || !planner_callee_uniform_ft(pn, &susp) || susp <= 0) return -1;
     return susp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2370,6 +2370,7 @@ int zls_g_resident_bytes(const IR_graph_t * g) {
     for (int u = 0; u < r->kmap_n && u < region / 8; u++) if (r->kmap[u] == 1 || r->kmap[u] == 2) n += 8;
     return n;
 }
+int zls_g_generator(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->gen : 0; }
 void zls_g_generator_set(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; if (r) r->gen = zls_g_has_suspend(g); }
 int zls_g_generator_top(const IR_graph_t * g) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
@@ -2967,32 +2968,6 @@ void fl_derive_tier(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tables_reset(void) { g_lower.ir.fct_n = 0; g_lower.ir.fcn_gen++; g_lower.ir.fcn_n = 0; g_lower.ir.fca.len = 0; }
-typedef struct { const char * name; int fb; int fp; int uni; } zls_pz_t;
-#define pz ((zls_pz_t *)g_lower.ir.pz_v.p)
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int uniform) {
-    if (!name) return;
-    for (int i = 0; i < g_lower.ir.pz_n; i++) if (!strcmp(pz[i].name, name)) { pz[i].fb = frame_bytes; pz[i].fp = fp_total; pz[i].uni = uniform; return; }
-    cv_reserve(&g_lower.ir.pz_v, (uint32_t)sizeof(zls_pz_t), (uint64_t)g_lower.ir.pz_n + 1, "pz");
-    pz[g_lower.ir.pz_n].name = name;
-    pz[g_lower.ir.pz_n].fb = frame_bytes;
-    pz[g_lower.ir.pz_n].fp = fp_total;
-    pz[g_lower.ir.pz_n].uni = uniform;
-    g_lower.ir.pz_n++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_patzeta_frame_reserve(const char * name, int * bytes) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.ir.pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((FLAT_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return 1; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_patzeta_lookup(const char * name, int * susp) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.ir.pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((FLAT_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return pz[i].uni; }
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_fp_total(IR_graph_t * g) { return g ? fct_fp_range(g, 0, g->n) : 0; }
 int zls_node_has_fields(const IR_t * nd) { if (!nd) return 0; for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].nd == nd) return 1; return 0; }

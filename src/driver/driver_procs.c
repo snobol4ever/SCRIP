@@ -20,7 +20,6 @@ void rt_proc_set_dcfn(const char *, void *);
 void rt_proc_set_zstatic(const char *, int);
 void rt_proc_set_gen_region_ft(const char *, int);
 void bb_ab_seal_entry_cells(const char *, void *, int);
-void emit_patzeta_register(const char *, int, int, int);
 int zls_g_entry_block(const IR_graph_t *);
 void emit_thunk_star_bind(const char *);
 void planner_proc_road(stage2_t *, int, int, planner_road_t *);
@@ -36,8 +35,6 @@ void planner_stage_release(IR_t *);
 extern IR_graph_t * g_emit_cfg;
 extern int g_last_flat_frame_bytes;
 extern int g_last_flat_zstatic;
-extern int g_last_flat_fp;
-extern int g_last_flat_uniform;
 extern long g_last_dc_off;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void driver_register_proc(stage2_t * s2, int pi) {
@@ -95,7 +92,6 @@ void * driver_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * h
     if (pfn && isp) bb_thunk_rec_fill(pname, (void *) pfn, g_last_flat_frame_bytes, g_last_flat_zstatic);
     if (pfn) bb_ab_seal_entry_cells(pname, (void *) pfn, 1);
     if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic);
-    if (!is_lbl) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
     int gft = emit_icn_n2_gen_region_ft(pname, pe->is_generator, g);
     if (gft > 0) rt_proc_set_gen_region_ft(pname, gft);
     if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *) ((char *) pfn + g_last_dc_off));

@@ -236,8 +236,6 @@ typedef struct {
     uint32_t fcn_n;
     cv_t fca;
     cv_t zlq_v;
-    cv_t pz_v;
-    int pz_n;
     const int * seq_of_node;
     int seq_of_node_n;
     cv_t zdp_ent;

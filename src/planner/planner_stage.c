@@ -1,5 +1,6 @@
 #include "IR.h"
 #include "stage2.h"
+#include "gc_frame_map.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -36,6 +37,15 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.frame_bytes = zls_g_frame_bytes(g);
     g->pf.fp_total = zls_g_fp_total(g);
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
+    {
+        extern int zls_g_generator(const IR_graph_t *);
+        int zs = 1, ab = 0;
+        for (int j = 0; j < g->n; j++) if (g->all[j]) { int o = (int)g->all[j]->op; if (o == IR_MATCH_DEFER || o == IR_MATCH_VALUE) zs = 0; if (o == IR_MATCH_ARBNO) ab = 1; }
+        g->pf.zstatic = zs;
+        g->pf.uniform = zs && !ab;
+        g->pf.callee_fp = g->pf.zframe ? 0 : (zls_g_generator(g) ? (g->nparams + g->nlocals) * 16 : g->pf.fp_total);
+        g->pf.gen_ft = ((FLAT_FRAME_ALLOWANCE + g->jcon_value_region + 15) & ~15) + g->pf.callee_fp;
+    }
     {
         extern int zls_g_region(const IR_graph_t *);
         extern int zls_g_resume(const IR_graph_t *);
