@@ -191,6 +191,7 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
             if (PT_IS(ids, TT_VLIST)) { for (int j = 0; j < ids->n; j++) if (ids->c[j]) pt_add_field(r, ids->c[j]->v.sval, ft); } else if (PT_IS(ids, TT_VAR)) pt_add_field(r, ids->v.sval, ft);
         } else if (PT_IS(c, TT_CASE)) {
             int k = 0;
+            r->var = 1;
             if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) { pt_add_field(r, c->c[0]->v.sval, pt_leaf(s, c->c[1])); k = 2; } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) k = 1;
             for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) pt_rec_fields(s, r, c->c[j]->c[1]);
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
@@ -717,6 +718,13 @@ void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
     pty_t *t = pt_new(PTK_STRING, "shortstring");
     t->bnd = bound;
     pt_map_put(&s->sstr, leaf, t, 0);
+}
+int pty_field_slot(const tree_t *low, const char *name) {
+    const pty_t *t = pty_of_low(low);
+    if (!t || t->k != PTK_RECORD || t->var || !name) return -1;
+    for (int i = 0; i < t->nf; i++) if (t->f[i].type && t->f[i].type->k == PTK_ARRAY && (t->f[i].type->packed || (t->f[i].type->base && t->f[i].type->base->k == PTK_CHAR))) return -1;
+    for (int i = 0; i < t->nf; i++) if (t->f[i].name && !strcmp(t->f[i].name, name)) return i;
+    return -1;
 }
 int pty_capped(const tree_t *src) { const pty_t *t = pty_of_src(src); return (t && t->k == PTK_STRING && t->cap) ? t->strmax : 0; }
 int pty_shortmax(const tree_t *low) {

@@ -6992,6 +6992,14 @@ static pval E_scalar_constant(const tree_t *n) {
 }
 static pval E_selector_raw(const tree_t *n);
 static pval E_selector(const tree_t *n) { pval o = E_selector_raw(n); pty_note_low(o.node, n); return o; }
+static tree_t *pas_typer_field(tree_t *base, const char *fname) {
+    int fi = pty_field_slot(base, fname);
+    if (fi < 0) return NULL;
+    tree_t *e = ast_node_new(TT_IDX);
+    ast_push(e, base);
+    ast_push(e, ilit(fi));
+    return e;
+}
 static pval E_selector_raw(const tree_t *n) {
     pval v[7];
     pval out;
@@ -7099,7 +7107,8 @@ static pval E_selector_raw(const tree_t *n) {
                         out.node = bin(TT_FIELD, v[1].node, leaf_s(TT_VAR, v[3].str));
                     }
                 } else {
-                    out.node = pas_nested_field_resolve(v[1].node, v[3].str);
+                    out.node = pas_typer_field(v[1].node, v[3].str);
+                    if (!out.node) out.node = pas_nested_field_resolve(v[1].node, v[3].str);
                 }
             } else if (_fi >= 0) {
                 tree_t *e = ast_node_new(TT_IDX);
@@ -7115,7 +7124,8 @@ static pval E_selector_raw(const tree_t *n) {
                 pas_vt_mark(e, v[1].node, _rt, _fi);
                 { tree_t *_w = pas_field_region(v[1].node, _rt, _fi, e); if (_w != e) pas_vt_rekey(e, _w); out.node = _w; }
             } else {
-                out.node = pas_nested_field_resolve(v[1].node, v[3].str);
+                out.node = pas_typer_field(v[1].node, v[3].str);
+                if (!out.node) out.node = pas_nested_field_resolve(v[1].node, v[3].str);
             }
         }
         return out;
