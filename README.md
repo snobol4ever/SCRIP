@@ -23,7 +23,7 @@ make pristine        # full clean rebuild
 ```bash
 ./scrip prog.sno                 # compile AND run, in-process (mode 3 — the default)
 ./scrip --compile prog.sno       # emit standalone x86-64 assembly to stdout (mode 4)
-./scrip --compile -o prog.s prog.sno   # keep the readable .s
+./scrip --compile --out=prog.s prog.sno   # keep the readable .s
 ./scrip prog.icn -- arg1 arg2    # program arguments go after --
 ```
 
