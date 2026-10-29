@@ -649,13 +649,34 @@ static int zd_bound_spine0(const IR_graph_t * g, const IR_t * nd) {
     if (!r && zd_bound_arm_resumes(g, nd, ig)) r = 1;
     return r ? 0 : 1;
 }
+static int zd_gate_cond_retains(const IR_graph_t * g, const IR_t * b, const IR_t * gate) {
+    std::vector<const IR_t *> seen, stk;
+    const IR_t * s = b ? zd_chase((IR_t *)b->γ.node) : (const IR_t *)0;
+    if (s && s->op == IR_GATE_ARM && s->n_operands > 1 && s->operands[1] == gate) s = zd_chase((IR_t *)s->γ.node);
+    if (s) stk.push_back(s);
+    while (!stk.empty()) {
+        const IR_t * y = stk.back();
+        stk.pop_back();
+        if (!y || y == gate || std::find(seen.begin(), seen.end(), y) != seen.end()) continue;
+        seen.push_back(y);
+        if (y->op == IR_GATE_ARM && y->n_operands > 1 && y->operands[1] == gate) continue;
+        if (y->op == IR_SUSPEND || y->op == IR_DISJUNCTION || zd_edge_retains_g(g, y)) return 1;
+        stk.push_back(zd_chase((IR_t *)y->γ.node));
+        for (int e = 0; e < y->n_operands; e++) stk.push_back(y->operands[e]);
+    }
+    return 0;
+}
 extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate) {
     if (!g || !gate || gate->op != IR_GATE || !zd_pl_home(g) || !getenv("SCRIP_PL_GATE_CELLS")) return 0;
     int v = zls_fcn_bs_get(gate, 3);
     if (v) return v == 2;
     const IR_t * t = zd_chase((IR_t *)gate->γ.node);
     int ok = !(t && (t->op == IR_GATE_ARM || t->op == IR_DISJUNCTION));
-    for (int i = 0; i < g->n && ok; i++) { const IR_t * x = g->all[i]; if (x && x != gate && zd_chase((IR_t *)x->γ.node) == gate && port_sz_beta(x->γ.sz)) ok = 0; }
+    for (int i = 0; i < g->n && ok; i++) {
+        const IR_t * x = g->all[i];
+        if (x && x != gate && zd_chase((IR_t *)x->γ.node) == gate && port_sz_beta(x->γ.sz) && !(x->op == IR_UNMARK && x->n_operands > 0 && !zd_gate_cond_retains(g, x->operands[0], gate)))
+            ok = 0;
+    }
     zls_fcn_bs_set(gate, 3, ok ? 2 : 1);
     return ok;
 }
