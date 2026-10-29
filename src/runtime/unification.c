@@ -2150,7 +2150,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             if (!h) { ball = plc_fmt_exhausted(all); break; }
             if (rt_pl_dialect_xsb() && (*p == 'w' || *p == 'q')) {
                 pl_cell_t *hd = pl_deref(h);
-                if ((int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(hd->slen)), "+")) {
+                if ((int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && plc_fid_name(hd->slen) == prolog_atom_intern("+")) {
                     pl_cell_t *pa = (pl_cell_t *)hd->p;
                     void *tb = plc_fb_term(&f, &pa[0], *p == 'q' ? 1 : 0, 0, 0);
                     if (!tb) { plc_fb_add(&f, "+", 1); tb = plc_fb_term(&f, &pa[1], *p == 'q' ? 1 : 0, 0, 0); }
@@ -2286,7 +2286,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                 if (rt_pl_dialect_xsb()) {
                     pl_cell_t *hd = pl_deref(h);
                     if (quoted && iops) { plc_fb_term(&f, h, 2, 0, 0); continue; }
-                    if (!iops && (int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(hd->slen)), "+")) {
+                    if (!iops && (int)hd->v == DT_PLREF && plc_fid_arity(hd->slen) == 2 && plc_fid_name(hd->slen) == prolog_atom_intern("+")) {
                         pl_cell_t *pa = (pl_cell_t *)hd->p;
                         void *tb = plc_fb_term(&f, &pa[0], 3, quoted, iops);
                         if (!tb) { plc_fb_add(&f, "+", 1); tb = plc_fb_term(&f, &pa[1], 3, quoted, iops); }

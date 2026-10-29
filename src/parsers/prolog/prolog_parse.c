@@ -1338,7 +1338,7 @@ static void iso_directive(Parser *p, const tree_t *goal) {
 static void xsb_directive(Parser *p, const tree_t *goal) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
     const char *f = goal->v.sval;
-    if (goal->n == 1 && !strcmp(f, "import")) { if (goal->c[0] && goal->c[0]->t == TT_FNC && goal->c[0]->n == 2 && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "from")) p->xsb = 1; return; }
+    if (goal->n == 1 && !strcmp(f, "import")) { if (goal->c[0] && goal->c[0]->t == TT_FNC && goal->c[0]->n == 2 && goal->c[0]->v.sval && !memcmp(goal->c[0]->v.sval, "from", 5)) p->xsb = 1; return; }
     if (goal->n == 1 && (!strcmp(f, "compiler_options") || !strcmp(f, "hilog") || !strcmp(f, "ti"))) p->xsb = 1;
     else if (!strcmp(f, "index") && goal->n >= 2 && goal->n <= 3) p->xsb = 1;
 }
