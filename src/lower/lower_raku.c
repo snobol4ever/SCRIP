@@ -6739,6 +6739,8 @@ static void rk_attr_aliases(tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_reads_var(const tree_t * t, const char * nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_prologue_target(const tree_t * s);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_sub_topic(tree_t * t, int in_pkg) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_sub_topic(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
@@ -6751,6 +6753,7 @@ static void rk_sub_topic(tree_t * t, int in_pkg) {
         if (i >= body && rk_reads_var(t->c[i], "_")) reads = 1;
     }
     if (!reads) return;
+    for (int k = 0, np = (int) t->v.ival; k < np && body < t->n && rk_prologue_target(t->c[body]); k++) body++;
     tree_t * as = ast_node_new(TT_ASSIGN), * nil = ast_node_new(TT_FNC), * dv = leaf_sval2(TT_VAR, "_");
     nil->v.sval = (char *) "__rk_typeobj";
     ast_push(nil, leaf_sval2(TT_VAR, "__rk_typeobj"));
