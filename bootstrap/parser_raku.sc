@@ -2,7 +2,7 @@
    scope/routine/package declarators, termish and the operator precedence table as a climb, tightest level first).
    THE TREE IS THE ONE THE PATTERN BUILDS IN ORDER (Lon 2026-09-30, RULES.md FACT RULE): every node is made by a raw Shift or
    Reduce at the token that completes it, children left to right, arity through PushCounter/IncCounter/PopCounter and nTop();
-   this file defines no function but ParseOne, and no action but Shift, Reduce and the counters. A construct is recorded as
+   this file defines no function, and no action but Shift, Reduce and the counters. A construct is recorded as
    it is spelled -- `x op= y` is TT_AUGOP, `x++` TT_POSTINC, `for l -> $a { }` TT_FOR, `.foo` a method call on $_ -- and the
    lowerer places and desugars (CEO-1377/1378). The conditional actions are replayed at FLUSH, after each top-level statement,
    in recognition order (Lon 2026-09-30 16:2x): a Shift's value is always a `.`-capture on that same tape, never an immediate.
@@ -498,7 +498,20 @@ Compiland = epsilon . *PushCounter()
             POS(0) ARBNO( *$' ' *top_stmt FLUSH ) *$' ' RPOS(0)
             . *Reduce('Parse', nTop())
             . *PopCounter();
-function ParseOne(ptree, i, n_kids) {
+pf_list = HOST(4, 'PARSER_FILES');
+pf_n = 0; pf_bytes = 0; pf_parse = 0; pf_parse1 = 0;
+if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
+while (LE(0, 1)) {
+    if (IDENT(pf_list)) {
+        Src = INPUT;
+    } else {
+        if (~(pf_name = pf_names)) break;
+        INPUT(.INPUT, 9, pf_name '[-r16777215]');
+        Src = INPUT;
+        ENDFILE(9);
+        pf_bytes = pf_bytes + SIZE(Src);
+        OUTPUT = '== ' pf_name;
+    }
     pf_a = TIME();
     InitCounter();
     InitStack();
@@ -506,28 +519,11 @@ function ParseOne(ptree, i, n_kids) {
     if (Src ? *Compiland) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);
-        if (DIFFER(ptree)) { i = 1; n_kids = n(ptree); while (LE(i, n_kids)) { TreeDump(c(ptree)[i]); i = i + 1; } }
+        if (DIFFER(ptree)) { pf_i = 1; pf_nk = n(ptree); while (LE(pf_i, pf_nk)) { TreeDump(c(ptree)[pf_i]); pf_i = pf_i + 1; } }
         TreeDumpEnd();
     } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
-    return;
+    pf_n = pf_n + 1;
+    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+    if (IDENT(pf_list)) break;
 }
-pf_list = HOST(4, 'PARSER_FILES');
-if (IDENT(pf_list)) {
-    INPUT(.INPUT, 9, '[-f0 -r16777215]');
-    Src = INPUT;
-    ParseOne();
-} else {
-    pf_n = 0; pf_bytes = 0; pf_parse = 0; pf_parse1 = 0;
-    INPUT(.pf_names, 8, pf_list);
-    while (pf_name = pf_names) {
-        INPUT(.INPUT, 9, pf_name '[-r16777215]');
-        Src = INPUT;
-        ENDFILE(9);
-        pf_bytes = pf_bytes + SIZE(Src);
-        OUTPUT = '== ' pf_name;
-        ParseOne();
-        pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
-    }
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
-}
+if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
