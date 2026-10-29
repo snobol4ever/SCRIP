@@ -635,7 +635,9 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **w
                 if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) { } else { *why = why_fmt("%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
             }
             if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) {
-                *why = why_fmt("variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval);
+                const char *gname = "main";
+                for (int pi = 0; pi < s2->proc_count; pi++) if (s2->proc_table[pi].bb_idx == gi && s2->proc_table[pi].name) gname = s2->proc_table[pi].name;
+                *why = why_fmt("variable '%s' is read but never assigned and is not a parameter (in %s)", IR_LIT(nd).sval, gname);
                 return 0;
             }
             if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd)) {
