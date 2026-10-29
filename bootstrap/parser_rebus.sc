@@ -264,7 +264,23 @@ Compiland = epsilon . *PushCounter() POS(0) ARBNO(*Command FLUSH) RPOS(0) . *Red
 StmtT['case'] = case_stmt_rest; StmtT['if'] = if_stmt_rest; StmtT['while'] = while_stmt_rest; StmtT['unless'] = unless_stmt_rest;
 StmtT['until'] = until_stmt_rest; StmtT['repeat'] = repeat_stmt_rest; StmtT['for'] = for_stmt_rest; StmtT['return'] = return_stmt_rest;
 StmtT['stop'] = stop_stmt_rest; StmtT['fail'] = fail_stmt_rest; StmtT['exit'] = exit_stmt_rest; StmtT['next'] = next_stmt_rest;
-function ParseOne(ptree, i, n_kids) {
+pf_list = HOST(4, 'PARSER_FILES');
+pf_n = 0;
+pf_bytes = 0;
+pf_parse = 0;
+pf_parse1 = 0;
+if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
+while (LE(0, 1)) {
+    if (IDENT(pf_list)) {
+        Src = INPUT;
+    } else {
+        if (~(pf_name = pf_names)) break;
+        INPUT(.INPUT, 9, pf_name '[-r16777215]');
+        Src = INPUT;
+        ENDFILE(9);
+        pf_bytes = pf_bytes + SIZE(Src);
+        OUTPUT = '== ' pf_name;
+    }
     pf_a = TIME();
     InitCounter();
     InitStack();
@@ -272,37 +288,17 @@ function ParseOne(ptree, i, n_kids) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);
         if (DIFFER(ptree)) {
-            i = 1;
-            n_kids = n(ptree);
-            while (LE(i, n_kids)) {
-                TreeDump(c(ptree)[i]);
-                i = i + 1;
+            pf_i = 1;
+            pf_nk = n(ptree);
+            while (LE(pf_i, pf_nk)) {
+                TreeDump(c(ptree)[pf_i]);
+                pf_i = pf_i + 1;
             }
         }
         TreeDumpEnd();
     } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
-    return;
+    pf_n = pf_n + 1;
+    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+    if (IDENT(pf_list)) break;
 }
-pf_list = HOST(4, 'PARSER_FILES');
-if (IDENT(pf_list)) {
-    INPUT(.INPUT, 9, '[-f0 -r16777215]');
-    Src = INPUT;
-    ParseOne();
-} else {
-    pf_n = 0;
-    pf_bytes = 0;
-    pf_parse = 0;
-    pf_parse1 = 0;
-    INPUT(.pf_names, 8, pf_list);
-    while (pf_name = pf_names) {
-        INPUT(.INPUT, 9, pf_name '[-r16777215]');
-        Src = INPUT;
-        ENDFILE(9);
-        pf_bytes = pf_bytes + SIZE(Src);
-        OUTPUT = '== ' pf_name;
-        ParseOne();
-        pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
-    }
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
-}
+if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
