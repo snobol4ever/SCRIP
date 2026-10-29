@@ -2069,11 +2069,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-{ pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
+{ while (pascal_modepos > 0 && pascal_modebuf[pascal_modepos - 1] == ' ') pascal_modebuf[--pascal_modepos] = '\0'; pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-{ }
+{ if (pascal_modepos > 0 && pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = ' '; pascal_modebuf[pascal_modepos] = '\0'; } }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP

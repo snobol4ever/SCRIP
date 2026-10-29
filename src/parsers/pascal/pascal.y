@@ -602,6 +602,7 @@ selector:
     |selector PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |selector ARROW { $$ = pt_add(pt_new(TT_DEREF), $1); }
     |call_with_args PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
+    |call_with_args LBRACK expression_list RBRACK { $$ = pt_cat(pt_add(pt_new(TT_IDX), $1), $3); }
     |call_with_args ARROW { $$ = pt_add(pt_new(TT_DEREF), $1); }
     |IDENT { $$ = $1; }
     ;

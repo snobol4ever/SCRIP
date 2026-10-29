@@ -1180,6 +1180,8 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "    Pattern: string;\n"
     "  end;\n"
     "const\n"
+    "  LineEnding = #10;\n"
+    "  sLineBreak = #10;\n"
     "  faReadOnly = 1;\n"
     "  faHidden = 2;\n"
     "  faSysFile = 4;\n"

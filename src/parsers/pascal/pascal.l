@@ -364,8 +364,8 @@ ALNUM    [A-Za-z0-9_]
 "{$"[Rr]"-}"             { pascal_event("range 0"); *pascal_sw_set_p() |= 1u << 17; *pascal_sw_on_p() &= ~(1u << 17); }
 "{$"[A-PS-Za-ps-z][+-]"}" { int c = tolower((unsigned char)pascal_yytext[2]) - 'a'; *pascal_sw_set_p() |= 1u << c; if (pascal_yytext[3] == '+') *pascal_sw_on_p() |= 1u << c; else *pascal_sw_on_p() &= ~(1u << c); }
 "{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
-<MODE_HDR>"}"           { pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
-<MODE_HDR>[ \t]         { }
+<MODE_HDR>"}"           { while (pascal_modepos > 0 && pascal_modebuf[pascal_modepos - 1] == ' ') pascal_modebuf[--pascal_modepos] = '\0'; pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
+<MODE_HDR>[ \t]         { if (pascal_modepos > 0 && pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = ' '; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>\n            { }
 "{$zerobasedstrings"[ \t]+"on"[ \t]*"}"   { pascal_event("zerobased 1"); }

@@ -17,6 +17,8 @@ type
     Pattern: string;
   end;
 const
+  LineEnding = #10;
+  sLineBreak = #10;
   faReadOnly = 1;
   faHidden = 2;
   faSysFile = 4;
