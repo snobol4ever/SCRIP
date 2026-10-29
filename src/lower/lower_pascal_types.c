@@ -95,7 +95,8 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     static const char *const reals[] = { "real", "double", "extended", "comp", "currency", "real48", "valreal", 0 };
     static const char *const strs[] = { "string", "ansistring", "unicodestring", "widestring", "rawbytestring", "utf8string", "openstring", 0 };
     if (!n) return NULL;
-    if (pt_in(n, ints)) return s->tint;
+    if (!strcmp(n, "integer")) return s->tint;
+    if (pt_in(n, ints)) return pt_ord(PTK_INT, n, -2147483648LL, 2147483647LL);
     if (pt_in(n, uints)) return pt_ord(PTK_INT, n, 0, 4294967295LL);
     if (!strcmp(n, "byte") || !strcmp(n, "uint8")) return pt_ord(PTK_INT, n, 0, 255);
     if (!strcmp(n, "shortint") || !strcmp(n, "int8")) return pt_ord(PTK_INT, n, -128, 127);
@@ -106,7 +107,8 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     if (pt_in(n, bools)) return s->tbool;
     if (pt_in(n, wbools)) { pty_t *t = pt_ord(PTK_BOOL, n, 0, 1); t->wbool = 1; return t; }
     if (!strcmp(n, "single")) return s->tsingle;
-    if (pt_in(n, reals)) return s->treal;
+    if (!strcmp(n, "real")) return s->treal;
+    if (pt_in(n, reals)) return pt_new(PTK_REAL, n);
     if (pt_in(n, strs)) return s->tstr;
     if (!strcmp(n, "shortstring")) return s->tshort;
     if (!strcmp(n, "text") || !strcmp(n, "textfile")) return s->ttext;
@@ -132,11 +134,12 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
         case TT_VAR:
         {
             if (!n->v.sval) return 0;
+            psym_t *p = ps_find(s, n->v.sval);
+            if (p && (p->k == 'c' || p->k == 'e') && p->hv) { *v = p->iv; return 1; }
+            if (p) return 0;
             if (!strcmp(n->v.sval, "true")) { *v = 1; return 1; }
             if (!strcmp(n->v.sval, "false")) { *v = 0; return 1; }
             if (!strcmp(n->v.sval, "maxint")) { *v = 2147483647; return 1; }
-            psym_t *p = ps_find(s, n->v.sval);
-            if (p && (p->k == 'c' || p->k == 'e') && p->hv) { *v = p->iv; return 1; }
             return 0;
         }
         case TT_PLS:
@@ -188,7 +191,13 @@ static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
     if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
     return pt_named(s, n->v.sval);
 }
-struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; };
+struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; int nev, evcap; int *ev; };
+static void lb_ev(struct pty_lay *L, int code, int arg) {
+    if (!L) return;
+    if (L->nev >= L->evcap) { L->evcap = L->evcap ? L->evcap * 2 : 16; L->ev = (int *)ct_grow(L->ev, (size_t)L->evcap * sizeof *L->ev); }
+    L->ev[L->nev++] = code | (arg << 3);
+}
+static void lb_compute_ov(struct pty_lay *L);
 static void lb_add(struct pty_lay *L, const char *name, const pty_t *ft, int named) {
     if (!L || !name) return;
     if (L->nf >= L->cap) {
@@ -204,6 +213,7 @@ static void lb_add(struct pty_lay *L, const char *name, const pty_t *ft, int nam
     L->ov[L->nf] = (long long)L->nf;
     L->named[L->nf] = (unsigned char)named;
     L->nf++;
+    lb_ev(L, 1, 0);
 }
 static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
     for (int i = 0; body && i < body->n; i++) {
@@ -232,7 +242,9 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
                 tag = c->c[0]->v.sval;
                 tagt = pt_leaf(s, c->c[0]);
             }
-            for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) pt_rec_fields(s, r, c->c[j]->c[1]);
+            lb_ev(r->lay, 2, 0);
+            for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) { int st = r->lay->nf; pt_rec_fields(s, r, c->c[j]->c[1]); lb_ev(r->lay, 3, st); }
+            lb_ev(r->lay, 4, 0);
             if (tag) lb_add(r->lay, tag, tagt, k == 2 ? 3 : 5);
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
     }
@@ -302,6 +314,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             t->packed = off;
             t->lay = (struct pty_lay *)ct_zalloc(1, sizeof *t->lay);
             for (int i = off; i < n->n; i++) pt_rec_fields(s, t, n->c[i]);
+            lb_compute_ov(t->lay);
             pt_map_put(&s->src, n, t, s->line);
             return t;
         }
@@ -830,6 +843,187 @@ static int lf_arr(const pty_t *t, int *ischar, long long *lo, long long *hi) {
     if (t->nix == 2 && t->ix[1]) { *lo = 0; *hi = (t->ix[0]->hi + 1) * (t->ix[1]->hi + 1) - 1; }
     return 1;
 }
+struct lfx { int ch, ca, na, file, ptr, rec, en, isreal, isset, isstr, ph, el; long long calo, cahi, nalo, nahi; const pty_t *ft; int nm; };
+static void lf_of(const struct pty_lay *L, int i, struct lfx *f) {
+    memset(f, 0, sizeof *f);
+    const pty_t *ft = L->ft[i];
+    int ph = (L->named[i] & 4) != 0, nm = L->named[i] & 1;
+    if (ph) { int j = i - 1; while (j >= 0 && (L->named[j] & 4)) j--; if (j >= 0) { ft = L->ft[j]; nm = L->named[j] & 1; } }
+    int ischar = 0;
+    long long lo = 0, hi = -1;
+    int ar = lf_arr(ft, &ischar, &lo, &hi);
+    const pty_t *eft = ft;
+    if (ph && !nm) while (eft && eft->k == PTK_ARRAY) eft = eft->base;
+    if (ar && ft->nix == 2 && !ft->dyn && !nm && ft->ix[1]) { lo = ft->ix[1]->lo; hi = ft->ix[1]->hi; }
+    f->ph = ph;
+    f->nm = nm;
+    f->ft = ph ? eft : ft;
+    f->ca = ar && ischar;
+    f->na = ar && !ischar;
+    if (ph && !nm) { f->ca = 0; f->na = 0; }
+    f->calo = lo > 0 ? lo : 0;
+    f->cahi = hi;
+    f->nalo = lo;
+    f->nahi = hi;
+    f->ch = lf_eff_char(L, i);
+    if (f->ca && !nm && !ph) f->ch = 1;
+    f->file = lf_has_file(ft);
+    f->ptr = !ph && ft && ft->k == PTK_POINTER && (ft->base || ft->fwd);
+    f->rec = lf_rec(ft);
+    f->en = ft && ft->k == PTK_ENUM && ft->name && ft->nf > 0;
+    f->isreal = ft && ft->k == PTK_REAL;
+    f->isset = ft && ft->k == PTK_SET;
+    f->isstr = ft && ft->k == PTK_STRING;
+}
+static int lk_bsize(const char *n, long long *out) {
+    static const struct {
+        const char *n;
+        long long sz;
+    } T[] = { {"integer",4},{"longint",4},{"shortint",1},{"byte",1},{"word",2},{"smallint",2},{"cardinal",4},{"longword",4},{"int64",8},{"qword",8},{"single",4}, {"real",8},{"double",8},{"extended",
+        10},{"comp",8},{"char",1},{"widechar",1},{"boolean",1},{"bytebool",1},{"wordbool",2},{"longbool",4},{"qwordbool",8},{"pointer",8},{"ptruint",8},{"ptrint",8}, {"int8",1},{"int16",2},{"int32",
+        4},{"uint8",1},{"uint16",2},{"uint32",4},{"uint64",8},{"nativeint",8},{"nativeuint",8},{"codepointer",8} };
+    for (size_t i = 0; n && i < sizeof T / sizeof T[0]; i++) if (!strcmp(n, T[i].n)) { *out = T[i].sz; return 1; }
+    return 0;
+}
+static int lk_isint(const char *t) {
+    static const char *const L[] = { "integer","longint","shortint","byte","word","cardinal","int64","qword","smallint","longword","uint8","uint16","uint32","uint64","int8","int16","int32",
+        "nativeint","nativeuint","sizeint","sizeuint","ptrint","ptruint", 0 };
+    return pt_in(t, L);
+}
+static long long lk_fit(long long lo, long long hi) {
+    if (lo >= 0) return hi <= 255 ? 1 : hi <= 65535 ? 2 : 4;
+    if (lo >= -128 && hi <= 127) return 1;
+    if (lo >= -32768 && hi <= 32767) return 2;
+    return 4;
+}
+static int lk_bbound(const char *n, long long *lo) {
+    static const struct {
+        const char *n;
+        long long lo;
+    } T[] = { {"byte",0},{"shortint",-128},{"word",0},{"smallint",-32768},{"longword",0},{"cardinal",0},{"uint32",0},{"longint",-1},{"integer",-1},{"int32",-1},{"int8",-1},{"uint8",0}, {"int16",-1},
+        {"uint16",0},{"int64",-1},{"qword",0},{"uint64",0},{"nativeint",-1},{"nativeuint",0} };
+    for (size_t i = 0; n && i < sizeof T / sizeof T[0]; i++) if (!strcmp(n, T[i].n)) { *lo = T[i].lo; return 1; }
+    return 0;
+}
+static int lk_scalar(const struct lfx *f, int *cls, long long *sz) {
+    const pty_t *t = f->ft;
+    long long s = 0, lo = 0;
+    if (!t) return 0;
+    if (f->ch == 1 && !f->ph) { *cls = 4; *sz = 1; return 1; }
+    if (f->ch == 2) { *cls = 5; *sz = 1; return 1; }
+    if (t->k == PTK_CHAR && !f->ph && !f->el) { *cls = 4; *sz = 1; return 1; }
+    if (t->k == PTK_REAL) { if (!lk_bsize(t->name, &s) || (s != 4 && s != 8)) return 0; *cls = 3; *sz = s; return 1; }
+    if (t->k == PTK_SET) {
+        long long h = t->base ? (t->base->k == PTK_ENUM && t->base->nf > 0 ? t->base->nf - 1 : t->base->bounded ? t->base->hi : 255) : 255;
+        *sz = (h >= 0 && h <= 31) ? 4 : 32;
+        *cls = 6;
+        return 1;
+    }
+    if (t->k == PTK_ENUM && t->nf > 0) { long long fit = lk_fit(0, t->hi), ms = 4; *sz = fit > ms ? fit : ms; if (*sz > 8) return 0; *cls = 2; return 1; }
+    if (t->k == PTK_INT || t->k == PTK_ENUM || t->k == PTK_CHAR || t->k == PTK_BOOL) {
+        if (t->name && lk_bsize(t->name, &s) && lk_isint(t->name)) { *sz = s; *cls = (lk_bbound(t->name, &lo) && lo >= 0) ? 2 : 1; return 1; }
+        if (t->bounded && !(t->name && lk_bsize(t->name, &s))) { *sz = lk_fit(t->lo, t->hi); *cls = t->lo >= 0 ? 2 : 1; return 1; }
+        return 0;
+    }
+    return 0;
+}
+static long long lk_rk(const struct pty_lay *L, int i) {
+    struct lfx f;
+    lf_of(L, i, &f);
+    if (f.file || f.rec || f.ptr) return 0;
+    if (f.ca || f.na) {
+        long long lo = f.ca ? f.calo : f.nalo, hi = f.ca ? f.cahi : f.nahi, sz = 0, count;
+        int ecls = 0;
+        if (hi < lo || hi - lo + 1 > 60000) return 0;
+        count = hi - lo + 1;
+        if (f.ca) {
+            ecls = 4;
+            sz = 1;
+        } else {
+            struct lfx e;
+            memset(&e, 0, sizeof e);
+            e.ft = f.ft && f.ft->k == PTK_ARRAY ? f.ft->base : NULL;
+            if ((L->named[i] & 1) || !e.ft) return 0;
+            e.el = 1;
+            if (!lk_scalar(&e, &ecls, &sz) || ecls == 6 || ecls == 3) return 0;
+        }
+        return 7 | (sz << 4) | ((long long)ecls << 12) | (count << 16);
+    }
+    { int cls = 0; long long sz = 0; return lk_scalar(&f, &cls, &sz) ? (cls | (sz << 4)) : 0; }
+}
+static long long lk_get(long long ov, int w) { return w == 0 ? (ov >> 16) & 0xF : w == 1 ? (ov >> 20) & 0xFF : w == 2 ? (ov >> 28) & 0xF : w == 3 ? (ov >> 32) & 0xFFFF : (ov >> 48) & 0xFF; }
+struct lk_vs { int lo, hi, n, first, last, nested; };
+static int lk_arm_field(const long long *ov, int first, int last, int arm, int j) { int k = 0; for (int i = first; i < last; i++) if (lk_get(ov[i], 4) == arm) { if (k++ == j) return i; } return -1; }
+static int lk_region_do(long long *ov, int nfnow, const struct lk_vs *v, int d) {
+    if (d != 0) return 0;
+    int first = v->first, last = v->last, narms = v->n;
+    if (narms < 2 || last <= first || last > nfnow || v->nested) return 0;
+    for (int i = first; i < last; i++) if (!lk_get(ov[i], 0)) return 0;
+    int legacy = 1;
+    for (int a = 2; a <= narms && legacy; a++) {
+        for (int j = 0; ; j++) {
+            int r = lk_arm_field(ov, first, last, 1, j), f = lk_arm_field(ov, first, last, a, j);
+            if (r < 0 && f < 0) break;
+            if (r < 0 || f < 0) { legacy = 0; break; }
+            long long cr = lk_get(ov[r], 0), cf = lk_get(ov[f], 0);
+            if (cr != cf || lk_get(ov[r], 1) != lk_get(ov[f], 1) || !(cr == 1 || cr == 2 || cr == 4 || cr == 5)) { legacy = 0; break; }
+        }
+    }
+    if (legacy) return 0;
+    long long rsize = 0;
+    for (int a = 1; a <= narms; a++) {
+        long long off = 0;
+        for (int j = 0; ; j++) {
+            int i = lk_arm_field(ov, first, last, a, j);
+            if (i < 0) break;
+            long long cls = lk_get(ov[i], 0), es = lk_get(ov[i], 1), cnt = lk_get(ov[i], 3), sz = cls == 7 ? es * cnt : es, al = es < 1 ? 1 : (es > 8 ? 8 : es);
+            off = (off + al - 1) / al * al;
+            ov[i] = (ov[i] & ~(0xFFFFLL << 32)) | (off << 32);
+            off += sz;
+        }
+        if (off > rsize) rsize = off;
+    }
+    if (rsize < 1 || rsize > 60000) return 0;
+    for (int i = first; i < last; i++) ov[i] = (ov[i] & 0xFFFF0000LL) | (ov[i] & 0xFFFF00000000LL) | (long long)first | (rsize << 48);
+    return 1;
+}
+static int lk_overlayable(const struct pty_lay *L, int a, int b) {
+    struct lfx fa, fb;
+    lf_of(L, a, &fa);
+    lf_of(L, b, &fb);
+    if (fa.rec || fb.rec || fa.ca || fb.ca || fa.na || fb.na || fa.file || fb.file || fa.ptr || fb.ptr || (fa.ch == 1) != (fb.ch == 1)) return 0;
+    if (fa.isreal || fa.isset || fa.isstr || fb.isreal || fb.isset || fb.isstr) return 0;
+    return 1;
+}
+static void lb_compute_ov(struct pty_lay *L) {
+    struct lk_vs vs[64];
+    int depth = 0, nfnow = 0;
+    for (int e = 0; e < L->nev; e++) {
+        int code = L->ev[e] & 7, arg = L->ev[e] >> 3;
+        if (code == 1) {
+            L->ov[nfnow] = (long long)nfnow | (lk_rk(L, nfnow) << 16);
+            nfnow++;
+        } else if (code == 2) {
+            if (depth > 0 && depth <= 64) vs[depth - 1].nested = 1;
+            if (depth < 64) memset(&vs[depth], 0, sizeof vs[depth]);
+            depth++;
+        } else if (code == 3) {
+            if (depth <= 0 || depth > 64) continue;
+            int start = arg, end = nfnow, d = depth - 1;
+            for (int i = start; i < end; i++) L->ov[i] = (L->ov[i] & ~(0xFFLL << 48)) | ((long long)(vs[d].n + 1) << 48);
+            if (vs[d].n == 0) vs[d].first = start;
+            vs[d].last = end;
+            if (vs[d].n++ == 0) { vs[d].lo = start; vs[d].hi = end; continue; }
+            for (int j = 0; start + j < end && vs[d].lo + j < vs[d].hi; j++) {
+                int a = start + j, c = (int)(L->ov[vs[d].lo + j] & 0xFFFF);
+                if (c != a && lk_overlayable(L, a, c)) L->ov[a] = (L->ov[a] & ~0xFFFFLL) | (long long)c;
+            }
+        } else if (code == 4) {
+            if (depth > 0 && depth <= 64) { int d = depth - 1; if (!lk_region_do(L->ov, nfnow, &vs[d], d)) for (int i = vs[d].first; i < vs[d].last; i++) L->ov[i] &= 0xFFFFFFFFLL; }
+            if (depth > 0) depth--;
+        }
+    }
+}
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
     char **fldptrto, char **fldrec, char **fldenum, long long *fldov) {
     struct pty_state *s = pt_st();
@@ -872,7 +1066,12 @@ void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *
         else if ((fldptrto[i] != NULL) != ptr) what = "ptr";
         else if ((fldrec[i] != NULL) != rc) what = "rec";
         else if ((fldenum[i] != NULL) != en) what = "enum";
-        if (what) {
+        else if (fldov[i] != L->ov[i]) what = "ov";
+        if (what && !strcmp(what, "ov")) {
+            bad++;
+            fprintf(stderr, "PTYL ov field=%s i=%d legacy=%llx typer=%llx kind=%s named=%d tname=%s lo=%lld hi=%lld\n", fields[i] ? fields[i] : "?", i, fldov[i], L->ov[i],
+                ft ? pty_kind_name(ft->k) : "-", (int)L->named[i], ft && ft->name ? ft->name : "-", ft ? ft->lo : 0, ft ? ft->hi : 0);
+        } else if (what) {
             bad++;
             fprintf(stderr,
                 "PTYL %s line=%d field=%s legacy[char=%d ca=%d na=%d file=%d ptr=%d rec=%d enum=%d bounds=%lld..%lld/%lld..%lld] typer[kind=%s char=%d arr=%d ischar=%d %lld..%lld named=%d]\n", what,
