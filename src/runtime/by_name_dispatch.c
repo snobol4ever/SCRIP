@@ -5661,20 +5661,28 @@ static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
     out[o] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_diag_to(const char *msg, int force_err) {
+    FILE *o = (!force_err && g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto) ? stdout : stderr;
+    fprintf(o, "# %s\n", msg ? msg : "");
+    fflush(o);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tap_diag(const char *msg) { rk_tap_diag_to(msg, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tap_exit(void) {
     int code = 0;
     char b[160];
     if (!g_runtime.tap.tap_no_plan && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
         if (!g_runtime.tap.tap_done_run) {
             snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
-            fprintf(stderr, "# %s\n", b);
+            rk_tap_diag(b);
         }
         code = 255;
     }
     if (g_runtime.tap.tap_failed > 0) {
         if (!g_runtime.tap.tap_done_run) {
             snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
-            fprintf(stderr, "# %s\n", b);
+            rk_tap_diag(b);
         }
         code = g_runtime.tap.tap_failed > 254 ? 254 : (int) g_runtime.tap.tap_failed;
     }
@@ -5695,7 +5703,6 @@ static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
     return cond;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_diag(const char *msg) { fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_subtest_open(const char *nm) {
     DESCR_t st[10];
@@ -14933,7 +14940,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(H.d[1]) };
             return 1;
         }
-        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag(d); *out = NULVCL; return 1; }
+        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag_to(d, 1); *out = NULVCL; return 1; }
         if (!strcmp(op, "todo")) {
             const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
             long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
