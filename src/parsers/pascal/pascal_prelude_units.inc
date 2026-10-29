@@ -673,6 +673,83 @@ static const char PAS_PRELUDE_UNIT_0_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_1_SRC[] =
+    "{$H+}\n"
+    "unit contnrs;\n"
+    "interface\n"
+    "type\n"
+    "  TFPDataHashTable = class\n"
+    "  private\n"
+    "    FKeys: array of string;\n"
+    "    FData: array of Pointer;\n"
+    "    FCount: Integer;\n"
+    "    function IndexOfKey(const __sh_k: string): Integer;\n"
+    "  public\n"
+    "    constructor Create;\n"
+    "    destructor Destroy; override;\n"
+    "    procedure Add(const __sh_k: string; __sh_p: Pointer);\n"
+    "    function Find(const __sh_k: string): Pointer;\n"
+    "    procedure Delete(const __sh_k: string);\n"
+    "    procedure Clear;\n"
+    "    property Count: Integer read FCount;\n"
+    "  end;\n"
+    "implementation\n"
+    "constructor TFPDataHashTable.Create;\n"
+    "begin\n"
+    "  FCount := 0;\n"
+    "  SetLength(FKeys, 0);\n"
+    "  SetLength(FData, 0)\n"
+    "end;\n"
+    "destructor TFPDataHashTable.Destroy;\n"
+    "begin\n"
+    "  Clear\n"
+    "end;\n"
+    "function TFPDataHashTable.IndexOfKey(const __sh_k: string): Integer;\n"
+    "var __sh_i: Integer; __sh_r: Integer;\n"
+    "begin\n"
+    "  __sh_r := -1;\n"
+    "  for __sh_i := 0 to FCount - 1 do\n"
+    "    if (__sh_r < 0) and (FKeys[__sh_i] = __sh_k) then __sh_r := __sh_i;\n"
+    "  IndexOfKey := __sh_r\n"
+    "end;\n"
+    "procedure TFPDataHashTable.Add(const __sh_k: string; __sh_p: Pointer);\n"
+    "begin\n"
+    "  if FCount = Length(FKeys) then\n"
+    "  begin\n"
+    "    SetLength(FKeys, FCount * 2 + 4);\n"
+    "    SetLength(FData, FCount * 2 + 4)\n"
+    "  end;\n"
+    "  FKeys[FCount] := __sh_k;\n"
+    "  FData[FCount] := __sh_p;\n"
+    "  FCount := FCount + 1\n"
+    "end;\n"
+    "function TFPDataHashTable.Find(const __sh_k: string): Pointer;\n"
+    "var __sh_i: Integer;\n"
+    "begin\n"
+    "  __sh_i := IndexOfKey(__sh_k);\n"
+    "  if __sh_i < 0 then Find := nil else Find := FData[__sh_i]\n"
+    "end;\n"
+    "procedure TFPDataHashTable.Delete(const __sh_k: string);\n"
+    "var __sh_i, __sh_j: Integer;\n"
+    "begin\n"
+    "  __sh_i := IndexOfKey(__sh_k);\n"
+    "  if __sh_i >= 0 then\n"
+    "  begin\n"
+    "    for __sh_j := __sh_i to FCount - 2 do\n"
+    "    begin\n"
+    "      FKeys[__sh_j] := FKeys[__sh_j + 1];\n"
+    "      FData[__sh_j] := FData[__sh_j + 1]\n"
+    "    end;\n"
+    "    FCount := FCount - 1\n"
+    "  end\n"
+    "end;\n"
+    "procedure TFPDataHashTable.Clear;\n"
+    "begin\n"
+    "  FCount := 0;\n"
+    "  SetLength(FKeys, 0);\n"
+    "  SetLength(FData, 0)\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "unit crt;\n"
     "interface\n"
     "const\n"
@@ -856,7 +933,36 @@ static const char PAS_PRELUDE_UNIT_1_SRC[] =
     "  OrgX2 := 80;\n"
     "  OrgY2 := 25\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_2_SRC[] =
+static const char PAS_PRELUDE_UNIT_3_SRC[] =
+    "{$H+}\n"
+    "unit dos;\n"
+    "interface\n"
+    "uses sysutils;\n"
+    "const\n"
+    "  ReadOnly = 1;\n"
+    "  Hidden = 2;\n"
+    "  SysFile = 4;\n"
+    "  VolumeID = 8;\n"
+    "  Directory = 16;\n"
+    "  Archive = 32;\n"
+    "  AnyFile = 63;\n"
+    "var\n"
+    "  DosError: integer;\n"
+    "procedure GetDate(var __sh_y, __sh_m, __sh_d, __sh_w: word);\n"
+    "procedure GetTime(var __sh_h, __sh_m, __sh_s, __sh_c: word);\n"
+    "implementation\n"
+    "procedure GetDate(var __sh_y, __sh_m, __sh_d, __sh_w: word);\n"
+    "begin\n"
+    "  DecodeDate(Date, __sh_y, __sh_m, __sh_d);\n"
+    "  __sh_w := DayOfWeek(Date) - 1\n"
+    "end;\n"
+    "procedure GetTime(var __sh_h, __sh_m, __sh_s, __sh_c: word);\n"
+    "begin\n"
+    "  DecodeTime(Time, __sh_h, __sh_m, __sh_s, __sh_c);\n"
+    "  __sh_c := __sh_c div 10\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: real): real;\n"
@@ -935,13 +1041,13 @@ static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_3_SRC[] =
+static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_4_SRC[] =
+static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -1097,7 +1203,7 @@ static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_5_SRC[] =
+static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -1179,7 +1285,7 @@ static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_6_SRC[] =
+static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -2016,7 +2122,7 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_7_SRC[] =
+static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -2039,12 +2145,14 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "end.\n";
 static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "classes", PAS_PRELUDE_UNIT_0_SRC },
-    { "crt", PAS_PRELUDE_UNIT_1_SRC },
-    { "math", PAS_PRELUDE_UNIT_2_SRC },
-    { "strings", PAS_PRELUDE_UNIT_3_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_4_SRC },
-    { "system", PAS_PRELUDE_UNIT_5_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_6_SRC },
-    { "types", PAS_PRELUDE_UNIT_7_SRC },
+    { "contnrs", PAS_PRELUDE_UNIT_1_SRC },
+    { "crt", PAS_PRELUDE_UNIT_2_SRC },
+    { "dos", PAS_PRELUDE_UNIT_3_SRC },
+    { "math", PAS_PRELUDE_UNIT_4_SRC },
+    { "strings", PAS_PRELUDE_UNIT_5_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_6_SRC },
+    { "system", PAS_PRELUDE_UNIT_7_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_8_SRC },
+    { "types", PAS_PRELUDE_UNIT_9_SRC },
     { 0, 0 }
 };

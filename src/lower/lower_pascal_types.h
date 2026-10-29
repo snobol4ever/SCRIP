@@ -28,6 +28,7 @@ void pty_census_report(void);
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound);
 int pty_shortmax(const tree_t *low);
 int pty_capped(const tree_t *src);
+const char *pty_enum_names(const tree_t *low);
 int pty_field_slot(const tree_t *low, const char *name);
 int pty_string_within(const tree_t *low, long long n);
 long long pty_sizeof_low(const tree_t *low);

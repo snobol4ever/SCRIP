@@ -219,7 +219,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         case TT_ENUM_TYPE:
         {
             pty_t *t = pt_ord(PTK_ENUM, NULL, 0, n->n - 1);
-            for (int i = 0; i < n->n; i++) { if (!n->c[i] || !n->c[i]->v.sval) continue; psym_t *p = ps_def(s, n->c[i]->v.sval, 'e', t); p->iv = i; p->hv = 1; }
+            for (int i = 0; i < n->n; i++) { if (!n->c[i] || !n->c[i]->v.sval) continue; psym_t *p = ps_def(s, n->c[i]->v.sval, 'e', t); p->iv = i; p->hv = 1; pt_add_field(t, n->c[i]->v.sval, NULL); }
             return t;
         }
         case TT_SUBRANGE:
@@ -732,6 +732,17 @@ int pty_field_slot(const tree_t *low, const char *name) {
     for (int i = 0; i < t->nf; i++) if (t->f[i].type && t->f[i].type->k == PTK_ARRAY && (t->f[i].type->packed || (t->f[i].type->base && t->f[i].type->base->k == PTK_CHAR))) return -1;
     for (int i = 0; i < t->nf; i++) if (t->f[i].name && !strcmp(t->f[i].name, name)) return i;
     return -1;
+}
+const char *pty_enum_names(const tree_t *low) {
+    const pty_t *t = pty_of_low(low);
+    size_t l = 1;
+    char *r, *w;
+    for (int g = 0; t && (t->k != PTK_ENUM || t->nf <= 0) && t->base && g < 4; g++) t = t->base;
+    if (!t || t->k != PTK_ENUM || t->nf <= 0) return NULL;
+    for (int i = 0; i < t->nf; i++) l += strlen(t->f[i].name) + 1;
+    r = w = (char *)ct_zalloc(1, l);
+    for (int i = 0; i < t->nf; i++) { size_t n = strlen(t->f[i].name); if (i) *w++ = ','; memcpy(w, t->f[i].name, n); w += n; }
+    return r;
 }
 int pty_capped(const tree_t *src) { const pty_t *t = pty_of_src(src); return (t && t->k == PTK_STRING && t->cap) ? t->strmax : 0; }
 int pty_shortmax(const tree_t *low) {

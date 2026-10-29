@@ -1244,6 +1244,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 tree_t *wid = args->items[i + 1];
                 int is_char = pas_is_charexpr(val), _uw = 0;
                 const char *_enm = (val && val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
+                if (!_enm && g_lower.pas.sem.pas_dialect_fpc && val && !is_char) _enm = pty_enum_names(val);
                 if (_enm) {
                     tree_t *_w = ast_node_new(TT_FNC);
                     ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name"));
