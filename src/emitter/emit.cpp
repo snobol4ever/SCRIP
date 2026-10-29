@@ -5036,7 +5036,7 @@ static void call_marg_plan(int i, IR_t * lf, int aoff, IR_t * owner) {
           if (owner && owner == g_emit.node && staged && bb_slot_get(lf) >= 0) { m->kind = MARG_SLOT; m->src = bb_slot_get(lf); return; }
           m->kind = MARG_BOMB_TRAMPOLINE; return; }
       if (lf->op == IR_VAR && sv && sv[0] != '&' && is_global(sv)) { m->kind = MARG_BOMB_GLOBAL; return; }
-      { int is_local_var = (lf->op == IR_VAR && sv && sv[0] != '&' && !is_global(sv)); int ps = is_local_var ? -1 : bb_slot_get(lf); if (ps < 0 && !is_local_var) ps = zls_off(lf);
+      { int is_local_var = (lf->op == IR_VAR && sv && sv[0] != '&' && !is_global(sv)); int ps = is_local_var ? -1 : bb_slot_get(lf); if (ps < 0 && !is_local_var) ps = zrow_opoff(owner, i);
         if (ps >= 0) { m->src = ps; m->kind = ps == aoff ? MARG_DIRECT : MARG_SLOT; return; } }
       { int voff = zrow_opvs(owner, i); if (voff < 0) { m->kind = MARG_BOMB_VARSLOT; return; } m->kind = MARG_SLOT; m->src = voff; } }
 }
