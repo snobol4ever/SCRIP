@@ -172,6 +172,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "_ZL14call_marg_planiP4IR_tiS0_", GC_RET_UNKNOWN },
     { "_ZL26xa_flat_chain_prologue_strPKcPi", GC_RET_UNKNOWN },
     { "_ZL30xa_flat_chain_epilogue_sig_striPKc", GC_RET_UNKNOWN },
+    { "_ZL7bd_shimi", GC_RET_UNKNOWN },
     { "_b_MON_OPEN", GC_RET_DESCR },
     { "_b_add", GC_RET_DESCR },
     { "_b_div", GC_RET_DESCR },
