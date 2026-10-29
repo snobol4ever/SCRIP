@@ -4,9 +4,7 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #define PAS_CA_NOSTR 2
 #define PAS_FIELD_IDX_MARK 0x46494458
 #define PAS_FIELD_MAX 128
-#define PAS_LOCAL_MAX 64
-#define PAS_NEST_MAX 16
-#define PAS_NEST_MAX_PV 16
+#define PAS_DISPLAY_LEVELS 16
 #define PAS_REC_MAX 512
 #define PAS_SEM_PATH_MAX 64
 #define PAS_WITH_MAX 8
@@ -88,7 +86,8 @@ typedef struct {
     int pas_nfunc;
     struct { const char *name; int nvp; int vp[16]; int nrp; int rp[16]; int nsp; int sp[16]; } pas_procs[256];
     int pas_nproc;
-    struct { char *name; unsigned long long camask; long long lo[64]; } pas_caparm[256];
+    struct { char *name; unsigned long long camask; long long lo[64]; } *pas_caparm;
+    int pas_caparm_cap;
     int pas_ncaparm;
     struct { char *name; long long val; int isenum; int uid; } pas_consts[256];
     int pas_nconst;
@@ -101,7 +100,8 @@ typedef struct {
     int pas_narray;
     long long pas_pend_arr_ncols;
     long long pas_pend_arr_d2[4];
-    struct { char *name; } pas_assigned[512];
+    struct { char *name; } *pas_assigned;
+    int pas_assigned_cap;
     int pas_nassigned;
     struct { char *name; long long high; int ndim2; long long ncols; int ischar; long long lo; int isbool; int isdyn; int wrap; char *elem; long long d2[4]; } pas_arrtypes[64];
     int pas_narrtype;
@@ -215,22 +215,26 @@ typedef struct {
     char *pas_pend_arr_ptrto;
     struct { char *vname; char *rname; } pas_ptrvars[PAS_REC_MAX];
     int pas_nptrvar;
-    int pas_pvmarks[PAS_NEST_MAX_PV];
+    int *pas_pvmarks;
+    int pas_pvmark_cap;
     int pas_npvmark;
-    int pas_rvmarks[PAS_NEST_MAX_PV];
+    int *pas_rvmarks;
+    int pas_rvmark_cap;
     int pas_nrvmark;
     struct { char *pname; char *vnames[16]; char *rnames[16]; int n; struct pas_recvar_s rvsave[16]; int rvn; PNodeList *params; } pas_fwdpv[64];
     int pas_nfwdpv;
     struct { int lo, hi, n, first, last, nested; } pas_vcase_stk[32];
     int pas_vcase_depth;
-    struct { const char *names[PAS_LOCAL_MAX]; int n; int decl_level; const char *func_name; } pas_lstk[PAS_NEST_MAX];
+    struct { const char **names; int n, cap; int decl_level; const char *func_name; } *pas_lstk;
+    int pas_lstk_cap;
     struct { char *name; long long hi; long long pack; } pas_settypes[64];
     int pas_nsettype;
     struct { char *name; } pas_tfiletypes[64];
     int pas_ntfiletype;
     struct { char *name; } pas_booltypes[64];
     int pas_nbooltype;
-    char *pas_hdrfiles[32];
+    char **pas_hdrfiles;
+    int pas_hdrfile_cap;
     int pas_nhdrfile;
     struct { char *name; long long lo; int uid; int nostr; long long n; } pas_chararrs[256];
     int pas_nchararr;
@@ -251,16 +255,15 @@ typedef struct {
         long long fldov[32];
     } pas_arrrecs[128];
     int pas_narrrec;
-    char pas_case_tmp[8][24];
+    char **pas_case_tmp;
+    int pas_case_cap;
     int pas_case_depth;
     int pas_case_ctr;
     struct { tree_t *sel; const char *rtype; tree_t *orig; tree_t *pre; } with_stk[PAS_WITH_MAX];
     int with_depth;
     int pas_min_enum_stack_n;
-    int pas_stk_enum[64];
-    int pas_stk_set[64];
-    int pas_stk_rec[64];
-    int pas_stk_zb[64];
+    struct { int en, set, rec, zb; } *pas_pragma_stk;
+    int pas_pragma_cap;
     int pkn;
     int fcn;
     int rdcn;
