@@ -1716,21 +1716,23 @@ static void rk_adv_call(tree_t *t, tree_t *cont, tree_t *key, tree_t *first) {
     ast_push(t, first);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_fnc_named(const tree_t *t, const char *lit) { return t->t == TT_FNC && t->v.sval && !memcmp(t->v.sval, lit, strlen(lit) + 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_adverb(RkB *b, tree_t *t, RkTerm *tm) {
     const char *key = tm ? tm->name : NULL;
     (void) b;
     if (!t || !rk_adv_name(key)) return;
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_subscr_adv")) { ast_push(t, tm->t); return; }
+    if (rk_fnc_named(t, "__rk_subscr_adv")) { ast_push(t, tm->t); return; }
     if ((t->t == TT_HASH_EXISTS || t->t == TT_HASH_DELETE) && t->n >= 2) { tree_t *c = t->c[0], *k = t->c[1]; rk_adv_call(t, c, k, rk_adv_pair(t->t == TT_HASH_EXISTS ? "exists" : "delete")); ast_push(t, tm->t); return; }
     if (t->t == TT_HASH_GET && t->n >= 2 && !rk_is_slice_key(t->c[1]) && tm->ck == 'n' && (!strcmp(key, "exists") || !strcmp(key, "delete"))) { t->t = key[0] == 'e' ? TT_HASH_EXISTS : TT_HASH_DELETE; return; }
     if ((t->t == TT_HASH_GET || t->t == TT_ARR_GET) && t->n >= 2) { tree_t *c = t->c[0], *k = t->c[1]; rk_adv_call(t, c, k, tm->t); return; }
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_pick") && t->n >= 3) {
+    if (rk_fnc_named(t, "__rk_arr_pick") && t->n >= 3) {
         tree_t *c = t->c[1], *k = make_call("__rk_arr");
         for (int i = 2; i < t->n; i++) expr_add_child(k, t->c[i]);
         rk_adv_call(t, c, k, tm->t);
         return;
     }
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_slice") && t->n == 4) {
+    if (rk_fnc_named(t, "__rk_arr_slice") && t->n == 4) {
         tree_t *c = t->c[1], *k = make_call("__rk_range_arr");
         expr_add_child(k, t->c[2]);
         expr_add_child(k, t->c[3]);
