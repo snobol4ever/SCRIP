@@ -113,7 +113,7 @@ ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
+ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
     w[1] = hi;

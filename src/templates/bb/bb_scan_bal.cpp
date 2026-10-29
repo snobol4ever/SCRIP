@@ -5,13 +5,15 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-int rt_icn_cset_member_n(const char *needle, long len, int ch);
-const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi);
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
-ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
+ScanSubjRegs_needle_t rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
+long rt_sg_member(void);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
 #include "x86_asm.h"
+#define RO_SEAL_Q(n, v) \
+    (x86("def", L(n)) \
+   + x86(".quad", (uint64_t)(v)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bal_admit() { return _.op_off >= 0 && _.op_name1 && _.op_name1[0]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -37,14 +39,23 @@ std::string bb_scan_bal() {
              + x86("mov", "rdx", FRQ(_.op_off + 24))
              + x86("cmp64", "rdx", (long)0)
              + x86("jne", L(1))
-             + x86("mov", "rdi", FRQ(_.op_sa))
+             + x86("mov", "rdx", FRQ(_.op_sa))
+             + x86("cmp", "dl", (long)DT_S)
+             + x86("jne", L(5))
+             + x86("shr", "rdx", 32L)
+             + x86("cmp", "edx", (long)-1)
+             + x86("je", L(4))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
-             + x86("sub", "rsp", (long)8)
-             + x86("call", "rt_icn_cset_bits_d", (uint64_t)(uintptr_t)(void*)rt_icn_cset_bits_d)
-             + x86("add", "rsp", (long)8)
-             + x86("test", "rax", "rax")
-             + x86("je", L(5))
-             + x86("mov", "rdi", "rax")
+             + x86("mov", "rcx", FRQ(_.op_off + 16))
+             + x86("movzx", "edi", "[r13+rcx]")
+             + x86("call", "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
+             + x86("test", "eax", "eax")
+             + x86("mov", "rax", FRQ(_.op_off + 16))
+             + x86("je", L(1))
+             + x86("jmp", L(6))
+             + x86("def", L(4))
+             + x86("mov", "rdi", FRQ(_.op_sa + 8))
+             + x86("sub", "rdi", (long)32)
              + x86("mov", "rcx", FRQ(_.op_off + 16))
              + x86("movzx", "esi", "[r13+rcx]")
              + x86("bt", "[rdi]", "esi")
@@ -55,17 +66,14 @@ std::string bb_scan_bal() {
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("sub", "rsp", (long)8)
-             + x86("call", "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
+             + x86("call", "rt_icn_needle_coerce", (uint64_t)(uintptr_t)(void*)rt_icn_needle_coerce)
              + x86("add", "rsp", (long)8)
              + x86_rt_gc_poll_rec_sigma_needle()
-             + x86("mov", "rdi", "rax")
-             + x86("mov", "rsi", "rdx")
+             + x86("mov", "rsi", "rax")
              + x86("mov", "rcx", FRQ(_.op_off + 16))
-             + x86("movzx", "edx", "[r13+rcx]")
-             + x86("sub", "rsp", (long)8)
-             + x86("call", "rt_icn_cset_member_n", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, long, int))rt_icn_cset_member_n)
-             + x86("add", "rsp", (long)8)
-             + x86("test", "rax", "rax")
+             + x86("movzx", "edi", "[r13+rcx]")
+             + x86("call", "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
+             + x86("test", "eax", "eax")
              + x86("mov", "rax", FRQ(_.op_off + 16))
              + x86("je", L(1))
              + x86("def", L(6))
@@ -107,16 +115,10 @@ std::string bb_scan_bal() {
          + x86("cmp64", "rdx", (long)0)
          + x86("jne", L(1))
          + x86("mov", "rcx", "rax")
-         + x86("movzx", "edx", "[r13+rcx]")
-         + x86("mov", "rdi", ROQ(4))
-         + x86("mov", "rsi", (long)-1)
-         + x86("push", "rax")
-         + x86("sub", "rsp", (long)8)
-         + x86("call", "rt_icn_cset_member_n", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, long, int))rt_icn_cset_member_n)
-         + x86("add", "rsp", (long)8)
-         + x86("test", "rax", "rax")
-         + x86("pop", "rax")
-         + x86("je", L(1))
+         + x86("movzx", "esi", "[r13+rcx]")
+         + x86_lea_rip_id("rdi", 7)
+         + x86("bt", "[rdi]", "esi")
+         + x86("jnc", L(1))
          + x86("mov", FRQ(_.op_off), (long)DT_I)
          + x86("add", "rax", (long)1)
          + x86("mov", FRQ(_.op_off + 8), "rax")
@@ -145,5 +147,7 @@ std::string bb_scan_bal() {
          + x86("jmp", L(1))
          + x86(".quad_ro", L(4), LS(4), _.op_name1)
          + x86("label", LS(4))
-         + x86(".string", _.op_name1);
+         + x86(".string", _.op_name1)
+         + RO_SEAL_Q(7, x86_cset_word(_.op_name1, (long)strlen(_.op_name1), 0)) + RO_SEAL_Q(8, x86_cset_word(_.op_name1, (long)strlen(_.op_name1), 1))
+             + RO_SEAL_Q(9, x86_cset_word(_.op_name1, (long)strlen(_.op_name1), 2)) + RO_SEAL_Q(10, x86_cset_word(_.op_name1, (long)strlen(_.op_name1), 3));
 }

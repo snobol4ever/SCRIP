@@ -20,7 +20,7 @@ void rt_scan_state_apply(void *saved);
 void rt_scan_state_reset(void);
 unsigned long rt_scan_state_size(void);
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi);
-ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi);
+ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);

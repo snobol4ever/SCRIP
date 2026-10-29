@@ -189,7 +189,7 @@ const char x86_argrole_blob[] =
     "outer_sigma\0"
     "outer_delta\0"
     "outer_len\0"
-    "rt_scan_needle\0"
+    "rt_icn_needle_coerce\0"
     "rt_scan_reenter_live\0"
     "rt_scan_sync_out\0"
     "rt_shim_nv_gamma\0"
