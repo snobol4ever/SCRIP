@@ -2076,12 +2076,21 @@ static const char *rk_raku_scalar(DESCR_t v) {
     if (IS_INT_fn(v) || IS_REAL_fn(v) || v.v == DT_BIG) return rk_cstr(v);
     const char *s = rk_cstr(v);
     size_t n = strlen(s);
-    char *r = (char *) rt_wsb_alloc(2 * n + 3);
+    char *r = (char *) rt_wsb_alloc(6 * n + 3);
     size_t p = 0;
     r[p++] = '"';
     for (size_t i = 0; i < n; i++) {
+        unsigned char u = (unsigned char) s[i];
         if (s[i] == '\n') { r[p++] = '\\'; r[p++] = 'n'; continue; }
         if (s[i] == '\t') { r[p++] = '\\'; r[p++] = 't'; continue; }
+        if (s[i] == '\r') { r[p++] = '\\'; r[p++] = 'r'; continue; }
+        if (s[i] == '\b') { r[p++] = '\\'; r[p++] = 'b'; continue; }
+        if (s[i] == '\0') { r[p++] = '\\'; r[p++] = '0'; continue; }
+        if (u < 0x20 || u == 0x7f || (u == 0xC2 && i + 1 < n && (unsigned char) s[i + 1] >= 0x80 && (unsigned char) s[i + 1] <= 0x9f)) {
+            unsigned cp = u == 0xC2 ? (unsigned char) s[++i] : u;
+            p += (size_t) sprintf(r + p, "\\x[%X]", cp);
+            continue;
+        }
         if (s[i] == '"' || s[i] == '\\' || s[i] == '$' || s[i] == '@' || s[i] == '%' || s[i] == '&' || s[i] == '{') r[p++] = '\\';
         r[p++] = s[i];
     }
@@ -3828,13 +3837,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
         if (recv.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(recv.i ? "Bool::True" : "Bool::False")); return 1; }
         if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
-        char *r = (char *)rt_str_alloc(2 * n + 2);
-        size_t p = 0;
-        r[p++] = '"';
-        for (size_t i = 0; i < n; i++) { if (s[i] == '"' || s[i] == '\\') r[p++] = '\\'; r[p++] = s[i]; }
-        r[p++] = '"';
-        r[p] = '\0';
-        *out = STRVAL(r);
+        *out = STRVAL((char *) rk_raku_scalar(recv));
         return 1;
     }
     if (!strcmp(meth, "succ") && !IS_INT_fn(recv) && !IS_REAL_fn(recv) && IS_STR_fn(recv) && !rk_typeobj_name(recv)) {
