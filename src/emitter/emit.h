@@ -686,10 +686,8 @@ static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; exter
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline const char * emit_pl_fb(void) { return "rbp"; }
 #ifdef __cplusplus
-extern "C" int emit_pl_fence_on(void);
 extern "C" int emit_pl_scc_armed(void);
 #else
-int emit_pl_fence_on(void);
 int emit_pl_scc_armed(void);
 #endif
 static inline int emit_rec_rsp_arm(void) {

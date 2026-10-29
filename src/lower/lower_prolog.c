@@ -1014,14 +1014,12 @@ static tree_t * pl_cc_gen2_desc(const char * count_leaf, const char * nth_leaf, 
     return pl_cc_fnc2(",", gen, pl_cc_fnc4(nth_leaf, iv2, a0, a1, a2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_pl_fence_on(void) { if (g_lower.pl.fence_on < 0) { const char * e = getenv("SCRIP_PL_FENCE"); g_lower.pl.fence_on = (e && *e == (char) 48) ? 0 : 1; } return g_lower.pl.fence_on; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_fence_on(void) { return emit_pl_fence_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_file_defines(const char * nm, int ar);
 static int pl_attv_on(void);
 static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap);
-static int pl_scc_armed(void) { extern int rt_proc_jmp_entry(const char *); return pl_fence_on() && (pl_file_defines("$scc_cut", 0) || rt_proc_jmp_entry("$scc_cut/0")); }
+static int pl_scc_armed(void) { extern int rt_proc_jmp_entry(const char *); return (pl_file_defines("$scc_cut", 0) || rt_proc_jmp_entry("$scc_cut/0")); }
 int emit_pl_scc_armed(void) { return pl_scc_armed(); }
 static int pl_cond_may_clean(const tree_t * t) {
     static const char * const meta[] = { "call", "findall", "bagof", "setof", "forall", "catch", "once", "ignore", "not", "aggregate_all", "setup_call_cleanup", "call_cleanup",
@@ -1058,10 +1056,10 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
     pl_pop_ok(cx, mark);
     IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail);
     ir_operand_push(unmk_c, mark);
-    IR_LIT(unmk_c).ival = (pl_fence_on() ? 5 : 1) | 32;
+    IR_LIT(unmk_c).ival = 5 | 32;
     IR_t * unmk_f = build(cx, IR_UNMARK, ig, ωfail);
     ir_operand_push(unmk_f, mark);
-    IR_LIT(unmk_f).ival = pl_fence_on() ? 5 : 1;
+    IR_LIT(unmk_f).ival = 5;
     IR_t * arm_entry[2] = { NULL, NULL };
     const tree_t * arms[2];
     int nb = 0;
@@ -1106,9 +1104,10 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
         cx->cut_scope = ++cx->scope_seq;
         IR_t * save_mark_0 = cx->cut_mark;
         cx->cut_mark = mark;
-        IR_t * fence = pl_fence_on() ? build(cx, IR_UNMARK, arm_entry[0], unmk_c) : (IR_t *) 0;
-        if (fence) { ir_operand_push(fence, mark); IR_LIT(fence).ival = 2; }
-        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? (pl_cond_may_clean(C) ? pl_probe_before(cx, fence, mark, 1) : fence) : arm_entry[0], unmk_f, &ce, NULL, NULL);
+        IR_t * fence = build(cx, IR_UNMARK, arm_entry[0], unmk_c);
+        ir_operand_push(fence, mark);
+        IR_LIT(fence).ival = 2;
+        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, pl_cond_may_clean(C) ? pl_probe_before(cx, fence, mark, 1) : fence, unmk_f, &ce, NULL, NULL);
         cx->cutω = savecutω;
         cx->cut_scope = save_scope;
         cx->cut_mark = save_mark_0;
@@ -1134,7 +1133,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     IR_LIT(unmk_f).ival = 1;
     IR_t * unmk_c = build(cx, IR_UNMARK, ig, ig);
     ir_operand_push(unmk_c, mark);
-    IR_LIT(unmk_c).ival = pl_fence_on() ? 5 : 1;
+    IR_LIT(unmk_c).ival = 5;
     lc_γ_to_β(unmk_f, eg);
     IR_t * ml_e = build(cx, IR_GATE_ARM, NULL, ig);
     IR_t * ml_c = build(cx, IR_GATE_ARM, NULL, ig);
@@ -2828,7 +2827,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     IR_t * mark2 = build(cx, IR_BOUND, NULL, ωfail);
                     IR_t * unmk2 = build(cx, IR_UNMARK, lo, ωfail);
                     ir_operand_push(unmk2, mark2);
-                    IR_LIT(unmk2).ival = pl_fence_on() ? 5 : 1;
+                    IR_LIT(unmk2).ival = 5;
                     IR_t * bc2 = build(cx, IR_CALL, unmk2, ωfail);
                     IR_LIT(bc2).sval = "$ball_pending";
                     IR_t * gcutω2 = build(cx, IR_GOTO, unmk2, unmk2);
@@ -2886,7 +2885,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * mark = build(cx, IR_BOUND, NULL, ωfail);
                 IR_t * unmk = build(cx, IR_UNMARK, nd, ωfail);
                 ir_operand_push(unmk, mark);
-                IR_LIT(unmk).ival = pl_fence_on() ? 5 : 1;
+                IR_LIT(unmk).ival = 5;
                 IR_t * gentry = NULL;
                 IR_t * gredo = NULL;
                 lc_vec glv;
