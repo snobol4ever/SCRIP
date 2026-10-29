@@ -96,6 +96,7 @@ function PasInit() {
     pas_ev = TABLE(15);
     pas_hasprog = '';
     pas_strdecl = '';
+    pas_h = '';
     pas_unit = '';
     pas_ek = 0;
     pas_eln = TABLE(31);
@@ -159,6 +160,9 @@ function PasDir(d, l, r, m, fnc) {
         else { PasEv('codepage 0'); }
         nreturn;
     }
+    if (IDENT(l, 'h+')) { pas_h = 1; nreturn; }
+    if (IDENT(l, 'h-')) { pas_h = 0; nreturn; }
+    if (l ? (POS(0) 'longstrings' SPAN(' ' CHAR(9)) ('on' | 'off') . r FENCE(SPAN(' ' CHAR(9)) | epsilon) RPOS(0))) { pas_h = (IDENT(r, 'on') 1, 0); nreturn; }
     if (IDENT(l, 'push')) { PasEv('push'); nreturn; }
     if (IDENT(l, 'pop')) { PasEv('pop'); nreturn; }
     if (IDENT(l, 'r+')) { PasEv('range 1'); nreturn; }
@@ -181,6 +185,10 @@ function Lf(k, v, i, n) {
     while (i = LT(i, n) i + 1) {
         Shift('TT_QLIT', pas_ev[i]);
         Reduce('TT_ATTR', 1, ':pragma');
+    }
+    if (IDENT(k, 'TT_VAR') IDENT(v, 'string')) {
+        if (DIFFER(pas_h)) { i = pas_h; } else { i = (IDENT(dialect, 'delphi') 1, 0); }
+        if (GT(i, 0)) { Shift('TT_QLIT', 'ansistr'); Reduce('TT_ATTR', 1, ':pragma'); n = n + 1; }
     }
     if (GT(n, 0)) { Reduce(k, n, v); } else { Shift(k, v); }
     pas_nev = 0;
