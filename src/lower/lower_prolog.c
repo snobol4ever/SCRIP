@@ -4733,13 +4733,12 @@ static int pl_rs_source(const tree_t * g, const char ** tk, int ntk) {
     return 0;
 }
 static const tree_t * pl_rs_conj(const tree_t * a, const tree_t * b) { return !a ? b : !b ? a : pl_cc_fnc2(",", (tree_t *) a, (tree_t *) b); }
-#define PL_RS_CAP 64
 static void pl_rs_walk(const tree_t * g, const tree_t * after, const char ** tk, int ntk, const tree_t ** node, const tree_t ** aft, int * ns) {
     if (!g) return;
     if (pl_rs_ctl(g, ",")) { pl_rs_walk(g->c[0], pl_rs_conj(g->c[1], after), tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
     if (pl_rs_ctl(g, ";") || pl_rs_ctl(g, "|")) { pl_rs_walk(g->c[0], after, tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
     if (pl_rs_ctl(g, "->") || pl_rs_ctl(g, "*->")) { pl_rs_walk(g->c[0], pl_rs_conj(g->c[1], after), tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
-    if (pl_rs_source(g, tk, ntk) && *ns < PL_RS_CAP + 1) { node[*ns] = g; aft[*ns] = after; (*ns)++; }
+    if (pl_rs_source(g, tk, ntk)) { if (node) { node[*ns] = g; aft[*ns] = after; } (*ns)++; }
 }
 static void pl_rs_vars(const tree_t * t, long long * slots, int * n, int cap) {
     if (!t) return;
@@ -4763,8 +4762,7 @@ static void pl_rs_push(tree_t * cl, const tree_t * g) { if (!g) return; if (pl_r
 static int pl_rs_clause(tree_t * ch, int ci, const char * key, const char ** tk, int ntk, tree_t ** out, int nout) {
     tree_t * cl = pl_tree_copy(ch->c[ci]);
     int ar = (int) cl->v.dval, ns = 0, nr = 0;
-    const tree_t * node[PL_RS_CAP + 1], * aft[PL_RS_CAP + 1], * bt = NULL;
-    tree_t * rec[PL_RS_CAP + 1], * vs[PL_RS_CAP + 1];
+    const tree_t * bt = NULL;
     const char * sl = strrchr(key, '/');
     char base[sl ? (size_t)(sl - key) + 1 : strlen(key) + 1];
     long long slots[256];
@@ -4772,8 +4770,12 @@ static int pl_rs_clause(tree_t * ch, int ci, const char * key, const char ** tk,
     snprintf(base, sizeof base, "%.*s", (int)(sl ? sl - key : (long)strlen(key)), key);
     for (int i = cl->n - 1; i >= ar; i--) bt = pl_rs_conj(cl->c[i], bt);
     if (!bt) return nout;
+    pl_rs_walk(bt, NULL, tk, ntk, NULL, NULL, &ns);
+    if (ns == 0) return nout;
+    const tree_t * node[ns], * aft[ns];
+    tree_t * rec[ns], * vs[ns];
+    ns = 0;
     pl_rs_walk(bt, NULL, tk, ntk, node, aft, &ns);
-    if (ns == 0 || ns > PL_RS_CAP) return nout;
     for (int j = 0; j < ns; j++) {
         int nv = 0;
         char nm[strlen(base) + 40];
@@ -4845,9 +4847,9 @@ static int pl_auto_count(const tree_t * t) { int c = 1; if (!t) return 0; for (i
 static const char * pl_auto_name(const tree_t * g) { return (g && (g->t == TT_FNC || g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval) ? g->v.sval : NULL; }
 static int pl_auto_arity(const tree_t * g) { return g && g->t == TT_FNC ? g->n : 0; }
 static int pl_auto_idx(pl_auto_t * a, const tree_t * g, int extra) {
-    char b[256];
     const char * f = pl_auto_name(g);
     if (!f) return -1;
+    char b[strlen(f) + 24];
     snprintf(b, sizeof b, "%s/%d", f, pl_auto_arity(g) + extra);
     return pl_auto_find(a->keys, a->nk, b);
 }
@@ -4895,7 +4897,7 @@ static int pl_auto_term_body(const tree_t * g, const tree_t * cl, int ar, const 
     if (g->t == TT_FNC && n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->"))) return pl_auto_term_body(g->c[0], cl, ar, mode, self) &&
         pl_auto_term_body(g->c[1], cl, ar, mode, self);
     if (g->t == TT_FNC && n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "not"))) return pl_auto_term_body(g->c[0], cl, ar, mode, self);
-    { char b[256]; snprintf(b, sizeof b, "%s/%d", f, n); if (strcmp(b, self)) return 1; }
+    { char b[strlen(f) + 24]; snprintf(b, sizeof b, "%s/%d", f, n); if (strcmp(b, self)) return 1; }
     return pl_auto_decreasing(g, cl, ar, mode);
 }
 static int pl_auto_terminates(pl_auto_t * a, int v) {
@@ -4974,7 +4976,6 @@ static int pl_auto_edb_dep(pl_auto_t * a, int v, int need, int * memo) {
 static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int need, int * memo) {
     const char * f = pl_auto_name(g);
     int n = pl_auto_arity(g), j, d0, d1;
-    char b[256];
     if (g && g->t == TT_IF && g->n >= 2) {
         d0 = pl_auto_clause_dep(a, self, g->c[0], need, memo) + pl_auto_clause_dep(a, self, g->c[1], need, memo);
         d1 = g->n > 2 ? pl_auto_clause_dep(a, self, g->c[2], need, memo) : 0;
@@ -4985,6 +4986,7 @@ static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int nee
         pl_auto_clause_dep(a, self, g->c[1], need, memo);
     if (g->t == TT_FNC && n == 2 && !strcmp(f, ";")) { d0 = pl_auto_clause_dep(a, self, g->c[0], need, memo); d1 = pl_auto_clause_dep(a, self, g->c[1], need, memo); return d0 > d1 ? d0 : d1; }
     if (g->t == TT_FNC && n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "not"))) return pl_auto_clause_dep(a, self, g->c[0], need, memo);
+    char b[strlen(f) + 24];
     snprintf(b, sizeof b, "%s/%d", f, n);
     j = pl_auto_find(a->keys, a->nk, b);
     if (j == self) return 0;

@@ -103,7 +103,7 @@ static void fh_pos_fold(fh_slot_t *gs, fh_slot_t *ws, const char *p, size_t n){
     while(q<e&&(q=memchr(q,'\n',(size_t)(e-q)))!=(const char *)0){ nl++; last=q; q++; }
     if(gs){ gs->gpos_chars+=(long)n; gs->gpos_lines+=nl; gs->gpos_lpos=last?(long)(e-last-1):gs->gpos_lpos+(long)n; }
     if(!ws) return;
-    for(;k+32<=n;k+=32){ uint64_t x[4]; memcpy(x,p+k,32); hi|=x[0]|x[1]|x[2]|x[3]; }
+    for(;k+32<=n;k+=32){ uint64_t x0,x1,x2,x3; memcpy(&x0,p+k,8); memcpy(&x1,p+k+8,8); memcpy(&x2,p+k+16,8); memcpy(&x3,p+k+24,8); hi|=x0|x1|x2|x3; }
     for(;k+8<=n;k+=8){ uint64_t x; memcpy(&x,p+k,8); hi|=x; }
     for(;k<n;k++) hi|=(unsigned char)p[k];
     if(hi&0x8080808080808080ull) for(k=0;k<n;k++) if(((unsigned char)p[k]&0xC0)==0x80) cont++;

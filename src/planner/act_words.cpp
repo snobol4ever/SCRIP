@@ -190,8 +190,11 @@ static int act_env_arm_first(IR_t ** nodes, int n, const int * zarm, int e, int 
 }
 extern "C" int planner_read_extra(const IR_graph_t * cg, IR_t ** nodes, int n, const int * zarm, int i, int k){
     if (!nodes || !zarm || i < 0 || k < 0 || i >= n || k >= n || i == k) return -1;
-    int chain[64], m = 0, extra = 0;
-    for (int e = zarm[i], g = 0; e >= 0 && g++ < 4096 && m < 64; e = zarm[e]) { if (planner_env_encloses(zarm, k, e)) break; chain[m++] = e; }
+    int m = 0, extra = 0;
+    for (int e = zarm[i], g = 0; e >= 0 && g++ < 4096; e = zarm[e]) { if (planner_env_encloses(zarm, k, e)) break; m++; }
+    int * chain = (int *)__builtin_alloca(sizeof(int) * ((size_t)m + 1u));
+    m = 0;
+    for (int e = zarm[i], g = 0; e >= 0 && g++ < 4096; e = zarm[e]) { if (planner_env_encloses(zarm, k, e)) break; chain[m++] = e; }
     for (int t = 0; t < m; t++) { int o = (int)nodes[chain[t]]->op;
         if (o == IR_MATCH_ALTERNATE) extra += 32;
         else if (o == IR_MATCH_FENCE1 && planner_act_slot(nodes[chain[t]]) == -1 && planner_fence_k(cg, nodes[chain[t]]) == 16) extra += 16; }

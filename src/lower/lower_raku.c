@@ -1378,7 +1378,7 @@ static IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * rk_state_flag(const char * vn) { char fl[256]; snprintf(fl, sizeof fl, "%s_init", (vn[0] == '@' || vn[0] == '%') ? vn + 1 : vn); return intern(fl); }
+static const char * rk_state_flag(const char * vn) { char fl[strlen(vn) + 8]; snprintf(fl, sizeof fl, "%s_init", (vn[0] == '@' || vn[0] == '%') ? vn + 1 : vn); return intern(fl); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_state_desugar(const tree_t * t) {
     const char * vn = t->c[0]->v.sval;
@@ -3077,8 +3077,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         const tree_t * s = pd->c[i];
         if (!s) continue;
         if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
-        if (s->t == TT_VAR && is_multi && rk_destr_count(s->v.sval) > 0 && rk_destr_count(s->v.sval) <= 32) {
-            const tree_t * dp[32];
+        if (s->t == TT_VAR && is_multi && rk_destr_count(s->v.sval) > 0) {
+            const tree_t * dp[rk_destr_count(s->v.sval)];
             int nd = rk_destr_plan(s->v.sval, dp, 0);
             for (int di = nd - 1; di >= 0; di--) { IR_t * r = NULL; IR_t * e = lower_rv(&cx, dp[di], sentry, fail, &r); if (e) { entry = e; sentry = e; } }
             continue;
@@ -5129,7 +5129,7 @@ static void rk_subst_meth_walk(tree_t * t) {
     int iscode = rk_closure_block(rep) || (rep && rep->t == TT_ANON_BLOCK && rep->v.sval);
     int rx = pat && pat->t == TT_FNC && pat->v.sval && !strcmp(pat->v.sval, "__rk_regex");
     if (!rx && !(pat && pat->t == TT_QLIT && pat->v.sval)) return;
-    long mode = 128, xmin = 0, xmax = 0, nth[8];
+    long mode = 128, xmin = 0, xmax = 0, nth[t->n];
     int hasx = 0, nnth = 0, zerox = 0;
     for (int i = 4; i < t->n; i++) {
         const tree_t * a = t->c[i];
@@ -5148,7 +5148,7 @@ static void rk_subst_meth_walk(tree_t * t) {
             continue;
         }
         if (!strcmp(nm, "x") && v->t == TT_VAR && v->v.sval && !strcmp(v->v.sval, "*")) { mode |= 32; xmin = 0; xmax = -1; hasx = 1; continue; }
-        if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1 && nnth < 8) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
+        if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
         return;
     }
     if (zerox) { tree_t * r = t->c[0]; t->t = r->t; t->v = r->v; t->slen = r->slen; t->n = 0; for (int i = 0; i < r->n; i++) ast_push(t, r->c[i]); return; }
