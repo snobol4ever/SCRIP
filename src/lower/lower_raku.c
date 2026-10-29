@@ -256,6 +256,11 @@ static rk_loopfr_t * rk_loop_find(rcx_t * cx, const char * label) { rk_loopfr_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_loop_node(const tree_t * t) { return t && (t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_REPEAT || t->t == TT_CLOOP || t->t == TT_FOR_RANGE || t->t == TT_EVERY); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_multi_for(const tree_t * t) {
+    return t && t->t == TT_SEQ && t->n == 2 && t->c[0] && t->c[0]->t == TT_ASSIGN && t->c[0]->n == 2 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval && !strncmp(t->c[0]->c[0]->v.sval, "__fm_a_", 7) &&
+        rk_is_loop_node(t->c[1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_loop_ctl(rcx_t * cx, const tree_t * t, const char * nm, IR_t * ω, IR_t ** res) {
     const char * lb = (t->n == 2 && t->c[1] && t->c[1]->t == TT_VAR) ? t->c[1]->v.sval : NULL;
     rk_loopfr_t * lf = rk_loop_find(cx, lb);
@@ -2129,7 +2134,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n == 2 && t->c[0] && t->c[0]->v.sval && t->c[1]) return lower_rv(cx, rk_state_desugar(t), γ, ω, res);
         return rk_excise(cx, γ, ω, res);
         case TT_LABEL_DEF:
-        { cx->loop_label = (t->n == 1 && rk_is_loop_node(t->c[0])) ? t->v.sval : NULL; IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res); cx->loop_label = NULL; return le; }
+        {
+            cx->loop_label = (t->n == 1 && (rk_is_loop_node(t->c[0]) || rk_is_multi_for(t->c[0]))) ? t->v.sval : NULL;
+            IR_t * le = lower_rv(cx, t->n ? t->c[0] : NULL, γ, ω, res);
+            cx->loop_label = NULL;
+            return le;
+        }
         case TT_LOOP_BREAK:
         case TT_LOOP_NEXT:
         { IR_t * tgt = !cx->loops ? NULL : (t->t == TT_LOOP_BREAK) ? cx->loops->exit : cx->loops->next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
