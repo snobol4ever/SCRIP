@@ -4060,6 +4060,31 @@ static DESCR_t *pas_heap_cell(long n, int grow) {
     return &g_runtime.pas.pas_heap[n];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned pas_mt_u32rand(void) {
+    g_pasrnd_t *g = &g_runtime.pasrnd;
+    unsigned li = g->i1 ? g->i1 - 1 : 625, *mt = g->mt;
+    g->i1 = li + 2;
+    if (g->seed != g->old || li >= 625) {
+        mt[0] = g->seed;
+        for (unsigned i = 1; i < 624; i++) mt[i] = 1812433253u * (mt[i - 1] ^ (mt[i - 1] >> 30)) + i;
+        g->seed = ~g->seed;
+        g->old = g->seed;
+        li = 624;
+    }
+    if (li == 624) {
+        for (unsigned i = 0; i < 227; i++) mt[i] = mt[i + 397] ^ ((((mt[i] & 0x80000000u) | (mt[i + 1] & 0x7FFFFFFFu)) >> 1) ^ ((0u - (mt[i + 1] & 1u)) & 0x9908B0DFu));
+        for (unsigned i = 227; i < 623; i++) mt[i] = mt[i - 227] ^ ((((mt[i] & 0x80000000u) | (mt[i + 1] & 0x7FFFFFFFu)) >> 1) ^ ((0u - (mt[i + 1] & 1u)) & 0x9908B0DFu));
+        mt[623] = mt[396] ^ ((((mt[623] & 0x80000000u) | (mt[0] & 0x7FFFFFFFu)) >> 1) ^ ((0u - (mt[0] & 1u)) & 0x9908B0DFu));
+        li = 0;
+        g->i1 = 2;
+    }
+    unsigned r = mt[li];
+    r ^= r >> 11;
+    r ^= (r << 7) & 0x9D2C5680u;
+    r ^= (r << 15) & 0xEFC60000u;
+    return r ^ (r >> 18);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
@@ -18192,9 +18217,17 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_94:
     ;
     if (id == PBI_random && nargs <= 1) {
-        long r = random();
-        if (nargs == 1 && IS_INT_fn(args[0])) *out = INTVAL(args[0].i > 0 ? (long long)(r % args[0].i) : 0);
-        else *out = REALVAL((double)r / 2147483648.0);
+        if (nargs == 1 && IS_INT_fn(args[0])) {
+            long long l = args[0].i;
+            if (l >= -2147483648LL && l <= 2147483647LL) {
+                if (l < 0) l++;
+                *out = INTVAL((long long)(((unsigned long long)pas_mt_u32rand() * (long long)l) >> 32));
+            } else {
+                unsigned long long a = pas_mt_u32rand();
+                a |= ((unsigned long long)pas_mt_u32rand() << 32) & 0x7FFFFFFFFFFFFFFFull;
+                *out = INTVAL(l ? (long long)(a % (unsigned long long)l) : 0);
+            }
+        } else *out = REALVAL((double)pas_mt_u32rand() / 4294967296.0);
         return 1;
     }
     L_pbi_100:
@@ -18274,7 +18307,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     }
     L_pbi_171:
     ;
-    if (id == PBI_randomize && nargs == 0) { srandom((unsigned)time(NULL) ^ (unsigned)getpid()); *out = NULVCL; return 1; }
+    if (id == PBI_randomize && nargs == 0) { g_runtime.pasrnd.seed = (unsigned)time(NULL) ^ ((unsigned)getpid() << 16); *out = NULVCL; return 1; }
     L_pbi_172:
     ;
     if (id == PBI_stringofchar && nargs == 2) {
