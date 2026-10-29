@@ -1946,6 +1946,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_icn_needle_coerce", GC_RET_OTHER },
     { "rt_icn_subject_coerce", GC_RET_OTHER },
     { "rt_icn_trace_coexpr", GC_RET_VOID },
+    { "rt_icn_window_pos", GC_RET_OTHER },
     { "rt_indirect_assign_str", GC_RET_VOID },
     { "rt_indirect_assign_var", GC_RET_VOID },
     { "rt_int_neg_div", GC_RET_DESCR },

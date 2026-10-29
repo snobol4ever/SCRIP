@@ -313,6 +313,9 @@ typedef struct {
     int op_sa;
     int op_sb;
     int op_sc;
+    int op_wi;
+    int op_wj;
+    int op_ww;
     int op_off;
     int op_omega_is_death;
     int op_own_mark;

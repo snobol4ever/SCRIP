@@ -3142,6 +3142,67 @@ inline std::string x86_icn_subject_set(int a, int mode, int k) {
          + x86("def", L(k + 1))
          + x86("xor", "r14d", "r14d");
 }
+typedef struct { int64_t v; int64_t ok; } WindowPos;
+extern "C" WindowPos rt_icn_window_pos(uint64_t lo, uint64_t hi);
+inline std::string x86_scan_window_pos(int slot, int is_j, int k, int kfail) {
+    if (slot < 0) return is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L);
+    return x86("mov", "rax", FRQ(slot))
+         + x86("cmp", "al", (long)DT_SNUL)
+         + x86("jne", L(k))
+         + (is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L))
+         + x86("jmp", L(k + 2))
+         + x86("def", L(k))
+         + x86("cmp", "al", (long)DT_I)
+         + x86("jne", L(k + 1))
+         + x86("mov", "rax", FRQ(slot + 8))
+         + x86("jmp", L(k + 3))
+         + x86("def", L(k + 1))
+         + x86("mov", "rdi", FRQ(slot))
+         + x86("mov", "rsi", FRQ(slot + 8))
+         + x86("call", "rt_icn_window_pos", (uint64_t)(uintptr_t)(void *)rt_icn_window_pos)
+         + x86("test", "rdx", "rdx")
+         + x86("je", L(kfail))
+         + x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86("def", L(k + 3))
+         + x86("test", "rax", "rax")
+         + x86("jg", L(k + 4))
+         + x86("add", "rax", "rcx")
+         + x86("def", L(k + 4))
+         + x86("cmp", "rax", 1L)
+         + x86("jl", L(kfail))
+         + x86("cmp", "rax", "rcx")
+         + x86("jg", L(kfail))
+         + x86("def", L(k + 2));
+}
+inline std::string x86_scan_window(int wi, int wj, int bank, int k) {
+    return x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86_scan_window_pos(wi, 0, k, k + 5)
+         + x86("mov", "r14", "rax")
+         + x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86_scan_window_pos(wj, 1, k + 10, k + 5)
+         + x86("mov", "rdx", "rax")
+         + x86("mov", "rax", "r14")
+         + x86("cmp", "rax", "rdx")
+         + x86("jle", L(k + 6))
+         + x86("mov", "rcx", "rax")
+         + x86("mov", "rax", "rdx")
+         + x86("mov", "rdx", "rcx")
+         + x86("def", L(k + 6))
+         + x86("sub", "rax", 1L)
+         + x86("mov", "r14", "rax")
+         + x86("sub", "rdx", 1L)
+         + x86("mov", "r15", "rdx")
+         + x86("jmp", L(k + 7))
+         + x86("def", L(k + 5))
+         + x86("mov", "r13", FRQ(bank + 8))
+         + x86("mov", "r14", FRQ(bank + 16))
+         + x86("mov", "r15", FRQ(bank + 24))
+         + x86_omega()
+         + x86("def", L(k + 7));
+}
 inline std::string x86_icn_subject_result(int off) {
     return x86("mov", "eax", "r15d")
          + x86("shl", "rax", 32L)

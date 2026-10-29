@@ -30,6 +30,7 @@ std::string bb_gen_scan() {
              + x86("mov", FRQ(_.op_off + 16), "r14")
              + x86("mov", FRQ(_.op_off + 24), "r15")
              + scan_subject_load(_.op_sa, 1)
+             + IF(_.op_ww, x86_scan_window(_.op_wi, _.op_wj, _.op_off, 30))
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(_.op_sb != 1 && _.op_off >= 0,

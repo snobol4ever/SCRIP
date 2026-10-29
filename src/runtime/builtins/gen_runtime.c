@@ -17,6 +17,25 @@ extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int64_t v; int64_t ok; } WindowPos;
+WindowPos rt_icn_window_pos(uint64_t lo, uint64_t hi) {
+    extern int core_icn_int_ok_d(DESCR_t);
+    extern int core_icn_error(int, DESCR_t);
+    extern int64_t core_icn_to_int_d(DESCR_t);
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t v;
+    memcpy(&v, w, sizeof v);
+    WindowPos r;
+    r.v = 0;
+    r.ok = 0;
+    if (!core_icn_int_ok_d(v)) { core_icn_error(101, v); return r; }
+    r.v = core_icn_to_int_d(v);
+    r.ok = 1;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     uint64_t w[2];
     w[0] = lo;

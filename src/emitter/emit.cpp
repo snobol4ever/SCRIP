@@ -1264,7 +1264,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIMIT_GATE: bb_emit_x86(bb_limit_gate()); return 0;
     case IR_REPALT: return 0;
     case IR_ITERATE: bb_emit_x86(bb_iterate()); return 0;
-    case IR_SCAN_ENTER: { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN_ENTER: { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot;
+        g_emit.op_wi = (nd->n_operands > 2 && nd->operands[1]) ? bb_slot_get(nd->operands[1]) : -1; g_emit.op_wj = (nd->n_operands > 2 && nd->operands[2]) ? bb_slot_get(nd->operands[2]) : -1;
+        g_emit.op_ww = nd->n_operands > 2 ? 1 : 0; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_INITIAL: bb_emit_x86(bb_enter_init()); return 0;
     case IR_CREATE: { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_create()); } return 0;
     case IR_ACTIVATE: { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_activate()); } return 0;
