@@ -24629,6 +24629,102 @@ DESCR_t rt_pl_dop_tbl_open_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *ro
     rt_pl_tr_gc_sync(cx->tr);
     { int ok = rt_pl_tbh_open(root, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
+extern DESCR_t * rt_pl_tbh_current(void *);
+extern uint64_t g_rtccb[32];
+typedef struct pl_psched_s pl_psched_t;
+typedef struct { char *orig_lo; uint64_t len; char *tbase; uint64_t tn; uint64_t rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; pl_psched_t *sched; } pl_pseg_t;
+struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t n, i; pl_pseg_t *blk[]; };
+typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
+static char * pl_pseg_bytes(pl_pseg_t *b) { return (char *)(b + 1); }
+static char * pl_pseg_trail(pl_pseg_t *b) { return (char *)(b + 1) + b->len; }
+static pl_pseg_t * pl_pseg_of(DESCR_t st) {
+    DESCR_t *t = plw_cell_deref(plw_entry(&st));
+    if (t->v != (DTYPE_t)DT_PLREF || !t->p) return (pl_pseg_t *)0;
+    { DESCR_t *a = plw_cell_deref(&((DESCR_t *)t->p)[0]); return a->v == (DTYPE_t)DT_I ? (pl_pseg_t *)(uintptr_t)a->i : (pl_pseg_t *)0; }
+}
+pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
+    if (s->i >= s->n) { for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k]; g_runtime.abi.rt_k_level = (int)s->k_level; return (pl_pseg_pair_t){ (void *)0, (void *)s }; }
+    {
+        pl_pseg_t *b = s->blk[s->i++];
+        char *now = (char *)(uintptr_t)s->r12;
+        if (now > b->tbase) { fprintf(stderr, "FATAL rt_pl_pseg_next: the resumer's trail top %p is above the generator's base %p\n", (void *)now, (void *)b->tbase); * (volatile char *) NULL; }
+        for (char *p = now; p < b->tbase; p += PL_TR_ENTRY_BYTES) memset(p, 0, PL_TR_ENTRY_BYTES);
+        for (uint64_t i = 0; i < b->tn; i++) {
+            char *src = pl_pseg_trail(b) + i * 48, *dst = b->tbase + i * PL_TR_ENTRY_BYTES;
+            memcpy(dst, src, PL_TR_ENTRY_BYTES);
+            {
+                pl_tr_entry_t *e = (pl_tr_entry_t *)dst;
+                if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
+            }
+        }
+        b->sched = s;
+        for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
+        g_runtime.abi.rt_k_level = (int)b->k_level;
+        return (pl_pseg_pair_t){ (void *)b, (void *)s };
+    }
+}
+void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
+    DESCR_t *h = rt_pl_tbh_current((void *)(uintptr_t)cx->r14);
+    if (nargs != 1 || !h || (int)h[10].v != DT_I || (int)h[11].v != DT_I) { fprintf(stderr, "FATAL rt_pl_pseg_park: no current tabling header with a carve top\n"); * (volatile char *) NULL; }
+    {
+        char *xg = (char *)(uintptr_t)h[10].i, *tbase = (char *)(uintptr_t)h[11].i, *orig_lo = lrbp + 8, *top = cx->tr;
+        pl_pseg_t *old = pl_pseg_of(args[0]);
+        if (xg <= orig_lo || top < tbase) {
+            fprintf(stderr, "FATAL rt_pl_pseg_park: carve top %p at or below the park %p, or trail top %p below the base %p\n", (void *)xg, (void *)orig_lo, (void *)top, (void *)tbase);
+            * (volatile char *) NULL;
+        }
+        {
+            uint64_t len = (uint64_t)(xg - orig_lo), tn = (uint64_t)(top - tbase) / PL_TR_ENTRY_BYTES;
+            pl_pseg_t *b = (pl_pseg_t *)rt_str_alloc((long)(sizeof(pl_pseg_t) + len + tn * 48 + 16));
+            b->orig_lo = orig_lo;
+            b->len = len;
+            b->tbase = tbase;
+            b->tn = tn;
+            b->rbp = *(uint64_t *)lrbp;
+            b->rbx = cx->rbx;
+            b->r12 = (uint64_t)(uintptr_t)top;
+            b->r13 = (uint64_t)(uintptr_t)cx->b;
+            b->r14 = cx->r14;
+            b->r15 = cx->r15;
+            for (int k = 0; k < 4; k++) b->planes[k] = g_rtccb[5 + k];
+            b->k_level = g_runtime.abi.rt_k_level;
+            b->sched = (pl_psched_t *)0;
+            memcpy(pl_pseg_bytes(b), orig_lo, len);
+            for (uint64_t i = 0; i < tn; i++) {
+                char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 48;
+                pl_tr_entry_t *e = (pl_tr_entry_t *)src;
+                memcpy(dst, src, PL_TR_ENTRY_BYTES);
+                if (e->cell) memcpy(dst + PL_TR_ENTRY_BYTES, (void *)e->cell, sizeof(DESCR_t));
+                else memset(dst + PL_TR_ENTRY_BYTES, 0, sizeof(DESCR_t));
+            }
+            { DESCR_t one = (DESCR_t){ .v = DT_I, .i = 1 }, bv = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)b }; rt_pl_setarg_cell(&one, &args[0], &bv, cx, 0); }
+            if (old && old->sched) { pl_psched_t *s = old->sched; old->sched = (pl_psched_t *)0; cx->tr = rt_pl_tr_unwind_to(cx->tr, tbase); return (void *)s; }
+            return (void *)0;
+        }
+    }
+}
+pl_pseg_pair_t rt_pl_pseg_resume(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
+    DESCR_t sts[1024];
+    int n = nargs == 1 ? pl_list_to_arr(args[0], sts, 1024) : -1;
+    if (n < 0) { fprintf(stderr, "FATAL rt_pl_pseg_resume: the argument is not a list of parked consumers\n"); * (volatile char *) NULL; }
+    {
+        pl_psched_t *s = (pl_psched_t *)rt_str_alloc((long)(sizeof(pl_psched_t) + (size_t)n * sizeof(pl_pseg_t *) + 16));
+        s->entry_rsp = (uint64_t)(uintptr_t)(lrbp + 8);
+        s->ret_pc = *(uint64_t *)(lrbp + 8);
+        s->rbp = *(uint64_t *)lrbp;
+        s->rbx = cx->rbx;
+        s->r12 = (uint64_t)(uintptr_t)cx->tr;
+        s->r13 = (uint64_t)(uintptr_t)cx->b;
+        s->r14 = cx->r14;
+        s->r15 = cx->r15;
+        for (int k = 0; k < 4; k++) s->planes[k] = g_rtccb[5 + k];
+        s->k_level = g_runtime.abi.rt_k_level;
+        s->n = 0;
+        s->i = 0;
+        for (int k = 0; k < n; k++) { pl_pseg_t *b = pl_pseg_of(sts[k]); if (b) s->blk[s->n++] = b; }
+        return rt_pl_pseg_next(s);
+    }
+}
 DESCR_t rt_pl_dop_tbh_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     (void)args;
     if (nargs != 0) return FAILDESCR;

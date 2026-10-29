@@ -4303,6 +4303,7 @@ int rt_pl_tbh_open(void *root, void *arg, pl_tr_ctx_t *cx) {
         int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
         h[0] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)prev };
         for (int f = 1; f < PL_TBH_CELLS; f++) h[f] = (DESCR_t){ .v = DT_RAW, .i = (int64_t)(uintptr_t)pl_tbh_fwd(prev, f) };
+        h[PL_TBH_CELLS + 1] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)cx->tr };
         return k >= 0 && rt_pl_b_set(root, k, arg, cx);
     }
 }
@@ -4313,6 +4314,7 @@ int rt_pl_tbh_close(void *root, pl_tr_ctx_t *cx) {
     { DESCR_t prev = (DESCR_t){ .v = DT_I, .i = h[0].i }; return rt_pl_b_set(root, k, (void *)&prev, cx); }
 }
 int rt_pl_tbh_leading(void *root) { return pl_tbh_cur(root) != (DESCR_t *)0; }
+DESCR_t * rt_pl_tbh_current(void *root) { return pl_tbh_cur(root); }
 int rt_pl_tbh_get(void *root, int64_t f, void *out, pl_tr_ctx_t *cx) {
     DESCR_t *c = (f >= 1 && f < PL_TBH_CELLS) ? pl_tbh_owner(root, (int)f) : (DESCR_t *)0;
     return c && plc_unify_cells_cx((pl_cell_t *)out, (pl_cell_t *)c, cx) ? 1 : 0;

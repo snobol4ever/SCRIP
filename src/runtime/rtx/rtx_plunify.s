@@ -679,6 +679,94 @@ PL_ROOTCTX_LEAF(trie_meta_get)
 PL_ROOTCTX_LEAF(tbl_vt)
 PL_ROOTCTX_LEAF(tbl_open)
 PL_ROOTCTX_LEAF(tbh_close)
+#define PSEG_ORIG 0
+#define PSEG_LEN 8
+#define PSEG_RBP 32
+#define PSEG_RBX 40
+#define PSEG_R12 48
+#define PSEG_R13 56
+#define PSEG_R14 64
+#define PSEG_R15 72
+#define PSEG_BYTES 128
+#define PSCH_ENTRY 0
+#define PSCH_RET 8
+#define PSCH_RBP 16
+#define PSCH_RBX 24
+#define PSCH_R12 32
+#define PSCH_R13 40
+#define PSCH_R14 48
+#define PSCH_R15 56
+RTX_FUNC(rt_pl_dop_tbl_park)
+    RTX_PUSHS(rbp)
+    mov     rbp, rsp
+    .cfi_def_cfa_register rbp
+    sub     rsp, 48
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call    rt_pl_pseg_park
+    test    rax, rax
+    jnz     1f
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rsp, rbp
+    pop     rbp
+    .cfi_def_cfa rsp, 8
+    .cfi_restore rbp
+    mov     eax, DT_FAIL
+    xor     edx, edx
+    ret
+1:  mov     rdi, rax
+    call    rt_pl_pseg_next
+    jmp     rt_pl_pseg_switch
+RTX_ENDF(rt_pl_dop_tbl_park)
+RTX_FUNC(rt_pl_dop_tbl_resume_all)
+    RTX_PUSHS(rbp)
+    mov     rbp, rsp
+    .cfi_def_cfa_register rbp
+    sub     rsp, 48
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call    rt_pl_pseg_resume
+    jmp     rt_pl_pseg_switch
+RTX_ENDF(rt_pl_dop_tbl_resume_all)
+RTX_FUNC(rt_pl_pseg_switch)
+    test    rax, rax
+    jz      2f
+    mov     r11, rax
+    mov     rsp, qword ptr [r11 + PSEG_ORIG]
+    sub     rsp, 256
+    mov     rdi, qword ptr [r11 + PSEG_ORIG]
+    lea     rsi, [r11 + PSEG_BYTES]
+    mov     rcx, qword ptr [r11 + PSEG_LEN]
+    cld
+    rep movsb
+    mov     rbp, qword ptr [r11 + PSEG_RBP]
+    mov     rbx, qword ptr [r11 + PSEG_RBX]
+    mov     r12, qword ptr [r11 + PSEG_R12]
+    mov     r13, qword ptr [r11 + PSEG_R13]
+    mov     r14, qword ptr [r11 + PSEG_R14]
+    mov     r15, qword ptr [r11 + PSEG_R15]
+    mov     rsp, qword ptr [r11 + PSEG_ORIG]
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+2:  mov     r11, rdx
+    mov     rbp, qword ptr [r11 + PSCH_RBP]
+    mov     rbx, qword ptr [r11 + PSCH_RBX]
+    mov     r12, qword ptr [r11 + PSCH_R12]
+    mov     r13, qword ptr [r11 + PSCH_R13]
+    mov     r14, qword ptr [r11 + PSCH_R14]
+    mov     r15, qword ptr [r11 + PSCH_R15]
+    mov     rcx, qword ptr [r11 + PSCH_RET]
+    mov     rsp, qword ptr [r11 + PSCH_ENTRY]
+    add     rsp, 8
+    mov     eax, DT_I
+    mov     edx, 1
+    jmp     rcx
+RTX_ENDF(rt_pl_pseg_switch)
 PL_ROOTCTX_LEAF(tbh_leading)
 PL_ROOTCTX_LEAF(tbh_get)
 PL_ROOTCTX_LEAF(tbh_own)
