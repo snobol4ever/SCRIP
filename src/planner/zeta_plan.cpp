@@ -633,8 +633,7 @@ extern "C" int planner_gate_cells(const IR_graph_t * g, const IR_t * gate) {
     if (!g || !gate || gate->op != IR_GATE || !zd_pl_home(g) || !getenv("SCRIP_PL_GATE_CELLS")) return 0;
     int v = zls_fcn_bs_get(gate, 3);
     if (v) return v == 2;
-    const IR_t * t = zd_chase((IR_t *)gate->γ.node);
-    int ok = !(t && (t->op == IR_GATE_ARM || t->op == IR_DISJUNCTION));
+    int ok = 1;
     for (int i = 0; i < g->n && ok; i++) { const IR_t * x = g->all[i]; if (x && x != gate && zd_chase((IR_t *)x->γ.node) == gate && port_sz_beta(x->γ.sz)) ok = 0; }
     zls_fcn_bs_set(gate, 3, ok ? 2 : 1);
     return ok;
@@ -873,7 +872,8 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
                         if (!zon[i] || claim[i] != h) continue;
                         for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
                             int l, q = zd_pl_entry(cg, nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
-                            if (q >= 0 && !known[q] && fam[q] < 0 && !zd_pl_restores_head(cg, nodes, n, claim, q)) { fam[q] = fam[h]; fbase[q] = fbase[h] + l - (zout[q] - zd_k_g(cg, nodes[q]));
+                            if (e != 1 && q >= 0 && !known[q] && fam[q] < 0 && !zd_pl_restores_head(cg, nodes, n, claim, q)) { fam[q] = fam[h];
+                                fbase[q] = fbase[h] + l - (zout[q] - zd_k_g(cg, nodes[q]));
                                 moved = 1; }
                             if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION) || zd_edge_retains_g(cg, nodes[i])) continue;
                             int b2, q2;
