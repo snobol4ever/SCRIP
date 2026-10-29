@@ -8182,7 +8182,7 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
             d = plw_cell_deref(j);
             if (plw_unbound_tag(d)) { w.v = (DTYPE_t)DT_PLVAR; w.slen = 0; w.p = (void *)d; } else w = *d;
         }
-        if (trail == 1 && pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
+        if (trail == 1 && pl_tr_needs_log_bind(cx, cell, floor_)) pl_tr_push(cx, cell);
         *cell = w;
         if (trail != 1 && (w.v == (DTYPE_t)DT_PLREF || w.v == (DTYPE_t)DT_PLVAR)) rt_pl_tr_freeze();
     }

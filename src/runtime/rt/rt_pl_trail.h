@@ -75,6 +75,15 @@ static inline int pl_tr_needs_log_bind(const pl_tr_ctx_t *cx, const DESCR_t *cel
     { const char *hb = pl_tr_hb_of(cx); return !hb || (const char *)cell < hb || (const char *)cell >= *(char * const *)(const void *)&g_runtime.abi.hp_fr; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int pl_tr_kept_since_choice(const pl_tr_ctx_t *cx, const DESCR_t *cell) {
+    const char *mark = *(const char * const *)cx->b, *e = cx->tr;
+    if (mark < pl_tr_base_of(cx->tr) + PL_TR_HEADER_BYTES || mark > e) return 0;
+    for (int n = 0; n < 256 && e - PL_TR_ENTRY_BYTES >= mark; n++) {
+        e -= PL_TR_ENTRY_BYTES;
+        if (((const pl_tr_entry_t *)e)->cell == cell && ((const pl_tr_entry_t *)e)->pad == PL_TR_PAD_KEEP) return 1;
+    }
+    return 0;
+}
 static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
     if (((uintptr_t)cx->tr & (PL_TR_ARENA_BYTES - 1)) >= PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES) rt_pl_tr_refuse(cx->tr);
     { pl_tr_entry_t *e = (pl_tr_entry_t *)cx->tr; e->cell = cell; e->pad = 0; e->old = *cell; cx->tr += PL_TR_ENTRY_BYTES; *(char **)pl_tr_base_of(cx->tr) = cx->tr; }
