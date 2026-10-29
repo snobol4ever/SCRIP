@@ -684,9 +684,12 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             result = result ? expr_binary(TT_CAT, result, cp) : cp;
         }
         else if (s[i] == '@' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
+            int ne = i + 1;
+            while (ne < len && (s[ne] == '_' || isalnum((unsigned char) s[ne]) || ((s[ne] == '-' || s[ne] == '\'') && ne + 1 < len && isalpha((unsigned char) s[ne + 1])))) ne++;
+            if (ne >= len || s[ne] != '[') { sb_c(&lit, s[i]); i++; continue; }
             if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             SB vn = { 0 }; sb_c(&vn, s[i]); i++;
-            while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
+            while (i < ne) { sb_c(&vn, s[i]); i++; }
             char *vname = sb_str(&vn);
             { const char *st = b->st_look ? b->st_look(b->st_ctx, vname, (int) strlen(vname)) : NULL; if (st) vname = (char *) st; }
             tree_t *arrpart;
