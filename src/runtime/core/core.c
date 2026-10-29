@@ -3062,6 +3062,7 @@ void core_runtime_error(int code, const char *msg) {
             if (G_ERROR_IS_EVAL(g_runtime.abi.error) && G_ERROR_EVAL_LEVEL(g_runtime.abi.error) == G_ERROR_EVAL_LEVEL(G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel))) g_runtime.abi.error =
                 G_ERROR_EVAL_ERRED_AT(g_runtime.abi.kw_fnclevel);
             rt_kw_publish_error(code, msg);
+            { extern uint64_t g_rtccb[32]; g_rtccb[26] = 0; }
             return;
         }
     }
