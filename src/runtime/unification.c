@@ -3750,8 +3750,9 @@ int rt_pl_nb_set(void *root, int64_t k, void *val) {
         if (!cell) return 0;
         pl_cell_t *t = pl_deref((pl_cell_t *)val);
         pl_cell_t stored = plc_copy_x(t, 1);
-        pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
+        pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(2);
         if (!box) return 0;
+        box[1].v = (DTYPE_t)DT_RAW;
         *box = stored;
         *cell = box;
         if ((int)stored.v == DT_PLREF || (int)stored.v == DT_PLVAR) rt_pl_tr_freeze();
@@ -3776,13 +3777,18 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
         stored.slen = 0;
         stored.p = (void *)j;
         if (*cell) {
+            pl_cell_t *box = *cell;
             char probe;
             char *floor_ = &probe;
-            if (pl_tr_needs_log(cx, *cell, floor_) && !pl_tr_kept_since_choice(cx, *cell)) pl_tr_push_keep(cx, *cell);
-            **cell = stored;
+            if (pl_tr_needs_log(cx, box, floor_)) {
+                int64_t mark = (int64_t)(intptr_t) *(const char * const *) cx->b;
+                if (box[1].i != mark) { pl_tr_push_keep(cx, box); pl_tr_push_keep(cx, &box[1]); box[1].i = mark; }
+            }
+            *box = stored;
         } else {
-            pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
+            pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(2);
             if (!box) return 0;
+            box[1].v = (DTYPE_t)DT_RAW;
             *box = pl_make_int(0);
             box->slen = PLC_GVAR_ABSENT;
             *cell = box;
