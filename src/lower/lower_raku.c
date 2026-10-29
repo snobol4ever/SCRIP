@@ -2665,6 +2665,12 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
         } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "**@")) {
             g_stage2.proc_table[pi].is_variadic = 1;
             g_stage2.proc_table[pi].rest_kind = 2;
+        } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "+@")) {
+            g_stage2.proc_table[pi].is_variadic = 1;
+            g_stage2.proc_table[pi].rest_kind = 3;
+        } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "+")) {
+            g_stage2.proc_table[pi].is_variadic = 1;
+            g_stage2.proc_table[pi].rest_kind = 4;
         } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*%")) {
             g_stage2.proc_table[pi].named_rest = nparams;
         }
@@ -6506,7 +6512,10 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
                 tree_t * pv = dk->c[q];
                 if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0];
                 if (!pv || pv->t != TT_VAR || !pv->v.sval || pv->v.sval[0] == '@' || pv->v.sval[0] == '%' || pv->v.sval[0] == '&' || !pv->v.sval[0]) { valid = 0; break; }
-                if ((pv->slen & RK_PV_NAMED) || (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && pv->c[0]->v.sval[0] == '*')) { valid = 0; break; }
+                if ((pv->slen & RK_PV_NAMED) || (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && (pv->c[0]->v.sval[0] == '*' || pv->c[0]->v.sval[0] == '+'))) {
+                    valid = 0;
+                    break;
+                }
                 if (pv->slen & RK_PV_OPT) { seen_opt = 1; m->nreq--; } else if (seen_opt) { valid = 0; break; }
                 const char * ty = (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT) ? pv->c[0]->v.sval : NULL;
                 const tree_t * wx = rk_ss_where_of(pv);

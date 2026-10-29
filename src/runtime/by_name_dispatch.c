@@ -12567,6 +12567,13 @@ DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
     return rk_unmark(rk_mk_arr(r, k));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_plus_agg(DESCR_t *args, int nargs, int as_list) {
+    DESCR_t r;
+    if (nargs == 1 && args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); r = rt_make_item_agg(a.el, a.n); } else if (nargs == 1 && !as_list) r = rt_make_flat_agg(args, nargs);
+    else r = rt_make_item_agg(args, nargs);
+    return as_list ? rk_mark_list(r) : r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_STR_fn(v)) { const char *s = VARVAL_fn(v); return (s && s[0]) ? (long)(unsigned char)s[0] : -1L; } return -1L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PAS_SET_BYTES 32

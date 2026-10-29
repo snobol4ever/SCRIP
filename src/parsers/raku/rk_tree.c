@@ -301,7 +301,7 @@ static const char *rk_multi_mangle(const char *base, TL *params, int kind) {
         int named = nnamed && p && (p->slen & RK_PV_NAMED);
         if (named != pass) continue;
         const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
-        if (!strcmp(ty, "*@") || !strcmp(ty, "**@")) ty = "Slurpy";
+        if (!strcmp(ty, "*@") || !strcmp(ty, "**@") || !strcmp(ty, "+@") || !strcmp(ty, "+")) ty = "Slurpy";
         sb_c(&b, '$');
         if (named) { for (const char *c = fmt("N_%s_%c", p->v.sval ? p->v.sval : "", (p->slen & RK_PV_REQ) ? 'R' : 'O'); *c; c++) sb_c(&b, *c); continue; }
         for (const char *c = ty; *c; c++) sb_c(&b, (*c == ':') ? '_' : *c);
@@ -2485,6 +2485,7 @@ tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int 
     tree_t *p;
     if (v[0] == '&' && v[1] && prefix != '*' && prefix != 'L') { const char *bare = intern(v + 1); if (!ns_has(&b->codev, bare)) { GROW(b->pcv, b->npcv, b->cpcv, const char *); b->pcv[b->npcv++] = bare; } rkb_codevar(b, v); }
     if (prefix == '*' || prefix == 'L') p = var_node(b, v), expr_add_child(p, leaf_sval(TT_QLIT, intern(prefix == 'L' ? "**@" : v[0] == '%' ? "*%" : "*@")));
+    else if (prefix == '+' && !ntypes) { p = var_node(b, v); expr_add_child(p, leaf_sval(TT_QLIT, v[0] == '@' ? "+@" : "+")); }
     else if (v[0] == '@' && !ntypes) { p = var_node(b, v); expr_add_child(p, leaf_sval(TT_QLIT, "@")); }
     else if (ntypes) p = rk_typed_param(b, spn(b, tf[0], tt[0]), v);
     else p = var_node(b, v);

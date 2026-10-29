@@ -1173,10 +1173,17 @@ void rt_arg_stage(int idx, DESCR_t v) { if (idx < 0) return; rt_call_args_need(i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs) {
+static DESCR_t rt_rest_pack(int kind, DESCR_t *tail, int rest) {
     extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_plus_agg(DESCR_t *args, int nargs, int as_list);
+    if (kind == 2) return rt_make_item_agg(tail, rest);
+    if (kind >= 3) return rt_make_plus_agg(tail, rest, kind == 4);
+    return kind == 1 ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs) {
     int npc = p->nparams;
     rt_call_args_need(npc > nargs ? npc : nargs);
     if (p->is_variadic && npc > 0) {
@@ -1185,7 +1192,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs) {
         int rest = nargs - fixed;
         if (rest < 0) rest = 0;
         DESCR_t *tail = rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0;
-        *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_item_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
+        *(DESCR_t *)(fb + 16 * (fixed + 1)) = rt_rest_pack(p->rest_kind, tail, rest);
         return;
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = CALL_ARGS[i];
@@ -2027,17 +2034,13 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
         static int _va = -1;
         if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
         if (_va && p->is_variadic && p->jmp_entry) {
-            extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
-            extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
-            extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
             int npc = p->nparams;
             if (npc > 0) {
                 int fixed = npc - 1;
                 int rest = nargs - fixed;
                 if (rest < 0) rest = 0;
                 for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
-                DESCR_t _tail = (p->rest_kind == 2) ? rt_make_item_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ?
-                    rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
+                DESCR_t _tail = rt_rest_pack(p->rest_kind, rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
                 CALL_ARGS[fixed] = _tail;
             }
         }

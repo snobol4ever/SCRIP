@@ -3857,7 +3857,7 @@ static int r_parameter(RkP *p, int pos) {
         int v = r_param_var(p, q + l);
         pref = l == 2 ? 'L' : c;
         if (v >= 0) { e = v; vfrom = q + l; vto = v; }
-        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) add_value_name(p, p->s + q + 1, e - q - 1); }
+        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) { add_value_name(p, p->s + q + 1, e - q - 1); vfrom = q + 1; vto = e; } }
         else if (c == '+') e = q + 1;
     }
     else if (c == '\\' || c == '|') {
