@@ -4807,6 +4807,293 @@ static int pl_rs_clause(tree_t * ch, int ci, const char * key, const char ** tk,
     }
     return nout + nr;
 }
+static int pl_det_specs(const tree_t * a, const char ** keys, int n, int cap);
+typedef struct {
+    int nk;
+    const char ** keys;
+    const tree_t ** defs;
+    unsigned char * tab, * decl, * edb, * ex;
+    const char ** mode;
+    int * from;
+    int * to;
+    int ne;
+    unsigned char * tn;
+    const char ** edbk;
+    int nedb;
+    const char ** tabk;
+    int ntab;
+} pl_auto_t;
+static int pl_auto_user_key(const char * key) { for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) if (!strcmp(CV_AT(g_stage2.pl_user_keys_files, char *, i), key)) return 1; return 0; }
+static int pl_auto_find(const char ** keys, int n, const char * key) { for (int i = 0; i < n; i++) if (!strcmp(keys[i], key)) return i; return -1; }
+static int pl_auto_count(const tree_t * t) { int c = 1; if (!t) return 0; for (int i = 0; i < t->n; i++) c += pl_auto_count(t->c[i]); return c; }
+static const char * pl_auto_name(const tree_t * g) { return (g && (g->t == TT_FNC || g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval) ? g->v.sval : NULL; }
+static int pl_auto_arity(const tree_t * g) { return g && g->t == TT_FNC ? g->n : 0; }
+static int pl_auto_idx(pl_auto_t * a, const tree_t * g, int extra) {
+    char b[256];
+    const char * f = pl_auto_name(g);
+    if (!f) return -1;
+    snprintf(b, sizeof b, "%s/%d", f, pl_auto_arity(g) + extra);
+    return pl_auto_find(a->keys, a->nk, b);
+}
+static void pl_auto_goal(pl_auto_t * a, int self, const tree_t * g, int inmeta) {
+    const char * f = pl_auto_name(g);
+    int n = pl_auto_arity(g), j;
+    if (g && g->t == TT_IF) { for (int i = 0; i < g->n; i++) pl_auto_goal(a, self, g->c[i], inmeta); return; }
+    if (!f) return;
+    if (g->t == TT_FNC && n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->"))) {
+        pl_auto_goal(a, self, g->c[0], inmeta);
+        pl_auto_goal(a, self, g->c[1], inmeta);
+        return;
+    }
+    if (g->t == TT_FNC && n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "call"))) { pl_auto_goal(a, self, g->c[0], 1); return; }
+    if (g->t == TT_FNC && n == 3 && (!strcmp(f, "findall") || !strcmp(f, "setof") || !strcmp(f, "bagof"))) { pl_auto_goal(a, self, g->c[1], 1); return; }
+    if (g->t == TT_FNC && n == 2 && !strcmp(f, "^") && inmeta) { pl_auto_goal(a, self, g->c[1], 1); return; }
+    if (g->t == TT_FNC && ((n == 1 && !strcmp(f, "tnot")) || (n == 3 && (!strcmp(f, "tfindall") || !strcmp(f, "tbagof") || !strcmp(f, "tsetof"))))) {
+        const tree_t * arg = g->c[n == 1 ? 0 : 1];
+        j = pl_auto_idx(a, arg, 0);
+        if (j >= 0) a->tn[j] = 1;
+        return;
+    }
+    j = pl_auto_idx(a, g, 0);
+    if (j >= 0) { a->from[a->ne] = self; a->to[a->ne++] = j; }
+}
+static int pl_auto_calls(pl_auto_t * a, int v, int w) { for (int e = 0; e < a->ne; e++) if (a->from[e] == v && a->to[e] == w) return 1; return 0; }
+static int pl_auto_var_in(const tree_t * t, long long slot) {
+    if (!t) return 0;
+    if (t->t == TT_VAR) return t->v.ival == slot;
+    for (int i = 0; i < t->n; i++) if (pl_auto_var_in(t->c[i], slot)) return 1;
+    return 0;
+}
+static int pl_auto_decreasing(const tree_t * goal, const tree_t * cl, int ar, const char * mode) {
+    for (int i = 0; i < ar && i < goal->n && mode[i]; i++) {
+        const tree_t * ga = goal->c[i], * ha = cl->c[i];
+        if (mode[i] == '+' && ga && ga->t == TT_VAR && ha && (ha->t == TT_FNC || ha->t == TT_MAKELIST) && ha->n > 0 && pl_auto_var_in(ha, ga->v.ival)) return 1;
+    }
+    return 0;
+}
+static int pl_auto_term_body(const tree_t * g, const tree_t * cl, int ar, const char * mode, const char * self) {
+    const char * f = pl_auto_name(g);
+    int n = pl_auto_arity(g);
+    if (g && g->t == TT_IF) { for (int i = 0; i < g->n; i++) if (!pl_auto_term_body(g->c[i], cl, ar, mode, self)) return 0; return 1; }
+    if (!f) return 1;
+    if (g->t == TT_FNC && n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->"))) return pl_auto_term_body(g->c[0], cl, ar, mode, self) &&
+        pl_auto_term_body(g->c[1], cl, ar, mode, self);
+    if (g->t == TT_FNC && n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "not"))) return pl_auto_term_body(g->c[0], cl, ar, mode, self);
+    { char b[256]; snprintf(b, sizeof b, "%s/%d", f, n); if (strcmp(b, self)) return 1; }
+    return pl_auto_decreasing(g, cl, ar, mode);
+}
+static int pl_auto_terminates(pl_auto_t * a, int v) {
+    const char * sl = strrchr(a->keys[v], '/');
+    int ar = sl ? atoi(sl + 1) : 0;
+    if (!a->mode[v]) return 0;
+    for (int c = 0; c < a->defs[v]->n; c++) {
+        const tree_t * cl = a->defs[v]->c[c];
+        if (!cl || cl->t != TT_CLAUSE) continue;
+        for (int b = ar; b < cl->n; b++) if (!pl_auto_term_body(cl->c[b], cl, ar, a->mode[v], a->keys[v])) return 0;
+    }
+    return 1;
+}
+static int pl_auto_path(pl_auto_t * a, const unsigned char * in, unsigned char * seen, int cur, int target) {
+    for (int e = 0; e < a->ne; e++) {
+        int w;
+        if (a->from[e] != cur) continue;
+        w = a->to[e];
+        if (w == target) { if (cur != target) return 1; continue; }
+        if (!in[w] || a->tab[w] || seen[w]) continue;
+        seen[w] = 1;
+        if (pl_auto_path(a, in, seen, w, target)) return 1;
+    }
+    return 0;
+}
+static int pl_auto_reach(pl_auto_t * a, const unsigned char * in, int from, int target) {
+    unsigned char * seen = (unsigned char *) ct_zalloc((size_t) a->nk + 1, 1);
+    if (a->tab[from] || !in[from]) return 0;
+    seen[from] = 1;
+    return pl_auto_path(a, in, seen, from, target);
+}
+static void pl_auto_break_loops(pl_auto_t * a, unsigned char * in) {
+    for (;;) {
+        int nl = 0, best = -1, bestn = -1;
+        unsigned char * loop = (unsigned char *) ct_zalloc((size_t) a->nk + 1, 1);
+        for (int v = 0; v < a->nk; v++) if (in[v] && !a->tab[v] && pl_auto_reach(a, in, v, v)) { loop[v] = 1; nl++; }
+        if (!nl) return;
+        for (int v = 0; v < a->nk; v++) {
+            int cnt = 0;
+            if (!loop[v]) continue;
+            for (int w = 0; w < a->nk; w++) {
+                if (!loop[w] || w == v || !pl_auto_calls(a, v, w)) continue;
+                for (int x = 0; x < a->nk; x++) if (loop[x] && pl_auto_calls(a, x, v) && (x == w || pl_auto_reach(a, loop, w, x))) cnt++;
+            }
+            if (best < 0) { best = v; bestn = cnt; continue; }
+            if (cnt > bestn) {
+                best = v;
+                bestn = cnt;
+            } else if (cnt == bestn) {
+                int ax = atoi(strrchr(a->keys[v], '/') + 1), ay = atoi(strrchr(a->keys[best], '/') + 1);
+                if (a->ex[v] && !a->ex[best]) best = v;
+                else if (a->ex[v] == a->ex[best] && ax < ay) best = v;
+            }
+        }
+        a->tab[best] = 1;
+        for (int v = 0; v < a->nk; v++) in[v] = loop[v] && v != best;
+    }
+}
+static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int need, int * memo);
+static int pl_auto_edb_dep(pl_auto_t * a, int v, int need, int * memo) {
+    const char * sl = strrchr(a->keys[v], '/');
+    int ar = sl ? atoi(sl + 1) : 0, maxd = 0;
+    if (memo[v] >= 0) return memo[v];
+    if (a->tab[v] || a->edb[v]) return memo[v] = 1;
+    memo[v] = 0;
+    for (int c = 0; c < a->defs[v]->n; c++) {
+        const tree_t * cl = a->defs[v]->c[c];
+        int d = 0;
+        if (!cl || cl->t != TT_CLAUSE) continue;
+        for (int b = ar; b < cl->n; b++) d += pl_auto_clause_dep(a, v, cl->c[b], need, memo);
+        if (d > maxd) maxd = d;
+    }
+    if (maxd >= need) { a->tab[v] = 1; return memo[v] = 1; }
+    return memo[v] = maxd;
+}
+static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int need, int * memo) {
+    const char * f = pl_auto_name(g);
+    int n = pl_auto_arity(g), j, d0, d1;
+    char b[256];
+    if (g && g->t == TT_IF && g->n >= 2) {
+        d0 = pl_auto_clause_dep(a, self, g->c[0], need, memo) + pl_auto_clause_dep(a, self, g->c[1], need, memo);
+        d1 = g->n > 2 ? pl_auto_clause_dep(a, self, g->c[2], need, memo) : 0;
+        return d0 > d1 ? d0 : d1;
+    }
+    if (!f) return 0;
+    if (g->t == TT_FNC && n == 2 && (!strcmp(f, ",") || !strcmp(f, "->") || !strcmp(f, "*->"))) return pl_auto_clause_dep(a, self, g->c[0], need, memo) +
+        pl_auto_clause_dep(a, self, g->c[1], need, memo);
+    if (g->t == TT_FNC && n == 2 && !strcmp(f, ";")) { d0 = pl_auto_clause_dep(a, self, g->c[0], need, memo); d1 = pl_auto_clause_dep(a, self, g->c[1], need, memo); return d0 > d1 ? d0 : d1; }
+    if (g->t == TT_FNC && n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "not"))) return pl_auto_clause_dep(a, self, g->c[0], need, memo);
+    snprintf(b, sizeof b, "%s/%d", f, n);
+    j = pl_auto_find(a->keys, a->nk, b);
+    if (j == self) return 0;
+    if (j >= 0) return pl_auto_edb_dep(a, j, need, memo);
+    return (pl_auto_find(a->edbk, a->nedb, b) >= 0 || pl_auto_find(a->tabk, a->ntab, b) >= 0) ? 1 : 0;
+}
+static void pl_auto_modes(const tree_t * m, pl_auto_t * a) {
+    const char * f = pl_auto_name(m);
+    int n = pl_auto_arity(m), j;
+    if (!f) return;
+    if (m->t == TT_FNC && n == 2 && !strcmp(f, ",")) { pl_auto_modes(m->c[0], a); pl_auto_modes(m->c[1], a); return; }
+    j = pl_auto_idx(a, m, 0);
+    if (j < 0 || n < 1) return;
+    { char * md = (char *) ct_zalloc((size_t) n + 1, 1); for (int i = 0; i < n; i++) { const char * s = pl_auto_name(m->c[i]); md[i] = (s && s[0] && !s[1]) ? s[0] : '?'; } a->mode[j] = md; }
+}
+static const tree_t * pl_auto_table_rewrite(const tree_t * prog) {
+    int auto_on = 0, suppl_n = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * f = pl_auto_name(subj);
+        if (!f) continue;
+        if (!strcmp(f, "auto_table") && pl_auto_arity(subj) == 0) auto_on = 1;
+        else if (!strcmp(f, "suppl_table") && pl_auto_arity(subj) == 0) suppl_n = 2;
+        else if (!strcmp(f, "suppl_table") && pl_auto_arity(subj) == 1 && subj->c[0] && subj->c[0]->t == TT_ILIT && subj->c[0]->v.ival >= 1) suppl_n = (int) subj->c[0]->v.ival;
+    }
+    if (!auto_on && !suppl_n) return prog;
+    int nk = 0, nedb = 0, ntab = 0, nexp = 0, nbody = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && subj->t == TT_CHOICE && subj->v.sval && pl_auto_user_key(subj->v.sval)) { nk++; nbody += pl_auto_count(subj); }
+        if (subj && subj->t == TT_FNC && subj->v.sval && subj->n == 1 && !strcmp(subj->v.sval, "edb")) nedb = pl_det_specs(subj->c[0], NULL, nedb, 0);
+        if (subj && subj->t == TT_FNC && subj->v.sval && subj->n == 1 && !strcmp(subj->v.sval, "export")) nexp = pl_det_specs(subj->c[0], NULL, nexp, 0);
+        ntab = pl_table_specs(pl_table_dir(s), NULL, NULL, ntab, 0);
+    }
+    pl_auto_t a;
+    const char ** expk = (const char **) ct_zalloc((size_t) (nexp ? nexp : 1), sizeof(char *));
+    const tree_t ** tabs = (const tree_t **) ct_zalloc((size_t) (ntab ? ntab : 1), sizeof(tree_t *));
+    int k = 0, ne0 = 0, nt0 = 0, nx0 = 0;
+    a.nk = nk;
+    a.keys = (const char **) ct_zalloc((size_t) (nk ? nk : 1), sizeof(char *));
+    a.defs = (const tree_t **) ct_zalloc((size_t) (nk ? nk : 1), sizeof(tree_t *));
+    a.edbk = (const char **) ct_zalloc((size_t) (nedb ? nedb : 1), sizeof(char *));
+    a.tabk = (const char **) ct_zalloc((size_t) (ntab ? ntab : 1), sizeof(char *));
+    a.tab = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    a.decl = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    a.edb = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    a.ex = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    a.tn = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    a.mode = (const char **) ct_zalloc((size_t) (nk ? nk : 1), sizeof(char *));
+    a.from = (int *) ct_zalloc((size_t) nbody + 1, sizeof(int));
+    a.to = (int *) ct_zalloc((size_t) nbody + 1, sizeof(int));
+    a.ne = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && subj->t == TT_CHOICE && subj->v.sval && pl_auto_user_key(subj->v.sval)) { a.keys[k] = subj->v.sval; a.defs[k++] = subj; }
+        if (subj && subj->t == TT_FNC && subj->v.sval && subj->n == 1 && !strcmp(subj->v.sval, "edb")) ne0 = pl_det_specs(subj->c[0], a.edbk, ne0, nedb);
+        if (subj && subj->t == TT_FNC && subj->v.sval && subj->n == 1 && !strcmp(subj->v.sval, "export")) nx0 = pl_det_specs(subj->c[0], expk, nx0, nexp);
+        nt0 = pl_table_specs(pl_table_dir(s), a.tabk, tabs, nt0, ntab);
+    }
+    a.nedb = ne0;
+    a.ntab = nt0;
+    for (int v = 0; v < nk; v++) {
+        a.decl[v] = a.tab[v] = pl_auto_find(a.tabk, nt0, a.keys[v]) >= 0;
+        a.edb[v] = pl_auto_find(a.edbk, ne0, a.keys[v]) >= 0;
+        a.ex[v] = nx0 ? pl_auto_find(expk, nx0, a.keys[v]) >= 0 : 1;
+    }
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && subj->t == TT_FNC && subj->v.sval && subj->n == 1 && !strcmp(subj->v.sval, "mode")) pl_auto_modes(subj->c[0], &a);
+    }
+    for (int v = 0; v < nk; v++) {
+        const char * sl = strrchr(a.keys[v], '/');
+        int ar = sl ? atoi(sl + 1) : 0;
+        for (int c = 0; c < a.defs[v]->n; c++) { const tree_t * cl = a.defs[v]->c[c]; if (cl && cl->t == TT_CLAUSE) for (int b = ar; b < cl->n; b++) pl_auto_goal(&a, v, cl->c[b], 0); }
+    }
+    unsigned char * in = (unsigned char *) ct_zalloc((size_t) nk + 1, 1);
+    if (auto_on) {
+        for (int v = 0; v < nk; v++) if (a.tn[v]) a.tab[v] = 1;
+        for (int v = 0; v < nk; v++) if (!a.tab[v] && pl_auto_calls(&a, v, v) && !pl_auto_terminates(&a, v)) a.tab[v] = 1;
+        for (int v = 0; v < nk; v++) in[v] = !a.tab[v] || a.decl[v];
+        pl_auto_break_loops(&a, in);
+    }
+    if (suppl_n) {
+        int ok = auto_on;
+        int * memo = (int *) ct_zalloc((size_t) nk + 1, sizeof(int));
+        for (int v = 0; v < nk; v++) in[v] = 1;
+        if (!ok) { ok = 1; for (int v = 0; v < nk && ok; v++) if (!a.tab[v] && pl_auto_reach(&a, in, v, v)) ok = 0; }
+        for (int v = 0; v < nk; v++) memo[v] = -1;
+        if (ok) for (int v = 0; v < nk; v++) pl_auto_edb_dep(&a, v, suppl_n, memo);
+    }
+    int np_ = 0;
+    for (int v = 0; v < nk; v++) if (a.tab[v] && !a.decl[v]) np_++;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    const tree_t * tmpl = NULL;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * f = pl_auto_name(subj);
+        if (f && ((!strcmp(f, "auto_table") && pl_auto_arity(subj) == 0) || (!strcmp(f, "suppl_table") && pl_auto_arity(subj) <= 1))) { if (!tmpl) tmpl = s; continue; }
+        ast_push(np, (tree_t *) s);
+    }
+    if (np_ && tmpl) {
+        tree_t * spec = NULL;
+        for (int v = 0; v < nk; v++) {
+            if (!a.tab[v] || a.decl[v]) continue;
+            const char * sl = strrchr(a.keys[v], '/');
+            char nm[sl ? (size_t) (sl - a.keys[v]) + 1 : 1];
+            memcpy(nm, a.keys[v], sl ? (size_t) (sl - a.keys[v]) : 0);
+            nm[sl ? (size_t) (sl - a.keys[v]) : 0] = 0;
+            tree_t * pi = pl_cc_fnc2("/", (tree_t *) pl_atom_goal(lp_strdup(nm)), pl_cc_ilit(sl ? atoi(sl + 1) : 0));
+            spec = spec ? pl_cc_fnc2(",", spec, pi) : pi;
+        }
+        tree_t * td = ast_node_new(TT_FNC);
+        td->v.sval = (char *) "table";
+        ast_push(td, spec);
+        ast_push(np, pl_table_stmt(tmpl, td));
+    }
+    return np;
+}
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, NULL, nk, 0);
@@ -5576,6 +5863,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_dict_rewrite(prog);
     prog = pl_src_file_rewrite(prog);
     prog = pl_meta_rt_rewrite(prog);
+    prog = pl_auto_table_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);

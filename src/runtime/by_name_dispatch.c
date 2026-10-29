@@ -24901,12 +24901,15 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         }
     }
     {
-        const char *gp[5];
+        const char *gp[6];
         int n = 0;
         if (kind) {
+            char tk[strlen(nm) + 32];
             gp[n++] = kind == 2 ? "dynamic" : "static";
             if (fp) gp[n++] = "file";
             gp[n++] = "defined";
+            snprintf(tk, sizeof tk, "$tbl %s/%d", nm, ar);
+            if (rt_pl_db_key_kind(root, tk)) gp[n++] = "tabled";
         } else if (pl_pi_is_builtin(nm, ar) && !(!strcmp(nm, "?-") || !strcmp(nm, ":-") || !strcmp(nm, "|"))) {
             gp[n++] = "built_in";
             gp[n++] = "defined";
