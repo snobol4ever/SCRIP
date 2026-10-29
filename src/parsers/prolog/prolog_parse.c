@@ -3022,6 +3022,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_hkey'(_,'$none',0).\n"
     "'$lfx_sdir'(D,Ks,Ks,Tb,Tb):-var(D),!.\n"
     "'$lfx_sdir'(table(S),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(S,Ks,K0,Tb,T0).\n"
+    "'$lfx_sdir'(use_subsumptive_tabling(S),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(as(S,subsumptive),Ks,K0,Tb,T0).\n"
     "'$lfx_sdir'(dynamic(S),Ks,K0,Tb,Tb):-!,'$lfx_dspecs'(S,Ks,K0).\n"
     "'$lfx_sdir'(_,Ks,Ks,Tb,Tb).\n"
     "'$lfx_tspecs'(V,Ks,Ks,Tb,Tb):-var(V),!.\n"
@@ -3029,7 +3030,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_tspecs'([],Ks,Ks,Tb,Tb):-!.\n"
     "'$lfx_tspecs'([A|B],Ks,K0,Tb,T0):-!,'$lfx_tspecs'(A,Ks,K1,Tb,T1),'$lfx_tspecs'(B,K1,K0,T1,T0).\n"
     "'$lfx_tspecs'(as(S,O),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(S,Ks,K0,Tb1,[]),'$lfx_kind'(O,Kd),'$lfx_tkind'(Tb1,Kd,Tb2),append(Tb2,T0,Tb).\n"
-    "'$lfx_kind'(O,Kd):-'$lfx_kopts'(O,L),(memberchk(lazy,L)->Kd=lazy;memberchk(monotonic,L)->Kd=mono;memberchk(incremental,L)->Kd=incr;Kd=none).\n"
+    "'$lfx_kind'(O,Kd):-'$lfx_kopts'(O,L),(memberchk(lazy,L)->Kd=lazy;memberchk(monotonic,L)->Kd=mono;memberchk(incremental,L)->Kd=incr;memberchk(subsumptive,L)->Kd=subs;memberchk(variant,L)->Kd=variant;Kd=none).\n"
     "'$lfx_kopts'(O,[]):-var(O),!.\n"
     "'$lfx_kopts'((A,B),L):-!,'$lfx_kopts'(A,LA),'$lfx_kopts'(B,LB),append(LA,LB,L).\n"
     "'$lfx_kopts'(O,[O]).\n"
@@ -3037,7 +3038,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_tkind'([],_,[]).\n"
     "'$lfx_tkind'([k(K,Md)|R],Kd,[k(K,Md2)|R2]):-'$lfx_mkind'(Md,Kd,Md2),'$lfx_tkind'(R,Kd,R2).\n"
     "'$lfx_mkind'(none,Kd,Kd):-!.\n"
-    "'$lfx_mkind'(Md,_,Md):-memberchk(Md,[incr,mono,lazy]),!.\n"
+    "'$lfx_mkind'(Md,_,Md):-memberchk(Md,[incr,mono,lazy,subs,variant]),!.\n"
     "'$lfx_mkind'(Md,Kd,mk(Md,Kd)).\n"
     "'$lfx_tspecs'(F/N,[F/N|K0],K0,[k(F/N,none)|T0],T0):-!.\n"
     "'$lfx_tspecs'(F//N,[F/N2|K0],K0,[k(F/N2,none)|T0],T0):-!,N2 is N+2.\n"
@@ -3075,9 +3076,10 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_srcs'([F/N|R],M,A):-'$lfx_q'(M,F,Q),'$src_file_add'(Q,N,A),'$lfx_srcs'(R,M,A).\n"
     "'$lfx_wraps'([],_,_).\n"
     "'$lfx_wraps'([k(F/N,Md)|R],M,Ks):-'$lfx_q'(M,F,Q),'$lfx_t'(Q,T),functor(H,Q,N),H=..[_|As],I=..[T|As],catch(dynamic(T/N),_,true),catch(dynamic(Q/N),_,true),'$lfx_wbody'(Md,H,I,M,Ks,B),(catch(clause(H,_),_,fail)->true;assertz((H:-B))),'$lfx_wraps'(R,M,Ks).\n"
-    "'$lfx_wbody'(none,H,I,_,_,'$tbl_call'(H,I)):-!.\n"
+    "'$lfx_wbody'(none,H,I,_,_,B):-!,(catch('$tbl_subsall',_,fail)->B='$tbl_kcall'(H,I,subs);B='$tbl_call'(H,I)).\n"
+    "'$lfx_wbody'(variant,H,I,_,_,'$tbl_call'(H,I)):-!.\n"
     "'$lfx_wbody'(incr,H,I,_,_,'$tbl_icall'(H,I)):-!.\n"
-    "'$lfx_wbody'(Kd,H,I,_,_,'$tbl_kcall'(H,I,Kd)):-(Kd==mono;Kd==lazy),!.\n"
+    "'$lfx_wbody'(Kd,H,I,_,_,'$tbl_kcall'(H,I,Kd)):-(Kd==mono;Kd==lazy;Kd==subs),!.\n"
     "'$lfx_wbody'(mk(Md,Kd),H,I,M,Ks,'$tbl_mcall'(H,I,Sp,Kd)):-!,'$lfx_mspec'(Md,Sp0),'$lfx_mqs'(Sp0,M,Ks,Sp).\n"
     "'$lfx_wbody'(Md,H,I,M,Ks,'$tbl_mcall'(H,I,Sp)):-'$lfx_mspec'(Md,Sp0),'$lfx_mqs'(Sp0,M,Ks,Sp).\n"
     "'$lfx_mqs'(Sp0,M,Ks,Sp):-Sp0=..[F|As],'$lfx_mqa'(As,M,Ks,Bs),Sp=..[F|Bs].\n"
@@ -4195,7 +4197,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
-    if (pl_cv_has(&referenced, "table") || pl_cv_has(&referenced, "auto_table") || pl_cv_has(&referenced, "suppl_table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); pl_cv_add(&referenced, "$tbl_rec"); }
+    if (pl_cv_has(&referenced, "table") || pl_cv_has(&referenced, "auto_table") || pl_cv_has(&referenced, "suppl_table") || pl_cv_has(&referenced, "use_subsumptive_tabling")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); pl_cv_add(&referenced, "$tbl_rec"); }
     if (pl_cv_has(&referenced, "chr_constraint")) {
         static const struct { const char * nm; int ar; } chr_support[] = { { "$chr_attach", 5 }, { "$chr_detach", 5 }, { "$enumerate_constraints", 1 }, { "chr gen_id", 1 }, { "$chr_none_locked", 1 }, { "$chr_del", 3 }, { "$chr_unify", 3 }, { "$chr_novel", 2 }, { "$chr_extend", 2 } };
         for (size_t q = 0; q < sizeof chr_support / sizeof chr_support[0]; q++) { pl_cv_add(&referenced, chr_support[q].nm); pl_cv_add(&refkeys, pl_pred_key(chr_support[q].nm, chr_support[q].ar)); }

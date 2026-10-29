@@ -536,8 +536,8 @@ static int pl_rung_of(const char * nm) {
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
-static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", "$module_restore",
-    "public", "mode", NULL };
+static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "use_subsumptive_tabling",
+    "module_transparent", "$module_restore", "public", "mode", NULL };
 static int pl_table_opt_kind(const tree_t * o);
 static void pl_hook_dyn_mark(const char * name, int arity) {
     if (!name) return;
@@ -4362,7 +4362,9 @@ static int pl_table_opt_kind(const tree_t * o) {
     if (!o || !o->v.sval) return 0;
     if (o->t == TT_FNC && o->n == 2 && !strcmp(o->v.sval, ",")) return pl_table_opt_kind(o->c[0]) | pl_table_opt_kind(o->c[1]);
     if (o->t != TT_QLIT && o->t != TT_NAME) return 0;
-    return !strcmp(o->v.sval, "incremental") ? 1 : !strcmp(o->v.sval, "monotonic") ? 2 : !strcmp(o->v.sval, "lazy") ? 4 : 0;
+    const char * const nm[] = { "incremental", "monotonic", "lazy", "subsumptive", "variant" };
+    for (int i = 0; i < 5; i++) if (!strcmp(o->v.sval, nm[i])) return 1 << i;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_table_kind(const tree_t * a, const char ** keys, int nf, unsigned char * kind) {
@@ -4377,9 +4379,21 @@ static void pl_table_kind(const tree_t * a, const char ** keys, int nf, unsigned
     for (int j = 0; j < m; j++) for (int k = 0; k < nf; k++) if (!strcmp(ks[j], keys[k])) kind[k] |= (unsigned char) b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_table_subs_kind(const tree_t * s, const char ** keys, int nf, unsigned char * kind) {
+    const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+    if (!subj || !subj->v.sval || strcmp(subj->v.sval, "use_subsumptive_tabling")) return;
+    if (subj->t == TT_QLIT || subj->t == TT_NAME) { for (int k = 0; k < nf; k++) if (!(kind[k] & 23)) kind[k] |= 8; return; }
+    if (subj->t != TT_FNC || subj->n < 1) return;
+    int m = pl_table_specs(subj->c[0], NULL, NULL, 0, 0);
+    const char * ks[m > 0 ? m : 1];
+    const tree_t * sp[m > 0 ? m : 1];
+    m = pl_table_specs(subj->c[0], ks, sp, 0, m);
+    for (int j = 0; j < m; j++) for (int k = 0; k < nf; k++) if (!strcmp(ks[j], keys[k])) kind[k] |= 8;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_dir(const tree_t * s) {
     const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
-    return (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "table") && subj->n >= 1) ? subj->c[0] : NULL;
+    return (subj && subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "table") || !strcmp(subj->v.sval, "use_subsumptive_tabling")) && subj->n >= 1) ? subj->c[0] : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_table_stmt(const tree_t * s, tree_t * subj) {
@@ -4417,12 +4431,12 @@ static tree_t * pl_table_wrapper(const char * key, const tree_t * spec, int kind
     cl->v.dval = ar;
     for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(cl, v); }
     tree_t * call = ast_node_new(TT_FNC);
-    const char * tk = (kind & 4) ? "lazy" : (kind & 2) ? "mono" : (kind & 1) ? "incr" : (const char *) 0;
-    call->v.sval = (char *) (spec ? "$tbl_mcall" : !tk ? "$tbl_call" : (kind & 6) ? "$tbl_kcall" : "$tbl_icall");
+    const char * tk = (kind & 4) ? "lazy" : (kind & 2) ? "mono" : (kind & 1) ? "incr" : (kind & 8) ? "subs" : (const char *) 0;
+    call->v.sval = (char *) (spec ? "$tbl_mcall" : !tk ? "$tbl_call" : (kind & 14) ? "$tbl_kcall" : "$tbl_icall");
     ast_push(call, pl_table_goal(lp_strdup(nm), ar));
     ast_push(call, pl_table_goal(lp_strdup(tn), ar));
     if (spec) ast_push(call, pl_table_mode_copy(spec));
-    if (tk && (spec || (kind & 6))) ast_push(call, (tree_t *) pl_atom_goal(tk));
+    if (tk && (spec || (kind & 14))) ast_push(call, (tree_t *) pl_atom_goal(tk));
     ast_push(cl, call);
     tree_t * ch = ast_node_new(TT_CHOICE);
     ch->v.sval = (char *) lp_strdup(key);
@@ -5108,6 +5122,7 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     memset(kind, 0, sizeof kind);
     for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, specs, nf, nk);
     for (int i = 0; i < prog->n; i++) pl_table_kind(pl_table_dir(prog->c[i]), keys, nf, kind);
+    for (int i = 0; i < prog->n; i++) pl_table_subs_kind(prog->c[i], keys, nf, kind);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * ds = (prog->c[i] && prog->c[i]->t == TT_STMT) ? lp_s_expr(prog->c[i], ":subj") : NULL;
         if (ds && ds->t == TT_FNC && ds->v.sval && !strcmp(ds->v.sval, "dynamic")) for (int q = 0; q < (ds->n == 2 ? 1 : ds->n); q++) pl_rs_dyn(ds->c[q]);

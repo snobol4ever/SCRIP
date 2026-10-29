@@ -32834,6 +32834,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "not_exists", 1 },
     { "tabled_call", 1 },
     { "$tbl tabled_call", 1 },
+    { "use_subsumptive_tabling", 0 },
     { "get_residual", 2 },
     { "call_residual_program", 2 },
     { "$call_residual_m", 3 },
@@ -32941,6 +32942,15 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
 };
 static const char PL_PRELUDE_LIB_68_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
+    "'$tbl_kcall'(G,I,subs):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_sget'(G,I,T),'$tbl_sanswer'(T,G).\n"
+    "'$tbl_sget'(G,_,T):-'$tbl_vt'(VT),\\+'$trie_lookup'(VT,G,_),'$trie_entries'(VT,L),'$tbl_sfind'(L,VT,G,T0),!,T=T0.\n"
+    "'$tbl_sget'(G,I,T):-'$tbl_get'(G,I,plain,subs,T).\n"
+    "'$tbl_sfind'([e(_,Q,Tq)|_],VT,G,T):-'$tbl_sfits'(Q,G),'$tbl_valid'(Tq,VT,Q,T),T\\==none,'$trie_meta_get'(T,0,complete),!.\n"
+    "'$tbl_sfind'([_|L],VT,G,T):-'$tbl_sfind'(L,VT,G,T).\n"
+    "'$tbl_sfits'(Q,G):-callable(Q),functor(Q,F,N),functor(G,F,N),subsumes_term(Q,G).\n"
+    "'$tbl_sanswer'(T,G):-'$trie_meta_get'(T,1,D),arg(1,D,Q0),copy_term(Q0,Q),term_variables(Q,Vs),Sk=..[ret|Vs],Q=G,'$tbl_slice'(T,L),member(e(_,Sk,V),L),'$tbl_aval'(V,T,G,Sk).\n"
+    "use_subsumptive_tabling:-('$tbl_subsall'->true;assertz('$tbl_subs_all')).\n"
+    "'$tbl_subsall':-catch(call('$tbl_subs_all'),_,fail).\n"
     "'$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).\n"
     "'$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).\n"
     "'$tbl_isincr'(X):-catch(call('$tbl_incrp'(X)),_,fail).\n"
