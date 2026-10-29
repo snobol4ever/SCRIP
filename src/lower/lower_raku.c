@@ -6910,9 +6910,11 @@ static void rk_subsig_blocks(tree_t * t, int * ctr) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct rk_shd { const struct rk_shd * up; rk_ns_t decl; const char ** alias; } rk_shd_t;
+typedef struct rk_shd { const struct rk_shd * up; rk_ns_t decl, flat; const char ** alias; int proc, dyn; } rk_shd_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_shd_proc(const tree_t * t) { return t && (t->t == TT_SUB_DECL || t->t == TT_ANON_BLOCK || t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_shd_scope(const tree_t * t) { return rk_shd_proc(t) || (t && (t->t == TT_SEQ_EXPR || t->t == TT_CASE)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_shd_plain(const char * nm) {
     if (!nm) return 0;
@@ -6922,19 +6924,35 @@ static int rk_shd_plain(const char * nm) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_shd_callees(const tree_t * t, rk_ns_t * out) {
+static void rk_shd_callees(const tree_t * t, rk_ns_t * out, int * dyn) {
     if (!t) return;
-    if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) rk_ns_add(out, t->c[0]->v.sval);
-    for (int i = 0; i < t->n; i++) rk_shd_callees(t->c[i], out);
+    if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
+        rk_ns_add(out, t->c[0]->v.sval);
+        if (!strcmp(t->c[0]->v.sval, "EVAL") && !(t->n > 1 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval)) *dyn = 1;
+    }
+    for (int i = 0; i < t->n; i++) rk_shd_callees(t->c[i], out, dyn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_shd_collect(const tree_t * t, rk_ns_t * out) {
-    if (!t) return;
+static int rk_shd_group(const tree_t * t, int * from) {
+    if (!t || t->t != TT_FNC || !t->v.sval) return 0;
+    if (!strcmp(t->v.sval, "__rk_destructure")) { *from = 2; return 1; }
+    if (!strcmp(t->v.sval, "__rk_enum")) { *from = 1; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_shd_collect(const tree_t * t, rk_ns_t * out, int deep) {
+    int gf = 0;
+    if (!t || rk_shd_proc(t) || ((t->t == TT_SEQ_EXPR || t->t == TT_CASE) && !deep)) return;
+    if (rk_shd_group(t, &gf)) for (int i = gf; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_VAR && (t->c[i]->slen & 4) && rk_shd_plain(t->c[i]->v.sval)) rk_ns_add(out, t->c[i]->v.sval);
     if (t->t == TT_ASSIGN && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 4) && rk_shd_plain(t->c[0]->v.sval)) rk_ns_add(out, t->c[0]->v.sval);
     if (t->t == TT_DECL && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && (t->c[1]->slen & 4) && rk_shd_plain(t->c[1]->v.sval)) rk_ns_add(out, t->c[1]->v.sval);
-    if (t->t == TT_FOR_RANGE && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && rk_shd_plain(t->c[0]->v.sval)) rk_ns_add(out, t->c[0]->v.sval);
-    if (t->t == TT_ITERATE && rk_shd_plain(t->v.sval)) rk_ns_add(out, t->v.sval);
-    for (int i = 0; i < t->n; i++) if (!rk_shd_proc(t->c[i])) rk_shd_collect(t->c[i], out);
+    if (deep && t->t == TT_FOR_RANGE && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && rk_shd_plain(t->c[0]->v.sval)) rk_ns_add(out, t->c[0]->v.sval);
+    if (deep && t->t == TT_ITERATE && rk_shd_plain(t->v.sval)) rk_ns_add(out, t->v.sval);
+    for (int i = 0; i < t->n; i++) rk_shd_collect(t->c[i], out, deep);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_shd_collect_body(const tree_t * c, int body, rk_ns_t * out, int deep) {
+    if (body && c && c->t == TT_SEQ_EXPR) { for (int j = 0; j < c->n; j++) rk_shd_collect(c->c[j], out, deep); } else rk_shd_collect(c, out, deep);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_shd_find(const rk_shd_t * sc, const char * nm) {
@@ -6942,29 +6960,95 @@ static const char * rk_shd_find(const rk_shd_t * sc, const char * nm) {
     return nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_shd_declared(const rk_shd_t * sc, const char * nm) { for (; sc; sc = sc->up) if (rk_ns_has(&sc->decl, nm)) return 1; return 0; }
+static int rk_shd_hides(const rk_shd_t * up, const char * nm, int beyond) {
+    for (const rk_shd_t * e = up; e; e = e->up) { if (beyond ? (e->proc && rk_ns_has(&e->flat, nm)) : rk_ns_has(&e->decl, nm)) return 1; if (e->proc) beyond = 1; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_shd_enter(tree_t * s, const rk_shd_t * up, const rk_ns_t * callees, int * ctr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_shd_walk(tree_t * t, const rk_shd_t * sc, const rk_ns_t * callees, int * ctr);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_shd_child(tree_t * c, const rk_shd_t * sc, const rk_ns_t * callees, int * ctr) { if (rk_shd_scope(c)) rk_shd_enter(c, sc, callees, ctr); else rk_shd_walk(c, sc, callees, ctr); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_shd_idch(const char * s) { return isalnum((unsigned char) s[0]) || s[0] == '_' || ((unsigned char) s[0]) >= 0x80 || (s[0] == '-' && (isalpha((unsigned char) s[1]) || s[1] == '_')); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_shd_eval_rewrite(const rk_shd_t * sc, const char * src) {
+    size_t n = strlen(src), o = 0;
+    char * out = (char *) ct_alloc(n * 8 + 64);
+    for (size_t i = 0; i < n; ) {
+        if ((src[i] == '$' || src[i] == '@' || src[i] == '%') && (isalpha((unsigned char) src[i + 1]) || src[i + 1] == '_' || ((unsigned char) src[i + 1]) >= 0x80)) {
+            size_t k = i + 1;
+            while (rk_shd_idch(src + k)) k++;
+            char key[k - i + 2];
+            const char * r;
+            key[0] = src[i] == '$' ? 0 : src[i];
+            memcpy(key + 1, src + i + 1, k - i - 1);
+            key[k - i] = 0;
+            r = rk_shd_find(sc, key[0] ? key : key + 1);
+            if (r != (key[0] ? key : key + 1)) {
+                out[o++] = src[i];
+                for (const char * q = (r[0] == '@' || r[0] == '%') ? r + 1 : r; *q; q++) out[o++] = *q;
+            } else {
+                memcpy(out + o, src + i, k - i);
+                o += k - i;
+            }
+            i = k;
+            continue;
+        }
+        out[o++] = src[i++];
+    }
+    out[o] = 0;
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_shd_loopy(const tree_t * t) {
+    if (!t || t->n < 2 || !t->c[0]) return 0;
+    if (t->t == TT_FOR_RANGE) return t->n >= 4 && t->c[0]->t == TT_VAR && rk_shd_plain(t->c[0]->v.sval);
+    return t->t == TT_EVERY && t->c[0]->t == TT_ITERATE && rk_shd_plain(t->c[0]->v.sval);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_shd_loop(tree_t * t, const rk_shd_t * sc, const rk_ns_t * callees, int * ctr) {
+    tree_t * vn = t->c[0];
+    const char * nm = vn->v.sval, * al[1] = { NULL };
+    int from = t->t == TT_FOR_RANGE ? 3 : 1;
+    rk_shd_t lp = { 0 };
+    lp.up = sc;
+    lp.alias = al;
+    lp.dyn = sc->dyn;
+    rk_ns_add(&lp.decl, nm);
+    if (!sc->dyn && rk_shd_hides(sc, nm, 0) && !rk_ns_has(callees, nm)) { char nb[strlen(nm) + 24]; snprintf(nb, sizeof nb, "%s__shd%d", nm, ++*ctr); al[0] = intern(nb); vn->v.sval = (char *) al[0]; }
+    for (int i = 0; i < vn->n; i++) rk_shd_child(vn->c[i], sc, callees, ctr);
+    for (int i = 1; i < from && i < t->n; i++) rk_shd_child(t->c[i], sc, callees, ctr);
+    for (int i = from; i < t->n; i++) rk_shd_child(t->c[i], &lp, callees, ctr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_shd_walk(tree_t * t, const rk_shd_t * sc, const rk_ns_t * callees, int * ctr) {
     if (!t) return;
+    if (rk_shd_loopy(t)) { rk_shd_loop(t, sc, callees, ctr); return; }
+    if (t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "EVAL") && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval) t->c[1]->v.sval =
+        (char *) rk_shd_eval_rewrite(sc, t->c[1]->v.sval);
     if ((t->t == TT_VAR || t->t == TT_ITERATE) && rk_shd_plain(t->v.sval)) t->v.sval = (char *) rk_shd_find(sc, t->v.sval);
-    for (int i = 0; i < t->n; i++) { if (rk_shd_proc(t->c[i])) rk_shd_enter(t->c[i], sc, callees, ctr); else rk_shd_walk(t->c[i], sc, callees, ctr); }
+    for (int i = 0; i < t->n; i++) { if (t->t == TT_VAR && t->c[i] && t->c[i]->t == TT_SEQ_EXPR) rk_shd_walk(t->c[i], sc, callees, ctr); else rk_shd_child(t->c[i], sc, callees, ctr); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_shd_enter(tree_t * s, const rk_shd_t * up, const rk_ns_t * callees, int * ctr) {
     rk_shd_t me = { 0 };
     rk_ns_t mine = { 0 };
-    int bfrom = 1, bto = s->n, pfrom = 0, pto = 0;
+    int cas = s->t == TT_CASE, blk = s->t == TT_SEQ_EXPR || cas, abk = s->t == TT_ANON_BLOCK, bfrom = (blk && !cas) ? 0 : 1, bto = s->n, pfrom = 0, pto = 0;
     me.up = up;
+    me.dyn = up ? up->dyn : 0;
+    me.proc = !blk;
     if (s->t == TT_SUB_DECL) { pfrom = bfrom; while (bfrom < s->n && s->c[bfrom] && s->c[bfrom]->t == TT_VAR) bfrom++; pto = bfrom; }
-    if (s->t == TT_ANON_BLOCK) { bfrom = 0; bto = 1; pfrom = 1; pto = 1; while (pto < s->n && s->c[pto] && s->c[pto]->t == TT_VAR) pto++; }
+    if (abk) { bfrom = 0; bto = 1; pfrom = 1; pto = 1; while (pto < s->n && s->c[pto] && s->c[pto]->t == TT_VAR) pto++; }
     for (int i = pfrom; i < pto; i++) {
         rk_ns_add(&me.decl, s->c[i]->v.sval);
         for (int j = 0; j < s->c[i]->n; j++) if (s->c[i]->c[j] && s->c[i]->c[j]->t == TT_VAR && (s->c[i]->c[j]->slen & RK_PV_ALIAS)) rk_ns_add(&me.decl, s->c[i]->c[j]->v.sval);
         rk_shd_subsig(s->c[i], &me.decl);
     }
-    for (int i = bfrom; i < bto && i < s->n; i++) if (!rk_shd_proc(s->c[i])) rk_shd_collect(s->c[i], &mine);
+    for (int i = 0; me.proc && i < me.decl.n; i++) rk_ns_add(&me.flat, me.decl.v[i]);
+    for (int i = bfrom; i < bto && i < s->n; i++) rk_shd_collect_body(s->c[i], abk, &mine, 0);
+    for (int i = bfrom; me.proc && i < bto && i < s->n; i++) rk_shd_collect_body(s->c[i], abk, &me.flat, 1);
     int np = me.decl.n;
     for (int i = 0; i < mine.n; i++) rk_ns_add(&me.decl, mine.v[i]);
     const char * alias[me.decl.n + 1];
@@ -6972,24 +7056,100 @@ static void rk_shd_enter(tree_t * s, const rk_shd_t * up, const rk_ns_t * callee
     me.alias = alias;
     for (int i = np; i < me.decl.n; i++) {
         const char * nm = me.decl.v[i];
-        if (!rk_shd_declared(up, nm) || rk_ns_has(callees, nm)) continue;
+        if (!rk_shd_hides(up, nm, me.proc) || rk_ns_has(callees, nm) || (me.dyn && !me.proc)) continue;
         char nb[strlen(nm) + 24];
         snprintf(nb, sizeof nb, "%s__shd%d", nm, ++*ctr);
         alias[i] = intern(nb);
     }
-    for (int i = 0; i < s->n; i++) { if (rk_shd_proc(s->c[i])) rk_shd_enter(s->c[i], &me, callees, ctr); else rk_shd_walk(s->c[i], &me, callees, ctr); }
+    for (int i = 0; i < s->n; i++) {
+        if (abk && i == 0 && s->c[i] && s->c[i]->t == TT_SEQ_EXPR) {
+            for (int j = 0; j < s->c[i]->n; j++) rk_shd_child(s->c[i]->c[j], &me, callees, ctr);
+        } else rk_shd_child(s->c[i], (cas && i == 0) ? up : &me, callees, ctr);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_shadow_rename(tree_t * prog) {
     rk_shd_t top = { 0 };
     rk_ns_t callees = { 0 };
     int ctr = 0;
-    rk_shd_callees(prog, &callees);
-    rk_shd_collect(prog, &top.decl);
+    top.proc = 1;
+    rk_shd_callees(prog, &callees, &top.dyn);
+    for (int i = 0; prog && i < prog->n; i++) { rk_shd_collect(prog->c[i], &top.decl, 0); rk_shd_collect(prog->c[i], &top.flat, 1); }
     const char * alias[top.decl.n + 1];
     memset(alias, 0, sizeof alias);
     top.alias = alias;
-    for (int i = 0; prog && i < prog->n; i++) { if (rk_shd_proc(prog->c[i])) rk_shd_enter(prog->c[i], &top, &callees, &ctr); else rk_shd_walk(prog->c[i], &top, &callees, &ctr); }
+    for (int i = 0; prog && i < prog->n; i++) rk_shd_child(prog->c[i], &top, &callees, &ctr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_wrap_bodies(tree_t * t) {
+    if (!t) return;
+    if ((t->t == TT_IF || t->t == TT_UNLESS || t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_EVERY) && t->n > 1 && t->c[1] && t->c[1]->t != TT_SEQ_EXPR) t->c[1] = rk_sq_seq1(t->c[1]);
+    for (int i = 0; i < t->n; i++) rk_wrap_bodies(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_pl_store(tree_t * target, tree_t * rhs) { tree_t * a = rk_t2(TT_ASSIGN, target, rhs); a->v.ival = 1; return a; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pl_destructure(tree_t * t, int * uid) {
+    char nb[40];
+    int nt = t->n - 2, slurped = 0;
+    tree_t * rhs = t->c[1], * tg[nt + 1], * tv;
+    snprintf(nb, sizeof nb, "__destr_%d", (*uid)++);
+    tv = leaf_sval2(TT_VAR, intern(nb));
+    for (int i = 0; i < nt; i++) tg[i] = t->c[2 + i];
+    if (nt && tg[0] && tg[0]->t == TT_VAR) tv->slen |= tg[0]->slen & (4 | RK_VAR_OUR);
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    ast_push(t, rk_pl_store(tv, rhs));
+    for (int i = 0; i < nt; i++) {
+        tree_t * get = rk_fnc2("__rk_arr_at", leaf_sval2(TT_VAR, tv->v.sval), rk_ti(i));
+        if (slurped) get = rk_fnc2("__rk_undef", NULL, NULL);
+        else if (tg[i] && tg[i]->t == TT_VAR && tg[i]->v.sval && tg[i]->v.sval[0] == '@') {
+            get = rk_t2(TT_METHCALL, leaf_sval2(TT_VAR, tv->v.sval), leaf_sval2(TT_QLIT, "skip"));
+            ast_push(get, rk_ti(i));
+            slurped = 1;
+        }
+        ast_push(t, rk_pl_store(tg[i], get));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pl_enum(tree_t * t) {
+    int ni = t->n - 2;
+    long long idx = 0;
+    tree_t * ty = t->c[1], * it[ni + 1];
+    for (int i = 0; i < ni; i++) it[i] = t->c[2 + i];
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    if (ty && ty->t == TT_VAR) { tree_t * q = ty->n ? ty->c[0] : NULL; ty->n = 0; ast_push(t, rk_t2(TT_ASSIGN, ty, rk_fnc2("__rk_typeobj", q, NULL))); }
+    for (int i = 0; i < ni; i++) {
+        tree_t * v = it[i]->n ? it[i]->c[0] : NULL;
+        it[i]->n = 0;
+        if (v && v->t == TT_ILIT) idx = v->v.ival;
+        ast_push(t, rk_t2(TT_ASSIGN, it[i], v ? v : rk_ti(idx)));
+        idx++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pl_modifier(tree_t * t, int kind) {
+    tree_t * stmt = t->c[1], * cond = t->c[2], * topic = rk_t2(TT_ASSIGN, leaf_sval2(TT_VAR, "_"), cond);
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    ast_push(t, topic);
+    if (kind == 2) { ast_push(t, stmt); return; }
+    ast_push(t, rk_t2(kind ? TT_UNLESS : TT_IF, rk_fnc2("__rk_defined", leaf_sval2(TT_VAR, "_"), NULL), rk_sq_seq1(stmt)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_place_groups(tree_t * t, int * uid) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_place_groups(t->c[i], uid);
+    if (t->t != TT_FNC || !t->v.sval) return;
+    if (!strcmp(t->v.sval, "__rk_destructure") && t->n >= 2) rk_pl_destructure(t, uid);
+    else if (!strcmp(t->v.sval, "__rk_enum") && t->n >= 2) rk_pl_enum(t);
+    else if (!strcmp(t->v.sval, "__rk_with_mod") && t->n >= 3) rk_pl_modifier(t, 0);
+    else if (!strcmp(t->v.sval, "__rk_without_mod") && t->n >= 3) rk_pl_modifier(t, 1);
+    else if (!strcmp(t->v.sval, "__rk_given_mod") && t->n >= 3) rk_pl_modifier(t, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_sub_topic(tree_t * t, int in_pkg) {
@@ -7023,6 +7183,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         int mcn = 0;
         { int anon = 0; rk_name_anon_subsig((tree_t *) prog, &anon); rk_subsig_blocks((tree_t *) prog, &anon); }
         rk_shadow_rename((tree_t *) prog);
+        rk_wrap_bodies((tree_t *) prog);
+        { int pl = 0; rk_place_groups((tree_t *) prog, &pl); }
         rk_ss_collect(prog, &ss);
         if (ss.n) rk_ss_hoist((tree_t *) prog);
         rk_tv_classes(prog, &cls);
@@ -7473,7 +7635,7 @@ const char * lower_raku_eval_stage2(const tree_t * prog) {
         const tree_t * u = st;
         if (u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
         if (rk_eval_is_declaration(st)) ast_push(p2, st);
-        else ast_push(sd, i == lastb ? rk_tail_return((tree_t *) u) : st);
+        else { rk_wrap_bodies(st); ast_push(sd, i == lastb ? rk_tail_return((tree_t *) u) : st); }
     }
     ast_push(p2, sd);
     rk_stage2_core(p2, 0, 0);
