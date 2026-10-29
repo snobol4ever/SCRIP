@@ -3745,13 +3745,17 @@ static void pl_lib_rename_clause(PlClause *cl, const cv_t *ek, const cv_t *ev) {
     if (cl->tr && cl->tr->n > 1) pl_lib_rename_goals(cl->tr->c[1], 0, ek, ev);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_libs_meta_specs(PlProgram *pre, const cv_t *referenced) {
+static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     extern int prolog_dialect_gnu_selected(void);
     size_t len = 0, at;
     PlProgram *mp;
     if (prolog_dialect_gnu_selected()) return;
     for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
-        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) if (pl_cv_has(referenced, m->nm)) len += strlen(m->spec) + 2;
+        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) {
+            if (!pl_cv_has(referenced, m->nm)) continue;
+            len += strlen(m->spec) + 2;
+            if (strchr(m->spec, ':')) pl_cv_add(referenced, "$mq_arg");
+        }
     }
     if (!len) return;
     char buf[len + 32];
@@ -4186,7 +4190,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); pl_cv_add(&referenced, "$tbl_rec"); }
     if (pl_cv_has(&referenced, "chr_constraint")) {
-        static const struct { const char * nm; int ar; } chr_support[] = { { "$chr_attach", 5 }, { "$chr_detach", 5 }, { "$enumerate_constraints", 1 }, { "chr gen_id", 1 }, { "chr none_locked", 1 }, { "chr sbag_del_element", 3 } };
+        static const struct { const char * nm; int ar; } chr_support[] = { { "$chr_attach", 5 }, { "$chr_detach", 5 }, { "$enumerate_constraints", 1 }, { "chr gen_id", 1 }, { "chr none_locked", 1 }, { "chr sbag_del_element", 3 }, { "$chr_unify", 3 } };
         for (size_t q = 0; q < sizeof chr_support / sizeof chr_support[0]; q++) { pl_cv_add(&referenced, chr_support[q].nm); pl_cv_add(&refkeys, pl_pred_key(chr_support[q].nm, chr_support[q].ar)); }
     }
     if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); }

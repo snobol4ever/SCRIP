@@ -4943,7 +4943,7 @@ static int pl_mq_specs(const tree_t * a, const char ** keys, const char ** masks
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_mq_dir_specs(const tree_t * s, const char ** keys, const char ** masks, int n, int cap) {
     const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
-    if (!subj || subj->t != TT_FNC || !subj->v.sval || strcmp(subj->v.sval, "meta_predicate")) return n;
+    if (!subj || subj->t != TT_FNC || !subj->v.sval || (strcmp(subj->v.sval, "meta_predicate") && strcmp(subj->v.sval, "$meta_spec"))) return n;
     for (int k = 0; k < subj->n; k++) n = pl_mq_specs(subj->c[k], keys, masks, n, cap);
     return n;
 }
