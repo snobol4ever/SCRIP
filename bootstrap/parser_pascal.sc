@@ -1133,7 +1133,24 @@ pre_mode = '{$mode' FENCE(pre_ws | epsilon) ('iso' | 'objfpc' | 'delphiunicode' 
 pre_item = ( pre_ws | '{' FENCE(BREAK('}') '}' | REM) | '(*' FENCE(BREAKX('*') '*)' | REM) | '//' FENCE(BREAK(CHAR(10)) | REM) | "'" FENCE(BREAK("'") "'" | REM) | Id $ pre_w *IDENT(PmKw[pre_w]) | NOTANY(&UCASE &LCASE '_') );
 PasPre   = ( *pre_mode | *pre_item *PasPre | epsilon );
 /* ==================================================================================================================== */
-function ParseOne(ptree, i, n_kids) {
+pf_list = HOST(4, 'PARSER_FILES');
+pf_n = 0;
+pf_bytes = 0;
+pf_parse = 0;
+pf_parse1 = 0;
+if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
+while (LE(0, 1)) {
+    if (IDENT(pf_list)) {
+        Src = INPUT;
+    } else {
+        if (~(pf_name = pf_names)) break;
+        INPUT(.INPUT, 9, pf_name '[-r16777215]');
+        Src = INPUT;
+        ENDFILE(9);
+        pf_bytes = pf_bytes + SIZE(Src);
+        OUTPUT = '== ' pf_name;
+    }
+    pf_refused = '';
     if (Src ? ('{$' | '(*$')) {
         if (lwr(Src) ? (('{$' | '(*$') ('if' | 'else' | 'endif' | 'endc' | 'define' | 'undef' | 'setc' | 'include' | 'i' ANY(' ' CHAR(9) CHAR(10) CHAR(13))))) {
             PPInit();
@@ -1141,52 +1158,33 @@ function ParseOne(ptree, i, n_kids) {
             if (DIFFER(pf_name)) { pp_cur = PPDirOf(pf_name); }
             if (Src ? *Preprocess) { ; } else { pp_err = 1; }
             if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
-            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; return; }
-            Src = pp_out pp_buf;
+            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; pf_refused = 1; } else { Src = pp_out pp_buf; }
         }
     }
-    PasInit();
-    pre_n = '';
-    if (lwr(Src) ? *PasPre) { if (DIFFER(pre_n)) { dialect = PmDia[pre_n]; } }
-    if (Src ? "''") { PasLines(); }
-    pf_a = TIME();
-    InitCounter();
-    InitStack();
-    if (Src ? *Compiland) {
-        ptree = Pop();
-        pf_parse = pf_parse + (TIME() - pf_a);
-        if (DIFFER(ptree)) {
-            i = 1;
-            n_kids = n(ptree);
-            while (LE(i, n_kids)) {
-                TreeDump(c(ptree)[i]);
-                i = i + 1;
+    if (IDENT(pf_refused)) {
+        PasInit();
+        pre_n = '';
+        if (lwr(Src) ? *PasPre) { if (DIFFER(pre_n)) { dialect = PmDia[pre_n]; } }
+        if (Src ? "''") { PasLines(); }
+        pf_a = TIME();
+        InitCounter();
+        InitStack();
+        if (Src ? *Compiland) {
+            ptree = Pop();
+            pf_parse = pf_parse + (TIME() - pf_a);
+            if (DIFFER(ptree)) {
+                pf_i = 1;
+                pf_nk = n(ptree);
+                while (LE(pf_i, pf_nk)) {
+                    TreeDump(c(ptree)[pf_i]);
+                    pf_i = pf_i + 1;
+                }
             }
-        }
-        TreeDumpEnd();
-    } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
-    return;
-}
-pf_list = HOST(4, 'PARSER_FILES');
-if (IDENT(pf_list)) {
-    INPUT(.INPUT, 9, '[-f0 -r16777215]');
-    Src = INPUT;
-    ParseOne();
-} else {
-    pf_n = 0;
-    pf_bytes = 0;
-    pf_parse = 0;
-    pf_parse1 = 0;
-    INPUT(.pf_names, 8, pf_list);
-    while (pf_name = pf_names) {
-        INPUT(.INPUT, 9, pf_name '[-r16777215]');
-        Src = INPUT;
-        ENDFILE(9);
-        pf_bytes = pf_bytes + SIZE(Src);
-        OUTPUT = '== ' pf_name;
-        ParseOne();
-        pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+            TreeDumpEnd();
+        } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
     }
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
+    pf_n = pf_n + 1;
+    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+    if (IDENT(pf_list)) break;
 }
+if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
