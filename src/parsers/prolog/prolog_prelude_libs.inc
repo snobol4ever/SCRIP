@@ -34277,10 +34277,18 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "print_file_contents", 1 },
     { "rm", 1 },
     { "xsb_configuration", 2 },
+    { "gc_heap", 0 },
+    { "storage_insert_fact", 3 },
+    { "storage_find_fact", 2 },
+    { "storage_delete_all", 1 },
+    { "concat_atom", 2 },
+    { "concat_atom", 3 },
     { "import", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+    { "concat_atom", 2 },
+    { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
@@ -34296,6 +34304,15 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
+    "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
+    "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
+    "'$xsb_ca_atomic'([]).\n"
+    "'$xsb_ca_atomic'([X|Xs]) :- atomic(X), '$xsb_ca_atomic'(Xs).\n"
+    ":- dynamic '$xsb_st'/2.\n"
+    "gc_heap.\n"
+    "storage_insert_fact(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1 ).\n"
+    "storage_find_fact(N, F) :- '$xsb_st'(N, F).\n"
+    "storage_delete_all(N) :- retractall('$xsb_st'(N, _)).\n"
     "file_write(S, T) :- write(S, T).\n"
     "file_flush(S, 0) :- flush_output(S).\n"
     "file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).\n"
