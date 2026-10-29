@@ -24637,7 +24637,17 @@ extern int64_t rt_pl_tbh_table(void *);
 extern int64_t rt_pl_tbl_chain_get(void *);
 extern int rt_pl_tbl_chain_set(void *, int64_t);
 typedef struct pl_psched_s pl_psched_t;
-typedef struct { char *orig_lo; uint64_t len; char *tbase; uint64_t tn; uint64_t rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; pl_psched_t *sched; } pl_pseg_t;
+typedef struct {
+    char *orig_lo;
+    uint64_t len;
+    char *tbase;
+    uint64_t tn;
+    uint64_t rbp, rbx, r12, r13, r14, r15;
+    uint64_t planes[4];
+    int64_t k_level;
+    pl_psched_t *sched;
+    uint64_t clen, sched_t;
+} pl_pseg_t;
 struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; };
 typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
 static char * pl_pseg_bytes(pl_pseg_t *b) { return (char *)(b + 1); }
@@ -24674,30 +24684,33 @@ static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
     return (pl_pseg_t *)0;
 }
 static void pl_pseg_unrebind(pl_pseg_t *b) {
+    char *hi = b->orig_lo + b->clen, *lo_t = (char *)(uintptr_t)b->sched_t;
     for (uint64_t i = b->tn; i-- > 0; ) {
         char *src = pl_pseg_trail(b) + i * 64;
         pl_tr_entry_t *e = (pl_tr_entry_t *)src;
-        if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), sizeof(DESCR_t));
+        if (b->tbase + i * PL_TR_ENTRY_BYTES < lo_t || !e->cell || ((char *)e->cell >= b->orig_lo && (char *)e->cell < hi)) continue;
+        memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), sizeof(DESCR_t));
     }
 }
 pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
     pl_pseg_t *b = pl_sched_pick(s);
     if (!b) { for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k]; g_runtime.abi.rt_k_level = (int)s->k_level; return (pl_pseg_pair_t){ (void *)0, (void *)s }; }
     {
-        char *now = (char *)(uintptr_t)s->r12;
-        if (now > b->tbase) { fprintf(stderr, "FATAL rt_pl_pseg_next: the resumer's trail top %p is above the generator's base %p\n", (void *)now, (void *)b->tbase); * (volatile char *) NULL; }
+        char *now = (char *)(uintptr_t)s->r12, *xg = b->orig_lo + b->len, *rsp_r = (char *)(uintptr_t)s->entry_rsp;
+        char *hi = xg < rsp_r ? xg : rsp_r, *lo_t = now > b->tbase ? now : b->tbase, *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
+        b->clen = hi > b->orig_lo ? (uint64_t)(hi - b->orig_lo) : 0;
         for (char *p = now; p < b->tbase; p += PL_TR_ENTRY_BYTES) memset(p, 0, PL_TR_ENTRY_BYTES);
         for (uint64_t i = 0; i < b->tn; i++) {
             char *src = pl_pseg_trail(b) + i * 64, *dst = b->tbase + i * PL_TR_ENTRY_BYTES;
+            pl_tr_entry_t *e = (pl_tr_entry_t *)src;
+            if (dst < lo_t) continue;
             memcpy(dst, src, PL_TR_ENTRY_BYTES);
-            {
-                pl_tr_entry_t *e = (pl_tr_entry_t *)dst;
-                if (e->cell && ((char *)e->cell < b->orig_lo || (char *)e->cell >= b->orig_lo + b->len)) {
-                    memcpy(src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), (void *)e->cell, sizeof(DESCR_t));
-                    memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
-                }
-            }
+            if (!e->cell) { ((pl_tr_entry_t *)dst)->pad = (uint64_t)(uintptr_t)hp; continue; }
+            if ((char *)e->cell >= b->orig_lo && (char *)e->cell < hi) continue;
+            memcpy(src + PL_TR_ENTRY_BYTES + sizeof(DESCR_t), (void *)e->cell, sizeof(DESCR_t));
+            memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
         }
+        b->sched_t = (uint64_t)(uintptr_t)lo_t;
         b->sched = s;
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
         g_runtime.abi.rt_k_level = (int)b->k_level;

@@ -688,7 +688,8 @@ PL_ROOTCTX_LEAF(tbl_sl)
 #define PSEG_R13 56
 #define PSEG_R14 64
 #define PSEG_R15 72
-#define PSEG_BYTES 128
+#define PSEG_CLEN 128
+#define PSEG_BYTES 144
 #define PSCH_ENTRY 0
 #define PSCH_RET 8
 #define PSCH_RBP 16
@@ -741,7 +742,7 @@ RTX_FUNC(rt_pl_pseg_switch)
     sub     rsp, 256
     mov     rdi, qword ptr [r11 + PSEG_ORIG]
     lea     rsi, [r11 + PSEG_BYTES]
-    mov     rcx, qword ptr [r11 + PSEG_LEN]
+    mov     rcx, qword ptr [r11 + PSEG_CLEN]
     cld
     rep movsb
     mov     rbp, qword ptr [r11 + PSEG_RBP]
