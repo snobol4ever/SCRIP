@@ -190,7 +190,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
 %type <node> pf_section id_list body statement_list body_stmt statement statement_no_label call call_with_args argument_list argument assignment
-%type <node> selector expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
+%type <node> selector recv_primary expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
 %type <node> typed_value typed_value_list field_value_list
@@ -572,6 +572,10 @@ call:
     |selector PERIOD IDENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args { $$ = $1; }
     ;
+recv_primary:
+    STRINGCONST { $$ = $1; }
+    |LPARENT expression RPARENT { $$ = $2; }
+    ;
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
     |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
@@ -579,6 +583,8 @@ call_with_args:
     |selector PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     |call_with_args PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
+    |recv_primary PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
+    |recv_primary PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     ;
 argument_list:
     argument_list COMMA argument { $$ = pt_add($1, $3); }
@@ -604,6 +610,7 @@ selector:
     |call_with_args PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |call_with_args LBRACK expression_list RBRACK { $$ = pt_cat(pt_add(pt_new(TT_IDX), $1), $3); }
     |call_with_args ARROW { $$ = pt_add(pt_new(TT_DEREF), $1); }
+    |recv_primary PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |IDENT { $$ = $1; }
     ;
 expression_list:
