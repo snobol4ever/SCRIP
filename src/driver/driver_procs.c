@@ -30,6 +30,9 @@ void emit_gc_tables_register(const void *);
 void emit_proc_unprepare(void);
 void bb_thunk_rec_fill(const char *, void *, int, int);
 int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *);
+void planner_road_none(planner_road_t *);
+int planner_stage_rt(IR_graph_t *, IR_t *, const char *, const planner_road_t *);
+void planner_stage_release(IR_t *);
 extern IR_graph_t * g_emit_cfg;
 extern int g_last_flat_frame_bytes;
 extern int g_last_flat_zstatic;
@@ -98,4 +101,15 @@ void * driver_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * h
     if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *) ((char *) pfn + g_last_dc_off));
     if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes);
     return (void *) pfn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, const char * prefix) {
+    if (!entry) return NULL;
+    planner_road_t rd;
+    planner_road_none(&rd);
+    emit_flat_road(&rd);
+    int staged = planner_stage_rt(g, entry, prefix, &rd);
+    bb_box_fn fn = emit_chain(planner_chain_record(g, entry, prefix), out, prefix);
+    if (staged) planner_stage_release(entry);
+    return fn;
 }

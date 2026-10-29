@@ -102,6 +102,7 @@ void driver_proc_props(stage2_t *s2, int pi);
 void *driver_install_proc(stage2_t *s2, int pi, const emit_install_hooks_t *hooks);
 void emit_proc_prepare(stage2_t *s2, int pi, const planner_road_t *rd, int *isp_out);
 int emit_jmp_entry_for_road(const planner_road_t *rd, IR_graph_t *g, const char *pname);
+void emit_flat_road(planner_road_t *rd);
 int bb_proc_find(const char * fname);
 #ifdef __cplusplus
 }

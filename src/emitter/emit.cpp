@@ -4274,14 +4274,9 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
     bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
-extern "C" bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, const char * prefix) {
-    if (!entry) return NULL;
-    extern int g_flat_frame_floor; planner_road_t rd; planner_road_none(&rd);
-    rd.jmp_entry = g_emit.flat_jmp_entry; rd.pat = g_emit.flat_pat; rd.lex = g_emit.flat_lex; rd.gen = g_emit.flat_gen; rd.floor = g_flat_frame_floor;
-    int staged = planner_stage_rt(g, entry, prefix, &rd);
-    bb_box_fn fn = emit_chain(planner_chain_record(g, entry, prefix), out, prefix);
-    if (staged) planner_stage_release(entry);
-    return fn;
+extern "C" void emit_flat_road(planner_road_t * rd) {
+    extern int g_flat_frame_floor;
+    rd->jmp_entry = g_emit.flat_jmp_entry; rd->pat = g_emit.flat_pat; rd->lex = g_emit.flat_lex; rd->gen = g_emit.flat_gen; rd->floor = g_flat_frame_floor;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_proc_prepare(stage2_t * s2, int pi, const planner_road_t * rd, int * isp_out) {
