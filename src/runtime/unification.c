@@ -4233,6 +4233,18 @@ int rt_pl_trie_entry_key(void *root, int64_t id, int64_t ent, void *out_cell, pl
     return pl_trie_give(pl_trie_key_term(n), out_cell, cx);
 }
 int rt_pl_trie_count(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? t->nvals : -1; }
+int rt_pl_tbl_abolish_id(void *root, int64_t id) {
+    pl_trie_t *t = pl_trie_at(root, id), *vt = pl_trie_at(root, rt_pl_trie_tbl_vt(root));
+    if (!t) return 0;
+    if (vt) {
+        pl_cell_t *d = pl_deref((pl_cell_t *)&t->data);
+        if ((int)d->v == DT_PLREF && d->p) {
+            pl_trie_node_t *n = pl_trie_descend(vt, (pl_cell_t *)d->p, 0, (int *)0);
+            if (n && n->has_val) { n->has_val = 0; memset(&n->val, 0, sizeof n->val); if (n->ent >= 0) { vt->ents[n->ent] = (void *)0; n->ent = -1; } vt->nvals--; }
+        }
+    }
+    return rt_pl_trie_destroy(root, id);
+}
 pl_trie_sl_t * rt_pl_trie_sl(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? &t->sl : (pl_trie_sl_t *)0; }
 int rt_pl_trie_meta_set(void *root, int64_t id, int which, void *cell) {
     pl_trie_t *t = pl_trie_at(root, id);

@@ -24636,6 +24636,8 @@ extern int rt_pl_trie_count(void *, int64_t);
 extern int64_t rt_pl_tbh_table(void *);
 extern int64_t rt_pl_tbl_chain_get(void *);
 extern int rt_pl_tbl_chain_set(void *, int64_t);
+extern int rt_pl_tbl_abolish_id(void *, int64_t);
+extern void rt_pl_pseg_ball(void);
 typedef struct pl_psched_s pl_psched_t;
 typedef struct {
     char *orig_lo;
@@ -24648,7 +24650,7 @@ typedef struct {
     pl_psched_t *sched;
     uint64_t clen, sched_t, hdr;
 } pl_pseg_t;
-struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; };
+struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; void *cur; };
 typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
 static char * pl_pseg_bytes(pl_pseg_t *b) { return (char *)(b + 1); }
 static char * pl_pseg_trail(pl_pseg_t *b) { return (char *)(b + 1) + b->len; }
@@ -24694,7 +24696,13 @@ static void pl_pseg_unrebind(pl_pseg_t *b) {
 }
 pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
     pl_pseg_t *b = pl_sched_pick(s);
-    if (!b) { for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k]; g_runtime.abi.rt_k_level = (int)s->k_level; return (pl_pseg_pair_t){ (void *)0, (void *)s }; }
+    if (!b) {
+        pl_trie_sl_t *ls = rt_pl_trie_sl((void *)(uintptr_t)s->r14, s->leader);
+        if (ls) ls->sched = 0;
+        for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k];
+        g_runtime.abi.rt_k_level = (int)s->k_level;
+        return (pl_pseg_pair_t){ (void *)0, (void *)s };
+    }
     {
         char *now = (char *)(uintptr_t)s->r12, *xg = b->orig_lo + b->len, *rsp_r = (char *)(uintptr_t)s->entry_rsp;
         char *hi = xg < rsp_r ? xg : rsp_r, *lo_t = now > b->tbase ? now : b->tbase, *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
@@ -24714,15 +24722,47 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
         if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * 15 <= hi) {
             DESCR_t *c = (DESCR_t *)(pl_pseg_bytes(b) + ((char *)(uintptr_t)b->hdr - b->orig_lo));
             c[12] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
-            c[13] = (DESCR_t){ .v = DT_I, .i = (int64_t)s->rbp };
-            c[14] = (DESCR_t){ .v = DT_I, .i = (int64_t)s->ret_pc };
-            if (getenv("SCRIP_SL_TRACE")) fprintf(stderr, "[SL] triple hdr=%p rec=%#lx rbp=%#lx pc=%#lx\n", (void *)(uintptr_t)b->hdr, (unsigned long)c[12].i, (unsigned long)c[13].i, (unsigned long)c[14].i);
+            {
+                char *ra = (char *)(uintptr_t)c[13].i;
+                if (ra >= b->orig_lo && ra + 24 <= hi) {
+                    uint64_t *w = (uint64_t *)(pl_pseg_bytes(b) + (ra - b->orig_lo));
+                    w[0] = s->ret_pc;
+                    w[1] = (uint64_t)(uintptr_t)&rt_pl_pseg_ball;
+                    w[2] = s->rbp;
+                }
+            }
+            if (getenv("SCRIP_SL_TRACE"))
+                fprintf(stderr, "[SL] triple hdr=%p rec=%#lx rbp=%#lx pc=%#lx\n", (void *)(uintptr_t)b->hdr, (unsigned long)c[12].i, (unsigned long)c[13].i, (unsigned long)c[14].i);
         }
         b->sched = s;
+        s->cur = (void *)b;
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
         g_runtime.abi.rt_k_level = (int)b->k_level;
         return (pl_pseg_pair_t){ (void *)b, (void *)s };
     }
+}
+void * rt_pl_pseg_ball_c(void *root, char *r12) {
+    pl_psched_t *s = (pl_psched_t *)0;
+    for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
+        pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
+        if (!sl) break;
+        if (sl->sched) { s = (pl_psched_t *)(uintptr_t)sl->sched; break; }
+        x = sl->next;
+    }
+    if (!s) { fprintf(stderr, "FATAL rt_pl_pseg_ball: a ball left a generator with no resuming leader on the chain\n"); * (volatile char *) NULL; }
+    { pl_pseg_t *b = (pl_pseg_t *)s->cur; if (b) { rt_pl_tr_unwind_to(r12, (char *)(uintptr_t)b->r12); pl_pseg_unrebind(b); b->sched = (pl_psched_t *)0; } }
+    for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
+        pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
+        int64_t nx;
+        if (!sl) break;
+        nx = sl->next;
+        rt_pl_tbl_abolish_id(root, x);
+        if (x == s->leader) { rt_pl_tbl_chain_set(root, nx); break; }
+        x = nx;
+    }
+    for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k];
+    g_runtime.abi.rt_k_level = (int)s->k_level;
+    return (void *)s;
 }
 void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
     DESCR_t *h = rt_pl_tbh_current((void *)(uintptr_t)cx->r14);
@@ -24787,6 +24827,7 @@ pl_pseg_pair_t rt_pl_pseg_resume(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char
         for (int k = 0; k < 4; k++) s->planes[k] = g_rtccb[5 + k];
         s->k_level = g_runtime.abi.rt_k_level;
         s->leader = leader;
+        { pl_trie_sl_t *ls = rt_pl_trie_sl((void *)(uintptr_t)s->r14, leader); if (ls) ls->sched = (int64_t)(uintptr_t)s; }
         return rt_pl_pseg_next(s);
     }
 }

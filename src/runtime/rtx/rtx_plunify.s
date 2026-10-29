@@ -734,6 +734,24 @@ RTX_FUNC(rt_pl_dop_tbl_resume_all)
     call    rt_pl_pseg_resume
     jmp     rt_pl_pseg_switch
 RTX_ENDF(rt_pl_dop_tbl_resume_all)
+RTX_FUNC(rt_pl_pseg_ball)
+    and     rsp, -16
+    mov     rdi, r14
+    mov     rsi, r12
+    call    rt_pl_pseg_ball_c
+    mov     r11, rax
+    mov     rbp, qword ptr [r11 + PSCH_RBP]
+    mov     rbx, qword ptr [r11 + PSCH_RBX]
+    mov     r12, qword ptr [r11 + PSCH_R12]
+    mov     r13, qword ptr [r11 + PSCH_R13]
+    mov     r14, qword ptr [r11 + PSCH_R14]
+    mov     rcx, qword ptr [r11 + PSCH_RET]
+    mov     rsp, qword ptr [r11 + PSCH_ENTRY]
+    add     rsp, 8
+    mov     eax, DT_FAIL
+    xor     edx, edx
+    jmp     rcx
+RTX_ENDF(rt_pl_pseg_ball)
 RTX_FUNC(rt_pl_pseg_switch)
     test    rax, rax
     jz      2f
