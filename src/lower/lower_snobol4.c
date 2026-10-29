@@ -39,6 +39,7 @@ typedef struct {
     int snap;
     int ppos;
     long prog_nstmt;
+    long prog_endline;
     long stno_base;
     IR_t * seq_rlast;
     IR_t * seq_rlast_for;
@@ -1365,6 +1366,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 lc_γ_to(ar, bn);
                 ir_operand_push(cl, ar);
                 ir_operand_push(cl, bn);
+                if (cx->prog_endline > 0) { IR_t * el = lc_build(cx->g, IR_LIT_INTEGER, cl, ω); IR_LIT(el).ival = (int64_t) cx->prog_endline; lc_γ_to(bn, el); ir_operand_push(cl, el); }
                 if (res) *res = cl;
                 return ae;
             }
@@ -4046,7 +4048,7 @@ IR_graph_t * sno_build_rt_shim_graph(const char * fname, const char * entry_labe
 static void sno_exprdef_note(cv_t * v, const char * f) { if (!f) return; for (uint32_t k = 0; k < v->len; k++) if (!strcmp(CV_AT(*v, const char *, k), f)) return; CV_PUSH(*v, const char *) = f; }
 static int sno_exprdef_seen(const cv_t * v, const char * f) { if (!f) return 0; for (uint32_t k = 0; k < v->len; k++) if (!strcmp(CV_AT(*v, const char *, k), f)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name, long stno_base, long end_line) {
+static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name, long stno_base, long end_line, long code_line) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx;
     cx.g = g;
@@ -4061,6 +4063,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     cx.snap = 0;
     cx.ppos = 0;
     cx.prog_nstmt = (long)nst + 1 + stno_base;
+    cx.prog_endline = code_line;
     cx.stno_base = stno_base;
     cx.seq_rlast = NULL;
     cx.seq_rlast_for = NULL;
@@ -5312,7 +5315,9 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     }
     long _end_line = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_END) { _end_line = (long) lp_s_int(prog->c[i], ":line"); break; }
-    IR_graph_t * g = sno_build_graph(st, nst, main_entry_idx, is_def, NULL, 0, _end_line);
+    long _code_line = _end_line;
+    if (!_code_line) for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT && lp_s_int(prog->c[i], ":line") > _code_line) _code_line = (long) lp_s_int(prog->c[i], ":line");
+    IR_graph_t * g = sno_build_graph(st, nst, main_entry_idx, is_def, NULL, 0, _end_line, _code_line);
     {
         IR_t * prelude_head = NULL;
         IR_t * prelude_tail = NULL;
@@ -5394,7 +5399,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             int bk = 0;
             for (int i = 0; i < bp->n; i++) if (bp->c[i] && bp->c[i]->t == TT_STMT) bst[bk++] = bp->c[i];
             int * bis = (int *) ct_zalloc((size_t)(bn > 0 ? bn : 1), sizeof(int));
-            gf = sno_build_graph(bst, bn, 0, bis, rn, 0, 0);
+            gf = sno_build_graph(bst, bn, 0, bis, rn, 0, 0, _code_line);
             ct_drop((void *) bst);
             ct_drop(bis);
         } else {
@@ -5473,7 +5478,7 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     return gp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno_base) {
+IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno_base, long code_line) {
     if (!prog || prog->t != TT_PROGRAM || sno_rsv_program(prog, 1)) return NULL;
     { extern void zls_reset(void); zls_reset(); }
     int nst = 0;
@@ -5488,7 +5493,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     int seal_sv = g_lower.sno.seal_enabled;
     g_lower.sno.seal_enabled = 0;
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
-    IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL, stno_base, 0);
+    IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL, stno_base, 0, code_line);
     { extern void optimizer_run(IR_graph_t *); extern void planner_stage_graph(IR_graph_t *); if (g) { optimizer_run(g); planner_stage_graph(g); } }
     ct_drop((void *) st);
     ct_drop(is_def);
@@ -5496,6 +5501,6 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * lower_snobol4(const tree_t * prog) { return sno_lower_fragment_at(prog, 0, 0); }
+IR_graph_t * lower_snobol4(const tree_t * prog) { return sno_lower_fragment_at(prog, 0, 0, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * sno_stmt_label(const tree_t * s) { return s ? sfind_str(s, ":lbl") : NULL; }

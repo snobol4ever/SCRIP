@@ -1052,11 +1052,21 @@ void *rt_goto_resolve_ck(const char *name, int *undef) { return rt_goto_resolve_
 __asm__( ".text\n" ".globl rt_setexit_continue_tramp\n" "rt_setexit_continue_tramp:\n" "  movq g_rtccb@GOTPCREL(%rip), %rax\n" "  movq 208(%rax), %rcx\n" "  movq $0, 208(%rax)\n"
     "  movq 216(%rax), %rdx\n" "  movq 224(%rax), %rbp\n" "  movq 232(%rax), %r12\n" "  movq %rdx, %rsp\n" "  jmp *%rcx\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t code_at(const char *src, long base);
-DESCR_t code(const char *src) { return code_at(src, 0); }
-DESCR_t code_at(const char *src, long base) {
+static void code_stmt_line(tree_t *st, const char *tag, int line) {
+    tree_t *a = (tree_t *) stmt_attr_find(st, tag);
+    char buf[32];
+    snprintf(buf, sizeof buf, "%d", line);
+    if (a && a->n > 0 && a->c[0]) a->c[0]->v.sval = ct_strdup(buf);
+    else ast_push(st, ast_attr_int(tag, line));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t code_at(const char *src, long base, long endline);
+DESCR_t code(const char *src) { return code_at(src, 0, 0); }
+DESCR_t code_at(const char *src, long base, long endline) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src) return FAILDESCR;
+    long ncalls = ++g_runtime.eval.sno_code_calls;
+    long text_line = endline > 0 ? endline + ncalls : 0;
     const char *illegal = NULL, *orig = src;
     {
         long bad = sno_text_illegal_at(src);
@@ -1076,7 +1086,7 @@ DESCR_t code_at(const char *src, long base) {
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
-    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base);
+    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base, long code_line);
     extern const char *sno_stmt_label(const tree_t *s);
     extern int g_frame_active;
     extern void sno_error_quiet_begin(void);
@@ -1107,6 +1117,10 @@ DESCR_t code_at(const char *src, long base) {
                 !stmt_goto_find(c, TT_GOTO_F) && !stmt_goto_find(c, TT_GOTO_U);
         }
         if (!nst) { prog = ast_stmt_new(TT_PROGRAM); tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 1)); ast_push(prog, st); empty = 1; } else if (nmt == nst) empty = nst;
+    }
+    if (text_line > 0) for (int i = 0; i < prog->n; i++) {
+        tree_t *c = prog->c[i];
+        if (c && c->t == TT_STMT) { code_stmt_line(c, ":line", (int)text_line); code_stmt_line(c, ":lline", (int)text_line); }
     }
     const char *parse_err = sno_error_captured();
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
@@ -1140,7 +1154,7 @@ DESCR_t code_at(const char *src, long base) {
         if (k == 0 || (lbl && lbl[0])) {
             int rfl_sv = g_runtime.eval.rt_fragment_emit;
             g_runtime.eval.rt_fragment_emit = 1;
-            IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base);
+            IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base, endline);
             g_runtime.eval.rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;

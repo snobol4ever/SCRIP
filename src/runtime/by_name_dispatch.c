@@ -24337,12 +24337,13 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_OPSYN) && nargs >= 2) { extern DESCR_t opsyn(DESCR_t, DESCR_t, DESCR_t); *out = opsyn(args[0], args[1], nargs > 2 ? args[2] : NULVCL); return 1; }
     L_bidjmp_6567:
     ;
-    if ((_bid == BID_CODE) && (nargs == 1 || nargs == 2)) {
-        extern DESCR_t code_at(const char *, long);
+    if ((_bid == BID_CODE) && (nargs >= 1 && nargs <= 3)) {
+        extern DESCR_t code_at(const char *, long, long);
         if (rt_name_textless(args[0])) { *out = FAILDESCR; return 1; }
         const char *cs = VARVAL_fn(args[0]);
-        long _cb = (nargs == 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
-        *out = cs ? code_at(cs, _cb) : FAILDESCR;
+        long _cb = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+        long _el = (nargs == 3 && IS_INT(args[2])) ? (long)args[2].i : 0;
+        *out = cs ? code_at(cs, _cb, _el) : FAILDESCR;
         return 1;
     }
     L_bidjmp_6572:
