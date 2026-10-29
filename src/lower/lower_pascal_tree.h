@@ -203,6 +203,7 @@ typedef struct {
     int pas_pend_nf;
     int pas_pend_cap;
     char *pas_pend_ptrtarget;
+    const tree_t *pas_pend_recnode;
     char *pas_pend_typename;
     int pas_pend_ischar;
     int pas_pend_isarr;

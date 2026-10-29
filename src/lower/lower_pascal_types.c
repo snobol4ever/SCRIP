@@ -16,6 +16,8 @@ typedef struct { const void *key; const pty_t *t; int line, fld; } pty_ent;
 typedef struct { pty_ent *e; long n, cap; } pty_map;
 struct pty_state {
     pty_map src, low, sstr, scp;
+    struct { const char *name; const pty_t *t; } *anon;
+    int nanon, canon;
     pscope_t *cur, *ecur;
     int line, fpc;
     pty_t **pend;
@@ -1023,6 +1025,153 @@ static void lb_compute_ov(struct pty_lay *L) {
             if (depth > 0) depth--;
         }
     }
+}
+static int ty_rec_layout(const pty_t *r, long long *size_out, long long *align_out, int depth);
+static int ty_sizeof(const pty_t *t, long long *out, int depth) {
+    long long s = 0;
+    if (!t || depth > 8) return 0;
+    if (t->name && lk_bsize(t->name, &s) && t->k != PTK_ARRAY && t->k != PTK_RECORD) { *out = s; return 1; }
+    switch (t->k) {
+        case PTK_ENUM:
+        if (t->nf > 0) { long long fit = lk_fit(0, t->hi); *out = fit > 4 ? fit : 4; return 1; }
+        if (t->bounded) { *out = lk_fit(t->lo, t->hi); return 1; }
+        return 0;
+        case PTK_INT:
+        case PTK_CHAR:
+        case PTK_BOOL:
+        if (t->bounded) { *out = lk_fit(t->lo, t->hi); return 1; }
+        return 0;
+        case PTK_SET:
+        { long long h = t->base ? (t->base->k == PTK_ENUM && t->base->nf > 0 ? t->base->nf - 1 : t->base->bounded ? t->base->hi : 255) : 255; *out = (h >= 0 && h <= 31) ? 4 : 32; return 1; }
+        case PTK_POINTER:
+        *out = 8;
+        return 1;
+        case PTK_RECORD:
+        return ty_rec_layout(t, out, NULL, depth + 1);
+        case PTK_ARRAY:
+        {
+            long long e = 0;
+            if (t->dyn || t->open || t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded || !ty_sizeof(t->base, &e, depth + 1)) return 0;
+            long long cnt = 1;
+            for (int i = 0; i < t->nix; i++) { if (!t->ix[i] || !t->ix[i]->bounded) return 0; cnt *= (t->ix[i]->hi - t->ix[i]->lo + 1); }
+            *out = cnt * e;
+            return 1;
+        }
+        case PTK_STRING:
+        if (t->name && !strcmp(t->name, "shortstring") && t->strmax > 0) { *out = (long long)t->strmax + 1; return 1; }
+        return 0;
+        default:
+        return 0;
+    }
+}
+static int ty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al, int depth) {
+    struct pty_fld f;
+    if (!pty_rec_fld(r, idx, &f)) return 0;
+    long long s, nat;
+    if (f.ptr) {
+        s = 8;
+        nat = 8;
+    } else if (f.rec) {
+        const pty_t *x = f.ft;
+        while (x && x->k == PTK_ARRAY) x = x->base;
+        if (!ty_rec_layout(x, &s, &nat, depth + 1)) return 0;
+    } else if (f.ca) {
+        long long cnt = f.cahi - f.calo + 1;
+        s = cnt > 0 ? cnt : 1;
+        nat = 1;
+    } else if (f.na) {
+        long long cnt = f.nahi - f.nalo + 1, esz = 4;
+        if (cnt < 1) cnt = 1;
+        ty_sizeof(f.named ? f.ft : (f.ft && f.ft->k == PTK_ARRAY ? f.ft->base : f.ft), &esz, depth + 1);
+        s = cnt * esz;
+        nat = esz < 1 ? 1 : (esz > 8 ? 8 : esz);
+    } else if (f.en) {
+        s = 4;
+        nat = 4;
+    } else if (f.ch == 1) {
+        s = 1;
+        nat = 1;
+    } else {
+        if (!ty_sizeof(f.ft, &s, depth + 1)) return 0;
+        nat = s < 1 ? 1 : (s > 8 ? 8 : s);
+    }
+    *sz = s;
+    if (r->packed) *al = 1;
+    else *al = nat;
+    return 1;
+}
+static int ty_rec_layout(const pty_t *r, long long *size_out, long long *align_out, int depth) {
+    if (!r || !r->lay || depth > 8) return 0;
+    long long off = 0, maxal = 1;
+    for (int j = 0; j < r->lay->nf; j++) { long long sz, al; if (!ty_rec_fld_sa(r, j, &sz, &al, depth)) return 0; if (al > maxal) maxal = al; if (al > 1) off = ((off + al - 1) / al) * al; off += sz; }
+    long long total = r->packed ? off : ((off + maxal - 1) / maxal) * maxal;
+    if (size_out) *size_out = total;
+    if (align_out) *align_out = maxal;
+    return 1;
+}
+int pty_rec_layout(const pty_t *r, long long *sz, long long *al) { return ty_rec_layout(r, sz, al, 0); }
+int pty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al) { return ty_rec_fld_sa(r, idx, sz, al, 0); }
+const pty_t *pty_type_by_name(const char *name) {
+    struct pty_state *s = pt_st();
+    if (!s || !s->ecur) return NULL;
+    for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 't' && p->name && !strcmp(p->name, name)) return p->t;
+    return NULL;
+}
+const pty_t *pty_rec_by_name(const char *name) {
+    struct pty_state *s = pt_st();
+    if (!s || !name) return NULL;
+    for (int i = s->nanon - 1; i >= 0; i--) if (!strcmp(s->anon[i].name, name)) return s->anon[i].t;
+    const pty_t *t = pty_type_by_name(name);
+    while (t && t->k == PTK_ARRAY) t = t->base;
+    return t && t->k == PTK_RECORD && t->lay ? t : NULL;
+}
+void pty_note_recname(const char *name, const tree_t *recnode) {
+    struct pty_state *s = pt_st();
+    const pty_ent *e = s && recnode ? pt_map_get(&s->src, recnode) : NULL;
+    if (!e || !e->t || e->t->k != PTK_RECORD || !name) return;
+    if (s->nanon >= s->canon) { s->canon = s->canon ? s->canon * 2 : 32; s->anon = ct_grow(s->anon, (size_t)s->canon * sizeof *s->anon); }
+    s->anon[s->nanon].name = name;
+    s->anon[s->nanon++].t = e->t;
+}
+const char *pty_name_of(const pty_t *t) {
+    struct pty_state *s = pt_st();
+    if (!s || !t) return NULL;
+    for (int i = s->nanon - 1; i >= 0; i--) if (s->anon[i].t == t) return s->anon[i].name;
+    if (t->name && pty_type_by_name(t->name) == t) return t->name;
+    if (t->k != PTK_RECORD) return t->name;
+    char buf[32];
+    snprintf(buf, sizeof buf, "$rec%d", s->nanon + 1);
+    char *nm = (char *)ct_zalloc(strlen(buf) + 1, 1);
+    memcpy(nm, buf, strlen(buf));
+    if (s->nanon >= s->canon) { s->canon = s->canon ? s->canon * 2 : 32; s->anon = ct_grow(s->anon, (size_t)s->canon * sizeof *s->anon); }
+    s->anon[s->nanon].name = nm;
+    s->anon[s->nanon++].t = t;
+    return nm;
+}
+int pty_rec_nf(const pty_t *r) { return r && r->lay ? r->lay->nf : 0; }
+int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o) {
+    if (!r || !r->lay || i < 0 || i >= r->lay->nf) return 0;
+    struct lfx f;
+    lf_of(r->lay, i, &f);
+    memset(o, 0, sizeof *o);
+    o->ch = f.ch;
+    o->ca = f.ca;
+    o->na = f.na;
+    o->file = f.file;
+    o->ptr = f.ptr;
+    o->rec = f.rec;
+    o->en = f.en;
+    o->calo = f.calo;
+    o->cahi = f.cahi;
+    o->nalo = f.nalo;
+    o->nahi = f.nahi;
+    o->ov = r->lay->ov[i];
+    o->name = r->lay->name[i];
+    o->ft = r->lay->ft[i];
+    o->named = r->lay->named[i] & 1;
+    o->ph = (r->lay->named[i] & 4) != 0;
+    o->tag = (r->lay->named[i] & 2) != 0;
+    return 1;
 }
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
     char **fldptrto, char **fldrec, char **fldenum, long long *fldov) {
