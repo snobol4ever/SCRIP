@@ -25,6 +25,9 @@ std::string bb_coret() {
            + x86("mov", "r13", "[rax + 0]")
            + x86("mov", "r14", "[rax + 8]")
            + x86("mov", "r15", "[rax + 16]")
+           + x86("mov", RDQ("rax", 0), 0L)
+           + x86("mov", RDQ("rax", 8), 0L)
+           + x86("mov", RDQ("rax", 16), 0L)
            + x86_rt_gc_poll()
            + x86_gamma());
 }

@@ -2357,7 +2357,6 @@ inline std::string x86_srf_floater(int wire_disp) {
 inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 extern "C" void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
-extern "C" uint64_t rt_scan_sync_in(void);
 inline std::string x86_scan_sync_out_force() {
     return x86("mov", "rdi", "r13")
          + x86("mov", "esi", "r15d")
@@ -2365,10 +2364,23 @@ inline std::string x86_scan_sync_out_force() {
          + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_sync_in_rr_force() {
+extern "C" uint64_t *rt_co_env(void);
+inline std::string x86_scan_env_store() {
+    return x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+         + x86("mov", "[rax + 0]", "r13")
+         + x86("mov", "[rax + 8]", "r14")
+         + x86("mov", "[rax + 16]", "r15");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_scan_env_load_rr() {
     return x86("push", "rax") + x86("push", "rdx")
-         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-         + x86("mov", "r14", "rax")
+         + x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+         + x86("mov", "r13", "[rax + 0]")
+         + x86("mov", "r14", "[rax + 8]")
+         + x86("mov", "r15", "[rax + 16]")
+         + x86("mov", RDQ("rax", 0), 0L)
+         + x86("mov", RDQ("rax", 8), 0L)
+         + x86("mov", RDQ("rax", 16), 0L)
          + x86("pop", "rdx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

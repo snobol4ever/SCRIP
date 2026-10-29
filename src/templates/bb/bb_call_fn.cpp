@@ -116,10 +116,10 @@ std::string cf_zd_copy() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * cf_zd_cursor() { return _.op_call_dsave != INT_MIN ? RDQ("rbp", _.op_call_dsave) : x86_zref(16, 1); }
 static std::string cf_zd_save() { return IF(_.op_call_curmov, x86("mov", cf_zd_cursor(), "r14")); }
-static std::string cf_zd_sync() { return IF(_.op_call_scansync, x86_scan_sync_out_force()); }
+static std::string cf_zd_sync() { return IF(_.op_call_scansync, x86_scan_env_store()); }
 static std::string cf_zd_beta() { return _.op_beta_dead ? std::string() :
-    emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor()) + x86_scan_sync_out_force()), x86_jmp(X86P_OMEGA) }); }
-static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
+    emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor())), x86_jmp(X86P_OMEGA) }); }
+static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 std::string cf_zd_exit() {
     return emit_seq({ IF(CF_N() > 0, x86("add", "rsp", (long)(CF_N() * 16))),
                       x86("cmp", "al", (long)DT_FAIL),
@@ -138,11 +138,11 @@ std::string cf_flat_exit() {
                       x86_omega("je"),
                       x86_gamma(),
                       x86_beta(),
-                      IF(_.op_call_curmov, x86("mov", "r14", FRQ(_.op_call_dsave)) + x86_scan_sync_out_force()),
+                      IF(_.op_call_curmov, x86("mov", "r14", FRQ(_.op_call_dsave))),
                       x86_omega() });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cf_pre_road() { return emit_seq({ IF(_.op_call_curmov, x86("mov", FRQ(_.op_call_dsave), "r14")), IF(_.op_call_scansync, x86_scan_sync_out_force()) }); }
+static std::string cf_pre_road() { return emit_seq({ IF(_.op_call_curmov, x86("mov", FRQ(_.op_call_dsave), "r14")), IF(_.op_call_scansync, x86_scan_env_store()) }); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_fnlbl() {
     return IF(_.op_call_fnlbl_fresh,
@@ -154,7 +154,7 @@ static std::string cf_fnlbl() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, x86("add", "rsp", (long)BCFN_EVAL_REC))); }
-static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
+static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 static std::string cf_argv_rsi(int eval) {
     return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", eval ? BCFN_EVAL_REC : 0)))
          + IF(CF_N() <= 0, x86("xor", "esi", "esi"));
@@ -437,14 +437,15 @@ std::string bb_call_gen() {
          + IF(CF_REFUSED(), cf_refuse())
          + IF(!CF_REFUSED(), emit_seq({ cf_marshal(),
                                         x86("mov", FRQ(_.op_call_genoff), (long)0),
-                                        IF(_.op_call_scansync, x86_scan_sync_out_force()),
                                         x86("def", L(60)),
+                                        IF(_.op_call_scansync, x86_scan_env_store()),
                                         cf_fnlbl(),
                                         x86("lea", "rsi", FRQ(CF_ARG())),
                                         x86("mov32", "edx", (long)CF_N()),
                                         x86("lea", "rcx", FRQ(_.op_call_genoff)),
                                         x86("rtcc_wb"),
                                         x86("call_bare", (_.op_strict ? "rt_call_arr_gen_strict" : "rt_call_arr_gen"), TEMPLATE_FN_ADDR((_.op_strict ? rt_call_arr_gen_strict : rt_call_arr_gen))),
+                                        IF(_.op_call_scansync, x86_scan_env_load_rr()),
                                         x86_rt_gc_poll_res(),
                                         x86("rtcc_rl"),
                                         x86("mov", FRQ(CF_RES()), "rax"),

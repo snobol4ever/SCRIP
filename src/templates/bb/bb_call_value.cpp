@@ -47,8 +47,8 @@ void rt_gen_spine_resume_enter(void);
            + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
            + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx"))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define cv_sync_out() (cv_is_goal() ? std::string() : x86_scan_sync_out_force())
-#define cv_sync_in() (cv_is_goal() ? std::string() : x86_scan_sync_in_rr_force())
+#define cv_sync_out() (cv_icn() ? x86_scan_env_store() : std::string())
+#define cv_sync_in() (cv_icn() ? x86_scan_env_load_rr() : std::string())
 #define CV_N() (_.op_arg_slot_n)
 #define CV_H() (_.op_off + 16 + _.op_arg_slot_n * 16)
 #define CV_UNFILLED() (std::count_if(_.op_arg_slot, _.op_arg_slot + _.op_arg_slot_n, [](int s) { return s < 0; }) > 0)
@@ -163,7 +163,6 @@ std::string bb_call_value() {
                 + x86("mov", FRQ(_.op_off + 16 + i * 16), "rax")
                 + x86("mov", "rax", FRQ(_.op_arg_slot[i] + 8))
                 + x86("mov", FRQ(_.op_off + 16 + i * 16 + 8), "rax"); })
-       + cv_sync_out()
        + x86_anchor_enter()
          + (cv_pl_proto()
             ? x86("note", "the retained token (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.5): a spine-road token carries its beta at [H+8] and is cleared here; "
@@ -419,6 +418,7 @@ std::string bb_call_value() {
               + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
               + x86("jmp", L(2)))
        + x86("def", L(7))
+       + cv_sync_out()
        + x86("mov", "rdi", FRQ(_.op_sa))
        + x86("mov", "rsi", FRQ(_.op_sa + 8))
        + (cv_is_apply()

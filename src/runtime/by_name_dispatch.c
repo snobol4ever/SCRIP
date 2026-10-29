@@ -4955,7 +4955,7 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
     DESCR_t out;
     if (!g) return FAILDESCR;
     if (g->kind == ICN_OPGEN_TOBY) { if (g->step > 0 ? g->cur > g->lim : g->cur < g->lim) return FAILDESCR; out = INTVAL(g->cur); g->cur += g->step; return out; }
-    if (g->kind == ICN_OPGEN_CURSOR) { g_runtime.abi.scan_pos = (int)g->cur; return FAILDESCR; }
+    if (g->kind == ICN_OPGEN_CURSOR) { extern uint64_t *rt_co_env(void); rt_co_env()[1] = (uint64_t)(int64_t)(g->cur - 1); return FAILDESCR; }
     if (g->kind == ICN_OPGEN_FNAMES) { const char *f = icn_builtin_nth((int)g->idx); if (!f) return FAILDESCR; g->idx++; return STRVAL(f); }
     if (g->kind == ICN_OPGEN_SCAN) { int hi = (g->nm[0] == 'b') ? 6 : 4; return RT_GC_CALLBACK(rt_call_arr_gen_strict(g->nm, argv, n > hi ? hi : n, &g->idx)); }
     if (n < 1) return FAILDESCR;
@@ -5107,7 +5107,8 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (n == 1 && !strcmp(nm, "key")) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_KEY, 0), argv, n, hslot);
     if ((n >= 1 || !strcmp(nm, "bal")) && icn_opgen_scan_name(nm)) return icn_opgen_start(icn_opgen_new(ICN_OPGEN_SCAN, icn_opgen_scan_name(nm)), argv, n, hslot);
     if (hslot && (!strcmp(nm, "tab") || !strcmp(nm, "move") || (n == 1 && IS_PROCVAL_fn(callee) && !strcmp(nm, "=")))) {
-        int64_t at = g_runtime.abi.scan_pos;
+        extern uint64_t *rt_co_env(void);
+        int64_t at = (int64_t)rt_co_env()[1] + 1;
         DESCR_t v = RT_GC_CALLBACK(rt_call_value(callee, argv, n));
         if (IS_FAIL_fn(v)) return v;
         ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_CURSOR, 0);
@@ -20169,6 +20170,17 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_cvpos(long long pos, int len, int *out_p) { if (pos < -(long long)len || pos > (long long)len + 1) return 0; *out_p = (int)(pos > 0 ? pos : (long long)len + pos + 1); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *s; long n; int pos; uint64_t *env; } bn_win_t;
+static bn_win_t bn_win(void) {
+    extern uint64_t *rt_co_env(void);
+    bn_win_t w;
+    w.env = rt_co_env();
+    w.s = w.env[0] ? (const char *)(uintptr_t)w.env[0] : "";
+    w.n = w.env[0] ? (long)(uint32_t)w.env[2] : 0;
+    w.pos = (int)(int64_t)w.env[1] + 1;
+    return w;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state) {
     const char *c1 = 0;
     int c1len = 0;
@@ -20196,9 +20208,10 @@ static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state) {
         if (i2 - 1 < slen) slen = i2 - 1;
         p = i1 - 1;
     } else {
-        s = g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : "";
-        slen = (int)strlen(s);
-        p = g_runtime.abi.scan_pos - 1;
+        bn_win_t w = bn_win();
+        s = w.s;
+        slen = (int)w.n;
+        p = w.pos - 1;
     }
     long long cnt = 0;
     if (state && *state > 0) { p = (int)(*state & 0xFFFFFFFFll) - 1; cnt = (long long)(*state >> 32); }
@@ -20226,10 +20239,10 @@ static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int
     int i, j, slen;
     long s_auth = -1;
     if (!have_s) {
-        if (!g_runtime.abi.scan_subj) return 0;
-        s = g_runtime.abi.scan_subj;
-        i = g_runtime.abi.scan_pos;
-        { extern long rt_scan_subj_len(void); s_auth = rt_scan_subj_len(); }
+        bn_win_t w = bn_win();
+        s = w.s;
+        i = w.pos;
+        s_auth = w.n;
     } else {
         if (args[si].v == DT_S && args[si].s && args[si].slen != 0xFFFFFFFFu) { s = args[si].s; s_auth = (long)args[si].slen; } else { s = VARVAL_fn(args[si]); if (!s) s = ""; }
         i = 1;
@@ -20722,49 +20735,47 @@ static int bn_icn_many(DESCR_t *args, int nargs, DESCR_t *out) {
     return 1;
 }
 static int bn_icn_tab(DESCR_t *args, DESCR_t *out) {
-    if (!g_runtime.abi.scan_subj) { *out = FAILDESCR; return 1; }
-    int slen;
-    { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
+    bn_win_t w = bn_win();
+    int slen = (int)w.n;
     int target = (int)to_int(args[0]);
     if (target <= 0) target = slen + 1 + target;
     if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
-    int old = g_runtime.abi.scan_pos;
-    g_runtime.abi.scan_pos = target;
+    int old = w.pos;
+    w.env[1] = (uint64_t)(int64_t)(target - 1);
     int lo = old < target ? old : target, hi = old < target ? target : old;
     int len = hi - lo;
     char *buf = rt_wsb_alloc(len + 1);
-    memcpy(buf, g_runtime.abi.scan_subj + lo - 1, len);
+    memcpy(buf, w.s + lo - 1, len);
     buf[len] = '\0';
     *out = BSTRVAL(buf, len);
     return 1;
 }
 static int bn_icn_move(DESCR_t *args, DESCR_t *out) {
-    if (!g_runtime.abi.scan_subj) { *out = FAILDESCR; return 1; }
-    int slen;
-    { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
+    bn_win_t w = bn_win();
+    int slen = (int)w.n;
     int n = (int)to_int(args[0]);
-    int target = g_runtime.abi.scan_pos + n;
+    int target = w.pos + n;
     if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
-    int old = g_runtime.abi.scan_pos;
-    g_runtime.abi.scan_pos = target;
+    int old = w.pos;
+    w.env[1] = (uint64_t)(int64_t)(target - 1);
     int lo = old < target ? old : target, hi = old < target ? target : old;
     int len = hi - lo;
     char *buf = rt_wsb_alloc(len + 1);
-    memcpy(buf, g_runtime.abi.scan_subj + lo - 1, len);
+    memcpy(buf, w.s + lo - 1, len);
     buf[len] = '\0';
     *out = BSTRVAL(buf, len);
     return 1;
 }
 static int icn_bi_direct_scanpos(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
-    if (nargs != 1 || args[0].v != DT_I || g_runtime.abi.scan_pos <= 0) return 0;
+    if (nargs != 1 || args[0].v != DT_I) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_tab ? bn_icn_tab(args, out) : bn_icn_move(args, out);
 }
 static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 1 || nargs > 4 || args[0].v != DT_S) return 0;
-    if (nargs == 1) { if (g_runtime.abi.scan_pos <= 0) return 0; } else if (args[1].v != DT_S || IS_CSET_fn(args[1])) return 0;
+    if (nargs != 1 && (args[1].v != DT_S || IS_CSET_fn(args[1]))) return 0;
     for (int i = 2; i < nargs; i++) if (args[i].v != DT_I && args[i].v != DT_SNUL) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_any ? bn_icn_any(args, nargs, out) : bn_icn_many(args, nargs, out);
@@ -22132,10 +22143,6 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         goto L_bidjmp_5894;
         case BID_stop:
         goto L_bidjmp_5895;
-        case BID_ICN_SCAN_PUSH:
-        goto L_bidjmp_5900;
-        case BID_ICN_SCAN_POP:
-        goto L_bidjmp_5912;
         case BID_any:
         goto L_bidjmp_5920;
         case BID_many:
@@ -23568,40 +23575,15 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         *out = rt_extfn_mint(_fnm, _f);
         return 1;
     }
-    L_bidjmp_5900:
-    ;
-    if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
-        const char *s;
-        long n;
-        if (IS_REAL_fn(args[0])) {
-            char _rb[64];
-            icon_real_str(args[0].r,_rb,sizeof _rb);
-            s = rt_heap_strdup_c(_rb);
-            n = (long)strlen(_rb);
-        } else {
-            s = VARVAL_fn(args[0]);
-            if (!s) s = "";
-            n = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : (long)strlen(s);
-        }
-        g_runtime.abi.scan_depth++;
-        { char *c = rt_wsb_alloc(n + 1); memcpy(c, s, (size_t)n); c[n] = '\0'; g_runtime.abi.scan_subj = c; }
-        g_runtime.abi.scan_pos = 1;
-        { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(g_runtime.abi.scan_subj, n); }
-        *out = args[0];
-        return 1;
-    }
-    L_bidjmp_5912:
-    ;
-    if ((_bid == BID_ICN_SCAN_POP) && nargs == 1) { if (g_runtime.abi.scan_depth > 0) g_runtime.abi.scan_depth--; *out = args[0]; return 1; }
     L_bidjmp_5920:
     ;
-    if ((_bid == BID_any) && nargs >= 1 && (g_runtime.abi.scan_pos > 0 || nargs >= 2)) return bn_icn_any(args, nargs, out);
+    if ((_bid == BID_any) && nargs >= 1) return bn_icn_any(args, nargs, out);
     L_bidjmp_5938:
     ;
-    if ((_bid == BID_many) && nargs >= 1 && (g_runtime.abi.scan_pos > 0 || nargs >= 2)) return bn_icn_many(args, nargs, out);
+    if ((_bid == BID_many) && nargs >= 1) return bn_icn_many(args, nargs, out);
     L_bidjmp_5958:
     ;
-    if ((_bid == BID_upto) && nargs >= 1 && (g_runtime.abi.scan_pos > 0 || nargs >= 2)) {
+    if ((_bid == BID_upto) && nargs >= 1) {
         const char *cv = VARVAL_fn(args[0]);
         if (!cv) { *out = FAILDESCR; return 1; }
         long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
@@ -23618,25 +23600,24 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5978:
     ;
-    if ((_bid == BID_tab) && nargs == 1 && g_runtime.abi.scan_pos > 0) return bn_icn_tab(args, out);
+    if ((_bid == BID_tab) && nargs == 1) return bn_icn_tab(args, out);
     L_bidjmp_5991:
     ;
-    if ((_bid == BID_move) && nargs == 1 && g_runtime.abi.scan_pos > 0) return bn_icn_move(args, out);
+    if ((_bid == BID_move) && nargs == 1) return bn_icn_move(args, out);
     L_bidjmp_6004:
     ;
-    if ((_bid == BID_pos) && nargs == 1 && g_runtime.abi.scan_pos > 0) {
-        if (!g_runtime.abi.scan_subj) { *out = FAILDESCR; return 1; }
-        int slen;
-        { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
+    if ((_bid == BID_pos) && nargs == 1) {
+        bn_win_t w = bn_win();
+        int slen = (int)w.n;
         int target = (int)to_int(args[0]);
         if (target <= 0) target = slen + 1 + target;
-        if (target < 1 || target > slen + 1 || target != g_runtime.abi.scan_pos) { *out = FAILDESCR; return 1; }
+        if (target < 1 || target > slen + 1 || target != w.pos) { *out = FAILDESCR; return 1; }
         *out = INTVAL(target);
         return 1;
     }
     L_bidjmp_6012:
     ;
-    if ((_bid == BID_match) && nargs >= 1 && (g_runtime.abi.scan_pos > 0 || nargs >= 2)) {
+    if ((_bid == BID_match) && nargs >= 1) {
         const char *pat = VARVAL_fn(args[0]);
         if (!pat) { *out = FAILDESCR; return 1; }
         const char *s;
@@ -23650,10 +23631,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6033:
     ;
-    if ((_bid == BID_bal) && (g_runtime.abi.scan_pos > 0 || nargs >= 4)) { return bn_bal_gen(args, nargs, out, (int64_t *)0); }
+    if ((_bid == BID_bal)) { return bn_bal_gen(args, nargs, out, (int64_t *)0); }
     L_bidjmp_6067:
     ;
-    if ((_bid == BID_find) && nargs >= 1 && (g_runtime.abi.scan_pos > 0 || nargs >= 2)) {
+    if ((_bid == BID_find) && nargs >= 1) {
         const char *needle = VARVAL_fn(args[0]);
         if (!needle) { *out = FAILDESCR; return 1; }
         int nlen = (args[0].v == DT_S && args[0].s && args[0].slen != 0xFFFFFFFFu) ? (int)args[0].slen : (int)strlen(needle);
