@@ -577,6 +577,8 @@ call_with_args:
     |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     |selector PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
+    |call_with_args PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
+    |call_with_args PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     ;
 argument_list:
     argument_list COMMA argument { $$ = pt_add($1, $3); }
@@ -691,6 +693,11 @@ term:
     |term IDIV power { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
     |term IMOD power { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
     |term ANDOP power { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), $3); }
+    |term MUL MINUS power { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), pt_add(pt_new(TT_MNS), $4)); }
+    |term RDIV MINUS power { $$ = pt_add(pt_add(pt_new(TT_DIV), $1), pt_add(pt_new(TT_MNS), $4)); }
+    |term IDIV MINUS power { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), pt_add(pt_new(TT_MNS), $4)); }
+    |term IMOD MINUS power { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), pt_add(pt_new(TT_MNS), $4)); }
+    |term ANDOP MINUS power { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), pt_add(pt_new(TT_MNS), $4)); }
     |term SHIFTOP power { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     |term ASOP power { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
