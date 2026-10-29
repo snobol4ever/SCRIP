@@ -3037,7 +3037,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
     s->lastf = *f;
     if (s->fn) s->fn((const void *)m, base, s->a);
     if (s->visit) {
-        if (gc_chain_check_on()) g_runtime.gc.gc_chw.fsum = g_runtime.gc.gc_chw.fsum * 31u + ((uint64_t)(uintptr_t)base ^ (uint64_t)(uintptr_t)m);
+        if (gc_chain_check_on() && !s->x.tr.olo) g_runtime.gc.gc_chw.fsum = g_runtime.gc.gc_chw.fsum * 31u + ((uint64_t)(uintptr_t)base ^ (uint64_t)(uintptr_t)m);
 #if RT_DIAG
         g->frames++;
         if (s->n == 0 && !g_gc_top_graph) g_gc_top_graph = m->graph_name ? m->graph_name : "?";
