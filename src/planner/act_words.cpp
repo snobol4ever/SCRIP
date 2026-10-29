@@ -71,9 +71,16 @@ extern "C" int planner_alt_arm_live(const IR_graph_t * g, const IR_t * alt, int 
     if (!alt || 2 * j + 1 >= alt->n_operands) return 0;
     return planner_body_live(g, alt->operands[2 * j], alt->operands[2 * j + 1], alt);
 }
+extern "C" int planner_alt_arm_exits(const IR_graph_t * g, const IR_t * alt, int j) {
+    if (!g || !alt || 2 * j + 1 >= alt->n_operands) return 1;
+    IR_t * cur = zd_chase(alt->operands[2 * j]); const IR_t * last = alt->operands[2 * j + 1]; int guard = 0;
+    while (cur && guard++ <= g->n) { if (cur == alt || cur == last) return 1; IR_t * nx = zd_chase(cur->γ.node); if (nx == cur) return 0; cur = nx; }
+    return 1;
+}
 extern "C" int planner_alt_exit(const IR_graph_t * g, const IR_t * alt, int * M) {
     *M = 0; if (!alt || alt->op != IR_MATCH_ALTERNATE) return -1;
-    for (int j = 0; 2 * j + 1 < alt->n_operands; j++) { int l = planner_alt_arm_live(g, alt, j); if (l < 0) return -1; if (l > *M) *M = l; }
+    for (int j = 0; 2 * j + 1 < alt->n_operands; j++) { int l = planner_alt_arm_live(g, alt, j); if (l < 0 && !planner_alt_arm_exits(g, alt, j)) continue; if (l < 0) return -1;
+        if (l > *M) *M = l; }
     return 0;
 }
 extern "C" int planner_fence_k(const IR_graph_t * g, const IR_t * nd) {

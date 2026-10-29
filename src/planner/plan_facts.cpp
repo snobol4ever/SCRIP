@@ -308,7 +308,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         if (op == IR_MATCH_FENCE1) z->fbody = planner_body_live(g, nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0, nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0, nd);
         if (op == IR_MATCH_ALTERNATE) {
             int M = 0; z->altok = planner_alt_exit(g, nd, &M); z->altM = M; z->padoff = (int)rec->v_altpad.size();
-            for (int j = 0; j < nd->n_operands / 2; j++) rec->v_altpad.push_back(z->altok == 0 ? M - planner_alt_arm_live(g, nd, j) : 0); }
+            for (int j = 0; j < nd->n_operands / 2; j++) { int l = planner_alt_arm_live(g, nd, j); rec->v_altpad.push_back(z->altok == 0 && l >= 0 ? M - l : 0); } }
         IR_t * o0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         z->aext = planner_act_extra(nd); z->aexth = o0 ? planner_act_extra(o0) : 32; z->aclass = planner_act_class_of(nd); z->acause = planner_act_cause_of(nd);
         z->vrfp = fc_vread_fp(nd); z->hwhy = zls_home_why(nd); z->fcact = fc_call_active(nd); z->argv = zls_argv_off(nd); z->redisp = zls_redisp_off(nd);

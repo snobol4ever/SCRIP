@@ -193,6 +193,7 @@ extern "C" int planner_blob_slot_bytes(void);
 extern "C" int planner_act_window(const IR_t * arbno, int * lo, int * bytes);
 extern "C" void planner_act_visit(void (*fn)(const IR_t *, int, int, int));
 extern "C" int planner_body_live(const IR_graph_t * g, const IR_t * first, const IR_t * last, const IR_t * self);
+extern "C" int planner_alt_arm_exits(const IR_graph_t * g, const IR_t * alt, int j);
 extern "C" int planner_alt_arm_live(const IR_graph_t * g, const IR_t * alt, int j);
 extern "C" int planner_alt_exit(const IR_graph_t * g, const IR_t * alt, int * M);
 extern "C" int planner_fence_k(const IR_graph_t * g, const IR_t * nd);
