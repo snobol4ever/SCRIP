@@ -3525,6 +3525,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * ee = pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("source_sink"), pl_tree_copy(t->c[0]));
                 if (k >= 0) return goal(cx, k ? (tree_t *) pl_atom_goal("true") : pl_cc_throw_ar(ee, nm, t->n), γnext, ωfail, entry_out);
             }
+            if (!strcmp(nm, "exists_source") && t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "library") && t->c[0]->n == 1 &&
+                !pl_user_file_defines(nm, 1)) {
+                extern int pl_prelude_lib_spec_known(const tree_t *);
+                int k = pl_prelude_lib_spec_known(t->c[0]->c[0]);
+                if (k >= 0) return goal(cx, k ? (tree_t *) pl_atom_goal("true") : (tree_t *) pl_atom_goal("fail"), γnext, ωfail, entry_out);
+            }
             if (!strcmp(nm, "use_module") && (t->n == 1 || t->n == 2) && t->c[0] && t->c[0]->t == TT_VAR && !pl_user_defines(nm, t->n))
                 return goal(cx, (tree_t *) pl_atom_goal("true"), γnext, ωfail, entry_out);
             if (!strcmp(nm, "ensure_loaded") && t->n == 1 && !pl_user_defines(nm, 1)) {
