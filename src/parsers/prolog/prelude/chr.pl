@@ -1,7 +1,8 @@
-:- module(chr, [op(1180, xfx, ==>), op(1180, xfx, <=>), op(1150, fx, constraints), op(1150, fx, chr_constraint), op(1150, fx, chr_preprocessor), op(1150, fx, handler), op(1150, fx, rules), op(1100, xfx, \), op(1200, xfx, @), op(1190, xfx, pragma), op(500, yfx, #), op(1150, fx, chr_type), op(1150, fx, chr_declaration), op(1130, xfx, --->), op(1150, fx, ?), '$chr_attach'/5, '$chr_detach'/5, '$enumerate_constraints'/1, '$chr_unify'/3]).
+:- module(chr, [op(1180, xfx, ==>), op(1180, xfx, <=>), op(1150, fx, constraints), op(1150, fx, chr_constraint), op(1150, fx, chr_preprocessor), op(1150, fx, handler), op(1150, fx, rules), op(1100, xfx, \), op(1200, xfx, @), op(1190, xfx, pragma), op(500, yfx, #), op(1150, fx, chr_type), op(1150, fx, chr_declaration), op(1130, xfx, --->), op(1150, fx, ?), '$chr_attach'/5]).
 :- use_module(chr/chr_runtime).
-'$chr_attach'(_, _, _, [], _).
-'$chr_attach'(M, I, K, [V|Vs], S) :-
+'$chr_attach'(M, I, K, Vs, S) :- '$chr_attach_'(Vs, M, I, K, S).
+'$chr_attach_'([], _, _, _, _) :- !.
+'$chr_attach_'([V|Vs], M, I, K, S) :-
     Bit is 1 << (I - 1),
     (   get_attr(V, M, Att)
     ->  Att =.. [v, Mask|Ls],
@@ -16,15 +17,16 @@
         Att1 =.. [v, Bit|Ls1]
     ),
     put_attr(V, M, Att1),
-    '$chr_attach'(M, I, K, Vs, S).
-'$chr_detach'(_, _, _, [], _).
-'$chr_detach'(M, I, K, [V|Vs], S) :-
+    '$chr_attach_'(Vs, M, I, K, S).
+'$chr_detach'(M, I, K, Vs, S) :- '$chr_detach_'(Vs, M, I, K, S).
+'$chr_detach_'([], _, _, _, _) :- !.
+'$chr_detach_'([V|Vs], M, I, K, S) :-
     Bit is 1 << (I - 1),
     (   get_attr(V, M, Att)
     ->  Att =.. [v, Mask|Ls],
         (   Mask /\ Bit =:= Bit
         ->  '$chr_nth_get'(I, Ls, L),
-            'chr sbag_del_element'(L, S, L1),
+            '$chr_del'(L, S, L1),
             (   L1 == []
             ->  Mask1 is Mask /\ \ Bit,
                 (   Mask1 =:= 0
@@ -41,7 +43,7 @@
         )
     ;   true
     ),
-    '$chr_detach'(M, I, K, Vs, S).
+    '$chr_detach_'(Vs, M, I, K, S).
 '$chr_fresh_lists'(J, K, _, _, []) :- J > K, !.
 '$chr_fresh_lists'(J, K, I, S, [L|Ls]) :-
     (   J =:= I
@@ -93,8 +95,9 @@
         ),
         '$chr_run_all'(Ls1)
     ).
-'$chr_attach_increment'(_, [], _).
-'$chr_attach_increment'(M, [V|Vs], Att) :-
+'$chr_attach_increment'(M, Vs, Att) :- '$chr_attach_increment_'(Vs, M, Att).
+'$chr_attach_increment_'([], _, _) :- !.
+'$chr_attach_increment_'([V|Vs], M, Att) :-
     'chr not_locked'(V),
     (   get_attr(V, M, Att2)
     ->  Att =.. [v, Mask|Ls],
@@ -106,14 +109,14 @@
         put_attr(V, M, Att3)
     ;   put_attr(V, M, Att)
     ),
-    '$chr_attach_increment'(M, Vs, Att).
-'$chr_sort_all'([], []).
+    '$chr_attach_increment_'(Vs, M, Att).
+'$chr_sort_all'([], []) :- !.
 '$chr_sort_all'([L|Ls], [S|Ss]) :- sort(L, S), '$chr_sort_all'(Ls, Ss).
-'$chr_merge_all'([], [], []).
+'$chr_merge_all'([], [], []) :- !.
 '$chr_merge_all'([A|As], [B|Bs], [C|Cs]) :- 'chr merge_attributes'(A, B, C), '$chr_merge_all'(As, Bs, Cs).
-'$chr_run_all'([]).
+'$chr_run_all'([]) :- !.
 '$chr_run_all'([L|Ls]) :- '$chr_run_suspensions'(L), '$chr_run_all'(Ls).
-'$chr_run_suspensions'([]).
+'$chr_run_suspensions'([]) :- !.
 '$chr_run_suspensions'([S|Ss]) :-
     arg(2, S, State),
     (   State == active
@@ -131,3 +134,24 @@
     ;   true
     ),
     '$chr_run_suspensions'(Ss).
+'$chr_novel'(S, T) :-
+    arg(3, S, H),
+    (   get_ds(T, H, _)
+    ->  fail
+    ;   true
+    ).
+'$chr_extend'(S, T) :-
+    arg(3, S, H),
+    put_ds(T, H, x, H1),
+    setarg(3, S, H1).
+'$chr_none_locked'([]) :- !.
+'$chr_none_locked'([V|Vs]) :-
+    \+ get_attr(V, locked, _),
+    '$chr_none_locked'(Vs).
+'$chr_del'([], _, []) :- !.
+'$chr_del'([X|Xs], E, R) :-
+    (   X == E
+    ->  R = Xs
+    ;   R = [X|R1],
+        '$chr_del'(Xs, E, R1)
+    ).

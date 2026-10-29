@@ -3528,9 +3528,6 @@ static const char PL_PRELUDE_LIB_7_SRC[] =
     "\t[Sum =\\= I1].\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "$chr_attach", 5 },
-    { "$chr_detach", 5 },
-    { "$enumerate_constraints", 1 },
-    { "$chr_unify", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
@@ -3562,8 +3559,9 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_8_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_8_SRC[] =
-    "'$chr_attach'(_, _, _, [], _).\n"
-    "'$chr_attach'(M, I, K, [V|Vs], S) :-\n"
+    "'$chr_attach'(M, I, K, Vs, S) :- '$chr_attach_'(Vs, M, I, K, S).\n"
+    "'$chr_attach_'([], _, _, _, _) :- !.\n"
+    "'$chr_attach_'([V|Vs], M, I, K, S) :-\n"
     "    Bit is 1 << (I - 1),\n"
     "    (   get_attr(V, M, Att)\n"
     "    ->  Att =.. [v, Mask|Ls],\n"
@@ -3578,15 +3576,16 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "        Att1 =.. [v, Bit|Ls1]\n"
     "    ),\n"
     "    put_attr(V, M, Att1),\n"
-    "    '$chr_attach'(M, I, K, Vs, S).\n"
-    "'$chr_detach'(_, _, _, [], _).\n"
-    "'$chr_detach'(M, I, K, [V|Vs], S) :-\n"
+    "    '$chr_attach_'(Vs, M, I, K, S).\n"
+    "'$chr_detach'(M, I, K, Vs, S) :- '$chr_detach_'(Vs, M, I, K, S).\n"
+    "'$chr_detach_'([], _, _, _, _) :- !.\n"
+    "'$chr_detach_'([V|Vs], M, I, K, S) :-\n"
     "    Bit is 1 << (I - 1),\n"
     "    (   get_attr(V, M, Att)\n"
     "    ->  Att =.. [v, Mask|Ls],\n"
     "        (   Mask /\\ Bit =:= Bit\n"
     "        ->  '$chr_nth_get'(I, Ls, L),\n"
-    "            'chr sbag_del_element'(L, S, L1),\n"
+    "            '$chr_del'(L, S, L1),\n"
     "            (   L1 == []\n"
     "            ->  Mask1 is Mask /\\ \\ Bit,\n"
     "                (   Mask1 =:= 0\n"
@@ -3603,7 +3602,7 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "        )\n"
     "    ;   true\n"
     "    ),\n"
-    "    '$chr_detach'(M, I, K, Vs, S).\n"
+    "    '$chr_detach_'(Vs, M, I, K, S).\n"
     "'$chr_fresh_lists'(J, K, _, _, []) :- J > K, !.\n"
     "'$chr_fresh_lists'(J, K, I, S, [L|Ls]) :-\n"
     "    (   J =:= I\n"
@@ -3655,8 +3654,9 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "        ),\n"
     "        '$chr_run_all'(Ls1)\n"
     "    ).\n"
-    "'$chr_attach_increment'(_, [], _).\n"
-    "'$chr_attach_increment'(M, [V|Vs], Att) :-\n"
+    "'$chr_attach_increment'(M, Vs, Att) :- '$chr_attach_increment_'(Vs, M, Att).\n"
+    "'$chr_attach_increment_'([], _, _) :- !.\n"
+    "'$chr_attach_increment_'([V|Vs], M, Att) :-\n"
     "    'chr not_locked'(V),\n"
     "    (   get_attr(V, M, Att2)\n"
     "    ->  Att =.. [v, Mask|Ls],\n"
@@ -3668,14 +3668,14 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "        put_attr(V, M, Att3)\n"
     "    ;   put_attr(V, M, Att)\n"
     "    ),\n"
-    "    '$chr_attach_increment'(M, Vs, Att).\n"
-    "'$chr_sort_all'([], []).\n"
+    "    '$chr_attach_increment_'(Vs, M, Att).\n"
+    "'$chr_sort_all'([], []) :- !.\n"
     "'$chr_sort_all'([L|Ls], [S|Ss]) :- sort(L, S), '$chr_sort_all'(Ls, Ss).\n"
-    "'$chr_merge_all'([], [], []).\n"
+    "'$chr_merge_all'([], [], []) :- !.\n"
     "'$chr_merge_all'([A|As], [B|Bs], [C|Cs]) :- 'chr merge_attributes'(A, B, C), '$chr_merge_all'(As, Bs, Cs).\n"
-    "'$chr_run_all'([]).\n"
+    "'$chr_run_all'([]) :- !.\n"
     "'$chr_run_all'([L|Ls]) :- '$chr_run_suspensions'(L), '$chr_run_all'(Ls).\n"
-    "'$chr_run_suspensions'([]).\n"
+    "'$chr_run_suspensions'([]) :- !.\n"
     "'$chr_run_suspensions'([S|Ss]) :-\n"
     "    arg(2, S, State),\n"
     "    (   State == active\n"
@@ -3692,7 +3692,28 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "        )\n"
     "    ;   true\n"
     "    ),\n"
-    "    '$chr_run_suspensions'(Ss).\n";
+    "    '$chr_run_suspensions'(Ss).\n"
+    "'$chr_novel'(S, T) :-\n"
+    "    arg(3, S, H),\n"
+    "    (   get_ds(T, H, _)\n"
+    "    ->  fail\n"
+    "    ;   true\n"
+    "    ).\n"
+    "'$chr_extend'(S, T) :-\n"
+    "    arg(3, S, H),\n"
+    "    put_ds(T, H, x, H1),\n"
+    "    setarg(3, S, H1).\n"
+    "'$chr_none_locked'([]) :- !.\n"
+    "'$chr_none_locked'([V|Vs]) :-\n"
+    "    \\+ get_attr(V, locked, _),\n"
+    "    '$chr_none_locked'(Vs).\n"
+    "'$chr_del'([], _, []) :- !.\n"
+    "'$chr_del'([X|Xs], E, R) :-\n"
+    "    (   X == E\n"
+    "    ->  R = Xs\n"
+    "    ;   R = [X|R1],\n"
+    "        '$chr_del'(Xs, E, R1)\n"
+    "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "chr sbag_del_element", 3 },
     { "chr merge_attributes", 3 },

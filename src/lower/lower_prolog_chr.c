@@ -26,6 +26,15 @@ static tree_t * ch_list(tree_t * const * a, int n, tree_t * tail) {
     return l;
 }
 static tree_t * ch_cons(tree_t * h, tree_t * t) { tree_t * v[1] = { h }; return ch_list(v, 1, t); }
+static tree_t * ch_conj(tree_t * const * g, int n) { if (n == 0) return ch_atom("true"); tree_t * c = g[n - 1]; for (int i = n - 2; i >= 0; i--) c = ch_f2(",", g[i], c); return c; }
+static tree_t * ch_goals_node(tree_t * const * g, int n) {
+    if (n == 1) return g[0];
+    tree_t * p = ast_node_new(TT_PROGRAM);
+    for (int i = 0; i < n; i++) ast_push(p, g[i]);
+    if (n == 0) ast_push(p, ch_atom("true"));
+    return p;
+}
+static tree_t * ch_if(tree_t * c, tree_t * t, tree_t * e) { tree_t * iff = ast_node_new(TT_IF); ast_push(iff, c); ast_push(iff, t); ast_push(iff, e); return iff; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * ch_clause(int ar, tree_t * const * it, int n) { tree_t * cl = ast_node_new(TT_CLAUSE); cl->v.dval = ar; for (int i = 0; i < n; i++) ast_push(cl, it[i]); return cl; }
 static tree_t * ch_choice(const char * key, tree_t * cl) { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = (char *) lp_strdup(key); ast_push(ch, cl); return ch; }
@@ -69,15 +78,15 @@ static const char * ch_store_key(const char * mod, const ch_con_t * c) {
 static const char * ch_occ_name(const ch_con_t * c, int j) { char b[strlen(c->name) + 40]; snprintf(b, sizeof b, "%s___%d__%d", c->name, c->arity, j); return lp_strdup(b); }
 static const char * ch_key_of(const char * nm, int ar) { char b[strlen(nm) + 16]; snprintf(b, sizeof b, "%s/%d", nm, ar); return lp_strdup(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * ch_activation(const ch_con_t * c, int idx, int k, const char * mod) {
+static tree_t * ch_activation(const ch_con_t * c, int idx, int k, const char * mod, int hist, int late) {
     int n = c->arity, S = n, Id = n + 1, H = n + 2, Vs = n + 3, Old = n + 4;
     const char * key = ch_store_key(mod, c);
     tree_t * it[n + 16], * sa[n + 6], * oa[n + 1], * av[n > 0 ? n : 1];
     int m = 0, p = 0;
     for (int i = 0; i < n; i++) it[m++] = ch_var(i);
     sa[p++] = ch_var(Id);
-    sa[p++] = ch_atom("active");
-    sa[p++] = ch_var(H);
+    sa[p++] = ch_atom(late ? "not_stored_yet" : "active");
+    sa[p++] = hist ? ch_atom("t") : ch_var(H);
     sa[p++] = ch_int(0);
     for (int i = 0; i < n; i++) oa[i] = ch_var(i);
     oa[n] = ch_var(S);
@@ -86,24 +95,37 @@ static tree_t * ch_activation(const ch_con_t * c, int idx, int k, const char * m
     for (int i = 0; i < n; i++) sa[p++] = ch_var(i);
     it[m++] = ch_f2("=", ch_var(S), ch_fnca("suspension", p, sa));
     for (int i = 0; i < n; i++) av[i] = ch_var(i);
-    if (n > 0) { it[m++] = ch_f2("term_variables", n == 1 ? ch_var(0) : ch_list(av, n, NULL), ch_var(Vs)); it[m++] = ch_f1("chr none_locked", ch_var(Vs)); }
+    if (n > 0 && !late) { it[m++] = ch_f2("term_variables", n == 1 ? ch_var(0) : ch_list(av, n, NULL), ch_var(Vs)); it[m++] = ch_f1("$chr_none_locked", ch_var(Vs)); }
     it[m++] = ch_f1("chr gen_id", ch_var(Id));
-    it[m++] = ch_f2("nb_getval", ch_atom(key), ch_var(Old));
-    it[m++] = ch_f2("b_setval", ch_atom(key), ch_cons(ch_var(S), ch_var(Old)));
-    if (n > 0) it[m++] = ch_f5("$chr_attach", ch_atom(mod), ch_int(idx), ch_int(k), ch_var(Vs), ch_var(S));
-    it[m++] = ch_f3("setarg", ch_int(2), ch_var(S), ch_atom("inactive"));
+    if (!late) {
+        it[m++] = ch_f2("nb_getval", ch_atom(key), ch_var(Old));
+        it[m++] = ch_f2("b_setval", ch_atom(key), ch_cons(ch_var(S), ch_var(Old)));
+        if (n > 0) it[m++] = ch_f5("$chr_attach", ch_atom(mod), ch_int(idx), ch_int(k), ch_var(Vs), ch_var(S));
+        it[m++] = ch_f3("setarg", ch_int(2), ch_var(S), ch_atom("inactive"));
+    }
     for (int i = 0; i < n; i++) oa[i] = ch_var(i);
     oa[n] = ch_var(S);
     it[m++] = ch_fnca(ch_occ_name(c, 0), n + 1, oa);
     return ch_choice(ch_key_of(c->name, n), ch_clause(n, it, m));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * ch_occurrence_last(const ch_con_t * c, int j) {
-    int n = c->arity;
-    tree_t * it[n + 2];
-    for (int i = 0; i <= n; i++) it[i] = ch_var(i);
-    it[n + 1] = ch_f3("setarg", ch_int(2), ch_var(n), ch_atom("active"));
-    return ch_choice(ch_key_of(ch_occ_name(c, j), n + 1), ch_clause(n + 1, it, n + 2));
+static tree_t * ch_occurrence_last(const ch_con_t * c, int j, int idx, int k, const char * mod, int late) {
+    int n = c->arity, S = n, St = n + 1, Vs = n + 2, Old = n + 3, m = 0, t = 0;
+    tree_t * it[n + 5], * th[6], * av[n > 0 ? n : 1];
+    for (int i = 0; i <= n; i++) it[m++] = ch_var(i);
+    if (!late) it[m++] = ch_f3("setarg", ch_int(2), ch_var(S), ch_atom("active"));
+    else {
+        const char * key = ch_store_key(mod, c);
+        for (int i = 0; i < n; i++) av[i] = ch_var(i);
+        it[m++] = ch_f3("arg", ch_int(2), ch_var(S), ch_var(St));
+        it[m++] = ch_f3("setarg", ch_int(2), ch_var(S), ch_atom("active"));
+        if (n > 0) { th[t++] = ch_f2("term_variables", n == 1 ? ch_var(0) : ch_list(av, n, NULL), ch_var(Vs)); th[t++] = ch_f1("$chr_none_locked", ch_var(Vs)); }
+        th[t++] = ch_f2("nb_getval", ch_atom(key), ch_var(Old));
+        th[t++] = ch_f2("b_setval", ch_atom(key), ch_cons(ch_var(S), ch_var(Old)));
+        if (n > 0) th[t++] = ch_f5("$chr_attach", ch_atom(mod), ch_int(idx), ch_int(k), ch_var(Vs), ch_var(S));
+        it[m++] = ch_if(ch_f2("==", ch_var(St), ch_atom("not_stored_yet")), ch_goals_node(th, t), ch_atom("true"));
+    }
+    return ch_choice(ch_key_of(ch_occ_name(c, j), n + 1), ch_clause(n + 1, it, m));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * ch_constraint_facts(const ch_con_t * cons, int k, const char * mod) {
@@ -239,6 +261,7 @@ static void ch_match(ch_vm_t * m, const tree_t * p, int v, ch_out_t * o) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int ch_removed(const ch_rule_t * r, int i) { if (r->dir) return 0; if (ch_is_goal(r->lhs, "\\", 2)) return i >= ch_head_count(r->lhs->c[0]); return 1; }
+static int ch_any_removed(const ch_rule_t * r, int nh) { for (int i = 0; i < nh; i++) if (ch_removed(r, i)) return 1; return 0; }
 static int ch_occ_head(const ch_rule_t * r, int nh, int o) {
     int nrem = 0;
     for (int i = 0; i < nh; i++) nrem += ch_removed(r, i);
@@ -246,15 +269,6 @@ static int ch_occ_head(const ch_rule_t * r, int nh, int o) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * ch_conj(tree_t * const * g, int n) { if (n == 0) return ch_atom("true"); tree_t * c = g[n - 1]; for (int i = n - 2; i >= 0; i--) c = ch_f2(",", g[i], c); return c; }
-static tree_t * ch_goals_node(tree_t * const * g, int n) {
-    if (n == 1) return g[0];
-    tree_t * p = ast_node_new(TT_PROGRAM);
-    for (int i = 0; i < n; i++) ast_push(p, g[i]);
-    if (n == 0) ast_push(p, ch_atom("true"));
-    return p;
-}
-static tree_t * ch_if(tree_t * c, tree_t * t, tree_t * e) { tree_t * iff = ast_node_new(TT_IF); ast_push(iff, c); ast_push(iff, t); ast_push(iff, e); return iff; }
 static const char * ch_level_name(const ch_con_t * c, int j, int l) { char b[strlen(c->name) + 56]; snprintf(b, sizeof b, "%s___%d__%d__%d", c->name, c->arity, j, l); return lp_strdup(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ch_remove(ch_out_t * o, ch_vm_t * m, const ch_con_t * c, int idx, int k, const char * mod, int sv, const int * av) {
@@ -272,7 +286,7 @@ static void ch_remove(ch_out_t * o, ch_vm_t * m, const ch_con_t * c, int idx, in
     ch_put(o, ch_f3("setarg", ch_int(2), ch_var(sv), ch_atom("removed")));
     if (n > 0) ch_put(o, ch_f2("term_variables", n == 1 ? ch_var(av[0]) : ch_list(wa, n, NULL), ch_var(Vs)));
     ch_put(o, ch_f2("nb_getval", ch_atom(key), ch_var(St)));
-    ch_put(o, ch_f3("chr sbag_del_element", ch_var(St), ch_var(sv), ch_var(St1)));
+    ch_put(o, ch_f3("$chr_del", ch_var(St), ch_var(sv), ch_var(St1)));
     ch_put(o, ch_f2("b_setval", ch_atom(key), ch_var(St1)));
     if (n > 0) ch_put(o, ch_f5("$chr_detach", ch_atom(mod), ch_int(idx), ch_int(k), ch_var(Vs), ch_var(sv)));
 }
@@ -306,7 +320,23 @@ static tree_t * ch_simplification(const ch_con_t * c, int idx, int k, const char
     return ch_clause(n + 1, it, o.n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const ch_con_t * cons; int k; const char * mod; const ch_rule_t * r; int nh; int self; int j; int q; } ch_occ_t;
+static tree_t * ch_propagation(const ch_con_t * c, const ch_rule_t * r, const tree_t * head, int rno, int j) {
+    int n = c->arity, nv = ch_nodes(r->lhs) + ch_nodes(r->guard) + ch_nodes(r->body) + n + 8;
+    ch_vp_t mp[nv];
+    ch_vm_t m = { mp, 0, n + 1 };
+    tree_t * it[3 * nv + 3 * n + 16];
+    ch_out_t o = { it, 0 };
+    for (int i = 0; i <= n; i++) ch_put(&o, ch_var(i));
+    for (int i = 0; i < n; i++) ch_match(&m, head->c[i], i, &o);
+    ch_put(&o, ch_f2("$chr_novel", ch_var(n), ch_int(rno)));
+    ch_goals(&o, r->guard, &m);
+    ch_put(&o, ast_node_new(TT_CUT));
+    ch_put(&o, ch_f2("$chr_extend", ch_var(n), ch_int(rno)));
+    ch_goals(&o, r->body, &m);
+    ch_put(&o, ch_args_call(ch_occ_name(c, j + 1), n, n));
+    return ch_clause(n + 1, it, o.n);
+}
+typedef struct { const ch_con_t * cons; int k; const char * mod; const ch_rule_t * r; int nh; int self; int j; int q; int rno; } ch_occ_t;
 typedef struct { int nr, n, nc, ne, rbase, sid, abase, cbase, ebase, nfree, total; } ch_lay_t;
 static ch_lay_t ch_layout(int nr, int n, int nc, int ne) { ch_lay_t y = { nr, n, nc, ne, 2, 2 + nr, 3 + nr, 3 + nr + n, 3 + nr + n + nc, 3 + nr + n + nc + ne, 2 + nr + n + nc + ne }; return y; }
 static void ch_ids(int * ids, int first, int count) { for (int i = 0; i < count; i++) ids[i] = first + i; }
@@ -342,6 +372,7 @@ static tree_t * ch_level_base(const ch_occ_t * oc, int level, const int * ne, co
     for (int i = 0; i < n; i++) { aid[i] = f++; hb[hn++] = ch_var(aid[i]); }
     for (int i = 0; i < nc; i++) { cid[i] = f++; hb[hn++] = ch_var(cid[i]); }
     for (int i = 0; i < nei; i++) { eid[i] = f++; hb[hn++] = ch_var(eid[i]); }
+    hb[hn++] = ast_node_new(TT_CUT);
     if (level == 1) {
         tree_t * ca[n + 1];
         for (int i = 0; i < n; i++) ca[i] = ch_var(aid[i]);
@@ -369,6 +400,18 @@ static tree_t * ch_level_loop(const ch_occ_t * oc, int level, const int * pq, co
     ch_put(&co, ch_susp_pattern(&mm, cand, pc->arity, xs));
     for (int i = 0; i < level - 1; i++) if (pq[i] == pq[level - 1]) ch_put(&co, ch_f2("\\==", ch_var(cand), ch_var(cv[i])));
     for (int a = 0; a < pc->arity; a++) ch_match(&mm, ph->c[a], xs[a], &co);
+    int hist = !ch_any_removed(r, oc->nh), T = 0;
+    if (level == m && hist) {
+        int nh = oc->nh, idv[nh], sp[nh];
+        tree_t * ta[nh + 1];
+        sp[oc->self] = S;
+        for (int i = 1; i <= m; i++) sp[pidx[i - 1]] = (i == m) ? cand : cv[i - 1];
+        T = mm.next++;
+        ta[0] = ch_int(oc->rno);
+        for (int p = 0; p < nh; p++) { idv[p] = mm.next++; ch_put(&co, ch_f3("arg", ch_int(1), ch_var(sp[p]), ch_var(idv[p]))); ta[1 + p] = ch_var(idv[p]); }
+        ch_put(&co, ch_f2("=", ch_var(T), ch_fnca("t", nh + 1, ta)));
+        for (int p = 0; p < nh; p++) ch_put(&co, ch_f2("$chr_novel", ch_var(sp[p]), ch_var(T)));
+    }
     if (level == m) ch_goals(&co, r->guard, &mm);
     hb[hn++] = ch_list(cons1, 1, ch_var(rest));
     for (int i = 0; i < nr; i++) hb[hn++] = ch_var(rv[i]);
@@ -387,6 +430,7 @@ static tree_t * ch_level_loop(const ch_occ_t * oc, int level, const int * pq, co
         ch_put(&to, ch_f2("nb_getval", ch_atom(ch_store_key(oc->mod, &oc->cons[pq[level]])), ch_var(L)));
         ch_put(&to, ch_call(ch_level_name(c, oc->j, level + 1), ch_var(L), nr + 1, r2, S, n, av, nc + 1, c2, nout, e2));
     } else {
+        if (hist) ch_put(&to, ch_f2("$chr_extend", ch_var(S), ch_var(T)));
         for (int i = 1; i <= m; i++) if (ch_removed(r, pidx[i - 1])) ch_remove(&to, &mm, &oc->cons[pq[i - 1]], pq[i - 1] + 1, oc->k, oc->mod, i == m ? cand : cv[i - 1], NULL);
         int G0 = 0, G = 0;
         if (selfrem) ch_remove(&to, &mm, c, oc->q + 1, oc->k, oc->mod, S, av);
@@ -454,20 +498,20 @@ static void ch_emit_multi(tree_t * np, const tree_t * ds, const ch_occ_t * oc) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * ch_occurrence(const ch_con_t * c, int idx, int k, const char * mod, int j, const ch_rule_t * r, const tree_t * head) {
+static tree_t * ch_occurrence(const ch_con_t * c, int idx, int k, const char * mod, int j, const ch_rule_t * r, const tree_t * head, int rno) {
     tree_t * ch = ast_node_new(TT_CHOICE);
     ch->v.sval = (char *) ch_key_of(ch_occ_name(c, j), c->arity + 1);
-    if (r) ast_push(ch, ch_simplification(c, idx, k, mod, r, head));
+    if (r && rno > 0) ast_push(ch, ch_propagation(c, r, head, rno, j));
+    else if (r) ast_push(ch, ch_simplification(c, idx, k, mod, r, head));
     ast_push(ch, ch_fall_through(c, j));
     return ch;
 }
 static int ch_heads_declared(const ch_con_t * cons, int k, const ch_rule_t * r, int nh) { for (int i = 0; i < nh; i++) if (ch_find(cons, k, ch_head_at(r->lhs, i)) < 0) return 0; return 1; }
-static int ch_any_removed(const ch_rule_t * r, int nh) { for (int i = 0; i < nh; i++) if (ch_removed(r, i)) return 1; return 0; }
-static void ch_emit_occurrence(tree_t * np, const tree_t * ds, const ch_con_t * cons, int k, const char * mod, int q, int j, const ch_rule_t * r, int nh, int self) {
-    ch_occ_t oc = { cons, k, mod, r, nh, self, j, q };
-    if (nh == 1 && ch_removed(r, 0)) ast_push(np, ch_stmt(ds, ch_occurrence(&cons[q], q + 1, k, mod, j, r, ch_head_at(r->lhs, 0))));
-    else if (nh >= 2 && ch_any_removed(r, nh) && ch_heads_declared(cons, k, r, nh)) ch_emit_multi(np, ds, &oc);
-    else ast_push(np, ch_stmt(ds, ch_occurrence(&cons[q], q + 1, k, mod, j, NULL, NULL)));
+static void ch_emit_occurrence(tree_t * np, const tree_t * ds, const ch_con_t * cons, int k, const char * mod, int q, int j, const ch_rule_t * r, int nh, int self, int rno) {
+    ch_occ_t oc = { cons, k, mod, r, nh, self, j, q, rno };
+    if (nh == 1) ast_push(np, ch_stmt(ds, ch_occurrence(&cons[q], q + 1, k, mod, j, r, ch_head_at(r->lhs, 0), ch_removed(r, 0) ? 0 : rno)));
+    else if (nh >= 2 && ch_heads_declared(cons, k, r, nh)) ch_emit_multi(np, ds, &oc);
+    else ast_push(np, ch_stmt(ds, ch_occurrence(&cons[q], q + 1, k, mod, j, NULL, NULL, 0)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * ch_module_of(const tree_t * prog) {
@@ -479,6 +523,41 @@ static tree_t * ch_unify_hook(const char * mod) {
     return ch_choice("attr_unify_hook/2", ch_clause(2, it, 3));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ch_mark_calls(const tree_t * t, const ch_con_t * cons, int k, unsigned char * called) {
+    if (!t) return;
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) { int q = ch_find(cons, k, t); if (q >= 0) called[q] = 1; }
+    for (int i = 0; i < t->n; i++) ch_mark_calls(t->c[i], cons, k, called);
+}
+static void ch_late(const ch_con_t * cons, int k, const ch_rule_t * rules, int nr, unsigned char * late) {
+    unsigned char reach[k * k], partner[k * k], bad[k], used[k], called[k];
+    memset(reach, 0, sizeof reach);
+    memset(partner, 0, sizeof partner);
+    memset(bad, 0, sizeof bad);
+    memset(used, 0, sizeof used);
+    for (int r = 0; r < nr; r++) {
+        int nh = ch_head_count(rules[r].lhs), hq[nh + 1];
+        memset(called, 0, sizeof called);
+        ch_mark_calls(rules[r].guard, cons, k, called);
+        ch_mark_calls(rules[r].body, cons, k, called);
+        for (int i = 0; i < nh; i++) hq[i] = ch_find(cons, k, ch_head_at(rules[r].lhs, i));
+        for (int i = 0; i < nh; i++) {
+            if (hq[i] < 0) continue;
+            used[hq[i]] = 1;
+            if (nh >= 2 && !ch_removed(&rules[r], i)) bad[hq[i]] = 1;
+            for (int d = 0; d < k; d++) if (called[d]) reach[hq[i] * k + d] = 1;
+            for (int i2 = 0; i2 < nh; i2++) if (i2 != i && hq[i2] >= 0) partner[hq[i] * k + hq[i2]] = 1;
+        }
+    }
+    for (int m = 0; m < k; m++) for (int a = 0; a < k; a++) if (reach[a * k + m]) for (int b = 0; b < k; b++) if (reach[m * k + b]) reach[a * k + b] = 1;
+    for (int c = 0; c < k; c++) { late[c] = used[c] && !bad[c] && !partner[c * k + c]; for (int a = 0; a < k && late[c]; a++) if (reach[c * k + a] && partner[a * k + c]) late[c] = 0; }
+}
+static int ch_debug_off(const tree_t * prog) {
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = ch_subj(prog->c[i]);
+        if (ch_is_goal(d, "chr_option", 2) && d->c[0] && d->c[1] && d->c[0]->v.sval && d->c[1]->v.sval && !strcmp(d->c[0]->v.sval, "debug") && !strcmp(d->c[1]->v.sval, "off")) return 1;
+    }
+    return 0;
+}
 const tree_t * pl_chr_rewrite(const tree_t * prog) {
     int nc = 0, decl = -1, init = -1, clauses = prog->n, nr = 0;
     for (int i = 0; i < prog->n; i++) {
@@ -509,6 +588,15 @@ const tree_t * pl_chr_rewrite(const tree_t * prog) {
             if (q >= 0) { ocon[no] = q; orule[no] = r; ohead[no] = hi; no++; }
         }
     }
+    int hist[k + 1];
+    for (int q = 0; q < k; q++) hist[q] = 0;
+    for (int r = 0; r < nr; r++) {
+        int nh = ch_head_count(rules[r].lhs);
+        for (int i = 0; i < nh && !ch_any_removed(&rules[r], nh); i++) { int q = ch_find(cons, k, ch_head_at(rules[r].lhs, i)); if (q >= 0) hist[q] = 1; }
+    }
+    unsigned char late[k + 1];
+    memset(late, 0, sizeof late);
+    if (ch_debug_off(prog)) ch_late(cons, k, rules, nr, late);
     const char * mod = ch_module_of(prog);
     int at = (init >= 0 && init < decl) ? init : decl;
     tree_t * np = ast_node_new(prog->t);
@@ -521,9 +609,9 @@ const tree_t * pl_chr_rewrite(const tree_t * prog) {
             ast_push(np, ch_stmt(ds, ch_constraint_facts(cons, k, mod)));
             for (int q = 0; q < k; q++) {
                 int j = 0;
-                ast_push(np, ch_stmt(ds, ch_activation(&cons[q], q + 1, k, mod)));
-                for (int o = 0; o < no; o++) if (ocon[o] == q) ch_emit_occurrence(np, ds, cons, k, mod, q, j++, &rules[orule[o]], ch_head_count(rules[orule[o]].lhs), ohead[o]);
-                ast_push(np, ch_stmt(ds, ch_occurrence_last(&cons[q], j)));
+                ast_push(np, ch_stmt(ds, ch_activation(&cons[q], q + 1, k, mod, hist[q], late[q])));
+                for (int o = 0; o < no; o++) if (ocon[o] == q) ch_emit_occurrence(np, ds, cons, k, mod, q, j++, &rules[orule[o]], ch_head_count(rules[orule[o]].lhs), ohead[o], orule[o] + 1);
+                ast_push(np, ch_stmt(ds, ch_occurrence_last(&cons[q], j, q + 1, k, mod, late[q])));
             }
             ast_push(np, ch_stmt(ds, ch_unify_hook(mod)));
             ast_push(np, ch_stmt(ds, ch_initialization(cons, k, mod)));
