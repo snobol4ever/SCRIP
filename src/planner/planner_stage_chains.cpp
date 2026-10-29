@@ -58,5 +58,19 @@ const planner_road_t * planner_road_of(const IR_t * entry) {
 void planner_stage_main(IR_graph_t * bbg, const char * prefix) { planner_road_t rd; planner_road_none(&rd); planner_stage_chain(bbg, bbg->entry, prefix, &rd); }
 int planner_stage_rt(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) { if (!entry || planner_entry_planned(entry)) return 0; planner_stage_chain(g, entry, prefix, rd);
     g_planner.planner_rt++; return 1; }
-void planner_stage_release(IR_t * entry) { planner_table_forget(entry); g_planner.g_act_g = (const IR_graph_t *)0; }
+void planner_stage_release(IR_t * entry) {
+    planner_table_forget(entry);
+    g_planner.g_act_g = (const IR_graph_t *)0;
+    g_planner.pdef_g = (const IR_graph_t *)0;
+    g_planner.pdef_ix.clear();
+    g_planner.pdef_memo.clear();
+    if (!g_planner.pdef_depth) g_planner.pdef_lock = (const IR_graph_t *)0;
+    g_planner.zst_sm.clear();
+    g_planner.g_pcon_g = (const IR_graph_t *)0;
+    g_planner.g_pcon_idx.clear();
+    g_planner.g_zdo_nodes = (IR_t **)0;
+    if (g_planner.g_zdo.p) memset(g_planner.g_zdo.p, 0, (size_t)g_planner.g_zdo.len * g_planner.g_zdo.esz);
+    if (g_planner.g_zrm_map.p) memset(g_planner.g_zrm_map.p, 0, (size_t)g_planner.g_zrm_map.len * g_planner.g_zrm_map.esz);
+    if (g_planner.g_ocr_map.p) memset(g_planner.g_ocr_map.p, 0, (size_t)g_planner.g_ocr_map.len * g_planner.g_ocr_map.esz);
+}
 }
