@@ -1802,6 +1802,7 @@ RT_PIC_SRCS := \
     $(SRC)/driver/driver_hooks.c \
     $(SRC)/driver/driver_data.c \
     $(SRC)/driver/driver_call.c \
+    $(SRC)/driver/driver_procs.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/sno_parse_stage.c \

@@ -4122,11 +4122,16 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_jmp_entry_for_patproc(int thunk_kind, IR_graph_t *g) {
-    if (thunk_kind != PROC_THUNK_PATTERN) return 0;
-    planner_road_t rd; planner_road_pattern(&rd);
-    g_emit.flat_pat = rd.pat;
-    return emit_jmp_entry_arm_region(g);
+extern "C" int emit_jmp_entry_for_road(const planner_road_t *rd, IR_graph_t *g, const char *pname) {
+    if (rd->pat) { g_emit.flat_pat = rd->pat; return emit_jmp_entry_arm_region(g); }
+    if (!rd->jmp_entry) return 0;
+    g_emit.flat_lex = rd->lex;
+    g_emit.flat_gen = rd->gen;
+    int _r = emit_jmp_entry_arm_region(g);
+    if (getenv("SCRIP_FLOOR_DIAG")) { extern int g_flat_frame_floor;
+        fprintf(stderr, "[ARM-REGION] pname=%s r=%d floor=%d frame_bytes=%d seed_off=%d layout_unknown=%d jcon_value_region=%d\n", pname ? pname : "(null)", _r, g_flat_frame_floor,
+        g_emit.flat_frame_bytes, g_emit.flat_seed_off, g_emit.flat_layout_unknown, g ? g->jcon_value_region : -1); }
+    return _r;
 }
 int g_flat_frame_floor = 0;
 int g_flat_dc_np = -1;
@@ -4195,17 +4200,6 @@ static int emit_graph_zstatic(IR_graph_t *g) { if (!g) return 0; for (int i = 0;
     } return 1; }
 static int emit_graph_uniform(IR_graph_t *g) { if (!emit_graph_zstatic(g)) return 0; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (c && c->op == IR_MATCH_ARBNO) return 0; } return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_generator, IR_graph_t *g) {
-    planner_road_t rd; planner_road_named(pname, dyn_scope, is_generator, g, &rd);
-    if (!rd.jmp_entry) return 0;
-    g_emit.flat_lex = rd.lex;
-    g_emit.flat_gen = rd.gen;
-    int _r = emit_jmp_entry_arm_region(g);
-    if (getenv("SCRIP_FLOOR_DIAG")) { extern int g_flat_frame_floor;
-        fprintf(stderr, "[ARM-REGION] pname=%s r=%d floor=%d frame_bytes=%d seed_off=%d layout_unknown=%d jcon_value_region=%d\n", pname ? pname : "(null)", _r, g_flat_frame_floor,
-        g_emit.flat_frame_bytes, g_emit.flat_seed_off, g_emit.flat_layout_unknown, g ? g->jcon_value_region : -1); }
-    return _r;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_icn_n2_gen_region_ft(const char *pname, int is_generator, IR_graph_t *g) {
     if (!pname || !is_generator || !g || !g->cell_frame || g->zframe_graph || !emit_graph_has_suspend(g)) return 0;
@@ -4290,72 +4284,18 @@ extern "C" bb_box_fn compile_chain(IR_graph_t * g, IR_t * entry, FILE * out, con
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" {
-void rt_proc_set_generator(const char *, int); void rt_proc_set_jmpentry(const char *, int); void rt_proc_set_pinned(const char *, int); void rt_proc_set_variadic(const char *, int);
-void rt_proc_set_rest_kind(const char *, int); void rt_proc_set_named_rest(const char *, int); void rt_proc_set_dyn_scope(const char *, int); void rt_proc_set_result_name(const char *, const char *);
-    void rt_proc_set_thunk(const char *, int);
-void rt_proc_register(const char *, const char **, int); void rt_proc_set_nformals(const char *, int); void rt_proc_set_frame_bytes(const char *, int); void rt_proc_set_fn(const char *, bb_box_fn);
-    void rt_proc_set_dcfn(const char *, void *); void rt_proc_set_zstatic(const char *, int);
-void rt_proc_set_gen_region_ft(const char *, int); void bb_ab_seal_entry_cells(const char *, void *, int); void emit_patzeta_register(const char *, int, int, int); int rt_pl_dc_ok(const char *, int);
-int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *); int proc_role3_kind(const IR_graph_t *);
-    const char * bb_ab_sym_name(const char *);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void emit_register_proc(stage2_t * s2, int pi) {
-    ProcEntry * pe = &s2->proc_table[pi]; int np = pe->nparams; const char ** pn = NULL;
-    if (np > 0) { pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *)); for (int k = 0; k < np && k < pe->lower_sc.n; k++) pn[k] = pe->lower_sc.e[k].name; }
-    rt_proc_register(pe->name, pn, np); rt_proc_set_nformals(pe->name, pe->nformals);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void emit_proc_props(stage2_t * s2, int pi) {
-    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
-    rt_proc_set_generator(pname, pe->is_generator); rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0); rt_proc_set_pinned(pname, zls_g_entry_block(g));
-    rt_proc_set_variadic(pname, pe->is_variadic); rt_proc_set_rest_kind(pname, pe->rest_kind); rt_proc_set_named_rest(pname, pe->named_rest); rt_proc_set_dyn_scope(pname, pe->dyn_scope);
-    if (pe->result_name) rt_proc_set_result_name(pname, pe->result_name);
-    rt_proc_set_thunk(pname, pe->thunk_kind != PROC_THUNK_NONE);
-    if (pe->thunk_kind == PROC_THUNK_EXPR) emit_thunk_star_bind(pname);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void emit_proc_prepare(stage2_t * s2, int pi, int with_props, int * isp_out) {
+extern "C" void emit_proc_prepare(stage2_t * s2, int pi, const planner_road_t * rd, int * isp_out) {
     ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     g_emit_cfg = g;
-    if (with_props) emit_proc_props(s2, pi);
-    planner_road_t rd; { const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry); if (rr) rd = *rr; else planner_road_proc(s2, pi, &rd, 0); }
-    g_gen_proc_active = rd.gen_proc; g_flat_frame_floor = rd.floor;
-    int isp = emit_jmp_entry_for_patproc(pe->thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, pe->dyn_scope, pe->is_generator, g);
-    g_flat_dc_np = rd.dc_np;
-    g_emit_frame_caller_dl = rd.caller_dl;
+    g_gen_proc_active = rd->gen_proc; g_flat_frame_floor = rd->floor;
+    int isp = rd->pat; emit_jmp_entry_for_road(rd, g, pname);
+    g_flat_dc_np = rd->dc_np;
+    g_emit_frame_caller_dl = rd->caller_dl;
     if (isp_out) *isp_out = isp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_proc_unprepare(void) { emit_jmp_entry_clear(); g_emit_frame_caller_dl = -1; g_gen_proc_active = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {
-    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
-    int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
-    int isp = 0; emit_proc_prepare(s2, pi, 1, &isp);
-    char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
-    IR_t * pent = pe->proc_entry_node ? pe->proc_entry_node : g->entry;
-    if (!is_lbl && hk && hk->before) hk->before(hk->ctx, pi, pe->bb_idx);
-    if (getenv("SCRIP_PL_RTASM") && !is_lbl) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(planner_chain_record(g, pent, pfx), stderr, pfx);
-        fprintf(stderr, "[RTASM] ---- end %s ----\n", pname);
-        }
-    bb_box_fn pfn = is_lbl ? NULL : emit_chain(planner_chain_record(g, pent, pfx), NULL, pfx);
-    if (pfn && hk && hk->after) hk->after(hk->ctx, pi, pe->bb_idx, (void *) pfn);
-    emit_gc_tables_register((const void *) pfn);
-    emit_proc_unprepare();
-    if (!is_lbl) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes);
-    if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=3 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", pi, g_last_flat_frame_bytes);
-    if (pfn) rt_proc_set_fn(pname, pfn);
-    if (pfn && isp) bb_thunk_rec_fill(pname, (void *) pfn, g_last_flat_frame_bytes, g_last_flat_zstatic);
-    if (pfn) bb_ab_seal_entry_cells(pname, (void *) pfn, 1);
-    if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic);
-    if (!is_lbl) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
-    int gft = emit_icn_n2_gen_region_ft(pname, pe->is_generator, g); if (gft > 0) rt_proc_set_gen_region_ft(pname, gft);
-    if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *) ((char *) pfn + g_last_dc_off));
-    if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes);
-    return (void *) pfn;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char ** lc_global_names(void); extern int lc_global_count(void);

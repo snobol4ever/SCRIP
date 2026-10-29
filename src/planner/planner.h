@@ -20,7 +20,6 @@ struct znode_t {
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
-struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; };
 struct zeta_plan_t {
     planner_road_t road;
     int scope, head;
@@ -224,6 +223,7 @@ void planner_road_none(planner_road_t * rd);
 void planner_road_named(const char * pname, int dyn_scope, int is_generator, const IR_graph_t * g, planner_road_t * rd);
 void planner_road_pattern(planner_road_t * rd);
 void planner_road_proc(stage2_t * s2, int pi, planner_road_t * rd, int rt);
+void planner_proc_road(stage2_t * s2, int pi, int rt, planner_road_t * rd);
 const planner_road_t * planner_road_of(const IR_t * entry);
 void planner_road_floor_dc(stage2_t * s2, int pi, int rt, int * floor, int * dc_np);
 int planner_port_exit_promotes(const stage2_t * s2, int pi);

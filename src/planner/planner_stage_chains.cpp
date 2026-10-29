@@ -44,12 +44,12 @@ void planner_stage_proc(stage2_t * s2, int pi, int mode) {
 void planner_stage_procs(stage2_t * s2, int from_pi, int mode) {
     for (int pi = from_pi; pi < s2->proc_count; pi++) planner_stage_proc(s2, pi, mode);
 }
-void planner_road_floor_dc(stage2_t * s2, int pi, int rt, int * floor, int * dc_np) {
+void planner_proc_road(stage2_t * s2, int pi, int rt, planner_road_t * rd) {
     ProcEntry * pe = &s2->proc_table[pi]; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
-    const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry); planner_road_t rd;
-    if (rr) rd = *rr; else planner_road_proc(s2, pi, &rd, rt);
-    *floor = rd.floor; *dc_np = rd.dc_np;
+    const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry);
+    if (rr) *rd = *rr; else planner_road_proc(s2, pi, rd, rt);
 }
+void planner_road_floor_dc(stage2_t * s2, int pi, int rt, int * floor, int * dc_np) { planner_road_t rd; planner_proc_road(s2, pi, rt, &rd); *floor = rd.floor; *dc_np = rd.dc_np; }
 const planner_road_t * planner_road_of(const IR_t * entry) {
     if (!entry) return (const planner_road_t *)0;
     auto it = g_planner.planner_table.find(entry);

@@ -164,11 +164,14 @@ static int eval_thunks_emit_from(int pc0) {
         { extern int g_flat_frame_floor; g_flat_frame_floor = b1c ? _fl : 0; }
         int _ispe = 0;
         {
-            extern int emit_jmp_entry_for_patproc(int, IR_graph_t*);
-            extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
+            extern void planner_road_pattern(planner_road_t *);
+            extern void planner_road_named(const char *, int, int, const IR_graph_t *, planner_road_t *);
             extern int g_flat_dc_np;
-            int _isp = emit_jmp_entry_for_patproc(g_stage2.proc_table[pi].thunk_kind, g_stage2.bbp.table[idx]);
-            if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
+            planner_road_t _rd;
+            if (g_stage2.proc_table[pi].thunk_kind == PROC_THUNK_PATTERN) planner_road_pattern(&_rd);
+            else planner_road_named(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx], &_rd);
+            int _isp = _rd.pat;
+            emit_jmp_entry_for_road(&_rd, g_stage2.bbp.table[idx], pname);
             if (b1c) g_flat_dc_np = _dcnp;
             _ispe = _isp;
         }
@@ -915,7 +918,7 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
     extern void *bb_ab_fn_cell_ptr(const char *);
     extern void bb_ab_seal_entry_cells(const char *, void *, int);
     extern void *rt_dyn_alpha_fn(const char *, void *);
-    extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *);
+    extern void planner_road_named(const char *, int, int, const IR_graph_t *, planner_road_t *);
     extern void emit_jmp_entry_clear(void);
     extern void emit_gc_tables_register(const void *);
     extern void optimizer_run(IR_graph_t *);
@@ -971,7 +974,7 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
             g_frame_active = 1;
             g_gen_proc_active = 0;
             g_runtime.eval.rt_fragment_emit = 1;
-            emit_jmp_entry_for_proc(name, 1, 0, g);
+            { planner_road_t _rd; planner_road_named(name, 1, 0, g, &_rd); emit_jmp_entry_for_road(&_rd, g, name); }
             {
                 eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, pfx);
                 emit_gc_tables_register((const void *)fn);
@@ -1227,8 +1230,8 @@ static int rk_emit_new_procs(int pc0) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
-        emit_register_proc(&g_stage2, pi);
-        emit_proc_props(&g_stage2, pi);
+        driver_register_proc(&g_stage2, pi);
+        driver_proc_props(&g_stage2, pi);
         IR_graph_t *g = g_stage2.bbp.table[idx];
         optimizer_run(g);
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
@@ -1247,7 +1250,7 @@ static int rk_emit_new_procs(int pc0) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
-        if (!emit_install_proc(&g_stage2, pi, NULL)) emit_failed = 1;
+        if (!driver_install_proc(&g_stage2, pi, NULL)) emit_failed = 1;
     }
     g_runtime.eval.rt_fragment_emit = 0;
     g_gen_proc_active = ga;

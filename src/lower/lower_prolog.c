@@ -3862,7 +3862,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     extern IR_graph_t * g_emit_cfg;
     extern int g_frame_active;
     extern int g_gen_proc_active;
-    extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *);
+    extern void planner_road_named(const char *, int, int, const IR_graph_t *, planner_road_t *);
     extern void emit_jmp_entry_clear(void);
     extern void zls_graph_name(const IR_graph_t *, const char *);
     extern void rt_proc_set_fn(const char *, bb_box_fn);
@@ -3943,7 +3943,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
             if (g_flat_frame_floor <= 0) g_flat_frame_floor = zls_g_region(g);
         }
     }
-    emit_jmp_entry_for_proc(key, 0, 1, g);
+    { planner_road_t _rd; planner_road_named(key, 0, 1, g, &_rd); emit_jmp_entry_for_road(&_rd, g, key); }
     { extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); g_flat_dc_np = (pkt_slot < 0 && rt_pl_dc_ok(key, g->nparams)) ? g->nparams : -1; }
     zls_graph_name(g, key);
     {

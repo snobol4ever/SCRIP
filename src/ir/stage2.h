@@ -93,12 +93,15 @@ int stage2_proc_grow (stage2_t *s2);
 Resolve_PredEntry *resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
 tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 typedef struct { void (*before)(void *ctx, int pi, int bb_idx); void (*after)(void *ctx, int pi, int bb_idx, void *fn); void *ctx; } emit_install_hooks_t;
+typedef struct planner_road_t { int jmp_entry, pat, lex, gen, floor, dc_np, gen_proc, caller_dl; } planner_road_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
-void emit_register_proc(stage2_t *s2, int pi);
-void emit_proc_props(stage2_t *s2, int pi);
-void *emit_install_proc(stage2_t *s2, int pi, const emit_install_hooks_t *hooks);
+void driver_register_proc(stage2_t *s2, int pi);
+void driver_proc_props(stage2_t *s2, int pi);
+void *driver_install_proc(stage2_t *s2, int pi, const emit_install_hooks_t *hooks);
+void emit_proc_prepare(stage2_t *s2, int pi, const planner_road_t *rd, int *isp_out);
+int emit_jmp_entry_for_road(const planner_road_t *rd, IR_graph_t *g, const char *pname);
 int bb_proc_find(const char * fname);
 #ifdef __cplusplus
 }

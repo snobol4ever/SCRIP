@@ -678,9 +678,9 @@ static void register_procs_all(stage2_t * s2) {
         int idx = s2->proc_table[_pi].bb_idx;
         if (_k < s2->proc_count && strcmp(pname, "main") == 0) { if (idx >= 0 && idx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[idx])) _mpi = _pi; continue; }
         if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-        emit_register_proc(s2, _pi);
+        driver_register_proc(s2, _pi);
         { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-        emit_proc_props(s2, _pi);
+        driver_proc_props(s2, _pi);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2484,7 +2484,7 @@ int main(int argc, char **argv) {
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 int _isp = 0;
-                { extern void emit_proc_prepare(stage2_t *, int, int, int *); emit_proc_prepare(s2, _pi, 0, &_isp); }
+                { extern void planner_proc_road(stage2_t *, int, int, planner_road_t *); planner_road_t _rd; planner_proc_road(s2, _pi, 0, &_rd); emit_proc_prepare(s2, _pi, &_rd, &_isp); }
                 proc_ispat_buf[n_procs] = _isp;
                 if (_lbl_owned && strncmp(pname, "LBL__", 5) != 0) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
                 {
@@ -2860,7 +2860,7 @@ int main(int argc, char **argv) {
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 emit_install_hooks_t _m3hk = { m3_lbl_before, m3_lbl_after, &_m3lc };
-                (void) emit_install_proc(s2, _pi, &_m3hk);
+                (void) driver_install_proc(s2, _pi, &_m3hk);
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) { extern void core_icn_startup_error_no_main(void); core_icn_startup_error_no_main(); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
