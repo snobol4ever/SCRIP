@@ -1,5 +1,6 @@
 typedef struct { const char *name; const char *src; } pas_prelude_unit_t;
 static const char PAS_PRELUDE_UNIT_0_SRC[] =
+    "{$H+}\n"
     "unit classes;\n"
     "interface\n"
     "uses sysutils;\n"
@@ -915,11 +916,13 @@ static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_3_SRC[] =
+    "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_4_SRC[] =
+    "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
     "function ReverseString(s: string): string;\n"
@@ -1055,6 +1058,7 @@ static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_5_SRC[] =
+    "{$H+}\n"
     "unit system;\n"
     "interface\n"
     "function StrLen(const sv: string): integer;\n"
@@ -1126,6 +1130,7 @@ static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_6_SRC[] =
+    "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
     "type\n"

@@ -1,3 +1,4 @@
+{$H+}
 unit strings;
 interface
 implementation

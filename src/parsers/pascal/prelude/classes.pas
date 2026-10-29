@@ -1,3 +1,4 @@
+{$H+}
 unit classes;
 interface
 uses sysutils;

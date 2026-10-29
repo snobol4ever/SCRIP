@@ -1,3 +1,4 @@
+{$H+}
 unit strutils;
 interface
 function ReverseString(s: string): string;

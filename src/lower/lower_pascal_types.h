@@ -13,6 +13,7 @@ struct pty {
     pty_field_t *f;
     const char *fwd;
     const void *bnd;
+    int cap;
 };
 struct pty_state;
 void pty_run(tree_t *prog, int fpc);
@@ -25,6 +26,7 @@ const char *pty_kind_name(pty_kind k);
 void pty_census_report(void);
 void pty_note_shortstring(const tree_t *leaf, const tree_t *bound);
 int pty_shortmax(const tree_t *low);
+int pty_capped(const tree_t *src);
 int pty_string_within(const tree_t *low, long long n);
 long long pty_sizeof_low(const tree_t *low);
 void lower_pascal_dump_types_on(void);

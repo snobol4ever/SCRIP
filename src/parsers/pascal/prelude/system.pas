@@ -1,3 +1,4 @@
+{$H+}
 unit system;
 interface
 function StrLen(const sv: string): integer;

@@ -6093,7 +6093,13 @@ static pval E_decl_part(const tree_t *n) {
     return out;
 }
 static pval E_expression_raw(const tree_t *n);
-static pval E_expression(const tree_t *n) { pval o = E_expression_raw(n); pty_note_low(o.node, n); return o; }
+static pval E_expression(const tree_t *n) {
+    pval o = E_expression_raw(n);
+    int c = pty_capped(n);
+    if (c > 0 && o.node) o.node = mk_fnc2("__pas_sstr_fit", o.node, ilit(c));
+    pty_note_low(o.node, n);
+    return o;
+}
 static pval E_expression_raw(const tree_t *n) {
     pval v[6];
     pval out;

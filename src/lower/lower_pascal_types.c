@@ -170,6 +170,18 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
 }
 static pty_t *pt_type(struct pty_state *s, const tree_t *n);
 static pty_t *pt_strbound(long long len);
+static int pt_leaf_ansi(const tree_t *n) {
+    for (int i = 0; i < n->n; i++) if (PT_IS(n->c[i], TT_ATTR) && n->c[i]->n && PT_IS(n->c[i]->c[0], TT_QLIT) && n->c[i]->c[0]->v.sval && !strcmp(n->c[i]->c[0]->v.sval, "ansistr")) return 1;
+    return 0;
+}
+static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
+    if (!n || !n->v.sval) return NULL;
+    const pty_ent *ss = pt_map_get(&s->sstr, n);
+    long long sn;
+    if (ss && ss->t && pt_const(s, (const tree_t *)ss->t->bnd, &sn) && sn >= 1 && sn <= 255) { pty_t *t = pt_new(PTK_STRING, "shortstring"); t->strmax = (int)sn; return t; }
+    if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
+    return pt_named(s, n->v.sval);
+}
 static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
     for (int i = 0; body && i < body->n; i++) {
         const tree_t *c = body->c[i];
@@ -179,10 +191,7 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
             if (PT_IS(ids, TT_VLIST)) { for (int j = 0; j < ids->n; j++) if (ids->c[j]) pt_add_field(r, ids->c[j]->v.sval, ft); } else if (PT_IS(ids, TT_VAR)) pt_add_field(r, ids->v.sval, ft);
         } else if (PT_IS(c, TT_CASE)) {
             int k = 0;
-            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) {
-                pt_add_field(r, c->c[0]->v.sval, pt_named(s, c->c[1]->v.sval));
-                k = 2;
-            } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) k = 1;
+            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) { pt_add_field(r, c->c[0]->v.sval, pt_leaf(s, c->c[1])); k = 2; } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) k = 1;
             for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) pt_rec_fields(s, r, c->c[j]->c[1]);
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
     }
@@ -196,10 +205,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             const char *nm = n->v.sval;
             if (!nm) return NULL;
             if (!strncmp(nm, "$open$", 6)) { pty_t *t = pt_new(PTK_ARRAY, NULL); t->open = 1; t->dyn = 1; t->base = pt_named(s, nm + 6); return t; }
-            const pty_ent *ss = pt_map_get(&s->sstr, n);
-            long long sn;
-            if (ss && ss->t && pt_const(s, (const tree_t *)ss->t->bnd, &sn) && sn >= 1 && sn <= 255) { pty_t *t = pt_new(PTK_STRING, "shortstring"); t->strmax = (int)sn; return t; }
-            return pt_named(s, nm);
+            return pt_leaf(s, n);
         }
         case TT_IDX:
         {
@@ -230,7 +236,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         {
             pty_t *t = pt_new(PTK_POINTER, NULL);
             const tree_t *tg = n->n ? n->c[0] : NULL;
-            if (PT_IS(tg, TT_VAR) && tg->v.sval) { t->base = pt_named(s, tg->v.sval); if (!t->base) { t->fwd = tg->v.sval; pt_pend(s, t); } } else t->base = pt_type(s, tg);
+            if (PT_IS(tg, TT_VAR) && tg->v.sval) { t->base = pt_leaf(s, tg); if (!t->base) { t->fwd = tg->v.sval; pt_pend(s, t); } } else t->base = pt_type(s, tg);
             return t;
         }
         case TT_ARRAY_TYPE:
@@ -254,7 +260,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             if (!n->v.sval || (strcmp(n->v.sval, "proctype") && strcmp(n->v.sval, "functype"))) return NULL;
             pty_t *t = pt_new(PTK_PROC, NULL);
             t->isfunc = !strcmp(n->v.sval, "functype");
-            if (t->isfunc && n->n >= 1 && PT_IS(n->c[n->n - 1], TT_VAR)) t->base = pt_named(s, n->c[n->n - 1]->v.sval);
+            if (t->isfunc && n->n >= 1 && PT_IS(n->c[n->n - 1], TT_VAR)) t->base = pt_leaf(s, n->c[n->n - 1]);
             return t;
         }
         default:
@@ -382,7 +388,13 @@ static pty_t *pt_call(struct pty_state *s, const tree_t *n) {
 }
 static pty_t *pt_strbound(long long len) { pty_t *t = pt_new(PTK_STRING, "string"); t->strmax = (int)(len < 1 ? 1 : len > 1000000 ? 1000000 : len); return t; }
 static long long pt_strlen_max(const pty_t *t) { return t->k == PTK_CHAR ? 1 : (t->k == PTK_STRING ? t->strmax : 0); }
-static pty_t *pt_catbound(struct pty_state *s, const pty_t *a, const pty_t *b) { long long la = pt_strlen_max(a), lb = pt_strlen_max(b); return (la > 0 && lb > 0) ? pt_strbound(la + lb) : s->tstr; }
+static pty_t *pt_catbound(struct pty_state *s, const pty_t *a, const pty_t *b) {
+    long long la = pt_strlen_max(a), lb = pt_strlen_max(b);
+    if (la <= 0 || lb <= 0) return s->tstr;
+    pty_t *t = pt_strbound(la + lb > 255 ? 255 : la + lb);
+    if (la + lb > 255 && s->fpc) t->cap = 1;
+    return t;
+}
 static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {
     const pty_t *a = pt_expr(s, n->c[0]), *b = pt_expr(s, n->c[1]);
     if (!a || !b) return NULL;
@@ -562,7 +574,7 @@ static void pt_params(struct pty_state *s, const tree_t *ps) {
         if (!strcmp(d->v.sval, "procedure") || !strcmp(d->v.sval, "function")) {
             pty_t *t = pt_new(PTK_PROC, NULL);
             t->isfunc = !strcmp(d->v.sval, "function");
-            if (t->isfunc && PT_IS(d->c[d->n - 1], TT_VAR) && d->n >= 2) t->base = pt_named(s, d->c[d->n - 1]->v.sval);
+            if (t->isfunc && PT_IS(d->c[d->n - 1], TT_VAR) && d->n >= 2) t->base = pt_leaf(s, d->c[d->n - 1]);
             if (PT_IS(d->c[0], TT_VAR)) ps_def(s, d->c[0]->v.sval, 'p', t);
             continue;
         }
@@ -578,7 +590,7 @@ static void pt_routine(struct pty_state *s, const tree_t *r) {
     const char *name = PT_IS(nm, TT_VAR) ? nm->v.sval : NULL;
     for (int i = 1; i < r->n; i++) { const tree_t *c = r->c[i]; if (PT_IS(c, TT_PARAMS)) ps = c; else if (PT_IS(c, TT_BLOCK)) body = c; else if (PT_IS(c, TT_VAR) && !body) rt = c; }
     int isfunc = r->t == TT_FUNCTION;
-    pty_t *res = isfunc && rt ? pt_named(s, rt->v.sval) : NULL;
+    pty_t *res = isfunc && rt ? pt_leaf(s, rt) : NULL;
     if (isfunc && !res && !rt) { psym_t *fw = ps_find_kind(s, name, 'f'); if (fw) res = fw->t; }
     if (name) { psym_t *p = ps_def(s, name, 'f', res); p->rt = r; }
     if (!body) return;
@@ -704,9 +716,10 @@ void pty_note_shortstring(const tree_t *leaf, const tree_t *bound) {
     t->bnd = bound;
     pt_map_put(&s->sstr, leaf, t, 0);
 }
+int pty_capped(const tree_t *src) { const pty_t *t = pty_of_src(src); return (t && t->k == PTK_STRING && t->cap) ? t->strmax : 0; }
 int pty_shortmax(const tree_t *low) {
     const pty_t *t = pty_of_low(low);
-    return (t && t->k == PTK_STRING && t->strmax > 0 && t->strmax < 255 && !strcmp(t->name ? t->name : "", "shortstring")) ? t->strmax : 0;
+    return (t && t->k == PTK_STRING && t->strmax > 0 && t->strmax <= 255 && !strcmp(t->name ? t->name : "", "shortstring")) ? t->strmax : 0;
 }
 int pty_string_within(const tree_t *low, long long n) {
     const pty_t *t = pty_of_low(low);
