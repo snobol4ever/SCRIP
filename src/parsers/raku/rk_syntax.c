@@ -2190,7 +2190,7 @@ static int x_peek(RkP *p, RkX *x) {
         while (x->ns && st[x->ns - 1].sub > o.prec) x->ns--;
         if (x->ns == ns0 && o.to - o.from >= 2 && at_lit(p, o.from, ":=") && paren_list_term(p, x->tq, x->tt)) panic_at(p, o.from, "Cannot use bind operator with this left-hand side");
         if (at_lit(p, o.from, "==>>") || at_lit(p, o.from, "<<==")) panic_at(p, o.from, "%.4s feed operator not yet implemented. Sorry.", p->s + o.from);
-        if (o.flags & OF_FAKE) { if (p->build && p->tm.kind == TK_CP) rkb_adverb(p->B, x->cur, p->tm.name); x->last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } x->last_end = w;
+        if (o.flags & OF_FAKE) { if (p->build && p->tm.kind == TK_CP) rkb_adverb(p->B, x->cur, &p->tm); x->last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } x->last_end = w;
             continue; }
         break;
     }

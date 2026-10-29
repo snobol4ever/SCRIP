@@ -1702,20 +1702,40 @@ const char *rkb_reduce_name(RkB *b, int ofrom, int oto) {
          : !strcmp(op, "min") ? "__rk_reduce_min" : !strcmp(op, "max") ? "__rk_reduce_max" : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rkb_adverb(RkB *b, tree_t *t, const char *key) {
+static int rk_adv_name(const char *k) { return k && (!strcmp(k, "exists") || !strcmp(k, "delete") || !strcmp(k, "kv") || !strcmp(k, "p") || !strcmp(k, "k") || !strcmp(k, "v")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_adv_pair(const char *name) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, name)); expr_add_child(pr, rk_adverb_bool(1)); return pr; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_adv_call(tree_t *t, tree_t *cont, tree_t *key, tree_t *first) {
+    t->t = TT_FNC;
+    t->v.sval = (char *) intern("__rk_subscr_adv");
+    t->n = 0;
+    ast_push(t, leaf_sval(TT_VAR, "__rk_subscr_adv"));
+    ast_push(t, cont);
+    ast_push(t, key);
+    ast_push(t, first);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_adverb(RkB *b, tree_t *t, RkTerm *tm) {
+    const char *key = tm ? tm->name : NULL;
     (void) b;
-    if (!t || t->t != TT_HASH_GET) return;
-    if (!strcmp(key, "exists") && t->n >= 2 && rk_is_slice_key(t->c[1])) {
-        tree_t *h = t->c[0], *k = t->c[1];
-        t->t = TT_FNC;
-        t->v.sval = (char *) intern("hash_exists");
-        t->n = 0;
-        ast_push(t, leaf_sval(TT_VAR, "hash_exists"));
-        ast_push(t, h);
-        ast_push(t, k);
+    if (!t || !rk_adv_name(key)) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_subscr_adv")) { ast_push(t, tm->t); return; }
+    if ((t->t == TT_HASH_EXISTS || t->t == TT_HASH_DELETE) && t->n >= 2) { tree_t *c = t->c[0], *k = t->c[1]; rk_adv_call(t, c, k, rk_adv_pair(t->t == TT_HASH_EXISTS ? "exists" : "delete")); ast_push(t, tm->t); return; }
+    if (t->t == TT_HASH_GET && t->n >= 2 && !rk_is_slice_key(t->c[1]) && tm->ck == 'n' && (!strcmp(key, "exists") || !strcmp(key, "delete"))) { t->t = key[0] == 'e' ? TT_HASH_EXISTS : TT_HASH_DELETE; return; }
+    if ((t->t == TT_HASH_GET || t->t == TT_ARR_GET) && t->n >= 2) { tree_t *c = t->c[0], *k = t->c[1]; rk_adv_call(t, c, k, tm->t); return; }
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_pick") && t->n >= 3) {
+        tree_t *c = t->c[1], *k = make_call("__rk_arr");
+        for (int i = 2; i < t->n; i++) expr_add_child(k, t->c[i]);
+        rk_adv_call(t, c, k, tm->t);
         return;
     }
-    if (!strcmp(key, "exists")) t->t = TT_HASH_EXISTS; else if (!strcmp(key, "delete")) t->t = TT_HASH_DELETE;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_slice") && t->n == 4) {
+        tree_t *c = t->c[1], *k = make_call("__rk_range_arr");
+        expr_add_child(k, t->c[2]);
+        expr_add_child(k, t->c[3]);
+        rk_adv_call(t, c, k, tm->t);
+    }
 }
 /*====================================================================================================================================================================================================*/
 tree_t *rkb_expr(RkB *b, RkList *L) { if (!L || !L->n) return ast_node_new(TT_NUL); return el_tree(b, &L->v[0]); }

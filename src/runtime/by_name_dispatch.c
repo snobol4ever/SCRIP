@@ -433,8 +433,8 @@ int rt_builtin_is_known(const char *name) {
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
         "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
-        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map", "__rk_arr_grep",
-        "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
+        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_subscr_adv", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map",
+        "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
         "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array",
         "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
         "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
@@ -2161,6 +2161,7 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
         rk_av_t a = rk_av(v);
         const char *kt = rk_av_text(a, 0), *vt = rk_raku_str(a.el[1], 0);
         size_t kl = strlen(kt), vl = strlen(vt);
+        if (rk_ident_key(kt) && a.el[1].v == DT_BOOL) { char *ln = rt_wsb_alloc(kl + 3); sprintf(ln, a.el[1].i ? ":%s" : ":!%s", kt); return ln; }
         if (rk_ident_key(kt)) {
             char *ln = rt_wsb_alloc(kl + vl + 4);
             ln[0] = ':';
@@ -3825,6 +3826,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "message") || !strcmp(meth, "payload")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
+        if (recv.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(recv.i ? "Bool::True" : "Bool::False")); return 1; }
         if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
         char *r = (char *)rt_str_alloc(2 * n + 2);
         size_t p = 0;
@@ -13985,6 +13987,187 @@ static DESCR_t rk_empty_failure(const char *action) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_failure_sink(DESCR_t f) { if (FIELD_GET_fn(f, "handled").i) return; rk_failure_handle(f); rk_exc_throw(FIELD_GET_fn(f, "exception")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int dh, dv, eh, ev, kvh, kvv, ph, pv, kh, kv2, vh, vv, nmode; } rk_adv_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_adv_parse(DESCR_t *args, int nargs, rk_adv_t *a) {
+    memset(a, 0, sizeof *a);
+    for (int i = 0; i < nargs; i++) {
+        if (!rk_is_pair(args[i])) continue;
+        rk_av_t p = rk_av(args[i]);
+        const char *k = rk_cstr(p.el[0]);
+        int v = p.n > 1 ? rk_is_truthy(p.el[1]) : 1;
+        if (!strcmp(k, "delete")) {
+            a->dh = 1;
+            a->dv = v;
+        } else if (!strcmp(k, "exists")) {
+            a->eh = 1;
+            a->ev = v;
+        } else if (!strcmp(k, "kv")) {
+            a->kvh = 1;
+            a->kvv = v;
+            a->nmode++;
+        } else if (!strcmp(k, "p")) {
+            a->ph = 1;
+            a->pv = v;
+            a->nmode++;
+        } else if (!strcmp(k, "k")) {
+            a->kh = 1;
+            a->kv2 = v;
+            a->nmode++;
+        } else if (!strcmp(k, "v")) {
+            a->vh = 1;
+            a->vv = v;
+            a->nmode++;
+        } else return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_arr_hole(DESCR_t e) { return e.v == DT_SNUL || (rk_typeobj_name(e) && !strcmp(rk_typeobj_name(e), "Any")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_is_arr(DESCR_t c) { return c.v == DT_A && c.arr && !rk_is_pair(c) && !rk_is_jct(c) && ((ARBLK_t *) c.arr)->ndim == 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_idx(DESCR_t key, long long *i) {
+    extern void rt_script_die_surface(const char *msg);
+    const char *s = rk_cstr(key);
+    char *ep;
+    if (IS_INT_fn(key)) *i = key.i;
+    else if (s && *s) { *i = strtoll(s, &ep, 10); if (*ep) return 0; } else return 0;
+    if (*i < 0) { char m[96]; snprintf(m, sizeof m, "Index out of range. Is: %lld, should be in 0..^Inf", *i); rt_script_die_surface(m); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_has(DESCR_t c, DESCR_t k) {
+    long long i;
+    if (c.v == DT_T && c.tbl) return table_has_d(c.tbl, rk_key_tmp(k)) ? 1 : 0;
+    if (!rk_sub_is_arr(c) || !rk_sub_idx(k, &i)) return 0;
+    ARBLK_t *b = (ARBLK_t *) c.arr;
+    return i < b->hi - b->lo + 1 && !rk_arr_hole(b->data[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_sub_get(DESCR_t c, DESCR_t k) {
+    long long i;
+    int found = 0;
+    if (c.v == DT_T && c.tbl) { DESCR_t v = table_get_found_d(c.tbl, rk_key_tmp(k), &found); return found ? v : rk_typeobj("Any"); }
+    if (!rk_sub_is_arr(c) || !rk_sub_idx(k, &i)) return rk_typeobj("Any");
+    ARBLK_t *b = (ARBLK_t *) c.arr;
+    return i < b->hi - b->lo + 1 ? b->data[i] : rk_typeobj("Any");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_sub_del(DESCR_t c, DESCR_t k) {
+    long long i;
+    int found = 0;
+    if (c.v == DT_T && c.tbl) { DESCR_t dk = rk_key_tmp(k), v = table_get_found_d(c.tbl, dk, &found); if (found) table_delete_d(c.tbl, dk); return found ? v : rk_typeobj("Any"); }
+    if (!rk_sub_is_arr(c) || !rk_sub_idx(k, &i)) return rk_typeobj("Any");
+    ARBLK_t *b = (ARBLK_t *) c.arr;
+    long long n = b->hi - b->lo + 1;
+    if (i >= n) return rk_typeobj("Any");
+    DESCR_t old = b->data[i];
+    b->data[i] = rk_typeobj("Any");
+    while (n > 0 && rk_arr_hole(b->data[n - 1]) && i >= n - 1) { b->hi--; n--; }
+    return old;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_bool(int v) { return (DESCR_t){ .v = DT_BOOL, .i = v ? 1 : 0 }; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_adv_mode(const rk_adv_t *a, int *flag, int hashy) {
+    int vm = hashy ? a->vh : a->vh && a->vv;
+    if ((a->kvh ? 1 : 0) + (a->ph ? 1 : 0) + (a->kh ? 1 : 0) + (vm ? 1 : 0) > 1) return -1;
+    if (a->kvh) { *flag = a->kvv; return 'w'; }
+    if (a->ph) { *flag = a->pv; return 'p'; }
+    if (a->kh) { *flag = a->kv2; return 'k'; }
+    *flag = a->vv;
+    return vm ? 'v' : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_out(int m, DESCR_t pos, DESCR_t v, DESCR_t *r) {
+    if (m == 'w') { r[0] = pos; r[1] = v; return 2; }
+    if (m == 'p') { r[0] = rk_mk_pair(pos, v); return 1; }
+    r[0] = m == 'k' ? pos : v;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_arr(DESCR_t c, DESCR_t pos, const rk_adv_t *a, DESCR_t *r) {
+    int fl, m = rk_adv_mode(a, &fl, 0), d = a->dh && a->dv, w = rk_sub_has(c, pos);
+    if (m < 0) return -1;
+    if (a->eh) {
+        int t = a->ev ? 1 : 0, val = w ? t : !t;
+        if (m == 'k' || m == 'v') return -1;
+        if (d && w) (void) rk_sub_del(c, pos);
+        if (!m) { r[0] = rk_bool(val); return 1; }
+        if (fl && !w) return 0;
+        return rk_sub_out(m, pos, rk_bool(fl ? t : val), r);
+    }
+    if (m == 'k' && d) { if (fl && !w) return 0; if (w) (void) rk_sub_del(c, pos); r[0] = pos; return 1; }
+    if (m == 'k') { if (fl && !w) return 0; r[0] = pos; return 1; }
+    if ((m == 'w' || m == 'p' || m == 'v') && fl && !w) return 0;
+    if (!m) { r[0] = d ? rk_sub_del(c, pos) : rk_sub_get(c, pos); return 1; }
+    return rk_sub_out(m, pos, d ? rk_sub_del(c, pos) : rk_sub_get(c, pos), r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_hash1(DESCR_t c, DESCR_t key, const rk_adv_t *a, DESCR_t *r) {
+    int fl, m = rk_adv_mode(a, &fl, 1), ex;
+    if (m < 0 || (a->eh && (m == 'k' || m == 'v'))) return -1;
+    ex = rk_sub_has(c, key);
+    if (a->eh) {
+        int rr = (a->ev ? 1 : 0) == ex;
+        if (a->dh) { if (a->dv && ex) (void) rk_sub_del(c, key); if (!m) { r[0] = rk_bool(rr); return 1; } return ex || !fl ? rk_sub_out(m, key, rk_bool(rr), r) : 0; }
+        if (!m) { r[0] = rk_bool(rr); return 1; }
+        if (!rr) return 0;
+        if (!fl) { r[0] = INTVAL(1); return 1; }
+        return rk_sub_out(m, key, rk_bool(rr), r);
+    }
+    if (m && fl && !ex) return 0;
+    if (m == 'k' && a->dh && a->dv && ex) (void) rk_sub_del(c, key);
+    if (m == 'k') { r[0] = key; return 1; }
+    if (!m) { r[0] = a->dh && a->dv ? rk_sub_del(c, key) : rk_sub_get(c, key); return 1; }
+    return rk_sub_out(m, key, a->dh && a->dv ? rk_sub_del(c, key) : rk_sub_get(c, key), r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_sub_hashn(DESCR_t c, DESCR_t one, const rk_adv_t *a, DESCR_t *r) {
+    int fl, m = rk_adv_mode(a, &fl, 1), d = a->dh && a->dv, was = rk_sub_has(c, one);
+    if (m < 0 || (a->eh && (m == 'k' || m == 'v'))) return -1;
+    if (a->eh) { int rr = (a->ev ? 1 : 0) == was; if (d) (void) rk_sub_del(c, one); if (!m) { r[0] = rk_bool(rr); return 1; } if (fl && !was) return 0; return rk_sub_out(m, one, rk_bool(rr), r); }
+    if (m && fl && !was) return 0;
+    if (m == 'k') { if (d && was) (void) rk_sub_del(c, one); r[0] = one; return 1; }
+    return rk_sub_out(m, one, d ? rk_sub_del(c, one) : rk_sub_get(c, one), r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_subscr_adv(DESCR_t *args, int nargs, DESCR_t *out) {
+    extern void rt_script_die_surface(const char *msg);
+    rk_adv_t a;
+    DESCR_t c = args[0], key = args[1];
+    if (!rk_adv_parse(args + 2, nargs - 2, &a)) { rt_script_die_surface("Unexpected named argument passed to a subscript"); *out = FAILDESCR; return 1; }
+    if (rk_match_is(c)) c = FIELD_GET_fn(c, "named");
+    int isarr = rk_sub_is_arr(c), whatever = rk_typeobj_name(key) && !strcmp(rk_typeobj_name(key), "Whatever");
+    int (*one)(DESCR_t, DESCR_t, const rk_adv_t *, DESCR_t *) = isarr ? rk_sub_arr : rk_sub_hashn;
+    if (!whatever && !(key.v == DT_A && key.arr && !rk_is_pair(key) && !rk_is_jct(key))) {
+        DESCR_t r[2];
+        int n = (isarr ? rk_sub_arr : rk_sub_hash1)(c, key, &a, r);
+        if (n < 0) { rt_script_die_surface("Unsupported combination of named arguments to a subscript"); *out = FAILDESCR; return 1; }
+        *out = n == 0 ? rk_mark_list(rk_mk_arr(NULL, 0)) : n == 1 ? r[0] : rk_mark_list(rk_mk_arr(r, 2));
+        return 1;
+    }
+    rk_av_t ks;
+    if (whatever && isarr) {
+        ARBLK_t *ab = (ARBLK_t *) c.arr;
+        int an = ab->hi - ab->lo + 1;
+        DESCR_t *ix = (DESCR_t *) rt_ws_alloc_descr((size_t) (an > 0 ? an : 1));
+        for (int i = 0; i < an; i++) ix[i] = INTVAL(i);
+        ks = rk_av(rk_mk_arr(ix, an > 0 ? an : 0));
+    } else if (whatever) ks = rk_av(rk_hash_list(c, 'k'));
+    else ks = rk_av(key);
+    DESCR_t *buf = (DESCR_t *) rt_ws_alloc_descr((size_t) (2 * ks.n + 1));
+    int k = 0;
+    for (int i = 0; i < ks.n; i++) {
+        int n = one(c, rk_av_elem(ks, i), &a, buf + k);
+        if (n < 0) { rt_script_die_surface("Unsupported combination of named arguments to a subscript"); *out = FAILDESCR; return 1; }
+        k += n;
+    }
+    *out = rk_mark_list(rk_mk_arr(buf, k));
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_failure_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t f = args[0];
     (void) nargs;
@@ -16169,6 +16352,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_failure") && nargs <= 1) { *out = rk_failure_of(args, nargs); return 1; }
+    if (!strcmp(fn, "__rk_subscr_adv") && nargs >= 2) return rk_subscr_adv(args, nargs, out);
     if (!strcmp(fn, "__rk_sink") && nargs == 1) { *out = args[0]; if (rk_failure_is(args[0]) && !FIELD_GET_fn(args[0], "handled").i) { rk_failure_sink(args[0]); *out = rk_typeobj("Nil"); } return 1; }
     if (!strcmp(fn, "__rk_exc_umeth") && nargs == 2) {
         const char *mn = rk_cstr(args[1]);

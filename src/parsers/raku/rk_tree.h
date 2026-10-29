@@ -76,7 +76,7 @@ tree_t  *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r);
 int      rkb_listop_substitutes(const char *name, int namelen);
 tree_t  *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren);
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto);
-void     rkb_adverb(RkB *b, tree_t *t, const char *key);
+void     rkb_adverb(RkB *b, tree_t *t, RkTerm *tm);
 tree_t  *rkb_expr(RkB *b, RkList *L);
 void     rkb_cross(RkB *b, const char *op, RkList *L, RkList **rs, int nr);
 void     rkb_sequence(RkB *b, const char *op, RkList *L, RkList *R);
