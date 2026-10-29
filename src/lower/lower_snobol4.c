@@ -1812,17 +1812,19 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
+static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd, IR_t ** gdp, int retake) {
     char nmb[24];
     snprintf(nmb, sizeof nmb, "DGT$%d", g_lower.sno.sno_goto_direct_target_dgt_n++);
     char * tmpn = lp_strdup(nmb);
     sno_reg_var(tmpn);
     size_t ln = strlen(tmpn);
-    char * dn = (char *) ct_alloc(ln + 2);
+    char * dn = (char *) ct_alloc(ln + 3);
     dn[0] = '<';
-    memcpy(dn + 1, tmpn, ln);
-    dn[ln + 1] = 0;
+    if (retake) dn[1] = '!';
+    memcpy(dn + 1 + retake, tmpn, ln);
+    dn[ln + 1 + retake] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
+    if (gdp) *gdp = gd;
     IR_LIT(gd).sval = dn;
     IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd);
     IR_LIT(asn).sval = tmpn;
@@ -1832,9 +1834,10 @@ static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * 
     return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_goto_branch(IR_graph_t * g, scx_t * cx, const char * nm, const tree_t * dc, const tree_t * ex, IR_t * exitnd) {
+static IR_t * sno_goto_branch(IR_graph_t * g, scx_t * cx, const char * nm, const tree_t * dc, const tree_t * ex, IR_t * exitnd, IR_t ** gdp) {
+    if (gdp) *gdp = NULL;
     if (nm) return sno_goto_target(g, nm, exitnd);
-    if (dc) return sno_goto_direct_target(g, cx, dc, exitnd);
+    if (dc) return sno_goto_direct_target(g, cx, dc, exitnd, gdp, 0);
     if (ex) return sno_goto_computed_target(g, cx, ex, exitnd);
     return NULL;
 }
@@ -4147,13 +4150,15 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * dcU = sgoto_direct(s, TT_GOTO_U);
         const tree_t * dcS = sgoto_direct(s, TT_GOTO_S);
         const tree_t * dcF = sgoto_direct(s, TT_GOTO_F);
-        IR_t * sT = sno_goto_branch(g, &cx, goS, dcS, exS, exitnd);
+        IR_t * sGd = NULL, * fGd = NULL;
+        IR_t * sT = sno_goto_branch(g, &cx, goS, dcS, exS, exitnd, &sGd);
         const char * sTnm = goS ? goS : (IR_t *)0 == sT ? (const char *)0 : goS;
-        if (!sT) { sT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); sTnm = goU; }
+        if (!sT) { sT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd, &sGd); sTnm = goU; }
         if (!sT) { sT = next; sTnm = (const char *)0; }
-        IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd);
+        IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd, &fGd);
         const char * fTnm = goF;
-        if (!fT) { fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); fTnm = goU; }
+        const tree_t * fdc = (!goF && dcF) ? dcF : NULL;
+        if (!fT) { fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd, &fGd); fTnm = goU; fdc = (!goU && dcU) ? dcU : NULL; }
         if (!fT) { fT = next; fTnm = (const char *)0; }
         if (sTnm) sT = sno_label_trace_wrap(g, sTnm, sT);
         if (fTnm) fT = sno_label_trace_wrap(g, fTnm, fT);
@@ -4164,6 +4169,13 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             fT = nf;
         }
         if (!sfind(s, ":evalstmt")) fT = lc_build(g, IR_SETEXIT_TEST, fT, fT);
+        if (sGd || fGd) {
+            IR_t * rGd = NULL;
+            IR_t * rtk = fdc ? sno_goto_direct_target(g, &cx, fdc, exitnd, &rGd, 1) : fT;
+            if (rGd) lc_γ_to(rGd, rGd);
+            if (sGd) lc_γ_to(sGd, rtk);
+            if (fGd) lc_γ_to(fGd, rtk);
+        }
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) {
             const tree_t * _sa = sfind(st[i], ":stno");

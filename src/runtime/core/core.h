@@ -292,9 +292,9 @@ static inline int core_err_is_terminal(int code) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: return 0; default: return 1; } }
+static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: case 332: return 0; default: return 1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 24: case 25: case 35: return 1; default: return 0; } }
+static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 25: case 35: return 1; default: return 0; } }
 extern const char alphabet[257];
 void core_lib_init(void);
 DESCR_t pat_lit(const char *s);

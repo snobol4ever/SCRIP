@@ -919,8 +919,14 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
         return rt_goto_resolve_x(inm, undef);
     }
     if (name[0] == '<') {
-        DESCR_t cv = NV_GET_fn(name + 1);
-        if (cv.v != DT_C || cv.slen < 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
+        int retake = name[1] == '!';
+        DESCR_t cv = NV_GET_fn(name + 1 + retake);
+        if (cv.v != DT_C || cv.slen < 3 || !cv.ptr) {
+            extern void core_runtime_error(int code, const char *msg);
+            if (retake) core_runtime_error(332, "goto continue with error in failure goto");
+            else core_runtime_error(24, "goto operand is not code");
+            return NULL;
+        }
         return cv.ptr;
     }
     if (!strcmp(name, "END")) return NULL;
