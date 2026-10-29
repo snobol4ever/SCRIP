@@ -2769,6 +2769,8 @@ void core_lib_init(void) {
     { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
 #endif
     extern void register_fn_lit(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
+    extern DESCR_t sno_stmt_error_fn(DESCR_t *, int);
+    register_fn_lit("SNO$STERR", sno_stmt_error_fn, 0, 0);
     register_fn_lit("GT", _GT_, 2, 2);
     register_fn_lit("LT", _LT_, 2, 2);
     register_fn_lit("GE", _GE_, 2, 2);

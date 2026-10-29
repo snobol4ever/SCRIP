@@ -1060,6 +1060,24 @@ static void code_stmt_line(tree_t *st, const char *tag, int line) {
     else ast_push(st, ast_attr_int(tag, line));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_stmt_error_fn(DESCR_t *a, int n) {
+    extern void core_runtime_error(int code, const char *msg);
+    (void) a;
+    (void) n;
+    core_runtime_error(7, "compilation error encountered during execution");
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *code_stmt_in_error(long line) {
+    extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+    tree_t *st = ast_stmt_new(TT_STMT), *fn = ast_node_new(TT_FNC);
+    fn->v.sval = ct_strdup("SNO$STERR");
+    ast_push(st, ast_attr_int(":line", (int) line));
+    ast_push(st, ast_attr_int(":lline", (int) line));
+    ast_push(st, ast_attr_expr(":subj", fn));
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base, long endline);
 DESCR_t code(const char *src) { return code_at(src, 0, 0); }
 DESCR_t code_at(const char *src, long base, long endline) {
@@ -1136,6 +1154,8 @@ DESCR_t code_at(const char *src, long base, long endline) {
         if (pe && !parse_err) parse_err = pm ? pm : "";
     }
     if (pe_at >= 0) { tree_t *pre = ast_stmt_new(TT_PROGRAM); for (int i = 0; i < pe_at; i++) ast_push(pre, prog->c[i]); prog = pre; }
+    int sterr = 0;
+    if ((parse_err || illegal) && !empty && prog->n > 0) { ast_push(prog, code_stmt_in_error(text_line > 0 ? text_line : 1)); sterr = 1; }
     if (g_runtime.eval.sno_stmt_compiled < base) g_runtime.eval.sno_stmt_compiled = base;
     long stno_base = g_runtime.eval.sno_stmt_compiled;
     extern int sno_pat_count(void);
@@ -1186,7 +1206,7 @@ DESCR_t code_at(const char *src, long base, long endline) {
         if (patn > pat0) sno_pat_thunks_build(pat0);
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }
     }
-    g_runtime.eval.sno_stmt_compiled += (long)(k - empty) + 1;
+    g_runtime.eval.sno_stmt_compiled += (long)(k - sterr - empty) + ((parse_err || illegal) ? 0 : 1);
     if (parse_err || illegal) { g_runtime.kw.sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};

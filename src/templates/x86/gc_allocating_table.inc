@@ -2937,6 +2937,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "sno_prescan_repl_defines", GC_RET_VOID },
     { "sno_setexit_fire_on_end", GC_RET_VOID },
     { "sno_setexit_resume", GC_RET_VOID },
+    { "sno_stmt_error_fn", GC_RET_DESCR },
     { "sno_trace_call", GC_RET_VOID },
     { "sno_trace_return", GC_RET_VOID },
     { "sno_trace_value", GC_RET_VOID },
