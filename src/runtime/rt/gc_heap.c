@@ -681,7 +681,7 @@ void *rt_heap_alloc_c(size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_struct_alloc(uint16_t type, size_t n) {
-    if ((type < HB_PLDB || type > HB_PLDBK) && type != HB_TRIE && type != HB_TRIEN) abort();
+    if ((type < HB_PLDB || type > HB_PLDBK) && type != HB_TRIE && type != HB_TRIEN && type != HB_PSEG) abort();
 #if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), type, (uint64_t)n);
 #endif
@@ -1347,12 +1347,13 @@ static inline void gc_live_set(size_t g, size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
-#define GC_TYPE_MOVES(t) ((t) == HB_DVEC || ((t) >= HB_PLDB && (t) <= HB_TRIEN) || (t) == HB_ARR || (t) == HB_DINST || HB_IS_AGG(t))
+#define GC_TYPE_MOVES(t) ((t) == HB_DVEC || ((t) >= HB_PLDB && (t) <= HB_PSEG) || (t) == HB_ARR || (t) == HB_DINST || HB_IS_AGG(t))
 static inline int gc_type_moves(uint16_t t) { return GC_TYPE_MOVES(t) ? 1 : 0; }
 #define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
 _Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
-    GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
-    "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
+    GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18) | GC_MK_BIT(19)) == 0xFFDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) &&
+    !GC_TYPE_MOVES(HB_AGGV + 20),
+    "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0xFFDE7, so every moving type lies in HB_AGGV..HB_AGGV+19 and the set reads as that mask");
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
     size_t g = (size_t)((char *)h - g_runtime.gc.hp_arena) >> 4;
@@ -1575,7 +1576,9 @@ void gc_visit_one(DESCR_t *d) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_visit_pseg(rt_hblk_t *h);
 void gc_visit_mblk(rt_hblk_t *h) {
+    if (h->type == HB_PSEG) { gc_visit_pseg(h); return; }
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
 #if RT_DIAG
@@ -2334,7 +2337,9 @@ static void gc_visit_frame_cells_x(const char *anchor, const gc_frame_map_t *m, 
     gc_visit_frame_cells(anchor, m, lo, hi);
 }
 typedef struct { const char *base; const gc_frame_map_t *map; uint64_t link; int rule, ext; } gc_chf_t;
-typedef struct { int st; uint64_t pc; const gc_site_ent_t *e; const gc_site_blk_t *b; const char *base, *r, *rbp; } gc_chx_t;
+typedef struct { const char *olo, *ohi; long bias; } gc_seg_tr_t;
+static inline const char *gc_seg_ptr(const gc_seg_tr_t *t, const char *w) { if (!t || !t->olo) return w; return (w >= t->olo && w < t->ohi) ? w + t->bias : (const char *)0; }
+typedef struct { int st; uint64_t pc; const gc_site_ent_t *e; const gc_site_blk_t *b; const char *base, *r, *rbp; gc_seg_tr_t tr; } gc_chx_t;
 static int gc_chain_check_on(void) {
     if (g_runtime.gc.gc_chain_knob < 0) { const char *e = getenv("SCRIP_GC_CHAIN_CHECK"); g_runtime.gc.gc_chain_knob = (e && *e >= '1' && *e <= '3') ? (*e - '0') : 0; }
     return g_runtime.gc.gc_chain_knob;
@@ -2352,6 +2357,7 @@ static const gc_site_blk_t *gc_root_block(void) {
     for (int i = 0; r && i < g_runtime.gc.gc_sblk_n; i++) if (g_runtime.gc.gc_sblk[i].map == r) return &g_runtime.gc.gc_sblk[i];
     return (const gc_site_blk_t *)0;
 }
+#define GC_SEGP(v) ({ const char *gc_t_ = gc_seg_ptr(&cx->tr, (v)); if (!gc_t_) { cx->st = 8; return; } gc_t_; })
 static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *rbp, const char *seg_top) {
     const gc_site_ent_t *e = (const gc_site_ent_t *)0;
     const gc_site_blk_t *b;
@@ -2386,7 +2392,8 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         const char *fp = rbp, *top = seg_top ? seg_top : g_runtime.gc.gc_stktop;
         while (fp && fp > r && fp + 16 <= top) {
             uint64_t pc2 = *(const uint64_t *)(fp + 8);
-            const char *fp2 = *(const char *const *)fp;
+            const char *fp2 = gc_seg_ptr(&cx->tr, *(const char *const *)fp);
+            if (!fp2) break;
             if (pc2 == (uint64_t)(uintptr_t)rt_genp_n2_deliver_ret) { cx->pc = pc2; cx->r = fp + 16; cx->rbp = fp2; cx->st = 6; return; }
             b = gc_site_find(pc2, &e);
             if (b && e) { pc = pc2; r = fp + 16; rbp = fp2; break; }
@@ -2403,7 +2410,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     if (GC_SITE_RULE(e) == 9) {
         const char *fb = r + 8 * ((e->kind >> 8) & 255);
         int loff = (int)((uint32_t)e->depth & 0xffffu), carve = (int)(((uint32_t)e->depth >> 16) & 0xffffu);
-        const char *L = *(const char *const *)(fb + loff);
+        const char *L = GC_SEGP(*(const char *const *)(fb + loff));
         pc = *(const uint64_t *)(L + 8);
         r = fb + 16 + carve;
         g_runtime.gc.gc_chain_fnhops++;
@@ -2414,9 +2421,9 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         if (GC_SITE_RULE(e) == 0) fbm = r + e->depth;
         else if (GC_SITE_RULE(e) == 6 && ((e->kind >> 12) & 15) == 0) {
             const char *fp = rbp;
-            for (int k = 1; k < ((e->kind >> 8) & 15); k++) fp = *(const char *const *)fp;
+            for (int k = 1; k < ((e->kind >> 8) & 15); k++) fp = GC_SEGP(*(const char *const *)fp);
             fbm = fp + 8 + e->depth;
-            rbm = *(const char *const *)fp;
+            rbm = GC_SEGP(*(const char *const *)fp);
         }
         if (fbm) {
             uint64_t w = b->ckt >= 48 ? 0 : *(const uint64_t *)fbm;
@@ -2424,7 +2431,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
             const gc_site_blk_t *xb = gc_site_find(w, &x);
             if (xb && x && (x->kind & 255) == 6) {
                 int loff = (int)(x->depth & 0xffff), carve = (int)((x->depth >> 16) & 0xffff);
-                const char *L = *(const char *const *)(fbm + loff);
+                const char *L = GC_SEGP(*(const char *const *)(fbm + loff));
                 pc = *(const uint64_t *)(L + 8);
                 r = (GC_SITE_RULE(x) == 8) ? L : fbm + 16 + carve;
                 rbp = rbm;
@@ -2440,7 +2447,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                 if (xb2 && x2 && (x2->kind & 255) == 6) {
                     const char *a0 = fbm + b->ckt;
                     int loff = (int)(x2->depth & 0xffff), carve = (int)((x2->depth >> 16) & 0xffff);
-                    const char *lrec = *(const char *const *)(a0 + loff);
+                    const char *lrec = GC_SEGP(*(const char *const *)(a0 + loff));
                     pc = *(const uint64_t *)(lrec + 8);
                     r = (GC_SITE_RULE(x2) == 8) ? lrec : a0 + 16 + carve;
                     rbp = rbm;
@@ -2450,12 +2457,18 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                 if (fbm + b->ckt + 16 <= seg_top) {
                     const char *a0 = fbm + b->ckt;
                     uint64_t tw = *(const uint64_t *)(a0 + 8);
-                    if (g == (uint64_t)(uintptr_t)a0 && tw == (uint64_t)(uintptr_t)rt_tge_gamma_ret) { pc = tw; r = a0; rbp = rbm; g_runtime.gc.gc_chain_roadhops++; goto again; }
+                    if (gc_seg_ptr(&cx->tr, (const char *)(uintptr_t)g) == a0 && tw == (uint64_t)(uintptr_t)rt_tge_gamma_ret) {
+                        pc = tw;
+                        r = a0;
+                        rbp = rbm;
+                        g_runtime.gc.gc_chain_roadhops++;
+                        goto again;
+                    }
                     const gc_site_ent_t *x3 = (const gc_site_ent_t *)0;
                     const gc_site_blk_t *xb3 = gc_site_find(*(const uint64_t *)a0, &x3);
                     if (xb3 && x3 && (x3->kind & 255) == 6) {
                         int loff = (int)(x3->depth & 0xffff), carve = (int)((x3->depth >> 16) & 0xffff);
-                        const char *lrec = *(const char *const *)(a0 + loff);
+                        const char *lrec = GC_SEGP(*(const char *const *)(a0 + loff));
                         pc = *(const uint64_t *)(lrec + 8);
                         r = (GC_SITE_RULE(x3) == 8) ? lrec : a0 + 16 + carve;
                         rbp = rbm;
@@ -2463,8 +2476,9 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                         goto again;
                     }
                 }
-                if (g > 4095) {
-                    uint64_t sg = *(const uint64_t *)(uintptr_t)(g + 8);
+                const char *gp = gc_seg_ptr(&cx->tr, (const char *)(uintptr_t)g);
+                if (g > 4095 && gp) {
+                    uint64_t sg = *(const uint64_t *)(gp + 8);
                     const gc_site_ent_t *y = (const gc_site_ent_t *)0;
                     const gc_site_blk_t *yb = gc_site_find(sg, &y);
                     if (yb && y && (y->kind & 255) == 2) { pc = sg; r = fbm + b->ckt; rbp = rbm; g_runtime.gc.gc_chain_landhops++; goto again; }
@@ -2481,14 +2495,14 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     if (GC_SITE_RULE(e) == 6) {
         int nl = (e->kind >> 8) & 15, ek = (e->kind >> 12) & 15;
         const char *fp = rbp;
-        for (int k = 1; k < nl; k++) fp = *(const char *const *)fp;
-        base = (ek == 1 || ek == 3) ? *(const char *const *)fp : fp + 8 + e->depth;
-        if (ek == 0) rbm6 = *(const char *const *)fp;
+        for (int k = 1; k < nl; k++) fp = GC_SEGP(*(const char *const *)fp);
+        base = (ek == 1 || ek == 3) ? GC_SEGP(*(const char *const *)fp) : fp + 8 + e->depth;
+        if (ek == 0) rbm6 = GC_SEGP(*(const char *const *)fp);
     } else if (GC_SITE_RULE(e) == 0) base = r + e->depth;
     else if (GC_SITE_RULE(e) == 1) base = rbp;
     else if (GC_SITE_RULE(e) == 2) base = rbp - e->depth;
     else if (GC_SITE_RULE(e) == 3) base = rbp;
-    else if (GC_SITE_RULE(e) == 4) base = *(const char *const *)r + e->depth;
+    else if (GC_SITE_RULE(e) == 4) base = GC_SEGP(*(const char *const *)r) + e->depth;
     else base = (const char *)0;
     if (GC_SITE_RULE(e) == 0 || rbm6) {
         uint64_t w = *(const uint64_t *)base;
@@ -2496,7 +2510,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         const gc_site_blk_t *xb = gc_site_find(w, &x);
         if (xb && x && (x->kind & 255) == 6) {
             int loff = (int)(x->depth & 0xffff), carve = (int)((x->depth >> 16) & 0xffff);
-            const char *L = *(const char *const *)(base + loff);
+            const char *L = GC_SEGP(*(const char *const *)(base + loff));
             pc = *(const uint64_t *)(L + 8);
             r = (GC_SITE_RULE(x) == 8) ? L : base + 16 + carve;
             if (rbm6) rbp = rbm6;
@@ -2508,6 +2522,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     cx->base = base;
     cx->st = (GC_SITE_RULE(e) == 5) ? 4 : 1;
 }
+#undef GC_SEGP
 static void gc_chain_resolve_in(gc_chx_t *cx, const gc_ent_t *ent, const char *seg_top) {
     memset(cx, 0, sizeof *cx);
     if (ent) gc_chain_find(cx, (uint64_t)(uintptr_t)ent->pc, ent->r, (const char *)ent->rbp, seg_top);
@@ -2615,11 +2630,15 @@ int rt_icn_frames(rt_icn_frame_t *out, int cap) {
     }
     return n;
 }
-static int gc_chain_link(const char *base, uint64_t q, uint64_t *pc, const char **r, const char **rbp) {
+static int gc_chain_link(const char *base, uint64_t q, uint64_t *pc, const char **r, const char **rbp, const gc_seg_tr_t *tr) {
+    const char *nr, *nb = (const char *)0;
     if (!GC_LINK_SET(q)) return 0;
+    if (!(GC_LINK_FL(q) & GC_LINK_RBP_KEPT)) { nb = gc_seg_ptr(tr, *(const char *const *)(base + GC_LINK_RBP(q))); if (!nb) return 0; }
+    nr = (GC_LINK_FL(q) & GC_LINK_R_IND) ? gc_seg_ptr(tr, *(const char *const *)(base + GC_LINK_R(q))) : base + GC_LINK_R(q);
+    if (!nr) return 0;
     *pc = *(const uint64_t *)(base + GC_LINK_PC(q));
-    if (!(GC_LINK_FL(q) & GC_LINK_RBP_KEPT)) *rbp = *(const char *const *)(base + GC_LINK_RBP(q));
-    *r = (GC_LINK_FL(q) & GC_LINK_R_IND) ? *(const char *const *)(base + GC_LINK_R(q)) : base + GC_LINK_R(q);
+    if (nb) *rbp = nb;
+    *r = nr;
     return 1;
 }
 static const gc_site_blk_t *gc_body_block(const scrip_coctx_t *sc) {
@@ -2882,6 +2901,7 @@ typedef struct gc_swx_t {
     long lam, pw;
     void *gw;
     const char **top_graph_p;
+    gc_seg_tr_t tr;
 } gc_swx_t;
 typedef struct {
     const char *lo, *hi, *p, *prevbase, *lastname, *roottop;
@@ -2993,7 +3013,7 @@ static void gc_chain_refuse(const gc_sw_t *s, const gc_ent_t *ent, const char *l
     if (s->n > 0) {
         const gc_site_ent_t *le = (const gc_site_ent_t *)0;
         const gc_site_blk_t *lb;
-        gc_chain_link(s->lastf.base, s->lastf.link, &lpc, &lr, &lrbp);
+        gc_chain_link(s->lastf.base, s->lastf.link, &lpc, &lr, &lrbp, (const gc_seg_tr_t *)0);
         lb = gc_site_find(lpc, &le);
         fprintf(stderr, "[GC-CHAIN]   last frame base=%p map=%s; its link: pc=%p image+%lx (%s%+ld%s) R=%p rbp=%p\n", (const void *)s->lastf.base,
             s->lastf.map->graph_name ? s->lastf.map->graph_name : "?", (const void *)(uintptr_t)lpc,
@@ -3179,6 +3199,7 @@ static int gc_sw_c_step(gc_sw_t *s, const scrip_coctx_t *sc) {
     gc_chf_t f;
     memset(&w, 0, sizeof w);
     if (x->r > hi || (x->last && x->r < x->last)) { s->stop = 7; return 0; }
+    w.tr = x->tr;
     gc_chain_find(&w, x->pc, x->r, x->rbp, hi);
     if (w.st == 6) {
         const gc_site_blk_t *bb = gc_body_block(sc);
@@ -3192,10 +3213,10 @@ static int gc_sw_c_step(gc_sw_t *s, const scrip_coctx_t *sc) {
         f.ext = 0;
         if (!gc_sw_chain_frame(s, &f)) return 0;
         x->last = gb;
-        if (!gc_chain_link(gb, bb->link, &x->pc, &x->r, &x->rbp)) { s->stop = 5; return 0; }
+        if (!gc_chain_link(gb, bb->link, &x->pc, &x->r, &x->rbp, &x->tr)) { s->stop = 5; return 0; }
         return 1;
     }
-    if (w.st != 1) { s->stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : w.st == 7 ? 8 : 1; return 0; }
+    if (w.st != 1) { s->stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : (w.st == 7 || w.st == 8) ? 8 : 1; return 0; }
     if (x->last && w.base <= x->last) { s->stop = 6; return 0; }
     f.base = w.base;
     f.map = w.b->map;
@@ -3210,14 +3231,23 @@ static int gc_sw_c_step(gc_sw_t *s, const scrip_coctx_t *sc) {
         s->roottop = rt;
     }
     if (x->co_body && w.base == x->co_body) { s->stop = 8; return 0; }
-    if (!gc_chain_link(w.base, w.b->link, &x->pc, &x->r, &x->rbp)) { s->stop = (w.b->map->flags & GC_FRAME_MAP_ROOT) ? 0 : 5; return 0; }
+    if (!gc_chain_link(w.base, w.b->link, &x->pc, &x->r, &x->rbp, &x->tr)) { s->stop = (w.b->map->flags & GC_FRAME_MAP_ROOT) ? 0 : 5; return 0; }
+    if ((w.b->map->flags & GC_FRAME_MAP_TBL_HDR) && !x->tr.olo) {
+        const uint64_t *lt = (const uint64_t *)(w.b->map + 1);
+        const uint64_t lq = ((w.b->map->flags & GC_FRAME_MAP_LAYOUT) && lt[0]) ? lt[lt[0]] : 0;
+        const DESCR_t *rc12;
+        if (!lq || GC_LAY_KIND(lq) != GC_LAY_DESCR || GC_LAY_SIZE(lq) != 48)
+            rt_bomb("gc: a tabled generator's frame map does not end in the three resumer cells (GC_FRAME_MAP_TBL_HDR, ARCH-PROLOG-WFS-TABLING 8.10 (5))");
+        rc12 = (const DESCR_t *)(w.base + GC_LAY_OFF(lq));
+        if (rc12->v == (DTYPE_t)DT_I && rc12->i) x->r = (const char *)(uintptr_t)rc12->i;
+    }
     if ((w.b->map->flags & GC_FRAME_MAP_ROOT) && !gc_site_find(x->pc, (const gc_site_ent_t **)0)) { s->stop = 0; return 0; }
     return 1;
 }
 static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) {
     extern long rt_gc_sw_step_a(gc_sw_t *);
     gc_swx_t *x = &s->x;
-    int fast = s->visit && !s->fn && !g_runtime.abi.gc_mk.maps && !g_runtime.abi.gc_mk.census && !g_runtime.abi.gc_mk.chain;
+    int fast = s->visit && !s->fn && !s->x.tr.olo && !g_runtime.abi.gc_mk.maps && !g_runtime.abi.gc_mk.census && !g_runtime.abi.gc_mk.chain;
     x->pc = (uint64_t)(uintptr_t)ent->pc;
     x->r = ent->r;
     x->rbp = (const char *)ent->rbp;
@@ -3234,9 +3264,10 @@ static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) 
         gc_run_verdicts((DESCR_t *)rc);
     }
 }
-static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, int visit, rt_gc_frame_fn fn, void *a) {
+static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, int visit, rt_gc_frame_fn fn, void *a, const gc_seg_tr_t *tr) {
     const char *img = (sc && sc->image && sc->image_map) ? sc->image + sc->image_off : (const char *)0;
     memset(s, 0, sizeof *s);
+    if (tr) s->x.tr = *tr;
     s->lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u);
     s->hi = hi0;
     s->p = s->lo;
@@ -3268,7 +3299,7 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
 }
 static long gc_sw_segment_fn(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a) {
     gc_sw_t s;
-    gc_sw_go(&s, lo0, hi0, ent, sc, run, 0, fn, a);
+    gc_sw_go(&s, lo0, hi0, ent, sc, run, 0, fn, a, (const gc_seg_tr_t *)0);
     if (ent && s.stop != 0 && (run || (s.stop != 7 && s.stop != 8))) return -1;
     return s.n;
 }
@@ -3283,12 +3314,43 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
 #if RT_DIAG
     if (g_runtime.abi.gc_mk.maps) gc_maps_report_range(lo0, hi0);
 #endif
-    gc_sw_go(&s, lo0, hi0, ent, sc, run, 1, (rt_gc_frame_fn)0, (void *)0);
+    gc_sw_go(&s, lo0, hi0, ent, sc, run, 1, (rt_gc_frame_fn)0, (void *)0, (const gc_seg_tr_t *)0);
     if (!ent && run && g_runtime.gc.gc_program_top && lo0 < g_runtime.gc.gc_program_top) s.stop = 10;
     gc_chain_tally(&s);
     if ((ent || s.stop == 10) && s.stop != 0 && (run || (s.stop != 7 && s.stop != 8))) gc_chain_refuse(&s, ent, lo0, hi0);
     if (run && s.roottop && (const char *)(uintptr_t)s.roottop != g_runtime.gc.gc_program_top) gc_program_top_refuse(ent, (const char *)(uintptr_t)s.roottop, lo0, hi0);
     return 0;
+}
+static void gc_visit_pseg(rt_hblk_t *h) {
+    rt_pseg_t *b = (rt_pseg_t *)(h + 1);
+    char *bytes = rt_pseg_bytes(b), *rec = rt_pseg_trail(b);
+    gc_seg_tr_t tr;
+    gc_ent_t ent;
+    gc_sw_t s;
+    const char *rbp;
+    rt_gc_visit_raw_c((const char **)&b->link);
+    rt_gc_visit_raw_c((const char **)&b->sched);
+    for (uint64_t i = 0; i < b->tn; i++, rec += 64) {
+        if (!*(char **)rec) continue;
+        rt_gc_visit_raw_c((const char **)rec);
+        gc_visit_one((DESCR_t *)(rec + 16));
+        gc_visit_one((DESCR_t *)(rec + 32));
+        gc_visit_one((DESCR_t *)(rec + 48));
+    }
+    if (!b->len) return;
+    tr.olo = b->orig_lo;
+    tr.ohi = b->orig_lo + b->len;
+    tr.bias = bytes - b->orig_lo;
+    rbp = gc_seg_ptr(&tr, (const char *)(uintptr_t)b->rbp);
+    if (!rbp || b->len < 16) rt_bomb("gc: a parked segment's saved rbp lies outside its own bytes -- the park leaf recorded a frame the segment does not hold");
+    ent.pc = (const void *)(uintptr_t)*(const uint64_t *)bytes;
+    ent.r = bytes + 8;
+    ent.rbp = (const void *)rbp;
+    gc_sw_go(&s, bytes, bytes + b->len, &ent, (const scrip_coctx_t *)0, 0, 1, (rt_gc_frame_fn)0, (void *)0, &tr);
+    if (s.n == 0 || !(s.lastf.map->flags & GC_FRAME_MAP_TBL_HDR) || (s.stop != 5 && s.stop != 7 && s.stop != 8))
+        rt_bomb(
+        "gc: a parked segment's walk did not end at the tabled generator's record -- a frame of the segment has no site, or the generator's frame map lacks GC_FRAME_MAP_TBL_HDR (ARCH-PROLOG-WFS-TABL"
+        "ING 8.10)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
