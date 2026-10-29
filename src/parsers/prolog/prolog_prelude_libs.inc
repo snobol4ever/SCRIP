@@ -34268,6 +34268,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "compile", 1 },
     { "compile", 2 },
     { "min_ed_dis", 3 },
+    { "gc_dynamic", 1 },
+    { "retract_nr", 1 },
     { "import", 1 },
     { 0, 0 }
 };
@@ -34287,6 +34289,8 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
+    "gc_dynamic(N) :- ( var(N) -> N = 0 ; throw(error(type_error(variable, N), gc_dynamic/1)) ).\n"
+    "retract_nr(C) :- retract(C).\n"
     "index(_, _).\n"
     "index(_, _, _).\n"
     "do_all(G) :- ( call(G), fail ; true ).\n"
