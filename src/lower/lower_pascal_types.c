@@ -93,7 +93,7 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     static const char *const bools[] = { "boolean", "boolean8", "boolean16", "boolean32", "boolean64", 0 };
     static const char *const wbools[] = { "bytebool", "wordbool", "longbool", 0 };
     static const char *const reals[] = { "real", "single", "double", "extended", "comp", "currency", "real48", "valreal", 0 };
-    static const char *const strs[] = { "string", "ansistring", "unicodestring", "widestring", "rawbytestring", "utf8string", 0 };
+    static const char *const strs[] = { "string", "ansistring", "unicodestring", "widestring", "rawbytestring", "utf8string", "openstring", 0 };
     if (!n) return NULL;
     if (pt_in(n, ints)) return s->tint;
     if (pt_in(n, uints)) return pt_ord(PTK_INT, n, 0, 4294967295LL);
@@ -696,6 +696,7 @@ void pty_note_low(const tree_t *low, const tree_t *src) {
     if (t->k == PTK_PROC && low->t == TT_FNC && low->n > 0 && low->c[0] && low->c[0]->v.sval && !strcmp(low->c[0]->v.sval, "__pas_pcall")) t = t->isfunc ? t->base : NULL;
     if (t) pt_map_put(&s->low, low, t, e->line);
 }
+void pty_note_kind(const tree_t *low, pty_kind k) { struct pty_state *s = pt_mk(); if (low) pt_map_put(&s->low, low, pt_new(k, NULL), 0); }
 int pty_answer(const tree_t *low, pty_kind want) {
     const pty_t *t = pty_of_low(low);
     if (!t || t->k == PTK_UNKNOWN) return -1;
@@ -712,17 +713,14 @@ static const char *pt_what(const tree_t *h) {
     if (h && h->t == TT_VAR) return h->v.sval;
     return "";
 }
-void pty_census(const char *pred, const tree_t *low, int legacy, int typer) {
+void pty_census(const char *pred, const tree_t *low, int typer) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     int id = !strcmp(pred, "char") ? 0 : !strcmp(pred, "string") ? 1 : !strcmp(pred, "bool") ? 2 : 3;
     s->stats[id]++;
-    if (typer < 0) return;
+    if (typer < 0) { fprintf(stderr, "PTY-UNK %s node=%d %s\n", pred, low ? (int)low->t : -1, pt_what(low)); return; }
     s->stats[4 + id]++;
-    if (typer == legacy) { s->stats[8 + id]++; return; }
-    const pty_ent *x = pt_map_get(&s->low, low);
-    const char *what = pt_what(low);
-    fprintf(stderr, "PTY %s legacy=%d typer=%d line=%d kind=%s node=%d %s\n", pred, legacy, typer, x ? x->line : 0, x && x->t ? pty_kind_name(x->t->k) : "-", low ? (int)low->t : -1, what ? what : "");
+    s->stats[8 + id]++;
 }
 void pty_census_report(void) {
     struct pty_state *s = pt_st();
