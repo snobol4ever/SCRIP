@@ -922,6 +922,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             else perror_syn(p, rp, SYN_CLOSE, "expected ) to close argument list");
         }
         else if (ft.kind == TK_ATOM) { f = ast_node_new(TT_QLIT); f->v.sval = ct_strdup(ft.text); }
+        else if (ft.kind == TK_INT && !ft.big) { f = ast_node_new(TT_ILIT); f->v.ival = ft.ival; }
         else { perror_at(p, ft.line, "expected a key or a function after a dict ."); break; }
         tree_t *dn = ast_node_new(TT_FNC);
         dn->v.sval = ct_strdup("$dot");

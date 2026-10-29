@@ -359,7 +359,7 @@ S_GRAPHIC:
                                                                         if (n > 1 && code >= 0xA0 && !lx_u_space(code))                    {  ADV(n);                                                                goto S_GRAPHIC;     } }
     if (p - s == 2 && s[0] == ':' && s[1] == '-')                    {  SYNC(); return tok(TK_NECK,  (char *)":-", line);                                          }
     if (p - s == 2 && s[0] == '?' && s[1] == '-')                    {  SYNC(); return tok(TK_QUERY, (char *)"?-", line);                                          }
-    if (!lx->iso && p - s == 1 && s[0] == '.' && s > lx->src && !is_layout((unsigned char)s[-1]) && (DC[PEEK(0)] == D_LOWER || DC[PEEK(0)] == D_UPPER || DC[PEEK(0)] == D_USCORE)) {  t = tok(TK_OP, (char *)".", line); t.adj = 1; SYNC(); return t; }
+    if (!lx->iso && p - s == 1 && s[0] == '.' && s > lx->src && !is_layout((unsigned char)s[-1]) && (DC[PEEK(0)] == D_LOWER || DC[PEEK(0)] == D_UPPER || DC[PEEK(0)] == D_USCORE || ((DC[PEEK(0)] == D_ZERO || DC[PEEK(0)] == D_DIGIT) && (isalnum((unsigned char)s[-1]) || s[-1] == '_' || s[-1] == ')' || s[-1] == '}')))) {  t = tok(TK_OP, (char *)".", line); t.adj = 1; SYNC(); return t; }
                                                                      {  SYNC(); return tok(TK_OP, ct_strndup(s, (size_t)(p - s)), line);                           }
 LX_INT:
     t = tok(TK_INT, span_text(s, p, seps), line); t.uni = zs != 0; errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;
