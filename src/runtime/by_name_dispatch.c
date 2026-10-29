@@ -433,16 +433,16 @@ int rt_builtin_is_known(const char *name) {
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
         "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
-        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_subscr_adv", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map",
-        "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
-        "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array",
-        "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
-        "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
-        "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat",
-        "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv",
-        "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv",
-        "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor",
-        "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
+        "__rk_unpack_named", "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_subscr_adv", "__rk_tl_got", "__rk_is_code", "__rk_run_child",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip",
+        "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat",
+        "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul",
+        "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq",
+        "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul",
+        "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max",
+        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident",
+        "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor",
+        "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
         "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile",
         "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
         "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults",
@@ -17488,6 +17488,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t h = args[0];
         for (int i = 0; i < ks.n; i++) { DESCR_t v = i < vs.n ? vs.el[i] : rk_typeobj("Any"); if (rk_qh_is(h)) h = rk_qh_put(h, ks.el[i], v); else h = rk_hash_store(h, ks.el[i], v); }
         *out = h;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_unpack_named") && nargs == 2) {
+        if (args[0].v == DT_T && args[0].tbl) { int found = 0; DESCR_t v = table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found); *out = found ? v : rk_typeobj("Any"); return 1; }
+        DESCR_t ma[2] = { args[0], args[1] };
+        if (script_try_call_builtin_by_name("meth_call", ma, 2, out) && !IS_FAIL_fn(*out)) return 1;
+        *out = rk_typeobj("Any");
         return 1;
     }
     if (!strcmp(fn, "hash_get") && nargs >= 2) {

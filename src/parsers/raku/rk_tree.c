@@ -2515,6 +2515,16 @@ tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int 
     if (dflt) p = expr_binary(TT_ASSIGN, p, rkb_expr(b, dflt));
     return p;
 }
+void rkb_param_key(RkB *b, tree_t *tv, const char *key, int len) {
+    (void) b;
+    tree_t *v = tv && tv->t == TT_ASSIGN && tv->n ? tv->c[0] : tv;
+    if (!v || v->t != TT_VAR || !v->v.sval) return;
+    tree_t *al = leaf_sval(TT_VAR, v->v.sval);
+    al->slen |= RK_PV_ALIAS;
+    v->v.sval = trimdup(key, len);
+    ast_push(v, al);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*====================================================================================================================================================================================================*/
 static void app(RkB *b, tree_t *list, tree_t *t, int from) { if (!t) return; if (!t->line) t->line = line_at(b, from); ast_push(list, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3361,6 +3371,7 @@ tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
     }
     tree_t *gen = expr_unary(TT_ITERATE, lst);
     if (np == 1 && sig->c[0]) { gen->v.sval = sig->c[0]->v.sval; gen->slen |= sig->c[0]->slen & (RK_PV_COPY | RK_PV_RW); }
+    if (np == 1 && sig->c[0]) for (int j = 0; j < sig->c[0]->n; j++) if (sig->c[0]->c[j] && sig->c[0]->c[j]->t == TT_SEQ_EXPR) ast_push(gen, sig->c[0]->c[j]);
     return expr_binary(TT_EVERY, gen, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

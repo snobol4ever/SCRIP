@@ -35,6 +35,7 @@ typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
 #define RK_PV_RAW 32768
+#define RK_PV_ALIAS 65536
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 struct RkDecl {
@@ -78,6 +79,7 @@ tree_t  *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren);
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto);
 void     rkb_adverb(RkB *b, tree_t *t, RkTerm *tm);
 tree_t  *rkb_expr(RkB *b, RkList *L);
+void     rkb_param_key(RkB *b, tree_t *tv, const char *key, int len);
 void     rkb_finish(RkB *b, tree_t *list, const char *text, int len);
 void     rkb_heredoc_stub(RkB *b, RkTerm *it, int from, int to);
 void     rkb_heredoc_body(RkB *b, tree_t *node, int from, int to, int indent, int interp, RkClosure *cl, int ncl);

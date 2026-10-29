@@ -3853,7 +3853,7 @@ static void mark_param_traits(tree_t *tv, const RkTrait *tr, int n, int pref) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
     int q = pos; int e = -1; int ntc = 0;
-    int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
+    int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0, keyfrom = -1, keyto = -1;
     for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; RK_GROW(tf, ntc, ctf, int); RK_GROW(tt, ntc, ctt, int); tf[ntc] = q;
         { int te = t; while (te > q && asc_space((unsigned char) p->s[te - 1])) te--; tt[ntc] = te; } q = t; ntc++;
         }
@@ -3880,7 +3880,8 @@ static int r_parameter(RkP *p, int pos) {
         int v = r_param_var(p, q);
         if (v >= 0) { vfrom = q; vto = v; }
         if (v < 0) { v = r_named_param(p, q); if (v >= 0) { named = 1; int k = q; while (k < v && p->s[k] != '$' && p->s[k] != '@' && p->s[k] != '%' && p->s[k] != '&') k++; vfrom = k; vto = v;
-            while (vto > vfrom && p->s[vto - 1] == ')') vto--; } }
+            while (vto > vfrom && p->s[vto - 1] == ')') vto--;
+            int ki = r_identifier(p, q + 1); if (ki >= 0 && ch(p, ki) == '(') { keyfrom = q + 1; keyto = ki; } } }
         if (v >= 0) { e = v; if (ch(p, e) == '?' || ch(p, e) == '!') { suffix = ch(p, e); e++; } }
         else if (ntc) e = q;
         else {
@@ -3894,12 +3895,13 @@ static int r_parameter(RkP *p, int pos) {
     q = r_traits(p, q); q = ws(p, q);
     RkTrait *ptr = p->tr; int nptr = p->ntr;
     p->pwhere = NULL;
-    for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
+    tree_t *subsig = NULL;
+    for (;;) { int sgn = ch(p, q) == '[' || ch(p, q) == '('; if (sgn) p->sig = NULL; int t = r_post_constraint(p, q); if (t < 0) break; if (sgn && p->sig) subsig = p->sig; q = ws(p, t); }
     tree_t *pw = p->pwhere;
     p->pwhere = NULL;
     int d = r_default_value(p, q);
     RkList *dflt = d >= 0 ? takelst(p) : NULL;
-    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); if (pw) { tree_t *wv = param_var_of(p->tv); if (wv) { tree_t *wc = ast_node_new(TT_FNC); tree_t *wn = ast_node_new(TT_VAR); wc->v.sval = (char *) "__rk_where"; wn->v.sval = (char *) "__rk_where"; ast_push(wc, wn); ast_push(wc, pw); ast_push(wv, wc); } } }
+    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); if (keyfrom >= 0) rkb_param_key(p->B, p->tv, p->s + keyfrom, keyto - keyfrom); if (subsig) { tree_t *sv = param_var_of(p->tv); if (sv) ast_push(sv, subsig); } if (pw) { tree_t *wv = param_var_of(p->tv); if (wv) { tree_t *wc = ast_node_new(TT_FNC); tree_t *wn = ast_node_new(TT_VAR); wc->v.sval = (char *) "__rk_where"; wn->v.sval = (char *) "__rk_where"; ast_push(wc, wn); ast_push(wc, pw); ast_push(wv, wc); } } }
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
