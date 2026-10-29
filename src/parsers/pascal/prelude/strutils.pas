@@ -8,6 +8,7 @@ function LeftStr(s: string; n: integer): string;
 function RightStr(s: string; n: integer): string;
 function MidStr(s: string; start, n: integer): string;
 function IntToBin(vl: int64; dg: integer): string;
+function AnsiReplaceStr(const AText, AFromText, AToText: string): string;
 type TSysCharSet = set of char;
 function WordPosition(wn: integer; const sv: string; const wd: TSysCharSet): integer;
 function ExtractWordPos(wn: integer; const sv: string; const wd: TSysCharSet; var pn: integer): string;
@@ -131,5 +132,24 @@ begin
   end;
   while length(rs) < ln do rs := '0' + rs;
   Dec2Numb := rs
+end;
+function AnsiReplaceStr(const AText, AFromText, AToText: string): string;
+var pp: integer; rs, rest: string;
+begin
+  rs := '';
+  rest := AText;
+  if AFromText = '' then rs := AText
+  else
+  begin
+    pp := Pos(AFromText, rest);
+    while pp > 0 do
+    begin
+      rs := rs + Copy(rest, 1, pp - 1) + AToText;
+      rest := Copy(rest, pp + Length(AFromText), Length(rest));
+      pp := Pos(AFromText, rest)
+    end;
+    rs := rs + rest
+  end;
+  AnsiReplaceStr := rs
 end;
 end.

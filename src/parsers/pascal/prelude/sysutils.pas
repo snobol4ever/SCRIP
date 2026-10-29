@@ -3,6 +3,29 @@ unit sysutils;
 interface
 type
   TDateTime = double;
+  TFileName = string;
+  TStringSplitOptions = (None, ExcludeEmpty);
+  TSearchRec = record
+    Time: LongInt;
+    Size: Int64;
+    Attr: LongInt;
+    Name: string;
+    ExcludeAttr: LongInt;
+    FindHandle: LongInt;
+    Mode: LongInt;
+    PathOnly: string;
+    Pattern: string;
+  end;
+const
+  faReadOnly = 1;
+  faHidden = 2;
+  faSysFile = 4;
+  faVolumeId = 8;
+  faDirectory = 16;
+  faArchive = 32;
+  faSymLink = 64;
+  faAnyFile = 511;
+type
   Exception = class
   private
     FMessage: string;
@@ -45,6 +68,9 @@ function Trim(s: string): string;
 function StrToIntDef(s: string; d: integer): integer;
 function TryStrToInt(s: string; var n: integer): boolean;
 function FileExists(s: string): boolean;
+function FindFirst(const Path: string; Attr: LongInt; var Rec: TSearchRec): LongInt;
+function FindNext(var Rec: TSearchRec): LongInt;
+procedure FindClose(var Rec: TSearchRec);
 function Now: double;
 function Date: double;
 function Time: double;
@@ -196,6 +222,36 @@ end;
 function FileExists(s: string): boolean;
 begin
   FileExists := __pas_fileexists(s)
+end;
+function FindFirst(const Path: string; Attr: LongInt; var Rec: TSearchRec): LongInt;
+begin
+  Rec.Pattern := Path;
+  Rec.Attr := Attr;
+  Rec.Name := __pas_glob_nth(Path, 0);
+  if Rec.Name = '' then
+  begin
+    Rec.FindHandle := 0;
+    FindFirst := 18
+  end
+  else
+  begin
+    Rec.FindHandle := 1;
+    FindFirst := 0
+  end
+end;
+function FindNext(var Rec: TSearchRec): LongInt;
+begin
+  Rec.Name := __pas_glob_nth(Rec.Pattern, Rec.FindHandle);
+  if Rec.Name = '' then FindNext := 18
+  else
+  begin
+    Rec.FindHandle := Rec.FindHandle + 1;
+    FindNext := 0
+  end
+end;
+procedure FindClose(var Rec: TSearchRec);
+begin
+  Rec.FindHandle := -1
 end;
 function Now: double;
 begin

@@ -5,6 +5,7 @@ uses sysutils;
 type
   EListError = class(Exception);
   TDuplicates = (dupAccept, dupIgnore, dupError);
+  TAlignment = (taLeftJustify, taRightJustify, taCenter);
   TStringList = class;
   TStringListSortCompare = function(List: TStringList; Index1, Index2: Integer): Integer;
   TListSortCompare = function(Item1, Item2: Pointer): Integer;

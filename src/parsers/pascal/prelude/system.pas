@@ -1,13 +1,19 @@
 {$H+}
 unit system;
 interface
+var stdout, stderr, erroutput: text;
 function StrLen(const sv: string): integer;
 function BsrQWord(qv: int64): integer;
 function BsrDWord(qv: int64): integer;
 function BsfQWord(qv: int64): integer;
 function BsfDWord(qv: int64): integer;
 function PopCnt(qv: int64): integer;
+function IOResult: integer;
 implementation
+function IOResult: integer;
+begin
+  IOResult := 0
+end;
 function StrLen(const sv: string): integer;
 begin
   StrLen := length(sv)
@@ -68,4 +74,8 @@ begin
   end;
   PopCnt := cn
 end;
+initialization
+  stdout := __pas_stdfile(3);
+  stderr := __pas_stdfile(2);
+  erroutput := __pas_stdfile(2);
 end.

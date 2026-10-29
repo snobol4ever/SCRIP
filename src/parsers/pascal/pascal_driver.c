@@ -99,7 +99,7 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_names_system(const tree_t *t) {
-    static const char *const S[] = { "strlen", "bsrqword", "bsrdword", "bsfqword", "bsfdword", "popcnt", 0 };
+    static const char *const S[] = { "strlen", "bsrqword", "bsrdword", "bsfqword", "bsfdword", "popcnt", "stdout", "stderr", "erroutput", "ioresult", 0 };
     if (!t) return 0;
     if (t->t == TT_VAR && t->v.sval) for (int i = 0; S[i]; i++) if (!strcasecmp(t->v.sval, S[i])) return 1;
     for (int i = 0; i < t->n; i++) if (pas_names_system(t->c[i])) return 1;

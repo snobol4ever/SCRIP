@@ -388,11 +388,13 @@ static pty_t *pt_call(struct pty_state *s, const tree_t *n) {
 }
 static pty_t *pt_strbound(long long len) { pty_t *t = pt_new(PTK_STRING, "string"); t->strmax = (int)(len < 1 ? 1 : len > 1000000 ? 1000000 : len); return t; }
 static long long pt_strlen_max(const pty_t *t) { return t->k == PTK_CHAR ? 1 : (t->k == PTK_STRING ? t->strmax : 0); }
+static int pt_isshort(const pty_t *t) { return t->k == PTK_STRING && (t->cap || (t->name && !strcmp(t->name, "shortstring"))); }
 static pty_t *pt_catbound(struct pty_state *s, const pty_t *a, const pty_t *b) {
     long long la = pt_strlen_max(a), lb = pt_strlen_max(b);
     if (la <= 0 || lb <= 0) return s->tstr;
-    pty_t *t = pt_strbound(la + lb > 255 ? 255 : la + lb);
-    if (la + lb > 255 && s->fpc) t->cap = 1;
+    int cap = s->fpc && (pt_isshort(a) || pt_isshort(b)) && la + lb > 255;
+    pty_t *t = pt_strbound(cap ? 255 : la + lb);
+    t->cap = cap;
     return t;
 }
 static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {

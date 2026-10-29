@@ -1,3 +1,4 @@
+#include <glob.h>
 #include <sys/utsname.h>
 #include "g_runtime.h"
 #include <sys/resource.h>
@@ -17562,6 +17563,82 @@ DESCR_t pas_field_set(DESCR_t *args, int nargs) {
     *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
     return args[2];
 }
+static void pas_stdout_flush_at_exit(void) {
+    extern FILE *fh_get(int);
+    fflush(stdout);
+    for (int i = 0; i < FH_N; i++) if (g_fh[i].name && !strcmp(g_fh[i].name, "StdOut")) { FILE *fp = fh_get(i); if (fp) fflush(fp); }
+}
+static int pas_stdout_fh(void) {
+    extern FILE *fh_get(int);
+    extern int fh_alloc(FILE *);
+    for (int i = 0; i < FH_N; i++) if (g_fh[i].name && !strcmp(g_fh[i].name, "StdOut") && fh_get(i)) return i;
+    int fd = dup(1);
+    FILE *fp = fd >= 0 ? fdopen(fd, "w") : NULL;
+    if (!fp) return 1;
+    int idx = fh_alloc(fp);
+    if (idx < 0) { fclose(fp); return 1; }
+    g_fh[idx].name = rt_heap_strdup_c("StdOut");
+    atexit(pas_stdout_flush_at_exit);
+    return idx;
+}
+static int pas_val_scan(const char *s, int real, long long *iv, double *dv) {
+    if (!s) s = "";
+    size_t n = strlen(s), p = 0;
+    while (p < n && s[p] == ' ') p++;
+    size_t st = p;
+    int neg = 0;
+    if (p < n && (s[p] == '+' || s[p] == '-')) { neg = s[p] == '-'; p++; }
+    if (!real) {
+        int base = 10;
+        if (p < n && s[p] == '$') {
+            base = 16;
+            p++;
+        } else if (p + 1 < n && s[p] == '0' && (s[p + 1] == 'x' || s[p + 1] == 'X')) {
+            base = 16;
+            p += 2;
+        } else if (p < n && s[p] == '%') {
+            base = 2;
+            p++;
+        } else if (p < n && s[p] == '&') {
+            base = 8;
+            p++;
+        }
+        size_t d0 = p;
+        unsigned long long acc = 0;
+        int over = 0;
+        for (; p < n; p++) {
+            int c = (unsigned char)s[p], dg = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : 99;
+            if (dg >= base) break;
+            if (acc > (0x7FFFFFFFFFFFFFFFULL - (unsigned)dg) / (unsigned)base) over = 1;
+            acc = acc * (unsigned)base + (unsigned)dg;
+        }
+        if (p < n) return (int)p + 1;
+        if (p == d0) return (int)p + 1;
+        if (over) return (int)p;
+        *iv = neg ? -(long long)acc : (long long)acc;
+        return 0;
+    }
+    size_t d0 = p;
+    while (p < n && s[p] >= '0' && s[p] <= '9') p++;
+    size_t nd = p - d0;
+    if (p < n && s[p] == '.') { p++; size_t f0 = p; while (p < n && s[p] >= '0' && s[p] <= '9') p++; nd += p - f0; }
+    if (nd == 0) return (int)p + 1;
+    if (p < n && (s[p] == 'e' || s[p] == 'E')) {
+        size_t q = p + 1;
+        if (q < n && (s[q] == '+' || s[q] == '-')) q++;
+        size_t e0 = q;
+        while (q < n && s[q] >= '0' && s[q] <= '9') q++;
+        if (q == e0) return (int)q + 1;
+        p = q;
+    }
+    if (p < n) return (int)p + 1;
+    size_t len = n - st;
+    char *tmp = rt_wsb_alloc(len + 1);
+    memcpy(tmp, s + st, len);
+    tmp[len] = '\0';
+    *dv = strtod(tmp, NULL);
+    return 0;
+}
 static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     switch (id) {
         case PBI_sqr:
@@ -17617,6 +17694,12 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_172;
         case PBI_sstr_fit:
         goto L_pbi_900;
+        case PBI_glob_nth:
+        goto L_pbi_901;
+        case PBI_valcode:
+        goto L_pbi_902;
+        case PBI_valval:
+        goto L_pbi_902;
         case PBI_strf:
         goto L_pbi_182;
         case PBI_dynlen:
@@ -17973,6 +18056,34 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         *out = STRVAL(o);
         return 1;
     }
+    L_pbi_902:
+    ;
+    if ((id == PBI_valcode || id == PBI_valval) && nargs == 2) {
+        long long iv = 0;
+        double dv = 0;
+        int real = IS_INT_fn(args[1]) && args[1].i;
+        int ep = pas_val_scan(IS_INT_fn(args[0]) ? "" : VARVAL_fn(args[0]), real, &iv, &dv);
+        if (id == PBI_valcode) *out = INTVAL(ep);
+        else if (real) *out = REALVAL(ep ? 0.0 : dv);
+        else *out = INTVAL(ep ? 0 : iv);
+        return 1;
+    }
+    L_pbi_901:
+    ;
+    if (id == PBI_glob_nth && nargs == 2) {
+        const char *pat = IS_INT_fn(args[0]) ? NULL : VARVAL_fn(args[0]);
+        long long k = IS_INT_fn(args[1]) ? args[1].i : 0;
+        glob_t g;
+        memset(&g, 0, sizeof g);
+        const char *r = "";
+        if (pat && k >= 0 && glob(pat, 0, NULL, &g) == 0 && (size_t)k < g.gl_pathc) { const char *sl = strrchr(g.gl_pathv[k], '/'); r = sl ? sl + 1 : g.gl_pathv[k]; }
+        size_t rl = strlen(r);
+        char *o = rt_wsb_alloc(rl + 1);
+        memcpy(o, r, rl + 1);
+        globfree(&g);
+        *out = STRVAL(o);
+        return 1;
+    }
     L_pbi_900:
     ;
     if (id == PBI_sstr_fit && nargs == 2) {
@@ -18218,7 +18329,12 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     }
     L_pbi_368:
     ;
-    if (id == PBI_stdfile && nargs == 1) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(IS_INT_fn(args[0]) && args[0].i == 1 ? 1 : 0); return 1; }
+    if (id == PBI_stdfile && nargs == 1) {
+        extern void fh_ensure_init(void);
+        fh_ensure_init();
+        *out = FHVAL(IS_INT_fn(args[0]) && args[0].i >= 1 ? (args[0].i >= 3 ? pas_stdout_fh() : (args[0].i >= 2 ? 2 : 1)) : 0);
+        return 1;
+    }
     L_pbi_369:
     ;
     if (id == PBI_ca_encode && nargs == 3) {
