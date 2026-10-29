@@ -3842,7 +3842,7 @@ static void mark_param_traits(tree_t *tv, const RkTrait *tr, int n, int pref) {
     tree_t *v = param_var_of(tv);
     if (!v) return;
     for (int i = 0; i < n; i++) if (tr[i].word && tr[i].name && !strcmp(tr[i].word, "is")) { if (!strcmp(tr[i].name, "copy")) v->slen |= RK_PV_COPY; if (!strcmp(tr[i].name, "rw")) v->slen |= RK_PV_RW; }
-    if (pref == '\\') v->slen |= RK_PV_RW;
+    if (pref == '\\') v->slen |= RK_PV_RW | RK_PV_RAW;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {

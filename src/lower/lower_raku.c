@@ -93,6 +93,7 @@ static int rk_name_is_byref(rcx_t * cx, const char * name) {
 #define RK_PV_NAMED 4096
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
+#define RK_PV_RAW 32768
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 static int rk_is_scalar_bind(const tree_t * t);
@@ -728,11 +729,12 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_param_is_rw(const tree_t * pv);
+static int rk_param_is_raw(const tree_t * pv) { if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; return pv && pv->t == TT_VAR && (pv->slen & RK_PV_RAW); }
 static tree_t * rk_ti(long long v);
 static int rk_callee_param_rw(const char * nm, int k) {
     for (int i = 0; nm && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) {
         const tree_t * pr = (const tree_t *) g_stage2.proc_table[i].proc;
-        return pr && pr->t == TT_SUB_DECL && (1 + k) < pr->n && rk_param_is_rw(pr->c[1 + k]);
+        return pr && pr->t == TT_SUB_DECL && (1 + k) < pr->n && rk_param_is_rw(pr->c[1 + k]) && !rk_param_is_raw(pr->c[1 + k]);
     }
     return 0;
 }
