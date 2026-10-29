@@ -1964,9 +1964,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_TO: {
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));
-        g_emit.op_sc = -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
         g_emit.op_db_walk = ir_range_kind_is(nd, "db"); g_emit.op_to_trailed = ir_range_trailed(nd);
+        g_emit.op_sc = (g_emit.op_db_walk && nd->n_operands > 2 && nd->operands[2]) ? drive_value_slot(nd->operands[2]) : -1;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }

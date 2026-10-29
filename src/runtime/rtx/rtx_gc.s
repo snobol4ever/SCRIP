@@ -771,8 +771,13 @@ RTX_ENTRY(rt_gc_walk_words_a)
 .Lmk_m_pldb:
     mov     r10, qword ptr [rsi]
     test    r10, r10
-    je      .Lmk_loop
+    je      .Lmk_m_pldb1
     MK_RAW rsi
+.Lmk_m_pldb1:
+    mov     r10, qword ptr [rsi + 64]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+64
     jmp     .Lmk_loop
 .Lmk_m_pldbs:
     mov     edx, dword ptr [rax + 8]

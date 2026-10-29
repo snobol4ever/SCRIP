@@ -3876,6 +3876,8 @@ typedef struct {
     int recl_since;
     int frag_top;
     int tx_pins;
+    void *ix;
+    int ix_off;
 } pl_db_t;
 #define PL_DB_FRAG_PAGES(f) (((f) >> 20) & 0x3FF)
 #define PL_DB_FRAG_HELD 0x40000000
@@ -3890,8 +3892,144 @@ _Static_assert(sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_slot_t, er
     "xa_flat.cpp's chain-omega and bb_to.cpp's db walk bake the slot layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
 _Static_assert(__builtin_offsetof(pl_db_t, s) == 0 && __builtin_offsetof(pl_db_t, n) == 8 && __builtin_offsetof(pl_db_t, next_ref) == 20 && __builtin_offsetof(pl_db_t, head_idx) == 24,
     "xa_flat.cpp's packet entry and bb_to.cpp's db walk bake the store layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
+_Static_assert(__builtin_offsetof(pl_db_t, ix) == 64, "rtx_gc.s's HB_PLDB visitor marks the index block through the word at +64 (ARCH-PROLOG-DATABASE section 7)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ** pl_db_cell_addr(void *root, int64_t k, int create);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_IX_ATOM 1
+#define PL_IX_INT 2
+#define PL_IX_FUNC 3
+#define PL_IX_OTHER 4
+#define PL_IX_MIN 8
+typedef struct { int cap; int hcap; int hused; int pad; } pl_ix_t;
+typedef struct { int64_t key; int first; int last; } pl_ix_ent_t;
+static int * pl_ix_kn(pl_ix_t *x) { return (int *)(x + 1); }
+static pl_ix_ent_t * pl_ix_tab(pl_ix_t *x) { return (pl_ix_ent_t *)(pl_ix_kn(x) + x->cap); }
+static size_t pl_ix_bytes(int cap, int hcap) { return sizeof(pl_ix_t) + (size_t)cap * sizeof(int) + (size_t)hcap * sizeof(pl_ix_ent_t); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_ix_cell_key(const pl_cell_t *c) {
+    pl_cell_t *a = pl_deref((pl_cell_t *)c);
+    if ((int)a->v == DT_PLATOM) return (int64_t)(((uint64_t)(uint32_t)(int)a->i << 3) | PL_IX_ATOM);
+    if ((int)a->v == DT_I) return (a->i >= -((int64_t)1 << 60) && a->i < ((int64_t)1 << 60)) ? (int64_t)(((uint64_t)a->i << 3) | PL_IX_INT) : (int64_t)PL_IX_OTHER;
+    if ((int)a->v == DT_PLREF) return (int64_t)(((uint64_t)a->slen << 3) | PL_IX_FUNC);
+    if (pl_cell_unbound(a) || pl_attv_is(a)) return 0;
+    return (int64_t)PL_IX_OTHER;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const pl_cell_t * pl_ix_first_arg(const pl_cell_t *head) {
+    pl_cell_t *h = pl_deref((pl_cell_t *)head);
+    return ((int)h->v == DT_PLREF && h->p && plc_fid_arity(h->slen) >= 1) ? &((pl_cell_t *)h->p)[0] : (const pl_cell_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_ix_slot_key(const pl_db_t *db, int i) {
+    pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl);
+    const pl_cell_t *a0;
+    if ((int)pair->v != DT_PLREF || !pair->p) return 0;
+    a0 = pl_ix_first_arg(&((pl_cell_t *)pair->p)[0]);
+    return a0 ? pl_ix_cell_key(a0) : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_ix_head_key(const pl_db_t *db, const void *head) {
+    pl_cell_t *th = pl_deref((pl_cell_t *)head), *sh, *s0;
+    const pl_cell_t *a0;
+    if (db->n < 1) return 0;
+    s0 = pl_deref((pl_cell_t *)&db->s[0].cl);
+    if ((int)s0->v != DT_PLREF || !s0->p) return 0;
+    sh = pl_deref(&((pl_cell_t *)s0->p)[0]);
+    if ((int)th->v != DT_PLREF || (int)sh->v != DT_PLREF || th->slen != sh->slen) return 0;
+    a0 = pl_ix_first_arg(th);
+    return a0 ? pl_ix_cell_key(a0) : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_ix_target_key(const pl_db_t *db, const void *target) {
+    pl_cell_t *tg = pl_deref((pl_cell_t *)target), *s0;
+    if (db->n < 1) return 0;
+    s0 = pl_deref((pl_cell_t *)&db->s[0].cl);
+    if ((int)tg->v != DT_PLREF || !tg->p || (int)s0->v != DT_PLREF || tg->slen != s0->slen) return 0;
+    return pl_ix_head_key(db, &((pl_cell_t *)tg->p)[0]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_ix_ent_t * pl_ix_find(pl_ix_t *x, int64_t key) {
+    pl_ix_ent_t *t = pl_ix_tab(x);
+    uint64_t m = (uint64_t)x->hcap - 1, h = (uint64_t)key * 0x9E3779B97F4A7C15ull;
+    h ^= h >> 29;
+    for (uint64_t j = h & m;; j = (j + 1) & m) { if (t[j].key == key) return &t[j]; if (t[j].key == 0) return (pl_ix_ent_t *)0; }
+}
+static int pl_ix_step(const pl_db_t *db, int64_t keyed, int i) { return keyed ? pl_ix_kn((pl_ix_t *)db->ix)[i] : i + 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ix_link(pl_ix_t *x, int i, int64_t key, int prepend) {
+    pl_ix_ent_t *t = pl_ix_tab(x);
+    int *kn = pl_ix_kn(x);
+    uint64_t m = (uint64_t)x->hcap - 1, h = (uint64_t)key * 0x9E3779B97F4A7C15ull, j;
+    h ^= h >> 29;
+    for (j = h & m; t[j].key != key && t[j].key != 0; j = (j + 1) & m) { }
+    if (t[j].key == 0) {
+        t[j].key = key;
+        t[j].first = i;
+        t[j].last = i;
+        kn[i] = -1;
+        x->hused++;
+    } else if (prepend) {
+        kn[i] = t[j].first;
+        t[j].first = i;
+    } else {
+        kn[t[j].last] = i;
+        kn[i] = -1;
+        t[j].last = i;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ix_build(pl_db_t *db) {
+    extern void * rt_heap_alloc_c(size_t);
+    int cap = db->cap, hcap = 2 * db->cap;
+    pl_ix_t *x = (pl_ix_t *)rt_heap_alloc_c(pl_ix_bytes(cap, hcap));
+    if (!x) { db->ix = (void *)0; return; }
+    memset(x, 0, pl_ix_bytes(cap, hcap));
+    x->cap = cap;
+    x->hcap = hcap;
+    for (int j = db->head_idx; j >= 0; j = db->s[j].next_idx) { int64_t k = pl_ix_slot_key(db, j); if (!k) { db->ix = (void *)0; db->ix_off = 1; return; } pl_ix_link(x, j, k, 0); }
+    db->ix = (void *)x;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_ix_note(pl_db_t *db, int i, int prepend) {
+    pl_ix_t *x = (pl_ix_t *)db->ix;
+    int64_t k;
+    if (db->ix_off) return;
+    k = pl_ix_slot_key(db, i);
+    if (!k) { db->ix = (void *)0; db->ix_off = 1; return; }
+    if (!x) { if (db->n >= PL_IX_MIN) pl_ix_build(db); return; }
+    if (i >= x->cap || (x->hused + 1) * 2 > x->hcap) { pl_ix_build(db); return; }
+    pl_ix_link(x, i, k, prepend);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_cand_first(void *db_v, void *target) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    pl_ix_t *x;
+    pl_ix_ent_t *e;
+    int64_t k;
+    if (!db) return -1;
+    x = (pl_ix_t *)db->ix;
+    if (!x) return db->head_idx;
+    k = pl_ix_target_key(db, target);
+    if (!k) return db->head_idx;
+    e = pl_ix_find(x, k);
+    return e ? e->first : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_cand_next(void *db_v, int i, void *target) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    pl_ix_t *x;
+    int64_t k;
+    if (!db || i < 0 || i >= db->n) return -1;
+    x = (pl_ix_t *)db->ix;
+    if (!x) return db->s[i].next_idx;
+    k = pl_ix_target_key(db, target);
+    if (!k) return db->s[i].next_idx;
+    if (i < x->cap && pl_ix_slot_key(db, i) == k) return pl_ix_kn(x)[i];
+    for (int j = db->s[i].next_idx; j >= 0; j = db->s[j].next_idx) if (pl_ix_slot_key(db, j) == k) return j;
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_db_get(void *root, int64_t k) {
     if (!root || k < 0) return (void *)0;
@@ -3915,6 +4053,8 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->recl_since = 0;
             d->frag_top = -1;
             d->tx_pins = 0;
+            d->ix = (void *)0;
+            d->ix_off = 0;
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -4833,6 +4973,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
                 db->tail_idx = i;
             }
             db->n++;
+            pl_ix_note(db, i, prepend);
             if (tx) pl_db_tx_note(root, db, 0, i);
             if (recompile) pl_db_fragment(root, db, i);
         }
@@ -5190,7 +5331,9 @@ int rt_pl_db_match_erase(void *root, void *db_v, void *goal_term) {
     int ar = 0;
     int key_i = -1;
     if (!db || !goal_term) return 0;
-    for (int i = 0; i < db->n; i++) {
+    int64_t kk = db->ix ? pl_ix_head_key(db, goal_term) : 0;
+    pl_ix_ent_t *ke = kk ? pl_ix_find((pl_ix_t *)db->ix, kk) : (pl_ix_ent_t *)0;
+    for (int i = kk ? (ke ? ke->first : -1) : 0; kk ? i >= 0 : i < db->n; i = pl_ix_step(db, kk, i)) {
         if (db->s[i].erased) continue;
         {
             pl_cell_t pair = plc_copy(&db->s[i].cl);

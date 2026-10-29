@@ -2024,6 +2024,7 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     }
     ir_operand_push(to, kn);
     ir_operand_push(to, z);
+    ir_operand_push(to, tv);
     ir_operand_push(cp, kn);
     ir_operand_push(cp, to);
     ir_operand_push(uni, cp);
