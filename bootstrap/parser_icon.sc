@@ -38,15 +38,6 @@ IcnEscT['b'] = bs;  IcnEscT['B'] = bs;  IcnEscT['d'] = CHAR(127); IcnEscT['D'] =
 IcnEscT['f'] = ff;  IcnEscT['F'] = ff;  IcnEscT['l'] = nl; IcnEscT['L'] = nl; IcnEscT['n'] = nl; IcnEscT['N'] = nl;
 IcnEscT['r'] = cr;  IcnEscT['R'] = cr;  IcnEscT['t'] = tab; IcnEscT['T'] = tab; IcnEscT['v'] = vt; IcnEscT['V'] = vt;
 IcnEscT['8'] = bs;  IcnEscT['9'] = tab;
-function IcnDigits(d, base, v, c) {
-    v = 0;
-    while (d ? (POS(0) LEN(1) . c) = ) {
-        hex_digits ? (BREAK(c) . c);
-        v = v * base + (GT(SIZE(c), 15) SIZE(c) - 6, SIZE(c));
-    }
-    IcnDigits = v;
-    return;
-}
 /* an integer literal's value as the C lexer computes it (icon_lex.c scan_number): decimal, or <radix>r<digits> with   */
 /* 0-9 a-z A-Z as digit values; past 9223372036854775807 it is a large integer, TT_FNC (TT_VAR integer) (TT_QLIT text). */
 IcnDigV = TABLE(64);
@@ -55,48 +46,39 @@ while (IcnDigI = LT(IcnDigI, 36) IcnDigI + 1) {
     IcnDigV[SUBSTR('0123456789abcdefghijklmnopqrstuvwxyz', IcnDigI, 1)] = IcnDigI - 1;
     IcnDigV[SUBSTR('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', IcnDigI, 1)] = IcnDigI - 1;
 }
-function IcnIntLit(x, radix, ds, txt, val, big, c, d) {
-    IcnIntLit = .dummy;
-    radix = 10; ds = x; txt = x;
-    if (x ? (POS(0) SPAN(digits) . radix ANY('rR') REM . ds)) { radix = radix + 0; txt = radix 'r' ds; }
-    val = 0; big = 0;
-    while (ds ? (POS(0) LEN(1) . c) = ) {
-        d = IcnDigV[c];
-        if (EQ(big, 0)) {
-            if (GT(val, (9223372036854775807 - d) / radix)) { big = 1; }
-            else { val = val * radix + d; }
-        }
-    }
-    if (EQ(big, 0)) { Shift('TT_ILIT', '' val); nreturn; }
-    Shift('TT_VAR', 'integer');
-    Shift('TT_QLIT', txt);
-    Reduce('TT_FNC', 2);
-    nreturn;
-}
-function IcnUnesc(s, cset, out, part, e, d, c) {
-    if (~(s ? BREAK(bSlash '_'))) { IcnUnesc = s; return; }
-    out = '';
-    while (s ? (POS(0) BREAK(bSlash '_') . part LEN(1) . e) = ) {
-        out = out part;
-        if (IDENT(e, '_')) {
-            if (DIFFER(cset)) { out = out '_'; }
-            else if (s ? (POS(0) (cr | '') nl (SPAN(' ' tab) | '')) = ) { out = out; }
-            else { out = out '_'; }
-        } else if (s ? (POS(0) 'x' ((ANY(hex_digits) (ANY(hex_digits) | '')) | '') . d) = ) {
-            out = out CHAR(IcnDigits(d, 16));
-        } else if (s ? (POS(0) '^' LEN(1) . c) = ) {
-            &ALPHABET ? (BREAK(c) . d);
-            out = out CHAR(REMDR(SIZE(d), 32));
-        } else if (s ? (POS(0) (ANY(oct_digits) (ANY(oct_digits) (ANY(oct_digits) | '') | '')) . d) = ) {
-            out = out CHAR(REMDR(IcnDigits(d, 8), 256));
-        } else if (s ? (POS(0) LEN(1) . c) = ) {
-            d = IcnEscT[c];
-            out = out (DIFFER(d) d, c);
-        }
-    }
-    IcnUnesc = out s;
-    return;
-}
+/* a literal is decoded by a nested match, at match time and AFTER its closing quote (ARBNO is shortest first: a fill before the quote   */
+/* would run on every prefix), over the text between the two cursors, and the value is filed in a table KEYED BY THE RAW TEXT (IcnUS      */
+/* string, IcnUC cset, IcnIV small integer, IcnIB large-integer text; cleared per parse). A queued Shift reads its argument at replay,    */
+/* after the whole match, so a value left in a global is the LAST literal's for every Shift (measured: "cd" "cd"); thx is assigned by    */
+/* the same queue just before the Shift and is the key. The scratch variables iu* and ii* live inside one nested match only.             */
+IcnDecArm   = ARBNO(NOTANY(bSlash '_')) $ iup ANY(bSlash '_') $ iue *DIFFER((iuo = iuo iup) 'x')
+              ( *IDENT(iue, '_') ( *DIFFER(iucs) *DIFFER((iuo = iuo '_') 'x') | (cr | '') nl (SPAN(' ' tab) | '') | *DIFFER((iuo = iuo '_') 'x') )
+              | 'x' *DIFFER((iuv = 0) 'x')
+                ( ANY(hex_digits) $ iuc *DIFFER((iuv = IcnDigV[iuc]) 'x') ( ANY(hex_digits) $ iuc *DIFFER((iuv = iuv * 16 + IcnDigV[iuc]) 'x') | epsilon ) | epsilon )
+                *DIFFER((iuo = iuo CHAR(iuv)) 'x')
+              | '^' LEN(1) $ iuc *DIFFER(((&ALPHABET ? (BREAK(iuc) . iud)) (iuo = iuo CHAR(REMDR(SIZE(iud), 32)))) 'x')
+              | ANY(oct_digits) $ iuc *DIFFER((iuv = IcnDigV[iuc]) 'x')
+                ( ANY(oct_digits) $ iuc *DIFFER((iuv = iuv * 8 + IcnDigV[iuc]) 'x')
+                  ( ANY(oct_digits) $ iuc *DIFFER((iuv = iuv * 8 + IcnDigV[iuc]) 'x') | epsilon ) | epsilon )
+                *DIFFER((iuo = iuo CHAR(REMDR(iuv, 256))) 'x')
+              | LEN(1) $ iuc *DIFFER((iuo = iuo (DIFFER(IcnEscT[iuc]) IcnEscT[iuc], iuc)) 'x')
+              );
+IcnDec      = *DIFFER((iuo = '') 'x') *DIFFER((iur ? (POS(0) ARBNO(*IcnDecArm) ARBNO(NOTANY(bSlash '_')) $ iup RPOS(0) *DIFFER((iuo = iuo iup) 'x'))) 'x');
+IcnStrFill  = *DIFFER((iur = SUBSTR(Src, iua + 1, iub - iua - 1)) 'x') ( *DIFFER(IcnUS[iur])
+              | *DIFFER(iur ? (POS(0) BREAK(bSlash '_') LEN(1))) *DIFFER((iucs = '') 'x') *IcnDec *DIFFER((IcnUS[iur] = iuo) 'x')
+              | epsilon );
+IcnCsetFill = *DIFFER((iur = SUBSTR(Src, iua + 1, iub - iua - 1)) 'x') ( *DIFFER(IcnUC[iur])
+              | *DIFFER(iur ? (POS(0) BREAK(bSlash '_') LEN(1))) *DIFFER((iucs = 1) 'x') *IcnDec *DIFFER((IcnUC[iur] = iuo) 'x')
+              | epsilon );
+IcnDigArm   = LEN(1) $ iic *DIFFER((iid = IcnDigV[iic]) 'x')
+              ( *EQ(iib, 1) | *GT(iiv, (9223372036854775807 - iid) / iir) *DIFFER((iib = 1) 'x') | *DIFFER((iiv = iiv * iir + iid) 'x') );
+IcnIntFill  = ( *DIFFER(IcnIV[iik]) | *DIFFER(IcnIB[iik])
+              | *DIFFER((iik ? (POS(0) ( SPAN(digits) $ iix ANY('rR') @iiq *DIFFER(((iir = iix + 0) (iit = iir 'r' SUBSTR(iik, iiq + 1, SIZE(iik) - iiq))) 'x')
+                                        | *DIFFER(((iir = 10) (iit = iik)) 'x') )
+                                *DIFFER(((iiv = 0) (iib = 0)) 'x') ARBNO(*IcnDigArm) RPOS(0)
+                                ( *EQ(iib, 1) *DIFFER((IcnIB[iik] = iit) 'x') | *DIFFER((IcnIV[iik] = '' iiv) 'x') ))) 'x') );
+IcnIntLit   = ( *DIFFER(IcnIB[iik]) epsilon . *Shift('TT_VAR', 'integer') epsilon . *Shift('TT_QLIT', IcnIB[thx]) epsilon . *Reduce('TT_FNC', 2)
+              | epsilon . *Shift('TT_ILIT', IcnIV[thx]) );
 semi_opt     = FENCE(';' | epsilon);
 $'if'        =  *$' ' *Id $ tx *IDENT(tx, 'if')       ;
 $'then'      =  *$' ' *Id $ tx *IDENT(tx, 'then')     ;
@@ -328,10 +310,10 @@ kw_expr      = *$' ' *Id $ tx *DIFFER(KwT[tx]) *KwT[tx];
 Expr11 = (   *kw_expr
          |   *ListCtor
          |   *Call  |  *Paren  |  *Compound
-         |   *$' ' "'" (*csetchars) . thx . *Shift('TT_CSET', IcnUnesc(thx, 1)) "'"
-         |   *$' ' '"' (*strchars) . thx . *Shift('TT_QLIT', IcnUnesc(thx)) '"'
+         |   *$' ' "'" @iua (*csetchars) . thx . *Shift('TT_CSET', IcnUC[thx]) "'" @iub *IcnCsetFill
+         |   *$' ' '"' @iua (*strchars) . thx . *Shift('TT_QLIT', IcnUS[thx]) '"' @iub *IcnStrFill
          |   *$' ' (*real_pat) . thx . *Shift('TT_FLIT', thx)
-         |   *$' ' (*int_pat) . thx . *IcnIntLit(thx)
+         |   *$' ' (*int_pat) $ iik . thx *IcnIntFill *IcnIntLit
          |   *$' ' ('&' *Id) . thx . *Shift('TT_VAR', thx)
          |   *$' ' (*id_pat) . thx . *Shift('TT_VAR', thx)
          );
@@ -766,6 +748,10 @@ while (LE(0, 1)) {
         pf_a = TIME();
         InitCounter();
         InitStack();
+        IcnUS = TABLE(32);
+        IcnUC = TABLE(32);
+        IcnIV = TABLE(64);
+        IcnIB = TABLE(8);
         if (Src ? *Compiland) {
             ptree = Pop();
             pf_parse = pf_parse + (TIME() - pf_a);
