@@ -4918,6 +4918,28 @@ static PNodeList *pas_pf_formal(const char *name, const char *sig) {
     for (int k = 1; k <= 3; k++) pnl_push(l, leaf_s(TT_VAR, pas_pf_env_name(name, k)));
     return l;
 }
+static const char *pas_pf_no_self(const char *sig) {
+    const char *p, *q, *rest;
+    char *s;
+    int dep = 0;
+    if (!sig || !sig[0] || sig[1] != '(') return NULL;
+    p = q = sig + 2;
+    while (*q && !(dep == 0 && (*q == ';' || *q == ')'))) { if (*q == '(') dep++; else if (*q == ')') dep--; q++; }
+    if (q == p) return NULL;
+    rest = *q == ';' ? q + 1 : q;
+    s = (char *)ct_zalloc(1, strlen(rest) + 3);
+    s[0] = sig[0];
+    s[1] = '(';
+    memcpy(s + 2, rest, strlen(rest));
+    return s;
+}
+static void pas_pf_variable(const char *name, const char *sig, PNodeList *decl) {
+    for (int i = g_lower.pas.sem.pas_scope.n - 1; i >= 0; i--) {
+        PasDef *d = &g_lower.pas.sem.pas_scope.defs[i];
+        if (d->name && !d->fld && !strcmp(d->name, name)) { d->sig = sig; d->formal = 1; break; }
+    }
+    for (int k = 1; k <= 3; k++) { const char *en = pas_pf_env_name(name, k); pas_scope_define(en); pas_local_add(en); pnl_push(decl, leaf_s(TT_VAR, en)); }
+}
 static const char *pas_pf_heading(const char *name, PNodeList *params, char k, const char *rtype) {
     if ((!params || params->count == 0) && name) for (int i = g_lower.pas.sem.pas_scope.nfwd - 1; i >= 0; i--)
         if (g_lower.pas.sem.pas_scope.fwd[i].name && g_lower.pas.sem.pas_scope.fwd[i].sig && !strcmp(g_lower.pas.sem.pas_scope.fwd[i].name, name)) {
@@ -5158,7 +5180,8 @@ static void pas_pf_candidate(const PasDef *d) {
 }
 static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const char *callee, int pos) {
     const char *nm = NULL;
-    if (a && a->t == TT_VAR) nm = a->v.sval;
+    tree_t *obj = NULL;
+    if (a && a->t == TT_FNC && a->n == 3 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_mptr")) { nm = a->c[1]->v.sval; obj = a->c[2]; } else if (a && a->t == TT_VAR) nm = a->v.sval;
     else if (a && a->t == TT_FNC && a->n >= 1 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval) nm = (!strcmp(a->c[0]->v.sval, "__pas_pcall") && a->n == 4) ? a->c[1]->v.sval :
         (a->n == 1 ? a->c[0]->v.sval : NULL);
     if (!nm && a && a->t == TT_ILIT) {
@@ -5171,7 +5194,7 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
     if (!d) {
         fprintf(stderr, "pascal: ISO 7185 6.6.3.4 violation: the actual-parameter %d of '%s' shall be a %s-identifier\n", pos, callee, *fsig == 'F' ? "function" : "procedure");
         g_lower.pas.sem.pas_iso_errors++;
-    } else if (strcmp(d->sig, fsig)) {
+    } else if (strcmp(d->sig, fsig) && !(obj && pas_pf_no_self(d->sig) && !strcmp(pas_pf_no_self(d->sig), fsig))) {
         fprintf(stderr, "pascal: ISO 7185 6.6.3.6 violation: the actual-parameter %d of '%s' is '%s', whose heading %s is not congruous with the formal-parameter's %s\n", pos, callee, nm, d->sig,
             fsig);
         g_lower.pas.sem.pas_iso_errors++;
@@ -5190,7 +5213,7 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
     if (d) pas_pf_candidate(d);
     pnl_push(out, ilit(d ? d->rid : 0));
     pnl_push(out, ilit(-1));
-    for (int k = 1; k <= 3; k++) { pnl_push(out, k < lvl ? mk_fnc1("__pas_display_get", ilit(k)) : ilit(0)); pnl_push(out, ilit(-1)); }
+    for (int k = 1; k <= 3; k++) { pnl_push(out, (k == 1 && obj) ? obj : (k < lvl ? mk_fnc1("__pas_display_get", ilit(k)) : ilit(0))); pnl_push(out, ilit(-1)); }
 }
 static PNodeList *pas_pf_actuals(const char *callee, PNodeList *args) {
     const PasDef *cd = pas_pf_lookup(callee);
@@ -5238,8 +5261,11 @@ static void pas_pf_resolve(tree_t *e) {
     ast_push(chain, leaf_s(TT_QLIT, "a procedural or functional parameter denotes no routine"));
     for (int ci = g_lower.pas.sem.pas_scope.ncand - 1; ci >= 0; ci--) {
         const PasDef *c = &g_lower.pas.sem.pas_scope.cand[ci];
-        if (strcmp(c->sig, fs)) continue;
+        const char *ns = (strcmp(c->sig, fs) && !strncmp(c->name, "__pc_", 5)) ? pas_pf_no_self(c->sig) : NULL;
+        int meth = ns && !strcmp(ns, fs);
+        if (strcmp(c->sig, fs) && !meth) continue;
         PNodeList *al = pnl_new();
+        if (meth) { pnl_push(al, leaf_s(TT_VAR, pas_pf_env_name(pp, 1))); pnl_push(al, ilit(-1)); }
         for (int i = 4; i < e->n; i++) { pnl_push(al, pas_tree_clone(e->c[i])); pnl_push(al, ilit(-1)); }
         tree_t *call = mk_call(c->name, al);
         if (c->depth >= 1 && call && call->t == TT_FNC) call = pas_pf_envcall(call, pp, c->depth + 1, n);
@@ -5586,12 +5612,26 @@ static tree_t *pas_dynarr_append_src(const tree_t *lhs, const tree_t *set) {
     for (int i = 0; i < set->n; i++) ast_push(seq, bin(TT_ASSIGN, bin(TT_IDX, a, bin(TT_SUB, pas_src_call("length", a, NULL), ilit(set->n - i))), set->c[i]));
     return seq;
 }
+static tree_t *pas_pf_assign(const tree_t *n) {
+    const char *nm = n->c[0]->v.sval;
+    const PasDef *d = pas_pf_lookup(nm);
+    PNodeList *c = pnl_new();
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    if (IS(n->c[1], TT_VAR) && n->c[1]->v.sval && !strcasecmp(n->c[1]->v.sval, "nil")) for (int k = 0; k < 4; k++) {
+        pnl_push(c, ilit(0));
+        pnl_push(c, ilit(-1));
+    } else pas_pf_closure(c, E_expression(n->c[1]).node, d->sig, nm, 1);
+    ast_push(seq, mk_assign(leaf_s(TT_VAR, nm), c->items[0]));
+    for (int k = 1; k <= 3; k++) ast_push(seq, mk_assign(leaf_s(TT_VAR, pas_pf_env_name(nm, k)), c->items[2 * k]));
+    return seq;
+}
 static pval E_assignment(const tree_t *n) {
     pval v[6];
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_ASSIGN)) {
+        if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && pas_pf_is_formal(n->c[0]->v.sval)) { out.node = pas_pf_assign(n); return out; }
         v[1] = E_selector(n->c[0]);
         if (n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && !strcmp(n->c[2]->v.sval, "+=") && IS(n->c[1], TT_SET) && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
             return E_compound_statement(pas_dynarr_append_src(n->c[0], n->c[1]));
@@ -5782,6 +5822,10 @@ static pval E_call_with_args(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
+        if (n->n == 3 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "__pas_mptr")) {
+            out.node = mk_fnc2("__pas_mptr", leaf_s(TT_QLIT, n->c[1]->v.sval), E_expression(n->c[2]).node);
+            return out;
+        }
         if (n->n >= 2 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *sh = pas_strhlp_call(n); if (sh) return E_call_with_args(sh); }
         const char *src0 = tok_s(n->c[0]);
         const char *dflt = NULL;
@@ -7769,6 +7813,12 @@ static pval E_var_decl(const tree_t *n) {
                     }
                     pas_local_add(id->v.sval);
                 }
+            }
+            {
+                const char *_psig = g_lower.pas.sem.pas_pend_proctype ? g_lower.pas.sem.pas_pend_proctype :
+                    (g_lower.pas.sem.pas_pend_typename ? pas_proctype_get(g_lower.pas.sem.pas_pend_typename) : NULL);
+                int _np = v[1].list ? v[1].list->count : 0;
+                for (int _pi = 0; _psig && _pi < _np; _pi++) if (v[1].list->items[_pi] && v[1].list->items[_pi]->v.sval) pas_pf_variable(v[1].list->items[_pi]->v.sval, _psig, v[1].list);
             }
             if (g_lower.pas.sem.pas_pend_typename && !strcmp(g_lower.pas.sem.pas_pend_typename, "pchar") && v[1].list) {
                 int _n0 = v[1].list->count;

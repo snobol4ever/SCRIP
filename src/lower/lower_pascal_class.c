@@ -559,6 +559,25 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
         return e;
     }
     if (PC_IS(e, TT_KEYWORD) && pc_eq(pc_sv(e), "inherited")) return pc_inherited(x, e);
+    if (PC_IS(e, TT_ADDR) && e->n == 1) {
+        tree_t *t = e->c[0], *obj = NULL;
+        pc_class *mc = NULL;
+        pc_meth *mm = NULL;
+        if (PC_IS(t, TT_FIELD) && t->n == 2) {
+            pc_ty b = pc_type(x, t->c[0]);
+            if (b.cls && !b.ref) { mc = b.cls; mm = pc_pick(x, mc, pc_sv(t->c[1]), NULL, 0); obj = pc_expr(x, t->c[0]); }
+        } else if (PC_IS(t, TT_VAR) && pc_ident_is_member(x, pc_sv(t))) {
+            mc = pc_member_owner(x, pc_sv(t));
+            mm = pc_pick(x, mc, pc_sv(t), NULL, 0);
+            obj = pc_self(x, pc_sv(t));
+        }
+        if (mm && !pc_eq(mm->kind, "class") && !pc_eq(mm->kind, "constructor") && !pc_eq(mm->kind, "destructor")) {
+            pc_meth *root = pc_meth_root(mm);
+            const char *impl = root ? pc_name(pc_impl_name(root->owner, root->name), "__vd", NULL) : (mm->has_impl ? pc_impl_name(mm->owner, mm->name) : NULL);
+            if (root) root->used = 1;
+            if (impl) { tree_t *mp = pc_fnc("__pas_mptr"); ast_push(mp, pc_leaf(TT_QLIT, impl)); ast_push(mp, obj); return mp; }
+        }
+    }
     if (PC_IS(e, TT_FNC) && e->n >= 1) {
         tree_t *h = e->c[0];
         if (PC_IS(h, TT_VAR)) {
