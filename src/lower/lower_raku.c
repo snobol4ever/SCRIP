@@ -1401,6 +1401,8 @@ static tree_t * rk_state_desugar(const tree_t * t) {
     return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_diverges(const tree_t * t) { return t && (t->t == TT_RETURN || ((t->t == TT_SEQ_EXPR || t->t == TT_SEQ) && t->n > 0 && rk_diverges(t->c[t->n - 1]))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -2586,7 +2588,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const char * tname = lp_strdup(tn);
             IR_t * jv = build(cx, IR_VAR, γ, ω);
             IR_LIT(jv).sval = tname;
-            int dt = t->c[1] && t->c[1]->t == TT_RETURN, df = t->c[2] && t->c[2]->t == TT_RETURN;
+            int dt = rk_diverges(t->c[1]), df = rk_diverges(t->c[2]);
             IR_t * at = dt ? NULL : build(cx, IR_ASSIGN, jv, ω);
             if (at) IR_LIT(at).sval = tname;
             IR_t * af = df ? NULL : build(cx, IR_ASSIGN, jv, ω);
