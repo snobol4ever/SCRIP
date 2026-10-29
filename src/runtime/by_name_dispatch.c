@@ -24646,7 +24646,7 @@ typedef struct {
     uint64_t planes[4];
     int64_t k_level;
     pl_psched_t *sched;
-    uint64_t clen, sched_t;
+    uint64_t clen, sched_t, hdr;
 } pl_pseg_t;
 struct pl_psched_s { uint64_t entry_rsp, ret_pc, rbp, rbx, r12, r13, r14, r15; uint64_t planes[4]; int64_t k_level; int64_t leader; };
 typedef struct { void *blk; void *sched; } pl_pseg_pair_t;
@@ -24711,6 +24711,13 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
             memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
         }
         b->sched_t = (uint64_t)(uintptr_t)lo_t;
+        if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * 15 <= hi) {
+            DESCR_t *c = (DESCR_t *)(pl_pseg_bytes(b) + ((char *)(uintptr_t)b->hdr - b->orig_lo));
+            c[12] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
+            c[13] = (DESCR_t){ .v = DT_I, .i = (int64_t)s->rbp };
+            c[14] = (DESCR_t){ .v = DT_I, .i = (int64_t)s->ret_pc };
+            if (getenv("SCRIP_SL_TRACE")) fprintf(stderr, "[SL] triple hdr=%p rec=%#lx rbp=%#lx pc=%#lx\n", (void *)(uintptr_t)b->hdr, (unsigned long)c[12].i, (unsigned long)c[13].i, (unsigned long)c[14].i);
+        }
         b->sched = s;
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
         g_runtime.abi.rt_k_level = (int)b->k_level;
@@ -24743,6 +24750,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
             for (int k = 0; k < 4; k++) b->planes[k] = g_rtccb[5 + k];
             b->k_level = g_runtime.abi.rt_k_level;
             b->sched = (pl_psched_t *)0;
+            b->hdr = (uint64_t)(uintptr_t)h;
             memcpy(pl_pseg_bytes(b), orig_lo, len);
             for (uint64_t i = 0; i < tn; i++) {
                 char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 64;

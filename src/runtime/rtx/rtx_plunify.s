@@ -689,7 +689,7 @@ PL_ROOTCTX_LEAF(tbl_sl)
 #define PSEG_R14 64
 #define PSEG_R15 72
 #define PSEG_CLEN 128
-#define PSEG_BYTES 144
+#define PSEG_BYTES 152
 #define PSCH_ENTRY 0
 #define PSCH_RET 8
 #define PSCH_RBP 16
