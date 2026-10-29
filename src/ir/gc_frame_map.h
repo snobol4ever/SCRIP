@@ -12,6 +12,7 @@
 #define GC_FRAME_MAP_ICN_PROC 16u
 #define GC_FRAME_MAP_ICN_BLOCK 32u
 #define GC_FRAME_MAP_ICN_PINNED 64u
+#define GC_FRAME_MAP_TBL_HDR 128u
 #define GC_LAY_DESCR 0u
 #define GC_LAY_RAW 1u
 #define GC_LAY_PTR_GC 2u

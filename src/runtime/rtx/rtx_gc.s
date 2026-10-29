@@ -4,7 +4,8 @@
 #define HB_AGGV 206
 #define HB_DINST 213
 #define HB_DVEC 214
-#define MK_MOVES 0x7FDE7
+#define MK_MOVES 0xFFDE7
+#define GC_FRAME_MAP_TBL_HDR 128
 #define DATA_ELEMS_SLEN 1
 #define PROCVAL_SLEN 0xFFFFFFFE
 #define PROCVAL_BUILTIN_SLEN 0xFFFFFFFC
@@ -140,7 +141,7 @@
 318:
     movzx   edx, word ptr [rax + 12]
     sub     edx, HB_AGGV
-    cmp     edx, 18
+    cmp     edx, 19
     ja      319f
     mov     ebp, MK_MOVES
     bt      ebp, edx
@@ -3048,6 +3049,9 @@ RTX_FUNC(rt_gc_sw_step_a)
 .Lsw_not9:
     cmp     qword ptr [r13 + 8], 0
     je      .Lsw_decline
+    mov     rdx, qword ptr [r13 + 8]
+    test    dword ptr [rdx + 12], GC_FRAME_MAP_TBL_HDR
+    jne     .Lsw_decline
     mov     qword ptr [r12 + X_CLO], 0
     cmp     eax, 6
     jne     .Lsw_r_not6
