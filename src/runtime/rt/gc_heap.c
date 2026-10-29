@@ -850,8 +850,7 @@ _Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC ==
 static int gc_env_set(const char *n) { const char *e = getenv(n); return e && *e; }
 static long gc_collect_fast_ok(void) {
     const struct gc_mk_t *m = &g_runtime.abi.gc_mk;
-    return !(m->diag || m->trap || m->plant || m->verify || m->telem || m->maps || m->census || gc_env_set("SCRIP_GC_AUDIT_SLOTS") || gc_env_set("SCRIP_GC_COVERAGE") ||
-        gc_env_set("SCRIP_GC_POISON") || gc_env_set("SCRIP_GC_VALIDATE"));
+    return !(m->diag || m->trap || m->plant || m->verify || m->telem || m->maps || m->census || gc_env_set("SCRIP_GC_COVERAGE") || gc_env_set("SCRIP_GC_POISON") || gc_env_set("SCRIP_GC_VALIDATE"));
 }
 static void gc_knobs_hoist(void) {
     g_runtime.abi.gc_mk.diag = gc_diag_on();
@@ -3685,16 +3684,6 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     }
     g_runtime.gc.gc_blob_frames = g_runtime.gc.gc_blob_entries = g_runtime.gc.gc_blob_descr = g_runtime.gc.gc_blob_ptr = g_runtime.gc.gc_blob_raw = g_runtime.gc.gc_blob_code =
         g_runtime.gc.gc_blob_raw_in_heap = 0;
-    {
-        static int au = -1;
-        if (au < 0) { const char *e = getenv("SCRIP_GC_AUDIT_SLOTS"); au = (e && *e && *e != '0') ? 1 : 0; }
-        if (au) {
-            extern void gen_gc_audit_scan_slots(long *, long *);
-            long hp = 0, un = 0;
-            gen_gc_audit_scan_slots(&hp, &un);
-            fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un);
-        }
-    }
     if (w_tel || g_runtime.abi.gc_mk.maps || g_runtime.abi.gc_mk.diag) {
         for (int ci = 0; ci < 32; ci++) {
             rt_hblk_t *hb = gc_blk_of((const char *)g_rtccb[ci]);

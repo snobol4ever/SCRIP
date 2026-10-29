@@ -2895,7 +2895,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "scrip_co_trace_xmit", GC_RET_VOID },
     { "scrip_coexpr_activate", GC_RET_OTHER },
     { "scrip_cofail", GC_RET_VOID },
-    { "scrip_coret", GC_RET_VOID },
+    { "scrip_coret", GC_RET_OTHER },
     { "script_try_call_builtin_by_name", GC_RET_OTHER },
     { "script_try_call_builtin_by_name_rq", GC_RET_OTHER },
     { "seq_push", GC_RET_VOID },

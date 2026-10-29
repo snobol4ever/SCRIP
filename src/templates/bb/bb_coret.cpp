@@ -14,12 +14,17 @@ std::string bb_coret() {
          + IF(!(_.op_sa < 0),
              x86("comment", "IR_CORET yield")
            + x86_alpha()
-           + x86_scan_sync_out_force()
+           + x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+           + x86("mov", "[rax + 0]", "r13")
+           + x86("mov", "[rax + 8]", "r14")
+           + x86("mov", "[rax + 16]", "r15")
            + x86("mov", "rdi", FRQ(_.op_sa))
            + x86("mov", "rsi", FRQ(_.op_sa + 8))
            + x86("xor", "edx", "edx")
            + x86("call", "scrip_coret", (uint64_t)(uintptr_t)(void *)scrip_coret)
-           + x86_scan_switch_reload_force()
+           + x86("mov", "r13", "[rax + 0]")
+           + x86("mov", "r14", "[rax + 8]")
+           + x86("mov", "r15", "[rax + 16]")
            + x86_rt_gc_poll()
            + x86_gamma());
 }
