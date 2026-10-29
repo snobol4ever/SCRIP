@@ -1929,6 +1929,27 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
+static const char PAS_PRELUDE_UNIT_7_SRC[] =
+    "{$H+}\n"
+    "unit types;\n"
+    "interface\n"
+    "type\n"
+    "  TIntegerDynArray = array of Integer;\n"
+    "  TCardinalDynArray = array of Cardinal;\n"
+    "  TInt64DynArray = array of Int64;\n"
+    "  TStringDynArray = array of string;\n"
+    "  TDoubleDynArray = array of Double;\n"
+    "  TSingleDynArray = array of Single;\n"
+    "  TByteDynArray = array of Byte;\n"
+    "  TBooleanDynArray = array of Boolean;\n"
+    "  TPoint = record\n"
+    "    x, y: LongInt;\n"
+    "  end;\n"
+    "  TRect = record\n"
+    "    Left, Top, Right, Bottom: LongInt;\n"
+    "  end;\n"
+    "implementation\n"
+    "end.\n";
 static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "classes", PAS_PRELUDE_UNIT_0_SRC },
     { "crt", PAS_PRELUDE_UNIT_1_SRC },
@@ -1937,5 +1958,6 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "strutils", PAS_PRELUDE_UNIT_4_SRC },
     { "system", PAS_PRELUDE_UNIT_5_SRC },
     { "sysutils", PAS_PRELUDE_UNIT_6_SRC },
+    { "types", PAS_PRELUDE_UNIT_7_SRC },
     { 0, 0 }
 };

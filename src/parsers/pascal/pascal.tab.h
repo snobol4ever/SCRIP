@@ -126,62 +126,63 @@ tree_t *pascal_last_ident_qlit(void);
     VARSY = 287,                   /* VARSY  */
     THENSY = 288,                  /* THENSY  */
     RECORDSY = 289,                /* RECORDSY  */
-    FUNCTIONSY = 290,              /* FUNCTIONSY  */
-    BEGINSY = 291,                 /* BEGINSY  */
-    BECOMES = 292,                 /* BECOMES  */
-    TYPESY = 293,                  /* TYPESY  */
-    IFSY = 294,                    /* IFSY  */
-    ELSESY = 295,                  /* ELSESY  */
-    INOP = 296,                    /* INOP  */
-    NOTSY = 297,                   /* NOTSY  */
-    IDIV = 298,                    /* IDIV  */
-    IMOD = 299,                    /* IMOD  */
-    ANDOP = 300,                   /* ANDOP  */
-    OROP = 301,                    /* OROP  */
-    LTOP = 302,                    /* LTOP  */
-    LEOP = 303,                    /* LEOP  */
-    GTOP = 304,                    /* GTOP  */
-    GEOP = 305,                    /* GEOP  */
-    NEOP = 306,                    /* NEOP  */
-    EQOP = 307,                    /* EQOP  */
-    PLUS = 308,                    /* PLUS  */
-    MINUS = 309,                   /* MINUS  */
-    MUL = 310,                     /* MUL  */
-    RDIV = 311,                    /* RDIV  */
-    COMMA = 312,                   /* COMMA  */
-    PERIOD = 313,                  /* PERIOD  */
-    COLON = 314,                   /* COLON  */
-    ARROW = 315,                   /* ARROW  */
-    LBRACK = 316,                  /* LBRACK  */
-    RBRACK = 317,                  /* RBRACK  */
-    LPARENT = 318,                 /* LPARENT  */
-    RPARENT = 319,                 /* RPARENT  */
-    DOTDOT = 320,                  /* DOTDOT  */
-    ATSIGN = 321,                  /* ATSIGN  */
-    ADDBECOMES = 322,              /* ADDBECOMES  */
-    SUBBECOMES = 323,              /* SUBBECOMES  */
-    MULBECOMES = 324,              /* MULBECOMES  */
-    DIVBECOMES = 325,              /* DIVBECOMES  */
-    INTCONST = 326,                /* INTCONST  */
-    CHARCODE = 327,                /* CHARCODE  */
-    REALCONST = 328,               /* REALCONST  */
-    STRINGCONST = 329,             /* STRINGCONST  */
-    IDENT = 330,                   /* IDENT  */
-    SHIFTOP = 331,                 /* SHIFTOP  */
-    XOROP = 332,                   /* XOROP  */
-    POWOP = 333,                   /* POWOP  */
-    CLASSSY = 334,                 /* CLASSSY  */
-    ISOP = 335,                    /* ISOP  */
-    ASOP = 336,                    /* ASOP  */
-    TRYSY = 337,                   /* TRYSY  */
-    EXCEPTSY = 338,                /* EXCEPTSY  */
-    FINALLYSY = 339,               /* FINALLYSY  */
-    RAISESY = 340,                 /* RAISESY  */
-    INHERITEDSY = 341,             /* INHERITEDSY  */
-    CONSTRUCTORSY = 342,           /* CONSTRUCTORSY  */
-    DESTRUCTORSY = 343,            /* DESTRUCTORSY  */
-    PROPERTYSY = 344,              /* PROPERTYSY  */
-    ONSY = 345                     /* ONSY  */
+    EXPORTSSY = 290,               /* EXPORTSSY  */
+    FUNCTIONSY = 291,              /* FUNCTIONSY  */
+    BEGINSY = 292,                 /* BEGINSY  */
+    BECOMES = 293,                 /* BECOMES  */
+    TYPESY = 294,                  /* TYPESY  */
+    IFSY = 295,                    /* IFSY  */
+    ELSESY = 296,                  /* ELSESY  */
+    INOP = 297,                    /* INOP  */
+    NOTSY = 298,                   /* NOTSY  */
+    IDIV = 299,                    /* IDIV  */
+    IMOD = 300,                    /* IMOD  */
+    ANDOP = 301,                   /* ANDOP  */
+    OROP = 302,                    /* OROP  */
+    LTOP = 303,                    /* LTOP  */
+    LEOP = 304,                    /* LEOP  */
+    GTOP = 305,                    /* GTOP  */
+    GEOP = 306,                    /* GEOP  */
+    NEOP = 307,                    /* NEOP  */
+    EQOP = 308,                    /* EQOP  */
+    PLUS = 309,                    /* PLUS  */
+    MINUS = 310,                   /* MINUS  */
+    MUL = 311,                     /* MUL  */
+    RDIV = 312,                    /* RDIV  */
+    COMMA = 313,                   /* COMMA  */
+    PERIOD = 314,                  /* PERIOD  */
+    COLON = 315,                   /* COLON  */
+    ARROW = 316,                   /* ARROW  */
+    LBRACK = 317,                  /* LBRACK  */
+    RBRACK = 318,                  /* RBRACK  */
+    LPARENT = 319,                 /* LPARENT  */
+    RPARENT = 320,                 /* RPARENT  */
+    DOTDOT = 321,                  /* DOTDOT  */
+    ATSIGN = 322,                  /* ATSIGN  */
+    ADDBECOMES = 323,              /* ADDBECOMES  */
+    SUBBECOMES = 324,              /* SUBBECOMES  */
+    MULBECOMES = 325,              /* MULBECOMES  */
+    DIVBECOMES = 326,              /* DIVBECOMES  */
+    INTCONST = 327,                /* INTCONST  */
+    CHARCODE = 328,                /* CHARCODE  */
+    REALCONST = 329,               /* REALCONST  */
+    STRINGCONST = 330,             /* STRINGCONST  */
+    IDENT = 331,                   /* IDENT  */
+    SHIFTOP = 332,                 /* SHIFTOP  */
+    XOROP = 333,                   /* XOROP  */
+    POWOP = 334,                   /* POWOP  */
+    CLASSSY = 335,                 /* CLASSSY  */
+    ISOP = 336,                    /* ISOP  */
+    ASOP = 337,                    /* ASOP  */
+    TRYSY = 338,                   /* TRYSY  */
+    EXCEPTSY = 339,                /* EXCEPTSY  */
+    FINALLYSY = 340,               /* FINALLYSY  */
+    RAISESY = 341,                 /* RAISESY  */
+    INHERITEDSY = 342,             /* INHERITEDSY  */
+    CONSTRUCTORSY = 343,           /* CONSTRUCTORSY  */
+    DESTRUCTORSY = 344,            /* DESTRUCTORSY  */
+    PROPERTYSY = 345,              /* PROPERTYSY  */
+    ONSY = 346                     /* ONSY  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -193,7 +194,7 @@ union PASCAL_YYSTYPE
 #line 175 "pascal.y"
  tree_t *node; 
 
-#line 197 "pascal.tab.h"
+#line 198 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

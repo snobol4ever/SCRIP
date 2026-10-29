@@ -176,7 +176,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token GOTOSY PROGRAMSY SEMICOLON ARRAYSY LABELSY CONSTSY FORWARDSY
 %token USESSY UNITSY INTERFACESY IMPLEMENTATIONSY INITIALIZATIONSY FINALIZATIONSY OTHERWISESY
 %token DOSY DOWNTOSY FORSY REPEATSY WHILESY TOSY UNTILSY WITHSY CASESY
-%token PROCEDURESY PACKEDSY OFSY FILESY ENDSY SETSY VARSY THENSY RECORDSY
+%token PROCEDURESY PACKEDSY OFSY FILESY ENDSY SETSY VARSY THENSY RECORDSY EXPORTSSY
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
 %token LTOP LEOP GTOP GEOP NEOP EQOP PLUS MINUS MUL RDIV
 %token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
@@ -186,7 +186,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token POWOP
 %token <node> CLASSSY ISOP ASOP
 %token TRYSY EXCEPTSY FINALLYSY RAISESY INHERITEDSY CONSTRUCTORSY DESTRUCTORSY PROPERTYSY ONSY
-%type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
+%type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
 %type <node> pf_section id_list body statement_list body_stmt statement statement_no_label call call_with_args argument_list argument assignment
@@ -194,7 +194,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
 %type <node> typed_value typed_value_list field_value_list
-%type <node> param_type
+%type <node> param_type result_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
 %type <node> program_name routine_directives power
 %type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call
@@ -230,6 +230,7 @@ decl_part:
     |VARSY var_decl_list { $$ = $2; }
     |procedure_decl { $$ = $1; }
     |USESSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
+    |EXPORTSSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "exports"), $2); }
     ;
 unit:
     UNITSY IDENT SEMICOLON INTERFACESY intf_part_list IMPLEMENTATIONSY decl_part_list init_opt fini_opt ENDSY PERIOD { $$ = pt_add(pt_add(pt_add(pt_add(pt_add(pt_new(TT_MODULE_DECL), $2), $5), pt_sval(pt_retag($7, TT_PART), "implementation")), $8), $9); pt_flush_pragmas($$); pascal_prog_result = $$; }
@@ -244,7 +245,7 @@ intf_part:
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     ;
 init_opt:
     INITIALIZATIONSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "initialization"), $2); }
@@ -283,11 +284,6 @@ field_value_list:
     IDENT COLON typed_value { $$ = pt_add(pt_sval(pt_new(TT_VLIST), "record aggregate"), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |field_value_list SEMICOLON IDENT COLON typed_value { $$ = pt_add($1, pt_add(pt_add(pt_new(TT_FIELD), $3), $5)); }
     ;
-constant:
-    scalar_constant { $$ = $1; }
-    |PLUS scalar_constant { $$ = pt_add(pt_new(TT_PLS), $2); }
-    |MINUS scalar_constant { $$ = pt_add(pt_new(TT_MNS), $2); }
-    ;
 scalar_constant:
     IDENT { $$ = $1; }
     |INTCONST { $$ = $1; }
@@ -310,7 +306,9 @@ type:
     |packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY { } { } type { $$ = pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $9); }
     |packed_opt ARRAYSY OFSY type { $$ = pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4); }
     |PROCEDURESY pf_params { $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
-    |FUNCTIONSY pf_params COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
+    |PROCEDURESY pf_params OFSY IDENT { if (strcasecmp($4->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
+    |FUNCTIONSY pf_params COLON result_type { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
+    |FUNCTIONSY pf_params COLON result_type OFSY IDENT { if (strcasecmp($6->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
     |packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $6), $9); }
     |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $1), $4); }
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }
@@ -318,6 +316,10 @@ type:
     |packed_opt FILESY OFSY type { $$ = pt_add(pt_add(pt_new(TT_FILE_TYPE), $1), $4); }
     |CLASSSY class_members ENDSY { $$ = pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), $2); }
     |CLASSSY LPARENT id_list RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
+    ;
+result_type:
+    IDENT { $$ = $1; }
+    |IDENT PERIOD IDENT { $$ = $3; }
     ;
 class_members:
     { $$ = pt_new(TT_VLIST); }
@@ -328,11 +330,11 @@ class_member:
     |IDENT SEMICOLON { $$ = pt_retag($1, TT_KEYWORD); }
     |id_list COLON type SEMICOLON { $$ = pt_decl("field", $1, $3); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     |CONSTRUCTORSY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "constructor"); }
     |DESTRUCTORSY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "destructor"); }
     |CLASSSY PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $3), $5), "class"); }
-    |CLASSSY FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "class"); }
+    |CLASSSY FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "class"); }
     |PROPERTYSY IDENT prop_index_opt COLON IDENT prop_specs SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_sval(pt_new(TT_DECL), "property"), $2), $5), $3), $6); }
     ;
 prop_index_opt:
@@ -351,7 +353,8 @@ packed_opt:
 simple_type:
     LPARENT id_list RPARENT { $$ = pt_retag($2, TT_ENUM_TYPE); for (int _i = 0; $$ && _i < $$->n; _i++) cenv_int($$->c[_i]->v.sval, _i); }
     |IDENT { pascal_note_type_ident($1); $$ = $1; }
-    |IDENT LBRACK constant RBRACK { pascal_note_type_ident($1); $$ = pt_add(pt_add(pt_new(TT_IDX), $1), $3); }
+    |IDENT LBRACK b_expr RBRACK { pascal_note_type_ident($1); $$ = pt_add(pt_add(pt_new(TT_IDX), $1), $3); }
+    |IDENT PERIOD IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |lo_bound DOTDOT b_expr { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
     ;
 lo_bound:
@@ -425,15 +428,16 @@ var_decl_list:
 var_decl:
     id_list COLON type SEMICOLON { $$ = pt_decl("var", $1, $3); }
     |id_list COLON type EQOP typed_value SEMICOLON { $$ = pt_add(pt_decl("var", $1, $3), $5); }
+    |id_list COLON type IDENT IDENT SEMICOLON { if (strcasecmp($4->v.sval, "absolute")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_decl("var", $1, $3), pt_add(pt_sval(pt_new(TT_DECL), "absolute"), $5)); }
     ;
 procedure_decl:
     PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $8); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $10); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $10); }
     |FUNCTIONSY IDENT pv_mark SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_FUNCTION), $2), $6); }
     |PROCEDURESY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $10); }
-    |FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { } block SEMICOLON {
+    |FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $8), $12);
     }
     |CONSTRUCTORSY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
@@ -445,7 +449,7 @@ procedure_decl:
     |CLASSSY PROCEDURESY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $11), "class");
     }
-    |CLASSSY FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { } block SEMICOLON {
+    |CLASSSY FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $9), $13), "class");
     }
     ;
@@ -463,7 +467,7 @@ parameter_decl_list:
     ;
 parameter_decl:
     PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
-    |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
+    |FUNCTIONSY IDENT pf_params COLON result_type { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
     |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     |id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
     |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
@@ -473,6 +477,7 @@ parameter_decl:
     ;
 param_type:
     IDENT { pascal_note_type_ident($1); $$ = $1; }
+    |IDENT PERIOD IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |ARRAYSY OFSY IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_new(TT_ARRAY_TYPE), $3); }
     ;
 routine_directives:
@@ -500,7 +505,7 @@ pf_section:
     |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
     |PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
-    |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
+    |FUNCTIONSY IDENT pf_params COLON result_type { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
     ;
 id_list:
     id_list COMMA IDENT { $$ = pt_add($1, $3); }
@@ -588,6 +593,7 @@ assignment:
     |selector SUBBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("-=")); }
     |selector MULBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("*=")); }
     |selector DIVBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("/=")); }
+    |call_with_args BECOMES expression { $$ = pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3); }
     ;
 selector:
     selector LBRACK expression_list RBRACK { $$ = pt_cat(pt_add(pt_new(TT_IDX), $1), $3); }

@@ -8011,11 +8011,56 @@ static tree_t *pas_flatten_units(tree_t *prog) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pu_is_shortstring_type(const tree_t *c) { return IS(c, TT_IDX) && c->n == 2 && IS(c->c[0], TT_VAR) && c->c[0]->v.sval && !strcasecmp(c->c[0]->v.sval, "string"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_castname(const tree_t *t, const char *n) {
+    static const char *const B[] = { "pointer", "integer", "longint", "int64", "byte", "word", "cardinal", "longword", "shortint", "smallint", "char", "boolean", "qword", "dword", "ptruint", "ptrint",
+        "nativeint", "nativeuint", "pchar", 0 };
+    for (int i = 0; n && B[i]; i++) if (!strcmp(n, B[i])) return 1;
+    for (int i = 0; t && i < t->n; i++) {
+        const tree_t *c = t->c[i];
+        if (IS(c, TT_DECL) && c->v.sval && !strcmp(c->v.sval, "type") && c->n >= 1 && IS(c->c[0], TT_VAR) && c->c[0]->v.sval && n && !strcmp(c->c[0]->v.sval, n)) return 1;
+        if (c && c->n && pas_castname(c, n)) return 1;
+    }
+    return 0;
+}
+static void pas_lvalue_casts(tree_t *root, tree_t *t) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (IS(t, TT_ASSIGN) && i == 0 && IS(c, TT_FNC) && c->n == 2 && IS(c->c[0], TT_VAR) && pas_castname(root, c->c[0]->v.sval)) { t->c[0] = c->c[1]; c = t->c[0]; }
+        pas_lvalue_casts(root, c);
+    }
+}
+static void pas_rename_var(tree_t *t, const char *from, const char *to) {
+    for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, from)) c->v.sval = (char *)to; pas_rename_var(c, from, to); }
+}
+static void pas_absolute_vars(tree_t *t) {
+    for (int i = 0; t && i < t->n; i++) pas_absolute_vars(t->c[i]);
+    if (!IS(t, TT_BLOCK)) return;
+    { int w = 0; for (int k = 0; k < t->n; k++) { tree_t *pt = t->c[k]; if (IS(pt, TT_PART) && pt->v.sval && !strcmp(pt->v.sval, "exports")) continue; t->c[w++] = pt; } t->n = w; }
+    for (int k = 0; k < t->n; k++) {
+        tree_t *part = t->c[k];
+        if (!IS(part, TT_PART) || !part->v.sval || strcmp(part->v.sval, "var")) continue;
+        int w = 0;
+        for (int j = 0; j < part->n; j++) {
+            tree_t *d = part->c[j];
+            tree_t *ab = (IS(d, TT_DECL) && d->n >= 3 && IS(d->c[2], TT_DECL) && d->c[2]->v.sval && !strcmp(d->c[2]->v.sval, "absolute") && d->c[2]->n >= 1) ? d->c[2] : NULL;
+            if (!ab || !IS(ab->c[0], TT_VAR) || !ab->c[0]->v.sval) { part->c[w++] = d; continue; }
+            const tree_t *ids = d->c[0];
+            if (IS(ids, TT_VLIST)) {
+                for (int q = 0; q < ids->n; q++) if (IS(ids->c[q], TT_VAR) && ids->c[q]->v.sval) pas_rename_var(t, ids->c[q]->v.sval, ab->c[0]->v.sval);
+            } else if (IS(ids, TT_VAR) && ids->v.sval) pas_rename_var(t, ids->v.sval, ab->c[0]->v.sval);
+        }
+        part->n = w;
+    }
+}
 static void pas_shortstrings(tree_t *t) {
     for (int i = 0; t && i < t->n; i++) {
         tree_t *c = t->c[i];
         int typepos = (IS(t, TT_DECL) && i >= 1) || ((IS(t, TT_ARRAY_TYPE) || IS(t, TT_FILE_TYPE) || IS(t, TT_SET_TYPE) || IS(t, TT_PTR_TYPE)) && i == t->n - 1);
-        if (typepos && pu_is_shortstring_type(c)) { pty_note_shortstring(c->c[0], c->c[1]); t->c[i] = c->c[0]; } else pas_shortstrings(c);
+        if (typepos && pu_is_shortstring_type(c)) {
+            pty_note_shortstring(c->c[0], c->c[1]);
+            t->c[i] = c->c[0];
+        } else if (typepos && IS(c, TT_FIELD) && c->n == 2 && IS(c->c[0], TT_VAR) && IS(c->c[1], TT_VAR)) t->c[i] = c->c[1];
+        else pas_shortstrings(c);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8295,6 +8340,8 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode") || pas_result_flips_dialect(pruned);
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
+    pas_absolute_vars(flat);
+    pas_lvalue_casts(flat, flat);
     pas_shortstrings(flat);
     flat = pas_classes_prepass(flat);
     pas_defaults_prepass(flat);

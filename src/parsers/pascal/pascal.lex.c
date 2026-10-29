@@ -1579,6 +1579,7 @@ static int pascal_oo_keyword(const char *w, int peek) {
     if (k == 9 || k == 10) { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = ct_strdup(K[k]); }
     return T[k];
 }
+static int pascal_exports_keyword(const char *w, int peek) { return !strcasecmp(w, "exports") && pascal_last_tok() == SEMICOLON && pascal_dialect() != PAS_DIALECT_ISO && (isalpha(peek) || peek == '_') ? EXPORTSSY : 0; }
 static char pascal_modebuf[64];
 static int  pascal_modepos;
 static char pascal_packrecbuf[16];
@@ -2425,7 +2426,7 @@ case 113:
 YY_RULE_SETUP
 { int kw = pascal_context_keyword(pascal_yytext);
                           if (kw) return kw;
-                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); }
+                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); if (!kw) kw = pascal_exports_keyword(pascal_yytext, pk); }
                           if (kw) return kw;
                           pascal_last_ident_set(pascal_yytext, (int)pascal_yyleng);
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng);
