@@ -554,11 +554,13 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     for (int k = 0; k < nargs; k++) if (icn_arg_stages(cx, t->c[argbase + k])) nstage++;
     IR_t * args_r[nargs > 0 ? nargs : 1];
     int staged[nargs > 0 ? nargs : 1];
+    int entry_set = 0;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k];
         IR_t * ar = NULL;
         IR_t * ae;
         staged[k] = 0;
+        if (nstage && icn_tree_is_kw_var(a)) { staged[k] = 2; args_r[k] = NULL; continue; }
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
         if (!staged[k]) {
             const tree_t * na = k < nargs - 1 ? t->c[argbase + k + 1] : NULL;
@@ -567,12 +569,12 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
             ae = lower(cx, a, (k == nargs - 1 && !nstage) ? callin : NULL, aω, &ar);
         }
         aω = cx->beta;
-        if (k == 0) entry = ae;
+        if (!entry_set) { entry = ae; entry_set = 1; }
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
         args_r[k] = ar;
     }
-    for (int k = 0; k < nargs; k++) if (staged[k] && args_r[k]) {
+    for (int k = 0; k < nargs; k++) if (staged[k] == 2 || (staged[k] && args_r[k])) {
         IR_t * drf;
         if (icn_tree_is_kw_var(t->c[argbase + k])) {
             drf = build(cx, IR_KW_ICON, NULL, aω);
@@ -621,7 +623,7 @@ static IR_t * lower_idx_base(icx_t * cx, const tree_t * b0, IR_t * ω, IR_t ** b
         return vr;
     }
     if (b0->t == TT_IDX) return lower_idx_var(cx, b0, ω, br);
-    if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
+    if (b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
         IR_t * e2 = lower_lvalue_var(cx, b0, ω, br);
         return e2 ? e2 : lower(cx, b0, NULL, ω, br);
     }
@@ -701,7 +703,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
             IR_LIT(vr).sval = b0->v.sval;
             ar = vr;
             ae = vr;
-        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
+        } else if (b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
             IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar);
             ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar);
         } else {
@@ -726,7 +728,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
             IR_LIT(vr).sval = b0->v.sval;
             ar = vr;
             ae = vr;
-        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
+        } else if (b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
             IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar);
             ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar);
         } else ae = lower(cx, b0, NULL, ω, &ar);
@@ -748,7 +750,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
             IR_LIT(vr).sval = b0->v.sval;
             ar = vr;
             ae = vr;
-        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD || icn_assign_names_var(b0)) ae =
+        } else if (b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD || icn_assign_names_var(b0)) ae =
             lower_lvalue_var(cx, b0, ω, &ar);
         else ae = lower(cx, b0, NULL, ω, &ar);
         IR_t * aβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : cx->beta;
@@ -2855,11 +2857,13 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
     for (int k = 0; k < t->n; k++) if (icn_arg_stages(cx, t->c[k])) nstage++;
     IR_t * args_r[t->n > 0 ? t->n : 1];
     int staged[t->n > 0 ? t->n : 1];
+    int entry_set = 0;
     for (int k = 0; k < t->n; k++) {
         const tree_t * a = t->c[k];
         IR_t * ar = NULL;
         IR_t * ae;
         staged[k] = 0;
+        if (nstage && icn_tree_is_kw_var(a)) { staged[k] = 2; args_r[k] = NULL; continue; }
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
         IR_t * b4 = cx->beta;
         if (!staged[k]) {
@@ -2868,12 +2872,12 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
             ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
         }
         aω = (cx->beta == b4 && ar && !staged[k] && icn_tree_is_cursor_mover(a)) ? ar : cx->beta;
-        if (k == 0) entry = ae;
+        if (!entry_set) { entry = ae; entry_set = 1; }
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
         args_r[k] = ar;
     }
-    for (int k = 0; k < t->n; k++) if (staged[k] && args_r[k]) {
+    for (int k = 0; k < t->n; k++) if (staged[k] == 2 || (staged[k] && args_r[k])) {
         IR_t * drf;
         if (icn_tree_is_kw_var(t->c[k])) {
             drf = build(cx, IR_KW_ICON, NULL, aω);
