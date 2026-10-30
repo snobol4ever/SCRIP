@@ -70,7 +70,7 @@ SQ          =  "'" (BREAK("'" CHAR(10))) . thx . *Shift('TT_QLIT', thx) "'";
 String      =  *SQ | *DQ;
 Real        =  (  SPAN('0123456789')
                   FENCE('.' FENCE(SPAN('0123456789') | epsilon) | epsilon)
-                  ('E' | 'e')
+                  ANY('EeDd')
                   FENCE('+' | '-' | epsilon)
                   SPAN('0123456789')
                |  SPAN('0123456789') '.' FENCE(SPAN('0123456789') | epsilon)
@@ -188,7 +188,7 @@ Expr17      =  FENCE(
                |  *Call
                |  (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
                |  *String
-               |  ((*Real) $ rtx *DIFFER(CONVERT(rtx, 'REAL'))) . thx . *Shift('TT_FLIT', thx)
+               |  ((*Real) $ rtx *DIFFER(CONVERT(REPLACE(rtx, 'Dd', 'Ee'), 'REAL'))) . thx . *Shift('TT_FLIT', REPLACE(thx, 'Dd', 'Ee'))
                |  (*Integer) . thx . *Shift('TT_ILIT', '' (thx + 0))
                );
 SGoto       =  ('S' | 's');
