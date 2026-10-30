@@ -4124,40 +4124,87 @@ static void pl_ix_note(pl_db_t *db, int i, int prepend) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_first, leaf, 0);
+static pl_cell_t * pl_db_target_head(const pl_db_t *db, void *target) {
+    pl_cell_t *tg = target ? pl_deref((pl_cell_t *)target) : (pl_cell_t *)0, *s0;
+    if (!tg || db->n < 1) return (pl_cell_t *)0;
+    s0 = pl_deref((pl_cell_t *)&db->s[0].cl);
+    if ((int)s0->v != DT_PLREF || !s0->p) return (pl_cell_t *)0;
+    if ((int)tg->v == DT_PLREF && tg->p && tg->slen == s0->slen) tg = pl_deref(&((pl_cell_t *)tg->p)[0]);
+    return ((int)tg->v == DT_PLREF && tg->p) ? tg : (pl_cell_t *)0;
+}
+static int pl_db_cand_rejects(const pl_db_t *db, int i, uint32_t fid, const int *bj, const pl_cell_t *bv, int nb) {
+    pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl), *sh;
+    if ((int)pair->v != DT_PLREF || !pair->p) return 0;
+    sh = pl_deref(&((pl_cell_t *)pair->p)[0]);
+    if ((int)sh->v != DT_PLREF || sh->slen != fid || !sh->p) return 0;
+    for (int q = 0; q < nb; q++) {
+        pl_cell_t *a = pl_deref(&((pl_cell_t *)sh->p)[bj[q]]);
+        int at = (int)a->v;
+        if ((at == DT_I || at == DT_PLATOM) && (at != (int)bv[q].v || a->i != bv[q].i)) return 1;
+    }
+    return 0;
+}
+static int pl_db_target_bound(const pl_cell_t *th, int *bj, pl_cell_t *bv) {
+    int nb = 0;
+    for (int j = 0, n = th ? plc_fid_arity(th->slen) : 0; j < n; j++) {
+        pl_cell_t *t = pl_deref(&((pl_cell_t *)th->p)[j]);
+        if ((int)t->v == DT_I || (int)t->v == DT_PLATOM) { bj[nb] = j; bv[nb] = *t; nb++; }
+    }
+    return nb;
+}
+static int pl_db_cand_step(const pl_db_t *db, int i, int64_t k) {
+    pl_ix_t *x = (pl_ix_t *)db->ix;
+    if (!x || !k) return db->s[i].next_idx;
+    if (i < x->cap && pl_ix_slot_key(db, i) == k) return pl_ix_kn(x)[i];
+    for (int j = db->s[i].next_idx; j >= 0; j = db->s[j].next_idx) if (pl_ix_slot_key(db, j) == k) return j;
+    return -1;
+}
 int rt_pl_db_cand_first(void *db_v, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_ix_t *x;
     pl_ix_ent_t *e;
-    int64_t k;
+    pl_cell_t *th;
+    int64_t k = 0;
+    int j;
     if (!db) return -1;
     x = (pl_ix_t *)db->ix;
-    if (!x) return db->head_idx;
-    k = pl_ix_target_key(db, target);
-    if (!k) return db->head_idx;
-    e = pl_ix_find(x, k);
-    return e ? e->first : -1;
+    if (x) k = pl_ix_target_key(db, target);
+    if (!x || !k) j = db->head_idx;
+    else { e = pl_ix_find(x, k); j = e ? e->first : -1; }
+    th = pl_db_target_head(db, target);
+    {
+        int na = th ? plc_fid_arity(th->slen) : 0, bj[na > 0 ? na : 1], nb;
+        pl_cell_t bv[na > 0 ? na : 1];
+        nb = pl_db_target_bound(th, bj, bv);
+        while (j >= 0 && nb && pl_db_cand_rejects(db, j, th->slen, bj, bv, nb)) j = pl_db_cand_step(db, j, k);
+    }
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_next, leaf, 0);
 int rt_pl_db_cand_next(void *db_v, int i, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
-    pl_ix_t *x;
+    pl_cell_t *th;
     int64_t k;
+    int j;
     if (!db || i < 0 || i >= db->n) return -1;
-    x = (pl_ix_t *)db->ix;
-    if (!x) return db->s[i].next_idx;
-    k = pl_ix_target_key(db, target);
-    if (!k) return db->s[i].next_idx;
-    if (i < x->cap && pl_ix_slot_key(db, i) == k) return pl_ix_kn(x)[i];
-    for (int j = db->s[i].next_idx; j >= 0; j = db->s[j].next_idx) if (pl_ix_slot_key(db, j) == k) return j;
-    return -1;
+    k = db->ix ? pl_ix_target_key(db, target) : 0;
+    th = pl_db_target_head(db, target);
+    {
+        int na = th ? plc_fid_arity(th->slen) : 0, bj[na > 0 ? na : 1], nb;
+        pl_cell_t bv[na > 0 ? na : 1];
+        nb = pl_db_target_bound(th, bj, bv);
+        for (j = pl_db_cand_step(db, i, k); j >= 0 && nb && pl_db_cand_rejects(db, j, th->slen, bj, bv, nb); j = pl_db_cand_step(db, j, k)) ;
+    }
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_last, leaf, 0);
 int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n) return 1;
-    for (int j = rt_pl_db_cand_next(db_v, i, target); j >= 0; j = rt_pl_db_cand_next(db_v, j, target)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
+    int64_t k = db->ix ? pl_ix_target_key(db, target) : 0;
+    for (int j = pl_db_cand_step(db, i, k); j >= 0; j = pl_db_cand_step(db, j, k)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
