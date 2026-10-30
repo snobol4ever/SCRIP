@@ -935,7 +935,7 @@ static void pl_mark_into(lcx_t * cx, int before, IR_t * tgt, const char * gsz, c
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const tree_t * pl_atom_goal(const char * nm) { tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) nm; return n; }
+static const tree_t * pl_atom_goal(const char * nm) { tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) lp_strdup(nm); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_cc_fnc1(const char * f, tree_t * a0) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); return n; }
 static tree_t * pl_cc_fnc2(const char * f, tree_t * a0, tree_t * a1) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); return n; }
