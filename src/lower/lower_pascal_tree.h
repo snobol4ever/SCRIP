@@ -186,9 +186,6 @@ typedef struct {
     } *pas_rectypes;
     int pas_rectypes_cap;
     int pas_nrectype;
-    struct pas_recvar_s { char *vname; char **fields; int nf; int *fldchar; int packed; char **fldrec; int *fldna; long long *fldna_lo; long long *fldna_hi; long long *fldov; } *pas_recvars;
-    int pas_recvars_cap;
-    int pas_nrecvar;
     char **pas_pend_fields;
     char **pas_pend_fldptrto;
     char **pas_pend_fldenum;
@@ -223,10 +220,7 @@ typedef struct {
     int *pas_pvmarks;
     int pas_pvmark_cap;
     int pas_npvmark;
-    int *pas_rvmarks;
-    int pas_rvmark_cap;
-    int pas_nrvmark;
-    struct { char *pname; char *vnames[16]; char *rnames[16]; int n; struct pas_recvar_s rvsave[16]; int rvn; PNodeList *params; } *pas_fwdpv;
+    struct { char *pname; char *vnames[16]; char *rnames[16]; int n; PNodeList *params; } *pas_fwdpv;
     int pas_fwdpv_cap;
     int pas_nfwdpv;
     struct { int lo, hi, n, first, last, nested; } *pas_vcase_stk;
