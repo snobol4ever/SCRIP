@@ -7180,7 +7180,9 @@ static void *pl_format_body(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     return rt_pl_format_run(fmt, &lst, cx);
 }
 DESCR_t rt_pl_dop_format_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_format_failed_token(void);
     void *b = pl_format_body(args, nargs, cx);
+    if (b == rt_pl_format_failed_token()) return FAILDESCR;
     if (b) { if (cx) cx->ball = b; return FAILDESCR; }
     return (nargs < 1 || nargs > 2) ? FAILDESCR : pl_ok();
 }

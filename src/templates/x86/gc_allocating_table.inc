@@ -1289,6 +1289,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "plc_copy_x", GC_RET_DESCR },
     { "plc_factorize", GC_RET_DESCR },
     { "plc_factorize_x", GC_RET_DESCR },
+    { "plc_fb_goal", GC_RET_OTHER },
     { "plc_fb_term", GC_RET_OTHER },
     { "plc_first_char", GC_RET_OTHER },
     { "plc_first_char_d", GC_RET_OTHER },

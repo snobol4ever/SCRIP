@@ -1948,6 +1948,45 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
     return m.pthrown;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char plc_fmt_goal_failed_tok;
+void *rt_pl_format_failed_token(void) { return &plc_fmt_goal_failed_tok; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *plc_fb_goal(plc_fb *f, pl_cell_t *g) {
+    extern DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball, pl_tr_ctx_t *cx);
+    extern FILE *fh_memsink_open(char **, size_t *);
+    extern int fh_alloc(FILE *);
+    extern void fh_free(int);
+    extern int fh_current_output(void);
+    extern void fh_set_output(int);
+    extern const char *fh_alias_name(int);
+    extern void fh_set_alias(int, const char *);
+    extern void *rt_pl_ball_take(void);
+    extern void rt_proc_drop_frame_h(void **hslot);
+    char *bp = (char *)0;
+    size_t bn = 0;
+    void *h = (void *)0;
+    void *b = (void *)0;
+    int sv = fh_current_output();
+    int slot;
+    DESCR_t r;
+    FILE *ms = fh_memsink_open(&bp, &bn);
+    if (!ms) return (void *)0;
+    slot = fh_alloc(ms);
+    if (slot < 0) { fclose(ms); return (void *)0; }
+    fh_set_alias(slot, fh_alias_name(sv));
+    fh_set_output(slot);
+    r = rt_pl_goal_gen_h_c(*g, (DESCR_t *)0, 0, &h, &b, f->cx);
+    if (!b && IS_FAIL_fn(r)) b = rt_pl_ball_take();
+    fflush(ms);
+    fh_set_output(sv);
+    fh_free(slot);
+    if (h) rt_proc_drop_frame_h(&h);
+    fclose(ms);
+    plc_fb_add(f, bp ? bp : "", bn);
+    if (b) return b;
+    return IS_FAIL_fn(r) ? &plc_fmt_goal_failed_tok : (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_PLATOM || (int)d->v == DT_S) && !pl_cell_unbound(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_eval(pl_cell_t *h, DESCR_t *out, void **ball) {
@@ -2168,6 +2207,14 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                 if (mark < 0 && cx && cx->tr) { mark = plc_ws_mark(cx); plc_wsref_set(cx, &rall, args0); }
                 if (mark >= 0) plc_wsref_set(cx, &ra, args);
                 tb = plc_fb_term(&f, h, 4, 0, 0);
+                if (mark >= 0) { args = plc_wsref_get(cx, &ra); args0 = plc_wsref_get(cx, &rall); if (args0) all = *args0; }
+                if (tb) { ball = tb; break; }
+            } else if (*p == '@' && rt_pl_dialect_swi()) {
+                void *tb;
+                if (pl_cell_unbound(h)) { ball = rt_pl_ball_instantiation(); break; }
+                if (mark < 0 && cx && cx->tr) { mark = plc_ws_mark(cx); plc_wsref_set(cx, &rall, args0); }
+                if (mark >= 0) plc_wsref_set(cx, &ra, args);
+                tb = plc_fb_goal(&f, h);
                 if (mark >= 0) { args = plc_wsref_get(cx, &ra); args0 = plc_wsref_get(cx, &rall); if (args0) all = *args0; }
                 if (tb) { ball = tb; break; }
             } else if (*p == 'q') plc_fb_term(&f, h, 1, 0, 0);
