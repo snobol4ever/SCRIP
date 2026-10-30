@@ -5274,6 +5274,7 @@ static int pl_goal_key_live(char *key, size_t cap, void *root) {
     size_t kl;
     int ar;
     if (rt_proc_is_registered(key)) return 1;
+    { extern int rt_pl_db_materialize_key(void *, const char *); if (rt_pl_db_materialize_key(root, key) && rt_proc_is_registered(key)) return 1; }
     snprintf(wkey, sizeof wkey, "$mc:%s", key);
     if (!rt_proc_is_registered(wkey)) {
         sl = strrchr(key, '/');
@@ -25319,6 +25320,8 @@ extern int rt_pl_db_live_count(void *);
 DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_seed(void *, void *, void *);
+static int bnd_db_key_need(void *cell);
+extern int rt_pl_db_term_key(void *, char *, size_t, int *);
 DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
@@ -25330,6 +25333,13 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
         DESCR_t iv = rt_pl_deref_val(args[1]);
         if (!db || iv.v != DT_I) return FAILDESCR;
         if (rt_pl_db_count(db) > (int)iv.i) return pl_ok();
+        {
+            extern int rt_pl_db_consult(void *, void *, void *, int, int);
+            extern int rt_pl_db_key_is_declared(void *, const char *);
+            char key[bnd_db_key_need((void *)&args[2])];
+            int ar = 0;
+            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3) ? pl_ok() : FAILDESCR;
+        }
         return rt_pl_db_seed(root, db, (void *)&args[2]) ? pl_ok() : FAILDESCR;
     }
 }
@@ -25974,6 +25984,28 @@ static DESCR_t pl_db_add_t(DESCR_t *args, int nargs, void *root, int prepend) {
 }
 DESCR_t rt_pl_dop_db_assertz_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 0); }
 DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_consult_t_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_consult(void *, void *, void *, int, int);
+    extern int rt_pl_db_key_is_declared(void *, const char *);
+    char key[bnd_db_key_need((void *)&args[0])];
+    int ar = 0;
+    void *db;
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return FAILDESCR;
+    db = rt_pl_db_get_by_key(root, key, 1);
+    if (!db) return FAILDESCR;
+    return rt_pl_db_consult(root, db, (void *)&args[0], rt_pl_db_key_is_declared(root, key), 1) ? pl_ok() : FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_consult_done_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_materialize_all(void *, int);
+    DESCR_t w = nargs == 1 ? rt_pl_deref_val(args[0]) : FAILDESCR;
+    if (w.v != DT_I) return FAILDESCR;
+    rt_pl_db_materialize_all(root, (int)w.i);
+    return pl_ok();
+}
 DESCR_t rt_pl_dop_db_erase_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();

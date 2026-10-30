@@ -4657,7 +4657,8 @@ DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
 DESCR_t rt_pl_dop_cpu_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
-DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
+DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_consult_t(DESCR_t *, int);
+    DESCR_t rt_pl_dop_db_consult_done(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
     int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_r(DESCR_t *,
         int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *,
             int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
@@ -4834,6 +4835,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
                     rt_pl_dop_pl_cp_guard },
         { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 1, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1,
             "rt_pl_dop_db_asserta_t", rt_pl_dop_db_asserta_t },
+        { "$db_consult_t", 1, "rt_pl_dop_db_consult_t", rt_pl_dop_db_consult_t }, { "$db_consult_done", 1, "rt_pl_dop_db_consult_done", rt_pl_dop_db_consult_done },
         { "$db_erase_t", 2, "rt_pl_dop_db_erase_t", rt_pl_dop_db_erase_t }, { "$db_abolish_t", 1, "rt_pl_dop_db_abolish_t", rt_pl_dop_db_abolish_t }, { "$db_retractall_t", 1,
             "rt_pl_dop_db_retractall_t", rt_pl_dop_db_retractall_t }, { "$db_asserta_r", 2, "rt_pl_dop_db_asserta_r", rt_pl_dop_db_asserta_r }, { "$db_assertz_r", 2, "rt_pl_dop_db_assertz_r",
                 rt_pl_dop_db_assertz_r }, { "$db_erase_ref", 1, "rt_pl_dop_db_erase_ref", rt_pl_dop_db_erase_ref }, { "$db_n_r", 2, "rt_pl_dop_db_n_r", rt_pl_dop_db_n_r }, { "$db_at_r", 3,
