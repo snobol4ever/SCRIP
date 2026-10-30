@@ -1,4 +1,6 @@
+#include "g_runtime_entry.h"
     .text
+RT_ENTRY_DECL(rt_sg_scan_member, leaf, 0);
     .globl rt_sg_scan_member
     .type  rt_sg_scan_member, @function
 rt_sg_scan_member:
@@ -166,6 +168,7 @@ rt_sg_scan_member:
     ret
     .size rt_sg_scan_member, .-rt_sg_scan_member
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sg_scan_nonmember, leaf, 0);
     .globl rt_sg_scan_nonmember
     .type  rt_sg_scan_nonmember, @function
 rt_sg_scan_nonmember:
@@ -227,6 +230,7 @@ rt_sg_scan_nonmember:
 4:  ret
     .size rt_sg_scan_nonmember, .-rt_sg_scan_nonmember
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sg_member, leaf, 0);
     .globl rt_sg_member
     .type  rt_sg_member, @function
 rt_sg_member:

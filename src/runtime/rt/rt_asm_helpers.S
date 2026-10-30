@@ -1,4 +1,5 @@
 #include "descr_tags.inc"
+#include "g_runtime_entry.h"
     .data
     .align 1
     .globl rtx_gate_leaf
@@ -8,6 +9,7 @@
 rtx_gate_leaf:
     .byte  0
     .text
+RT_ENTRY_DECL(rt_deref, leaf, 0);
     .globl rt_deref
     .type  rt_deref, @function
 rt_deref:
