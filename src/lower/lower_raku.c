@@ -4216,7 +4216,7 @@ static void rk_rename_main_refs(tree_t * t) {
 static void rk_listops_to_methcalls(tree_t * t, int is_iter_src) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_listops_to_methcalls(t->c[i], t->t == TT_ITERATE && i == 0);
-    if ((t->t == TT_SORT || t->t == TT_REVERSE) && t->n == 1 && t->c[0]) {
+    if (!is_iter_src && (t->t == TT_SORT || t->t == TT_REVERSE) && t->n == 1 && t->c[0]) {
         tree_t * m = ast_node_new(TT_METHCALL);
         m->line = t->line;
         ast_push(m, t->c[0]);
@@ -7093,6 +7093,7 @@ static void rk_pl_destructure(tree_t * t, int * uid) {
     char nb[40];
     int nt = t->n - 2, slurped = 0;
     tree_t * rhs = t->c[1], * tg[nt + 1], * tv;
+    int blank = rhs && rhs->t == TT_FNC && rhs->v.sval && !strcmp(rhs->v.sval, "__rk_arr") && rhs->n <= 1;
     snprintf(nb, sizeof nb, "__destr_%d", (*uid)++);
     tv = leaf_sval2(TT_VAR, intern(nb));
     for (int i = 0; i < nt; i++) tg[i] = t->c[2 + i];
@@ -7105,8 +7106,8 @@ static void rk_pl_destructure(tree_t * t, int * uid) {
         tree_t * get = rk_fnc2("__rk_arr_at", leaf_sval2(TT_VAR, tv->v.sval), rk_ti(i));
         if (slurped) get = rk_fnc2("__rk_undef", NULL, NULL);
         else if (tg[i] && tg[i]->t == TT_VAR && tg[i]->v.sval && tg[i]->v.sval[0] == '@') {
-            get = rk_t2(TT_METHCALL, leaf_sval2(TT_VAR, tv->v.sval), leaf_sval2(TT_QLIT, "skip"));
-            ast_push(get, rk_ti(i));
+            if (blank) get = rk_fnc2("__rk_undef", NULL, NULL);
+            else { get = rk_t2(TT_METHCALL, leaf_sval2(TT_VAR, tv->v.sval), leaf_sval2(TT_QLIT, "skip")); ast_push(get, rk_ti(i)); }
             slurped = 1;
         }
         ast_push(t, rk_pl_store(tg[i], get));
