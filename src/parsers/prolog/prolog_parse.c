@@ -3050,6 +3050,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lf_cd'(T,D):-nonvar(T),T=(:-D0),nonvar(D0),D0=D.\n"
     "'$lf_cnd'(T,C,[X|C]):-'$lf_cd'(T,if(G)),!,('$lf_on'(C)->('$lf_if'(G)->X=t;X=f);X=s).\n"
     "'$lf_cnd'(T,[X|C],[Y|C]):-'$lf_cd'(T,elif(G)),!,(X==f->('$lf_if'(G)->Y=t;Y=f);X==t->Y=d;Y=X).\n"
+    "'$lf_cnd'(T,[X|C],[Y|C]):-current_prolog_flag('$dialect',xsb),'$lf_cd'(T,elseif(G)),!,(X==f->('$lf_if'(G)->Y=t;Y=f);X==t->Y=d;Y=X).\n"
     "'$lf_cnd'(T,[X|C],[Y|C]):-'$lf_cd'(T,else),!,(X==f->Y=t;X==t->Y=d;Y=X).\n"
     "'$lf_cnd'(T,[_|C],C):-'$lf_cd'(T,endif),!.\n"
     "'$lf_if'(G):-catch(G,_,fail),!.\n"
