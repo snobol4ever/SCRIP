@@ -940,6 +940,14 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
                 if (q < 0 || !zon[q] || claim[q] < 0 || known[claim[q]] || fam[claim[q]] >= 0 || (claim[q] == claim[i]) != (ph == 1)) continue;
                 fam[claim[q]] = claim[q]; fbase[claim[q]] = 0 - (zout[q] - (b ? 0 : zd_k_g(cg, nodes[q])));
             }
+            for (int r = 0; r < n; r++) {
+                if (!zon[r] || nodes[r]->op != IR_CLEANUP || IR_LIT(nodes[r]).ival != CLEANUP_RESUME || nodes[r]->n_operands < 2 || claim[r] != r || known[r] || fam[r] >= 0) continue;
+                int g = nidx(nodes, n, nodes[r]->operands[1]), q, b;
+                if (g < 0 || !zon[g] || !zd_edge_retains_g(cg, nodes[g])) continue;
+                (void) zd_pl_land(cg, nodes, n, zon, zout, zgpop, zwpop, g, 0, &q, &b);
+                if (q < 0 || !zon[q] || claim[q] < 0 || fam[claim[q]] < 0) continue;
+                fam[r] = fam[claim[q]]; fbase[r] = fbase[claim[q]] + (zout[q] - (b ? 0 : zd_k_g(cg, nodes[q]))) - zout[r];
+            }
             for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
                 moved = 0;
                 for (int h = 0; h < n; h++) {
