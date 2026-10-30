@@ -284,99 +284,21 @@ Compiland   =  epsilon . *PushCounter()
                . *Reduce('Parse', nTop())
                . *PopCounter();
 /* ==================================================================================================================== */
-/* Preprocess: text to text. The macro pre-pass of the language (SNOBOL4: -INCLUDE and -COPY, as snobol4.l reads them) generates the compiland text; the   */
-/* Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483). -INCLUDE names a file once, -COPY every time; a name is tried as written, then   */
-/* in each directory of SNO_LIB, then in the directory of each file already included.                                                                      */
+/* Preprocess: text to text. The macro pre-pass of the language (SNOBOL4: -INCLUDE and -COPY, as snobol4.l reads them) rewrites the compiland text; the  */
+/* Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483). -INCLUDE names a file once, -COPY every time; a name is tried as written,   */
+/* then in each directory of SNO_LIB (a linked module: of ModIncl), then in the directory of each file already included. It is a loop of statements at   */
+/* the label SnoPP in the driver below: pp_find finds the next directive line at or after the cursor pp_at, the line and its newline are REPLACED IN Src */
+/* by the file's text and the scan restarts at that line, so a nested include is reached when its line is reached; a file whose last line has no newline */
+/* gets one (SPITBOL and the C front end end a line at the end of a file). A directive on the last line, with no newline after it, is text. The INPUT    */
+/* sits in an unevaluated expression so that a name INPUT refuses is a failure and not error 116, as it was inside the old function's pattern action.    */
+/* SUBSTR with a length of 0 is the rest of the string in SPITBOL and in SCRIP alike, so the head before a directive on the first line is not cut.       */
 /* ==================================================================================================================== */
-/* the patterns are built the first time a source carries an include line: a program with none runs the Compiland alone, as before */
-function PPPat() {
-    pp_spc   = ' ' CHAR(9);
-    pp_nl    = CHAR(10);
-    pp_kw    = ( '-' ANY('Ii') ANY('Nn') ANY('Cc') ANY('Ll') ANY('Uu') ANY('Dd') ANY('Ee') | '-' ANY('Cc') ANY('Oo') ANY('Pp') ANY('Yy') );
-    pp_q     = ( "'" NOTANY("'" pp_nl) FENCE(BREAK("'" pp_nl) | epsilon) "'" | '"' NOTANY('"' pp_nl) FENCE(BREAK('"' pp_nl) | epsilon) '"' );
-    pp_inl   = ( ( pp_kw SPAN(pp_spc) pp_q FENCE(BREAK(pp_nl) | epsilon) ) . pp_ln pp_nl . *PPInc(pp_ln) );
-    pp_oth   = ( ( BREAK(pp_nl) pp_nl | LEN(1) REM ) . pp_ln . *PPTxt(pp_ln) );
-    Preprocess = ( POS(0) ARBNO(FENCE(pp_inl | pp_oth)) RPOS(0) );
-    pp_ready = 1;
-    return;
-}
-/* ==================================================================================================================== */
-function PPInit(w, s) {
-    if (IDENT(pp_ready)) { PPPat(); }
-    pp_seen = TABLE(31);
-    pp_dirs = TABLE(31);
-    pp_nd = 0;
-    pp_err = '';
-    pp_out = '';
-    pp_buf = '';
-    s = HOST(4, 'SNO_LIB');
-    s = DIFFER(ModLinked) ModIncl;
-    while (DIFFER(s)) {
-        if (s ? (POS(0) BREAK(':') . w ':') = ) { ; } else { w = s; s = ''; }
-        if (DIFFER(w)) { pp_nd = pp_nd + 1; pp_dirs[pp_nd] = w; }
-    }
-    return;
-}
-/* ==================================================================================================================== */
-function PPEmit(s) {
-    pp_buf = pp_buf s;
-    if (GT(SIZE(pp_buf), 2048)) { pp_out = pp_out pp_buf; pp_buf = ''; }
-    return;
-}
-/* ==================================================================================================================== */
-function PPTxt(ln) {
-    PPTxt = .dummy;
-    PPEmit(ln);
-    nreturn;
-}
-/* ==================================================================================================================== */
-function PPOpen(path, t) {
-    PPOpen = ;
-    if (INPUT(.PPIN, 10, path '[-r16777215]')) {
-        t = '';
-        t = PPIN;
-        ENDFILE(10);
-        PPOpen = t;
-        return;
-    }
-    freturn;
-}
-/* ==================================================================================================================== */
-function PPFind(nm, i, t) {
-    PPFind = ;
-    pp_path = nm;
-    if (t = PPOpen(nm)) { PPFind = t; return; }
-    i = 0;
-    while (i = LT(i, pp_nd) i + 1) {
-        pp_path = pp_dirs[i] '/' nm;
-        if (t = PPOpen(pp_path)) { PPFind = t; return; }
-    }
-    freturn;
-}
-/* ==================================================================================================================== */
-function PPErr(msg) {
-    TERMINAL = 'Preprocess: ' msg;
-    pp_err = 1;
-    return;
-}
-/* ==================================================================================================================== */
-function PPInc(ln, qc, r, nm, key, once, t, dir) {
-    PPInc = .dummy;
-    once = '';
-    if (ln ? (POS(0) '-' ANY('Ii'))) { once = 1; }
-    ln ? (POS(0) BREAK(pp_spc) SPAN(pp_spc) LEN(1) . qc REM . r);
-    r ? (POS(0) ARB . nm qc ARBNO(NOTANY(qc)) RPOS(0));
-    key = nm;
-    nm ? (SPAN(pp_spc) RPOS(0)) = ;
-    if (~(t = PPFind(nm))) { PPErr('cannot open include ' nm); nreturn; }
-    if (DIFFER(once)) {
-        if (DIFFER(pp_seen[key])) { nreturn; }
-        pp_seen[key] = 1;
-    }
-    if (pp_path ? (POS(0) ARB . dir '/' ARBNO(NOTANY('/')) RPOS(0))) { pp_nd = pp_nd + 1; pp_dirs[pp_nd] = dir; }
-    t ? *Preprocess;
-    nreturn;
-}
+pp_spc   = ' ' CHAR(9);
+pp_nl    = CHAR(10);
+pp_kw    = ( '-' ANY('Ii') ANY('Nn') ANY('Cc') ANY('Ll') ANY('Uu') ANY('Dd') ANY('Ee') | '-' ANY('Cc') ANY('Oo') ANY('Pp') ANY('Yy') );
+pp_q     = ( "'" NOTANY("'" pp_nl) FENCE(BREAK("'" pp_nl) | epsilon) "'" | '"' NOTANY('"' pp_nl) FENCE(BREAK('"' pp_nl) | epsilon) '"' );
+pp_dl    = ( pp_kw SPAN(pp_spc) pp_q FENCE(BREAK(pp_nl) | epsilon) ) . pp_ln pp_nl;
+pp_find  = FENCE LEN(*pp_at) ( @pp_b pp_dl @pp_e | ARB CHAR(10) @pp_b pp_dl @pp_e );
 /* the driver: one file from stdin, or each file of PARSER_FILES in turn with a == header; the tree is dumped statement by  */
 /* statement, or the parse refused with Parse Error. A linked module (mod_head.sc) skips the reading: the module's ModEntry     */
 /* (the Makefile writes it after mod_tail.sc) jumps to SnoParse with the text in ModSrc, the tree leaves in ModTree and the     */
@@ -400,12 +322,51 @@ SnoNext: if (IDENT(pf_list)) {
 }
 SnoParse: if (DIFFER(ModLinked)) { Src = ModSrc; }
 pp_err = '';
-if (Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo'))) {
-    PPInit();
-    if (Src ? *Preprocess) { ; } else { pp_err = 1; }
-    if (IDENT(pp_err)) { Src = pp_out pp_buf; }
+if (~(Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo')))) goto SnoMatch;
+pp_seen = TABLE(31);
+pp_dirs = TABLE(31);
+pp_nd = 0;
+pp_s = HOST(4, 'SNO_LIB');
+pp_s = DIFFER(ModLinked) ModIncl;
+while (DIFFER(pp_s)) {
+    if (pp_s ? (POS(0) BREAK(':') . pp_w ':') = ) { ; } else { pp_w = pp_s; pp_s = ''; }
+    if (DIFFER(pp_w)) { pp_nd = pp_nd + 1; pp_dirs[pp_nd] = pp_w; }
 }
-pf_a = TIME();
+pp_at = 0;
+SnoPP: if (~(Src ? *pp_find)) goto SnoMatch;
+pp_once = '';
+if (pp_ln ? (POS(0) '-' ANY('Ii'))) { pp_once = 1; }
+pp_qc = '';
+pp_r = '';
+pp_nm = '';
+pp_ln ? (POS(0) BREAK(pp_spc) SPAN(pp_spc) LEN(1) . pp_qc REM . pp_r);
+pp_r ? (POS(0) ARB . pp_nm pp_qc ARBNO(NOTANY(pp_qc)) RPOS(0));
+pp_key = pp_nm;
+pp_nm ? (SPAN(pp_spc) RPOS(0)) = ;
+pp_t = '';
+pp_path = pp_nm;
+pp_i = 0;
+SnoPPTry: if ('' ? *INPUT(.pp_in, 10, pp_path '[-r16777215]')) goto SnoPPGot;
+if (~LT(pp_i, pp_nd)) goto SnoPPNone;
+pp_i = pp_i + 1;
+pp_path = pp_dirs[pp_i] '/' pp_nm;
+goto SnoPPTry;
+SnoPPGot: pp_t = pp_in;
+ENDFILE(10);
+if (DIFFER(pp_t)) { if (~(pp_t ? (CHAR(10) RPOS(0)))) { pp_t = pp_t CHAR(10); } }
+if (IDENT(pp_once)) goto SnoPPDir;
+if (DIFFER(pp_seen[pp_key])) { pp_t = ''; goto SnoPPSplice; }
+pp_seen[pp_key] = 1;
+SnoPPDir: if (pp_path ? (POS(0) ARB . pp_dir '/' ARBNO(NOTANY('/')) RPOS(0))) { pp_nd = pp_nd + 1; pp_dirs[pp_nd] = pp_dir; }
+goto SnoPPSplice;
+SnoPPNone: TERMINAL = 'Preprocess: cannot open include ' pp_nm;
+pp_err = 1;
+SnoPPSplice: pp_pre = '';
+if (GT(pp_b, 0)) { pp_pre = SUBSTR(Src, 1, pp_b); }
+Src = pp_pre pp_t SUBSTR(Src, pp_e + 1, SIZE(Src) - pp_e);
+pp_at = pp_b;
+goto SnoPP;
+SnoMatch: pf_a = TIME();
 InitCounter();
 InitStack();
 SnCaseNow = ;
