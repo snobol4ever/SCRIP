@@ -712,7 +712,7 @@ static int zd_pl_rest_ival(const IR_graph_t * cg, const IR_t * u) {
     return !((IR_LIT(u).ival & 32) && u->n_operands > 0 && zd_pl_bspine(cg, u->operands[0]));
 }
 static int zd_pl_unmark_takes_bound(const IR_graph_t * cg, const IR_t * u) {
-    if (!getenv("SCRIP_PL_GATE_CELLS") || (IR_LIT(u).ival & 8)) return 0;
+    if (IR_LIT(u).ival & 8) return 0;
     return !((IR_LIT(u).ival & 32) && u->n_operands > 0 && zd_pl_bspine(cg, u->operands[0]));
 }
 static int zd_mark_restore(const IR_t * u) { return u && u->op == IR_UNMARK && u->n_operands > 0 && (IR_LIT(u).ival & 6) && !(IR_LIT(u).ival & 32); }
