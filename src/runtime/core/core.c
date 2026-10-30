@@ -3521,7 +3521,7 @@ void DEFDAT_fn(const char *spec) {
     if (close) *close = '\0';
     DATBLK_t *prev = _udef_lookup(name);
     if (prev && _udef_fields_same(prev, fields_str)) return;
-    DATBLK_t *t = rt_wsb_alloc(sizeof(DATBLK_t));
+    DATBLK_t *t = rt_gcheap_alloc(HB_DATB, sizeof(DATBLK_t));
     t->name = rt_heap_strdup_c(name);
     int nfields = 0;
     char *tmp = rt_heap_strdup_c(fields_str);
@@ -3584,20 +3584,6 @@ void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
     DATBLK_t *t = obj.u->type;
     for (int i = 0; i < t->nfields; i++) if (strcasecmp(t->fields[i], field) == 0) { obj.u->fields[i] = val; return; }
 }
-typedef struct _VarEntry {
-    char *name;
-    uint32_t nlen;
-    int has_nul;
-    unsigned long serial;
-    int std_detached;
-    DESCR_t val;
-    DESCR_t *cell;
-    int is_gva;
-    int is_const;
-    int touched;
-    int is_io;
-    struct _VarEntry *next;
-} NV_t;
 #define VB(h) (((NV_t **)g_runtime.abi.var_buckets.p)[h])
 #define VBR(h) (g_runtime.abi.var_buckets.p ? VB(h) : (NV_t *)0)
 _Static_assert(offsetof(NV_t, name) == 0 && offsetof(NV_t, nlen) == 8 && offsetof(NV_t, has_nul) == 12 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, is_gva) == 56 &&
@@ -3711,7 +3697,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     NV_t *e = _var_bucket_find(key);
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
-    e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), key, __builtin_strlen(key));
+    e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), key, __builtin_strlen(key));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3862,7 +3848,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3917,7 +3903,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
         core_runtime_error(341, eb);
         return val;
     }
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3941,7 +3927,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
         core_runtime_error(341, eb);
         return val;
     }
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3994,7 +3980,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -4446,20 +4432,6 @@ void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; a
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && g_runtime.core.kw_code != 0) { fflush((FILE *) 0); _exit((int) g_runtime.core.kw_code); } }
 void rt_code_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; on_exit(code_at_exit, (void *) 0); } }
-typedef struct _FNCBLK_t {
-    char *name;
-    char *spec;
-    char *entry_label;
-    FNCPTR_t fn;
-    int nparams;
-    char **params;
-    int nlocals;
-    char **locals;
-    int min_args;
-    int max_args;
-    int max_set;
-    struct _FNCBLK_t *next;
-} FNCBLK_t;
 _Static_assert(__builtin_offsetof(NV_t, name) == 0 && __builtin_offsetof(NV_t, val) == 32 && __builtin_offsetof(NV_t, cell) == 48 && __builtin_offsetof(NV_t, next) == 72 &&
     __builtin_offsetof(FNCBLK_t, name) == 0 && __builtin_offsetof(FNCBLK_t, spec) == 8 && __builtin_offsetof(FNCBLK_t, entry_label) == 16 && __builtin_offsetof(FNCBLK_t, nparams) == 32 &&
     __builtin_offsetof(FNCBLK_t, params) == 40 && __builtin_offsetof(FNCBLK_t, nlocals) == 48 && __builtin_offsetof(FNCBLK_t, locals) == 56 && __builtin_offsetof(FNCBLK_t, next) == 80 &&
@@ -4493,7 +4465,7 @@ static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_f
 static FNCBLK_t *_func_head_at(unsigned h) { return g_runtime.core.func_bslab ? _func_buckets[h] : (FNCBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->min_args = 0;
     fe->max_args = 0;
     fe->max_set = 0;
@@ -4610,7 +4582,7 @@ static void core_fn_register_impl(const char *name, FNCPTR_t fn, int min_args, i
             return;
         }
     }
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->name = fe->spec = fe->entry_label = lit ? (char *)name : rt_heap_strdup_c(name);
     fe->fn = fn;
     fe->nparams = 0;
@@ -4829,7 +4801,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     FNCBLK_t *old_entry = NULL;
     unsigned ho = _func_hash(oldname);
     for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) { if (strcmp(e->name, oldname) == 0) { old_entry = e; break; } }
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->name = rt_heap_strdup_c(newname);
     if (old_entry) {
         fe->spec = old_entry->spec;

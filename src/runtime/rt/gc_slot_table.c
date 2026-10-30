@@ -31,6 +31,13 @@ _Static_assert(sizeof(pl_trie_t) == 64 && offsetof(pl_trie_t, root) == 0 && offs
     "HB_TRIE holds one pl_trie_t: root and ents are pointers, status and data are DESCR_t cells; a new member means this row is re-read");
 _Static_assert(sizeof(DATINST_t) == 32 && offsetof(DATINST_t, type) == 0 && offsetof(DATINST_t, fields) == 8,
     "HB_DINST holds one DATINST_t: the pointer members are type and fields, then the inline DESCR_t field cells when fields points past the header");
+_Static_assert(sizeof(NV_t) == 80 && offsetof(NV_t, name) == 0 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, next) == 72,
+    "HB_NVAR holds one NV_t: the heap-pointer members are name, val (a DESCR_t), cell and next; a new member means this row is re-read");
+_Static_assert(sizeof(FNCBLK_t) == 88 && offsetof(FNCBLK_t, name) == 0 && offsetof(FNCBLK_t, spec) == 8 && offsetof(FNCBLK_t, entry_label) == 16 && offsetof(FNCBLK_t, params) == 40 &&
+    offsetof(FNCBLK_t, locals) == 56 && offsetof(FNCBLK_t, next) == 80,
+    "HB_FNCB holds one FNCBLK_t: the heap-pointer members are name, spec, entry_label, params, locals and next, fn is a code address; a new member means this row is re-read");
+_Static_assert(sizeof(DATBLK_t) == 40 && offsetof(DATBLK_t, name) == 0 && offsetof(DATBLK_t, fields) == 16 && offsetof(DATBLK_t, next) == 24,
+    "HB_DATB holds one DATBLK_t: the heap-pointer members are name, fields and next; a new member means this row is re-read");
 static const gc_sfield_t ss_descr[] = { { 0, GS_DESCR } };
 static const gc_sfield_t ss_raw[] = { { 0, GS_RAW } };
 static const gc_run_t run_descr = { 0, sizeof(DESCR_t), 0, 0, sizeof ss_descr / sizeof ss_descr[0], ss_descr };
@@ -78,8 +85,15 @@ static const gc_slot_row_t sr_pldbk = { HB_PLDBK, HB_PLDBK, GR_TYPED, 0, (const 
 static const gc_slot_row_t sr_trie = { HB_TRIE, HB_TRIE, GR_TYPED, sizeof ss_trie / sizeof ss_trie[0], ss_trie, (const gc_run_t *)0, "pl_trie_t" };
 static const gc_slot_row_t sr_trien = { HB_TRIEN, HB_TRIEN, GR_TYPED, sizeof ss_trien / sizeof ss_trien[0], ss_trien, (const gc_run_t *)0, "pl_trie_node_t" };
 static const gc_slot_row_t sr_pvec = { HB_PVEC, HB_PVEC, GR_TYPED, 0, (const gc_sfield_t *)0, &run_raw, "void *[]: a vector of raw words" };
+static const gc_sfield_t ss_nvar[] = { { offsetof(NV_t, name), GS_RAW }, { offsetof(NV_t, val), GS_DESCR }, { offsetof(NV_t, cell), GS_RAW }, { offsetof(NV_t, next), GS_RAW } };
+static const gc_sfield_t ss_fncb[] = { { offsetof(FNCBLK_t, name), GS_RAW }, { offsetof(FNCBLK_t, spec), GS_RAW }, { offsetof(FNCBLK_t, entry_label), GS_RAW }, { offsetof(FNCBLK_t, params), GS_RAW },
+    { offsetof(FNCBLK_t, locals), GS_RAW }, { offsetof(FNCBLK_t, next), GS_RAW } };
+static const gc_sfield_t ss_datb[] = { { offsetof(DATBLK_t, name), GS_RAW }, { offsetof(DATBLK_t, fields), GS_RAW }, { offsetof(DATBLK_t, next), GS_RAW } };
+static const gc_slot_row_t sr_nvar = { HB_NVAR, HB_NVAR, GR_TYPED, sizeof ss_nvar / sizeof ss_nvar[0], ss_nvar, (const gc_run_t *)0, "NV_t" };
+static const gc_slot_row_t sr_fncb = { HB_FNCB, HB_FNCB, GR_TYPED, sizeof ss_fncb / sizeof ss_fncb[0], ss_fncb, (const gc_run_t *)0, "FNCBLK_t" };
+static const gc_slot_row_t sr_datb = { HB_DATB, HB_DATB, GR_TYPED, sizeof ss_datb / sizeof ss_datb[0], ss_datb, (const gc_run_t *)0, "DATBLK_t" };
 static const gc_slot_row_t *const gc_slot_rows[] = { &sr_str, &sr_fill, &sr_zblk, &sr_wsc, &sr_aggv, &sr_aggp, &sr_aggt, &sr_aggb, &sr_arr, &sr_dinst, &sr_dvec, &sr_wsb, &sr_pvec, &sr_dtp, &sr_dtprcp,
-    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien };
+    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb };
 const gc_slot_row_t *gc_slot_row_of(uint16_t type) {
     for (size_t i = 0; i < sizeof gc_slot_rows / sizeof gc_slot_rows[0]; i++) if (type >= gc_slot_rows[i]->lo && type <= gc_slot_rows[i]->hi) return gc_slot_rows[i];
     return (const gc_slot_row_t *)0;
