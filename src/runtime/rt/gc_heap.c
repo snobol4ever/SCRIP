@@ -2187,35 +2187,24 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph) {
     }
 }
 #endif
-static int gc_cell_visit(DESCR_t *d) {
-    if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) {
-        rt_hblk_t *h = gc_blk_of(d->s);
-        if (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) { rt_gc_visit_descr(d); return 1; }
-        return 0;
-    }
-    if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (d->v == DT_N && d->slen == 2) {
-        rt_hblk_t *vh = gc_blk_of((const char *)d->p);
-        if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); return 1; }
-        return 0;
-    }
-    if (d->v == DT_N && d->slen != 0 && d->slen != 1 && d->slen != 2) { if (gc_blk_of(d->s)) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (d->v == DT_N && d->slen == 1) {
-        rt_hblk_t *ch = gc_blk_of((const char *)d->ptr);
-        if (ch && (char *)d->ptr >= (char *)(ch + 1) && (char *)d->ptr + 16 <= (char *)ch + ch->size) { rt_gc_visit_descr(d); return 1; }
-        return 0;
-    }
-    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); return 1; }
-    if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); if (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + eh->size) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (gc_dvec_ref_ok(d)) { rt_gc_visit_descr(d); return 1; }
-    if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); return 1; }
-    if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) { rt_gc_visit_descr(d); return 1; }
-    if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { if (gc_blk_of((const char *)d->p)) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); if (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (d->v == DT_CPLX) { rt_hblk_t *ch = gc_blk_of((const char *)d->p); if (ch && ch->type == HB_WSB && (char *)d->p == (char *)(ch + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
-    if (d->v == DT_EXTL) { rt_hblk_t *xh = gc_blk_of((const char *)d->p); if (xh && xh->type == HB_WSB && (char *)d->p == (char *)(xh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
+static int gc_cell_ok(const DESCR_t *d) {
+    if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s); return (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) ? 1 : 0; }
+    if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); return (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) ? 1 : 0; }
+    if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); return (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) ? 1 : 0; }
+    if (d->v == DT_N && d->slen != 0 && d->slen != 1 && d->slen != 2) return gc_blk_of(d->s) ? 1 : 0;
+    if (d->v == DT_N && d->slen == 1) { rt_hblk_t *ch = gc_blk_of((const char *)d->ptr); return (ch && (char *)d->ptr >= (char *)(ch + 1) && (char *)d->ptr + 16 <= (char *)ch + ch->size) ? 1 : 0; }
+    if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) return 1;
+    if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); return (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + eh->size) ? 1 : 0; }
+    if (gc_dvec_ref_ok(d)) return 1;
+    if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
+    if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) return 1;
+    if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) return gc_blk_of((const char *)d->p) ? 1 : 0;
+    if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); return (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) ? 1 : 0; }
+    if (d->v == DT_CPLX) { rt_hblk_t *ch = gc_blk_of((const char *)d->p); return (ch && ch->type == HB_WSB && (char *)d->p == (char *)(ch + 1)) ? 1 : 0; }
+    if (d->v == DT_EXTL) { rt_hblk_t *xh = gc_blk_of((const char *)d->p); return (xh && xh->type == HB_WSB && (char *)d->p == (char *)(xh + 1)) ? 1 : 0; }
     return 0;
 }
+static int gc_cell_visit(DESCR_t *d) { if (!gc_cell_ok(d)) return 0; rt_gc_visit_descr(d); return 1; }
 #if RT_DIAG
 static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int gc_walk_census_on(void) { return gc_diag_on() || gc_maps_on() || gc_nospine_cell(); }
@@ -2896,6 +2885,10 @@ typedef struct {
     gc_gap_t gap;
     gc_links_args_t la;
     gc_swx_t x;
+    const gc_site_ent_t *te;
+    const gc_site_blk_t *tb;
+    const char *tr, *tbase;
+    long t_frames, t_masked, t_agree, t_search_only, t_so_unmasked, t_mask_only, t_mask_scalar, t_outside, t_nosite, t_hdr, t_blob, t_tail, t_said, t_so_rule[10];
 } gc_sw_t;
 _Static_assert(__builtin_offsetof(gc_sw_t, lo) == 0 && __builtin_offsetof(gc_sw_t, hi) == 8 && __builtin_offsetof(gc_sw_t, p) == 16 && __builtin_offsetof(gc_sw_t, prevbase) == 24 &&
     __builtin_offsetof(gc_sw_t, lastname) == 32 && __builtin_offsetof(gc_sw_t, roottop) == 40 && __builtin_offsetof(gc_sw_t, n) == 48 && __builtin_offsetof(gc_sw_t, run) == 56 &&
@@ -3010,6 +3003,68 @@ static void gc_chain_refuse(const gc_sw_t *s, const gc_ent_t *ent, const char *l
         s->lastf.map->flags, s->lastf.rule, s->lastf.map->frame_bytes, s->lastf.map->header_bytes);
     rt_bomb("gc: the chain over the maps stopped short -- see the [GC-CHAIN] lines; ARCH-GC-COMPILE-TIME-FRAME-MAPS.md 13.9 ONE");
 }
+#if RT_DIAG
+static long gc_told_search(const char *lo, const char *hi, uint8_t *acc) {
+    long n = 0;
+    for (const char *p = lo; p + 16 <= hi; ) { if (gc_cell_ok((const DESCR_t *)p)) { n++; if (acc) acc[(p - lo) >> 6] |= (uint8_t)(1u << (((p - lo) >> 3) & 7)); p += 16; } else p += 8; }
+    return n;
+}
+static int gc_told_bit(const gc_site_ent_t *e, const gc_site_blk_t *b, long j) {
+    if (e->depth <= 512) return j < 64 ? (int)((e->mask >> j) & 1u) : 0;
+    return (int)((((const uint64_t *)((const char *)b->tab + e->mask))[j >> 6] >> (j & 63)) & 1u);
+}
+static void gc_told_said(gc_sw_t *s, const char *what, const gc_chf_t *f, const char *at, long off) {
+    if (s->t_said++ >= 6) return;
+    fprintf(stderr, "[GC-TOLD] %s graph=%s rule=%d at=%p off_from_r=%ld type=%u word1=%p\n", what, f->map && f->map->graph_name ? f->map->graph_name : "?", s->te ? GC_SITE_RULE(s->te) : -1,
+        (const void *)at, off, (unsigned)*(const uint8_t *)at, *(const void *const *)(at + 8));
+}
+static void gc_told_window(gc_sw_t *s, const gc_chf_t *f, const char *lo, const char *hi) {
+    const gc_site_ent_t *e = s->te;
+    const char *r = s->tr;
+    int masked = GC_SITE_RULE(e) == 0 || GC_SITE_RULE(e) == 4;
+    long nw = (masked && e->depth > 0) ? (long)e->depth / 8 : 0, nb = hi > lo ? (hi - lo) >> 3 : 0;
+    uint8_t acc[nb < 32768 ? (nb >> 3) + 1 : 1];
+    if (hi - lo < 16) { s->t_frames++; if (masked) s->t_masked++; for (long j = 0; j < nw; j++) if (gc_told_bit(e, s->tb, j)) s->t_outside++; return; }
+    if (nb >= 32768) return;
+    memset(acc, 0, sizeof acc);
+    s->t_frames++;
+    if (masked) s->t_masked++;
+    for (const char *p = lo; p + 16 <= hi; ) {
+        long j = (p - r) >> 3;
+        if (!gc_cell_ok((const DESCR_t *)p)) { p += 8; continue; }
+        acc[(p - lo) >> 6] |= (uint8_t)(1u << (((p - lo) >> 3) & 7));
+        if (masked && p >= r && j < nw && gc_told_bit(e, s->tb, j)) s->t_agree++;
+        else { s->t_search_only++; if (!masked) s->t_so_unmasked++; s->t_so_rule[GC_SITE_RULE(e) < 10 ? GC_SITE_RULE(e) : 9]++; gc_told_said(s, "SEARCH-ONLY", f, p, (long)(p - r)); }
+        p += 16;
+    }
+    if ((s->t_search_only || s->t_mask_only) && s->t_said < 6) {
+        fprintf(stderr, "[GC-TOLD] FRAME graph=%s rule=%d depth=%d mask=%#llx base=%p lo_off=%ld hi_off=%ld base_off=%ld search:", f->map && f->map->graph_name ? f->map->graph_name : "?",
+            GC_SITE_RULE(e), (int)e->depth, (unsigned long long)e->mask, (const void *)s->tbase, (long)(lo - r), (long)(hi - r), (long)(s->tbase - r));
+        for (const char *p = lo; p + 16 <= hi; p += 8) if ((acc[(p - lo) >> 6] >> (((p - lo) >> 3) & 7)) & 1u) fprintf(stderr, " %ld", (long)(p - r));
+        fprintf(stderr, " mask:");
+        for (long j = 0; j < nw; j++) if (gc_told_bit(e, s->tb, j)) fprintf(stderr, " %ld", 8 * j);
+        fputc('\n', stderr);
+        s->t_said++;
+    }
+    for (long j = 0; j < nw; j++) {
+        const char *a = r + 8 * j;
+        if (!gc_told_bit(e, s->tb, j)) continue;
+        if (a < lo || a + 16 > hi) { s->t_outside++; continue; }
+        if (!((acc[(a - lo) >> 6] >> (((a - lo) >> 3) & 7)) & 1u)) {
+            if (gc_tag_bears_ptr(*(const uint8_t *)a)) { s->t_mask_only++; gc_told_said(s, "MASK-ONLY", f, a, (long)(a - r)); } else s->t_mask_scalar++;
+        }
+    }
+}
+static void gc_told_summary(gc_sw_t *s) {
+    if (s->t_frames || s->t_nosite || s->t_hdr || s->t_blob || s->t_tail)
+        fprintf(stderr,
+        "[GC-TOLD] SUMMARY frames=%ld masked=%ld agree=%ld search_only=%ld so_unmasked=%ld mask_only=%ld mask_scalar=%ld outside=%ld nosite_cells=%ld hdr_cells=%ld blob_cells=%ld tail_cells=%ld\n",
+        s->t_frames, s->t_masked, s->t_agree, s->t_search_only, s->t_so_unmasked, s->t_mask_only, s->t_mask_scalar, s->t_outside, s->t_nosite, s->t_hdr, s->t_blob, s->t_tail);
+    if (s->t_search_only)
+        fprintf(stderr, "[GC-TOLD] SO-RULES r0=%ld r1=%ld r2=%ld r3=%ld r4=%ld r5=%ld r6=%ld r7=%ld r8=%ld r9=%ld\n", s->t_so_rule[0], s->t_so_rule[1], s->t_so_rule[2], s->t_so_rule[3],
+        s->t_so_rule[4], s->t_so_rule[5], s->t_so_rule[6], s->t_so_rule[7], s->t_so_rule[8], s->t_so_rule[9]);
+}
+#endif
 static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
     const gc_frame_map_t *m = f->map;
     const char *base = f->base, *lo = s->lo, *hi = s->hi;
@@ -3039,6 +3094,9 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
                     (const void *)h[2], up, r1, r2);
             }
 #endif
+#if RT_DIAG
+            if (gc_chain_check_on() >= 3) s->t_blob += gc_told_search(s->p, c, (uint8_t *)0);
+#endif
             gc_walk_words_x(s->p, c, 0, lo, m->graph_name, c);
             gc_visit_frame_cells_x(base, m, lo, hi);
             s->p = top;
@@ -3049,6 +3107,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
             if (g_runtime.abi.gc_mk.maps && gc_maps_verbose())
                 fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u value_bytes=%lu flags=%u\n", g_gc_rep_popname[k],
                 (const void *)(base + (long)m->value_bytes), m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->value_bytes, m->flags);
+            if (gc_chain_check_on() >= 3) { if (s->te && s->tbase == base) gc_told_window(s, f, s->p, slo); else s->t_nosite += gc_told_search(s->p, slo, (uint8_t *)0); }
             {
                 long before = g->s_raw_heap;
                 gc_walk_words_x(s->p, slo, 0, lo, m->graph_name, base);
@@ -3060,6 +3119,9 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_visit_frame_cells_x(base, m, lo, (f->ext > 0 && base + 16L * f->ext < hi) ? base + 16L * f->ext : hi);
 #if RT_DIAG
             else g->notab++;
+#endif
+#if RT_DIAG
+            if (gc_chain_check_on() >= 3) s->t_hdr += gc_told_search(hlo, hhi, (uint8_t *)0);
 #endif
             gc_walk_words_x(hlo, hhi, 1, lo, m->graph_name, base);
             s->p = hhi;
@@ -3205,6 +3267,10 @@ static int gc_sw_c_step(gc_sw_t *s, const scrip_coctx_t *sc) {
     f.link = w.b->link;
     f.rule = GC_SITE_RULE(w.e);
     f.ext = GC_SITE_EXT(w.e);
+    s->te = w.e;
+    s->tb = w.b;
+    s->tr = w.r;
+    s->tbase = w.base;
     if (!gc_sw_chain_frame(s, &f)) return 0;
     x->last = w.base;
     if (w.b->map->flags & GC_FRAME_MAP_ROOT) {
@@ -3262,11 +3328,17 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
     if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1, 0 }; gc_sw_chain_frame(s, &f); }
     if (visit) {
         int root = s->roottop != (const char *)0 || (s->n > 0 && (s->lastf.map->flags & GC_FRAME_MAP_ROOT));
+#if RT_DIAG
+        if (!root && gc_chain_check_on() >= 3) s->t_tail += gc_told_search(s->p, s->hi, (uint8_t *)0);
+#endif
         if (!root && s->p + 8 <= s->hi) gc_walk_words_x(s->p, s->hi, 0, s->lo, s->lastname, s->p);
 #if RT_DIAG
         if (s->n == 0) g_runtime.gc.gw[g_runtime.gc.gc_rep_pop].nomap++;
 #endif
     }
+#if RT_DIAG
+    if (visit && gc_chain_check_on() >= 3) gc_told_summary(s);
+#endif
     gc_gap_close(&s->gap);
 }
 static long gc_sw_segment_fn(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a) {
