@@ -4232,7 +4232,8 @@ static void rk_listops_to_methcalls(tree_t * t, int is_iter_src) {
     if ((t->t != TT_MAP && t->t != TT_GREP) || t->n < 2 || !t->c[0] || !t->c[1]) return;
     if (is_iter_src && (t->n > 2 || t->c[1]->t == TT_TO || t->c[1]->t == TT_FNC)) return;
     tree_t * blk = t->c[0];
-    if (blk->t != TT_ANON_BLOCK) { tree_t * body = ast_node_new(TT_SEQ_EXPR); ast_push(body, t->c[0]); blk = ast_node_new(TT_ANON_BLOCK); ast_push(blk, body); }
+    int tyobj = t->t == TT_GREP && blk->t == TT_FNC && blk->v.sval && !strcmp(blk->v.sval, "__rk_typeobj");
+    if (blk->t != TT_ANON_BLOCK && !tyobj) { tree_t * body = ast_node_new(TT_SEQ_EXPR); ast_push(body, t->c[0]); blk = ast_node_new(TT_ANON_BLOCK); ast_push(blk, body); }
     int npos = 0;
     for (int i = 1; i < t->n; i++) if (!(t->c[i] && t->c[i]->t == TT_FNC && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "__rk_pair"))) npos++;
     tree_t * src = NULL;
