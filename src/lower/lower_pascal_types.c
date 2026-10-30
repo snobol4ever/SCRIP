@@ -194,7 +194,7 @@ static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
     if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
     return pt_named(s, n->v.sval);
 }
-struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; int nev, evcap; int *ev; };
+struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; int nev, evcap; int *ev; pty_vt_t *vt; int nvt, vtcap; };
 static void lb_ev(struct pty_lay *L, int code, int arg) {
     if (!L) return;
     if (L->nev >= L->evcap) { L->evcap = L->evcap ? L->evcap * 2 : 16; L->ev = (int *)ct_grow(L->ev, (size_t)L->evcap * sizeof *L->ev); }
@@ -217,6 +217,34 @@ static void lb_add(struct pty_lay *L, const char *name, const pty_t *ft, int nam
     L->named[L->nf] = (unsigned char)named;
     L->nf++;
     lb_ev(L, 1, 0);
+}
+static int lv_new(struct pty_lay *L) {
+    if (!L) return -1;
+    if (L->nvt >= L->vtcap) { L->vtcap = L->vtcap ? L->vtcap * 2 : 4; L->vt = (pty_vt_t *)ct_grow(L->vt, (size_t)L->vtcap * sizeof *L->vt); }
+    memset(&L->vt[L->nvt], 0, sizeof *L->vt);
+    L->vt[L->nvt].tagfi = -1;
+    return L->nvt++;
+}
+static void lv_arm(struct pty_state *s, struct pty_lay *L, int vi, int lo, int hi, const tree_t *cl) {
+    if (!L || vi < 0 || !cl || cl->n <= 0 || cl->n > 64) return;
+    long long m = 0;
+    for (int i = 0; i < cl->n; i++) { long long v; if (PT_IS(cl->c[i], TT_SUBRANGE) || !pt_const(s, cl->c[i], &v) || v < 0 || v > 62) return; m |= 1LL << v; }
+    pty_vt_t *t = &L->vt[vi];
+    if (hi > t->fcap) {
+        int nc = hi > 128 ? hi : 128;
+        long long *nm = (long long *)ct_zalloc((size_t)nc, sizeof *nm);
+        unsigned char *nh = (unsigned char *)ct_zalloc((size_t)nc, 1);
+        for (int f = 0; f < t->fcap; f++) { nm[f] = t->fmask[f]; nh[f] = t->fhas[f]; }
+        t->fmask = nm;
+        t->fhas = nh;
+        t->fcap = nc;
+    }
+    for (int f = lo; f < hi; f++) { t->fmask[f] = m; t->fhas[f] = 1; }
+}
+const pty_vt_t *pty_rec_vt(const pty_t *r) {
+    const pty_vt_t *best = NULL;
+    for (int i = 0; r && r->lay && i < r->lay->nvt; i++) if (r->lay->vt[i].tagfi >= 0 && (!best || r->lay->vt[i].tagfi > best->tagfi)) best = &r->lay->vt[i];
+    return best;
 }
 static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
     for (int i = 0; body && i < body->n; i++) {
@@ -245,10 +273,17 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
                 tag = c->c[0]->v.sval;
                 tagt = pt_leaf(s, c->c[0]);
             }
+            int vi = lv_new(r->lay);
             lb_ev(r->lay, 2, 0);
-            for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) { int st = r->lay->nf; pt_rec_fields(s, r, c->c[j]->c[1]); lb_ev(r->lay, 3, st); }
+            for (int j = k; j < c->n; j++) if (PT_IS(c->c[j], TT_ARM) && c->c[j]->n >= 2) {
+                int st = r->lay->nf;
+                pt_rec_fields(s, r, c->c[j]->c[1]);
+                lb_ev(r->lay, 3, st);
+                lv_arm(s, r->lay, vi, st, r->lay->nf, c->c[j]->c[0]);
+            }
             lb_ev(r->lay, 4, 0);
             if (tag) lb_add(r->lay, tag, tagt, k == 2 ? 3 : 5);
+            if (vi >= 0 && k == 2) r->lay->vt[vi].tagfi = r->lay->nf - 1;
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
     }
 }

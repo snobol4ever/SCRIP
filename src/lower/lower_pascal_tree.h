@@ -7,7 +7,7 @@ struct pas_pend_frame;
 typedef union { tree_t *node; PNodeList *list; char *str; long long ival; double dval; } pval;
 typedef struct { const char *name; const char *sig; const char *owner; const char *alias; const char *ov; int depth, rid, formal, uid, fld; } PasDef;
 typedef struct { const char *name; PNodeList *params; const char *sig; } PasFwd;
-struct pas_vt { int state; char *name; tree_t *node; tree_t *tagexpr; long long mask; int tagslot; int tagfi; long long *fmask; unsigned char *fhas; int fcap; };
+struct pas_vt { int state; char *name; tree_t *node; tree_t *tagexpr; long long mask; };
 struct pas_pend_frame {
     char **fields;
     char **fldptrto;

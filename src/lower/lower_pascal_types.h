@@ -18,11 +18,13 @@ struct pty {
     int prec, pal, pmen;
     struct pty_lay *lay;
 };
+typedef struct { int tagfi, fcap; long long *fmask; unsigned char *fhas; } pty_vt_t;
 struct pty_state;
 struct pty_lay;
 struct pty_fld { int ch, ca, na, file, ptr, rec, en; long long calo, cahi, nalo, nahi, ov; const char *name; const pty_t *ft; int named, ph, tag; const pty_t *eft; int enm; };
 const pty_t *pty_type_by_name(const char *name);
 const pty_t *pty_rec_by_name(const char *name);
+const pty_vt_t *pty_rec_vt(const pty_t *r);
 void pty_note_recname(const char *name, const tree_t *recnode);
 int pty_rec_nf(const pty_t *r);
 int pty_rec_layout(const pty_t *r, long long *sz, long long *al);

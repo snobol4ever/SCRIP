@@ -252,48 +252,10 @@ static struct pas_vt *pas_vt_new(int state) {
     }
     struct pas_vt *v = (struct pas_vt *)ct_zalloc(1, sizeof *v);
     v->state = state;
-    v->tagslot = -1;
-    v->tagfi = -1;
     g_lower.pas.sem.pas_vt[g_lower.pas.sem.pas_nvt++] = v;
     return v;
 }
-static void pas_vt_open(void) { pas_vt_new(0); }
-static struct pas_vt *pas_vt_top_open(void) { for (int i = g_lower.pas.sem.pas_nvt - 1; i >= 0; i--) if (g_lower.pas.sem.pas_vt[i]->state == 0) return g_lower.pas.sem.pas_vt[i]; return NULL; }
-static int pas_vt_consts(tree_t *e, long long *v, int *n, int cap) {
-    if (!e || *n >= cap) return 0;
-    if (e->t == TT_ADD && e->n == 2) return pas_vt_consts(e->c[0], v, n, cap) && pas_vt_consts(e->c[1], v, n, cap);
-    if (e->t == TT_EQ && e->n == 2 && e->c[1] && e->c[1]->t == TT_ILIT) { v[(*n)++] = e->c[1]->v.ival; return 1; }
-    return 0;
-}
-static void pas_vt_arm(int lo, int hi, tree_t *consts) {
-    struct pas_vt *t = pas_vt_top_open();
-    if (!t) return;
-    long long v[64];
-    int n = 0;
-    long long m = 0;
-    int ok = pas_vt_consts(consts, v, &n, 64) && n > 0;
-    for (int i = 0; ok && i < n; i++) { if (v[i] < 0 || v[i] > 62) ok = 0; else m |= 1LL << v[i]; }
-    if (ok && hi > t->fcap) {
-        int nc = pas_fcap(hi);
-        long long *nm = ct_zalloc((size_t)nc, sizeof *nm);
-        unsigned char *nh = ct_zalloc((size_t)nc, 1);
-        for (int f = 0; f < t->fcap; f++) { nm[f] = t->fmask[f]; nh[f] = t->fhas[f]; }
-        t->fmask = nm;
-        t->fhas = nh;
-        t->fcap = nc;
-    }
-    for (int f = lo; ok && f < hi; f++) { t->fmask[f] = m; t->fhas[f] = 1; }
-}
-static void pas_vt_close(int tagfi) { struct pas_vt *t = pas_vt_top_open(); if (!t) return; t->tagfi = tagfi; t->state = 1; }
-static void pas_vt_bind(const char *name) {
-    struct pas_vt *best = NULL;
-    for (int i = g_lower.pas.sem.pas_nvt - 1; i >= 0; i--) if (g_lower.pas.sem.pas_vt[i]->state == 1) {
-        if (g_lower.pas.sem.pas_vt[i]->tagfi >= 0 && (!best || g_lower.pas.sem.pas_vt[i]->tagfi > best->tagfi)) best = g_lower.pas.sem.pas_vt[i];
-    }
-    for (int i = 0; i < g_lower.pas.sem.pas_nvt; i++) if (g_lower.pas.sem.pas_vt[i]->state == 1) g_lower.pas.sem.pas_vt[i]->state = 3;
-    if (best && name) { best->state = 2; best->name = ct_strdup(name); }
-}
-static struct pas_vt *pas_vt_find_name(const char *nm);
+static const pty_vt_t *pas_vt_find_name(const char *nm);
 static int pas_rectype_slot(const char *rn, int fi);
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
@@ -1209,7 +1171,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *as = mk_assign(pv, alloc);
         if (pvchk) { tree_t *qc = ast_node_new(TT_SEQ_EXPR); ast_push(qc, pvchk); ast_push(qc, as); as = qc; }
         if (args->count >= 4 && rt) {
-            struct pas_vt *vt = pas_vt_find_name(rt);
+            const pty_vt_t *vt = pas_vt_find_name(rt);
             if (vt && vt->tagfi >= 0) {
                 tree_t *tg = ast_node_new(TT_IDX);
                 ast_push(tg, mk_deref(pas_tree_clone(pv)));
@@ -1252,7 +1214,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         }
         if (args->count >= 4) {
             const char *drt = pas_ptrexpr_target(args->items[0]);
-            struct pas_vt *vt = drt ? pas_vt_find_name(drt) : NULL;
+            const pty_vt_t *vt = drt ? pas_vt_find_name(drt) : NULL;
             tree_t *tn = ilit(-1);
             if (vt && vt->tagfi >= 0) { tn = ast_node_new(TT_IDX); ast_push(tn, mk_deref(pas_tree_clone(args->items[0]))); ast_push(tn, ilit(pas_rectype_slot(drt, vt->tagfi))); }
             tree_t *dk = ast_node_new(TT_FNC);
@@ -3035,16 +2997,11 @@ static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t 
     if (ak == TT_SUB && (g_lower.pas.sem.pas_zerobased_strings & 2) && a && a->t == TT_ADD) { int nv = 0; if (pas_unsigned_sum(a, &nv) && nv >= 2) return mk_fnc1("__pas_qchk", bin(ak, a, b)); }
     return bin(ak, a, b);
 }
-static struct pas_vt *pas_vt_find_name(const char *nm) {
-    if (!nm) return NULL;
-    for (int i = g_lower.pas.sem.pas_nvt - 1; i >= 0; i--) if (g_lower.pas.sem.pas_vt[i]->state == 2 && g_lower.pas.sem.pas_vt[i]->name && !strcmp(g_lower.pas.sem.pas_vt[i]->name, nm))
-        return g_lower.pas.sem.pas_vt[i];
-    return NULL;
-}
+static const pty_vt_t *pas_vt_find_name(const char *nm) { const pty_t *r = nm ? pty_rec_by_name(nm) : NULL; if (!r) r = pas_rvt(nm); if (!r) r = pas_art(nm); return r ? pty_rec_vt(r) : NULL; }
 static void pas_vt_mark(tree_t *e, tree_t *base, const char *rt, int fi) {
     if (!e || !base || fi < 0) return;
     const char *nm = rt ? rt : pas_with_sel_rtype(base);
-    struct pas_vt *t = pas_vt_find_name(nm);
+    const pty_vt_t *t = pas_vt_find_name(nm);
     if (!t && base->t == TT_VAR && base->v.sval) t = pas_vt_find_name(base->v.sval);
     if (t && t->tagfi >= 0 && fi == t->tagfi && base->t == TT_FNC && base->n == 2 && base->c[0] && base->c[0]->v.sval && !strcmp(base->c[0]->v.sval, "__pas_deref")) {
         struct pas_vt *m = pas_vt_new(5);
@@ -3091,7 +3048,7 @@ static tree_t *pas_vt_check_of(tree_t *sel) {
     }
     if (sel->t == TT_FNC && sel->n == 2 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_deref")) {
         const char *wt = pas_ptrexpr_target(sel->c[1]);
-        struct pas_vt *vt = wt ? pas_vt_find_name(wt) : NULL;
+        const pty_vt_t *vt = wt ? pas_vt_find_name(wt) : NULL;
         if (vt && vt->tagfi >= 0) { tree_t *c = ast_node_new(TT_FNC); ast_push(c, leaf_s(TT_VAR, "__pas_tagwhole")); ast_push(c, pas_tree_clone(sel->c[1])); return c; }
     }
     return NULL;
@@ -3149,7 +3106,7 @@ static tree_t *pas_field_init_tree(const char *rn, const char *vn, int fi) {
 static tree_t *pas_vt_undefine_variants(tree_t *sel, tree_t *rhs, tree_t *st) {
     if (g_lower.pas.sem.pas_seen_mode_directive || !sel || sel->t != TT_IDX || sel->n < 2 || !sel->c[0] || sel->c[0]->t != TT_VAR || !sel->c[0]->v.sval || !pas_tree_pure(rhs)) return st;
     const char *vn = sel->c[0]->v.sval, *rn = pas_with_sel_rtype(sel->c[0]);
-    struct pas_vt *t = rn ? pas_vt_find_name(rn) : NULL;
+    const pty_vt_t *t = rn ? pas_vt_find_name(rn) : NULL;
     if (!t) t = pas_vt_find_name(vn);
     if (!t || t->tagfi < 0) return st;
     tree_t *nul = ast_node_new(TT_SEQ_EXPR);
@@ -3690,7 +3647,7 @@ static tree_t *mk_ident(const char *name) {
             ast_push(e, ilit(rt ? pas_rectype_slot(rt, fi) : (wsel && wsel->t == TT_VAR && wsel->v.sval) ? pas_recvar_slot(wsel->v.sval, fi) : fi));
             { const char *_crt = rt ? rt : pas_with_sel_rtype(wsel); }
             {
-                struct pas_vt *_vt = pas_vt_find_name(rt ? rt : pas_with_sel_rtype(wsel));
+                const pty_vt_t *_vt = pas_vt_find_name(rt ? rt : pas_with_sel_rtype(wsel));
                 if (!_vt && wsel && wsel->t == TT_VAR && wsel->v.sval) _vt = pas_vt_find_name(wsel->v.sval);
                 if (_vt && _vt->tagfi >= 0 && fi == _vt->tagfi) pas_vt_new(8)->node = e;
             }
@@ -4829,7 +4786,6 @@ static pval E_body(const tree_t *n);
 static pval E_body_stmt(const tree_t *n);
 static pval E_call(const tree_t *n);
 static pval E_call_with_args(const tree_t *n);
-static pval E_case_arm_mark(const tree_t *n);
 static pval E_case_elem(const tree_t *n);
 static pval E_case_list(const tree_t *n, int from, int to);
 static pval E_case_open(const tree_t *n);
@@ -5182,15 +5138,6 @@ static pval E_call_with_args(const tree_t *n) {
     elab_bad("call_with_args", n);
     return out;
 }
-static pval E_case_arm_mark(const tree_t *n) {
-    pval v[3];
-    pval out;
-    memset(v, 0, sizeof v);
-    memset(&out, 0, sizeof out);
-    if (n == NULL) { { out.ival = g_lower.pas.sem.pas_pend_nf; } return out; }
-    elab_bad("case_arm_mark", n);
-    return out;
-}
 static pval E_case_elem(const tree_t *n) {
     pval v[6];
     pval out;
@@ -5218,15 +5165,7 @@ static pval E_case_list(const tree_t *n, int from, int to) {
     }
     return out;
 }
-static pval E_case_open(const tree_t *n) {
-    pval v[3];
-    pval out;
-    memset(v, 0, sizeof v);
-    memset(&out, 0, sizeof out);
-    if (n == NULL) { { pas_vt_open(); } return out; }
-    elab_bad("case_open", n);
-    return out;
-}
+static pval E_case_open(const tree_t *n) { pval v[3]; pval out; memset(v, 0, sizeof v); memset(&out, 0, sizeof out); if (n == NULL) { return out; } elab_bad("case_open", n); return out; }
 static pval E_case_statement(const tree_t *n) {
     pval v[9];
     pval out;
@@ -6182,13 +6121,7 @@ static pval E_record_case_arm(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
-    if (IS(n, TT_ARM)) {
-        v[1] = E_constant_list(n->c[0], 0, n->c[0]->n);
-        v[4] = E_case_arm_mark(NULL);
-        v[5] = E_record_body(n->c[1]);
-        { pas_vt_arm((int)v[4].ival, g_lower.pas.sem.pas_pend_nf, v[1].node); out.node = v[1].node; }
-        return out;
-    }
+    if (IS(n, TT_ARM)) { v[1] = E_constant_list(n->c[0], 0, n->c[0]->n); v[5] = E_record_body(n->c[1]); { out.node = v[1].node; } return out; }
     elab_bad("record_case_arm", n);
     return out;
 }
@@ -6226,8 +6159,7 @@ static pval E_record_case_opt(const tree_t *n) {
             if (v[2].str) {
                 g_lower.pas.sem.pas_pend_typename = ct_strdup(v[4].str);
                 { int _sb = g_lower.pas.sem.pas_pend_isbool; g_lower.pas.sem.pas_pend_isbool = pas_is_booltype(v[4].str); pas_pend_add(v[2].str); g_lower.pas.sem.pas_pend_isbool = _sb; }
-                pas_vt_close(g_lower.pas.sem.pas_pend_nf - 1);
-            } else pas_vt_close(-1);
+            }
         }
         return out;
     }
@@ -6235,7 +6167,7 @@ static pval E_record_case_opt(const tree_t *n) {
         v[2].str = tok_s(n->c[0]);
         v[4] = E_case_open(NULL);
         v[5] = E_record_case_list(n, 1, n->n);
-        { pas_variant_constants_in_tag_type(v[2].str, v[5].list); if (v[2].str) pas_pend_add(v[2].str); pas_vt_close(-1); }
+        { pas_variant_constants_in_tag_type(v[2].str, v[5].list); if (v[2].str) pas_pend_add(v[2].str); }
         return out;
     }
     if (n == NULL) { return out; }
@@ -6845,7 +6777,6 @@ static pval E_type(const tree_t *n) {
             if (g_lower.pas.sem.pas_recbody_depth > 1) {
                 char _anm[32];
                 snprintf(_anm, sizeof _anm, "$anonrec%d", ++g_lower.pas.sem.pas_scope.anonseq);
-                pas_vt_bind(_anm);
                 pty_note_recname(ct_strdup(_anm), n);
                 pas_pend_nest_restore();
                 g_lower.pas.sem.pas_pend_typename = ct_strdup(_anm);
@@ -6953,7 +6884,6 @@ static pval E_type_decl(const tree_t *n) {
             if (_ty3 < 0 && _ty3 != -2 && _ty3 != -3 && g_lower.pas.sem.pas_pend_isbool) pas_booltype_add(v[1].str);
             if (_ty3 == -2) pas_settype_add(v[1].str, g_lower.pas.sem.pas_pend_set_hi);
             if (g_lower.pas.sem.pas_pend_ptrtarget) pas_ptrtype_add(v[1].str, g_lower.pas.sem.pas_pend_ptrtarget);
-            else if (g_lower.pas.sem.pas_pend_nf > 0) pas_vt_bind(v[1].str);
             if (g_lower.pas.sem.pas_pend_enum_max >= 0) { pas_enumtype_add(v[1].str, g_lower.pas.sem.pas_pend_enum_max); pas_enumnames_add(v[1].str, g_lower.pas.sem.pas_pend_enum_names); }
             if (g_lower.pas.sem.pas_pend_sub_high >= 0 && _ty3 < 0 && g_lower.pas.sem.pas_pend_arr_ncols < 0)
                 pas_subtype_add(v[1].str, g_lower.pas.sem.pas_pend_sub_low, g_lower.pas.sem.pas_pend_sub_high);
@@ -7055,7 +6985,7 @@ static pval E_var_decl(const tree_t *n) {
                             pas_subtype_high(g_lower.pas.sem.pas_pend_typename) >= 0) {
                             pas_subvar_add(id->v.sval, pas_subtype_low(g_lower.pas.sem.pas_pend_typename), pas_subtype_high(g_lower.pas.sem.pas_pend_typename));
                         }
-                        if (_ty3 < 0 && g_lower.pas.sem.pas_pend_nf > 0) { pas_vt_bind(id->v.sval); pas_array_add(id->v.sval, (long long)(g_lower.pas.sem.pas_pend_nf - 1)); }
+                        if (_ty3 < 0 && g_lower.pas.sem.pas_pend_nf > 0) { pas_array_add(id->v.sval, (long long)(g_lower.pas.sem.pas_pend_nf - 1)); }
                         pas_scalarvartype_add(id->v.sval, g_lower.pas.sem.pas_pend_typename ? g_lower.pas.sem.pas_pend_typename : "?");
                     }
                     pas_local_add(id->v.sval);
