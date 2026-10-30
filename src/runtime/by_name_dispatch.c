@@ -11891,7 +11891,19 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else if (waitpid((pid_t)a.i, &ws, 0) != (pid_t)a.i) ok = pl_gnu_os_fail(cx);
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
-        else if (!strcmp(op, "get_time")) {
+        else if (!strcmp(op, "unbind_template")) {
+            ok = 1;
+            for (int i = 0; a.v == (DTYPE_t)DT_PLREF && i < plc_fid_arity(a.slen); i++) {
+                pl_cell_t *c = &((pl_cell_t *)a.p)[i];
+                for (;;) {
+                    if ((int)c->v == DT_PLVAR && c->p != (void *)c) c = (pl_cell_t *)c->p;
+                    else if (c->v == DT_N && c->slen == 1 && c->p) c = (pl_cell_t *)c->p;
+                    else if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) c = ((VCELL_t *)c->p)->cellp;
+                    else break;
+                }
+                if (!pl_cell_unbound(c)) pl_var_make(c, cx, 0);
+            }
+        } else if (!strcmp(op, "get_time")) {
             struct timespec ts;
             clock_gettime(CLOCK_REALTIME, &ts);
             ok = plw_unify_vals(args[2], REALVAL((double)ts.tv_sec + (double)ts.tv_nsec / 1e9), cx);
