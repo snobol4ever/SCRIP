@@ -14,16 +14,31 @@
     term_to_atom/2,3 and term_to_codes/2,3 are XSB's (syslib/string.P) and WRITE ONLY: the term is copied and written as codes, the default options ignore_ops(canonical), quoted(false), numbervars(false), so a
     compound is f(a,b) whatever its operators, a proper list [a,b], an unbound variable _h0, _h1, ... in order of first occurrence (a repeated variable keeps its number), a float as number_codes writes it and
     an atom as its text (quoted(true) quotes what XSB's if_not_need_quote refuses); SWI's term_to_atom/2 parses text, so it stays SWI's outside the XSB dialect (prolog_tests/large_arity_prolog). gc_dynamic/1 (syslib/standard.P: check_var, then the count of retracted clauses the delayed reclamation freed) answers 0, SCRIP frees a retracted clause at once so none is pending, and a bound argument is type_error(variable, N); XSB's own count is its storage's timing and no answer (CEO-1934, CEO-2012 (c)), so the retract_tests *_gc_* programs print it on lines the package mask replaces. retract_nr/1 is retract/1 (assert.P: the same retraction without reclaiming the clause; XSB prints an obsolete warning on stderr; retract_tests *_gc_*). file_write/2 (xsb_writ), file_flush/2, file_seek/4 (place 0 set, 1 current, 2 end), file_truncate/3 (truncates the file and leaves the position at the new end, measured on XSB 5.0.0), print_file_contents/1 (file_io) and rm/1 (shell) are XSB's file routines over the streams file_open/3 returns, each answering 0 for its status argument (io_tests/io_basics); xsb_configuration/2 answers os_type linux-gnu, measured on XSB 5.0.0. gc_heap/0 is XSB's heap collection, a no-op here (SCRIP collects at its own safe points), and storage_insert_fact/3, storage_find_fact/2 and storage_delete_all/1 are lib/storage.P's named fact storage (a trie in XSB, a dynamic table here: a variant fact is inserted once, Inserted is 1 for a new fact and 0 for one already there) that prolog_tests/gctest fills and empties. concat_atom/2,3 (syslib/string.P) join atomic elements, a number included (concat_atom([x,1], A) gives x1), and fail on a compound element, where backcomp.pl's route through atom_concat/3 raises XSB's strict type_error(atom, 1) (the generator's SHADOWS rows replace backcomp's in the XSB dialect; prolog_tests/gctest in mode 4). */
-:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, file_write/2, file_flush/2, file_seek/4, file_truncate/3, print_file_contents/1, rm/1, xsb_configuration/2, gc_heap/0, storage_insert_fact/3, storage_find_fact/2, storage_delete_all/1, concat_atom/2, concat_atom/3, import/1 ]).
+:- module(xsb_dialect, [ index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, file_write/2, file_flush/2, file_seek/4, file_truncate/3, print_file_contents/1, rm/1, xsb_configuration/2, gc_heap/0, storage_insert_fact/3, storage_find_fact/2, storage_delete_all/1, storage_insert_fact_bt/3, storage_delete_fact/3, storage_delete_fact_bt/3, storage_insert_keypair/4, storage_insert_keypair_bt/4, storage_find_keypair/3, storage_delete_keypair/3, storage_delete_keypair_bt/3, storage_reclaim_space/1, reclaim_space/1, asserti/2, assertzi/2, assertai/2, concat_atom/2, concat_atom/3, import/1 ]).
 concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).
 concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).
 '$xsb_ca_atomic'([]).
 '$xsb_ca_atomic'([X|Xs]) :- atomic(X), '$xsb_ca_atomic'(Xs).
 :- dynamic '$xsb_st'/2.
+:- dynamic '$xsb_kp'/3.
 gc_heap.
 storage_insert_fact(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1 ).
 storage_find_fact(N, F) :- '$xsb_st'(N, F).
 storage_delete_all(N) :- retractall('$xsb_st'(N, _)).
+storage_insert_fact_bt(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1, ( true ; '$xsb_st_del'(N, F), fail ) ).
+'$xsb_st_del'(N, F) :- '$xsb_st'(N, G), G =@= F, !, retract('$xsb_st'(N, G)).
+storage_delete_fact(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1 ; D = 0 ).
+storage_delete_fact_bt(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1, ( true ; assertz('$xsb_st'(N, G)), fail ) ; D = 0 ).
+storage_insert_keypair(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1 ).
+storage_insert_keypair_bt(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1, ( true ; retract('$xsb_kp'(N, K, V)), fail ) ).
+storage_find_keypair(N, K, V) :- '$xsb_kp'(N, K, V).
+storage_delete_keypair(N, K, D) :- ( retract('$xsb_kp'(N, K, _)) -> D = 1 ; D = 0 ).
+storage_delete_keypair_bt(N, K, D) :- ( retract('$xsb_kp'(N, K, V)) -> D = 1, ( true ; assertz('$xsb_kp'(N, K, V)), fail ) ; D = 0 ).
+storage_reclaim_space(_).
+reclaim_space(F) :- ( var(F) -> throw(error(instantiation_error, _)) ; true ).
+asserti(C, _) :- assertz(C).
+assertzi(C, _) :- assertz(C).
+assertai(C, _) :- asserta(C).
 file_write(S, T) :- write(S, T).
 file_flush(S, 0) :- flush_output(S).
 file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).

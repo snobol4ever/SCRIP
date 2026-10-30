@@ -25464,6 +25464,8 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
         if (!strcmp(op, "abolish")) {
             DESCR_t n, a;
             const char *ns;
+            if (pl_xsb_dialect() && ((int)t.v == DT_PLATOM || t.v == DT_S || ((int)t.v == DT_PLREF && !(plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern(":")))))
+                return (void *)0;
             if (!(t.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern("/"))) return rt_pl_ball_kind2("type_error", "predicate_indicator", t);
             n = rt_pl_deref_val(((DESCR_t *)t.p)[0]);
             a = rt_pl_deref_val(((DESCR_t *)t.p)[1]);
@@ -25650,6 +25652,17 @@ DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
     pl_atoms_ready();
     {
         DESCR_t t = rt_pl_deref_val(args[0]);
+        if (pl_xsb_dialect() && !(t.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t.slen) == 2 && (plc_fid_name(t.slen) == prolog_atom_intern("/") || plc_fid_name(t.slen) == prolog_atom_intern(":"))) &&
+            ((int)t.v == DT_PLATOM || t.v == DT_S || (int)t.v == DT_PLREF)) {
+            const char *hn = (int)t.v == DT_PLREF ? prolog_atom_name(plc_fid_name(t.slen)) : pl_atom_str(t);
+            int ha = (int)t.v == DT_PLREF ? plc_fid_arity(t.slen) : 0;
+            char hk[fmt_len("%s/%d", hn ? hn : "?", ha)];
+            void *hdb;
+            snprintf(hk, sizeof hk, "%s/%d", hn ? hn : "?", ha);
+            hdb = rt_pl_db_get_by_key(root, hk, 0);
+            if (!hdb) return pl_ok();
+            return rt_pl_db_abolish(root, hdb) ? pl_ok() : FAILDESCR;
+        }
         if (!(t.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern("/"))) return FAILDESCR;
         {
             DESCR_t n = rt_pl_deref_val(((DESCR_t *)t.p)[0]);

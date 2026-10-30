@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/stat.h>
 extern void *rt_wsb_alloc(size_t);
 typedef struct {
     int active;
@@ -1249,6 +1250,10 @@ static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
             return pl_if_defines(x, pi->c[0]->v.sval, ar) || (ar->t == TT_ILIT && (pl_pi_is_builtin(pi->c[0]->v.sval, (int)ar->v.ival) || pl_prelude_defines(pi->c[0]->v.sval, (int)ar->v.ival)));
         }
     }
+    if ((!strcmp(fn, "file_exists") || !strcmp(fn, "exists_file")) && arity == 1 && cond->c[0] && cond->c[0]->t == TT_QLIT && cond->c[0]->v.sval) {
+        struct stat st;
+        return stat(cond->c[0]->v.sval, &st) == 0 && (strcmp(fn, "exists_file") || S_ISREG(st.st_mode));
+    }
     if (!strcmp(fn, "exists_source") && arity == 1 && cond->c[0] && cond->c[0]->t == TT_FNC && cond->c[0]->v.sval && !strcmp(cond->c[0]->v.sval, "library") && cond->c[0]->n == 1) {
         int k = pl_prelude_lib_spec_known(cond->c[0]->c[0]);
         if (k >= 0) return k;
@@ -1287,7 +1292,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno, pl_
         f->line   = lineno;
         return 1;
     }
-    if (strcmp(fn, "elif") == 0 && arity == 1) {
+    if ((strcmp(fn, "elif") == 0 || strcmp(fn, "elseif") == 0) && arity == 1) {
         if (p->ifst.len == 0) {
             perror_at(p, lineno, ":- elif without matching :- if");
             return 1;

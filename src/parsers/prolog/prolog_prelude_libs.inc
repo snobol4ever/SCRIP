@@ -34207,6 +34207,19 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "storage_insert_fact", 3 },
     { "storage_find_fact", 2 },
     { "storage_delete_all", 1 },
+    { "storage_insert_fact_bt", 3 },
+    { "storage_delete_fact", 3 },
+    { "storage_delete_fact_bt", 3 },
+    { "storage_insert_keypair", 4 },
+    { "storage_insert_keypair_bt", 4 },
+    { "storage_find_keypair", 3 },
+    { "storage_delete_keypair", 3 },
+    { "storage_delete_keypair_bt", 3 },
+    { "storage_reclaim_space", 1 },
+    { "reclaim_space", 1 },
+    { "asserti", 2 },
+    { "assertzi", 2 },
+    { "assertai", 2 },
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
@@ -34235,10 +34248,25 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$xsb_ca_atomic'([]).\n"
     "'$xsb_ca_atomic'([X|Xs]) :- atomic(X), '$xsb_ca_atomic'(Xs).\n"
     ":- dynamic '$xsb_st'/2.\n"
+    ":- dynamic '$xsb_kp'/3.\n"
     "gc_heap.\n"
     "storage_insert_fact(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1 ).\n"
     "storage_find_fact(N, F) :- '$xsb_st'(N, F).\n"
     "storage_delete_all(N) :- retractall('$xsb_st'(N, _)).\n"
+    "storage_insert_fact_bt(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1, ( true ; '$xsb_st_del'(N, F), fail ) ).\n"
+    "'$xsb_st_del'(N, F) :- '$xsb_st'(N, G), G =@= F, !, retract('$xsb_st'(N, G)).\n"
+    "storage_delete_fact(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1 ; D = 0 ).\n"
+    "storage_delete_fact_bt(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1, ( true ; assertz('$xsb_st'(N, G)), fail ) ; D = 0 ).\n"
+    "storage_insert_keypair(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1 ).\n"
+    "storage_insert_keypair_bt(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1, ( true ; retract('$xsb_kp'(N, K, V)), fail ) ).\n"
+    "storage_find_keypair(N, K, V) :- '$xsb_kp'(N, K, V).\n"
+    "storage_delete_keypair(N, K, D) :- ( retract('$xsb_kp'(N, K, _)) -> D = 1 ; D = 0 ).\n"
+    "storage_delete_keypair_bt(N, K, D) :- ( retract('$xsb_kp'(N, K, V)) -> D = 1, ( true ; assertz('$xsb_kp'(N, K, V)), fail ) ; D = 0 ).\n"
+    "storage_reclaim_space(_).\n"
+    "reclaim_space(F) :- ( var(F) -> throw(error(instantiation_error, _)) ; true ).\n"
+    "asserti(C, _) :- assertz(C).\n"
+    "assertzi(C, _) :- assertz(C).\n"
+    "assertai(C, _) :- asserta(C).\n"
     "file_write(S, T) :- write(S, T).\n"
     "file_flush(S, 0) :- flush_output(S).\n"
     "file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).\n"

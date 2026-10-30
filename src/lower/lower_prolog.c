@@ -3231,6 +3231,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "abolish") && t->n == 2 && !pl_user_defines(nm, 2))
                 return goal(cx, pl_cc_fnc1("abolish", pl_cc_fnc2("/", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
+            if (!strcmp(nm, "abolish") && t->n == 1 && g_stage2.pl_dialect == PL_DIALECT_XSB && t->c[0] && t->c[0]->v.sval &&
+                (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME || (t->c[0]->t == TT_FNC && strcmp(t->c[0]->v.sval, "/") && strcmp(t->c[0]->v.sval, ":"))))
+                return goal(cx, pl_cc_fnc1("abolish", pl_cc_fnc2("/", (tree_t *) pl_atom_goal(t->c[0]->v.sval), pl_cc_ilit(t->c[0]->t == TT_FNC ? t->c[0]->n : 0))), γnext, ωfail, entry_out);
             if (!strcmp(nm, "abolish") && t->n == 1) {
                 int ar = 0;
                 const char * pn;
