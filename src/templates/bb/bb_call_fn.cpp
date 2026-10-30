@@ -234,7 +234,8 @@ static std::string cf_baked_zd(int try_) {
                       try_
                       ? emit_seq({ x86("lea", "rcx", ZCELL(0)),
                                    bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", ZCELL(0)), _.op_call_rec, _.op_zres),
-                                   x86("mov", "rax", ZRES(0)) + x86("mov", "rdx", ZRES(8)),
+                                   x86("mov", "rax", ZRES(0))
+                                 + x86("mov", "rdx", ZRES(8)),
                                    x86_deflabel_id(29) + x86_rt_gc_poll_res(std::string(), 1) })
                       : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res(std::string(), 1) }) });
 }
@@ -304,13 +305,15 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + bb_glue_stno_unit_push(_.op_zres)
          + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 0, _.op_zres)
          + x86_deflabel_id(base + 5)
-         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rcx", RDQ("rsp", 112)) : x86("mov", "rcx", "rsp"))
+         + IF(bb_glue_in_region(_.op_zres), x86("lea", "rcx", RDQ("rsp", 112)))
+         + IF(!bb_glue_in_region(_.op_zres), x86("mov", "rcx", "rsp"))
          + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
          + x86_rt_gc_poll_rec_res(_.op_zres)
          + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
-         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rsi", RDQ("rsp", 112)) : x86("mov", "rsi", "rsp"))
+         + IF(bb_glue_in_region(_.op_zres), x86("lea", "rsi", RDQ("rsp", 112)))
+         + IF(!bb_glue_in_region(_.op_zres), x86("mov", "rsi", "rsp"))
          + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
          + x86_rt_gc_poll_rec_res(_.op_zres)
          + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
