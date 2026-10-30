@@ -10034,7 +10034,7 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; int user; } pl_flag_t;
+typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; int user; int type; } pl_flag_t;
 static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_procedure_arity",
     "1024", 0, { 0 } }, { "max_char_code", "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } },
     { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error",
@@ -10153,6 +10153,64 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
     return &pl_flags[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { PLF_NONE = 0, PLF_BOOL, PLF_ATOM, PLF_INT, PLF_FLOAT, PLF_TERM };
+static const char *const pl_flag_type_name[] = { "atom", "boolean", "atom", "integer", "float", "term" };
+static int pl_flag_bool_text(const char *s, const char **norm) {
+    if (!strcmp(s, "true") || !strcmp(s, "on")) { *norm = "true"; return 1; }
+    if (!strcmp(s, "false") || !strcmp(s, "off")) { *norm = "false"; return 1; }
+    return 0;
+}
+static int pl_flag_value_type(DESCR_t v) {
+    const char *t, *n;
+    if (v.v == (DTYPE_t)DT_PLATOM) return (t = pl_atom_str(v)) && pl_flag_bool_text(t, &n) ? PLF_BOOL : PLF_ATOM;
+    if (v.v == DT_I) return PLF_INT;
+    if (v.v == DT_R) return PLF_FLOAT;
+    return PLF_TERM;
+}
+static int pl_flag_type_of(const pl_flag_t *fl) {
+    int bools = 0, others = 0;
+    const char *d, *n;
+    if (fl->type) return fl->type;
+    if (fl->is_term) return PLF_TERM;
+    for (int i = 0; fl->allow[i]; i++) { if (pl_flag_bool_text(fl->allow[i], &n)) bools++; else others++; }
+    if (bools && !others) return PLF_BOOL;
+    d = fl->val ? fl->val : "";
+    if (!fl->allow[0] && pl_flag_bool_text(d, &n)) return PLF_BOOL;
+    if (*d == '-') d++;
+    return *d && strspn(d, "0123456789") == strlen(d) ? PLF_INT : PLF_ATOM;
+}
+static const char *pl_flag_coerce(int type, DESCR_t v, char *buf, size_t n, const char **text) {
+    const char *s;
+    *text = (const char *)0;
+    if (type == PLF_TERM) return (const char *)0;
+    if (type == PLF_BOOL) return v.v == (DTYPE_t)DT_PLATOM && (s = pl_atom_str(v)) && pl_flag_bool_text(s, text) ? (const char *)0 : "bool";
+    if (type == PLF_ATOM) { *text = v.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(v) : (const char *)0; return *text ? (const char *)0 : "atom"; }
+    if (type == PLF_INT) { if (v.v != DT_I) return "integer"; snprintf(buf, n, "%lld", (long long)v.i); *text = buf; return (const char *)0; }
+    if (v.v != DT_R && v.v != DT_I) return "float";
+    snprintf(buf, n, "%.17g", v.v == DT_R ? v.r : (double)v.i);
+    *text = buf;
+    return (const char *)0;
+}
+static int pl_flag_store(pl_flag_t *fl, void *cell, DESCR_t v, int type, int normalise, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern pl_cell_t rt_pl_cell_snapshot(void *);
+    extern char *rt_heap_strdup_c(const char *);
+    char buf[64];
+    const char *text, *bad = pl_flag_coerce(type, v, buf, sizeof buf, &text);
+    if (bad) { cx->ball = rt_pl_ball_kind2("type_error", bad, v); return 0; }
+    if (type == PLF_TERM) {
+        fl->term = rt_pl_cell_snapshot(cell);
+        fl->val = "set";
+        fl->is_term = 1;
+    } else {
+        if (!normalise && type == PLF_BOOL) text = pl_atom_str(v);
+        fl->val = rt_heap_strdup_c(text);
+        fl->is_term = 0;
+    }
+    fl->type = type;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_round_mode(const char *v) {
     if (!v) return -1;
     return !strcmp(v, "to_nearest") ? FE_TONEAREST : !strcmp(v, "to_positive") ? FE_UPWARD : !strcmp(v, "to_negative") ? FE_DOWNWARD : !strcmp(v, "to_zero") ? FE_TOWARDZERO : -1;
@@ -10246,6 +10304,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             ok = plw_unify_vals(args[1], pl_mk_atom("swi"), cx);
         } else if (!strcmp(fl->nm, "debug") && pl_swi_dialect()) {
             ok = plw_unify_vals(args[1], pl_mk_atom(strcmp(fl->val, "on") ? "false" : "true"), cx);
+        } else if (fl->type == PLF_INT || fl->type == PLF_FLOAT) {
+            ok = plw_unify_vals(args[1], fl->type == PLF_INT ? INTVAL((int64_t)strtoll(fl->val, (char **)0, 10)) : REALVAL(strtod(fl->val, (char **)0)), cx);
         } else {
             ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx);
         }
@@ -10269,13 +10329,13 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
             cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
         } else if (!(fl = pl_flag_find(fn)) && !(pl_swi_dialect() && (fl = pl_flag_find_or_create(fn)) && (fl->user = 1))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+        } else if (fl->type && !fl->mod) {
+            cx->ball = rt_pl_ball_permission3("modify", "flag", f);
+        } else if (fl->type) {
+            ok = pl_flag_store(fl, &args[1], v, fl->type, 1, cx);
         } else if (fl->user) {
-            extern pl_cell_t rt_pl_cell_snapshot(void *);
-            fl->term = rt_pl_cell_snapshot(&args[1]);
-            fl->val = "set";
-            fl->is_term = 1;
+            ok = pl_flag_store(fl, &args[1], v, pl_flag_value_type(v), 0, cx);
             fl->mod = 1;
-            ok = 1;
         } else if (fl->is_term) {
             extern pl_cell_t rt_pl_cell_snapshot(void *);
             extern void *rt_pl_ball_instantiation(void);
@@ -10322,24 +10382,47 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(create_prolog_flag, 2)
+PL_CX_LEAF_HEAD(create_prolog_flag, 4)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
-        const char *fn, *vn;
+        char fb[128], tb[32], ab[32], cb[64];
+        const char *fn, *tn, *an, *text;
         DESCR_t f = rt_pl_deref_val(args[0]), v = rt_pl_deref_val(args[1]);
         pl_flag_t *fl;
+        int type;
         ok = 0;
-        fn = pl_atom_str(f);
-        vn = pl_atom_str(v);
-        if (!vn && v.v == (DTYPE_t)DT_I) { char *b = rt_wsb_alloc(24); snprintf(b, 24, "%lld", (long long)v.i); vn = b; }
         if (pl_val_unbound(f) || pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
-        else if (!fn) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-        else if (!vn) cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", v);
-        else if (!(fl = pl_flag_find_or_create(fn))) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
-        else { fl->val = rt_heap_strdup_c(vn); fl->mod = 1; fl->allow[0] = 0; fl->is_term = 0; ok = 1; }
+        else if (f.v != (DTYPE_t)DT_PLATOM || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if (!pl_cell_text(args[2], tb, sizeof tb, &tn) || !pl_cell_text(args[3], ab, sizeof ab, &an)) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag_type", rt_pl_deref_val(args[2]));
+        else {
+            int declared = strcmp(tn, "none") != 0;
+            const char *bad;
+            type = !strcmp(tn, "boolean") ? PLF_BOOL : !strcmp(tn, "atom") ? PLF_ATOM : !strcmp(tn, "integer") ? PLF_INT : !strcmp(tn, "float") ? PLF_FLOAT : !strcmp(tn, "term") ? PLF_TERM :
+                pl_flag_value_type(v);
+            if ((bad = pl_flag_coerce(type, v, cb, sizeof cb, &text))) cx->ball = rt_pl_ball_kind2("type_error", bad, v);
+            else if (!(fl = pl_flag_find_or_create(fn))) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+            else if (pl_flag_store(fl, &args[1], v, type, declared, cx)) { fl->user = 1; fl->mod = strcmp(an, "read") != 0; ok = 1; }
+        }
     }
 PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(flag_meta, 3)
+    {
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_instantiation(void);
+        char fb[128];
+        const char *fn, *dv;
+        DESCR_t f = rt_pl_deref_val(args[0]);
+        pl_flag_t *fl;
+        ok = 0;
+        if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
+        else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if ((dv = pl_dia_flag(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(dv[0] == 't' || dv[0] == 'f' ? "boolean" : "integer"), cx) && plw_unify_vals(args[2], pl_mk_atom("read"), cx);
+        else if ((fl = pl_flag_find(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(pl_flag_type_name[pl_flag_type_of(fl)]), cx) && plw_unify_vals(args[2], pl_mk_atom(fl->mod ? "write" : "read"), cx);
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
     {
         char fb[128], vb[128];
@@ -10353,7 +10436,7 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
                 if (sl && sl > vn) { char nb[sl - vn + 1]; memcpy(nb, vn, (size_t)(sl - vn)); nb[sl - vn] = 0; pl_lower_hook_dyn_mark(nb, atoi(sl + 1)); }
             }
             fl = strcmp(fn, "$tbl_hook") ? pl_flag_find_or_create(fn) : (pl_flag_t *)0;
-            if (fl && fl->user) {
+            if (fl && fl->user && (!fl->type || fl->type == PLF_TERM)) {
                 extern pl_cell_t rt_pl_cell_snapshot(void *);
                 fl->term = rt_pl_cell_snapshot(&args[1]);
                 fl->val = "set";

@@ -194,6 +194,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_factorize_term", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_findall_result", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_findall_result4", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_flag_meta", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_flush_output_sb", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_format", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_format3", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

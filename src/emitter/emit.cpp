@@ -4620,6 +4620,7 @@ DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, 
 DESCR_t rt_pl_dop_attv_set(DESCR_t *, int); DESCR_t rt_pl_dop_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_linkarg(DESCR_t *, int);
 DESCR_t rt_pl_dop_stamp_date_time(DESCR_t *, int); DESCR_t rt_pl_dop_date_time_stamp(DESCR_t *, int); DESCR_t rt_pl_dop_format_time_text(DESCR_t *, int);
     DESCR_t rt_pl_dop_create_prolog_flag(DESCR_t *, int);
+    DESCR_t rt_pl_dop_flag_meta(DESCR_t *, int);
     DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
     DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int);
     DESCR_t rt_pl_dop_copy_keep(DESCR_t *, int); DESCR_t rt_pl_dop_factorize_term(DESCR_t *, int);
@@ -4787,7 +4788,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             { "$nb_linkarg", 3, "rt_pl_dop_nb_linkarg", rt_pl_dop_nb_linkarg },
             { "$stamp_date_time", 3, "rt_pl_dop_stamp_date_time", rt_pl_dop_stamp_date_time }, { "$date_time_stamp", 2, "rt_pl_dop_date_time_stamp", rt_pl_dop_date_time_stamp },
             { "$format_time_text", 3, "rt_pl_dop_format_time_text", rt_pl_dop_format_time_text },
-        { "$create_prolog_flag", 2, "rt_pl_dop_create_prolog_flag", rt_pl_dop_create_prolog_flag }, { "$attv_atts", 2, "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
+        { "$create_prolog_flag", 4, "rt_pl_dop_create_prolog_flag", rt_pl_dop_create_prolog_flag }, { "$flag_meta", 3, "rt_pl_dop_flag_meta", rt_pl_dop_flag_meta }, { "$attv_atts", 2,
+            "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
         { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
         { "$crv_enter", 1, "rt_pl_dop_crv_enter", rt_pl_dop_crv_enter }, { "$crv_adj", 1, "rt_pl_dop_crv_adj", rt_pl_dop_crv_adj },
         { "$crv_collect", 2, "rt_pl_dop_crv_collect", rt_pl_dop_crv_collect },
