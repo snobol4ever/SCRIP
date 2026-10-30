@@ -76,13 +76,6 @@ void stage2_reset(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_delete_all(stage2_t *s2) { if (!s2) return; bb_program_free(&s2->bbp); for (int i = 0; i < s2->proc_count; i++) s2->proc_table[i].bb_idx = -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-IR_graph_t * stage2_proc_graph(const stage2_t *s2, int pi, const char *who) {
-    const ProcEntry * pe = &s2->proc_table[pi];
-    if (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) return s2->bbp.table[pe->bb_idx];
-    fprintf(stderr, "scrip: %s: proc %s has no graph (bb_idx %d, %d graphs): ir_delete_all invalidated every static index\n", who, pe->name ? pe->name : "?", pe->bb_idx, s2->bbp.count);
-    exit(2);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int stage2_label_grow(stage2_t *s2) {
     if (s2->label_count >= s2->label_cap) { s2->label_cap = s2->label_cap ? s2->label_cap * 2 : 16; s2->label_table = ct_grow(s2->label_table, (size_t)s2->label_cap * sizeof(LabelEntry)); }
     int idx = s2->label_count++;

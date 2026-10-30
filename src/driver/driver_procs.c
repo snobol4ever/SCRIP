@@ -49,7 +49,11 @@ void driver_register_proc(stage2_t * s2, int pi) {
 void driver_proc_props(stage2_t * s2, int pi) {
     ProcEntry * pe = &s2->proc_table[pi];
     const char * pname = pe->name;
-    IR_graph_t * g = stage2_proc_graph(s2, pi, "driver_proc_props");
+    if (pe->bb_idx < 0 || pe->bb_idx >= s2->bbp.count) {
+        fprintf(stderr, "scrip: driver_proc_props: proc %s has no graph (bb_idx %d of %d): ir_delete_all invalidated it\n", pe->name ? pe->name : "?", pe->bb_idx, s2->bbp.count);
+        exit(2);
+    }
+    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     rt_proc_set_generator(pname, pe->is_generator);
     rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0);
     rt_proc_set_pinned(pname, zls_g_entry_block(g));
@@ -65,7 +69,11 @@ void driver_proc_props(stage2_t * s2, int pi) {
 void * driver_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {
     ProcEntry * pe = &s2->proc_table[pi];
     const char * pname = pe->name;
-    IR_graph_t * g = stage2_proc_graph(s2, pi, "driver_install_proc");
+    if (pe->bb_idx < 0 || pe->bb_idx >= s2->bbp.count) {
+        fprintf(stderr, "scrip: driver_install_proc: proc %s has no graph (bb_idx %d of %d): ir_delete_all invalidated it\n", pe->name ? pe->name : "?", pe->bb_idx, s2->bbp.count);
+        exit(2);
+    }
+    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     g_emit_cfg = g;
     driver_proc_props(s2, pi);
