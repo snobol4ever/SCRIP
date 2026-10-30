@@ -2391,6 +2391,8 @@ int main(int argc, char **argv) {
             extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
             extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
             g_medium = BB_MEDIUM_TEXT;
+            { extern void emit_program_open(void); emit_program_open(); }
+            { extern void rt_sc_module_standalone(void); rt_sc_module_standalone(); }
             FILE * _out = stdout;
             if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } }
             emit_set_sink(_out);

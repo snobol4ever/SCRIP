@@ -31,9 +31,11 @@ long rt_sc_gva_reserve(void) {
     const sc_module_t *m = &g_runtime.misc.sc_mod;
     const sc_module_desc_t *d = (const sc_module_desc_t *)m->d;
     if (m->no_reserve) return 0;
+    if (m->standalone) return SC_GVA_RESERVE;
     return (d && d->n_gva > SC_GVA_RESERVE) ? d->n_gva : SC_GVA_RESERVE;
 }
 void rt_sc_module_compiling(void) { g_runtime.misc.sc_mod.no_reserve = 1; }
+void rt_sc_module_standalone(void) { g_runtime.misc.sc_mod.standalone = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static sc_module_t *sc_module_get(const char *lang);
 int rt_sc_module_linked(const char *lang) { return sc_module_get(lang) ? 1 : 0; }

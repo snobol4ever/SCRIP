@@ -2914,12 +2914,11 @@ inline std::string x86_rtx_verdict_cmp(int kind) {
     return x86("cmp", "al", (long)RTX_NOT_HANDLED);
 }
 inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
-    static int seq;
     const char * cname = 0;
     int kind = 0;
     void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname, &kind) : 0;
     if (!caddr) return std::string();
-    const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, seq++);
+    const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, _.x86_vd_seq++);
     return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 extern "C" void rt_pl_cap_raise(void);

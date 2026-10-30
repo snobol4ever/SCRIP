@@ -581,6 +581,8 @@ static long flat_buf_max_v() { if (g_emitter.flat_buf_max_v_v < 0) { const char 
     g_emitter.flat_buf_max_v_v = mb * 1024L * 1024L; } return g_emitter.flat_buf_max_v_v; }
 #define FLAT_BUF_MAX (flat_buf_max_v())
 int g_flat_node_id = 0;
+extern "C" void emit_program_open(void) { strtab_reset(); g_emitter.g_gc_map_names_n = 0; g_emitter.g_gc_map_names_v.len = 0; g_emitter.g_gc_sites_names_n = 0; g_emitter.g_gc_sites_names_v.len = 0;
+    g_flat_node_id = 0; g_emit.gc_code_seq = 0; g_emit.x86_vd_seq = 0; g_emitter.emit_gc_sites_data_seq = 0; }
 int g_last_flat_frame_bytes = 0;
 int g_last_flat_zstatic = 0;
 extern "C" int zls_g_fp_total(IR_graph_t *);

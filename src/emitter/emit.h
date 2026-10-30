@@ -473,6 +473,7 @@ typedef struct {
     const char * flat_fam;
     struct bb_label_t gc_code_lbl;
     int gc_code_seq;
+    int x86_vd_seq;
     const char ** xa_label_names;
     int * xa_label_pcs;
     int xa_label_count;
