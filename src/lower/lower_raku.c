@@ -5808,6 +5808,7 @@ static void rk_range_values(tree_t * t) {
     if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2)) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr")) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_xx") && t->n == 3 && t->c[1] && t->c[1]->t == TT_TO && t->c[1]->n == 2) t->c[1] = rk_range_val_of(t->c[1]);
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_pair") && t->n == 3 && t->c[2] && t->c[2]->t == TT_TO && t->c[2]->n == 2) t->c[2] = rk_range_val_of(t->c[2]);
     if (t->t == TT_METHCALL) for (int i = 2; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_INVOKE) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "__rk_in_range") || !strcmp(t->v.sval, "__rk_numify") || !strcmp(t->v.sval, "__rk_smartmatch"))) {
