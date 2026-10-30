@@ -4181,6 +4181,11 @@ static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const tree_t *g = pl_clause_is_directive(cl) ? cl->tr->c[1] : (const tree_t *)0;
         size_t nl;
+        if (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "import") && g->n == 1 && g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->n == 2 && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "from") &&
+            g->c[0]->c[1] && (g->c[0]->c[1]->t == TT_QLIT || g->c[0]->c[1]->t == TT_NAME) && g->c[0]->c[1]->v.sval && (!strcmp(g->c[0]->c[1]->v.sval, "clpr") || !strcmp(g->c[0]->c[1]->v.sval, "clpq"))) {
+            pl_cv_add(imported, g->c[0]->c[1]->v.sval);
+            continue;
+        }
         if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "use_module") || (g->n != 1 && g->n != 2) || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval) continue;
         if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !(nl = pl_lib_path_name(g->c[0]->c[0], (char *)0))) continue;
         char nm[nl + 1];
