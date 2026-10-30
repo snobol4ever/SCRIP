@@ -34,7 +34,7 @@ DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 #define PLS() (_.op_pl_sub)
 #define PL_L_ZF 248
 #define PL_L_ZX 249
-#define PLAQ(off) (_.op_zres ? RDQ("rsp", _.op_call_blk + (off)) : FRQ(PLA() + (off)))
+#define PLAQ(off) (_.op_zres ? x86_zref(_.op_call_blk + (off), 1) : FRQ(PLA() + (off)))
 #define PL_GAMMA() (_.op_zres ? x86("jmp", L(PL_L_ZX)) : x86_gamma())
 #define PL_OMEGA(cc) (_.op_zres ? x86((cc), L(PL_L_ZF)) : x86_omega(cc))
 #define PL_TRAMP() IF(!_.op_zres, x86_beta_trampoline())

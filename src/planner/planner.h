@@ -12,7 +12,7 @@ struct znode_t {
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
     int djo, gto, fcsa, seam, zpk, relo, dsa, dsb;
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
-    int ws, wek, wex, f0r;
+    int ws, wek, wex, f0r, priv;
     int bu, sbk, sbb, sbp;
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;

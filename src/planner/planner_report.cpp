@@ -138,7 +138,7 @@ void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char 
     const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
     IR_t ** nodes = g_planner.codegen_flat_chain_body_nodes;
     int n = pl->n;
-    if (!g_planner.dump_plan_cols) { printf("PLAN_COLUMNS E X K definite zeta off depth retains_code owner fenced gpop wpop restore act\n"); g_planner.dump_plan_cols = 1; }
+    if (!g_planner.dump_plan_cols) { printf("PLAN_COLUMNS E X K definite zeta off depth retains_code owner fenced gpop wpop restore act priv\n"); g_planner.dump_plan_cols = 1; }
     printf("PLAN graph=%s serial=%d chain=%s n=%d constructs=%d resumable=%d\n", gn ? gn : "?", g ? g->serial : -1, prefix ? prefix : "-", n, (g && pl->own_root) ? g->n_constructs : 0,
         g ? zls_g_resumable_frame(g) : 0);
     for (int c = 0; g && pl->own_root && c < g->n_constructs; c++) {
@@ -171,6 +171,7 @@ void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char 
         dp_col(on ? wp : LONG_MIN, LONG_MIN);
         dp_col((pl->cut && pl->cut[i] >= 0) ? pl->cut[i] : LONG_MIN, LONG_MIN);
         printf(" %s", planner_act_cause_name(planner_act_cause_of(nd)));
+        dp_col(pl->zn[i].priv, LONG_MIN);
         printf("\n");
     }
 }

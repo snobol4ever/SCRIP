@@ -31,3 +31,4 @@ static const struct {
     { IR_GATE_ARM, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_PL_HOME, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_TABLE_HDR, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 },
     { IR_UNIFY_CONST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_FIRST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_VALUE, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_RETURN, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 },
     { -1, 16, BCS_ALWAYS, 1, 2, 0, 0, 0 } };
+static const struct { int op; int bytes; int when; } box_low_regions[] = { { IR_CALL_DIRECT, 32, BCS_CALL_ARGV } };

@@ -597,8 +597,8 @@ inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_fc_jcc_gamma(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc(const char * mnem, int port) {
-    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || (_.op_xrec & 8) || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
-    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || (_.op_xrec & 6) || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
+    if (port == X86P_OMEGA && (x86_fc_on() || _.op_zpriv > 0 || _.op_wpop != 0 || (_.op_xrec & 8) || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zpriv > 0 || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || (_.op_xrec & 6) || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
@@ -1131,7 +1131,7 @@ inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zref(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
+    snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off + _.op_zpriv);
     return b[i];
 }
 inline const char * RDQ(const char * base, int off);
@@ -2471,18 +2471,21 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
             _.x86_uid);
     if (site == X86H_JMP && port == X86P_OMEGA && x86_omega_trace_on())
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    if (x86_fc_on()) {
+    if ((site == X86H_DEF || site == X86H_DEF_PAIR) && port == X86P_BETA) _.op_in_beta = 1;
+    if (x86_fc_on() || _.op_zpriv > 0) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
         if (site == X86H_DEF && port == X86P_ALPHA) { s += bb_glue_flat_enter();
             for (int j = 0; j < _.op_zsticky / 16; j++) s += x86_serial_vars()
                 ? x86("note", "a Prolog variable homed in this box is created here: it draws its serial from the root record's standing cell 255 and points at itself")
                 + x86("mov", "rax", RDQ("r14", -PL_SERIAL_OFF)) + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP)
-                + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), "rax") + x86("lea", "rax", RDQ("rsp", _.op_zk_own + 16 * j)) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), "rax")
-                : x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
+                + x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j), "rax") + x86("lea", "rax", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j)) +
+                    x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j + 8), "rax")
+                : x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j + 8), 0L); }
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA && !_.op_wsteal) s += bb_glue_flat_leave();
+        if (site == X86H_JMP && port == X86P_OMEGA && _.op_wsteal && !_.op_in_beta && _.op_zpriv > 0) s += x86_add("rsp", (long)_.op_zpriv);
     }
     if (site == X86H_DEF && port == X86P_BETA && _.op_zbgrow > 0) s += x86("sub", "rsp", (long)_.op_zbgrow);
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zcp_dst >= 0 || (_.op_xrec & 2)))
@@ -2491,7 +2494,7 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
            + x86("mov", "rax", (_.op_xrec & 1) ? RDQ("rbp", _.op_zcp_sxf + 8) : x86_zref(_.op_zcp_src + 8, 1))
            + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf + 8) : x86_zref(_.op_zcp_dst + 8, 1), "rax");
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_xrec & 4)) s += x86("mov", "rsp", RDQ("rbp", _.op_grec)) + IF(_.op_grec_pop != 0, x86_add("rsp", (long)_.op_grec_pop));
-    else if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
+    else if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zgpop != 0 || (_.op_zpriv > 0 && !_.op_in_beta))) s += x86_add("rsp", (long)(_.op_zgpop + (_.op_in_beta ? 0 : _.op_zpriv)));
     if (site == X86H_JMP && port == X86P_OMEGA && (_.op_xrec & 8)) s += x86("mov", "rsp", RDQ("rbp", _.op_wrec)) + IF(_.op_wrec_pop != 0, x86_add("rsp", (long)_.op_wrec_pop));
     else if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA) {
@@ -2962,6 +2965,9 @@ inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & 
 #define x86_rt_gc_poll_or(fail) x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(fail))
 #define x86_rt_gc_poll_fails() x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(std::string()))
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
+inline int x86_poll_in_region(long n) { return _.op_zpriv >= n && !_.op_in_beta; }
+inline std::string x86_poll_open(long n) { return x86_poll_in_region(n) ? std::string() : x86("sub", "rsp", n); }
+inline std::string x86_poll_close(long n) { return x86_poll_in_region(n) ? std::string() : x86("add", "rsp", n); }
 inline std::string x86_rt_gc_poll_res_scan_regs(const std::string & raise) {
 return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one described cell and the box result rax:rdx as a second, both swept and relocated across the poll")
          + x86("sub", "rsp", (long)32)
@@ -2986,7 +2992,7 @@ if (x86_scan_regs_graph()) return x86_rt_gc_poll_res_scan_regs(raise);
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
     "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
-         + x86("sub", "rsp", (long)32)
+         + x86_poll_open(32)
          + x86_reg_disp32_store64("rsp", 0, "r13")
          + x86_reg_disp32_store64("rsp", 16, "rax")
          + x86_reg_disp32_store64("rsp", 24, "rdx")
@@ -2998,7 +3004,7 @@ return x86_gc_gate(x86("comment",
          + x86_reg_disp32_load64("r13", "rsp", 0)
          + x86_reg_disp32_load64("rax", "rsp", 16)
          + x86_reg_disp32_load64("rdx", "rsp", 24)
-         + x86("add", "rsp", (long)32)
+         + x86_poll_close(32)
          + raise);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

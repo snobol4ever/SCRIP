@@ -27,11 +27,11 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_sh
 std::string bb_glue_call_pend_run(int base, long nargs, long off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_enter() {
-    return IF(_.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
+    return IF(_.op_fc_bytes + _.op_zpriv > 0, x86("sub", "rsp", _.op_fc_bytes + _.op_zpriv));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_leave() {
-    return IF(_.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
+    return IF(_.op_fc_bytes + (_.op_in_beta ? 0 : _.op_zpriv) > 0, x86("add", "rsp", _.op_fc_bytes + (_.op_in_beta ? 0 : _.op_zpriv)));
 }
 int g_glue_entered = 0;
 int g_glue_o_sup = 0;

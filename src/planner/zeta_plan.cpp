@@ -317,6 +317,13 @@ int zd_k_own_g(const IR_graph_t * cg, IR_t * nd) {
     int r = zd_bcs_pick(cg, nd);
     return r < 0 ? 16 : zd_bcs_words(cg, nd, box_cell_shapes[r].words);
 }
+int zd_priv_g(const IR_graph_t * cg, IR_t * nd) {
+    for (size_t r = 0; r < sizeof box_low_regions / sizeof box_low_regions[0]; r++) {
+        if ((box_low_regions[r].op >= 0 && box_low_regions[r].op != (int)nd->op) || !zd_bcs_when(cg, nd, box_low_regions[r].when)) continue;
+        return box_low_regions[r].bytes;
+    }
+    return 0;
+}
 void zd_wk_own(const IR_graph_t * cg, IR_t * nd, std::vector<char> & w) {
     int r = zd_bcs_pick(cg, nd), nw = (r < 0 ? 16 : zd_bcs_words(cg, nd, box_cell_shapes[r].words)) / 8;
     w.assign((size_t)(nw > 0 ? nw : 0), 0);
@@ -2519,6 +2526,7 @@ void planner_pass_plan(IR_graph_t * g, IR_t * entry, const char * prefix) {
     zeta_plan_t * rec = planner_chain_plan(g, entry, prefix); rec->cfg = g; rec->key = entry; g_planner.planner_table[entry] = rec; g_planner.planner_planned++;
     rec->zdp_on = x86_zdp_on_c();
     for (int i = 0; i < rec->n; i++) rec->zn[i].f0r = rec->nodes_own[i]->op == IR_MATCH_FENCE0 ? planner_fence0_release(g, rec->nodes_own[i]) : 0;
+    for (int i = 0; i < rec->n; i++) rec->zn[i].priv = rec->on[i] ? zd_priv_g(g, rec->nodes_own[i]) : 0;
 }
 int planner_entry_planned(const IR_t * entry) { return (entry && g_planner.planner_table.find(entry) != g_planner.planner_table.end()) ? 1 : 0; }
 void planner_table_forget(const IR_t * entry) { if (entry) g_planner.planner_table.erase(entry); }

@@ -932,7 +932,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_stmt_dyn = g_emitter.g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_emitter.g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0;
         } else if (nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_emitter.g_arbk16_stmt = 0; }
     g_emit.op_zcp_src = -1; g_emit.op_zcp_dst = -1; g_emit.op_xrec = 0;
-    g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
+    g_emit.op_zres = 0; g_emit.op_zpriv = 0; g_emit.op_in_beta = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0;
+        g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
         g_emit.op_zcut = -1;
         emit_ops_reserve(nd ? nd->n_operands + 1 : 0);
         for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1;
@@ -981,6 +982,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = _zn->sticky; g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0; g_emit.op_zdef = g_emitter.g_zd_def;
         g_emit.op_zcut = g_emitter.g_zd_cutd;
     if (g_emit.op_zres && !zrow_under(g_emit.op_zrow)) g_emit.op_zdepth = g_emitter.g_zd_abs;
+    if (g_emit.op_zres) { g_emit.op_zpriv = _zn->priv; g_emit.op_zdepth += g_emit.op_zpriv; g_emit.op_zabs += g_emit.op_zpriv; }
     emit_set_sink(out);
     g_emit.sid = 0;
     g_emit.nid = bb_node_id(nd);
@@ -4271,7 +4273,7 @@ static void emit_chain_prepare(IR_t * entry) {
     g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
     { zop_audit_graph_close(); g_emit.zop_seen = 0; }
-    g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0;
+    g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0; g_emit.op_zpriv = 0; g_emit.op_in_beta = 0;
     g_emit.flat_all_zd = 0;
     g_emit.flat_deep_arrival = emit_graph_has_deep_arrival(g_emit_cfg);
     { int _rc_own = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
