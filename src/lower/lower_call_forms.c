@@ -69,7 +69,8 @@ int lower_call_open(const char * fn, int narg, int strict) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_arity(const char * op) {
     static const char * const b2[] = { "add", "sub", "mul", "div", "idiv", "divf", "mod", "rem", "fpow", "pow", "min", "max", "gcd", "xor", "shr", "shl", "band", "bor", 0 };
-    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", 0 };
+    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", "asin",
+        "acos", "tan", "log10", 0 };
     static const char * const b0[] = { "pi", "e", 0 };
     for (int i = 0; b2[i]; i++) if (!strcmp(op, b2[i])) return 2;
     for (int i = 0; b1[i]; i++) if (!strcmp(op, b1[i])) return 1;

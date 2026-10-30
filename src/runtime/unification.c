@@ -3650,6 +3650,66 @@ void *rt_pl_ball_set_pi(void *ball, const char *nm, int ar) {
     return ball;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_ball_xsb_arith_kind(void *ball) {
+    pl_cell_t *b = (pl_cell_t *)ball, *f, *w;
+    if (!b || (int)b->v != DT_PLREF || !b->p || !pl_cell_unbound(pl_deref(&((pl_cell_t *)b->p)[1]))) return 0;
+    f = pl_deref(&((pl_cell_t *)b->p)[0]);
+    if ((int)f->v == DT_PLATOM || (int)f->v == DT_S) return !strcmp(plc_atom_text(f), "instantiation_error") ? 1 : 0;
+    if ((int)f->v != DT_PLREF || !f->p || plc_fid_arity(f->slen) != 2 || strcmp(prolog_atom_name(plc_fid_name(f->slen)), "type_error")) return 0;
+    w = pl_deref(&((pl_cell_t *)f->p)[0]);
+    if ((int)w->v != DT_PLATOM && (int)w->v != DT_S) return 0;
+    return !strcmp(plc_atom_text(w), "evaluable") ? 2 : !strcmp(plc_atom_text(w), "integer") ? 3 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_set_xsb_arith_msg(void *ball, const char *msg, const char *goal) {
+    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
+    pl_cell_t in[2], ou[2], *inc, *ouc, *b = (pl_cell_t *)ball;
+    if (!b || (int)b->v != DT_PLREF || !b->p) return ball;
+    in[0] = pl_make_atom(prolog_atom_intern(msg ? msg : ""));
+    in[1] = pl_make_atom(prolog_atom_intern(goal ? goal : "NULL"));
+    inc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)in);
+    if (!inc) return ball;
+    ou[0] = *inc;
+    ou[1] = rt_pl_fresh_var_ref(0);
+    ouc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)ou);
+    if (ouc) ((pl_cell_t *)b->p)[1] = *ouc;
+    return ball;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_writeq_text(DESCR_t d, char *buf, size_t cap, int ignore_ops) {
+    extern FILE *fh_memsink_open(char **, size_t *);
+    char *bp = (char *)0;
+    size_t bn = 0;
+    FILE *ms = fh_memsink_open(&bp, &bn);
+    plc_vmap m;
+    if (!cap) return;
+    buf[0] = 0;
+    if (!ms) return;
+    plc_atoms_ready();
+    m.n = 0;
+    m.vnc = 0;
+    m.ibase = 0;
+    m.inamed = 0;
+    m.ipfx = 1;
+    m.xstr = 0;
+    m.fprec = -1;
+    m.fspec = 0;
+    m.xopf = 0;
+    m.fp = ms;
+    m.portray = (int (*)(pl_cell_t *, plc_vmap *))0;
+    m.pthrown = (void *)0;
+    m.cx = (pl_tr_ctx_t *)0;
+    m.pheld = 0;
+    m.pgoal = (pl_cell_t *)0;
+    m.popts = (pl_cell_t *)0;
+    m.space_args = 0;
+    m.next_arg = 0;
+    if (ignore_ops) plc_wt((pl_cell_t *)&d, 1, 1, 1, -1, 0, 1200, &m);
+    else plc_writeq((pl_cell_t *)&d, &m);
+    fclose(ms);
+    if (bp) { size_t n = bn < cap - 1 ? bn : cap - 1; memcpy(buf, bp, n); buf[n] = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit) {
     extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
     pl_cell_t fe[1];

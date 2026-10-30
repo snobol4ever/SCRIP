@@ -611,7 +611,11 @@ static const char * pl_cmp_op_suffix(const char * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pl_ax_suffix(const char * s, int ar) { return (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(s, "><")) ? "xor" : pl_ax_suffix_of(s, ar); }
+static const char * pl_ax_suffix(const char * s, int ar) {
+    if (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(s, "><")) return "xor";
+    if (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 1 && (!strcmp(s, "asin") || !strcmp(s, "acos") || !strcmp(s, "tan") || !strcmp(s, "log10"))) return pl_ax_suffix_ext(s, ar);
+    return pl_ax_suffix_of(s, ar);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_divides(const char * sfx) { if (!sfx) return 0; return !strcmp(sfx, "div") || !strcmp(sfx, "idiv") || !strcmp(sfx, "divf") || !strcmp(sfx, "mod") || !strcmp(sfx, "rem"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2610,7 +2614,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * xe = NULL;
                 IR_t * xl = term_lval_e(cx, t->c[0], &xe);
                 IR_t * ve = NULL;
-                IR_t * v = lower_arith_val(cx, t->c[1], ωfail, &ve);
+                IR_t * v = (g_stage2.pl_dialect == PL_DIALECT_XSB && t->c[1] && t->c[1]->t == TT_FNC && !pl_tree_is_big(t->c[1]) && !pl_var_nodes(t->c[1])) ? term_e(cx, t->c[1], &ve) :
+                    lower_arith_val(cx, t->c[1], ωfail, &ve);
                 lc_γ_to(xl, ve ? ve : v);
                 lc_ω_to(xl, ωfail);
                 lc_γ_to(v, nd);

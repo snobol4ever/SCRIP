@@ -6120,7 +6120,70 @@ static int pl_q_odd(DESCR_t q) {
     n = t ? strlen(t) : 0;
     return n && ((t[n - 1] - '0') & 1);
 }
+static const char *pl_xsb_arith_name(const char *sfx, int ar) {
+    static const char *const un[][2] = { { "trunc", "truncate" }, { "round", "round" }, { "ceil", "ceiling" }, { "floor", "floor" }, { "exp", "exp" }, { "log", "log" }, { "log10", "log10" }, { "sign",
+        "sign" }, { "acos", "acos" }, { "asin", "asin" }, { "tan", "tan" }, { "cos", "cos" }, { "sin", "sin" }, { "atan", "atan" }, { "abs", "abs" }, { "flt", "float" }, { "sqrt", "sqrt" }, { "bnot",
+        "'\\'" }, { "neg", "-" }, { (const char *)0, (const char *)0 } };
+    static const char *const bn[][2] = { { "add", "+" }, { "sub", "-" }, { "mul", "*" }, { "div", "/" }, { "idiv", "//" }, { "divf", "div" }, { "mod", "/" }, { "rem", "//" }, { "fpow", "**" },
+        { "pow", "**" }, { "min", "min" }, { "max", "max" }, { "xor", "'><'" }, { "shr", "'>>'" }, { "shl", "'<<'" }, { "band", "'/\\'" }, { "bor", "'\\/'" }, { (const char *)0, (const char *)0 } };
+    if (!sfx) return (const char *)0;
+    if (ar == 1) { for (int i = 0; un[i][0]; i++) if (!strcmp(sfx, un[i][0])) return un[i][1]; }
+    if (ar == 2) { for (int i = 0; bn[i][0]; i++) if (!strcmp(sfx, bn[i][0])) return bn[i][1]; }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_xsb_arith_ctx(void **ball, const char *sfx, int ar, DESCR_t *kids, DESCR_t *ev, int k, const char *nm, const DESCR_t *whole) {
+    extern int rt_pl_ball_xsb_arith_kind(void *);
+    extern void *rt_pl_ball_set_xsb_arith_msg(void *, const char *, const char *);
+    extern void rt_pl_writeq_text(DESCR_t, char *, size_t, int);
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    char a0[1024], a1[1024], msg[2400];
+    const char *op;
+    DESCR_t o0, o1;
+    int kind, neg1 = ar == 1 && sfx && !strcmp(sfx, "neg");
+    if (!ball || !*ball || !kids || !pl_xsb_dialect() || !(kind = rt_pl_ball_xsb_arith_kind(*ball))) return;
+    if (whole) {
+        if (!nm || (ar != 1 && ar != 2) || !pl_xsb_arith_name(sfx, ar)) return;
+        {
+            int sym = !(nm[0] >= 'a' && nm[0] <= 'z');
+            rt_pl_writeq_text(rt_pl_deref_val(kids[0]), a1, sizeof a1, 1);
+            if (ar == 2) {
+                char t[1024];
+                rt_pl_writeq_text(rt_pl_deref_val(kids[1]), t, sizeof t, 1);
+                snprintf(a0, sizeof a0, sym ? "'%s'(%s,%s)" : "%s(%s,%s)", nm, a1, t);
+            } else snprintf(a0, sizeof a0, sym ? "'%s'(%s)" : "%s(%s)", nm, a1);
+        }
+        if (ar == 1) snprintf(msg, sizeof msg, " In evaluable function (Goal: %s)", nm);
+        else if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s)", nm, a0);
+        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s)", nm, a0);
+        *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, a0);
+        return;
+    }
+    op = pl_xsb_arith_name(sfx, ar);
+    if (!op) return;
+    o0 = 0 < k ? ev[0] : rt_pl_deref_val(kids[0]);
+    o1 = ar == 2 ? (1 < k ? ev[1] : rt_pl_deref_val(kids[1])) : o0;
+    a0[0] = a1[0] = 0;
+    if (ar == 1 && !neg1) {
+        rt_pl_writeq_text(o0, a0, sizeof a0, 0);
+        snprintf(msg, sizeof msg, " In evaluable function (Goal: %s(%s))", op, a0);
+    } else {
+        if (neg1) { snprintf(a0, sizeof a0, "0"); rt_pl_writeq_text(o0, a1, sizeof a1, 0); } else { rt_pl_writeq_text(o0, a0, sizeof a0, 0); rt_pl_writeq_text(o1, a1, sizeof a1, 0); }
+        if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s(%s,%s))", op, op, a0, a1);
+        else if (kind == 2) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2: (Goal: %s(%s,%s))", op, op, a0, a1);
+        else if (o0.v != DT_I && o0.v != DT_BIG) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2  (Goal: %s(%s,%s))", op, op, a0, a1);
+        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s(%s,%s)", op, op, a0, a1);
+    }
+    *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_ax_core(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball);
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
+    int r = dop_ax_core(op, args, nargs, out, ball);
+    if (out->v == DT_FAIL && (nargs == 1 || nargs == 2)) pl_xsb_arith_ctx(ball, op, nargs, args, args, 0, (const char *)0, (const DESCR_t *)0);
+    return r;
+}
+static int dop_ax_core(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     extern void *rt_pl_ball_eval_error(const char *, const char *, int);
@@ -6582,8 +6645,9 @@ static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_c
                 rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar);
             return 0;
         }
-        for (int k = 0; k < ar; k++) if (!pl_ax_eval_r(kids[k], &ev[k], ball, depth + 1, cx)) { *out = ev[k]; return 0; }
-        dop_ax(sfx, ev, ar, out, ball);
+        for (int k = 0; k < ar; k++) if (!pl_ax_eval_r(kids[k], &ev[k], ball, depth + 1, cx)) { *out = ev[k]; pl_xsb_arith_ctx(ball, sfx, ar, kids, ev, k, nm, &d); return 0; }
+        dop_ax_core(sfx, ev, ar, out, ball);
+        if (out->v == DT_FAIL) pl_xsb_arith_ctx(ball, sfx, ar, kids, ev, ar, nm, &d);
         return out->v != DT_FAIL;
     }
     *ball = rt_pl_ball_type_pi("type_error", "evaluable", "?", 0);
