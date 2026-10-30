@@ -34223,6 +34223,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
+    { "install_verify_attribute_handler", 4 },
+    { "install_verify_attribute_handler", 5 },
+    { "attv_unify", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
@@ -34351,6 +34354,9 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$xsb_ttc_plain1'([C|Cs]) :- ( C >= 97, C =< 122 -> true ; C >= 65, C =< 90 -> true ; C =:= 95 -> true ; C >= 48, C =< 57 ), '$xsb_ttc_plain1'(Cs).\n"
     "'$xsb_ttc_dq'([], Cs, Cs).\n"
     "'$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).\n"
+    "install_verify_attribute_handler(Mod, Attr, Value, Handler) :- install_verify_attribute_handler(Mod, Attr, Value, Handler, warning_on).\n"
+    "install_verify_attribute_handler(Mod, Attr, Value, Handler, _) :- catch(retractall('$xsb_vah'(Mod, _, _, _)), _, true), assertz('$xsb_vah'(Mod, Attr, Value, Handler)).\n"
+    "attv_unify(V, Value) :- ( attvar(V) -> '$attv_set'(V, []) ; true ), V = Value.\n"
     "compile(F) :- compile(F, []).\n"
     "compile(F, Opts) :- ( var(F) -> throw(error(instantiation_error, compile/2)) ; \\+ atom(F) -> throw(error(type_error(atom, F), compile/2)) ; true ),\n"
     "    ( is_list(Opts) -> true ; throw(error(type_error(list, Opts), compile/2)) ), '$xsb_ld_path'(F, _).\n"

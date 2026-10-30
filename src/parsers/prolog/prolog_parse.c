@@ -1468,6 +1468,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$wake_uhook'(freeze,G,Y):-!,(attvar(Y)->(get_attr(Y,freeze,G2)->put_attr(Y,freeze,'$and'(G2,G));put_attr(Y,freeze,G));'$wake_unfreeze'(G)).\n"
     "'$wake_uhook'(dif,A,Y):-!,'$dif_hook'(A,Y).\n"
     "'$wake_uhook'(when,A,Y):-!,'$when_hook'(A,Y).\n"
+    "'$wake_uhook'(M,A,Y):-current_prolog_flag('$dialect',xsb),catch('$xsb_vah'(M,_,_,_),error(existence_error(_,_),_),fail),!,'$xsb_vah'(M,A,Y,H),call(H).\n"
     "'$wake_uhook'(M,A,Y):-('$attr_hook_mod'(M)->'$attr_unify_hook'(M,A,Y);throw(error(existence_error(procedure,M:attr_unify_hook/2),M:attr_unify_hook/2))).\n"
     "'$wake_unfreeze'('$and'(A,B)):-!,'$wake_unfreeze'(A),'$wake_unfreeze'(B).\n"
     "'$wake_unfreeze'(G):-call(G).\n"
