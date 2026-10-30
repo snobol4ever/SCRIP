@@ -4349,7 +4349,12 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
     }
     if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); }
-    for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); break; }
+    {
+        extern int prolog_program_swi_dot(const PlClause *);
+        int dot = prolog_program_swi_dot(prog->head);
+        for (PlClause *cl = prog->head; cl && !dot; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) dot = 1;
+        if (dot) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); }
+    }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$meta_add");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");

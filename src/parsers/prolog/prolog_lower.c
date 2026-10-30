@@ -511,6 +511,33 @@ int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
 int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
 int prolog_dialect_xsb_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_XSB; }
+static int pl_tree_has_dot2(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, ".")) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_has_dot2(t->c[i])) return 1;
+    return 0;
+}
+static void pl_dot2_rename(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, ".")) t->v.sval = (char *)"$dot";
+    for (int i = 0; i < t->n; i++) pl_dot2_rename(t->c[i]);
+}
+static int pl_dcg_rule(const tree_t *tr) { return tr && tr->t == TT_CLAUSE && tr->n == 1 && tr->c[0] && tr->c[0]->t == TT_FNC && tr->c[0]->n == 2 && tr->c[0]->v.sval && !strcmp(tr->c[0]->v.sval, "-->"); }
+static int pl_clause_swi_dot(const PlClause *cl) { return cl && cl->lineno && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n > 0 && !pl_dcg_rule(cl->tr) && pl_tree_has_dot2(cl->tr); }
+static void pl_clause_swi_dot_rename(tree_t *tr) {
+    for (int i = 0; tr->c[0] && i < tr->c[0]->n; i++) pl_dot2_rename(tr->c[0]->c[i]);
+    for (int i = 1; i < tr->n; i++) pl_dot2_rename(tr->c[i]);
+}
+int prolog_program_swi_dot(const PlClause *head) {
+    int swi = g_stage2.pl_dialect == PL_DIALECT_SWI, dot = 0;
+    if (g_stage2.pl_dialect == PL_DIALECT_GNU || g_stage2.pl_dialect == PL_DIALECT_XSB) return 0;
+    for (const PlClause *c = head; c; c = c->next) {
+        if (prolog_clause_marks_xsb(c)) return 0;
+        swi |= prolog_clause_marks_swi(c);
+        dot |= pl_clause_swi_dot(c);
+    }
+    return swi && dot;
+}
 static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
@@ -552,6 +579,7 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         pl_prog->nclauses++;
     }
     if (marker) g_stage2.pl_dialect = PL_DIALECT_SWI;
+    for (PlClause *cl = pl_prog->head; cl && g_stage2.pl_dialect == PL_DIALECT_SWI; cl = cl->next) if (pl_clause_swi_dot(cl)) pl_clause_swi_dot_rename(cl->tr);
     int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
