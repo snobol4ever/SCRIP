@@ -25157,20 +25157,17 @@ static void pl_st_put(DESCR_t st, int k, int64_t v) { DESCR_t *t = plw_cell_dere
 static pl_pseg_t * pl_pseg_of(DESCR_t st) { DESCR_t *a = pl_st_arg(st, 1); return (a && a->v == (DTYPE_t)DT_P) ? (pl_pseg_t *)a->p : (pl_pseg_t *)0; }
 static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
     void *root = (void *)(uintptr_t)s->r14;
-    DESCR_t sts[4096];
     for (int neg = 0; neg < 2; neg++) for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         if (!sl) break;
         {
-            int cnt = rt_pl_trie_count(root, x), n = pl_list_to_arr(neg ? sl->ncons : sl->pcons, sts, 4096);
-            for (int k = 0; k < n; k++) {
-                pl_pseg_t *b = pl_pseg_of(sts[k]);
+            int cnt = rt_pl_trie_count(root, x);
+            for (DESCR_t cur = rt_pl_deref_val(neg ? sl->ncons : sl->pcons); cur.v == (DTYPE_t)DT_PLREF && plc_fid_arity(cur.slen) == 2; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
+                DESCR_t st = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+                pl_pseg_t *b = pl_pseg_of(st);
                 if (!b) continue;
-                if (getenv("SCRIP_SL_TRACE"))
-                    fprintf(stderr, "[SL] leader=%ld tbl=%ld neg=%d cnt=%d cur=%ld st=%ld blk=%p\n", (long)s->leader, (long)x, neg, cnt, (long)pl_st_int(sts[k], 3), (long)pl_st_int(sts[k], 5),
-                    (void *)b);
-                if (!neg && cnt > pl_st_int(sts[k], 3)) return b;
-                if (neg && sl->uncond == 0 && pl_st_int(sts[k], 5) == 0) { pl_st_put(sts[k], 5, 1); return b; }
+                if (!neg && cnt > pl_st_int(st, 3)) return b;
+                if (neg && sl->uncond == 0 && pl_st_int(st, 5) == 0) { pl_st_put(st, 5, 1); return b; }
             }
         }
         if (x == s->leader) break;
@@ -25222,11 +25219,8 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
                     w[0] = s->ret_pc;
                     w[1] = (uint64_t)(uintptr_t)&rt_pl_pseg_ball;
                     w[2] = s->rbp;
-                    if (getenv("SCRIP_SL_TRACE")) fprintf(stderr, "[SL] rewrite ra=%p w0=%#lx w1=%#lx w2=%#lx orig=%p hi=%p\n", (void *)ra, (unsigned long)w[0], (unsigned long)w[1], (unsigned long)w[2], (void *)b->orig_lo, (void *)hi);
                 }
             }
-            if (getenv("SCRIP_SL_TRACE"))
-                fprintf(stderr, "[SL] triple hdr=%p rec=%#lx rbp=%#lx pc=%#lx\n", (void *)(uintptr_t)b->hdr, (unsigned long)c[12].i, (unsigned long)c[13].i, (unsigned long)c[14].i);
         }
         b->sched = s;
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = b->planes[k];
@@ -25236,14 +25230,14 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
 }
 static pl_pseg_t * pl_sched_resumed(pl_psched_t *s) {
     void *root = (void *)(uintptr_t)s->r14;
-    DESCR_t sts[4096];
     for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         if (!sl) break;
-        for (int neg = 0; neg < 2; neg++) {
-            int n = pl_list_to_arr(neg ? sl->ncons : sl->pcons, sts, 4096);
-            for (int k = 0; k < n; k++) { pl_pseg_t *b = pl_pseg_of(sts[k]); if (b && b->sched == (void *)s) return b; }
-        }
+        for (int neg = 0; neg < 2; neg++)
+            for (DESCR_t cur = rt_pl_deref_val(neg ? sl->ncons : sl->pcons); cur.v == (DTYPE_t)DT_PLREF && plc_fid_arity(cur.slen) == 2; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
+                pl_pseg_t *b = pl_pseg_of(rt_pl_deref_val(((DESCR_t *)cur.p)[0]));
+                if (b && b->sched == (void *)s) return b;
+            }
         if (x == s->leader) break;
         x = sl->next;
     }
@@ -25380,9 +25374,16 @@ DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
             { int64_t p = rt_pl_tbh_table(root); pl_trie_sl_t *ps = p >= 0 ? rt_pl_trie_sl(root, p) : (pl_trie_sl_t *)0; if (ps && sl->low < ps->low) ps->low = sl->low; return pl_ok(); }
             case 6:
             {
-                DESCR_t ids[4096];
-                int n = 0;
-                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0 && n < 4096; ) {
+                int n = 0, nn = 0;
+                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
+                    pl_trie_sl_t *xs = rt_pl_trie_sl(root, x);
+                    if (!xs) break;
+                    nn++;
+                    if (x == t) break;
+                    x = xs->next;
+                }
+                DESCR_t ids[nn > 0 ? nn : 1];
+                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0 && n < nn; ) {
                     pl_trie_sl_t *xs = rt_pl_trie_sl(root, x);
                     if (!xs) break;
                     ids[n++] = INTVAL(x);
