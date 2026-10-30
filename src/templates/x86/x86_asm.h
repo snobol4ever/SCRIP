@@ -637,8 +637,7 @@ inline int x86_serial_vars() { return (g_emit_cfg && g_emit_cfg->unbound_serial)
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
-inline int x86_rsp_slide_known() { return 1; }
-inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+inline int x86_frame_off(int off) { return _.op_zslid ? -1 : off + _.op_zdepth; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->cell_frame)) || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
 extern "C" int zls_g_generator_top(const IR_graph_t * g);
 inline int gen_frame_top() { return g_emit_cfg ? g_emit_cfg->pf.generator_top : 0; }
@@ -2546,7 +2545,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov", "rdi", (long)_.nid)
          + x86("mov", "rsi", "rbp")
          + (own > 0L ? x86_movabs_r64("rcx", (uint64_t)(kind | ((long)_.op_node_kind << 8)) | ((uint64_t)own << 24)) : x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8))))
-         + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
+         + x86("mov", "r8", (!_.op_zslid && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
          + x86_movabs_r64("r9", (uint64_t)emit_zsm_word(_.node, _.op_zres, _.op_subj_cell, own) | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
@@ -2563,7 +2562,7 @@ inline std::string x86_zsm_disc(long restore) {
          + x86("mov", "rdi", (long)_.nid)
          + x86("mov", "rsi", "rbp")
          + x86("mov", "rcx", (long)(10 | ((long)_.op_node_kind << 8)))
-         + x86("mov", "r8", restore)
+         + x86("mov", "r8", _.op_zslid ? -1L : restore)
          + x86("mov", "r9", 0L)
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")

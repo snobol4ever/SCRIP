@@ -66,6 +66,7 @@ struct zeta_plan_t {
     int * lkey;
     int * alias;
     int * under;
+    int * slid;
     int * pat;
     int * fc;
     int * tail;

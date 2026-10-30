@@ -939,7 +939,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.op_zkown[_zi] = -1; g_emit.op_zfres[_zi] = 1; g_emit.op_opvs[_zi] = -1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
     g_emit.op_own = _zn->owno; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd; g_emit.op_xa = _zn->xa;
-    g_emit.op_xf_off = _zr->home[_ri]; g_emit.op_cft = _zn->cft;
+    g_emit.op_xf_off = _zr->home[_ri]; g_emit.op_cft = _zn->cft; g_emit.op_zslid = _zr->slid ? _zr->slid[_ri] : 0;
     for (int _zi = 0; _zi < nd->n_operands && _zi < g_emit.op_zcap; _zi++) g_emit.op_opvs[_zi] = zrow_opvs(nd, _zi);
     for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) { g_emit.op_zread_xf[_zi] = _rd->xf;
         g_emit.op_zkown[_zi] = _rd->kown; g_emit.op_zfres[_zi] = _rd->fres; } }
@@ -3125,7 +3125,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     g_emitter.g_gc_sites_v.len = 0; g_emitter.g_gc_sites_armed = 1; g_emitter.g_gc_sites_last_off = -1; g_emitter.g_gc_sites_offs_v.len = 0; g_emitter.g_gc_match_n = 0; emit_gc_rsp_reset();
     emit_label_initf(&g_emit.gc_code_lbl, ".Lgccode_%s_%d", fam ? fam : "chain", g_emit.gc_code_seq++);
     if (g_is_text) { std::string _cl = std::string(g_emit.gc_code_lbl.name) + ":\n"; emit_text_n(_cl.data(), _cl.size()); } else emit_label_define_bb(&g_emit.gc_code_lbl);
-    g_emit.op_zdepth = 0; g_emit.op_fc_bytes = 0;
+    g_emit.op_zdepth = 0; g_emit.op_zslid = 0; g_emit.op_fc_bytes = 0;
     if (gc_sites_report_on()) fprintf(stderr, "[GC-GRAPH] fam=%s prefix=%s buf=%p text=%d\n", fam ? fam : "?", prefix ? prefix : "?", (const void *)bb_emit_buf, g_is_text);
     g_emitter.g_flt_fam = (strncmp(prefix, "proc_", 5) == 0) ? fam : (const char *)0; g_emitter.g_flt_lbl[1] = g_emitter.g_flt_lbl[2] = g_emitter.g_flt_lbl[3] = (bb_label_t *)0;
     g_emit.x86_uid_kind = (const char *)0;

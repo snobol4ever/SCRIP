@@ -2110,9 +2110,12 @@ void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
         rec->v_wk.insert(rec->v_wk.end(), asc.begin(), asc.end());
     }
 }
+static int zd_callee_frame_retained(const IR_graph_t * cg, const IR_t * nd) { int r = planner_retains_g(cg, nd);
+    return r == PR_RETAINING_TARGET || r == PR_GENERATOR_CALLEE || r == PR_RETAINING_CALLEE; }
 static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zarm, const int * zcps, const int * zcpd) {
     const IR_graph_t * g = cg;
     rec->home = zd_place_ints(n, -1); rec->zeta = (unsigned char *)ct_zalloc((size_t)n, 1); rec->lkey = zd_place_ints(n, -1); rec->alias = zd_place_ints(n, -1); rec->under = zd_place_ints(n, 0);
+        rec->slid = zd_place_ints(n, 0);
     rec->pat = zd_place_ints(n, 0); rec->fc = zd_place_ints(n, 0); rec->tail = zd_place_ints(n, 0); rec->ret = zd_place_ints(n, 0); rec->grec_off = zd_place_ints(n, -1);
         rec->wrec_off = zd_place_ints(n, -1);
     rec->grec_res = zd_place_ints(n, 0); rec->wrec_res = zd_place_ints(n, 0); rec->cpa_s = zd_place_ints(n, -1); rec->cpa_d = zd_place_ints(n, -1); rec->cpa_sx = zd_place_ints(n, -1);
@@ -2123,7 +2126,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
     for (int q = 0; q < total; q++) { rec->rd[q].dist = 0; rec->rd[q].xf = -1; rec->rd[q].fr = -1; rec->rd[q].key = -1; rec->rd[q].kind = -1; rec->rd[q].anchor = -1; rec->rd[q].kown = -1;
         rec->rd[q].fres = 1; }
     planner_consumers_build(g);
-    int cur_saved = g_planner.g_zd_cur;
+    int cur_saved = g_planner.g_zd_cur, slid_seen = 0;
     int cr_r = 0, cr_f = 0, cr_s = 0, cr_sc[16] = {0}; const char * cr_e = getenv("SCRIP_ZD_CHECK"); const int cr_on = (cr_e && *cr_e == '1') ? 1 : 0;
     std::vector<unsigned> cr_mk(cr_on ? 2 * ((size_t)n + 1) : 0, 0u);
     for (int i = 0; i < n; i++) {
@@ -2137,6 +2140,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 ; }
         rec->alias[i] = (zd_k_own_g(cg, nd) == 16 && !zd_icn_suspend_g(cg, nd)) ? zls_off(nd) : -1;
         rec->ret[i] = planner_retains_g(cg, nd);
+        rec->slid[i] = slid_seen; if (cg->spine_cells && zd_callee_frame_retained(cg, nd)) slid_seen = 1;
         if (ir_is_matcher_element((int)nd->op))
             for (int j = 0; j < no; j++) {
                 IR_t * pa = nd->operands[j];

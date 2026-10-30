@@ -228,7 +228,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     if (kind == 0) { if (exp_depth >= 0L) g_runtime.zsm.zsm_rsp0 = rsp + (unsigned long)exp_depth; else if (!g_runtime.zsm.zsm_rsp0) g_runtime.zsm.zsm_rsp0 = rsp; return; }
     if (kind == 10) {
         long d = (long)(rbp - rsp);
-        if (d != exp_depth) fprintf(stderr, "[ZSM-DISC] node=%lu op=%ld(%s) restore=%ld actual=%ld delta=%ld\n", node, zop, bb_op_name((IR_e)zop), exp_depth, d, d - exp_depth);
+        if (exp_depth >= 0L && d != exp_depth) fprintf(stderr, "[ZSM-DISC] node=%lu op=%ld(%s) restore=%ld actual=%ld delta=%ld\n", node, zop, bb_op_name((IR_e)zop), exp_depth, d, d - exp_depth);
         return;
     }
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
