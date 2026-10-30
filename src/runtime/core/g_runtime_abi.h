@@ -22,7 +22,7 @@ typedef struct rt_hp_fr_t {
     uint64_t *live, *start_abs, *vis, *start, *ssum, *prefix;
     long ngran;
 } rt_hp_fr_t;
-typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
+typedef struct { char *owner; long len; int gva_n; int off; int gva_lo; int _pad; } rt_sxt_fr_t;
 struct gc_mk_t {
     struct DESCR_t **wl;
     long wln, wlcap;

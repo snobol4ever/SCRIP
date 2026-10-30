@@ -780,6 +780,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
     int k0 = names ? 0 : n;
     while (k0 < n && !names[k0]) k0++;
+    { extern long rt_sc_gva_reserve(void); extern void rt_sxt_gva_lo(int, int); long r = rt_sc_gva_reserve(); rt_sxt_gva_lo(g_runtime.misc.sc_mod.d ? 0 : (int)(r < k0 ? r : k0), 1); }
     { extern void rt_icn_global_note(const char *); for (int k = k0; k < n; k++) if (names[k]) rt_icn_global_note(names[k]); }
     for (int k = k0; k < n; k++) { const char *nm = names[k]; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     {
@@ -895,6 +896,7 @@ int rt_gva_add_var(const char *nm) {
     extern int gva_count(void);
     extern int NV_bind_gva(const char *, DESCR_t *);
     extern void rt_sxt_gva_count(int);
+    extern void rt_sxt_gva_lo(int, int);
     extern int gva_trace_demoted(void);
     if (!nm || !*nm || gva_trace_demoted()) return -1;
     { int k = gva_index_of(nm); if (k >= 0) return k; }
@@ -906,6 +908,7 @@ int rt_gva_add_var(const char *nm) {
         DESCR_t *cell = (DESCR_t *)RT_GVA_VA + k;
         memset((void *)cell, 0, sizeof(DESCR_t));
         rt_sxt_gva_count(gva_count());
+        rt_sxt_gva_lo(k, 0);
         (void)NV_bind_gva(nm, cell);
         return k;
     }

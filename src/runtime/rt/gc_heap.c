@@ -105,15 +105,18 @@ _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) == 0, "rtx_str.s bakes g_r
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, len) == 8, "rtx_str.s bakes g_runtime.abi.sxt_fr.len @8");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.s bakes g_runtime.abi.sxt_fr.gva_n @16");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, off) == 20, "rtx_str.s bakes g_runtime.abi.sxt_fr.off @20");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_lo) == 24, "rtx_str.s bakes g_runtime.abi.sxt_fr.gva_lo @24");
 rt_sxt_fr_t * const rt_sxt_fr_p = &g_runtime.abi.sxt_fr;
 #define g_sxt_len (g_runtime.abi.sxt_fr.len)
 #define g_sxt_gva_n (g_runtime.abi.sxt_fr.gva_n)
+#define g_sxt_gva_lo (g_runtime.abi.sxt_fr.gva_lo)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_line_mb(void) { const char *e = getenv("SCRIP_GC_LINE_MB"); long v = e ? atol(e) : 128; return v < 0 ? 0 : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
 int rt_sxt_gva_count_get(void) { return g_sxt_gva_n; }
+void rt_sxt_gva_lo(int k0, int first) { if (first || k0 < g_sxt_gva_lo) g_sxt_gva_lo = k0; }
 void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }
 void rt_sxt_frames_present(void) { g_runtime.abi.sxt_fr.off = 1; g_sxt_owner = (char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -134,7 +137,7 @@ char *rt_sxt_extend(char *s, long al, long bl) {
     DESCR_t *gv = (DESCR_t *)RT_GVA_VA;
     int refs = 0;
     {
-        int k = 0, gn = g_sxt_gva_n;
+        int k = g_sxt_gva_lo, gn = g_sxt_gva_n;
         for (; k + 4 <= gn; k += 4) {
             if (__builtin_expect(gv[k].s == s, 0) && gv[k].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }
             if (__builtin_expect(gv[k + 1].s == s, 0) && gv[k + 1].v == DT_S && ++refs > 1) { g_sxt_owner = (char *)0; return (char *)0; }

@@ -62,6 +62,7 @@ char *rt_str_dup(const char *s);
 extern rt_sxt_fr_t * const rt_sxt_fr_p;
 #define g_sxt_owner (g_runtime.abi.sxt_fr.owner)
 void rt_sxt_gva_count(int n);
+void rt_sxt_gva_lo(int k0, int first);
 void rt_sxt_break(const char *s);
 static inline __attribute__((always_inline)) void rt_sxt_break_fast(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
 void rt_sxt_note(char *s, long len);

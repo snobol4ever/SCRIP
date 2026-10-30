@@ -119,6 +119,7 @@ static void sc_module_init(sc_module_t *m) {
         g_runtime.misc.core_stack_floor_raised = 1;
     }
     core_lib_init();
+    { extern void rt_sxt_gva_lo(int, int); rt_sxt_gva_lo(0, 1); }
     { extern int rt_sxt_gva_count_get(void); if (rt_sxt_gva_count_get() < (int)d->n_gva) rt_gva_island((int)d->n_gva); }
     if (d->module_init) ((void (*)(void))d->module_init)();
     if (d->proc_tab && d->proc_names && d->n_proc > 0) rt_proc_table_fill(d->proc_tab, d->proc_names, (int)d->n_proc);
