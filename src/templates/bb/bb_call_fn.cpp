@@ -167,7 +167,7 @@ static std::string cf_try_enter(const std::string & out_lea) {
     return x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N())
          +
              bb_glue_try_enter(_.op_call_try_sym, _.op_call_try_fp, "rt_call_land_γ", TEMPLATE_FN_ADDR(rt_call_land_γ), "rt_call_land_ω", TEMPLATE_FN_ADDR(rt_call_land_ω), 100, 108, 29, 0, 0,
-             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"), _.op_call_rec);
+             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"), _.op_call_rec, _.op_zres);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_byname_flat(int open, int eval) {
@@ -205,7 +205,7 @@ static std::string cf_byname_zd(int open, int eval) {
                                    x86("call", _.op_call_sym, _.op_call_fp) }),
                       cf_join29(open, eval),
                       cf_zd_sync_in(),
-                      x86_rt_gc_poll_res() });
+                      x86_rt_gc_poll_res(std::string(), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_baked_flat(int try_) {
@@ -233,10 +233,10 @@ static std::string cf_baked_zd(int try_) {
                       x86("lea", "rdx", "[rip + __]", _.op_call_rec_addr, _.op_call_rec_lbl),
                       try_
                       ? emit_seq({ x86("lea", "rcx", x86_zref(0, 1)),
-                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", x86_zref(0, 1)), _.op_call_rec),
-                                   x86_rsp_load64("rax", 0) + x86_rsp_load64("rdx", 8),
-                                   x86_deflabel_id(29) + x86_rt_gc_poll_res() })
-                      : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res() }) });
+                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", x86_zref(0, 1)), _.op_call_rec, _.op_zres),
+                                   x86("mov", "rax", ZRES(0)) + x86("mov", "rdx", ZRES(8)),
+                                   x86_deflabel_id(29) + x86_rt_gc_poll_res(std::string(), 1) })
+                      : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res(std::string(), 1) }) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_pas_bi_flat() {
@@ -256,7 +256,7 @@ static std::string cf_pas_bi_zd() {
                       x86("mov32", "esi", (long)CF_N()),
                       x86("mov32", "edx", _.op_call_idx),
                       x86("call", "rt_call_pas_bi", TEMPLATE_FN_ADDR(rt_call_pas_bi)),
-                      x86_rt_gc_poll_res() });
+                      x86_rt_gc_poll_res(std::string(), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_flat() {
@@ -274,7 +274,7 @@ static std::string cf_direct_zd() {
     return emit_seq({ x86("lea", "rdi", x86_zref(CF_BLK(), 1)),
                       x86("mov32", "esi", (long)CF_N()),
                       x86("call", _.op_call_sym, _.op_call_fp),
-                      x86_rt_gc_poll_res(x86_cap_raise(std::string())) });
+                      x86_rt_gc_poll_res(x86_cap_raise(std::string()), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, uint64_t ofp) {
@@ -282,38 +282,38 @@ static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, in
          + IF(rec_off >= 0,
                x86("lea", "rdx", _.op_zres ? FRQB(rec_off, 0) : FRQ(rec_off))
              + x86("call", osym, ofp)
-             + x86_rt_gc_poll_rec_sigma_word(1)
+             + x86_rt_gc_poll_rec_sigma_word(1, _.op_zres)
              + x86("test", "rax", "rax")
              + x86_jcc_id("jz", decl_id)
-             + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 1)
+             + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 1, _.op_zres)
              + x86_deflabel_id(base + 5)
              + x86("call", "rk_method_land_γ", (uint64_t)(uintptr_t)(void *)rk_method_land_γ)
-             + x86_rt_gc_poll_rec_res()
+             + x86_rt_gc_poll_rec_res(_.op_zres)
              + x86_jmp_id(join_id)
              + x86_deflabel_id(base + 6)
              + x86("call", "rk_method_land_ω", (uint64_t)(uintptr_t)(void *)rk_method_land_ω)
-             + x86_rt_gc_poll_rec_res()
+             + x86_rt_gc_poll_rec_res(_.op_zres)
              + x86_jmp_id(join_id));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
     return x86("call", "rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open)
-         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86_rt_gc_poll_rec_sigma_word(1, _.op_zres)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", decl_id)
-         + bb_glue_stno_unit_push()
-         + bb_glue_enter_c2bb(base, base + 5, base + 6)
+         + bb_glue_stno_unit_push(_.op_zres)
+         + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 0, _.op_zres)
          + x86_deflabel_id(base + 5)
-         + x86("mov", "rcx", "rsp")
+         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rcx", RDQ("rsp", 64)) : x86("mov", "rcx", "rsp"))
          + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
-         + x86_rt_gc_poll_rec_res()
-         + x86("add", "rsp", 16L)
+         + x86_rt_gc_poll_rec_res(_.op_zres)
+         + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
-         + x86("mov", "rsi", "rsp")
+         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rsi", RDQ("rsp", 64)) : x86("mov", "rsi", "rsp"))
          + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
-         + x86_rt_gc_poll_rec_res()
-         + x86("add", "rsp", 16L)
+         + x86_rt_gc_poll_rec_res(_.op_zres)
+         + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -322,28 +322,28 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
 #define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( IF(!CF_REC_CELL(), x86("sub", "rsp", (long)BCFN_EVAL_REC)) \
                                                      + BCFN_REC_PTR("rdx") \
                                                      + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
-         + x86_rt_gc_poll_rec_sigma_word(1) \
+         + x86_rt_gc_poll_rec_sigma_word(1, CF_REC_CELL()) \
          + x86("test", "rax", "rax") \
          + x86_jcc_id("jz", (decl_id)) \
          + x86("mov", "rcx", "rdx") \
          + x86("shr", "rcx", 62L) \
          + x86("test", "rcx", "rcx") + x86_jcc_id("jnz", (base) + 37) \
-         + bb_glue_enter_chain_ret((base) + 1) \
+         + bb_glue_enter_chain_ret((base) + 1, CF_REC_CELL()) \
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 37) + x86("shl", "rdx", 2L) \
          + x86("shr", "rdx", 2L) \
-         + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36) \
+         + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36, -1, 0, CF_REC_CELL()) \
          + x86_deflabel_id((base) + 35) \
          + BCFN_REC_PTR("rcx") \
          + x86("call", "rt_eval_dtx_land_γ", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_γ) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 36) \
          + BCFN_REC_PTR("rsi") \
          + x86("call", "rt_eval_dtx_land_ω", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_ω) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_ARGV_LEA() ( \

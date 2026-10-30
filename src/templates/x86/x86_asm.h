@@ -2964,9 +2964,9 @@ inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & 
 #define x86_rt_gc_poll_or(fail) x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(fail))
 #define x86_rt_gc_poll_fails() x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(std::string()))
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
-inline int x86_poll_in_region(long n) { return _.op_zpriv >= n && !_.op_in_beta; }
-inline std::string x86_poll_open(long n) { return x86_poll_in_region(n) ? std::string() : x86("sub", "rsp", n); }
-inline std::string x86_poll_close(long n) { return x86_poll_in_region(n) ? std::string() : x86("add", "rsp", n); }
+inline int x86_poll_in_region(long n, int reg) { return reg && _.op_zpriv >= n && !_.op_in_beta; }
+inline std::string x86_poll_open(long n, int reg) { return x86_poll_in_region(n, reg) ? std::string() : x86("sub", "rsp", n); }
+inline std::string x86_poll_close(long n, int reg) { return x86_poll_in_region(n, reg) ? std::string() : x86("add", "rsp", n); }
 inline std::string x86_rt_gc_poll_res_scan_regs(const std::string & raise) {
 return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one described cell and the box result rax:rdx as a second, both swept and relocated across the poll")
          + x86("sub", "rsp", (long)32)
@@ -2986,12 +2986,12 @@ return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one 
          + x86("add", "rsp", (long)32)
          + raise);
 }
-inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string()) {
+inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string(), int reg = 0) {
 if (x86_scan_regs_graph()) return x86_rt_gc_poll_res_scan_regs(raise);
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
     "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
-         + x86_poll_open(32)
+         + x86_poll_open(32, reg)
          + x86_reg_disp32_store64("rsp", 0, "r13")
          + x86_reg_disp32_store64("rsp", 16, "rax")
          + x86_reg_disp32_store64("rsp", 24, "rdx")
@@ -3003,7 +3003,7 @@ return x86_gc_gate(x86("comment",
          + x86_reg_disp32_load64("r13", "rsp", 0)
          + x86_reg_disp32_load64("rax", "rsp", 16)
          + x86_reg_disp32_load64("rdx", "rsp", 24)
-         + x86_poll_close(32)
+         + x86_poll_close(32, reg)
          + raise);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3017,8 +3017,8 @@ inline std::string x86_align_call_enter() {
 inline std::string x86_align_call_leave() {
     return x86_rsp_load64("rsp", 0) + x86_rsp_mark('Z');
 }
-inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
-return x86_gc_gate(x86("sub", "rsp", (long)32)
+inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0, int reg = 0) {
+return x86_gc_gate(x86_poll_open(32, reg)
          + x86_rsp_store32_imm(0, (long)DT_S)
          + IF(lenreg32 != NULL, x86_rsp_store32(4, lenreg32))
          + IF(lenreg32 == NULL, x86_rsp_store32_imm(4, (long)0))
@@ -3033,9 +3033,9 @@ return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_load64(preg, 8)
          + IF(keep_rax, x86_rsp_load64("rax", 16))
          + IF(keep_rdx, x86_rsp_load64("rdx", 24))
-         + x86("add", "rsp", (long)32));
+         + x86_poll_close(32, reg));
 }
-inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
+inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax, int reg = 0) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 0, reg); }
 inline std::string x86_rt_gc_poll_rec_name(const char * preg) {
 return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86_rsp_store32_imm(0, (long)DT_N)
@@ -3094,7 +3094,7 @@ return x86_gc_gate(x86("comment",
 }
 inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
 inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
-inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
+inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax, int reg = 0) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1, reg); }
 extern "C" int64_t rt_cvpos_pos(DESCR_t v, int64_t len);
 extern "C" int core_icn_int_ok_d(DESCR_t v);
 extern "C" int core_icn_error(int code, DESCR_t v);
@@ -3249,8 +3249,8 @@ return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86_rsp_load64("rdx", 40)
          + x86("add", "rsp", (long)48));
 }
-inline std::string x86_rt_gc_poll_rec_res() {
-return x86_gc_gate(x86("sub", "rsp", (long)32)
+inline std::string x86_rt_gc_poll_rec_res(int reg = 0) {
+return x86_gc_gate(x86_poll_open(32, reg)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
          + x86_rsp_store64(16, "r13")
@@ -3262,7 +3262,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_load64("rax", 0)
          + x86_rsp_load64("rdx", 8)
          + x86_rsp_load64("r13", 16)
-         + x86("add", "rsp", (long)32));
+         + x86_poll_close(32, reg));
 }
 #include "stage2.h"
 std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy);
