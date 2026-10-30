@@ -22,6 +22,7 @@
 #include <wctype.h>
 #include <sys/mman.h>
 #include "../parsers/prolog/pl_cell.h"
+#include "prolog_db_blocks.h"
 #include "rt/rt_pl_trail.h"
 #include "rt/pl_rational.h"
 void rt_pl_ball_report(void *ball);
@@ -3978,29 +3979,6 @@ typedef struct { int i; int mark; } pl_flagit_t;
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_CELL0 24
-typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int frag; } pl_db_slot_t;
-typedef struct {
-    pl_db_slot_t *s;
-    int n;
-    int cap;
-    int killed;
-    int next_ref;
-    int head_idx;
-    int tail_idx;
-    int cell_k;
-    int erased_n;
-    int recl_n;
-    int recl_lo;
-    int recl_gc;
-    int recl_since;
-    int frag_top;
-    int tx_pins;
-    void *ix;
-    int ix_off;
-    int data_on;
-    int data_off;
-    int entry_idx;
-} pl_db_t;
 #define PL_DB_FRAG_PAGES(f) (((f) >> 20) & 0x3FF)
 #define PL_DB_FRAG_HELD 0x40000000
 #define PL_DB_FRAG_GONE ((int)0x80000000u)
@@ -4292,24 +4270,6 @@ void rt_pl_nb_unset(void *root, int64_t k) { pl_cell_t **cell = root && k >= 0 ?
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
 #define PL_DB_KEY_VLA(buf, nm, ar) char buf[fmt_len("%s/%d", (nm), (int)(ar))]; snprintf(buf, sizeof buf, "%s/%d", (nm), (int)(ar))
-typedef struct { char *key; int k; int meta; pl_db_t *db; int stat; int decl; int file; int line; int mf; int lib; } pl_db_key_t;
-typedef struct {
-    pl_db_key_t *e;
-    int n;
-    int cap;
-    int next_cell;
-    int ovf_cap;
-    void **ovf;
-    void **tries;
-    int ntries;
-    int tcap;
-    int tbl_vt;
-    int *hix;
-    int hcap;
-    long *mtok;
-    int mtn;
-    int mtcap;
-} pl_db_reg_t;
 _Static_assert(__builtin_offsetof(pl_db_reg_t, hix) == 56, "rt_gc_mark_run (rtx_gc.s) visits the registry's key index at [registry + 56], an unscanned block of entry numbers");
 _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
     "xa_flat.cpp's packet road loads a root cell numbered PL_DB_FRAME_CELLS or more through [registry + 24], the overflow vector -- the cells past the root frame live there, in an HB_PVEC that grows"
@@ -4428,8 +4388,6 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
-typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; } pl_trie_t;
 typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_trie_node_t *cur; int create; int nvar; int miss; int attv; } pl_trie_w_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_trie_gc_visit(uint16_t type, void *p) {
