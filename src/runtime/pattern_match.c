@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include "dtp.h"
 #include "core.h"
+#include "pattern_blocks.h"
 #include "rtx/rtcc.h"
 #include "ast.h"
 #include "../parsers/snobol4/scrip_cc.h"
@@ -47,8 +48,6 @@ static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     *n = (int)o.u->fields[1].i;
     return 1;
 }
-typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
-typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int32_t zpad; DESCR_t *snap; int64_t nsnap; } DTP_t;
 _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache reads DTP_t.fn at offset 0");
 _Static_assert(__builtin_offsetof(DTP_t, zsz) == 16, "PS-3 ARBNO stride latch reads DTP_t.zsz at offset 16");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
