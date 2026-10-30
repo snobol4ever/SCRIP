@@ -34183,16 +34183,18 @@ static const char PL_PRELUDE_LIB_71_SRC[] =
     "'$uri_irienc'([C|Cs], Es) :- C >= 128, !, '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_irienc'(Cs, Es1).\n"
     "'$uri_irienc'([C|Cs], [C|Es]) :- '$uri_irienc'(Cs, Es).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
-    { "writef", 1 },
-    { "writef", 2 },
-    { "swritef", 2 },
-    { "swritef", 3 },
+    { "numbervars", 1 },
+    { "varnumbers", 2 },
+    { "max_var_number", 3 },
+    { "varnumbers", 3 },
+    { "varnumbers_names", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+    { "numbervars", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
@@ -34203,6 +34205,122 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_72_SRC[] =
+    "numbervars(Term) :-\n"
+    "    numbervars(Term, 0, _).\n"
+    "varnumbers(Term, Copy) :-\n"
+    "    varnumbers(Term, 0, Copy).\n"
+    "varnumbers(Term, Min, Copy) :-\n"
+    "    must_be(acyclic, Term),\n"
+    "    MaxStart is Min-1,\n"
+    "    max_var_number(Term, MaxStart, Max),\n"
+    "    NVars is Max-MaxStart,\n"
+    "    (   NVars == 0\n"
+    "    ->  Copy = Term\n"
+    "    ;   '$varnumbers_roundup_next_power_two'(NVars, Len),\n"
+    "        functor(Vars, v, Len),\n"
+    "        '$varnumbers_varnumbers'(Term, MaxStart, Vars, Copy)\n"
+    "    ).\n"
+    "'$varnumbers_varnumbers'(Var, _, _, Copy) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    Copy = Var.\n"
+    "'$varnumbers_varnumbers'(Var, _, _, Copy) :-\n"
+    "    atomic(Var),\n"
+    "    !,\n"
+    "    Copy = Var.\n"
+    "'$varnumbers_varnumbers'('$VAR'(I), Min, Vars, Copy) :-\n"
+    "    integer(I),\n"
+    "    I > Min,\n"
+    "    !,\n"
+    "    Index is I-Min,\n"
+    "    arg(Index, Vars, Copy).\n"
+    "'$varnumbers_varnumbers'(Term, Min, Vars, Copy) :-\n"
+    "    functor(Term, Name, Arity),\n"
+    "    functor(Copy, Name, Arity),\n"
+    "    '$varnumbers_varnumbers_args'(1, Arity, Term, Min, Vars, Copy).\n"
+    "'$varnumbers_varnumbers_args'(I, Arity, Term, Min, Vars, Copy) :-\n"
+    "    I =< Arity,\n"
+    "    !,\n"
+    "    arg(I, Term, AT),\n"
+    "    arg(I, Copy, CT),\n"
+    "    '$varnumbers_varnumbers'(AT, Min, Vars, CT),\n"
+    "    I2 is I + 1,\n"
+    "    '$varnumbers_varnumbers_args'(I2, Arity, Term, Min, Vars, Copy).\n"
+    "'$varnumbers_varnumbers_args'(_, _, _, _, _, _).\n"
+    "'$varnumbers_roundup_next_power_two'(1, 1) :- !.\n"
+    "'$varnumbers_roundup_next_power_two'(N, L) :-\n"
+    "    L is 1<<(msb(N-1)+1).\n"
+    "max_var_number(V, Max, Max) :-\n"
+    "    var(V),\n"
+    "    !.\n"
+    "max_var_number('$VAR'(I), Max0, Max) :-\n"
+    "    integer(I),\n"
+    "    !,\n"
+    "    Max is max(I,Max0).\n"
+    "max_var_number(S, Max0, Max) :-\n"
+    "    functor(S, _, Ar),\n"
+    "    '$varnumbers_max_var_numberl'(Ar, S, Max0, Max).\n"
+    "'$varnumbers_max_var_numberl'(0, _, Max, Max) :- !.\n"
+    "'$varnumbers_max_var_numberl'(I, T, Max0, Max) :-\n"
+    "    arg(I, T, Arg),\n"
+    "    I2 is I-1,\n"
+    "    max_var_number(Arg, Max0, Max1),\n"
+    "    '$varnumbers_max_var_numberl'(I2, T, Max1, Max).\n"
+    "varnumbers_names(Term, Copy, Bindings) :-\n"
+    "    must_be(acyclic, Term),\n"
+    "    empty_assoc(Named),\n"
+    "    '$varnumbers_varnumbers_names'(Term, Named, BindingAssoc, Copy),\n"
+    "    assoc_to_list(BindingAssoc, BindingPairs),\n"
+    "    maplist('$varnumbers_pair_equals', BindingPairs, Bindings).\n"
+    "'$varnumbers_pair_equals'(N-V, N=V).\n"
+    "'$varnumbers_varnumbers_names'(Var, Bindings, Bindings, Copy) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    Copy = Var.\n"
+    "'$varnumbers_varnumbers_names'(Var, Bindings, Bindings, Copy) :-\n"
+    "    atomic(Var),\n"
+    "    !,\n"
+    "    Copy = Var.\n"
+    "'$varnumbers_varnumbers_names'('$VAR'(Name), Bindings0, Bindings, Copy) :-\n"
+    "    !,\n"
+    "    (   get_assoc(Name, Bindings0, Copy)\n"
+    "    ->  Bindings = Bindings0\n"
+    "    ;   put_assoc(Name, Bindings0, Copy, Bindings)\n"
+    "    ).\n"
+    "'$varnumbers_varnumbers_names'(Term, Bindings0, Bindings, Copy) :-\n"
+    "    functor(Term, Name, Arity),\n"
+    "    functor(Copy, Name, Arity),\n"
+    "    '$varnumbers_varnumbers_names_args'(1, Arity, Term, Bindings0, Bindings, Copy).\n"
+    "'$varnumbers_varnumbers_names_args'(I, Arity, Term, Bindings0, Bindings, Copy) :-\n"
+    "    I =< Arity,\n"
+    "    !,\n"
+    "    arg(I, Term, AT),\n"
+    "    arg(I, Copy, CT),\n"
+    "    '$varnumbers_varnumbers_names'(AT, Bindings0, Bindings1, CT),\n"
+    "    I2 is I + 1,\n"
+    "    '$varnumbers_varnumbers_names_args'(I2, Arity, Term, Bindings1, Bindings, Copy).\n"
+    "'$varnumbers_varnumbers_names_args'(_, _, _, Bindings, Bindings, _).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+    { "writef", 1 },
+    { "writef", 2 },
+    { "swritef", 2 },
+    { "swritef", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_73_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -34337,7 +34455,7 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -34362,20 +34480,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "set_xsb_param", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_73_SRC[] =
+static const char PL_PRELUDE_LIB_74_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -34420,7 +34538,7 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "index", 2 },
     { "index", 3 },
     { "do_all", 1 },
@@ -34469,24 +34587,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "attv_unify", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
@@ -34610,29 +34728,29 @@ static const char PL_PRELUDE_LIB_74_SRC[] =
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
+static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_75_SRC[] =
+static const char PL_PRELUDE_LIB_76_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -34670,20 +34788,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "$tbl $xt_ntp", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
+static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_76_SRC[] =
+static const char PL_PRELUDE_LIB_77_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -34825,10 +34943,11 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "terms", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
     { "ugraphs", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
     { "uri", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "xsb_dialect", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
+    { "varnumbers", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
