@@ -16224,7 +16224,19 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_iter_done") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1; }
     if ((!strcmp(fn, "__rk_arr_map") || !strcmp(fn, "__rk_arr_grep")) && nargs >= 2) {
         int want_map = (fn[9] == 'm');
-        if (!rk_is_code(args[1])) { *out = FAILDESCR; return 1; }
+        if (!rk_is_code(args[1]) && want_map) { *out = FAILDESCR; return 1; }
+        if (!rk_is_code(args[1])) {
+            extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+            rk_cbh_t H = { g_rk_cbh_cur, { args[0], rk_mk_arr(NULL, 0) } }, M = { &H, { args[1], NULVCL } };
+            g_rk_cbh_cur = &M;
+            for (int si = 0, an = rk_av(H.d[0]).n; si < an; si++) {
+                DESCR_t sm[2] = { rk_av_elem(rk_av(H.d[0]), si), M.d[0] }, t;
+                if (script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t)) rk_arr_append((ARBLK_t *) H.d[1].arr, sm[0]);
+            }
+            *out = H.d[1];
+            g_rk_cbh_cur = H.prev;
+            return 1;
+        }
         int nrf = rk_blk_nref(args[1]);
         DESCR_t rfs[nrf ? nrf : 1];
         rk_cb_t cb = rk_blk_snap(args[1], rfs);
@@ -17141,9 +17153,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             int is_dat_recv = (rtn && dat_find_type(rtn));
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort") ||
-                    ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && rk_is_code(args[2])) || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") ||
-                    !strcmp(mname0, "sum") || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "pick") || !strcmp(mname0, "min") || !strcmp(mname0, "max") ||
-                    !strcmp(mname0, "first") || (!strcmp(mname0, "reduce") && nargs == 3 && rk_is_code(args[2])) || !strcmp(mname0, "keys") || !strcmp(mname0, "values") ||
+                    (!strcmp(mname0, "map") && nargs == 3 && rk_is_code(args[2])) || (!strcmp(mname0, "grep") && nargs == 3) || !strcmp(mname0, "elems") || !strcmp(mname0, "end") ||
+                    !strcmp(mname0, "join") || !strcmp(mname0, "sum") || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "pick") || !strcmp(mname0, "min") ||
+                    !strcmp(mname0, "max") || !strcmp(mname0, "first") || (!strcmp(mname0, "reduce") && nargs == 3 && rk_is_code(args[2])) || !strcmp(mname0, "keys") || !strcmp(mname0, "values") ||
                     rk_list_coercion_meth(mname0, nargs);
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "map") ? "__rk_arr_map" : !strcmp(mname0, "grep") ? "__rk_arr_grep" : !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ?

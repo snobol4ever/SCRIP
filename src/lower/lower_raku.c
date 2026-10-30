@@ -7216,6 +7216,10 @@ static void rk_bool_regexes(tree_t * t) {
     for (int i = 0; i < t->n; i++) rk_bool_regexes(t->c[i]);
     if ((t->t == TT_IF || t->t == TT_UNLESS || t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_NOT || t->t == TT_TERNARY) && t->n > 0) rk_bool_rx(&t->c[0]);
     else if (t->t == TT_REPEAT && t->n > 1) rk_bool_rx(&t->c[1]);
+    else if (t->t == TT_GREP && t->n > 0)
+        rk_bool_rx((t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_arr") && t->c[0]->n >= 3) ? &t->c[0]->c[1] : &t->c[0]);
+    else if (t->t == TT_METHCALL && t->n > 2 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "grep") && t->c[2] && t->c[2]->t == TT_ANON_BLOCK && t->c[2]->n > 0 &&
+        t->c[2]->c[0] && t->c[2]->c[0]->t == TT_SEQ_EXPR && t->c[2]->c[0]->n > 0) rk_bool_rx(&t->c[2]->c[0]->c[t->c[2]->c[0]->n - 1]);
     else if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "__rk_mkbool")) rk_bool_rx(&t->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
