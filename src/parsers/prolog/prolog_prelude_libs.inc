@@ -33294,7 +33294,11 @@ static const char PL_PRELUDE_LIB_68_SRC[] =
     "'$tbl_wdrop'(S):-(S==none->true;'$trie_destroy'(S)).\n"
     "'$tbl_finvals'([],_).\n"
     "'$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).\n"
-    "tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),'$tnot_kind'(G1,plain),!,'$tbl_noattv'(G1),'$tbl_vt'(VT),('$trie_lookup'(VT,G1,T0)->'$tbl_valid'(T0,VT,G1,T);T=none),'$tbl_sl_get'(T,VT,G1,I,T1),'$trie_meta_get'(T1,0,S),'$tbl_sl_tnot'(S,T1,G1).\n"
+    "tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),'$tnot_kind'(G1,plain),!,'$tbl_sl_ncall'(G1,I).\n"
+    "'$tbl_sl_ncall'(G,I):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_nget'(T,VT,G,I).\n"
+    "'$tbl_sl_nget'(none,VT,G,I):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_nrun'(T,G).\n"
+    "'$tbl_sl_nget'(T,_,G,_):-'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).\n"
+    "'$tbl_sl_nrun'(T,G):-('$tbl_sl_gen0'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T),'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).\n"
     "tnot(G):-'$tnot_split'(G,G1),'$tbl_vt'(VT),'$trie_lookup'(VT,G1,T),\\+ '$trie_meta_get'(T,0,invalid),!,'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).\n"
     "tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),!,'$tnot_kind'(G1,TK),'$tbl_get'(G1,I,plain,TK,T),'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).\n"
     "tnot(G):- \\+ G.\n"
@@ -34306,6 +34310,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+    { "concat_atom", 2 },
+    { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
