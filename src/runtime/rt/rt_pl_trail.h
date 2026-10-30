@@ -20,11 +20,8 @@ extern "C" {
 #define PL_TR_FLOOR_OFF 64
 #define PL_TR_PAD_RESIDUE 0x45445352u
 #define PL_TR_PAD_KEEP 0x5045454Bu
-#define PL_SERIAL_CELL 255
-#define PL_SERIAL_OFF (24 + 8 * PL_SERIAL_CELL)
-#define PL_SERIAL_STEP 512
-#define PL_SERIAL_SHIFT 9
-#define PL_VAR_ATTV 0x100
+#define PL_ATTV_SLEN 0x56545441u
+#define PL_ATTV_SEEN 0x4E454553u
 #define PL_TR_FRAME_HEADER_BYTES 64
 #define CLEANUP_DONE 0
 #define CLEANUP_ACTIVE 1
@@ -55,20 +52,7 @@ static inline uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t 
 static inline uint64_t *pl_tr_wake_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_WAKE_OFF); }
 static inline uint64_t *pl_tr_residue_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_RESIDUE_OFF); }
 static inline char **pl_tr_floor_slot(const char *base) { return (char **)((char *)base + PL_TR_FLOOR_OFF); }
-static inline int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && (c->src_node0 & 1); }
-static inline uint64_t pl_var_word0(const DESCR_t *c) { uint64_t w; __builtin_memcpy(&w, c, 8); return w; }
-static inline uint64_t pl_var_serial(const DESCR_t *c) { return (int)c->v == DT_PLVAR ? pl_var_word0(c) >> PL_SERIAL_SHIFT : 0; }
-static inline uint64_t pl_serial_draw(const pl_tr_ctx_t *cx) {
-    uint64_t *k;
-    if (!cx || !cx->r14) return (uint64_t)DT_PLVAR;
-    k = (uint64_t *)(uintptr_t)(cx->r14 - PL_SERIAL_OFF);
-    { uint64_t w = *k; if ((w & 255) != (uint64_t)DT_PLVAR) return (uint64_t)DT_PLVAR; *k = w + PL_SERIAL_STEP; return w; }
-}
-static inline void pl_var_make(DESCR_t *c, const pl_tr_ctx_t *cx, int attv) { uint64_t w = pl_serial_draw(cx) | (attv ? PL_VAR_ATTV : 0); __builtin_memcpy(c, &w, 8); c->p = (void *)c; }
-static inline void pl_var_move(DESCR_t *j, const DESCR_t *old, const pl_tr_ctx_t *cx) {
-    if ((int)old->v != DT_PLVAR) { pl_var_make(j, cx, 0); return; }
-    { uint64_t w = pl_var_word0(old) & ~(uint64_t)PL_VAR_ATTV; __builtin_memcpy(j, &w, 8); j->p = (void *)j; }
-}
+static inline int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && c->slen == PL_ATTV_SLEN; }
 static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }

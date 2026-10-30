@@ -3678,7 +3678,6 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
     }
     g->nslots = arity + nl + 8;
     g->resumable_callable = 1;
-    g->unbound_serial = 1;
     g->deterministic = 1;
     g->home_frame = 1;
 }
@@ -3959,7 +3958,6 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     if (!g) return (void *)0;
     if (gout) *gout = g;
     g->resumable_callable = 1;
-    g->unbound_serial = 1;
     if (pkt_slot >= 0) { g->pkt_fragment = 1; g->pkt_cell = pkt_cell; g->pkt_slot = pkt_slot; }
     { extern void optimizer_run(IR_graph_t *); optimizer_run(g); }
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
@@ -6323,7 +6321,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             }
         }
     }
-    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) { g_stage2.bbp.table[_gi]->resumable_callable = 1; g_stage2.bbp.table[_gi]->unbound_serial = 1; }
+    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->resumable_callable = 1;
     for (int i = 0; i < g_stage2.proc_count; i++) {
         const char * pk = g_stage2.proc_table[i].name;
         int bi = g_stage2.proc_table[i].bb_idx;
@@ -6337,7 +6335,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) g_stage2.bbp.table[bi]->rt_redefinable = 1;
         }
     }
-    { extern int rt_pl_db_frame_cells(void); top->standing_cells = rt_pl_db_frame_cells() + 1; }
+    { extern int rt_pl_db_frame_cells(void); top->standing_cells = rt_pl_db_frame_cells(); }
     pl_db_decls_capture();
     return &g_stage2;
 }

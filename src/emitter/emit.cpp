@@ -2983,7 +2983,7 @@ static void emit_gc_map_data(const char * fam) {
     if (g_emitter.g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_emitter.g_blob_lay.p; lay_n = (int)g_emitter.g_blob_lay.len; }
     else if (g_emit_cfg) { int gaps = 0, conf = 0;
         int n = g_emit_cfg->pf.lay_n; gaps = g_emit_cfg->pf.lay_gaps; conf = g_emit_cfg->pf.lay_conf;
-        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 3) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 3), "g_zls_lay");
+        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 2) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 2), "g_zls_lay");
         for (int k = 0; k < n; k++) ((uint64_t *)g_emitter.g_zls_lay_v.p)[k] = g_emit_cfg->pf.lay[k];
         uint64_t * g_zls_lay = (uint64_t *)g_emitter.g_zls_lay_v.p;
         if (n >= 0 && g_emit_cfg->root_graph) { int rg = g_emit_cfg->pf.value_region, nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
@@ -2993,8 +2993,7 @@ static void emit_gc_map_data(const char * fam) {
                     " FLAT_FRAME_A"
                 "LLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_emitter.g_gc_value_bytes); abort(); }
             if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
-            if (nc > 0) { g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_RAW, 8);
-                if (nc > 1) g_zls_lay[n++] = GC_LAY_Q(clo + 8, GC_LAY_PTR_GC, 8 * (nc - 1)); } }
+            if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_emitter.g_zls_lay_gaps = gaps; g_emitter.g_zls_lay_conf = conf; } }
     emit_sep_rule('-');
     if (g_is_text) emit_textf(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n");

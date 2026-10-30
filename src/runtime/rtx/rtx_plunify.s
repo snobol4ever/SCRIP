@@ -12,10 +12,7 @@ RTX_GATE_DEF(plunify)
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
-#define PL_VAR_ATTV_MASK  0x1FF
-#define PL_VAR_ATTV_WORD  0x148
-#define PL_SERIAL_SLOT    -2064
-#define PL_SERIAL_STEP    512
+#define PL_ATTV_SLEN      0x56545441
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
 #define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
 #define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
@@ -213,8 +210,7 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r10]
     PL_U_UNB(r10, .Lun_a_unb, .Lun_a_bnd)
 .Lun_a_unb:
-    and     eax, PL_VAR_ATTV_MASK
-    cmp     eax, PL_VAR_ATTV_WORD
+    cmp     dword ptr [r10 + 4], PL_ATTV_SLEN
     je      .Lun_restart
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_both_unb, .Lun_a_unb_b_bnd)
@@ -233,8 +229,7 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [r10 + 8], rdx
     jmp     .Lun_next
 .Lun_both_unb:
-    and     eax, PL_VAR_ATTV_MASK
-    cmp     eax, PL_VAR_ATTV_WORD
+    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
     je      .Lun_restart
     cmp     r10, rsp
     jbe     .Lun_a_heap
@@ -257,9 +252,7 @@ RTX_FUNC(rtx_pl_unify)
     je      .Lun_refstore
 .Lun_norm:
     PL_U_TRAIL(r11, Lun_t2)
-    mov     rax, qword ptr [r14 + PL_SERIAL_SLOT]
-    add     qword ptr [r14 + PL_SERIAL_SLOT], PL_SERIAL_STEP
-    mov     qword ptr [r11], rax
+    mov     qword ptr [r11], DT_PLVAR
     mov     qword ptr [r11 + 8], r11
 .Lun_refstore:
     PL_U_TRAIL(r10, Lun_t3)
@@ -270,8 +263,7 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_b_unb_a_bnd, .Lun_both_bnd)
 .Lun_b_unb_a_bnd:
-    and     eax, PL_VAR_ATTV_MASK
-    cmp     eax, PL_VAR_ATTV_WORD
+    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
     je      .Lun_restart
     cmp     byte ptr [r10], DT_PLREF
     jne     .Lun_oc4

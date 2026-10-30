@@ -13,7 +13,6 @@ extern "C" {
 #include "bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
-#include "bb_pl_cell.h"
 #include "rt/gc_heap.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
@@ -533,8 +532,10 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("mov", "eax", RDD("rdi", 0))
              + x86("test", "eax", "eax")
              + x86("je", L(lg + 1))
-             + x86("and", "eax", (long)(255 | PL_VAR_ATTV))
              + x86("cmp", "eax", (long)DT_PLVAR)
+             + x86("jne", L(lsk + 99))
+             + x86("mov", "ecx", RDD("rdi", 4))
+             + x86("test", "ecx", "ecx")
              + x86("jne", L(lsk + 99))
              + x86("mov", "rax", RDQ("rdi", 8))
              + x86("cmp", "rax", "rdi")
@@ -570,16 +571,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("pop", "r11")
              + x86("pop", "rdi")
              + x86("pop", "rsi")
-             + x86("note", "the globalized variable keeps the frame cell's serial (the same variable); a virgin frame cell (the zero DESCR) draws one")
-             + x86("mov", "ecx", RDD("rdi", 0))
-             + x86("cmp", "cl", (long)DT_PLVAR)
-             + x86("jne", L(lg + 600))
-             + x86("mov", "rcx", RDQ("rdi", 0))
-             + x86("jmp", L(lg + 601))
-             + x86("def", L(lg + 600))
-             + PL_SERIAL_DRAW("rcx")
-             + x86("def", L(lg + 601))
-             + x86("mov", RDQ("rax", 0), "rcx")
+             + x86("mov", RDQ("rax", 0), (long)DT_PLVAR)
              + x86("mov", RDQ("rax", 8), "rax")
              + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)
              + x86("mov", RDQ("rdi", 8), "rax")

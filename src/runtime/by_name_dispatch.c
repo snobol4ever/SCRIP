@@ -290,7 +290,7 @@ static int plw_bind_vv(DESCR_t *A, DESCR_t *B, pl_tr_ctx_t *cx, const char *floo
     r.v = (DTYPE_t)DT_PLVAR;
     r.slen = 0;
     r.p = (void *)to;
-    if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to); pl_var_make(to, cx, 0); }
+    if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to); *to = r; }
     if (pl_tr_needs_log_bind(cx, from, floor_)) pl_tr_push(cx, from);
     *from = r;
     return 1;
@@ -406,12 +406,22 @@ int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) {
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
     { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
     DESCR_t *c = plw_cell_deref(plw_entry(tmp));
-    if (c->v == DT_SNUL || c->v == DT_FAIL) pl_var_make(c, (const pl_tr_ctx_t *)0, 0);
+    if (c->v == DT_SNUL || c->v == DT_FAIL) { c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; }
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
-DESCR_t rt_pl_fresh_var_ref(uint64_t r14) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); pl_tr_ctx_t rcx = { 0 }; rcx.r14 = r14; pl_var_make(j, &rcx, 0); return pl_make_ref(j, 0); }
+DESCR_t rt_pl_fresh_var_ref(void) {
+    DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
+    j->v = (DTYPE_t)DT_PLVAR;
+    j->slen = 0;
+    j->p = (void *)j;
+    DESCR_t r = {0};
+    r.v = (DTYPE_t)DT_PLVAR;
+    r.slen = 0;
+    r.p = (void *)j;
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name) {
     if (!name) return 0;
@@ -6740,7 +6750,13 @@ static int plu_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
             int ah = (const char *)A <= floor_, bh = (const char *)B <= floor_;
             DESCR_t *from, *to;
             if (!ah && !bh) { from = A < B ? A : B; to = A < B ? B : A; } else if (ah != bh) { from = ah ? B : A; to = ah ? A : B; } else { from = A > B ? A : B; to = A > B ? B : A; }
-            if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to); pl_var_make(to, cx, 0); }
+            if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) {
+                DESCR_t u = {0};
+                u.v = (DTYPE_t)DT_PLVAR;
+                u.p = (void *)to;
+                if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to);
+                *to = u;
+            }
             { DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.p = (void *)to; if (pl_tr_needs_log_bind(cx, from, floor_)) pl_tr_push(cx, from); *from = r; return 1; }
         }
         if (au) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(A, B)) return 0; if (pl_tr_needs_log_bind(cx, A, floor_)) pl_tr_push(cx, A); *A = *B; return 1; }
@@ -8047,7 +8063,7 @@ static DESCR_t pl_attv_word(DESCR_t *a, pl_tr_ctx_t *cx) {
     DESCR_t r = {0};
     if (!plw_unbound_tag(c)) return *c;
     r.v = (DTYPE_t)DT_PLVAR;
-    if ((char *)c > floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); pl_var_move(j, c, cx); r.p = (void *)j; plw_bind(c, r, cx); return r; }
+    if ((char *)c > floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; r.p = (void *)j; plw_bind(c, r, cx); return r; }
     r.p = (void *)c;
     return r;
 }
@@ -8062,7 +8078,9 @@ static int rt_pl_attv_set_cell(DESCR_t *av, DESCR_t *aa, pl_tr_ctx_t *cx) {
     {
         DESCR_t *blk = (DESCR_t *)rt_ws_alloc_descr(2);
         DESCR_t r = {0};
-        pl_var_make(blk, cx, 1);
+        blk[0].v = (DTYPE_t)DT_PLVAR;
+        blk[0].slen = PL_ATTV_SLEN;
+        blk[0].p = (void *)blk;
         if (rs) { memset(&blk[1], 0, sizeof blk[1]); pl_tr_push_residue(cx, blk + 1); }
         blk[1] = w;
         r.v = (DTYPE_t)DT_PLVAR;
@@ -8087,7 +8105,7 @@ static int rt_pl_attv_take_cell(DESCR_t *al, pl_tr_ctx_t *cx) {
     *wk = 0;
     if (lo) for (char *p = cx->tr - PL_TR_ENTRY_BYTES; p >= base + lo; p -= PL_TR_ENTRY_BYTES) {
         pl_tr_entry_t *e = (pl_tr_entry_t *)p;
-        if (e->old.v == (DTYPE_t)DT_PLVAR && (e->old.src_node0 & 1) && e->old.p == (void *)e->cell) {
+        if (e->old.v == (DTYPE_t)DT_PLVAR && e->old.slen == PL_ATTV_SLEN && e->old.p == (void *)e->cell) {
             DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr(3);
             DESCR_t t = {0};
             k[0] = e->cell[1];
@@ -8129,20 +8147,28 @@ static int rt_pl_crv_collect_cell(DESCR_t *am, DESCR_t *av, pl_tr_ctx_t *cx) {
         pl_tr_entry_t *e = (pl_tr_entry_t *)p;
         DESCR_t *blk = e->cell - 1, r = {0};
         if (e->pad != PL_TR_PAD_RESIDUE || !pl_attv_is(blk) || (blk[1].v == nil.v && blk[1].i == nil.i)) continue;
-        blk[0].src_node0 &= (uint8_t)~1;
+        blk[0].slen = PL_ATTV_SEEN;
         r.v = (DTYPE_t)DT_PLVAR;
         r.p = (void *)blk;
         *tail = pl_cons(r, nil);
         tail = &((DESCR_t *)tail->p)[1];
     }
-    for (DESCR_t l = head; l.v == (DTYPE_t)DT_PLREF; l = ((DESCR_t *)l.p)[1]) ((DESCR_t *)((DESCR_t *)l.p)[0].p)->src_node0 |= 1;
+    for (DESCR_t l = head; l.v == (DTYPE_t)DT_PLREF; l = ((DESCR_t *)l.p)[1]) ((DESCR_t *)((DESCR_t *)l.p)[0].p)->slen = PL_ATTV_SLEN;
     return plw_unify_cell_val(plw_entry(av), head, cx);
 }
 static DESCR_t pl_unif_global(DESCR_t *c, const char *floor_, pl_tr_ctx_t *cx) {
     DESCR_t r = {0};
     r.v = (DTYPE_t)DT_PLVAR;
     c = plw_cell_deref(c);
-    if (plw_unbound_tag(c) && (const char *)c > floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); pl_var_move(j, c, cx); r.p = (void *)j; plw_bind(c, r, cx); return r; }
+    if (plw_unbound_tag(c) && (const char *)c > floor_) {
+        DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
+        j->v = (DTYPE_t)DT_PLVAR;
+        j->slen = 0;
+        j->p = (void *)j;
+        r.p = (void *)j;
+        plw_bind(c, r, cx);
+        return r;
+    }
     if (plw_unbound_tag(c)) { r.p = (void *)c; return r; }
     return *c;
 }
@@ -8216,7 +8242,9 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
         if (trail != 0) w = pl_attv_word(va, cx);
         else {
             DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1), *d;
-            pl_var_make(j, cx, 0);
+            j->v = (DTYPE_t)DT_PLVAR;
+            j->slen = 0;
+            j->p = (void *)j;
             if (!rt_pl_copy_term_cell(va, j, cx)) return 0;
             d = plw_cell_deref(j);
             if (plw_unbound_tag(d)) { w.v = (DTYPE_t)DT_PLVAR; w.slen = 0; w.p = (void *)d; } else w = *d;
@@ -8520,8 +8548,12 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         DESCR_t *tv = (DESCR_t *)rt_ws_alloc_descr(1);
         DESCR_t tref = {0}, lst;
         DESCR_t el[n > 0 ? n : 1];
-        pl_var_make(tv, cx, 0);
-        tref = pl_make_ref(tv, 0);
+        tv->v = (DTYPE_t)DT_PLVAR;
+        tv->slen = 0;
+        tv->p = (void *)tv;
+        tref.v = (DTYPE_t)DT_PLVAR;
+        tref.slen = 0;
+        tref.p = (void *)tv;
         lst = tref;
         for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
         rt_pl_residue_recopy(el, n, cx);
@@ -8974,7 +9006,7 @@ static void pl_vt_init(pl_vtab_t *vt, int occ) {
 }
 static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     extern int prolog_atom_intern(const char *);
-    extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
+    extern DESCR_t rt_pl_fresh_var_ref(void);
     if (!t) return pl_mk_atom("?");
     switch (t->t) {
         case TT_ILIT:
@@ -8993,7 +9025,7 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
             if (vt->n >= vt->cap) { extern void rt_bomb(const char *msg); rt_bomb("pl_tree_cell: a term holds more variables than its tree counted"); }
             if (!anon) vt->hs[h] = vt->n;
             vt->nm[vt->n] = anon ? (const char *)0 : nm;
-            vt->v[vt->n] = rt_pl_fresh_var_ref(0);
+            vt->v[vt->n] = rt_pl_fresh_var_ref();
             vt->cnt[vt->n] = 1;
             return vt->v[vt->n++];
         }

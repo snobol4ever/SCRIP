@@ -277,7 +277,6 @@ struct IR_graph_t {
     int home_frame;
     int root_graph;
     int standing_cells;
-    int unbound_serial;
     int runtime_fragment_graph;
     int is_variadic;
     int rest_kind;

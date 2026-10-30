@@ -69,7 +69,6 @@ IR_graph_t * IR_alloc(int max_nodes) {
     bbg->entry = NULL;
     bbg->resume_slot = -1;
     bbg->resumable_callable = 0;
-    bbg->unbound_serial = 0;
     bbg->zeta_mark_slot = -1;
     bbg->pf.lay_n = -1;
     return bbg;

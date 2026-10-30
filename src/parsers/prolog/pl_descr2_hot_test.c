@@ -71,7 +71,7 @@ static int hot_unify_const(pl_cell_t *c, int is_atom, long ival, int atom_id, pl
 int main(void) {
     printf("=== PL-DESCR-2 sub-flip-2 hot-helper test ===\n");
     pl_trail_t tr; pl_trail_init(&tr);
-    pl_cell_t V; pl_init_var(&V, (const pl_tr_ctx_t *)0);
+    pl_cell_t V; pl_init_var(&V, 0);
     int m1 = pl_trail_mark(&tr);
     CHECK(hot_is_int(&V, 7, &tr), "X is 7  (X unbound) succeeds");
     CHECK(pl_is_int(&V) && pl_int_val(&V) == 7, "X bound to 7");
@@ -82,13 +82,13 @@ int main(void) {
     int m2 = pl_trail_mark(&tr);
     CHECK(!hot_is_int(&seven, 8, &tr), "7 is 8 fails");
     CHECK(pl_trail_mark(&tr) == m2, "failed is/2 left the trail clean (partial-fail unwind)");
-    pl_cell_t five = pl_make_int(5), Wp; pl_init_var(&Wp, (const pl_tr_ctx_t *)0);
+    pl_cell_t five = pl_make_int(5), Wp; pl_init_var(&Wp, 1);
     CHECK(hot_is_arith(&Wp, &five, "+", 3, &tr) && pl_int_val(&Wp) == 8, "X is 5+3 -> 8");
-    pl_cell_t Wt; pl_init_var(&Wt, (const pl_tr_ctx_t *)0);
+    pl_cell_t Wt; pl_init_var(&Wt, 2);
     CHECK(hot_is_arith(&Wt, &five, "*", 2, &tr) && pl_int_val(&Wt) == 10, "X is 5*2 -> 10");
-    pl_cell_t sv = pl_make_int(17), Wd; pl_init_var(&Wd, (const pl_tr_ctx_t *)0);
+    pl_cell_t sv = pl_make_int(17), Wd; pl_init_var(&Wd, 3);
     CHECK(hot_is_arith(&Wd, &sv, "//", 5, &tr) && pl_int_val(&Wd) == 3, "X is 17//5 -> 3");
-    pl_cell_t A = pl_make_int(4), B = pl_make_int(9), Wb; pl_init_var(&Wb, (const pl_tr_ctx_t *)0);
+    pl_cell_t A = pl_make_int(4), B = pl_make_int(9), Wb; pl_init_var(&Wb, 4);
     CHECK(hot_is_bivar(&Wb, &A, &B, "+", &tr) && pl_int_val(&Wb) == 13, "X is A+B (4+9) -> 13");
     pl_cell_t three = pl_make_int(3), threeF = pl_make_float(3.0), fiveF = pl_make_float(5.0);
     CHECK(hot_cmp("<", &three, 0, &five, 0), "3 < 5 true");
@@ -96,7 +96,7 @@ int main(void) {
     CHECK(hot_cmp("=:=", &three, 0, &threeF, 0), "3 =:= 3.0 true (int/float)");
     CHECK(hot_cmp(">=", &fiveF, 0, &five, 0), "5.0 >= 5 true");
     CHECK(hot_cmp("=<", &three, 0, &three, 0), "3 =< 3 true");
-    pl_cell_t U; pl_init_var(&U, (const pl_tr_ctx_t *)0);
+    pl_cell_t U; pl_init_var(&U, 5);
     int m6 = pl_trail_mark(&tr);
     CHECK(hot_unify_const(&U, 1, 0, 42, &tr), "X = atom#42 succeeds");
     CHECK(pl_is_atom(&U) && pl_atom_id(&U) == 42, "X bound to atom 42");

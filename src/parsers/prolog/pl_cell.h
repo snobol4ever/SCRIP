@@ -19,10 +19,10 @@ static inline pl_cell_t pl_make_compound(int functor, int arity, void *heap) {
     extern int prolog_functor_intern(int, int); pl_cell_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(functor, arity); c.p = heap; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pl_init_var(pl_cell_t *c, const pl_tr_ctx_t *cx) { pl_var_make(c, cx, 0); }
+static inline void pl_init_var(pl_cell_t *c, int slot) { c->v = (DTYPE_t)DT_PLVAR; c->slen = (uint32_t)slot; c->p = (void *)c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t pl_make_ref(pl_cell_t *target, int slot) {
-    pl_cell_t c; uint64_t w = (uint64_t)DT_PLVAR | ((uint64_t)(uint32_t)slot << 32); memcpy(&c, &w, 8); c.p = (void *)target; return c;
+    pl_cell_t c; c.v = (DTYPE_t)DT_PLVAR; c.slen = (uint32_t)slot; c.p = (void *)target; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline pl_cell_t *pl_deref(pl_cell_t *c) {
@@ -58,7 +58,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
-    if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r = pl_make_ref(pl_attv_is(A) ? A : B, 0); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
+    if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)(pl_attv_is(A) ? A : B); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
     if (av && bv) { extern int rt_pl_bind_vv(pl_cell_t *, pl_cell_t *); return rt_pl_bind_vv(A, B); }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
@@ -75,5 +75,5 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if ((int)A->v == DT_PLREF) { extern int rt_pl_unify_cyc_plain(pl_cell_t *, pl_cell_t *); return A->slen == B->slen && rt_pl_unify_cyc_plain(A, B); }
     return 0;
 }
-#define PL_DB_FRAME_CELLS PL_SERIAL_CELL
+#define PL_DB_FRAME_CELLS 256
 #endif
