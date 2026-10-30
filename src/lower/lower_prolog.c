@@ -2293,6 +2293,14 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
                 mq->v.sval = cx->umod ? (char *) cx->umod : ct_strndup(ck, (size_t) (colon - ck));
                 return goal(cx, pl_cc_fnc2("$mctx_call", mq, (tree_t *) t), γnext, ωfail, entry_out);
             }
+            if (cx && cx->umod && cx->umod[0] && g_stage2.pl_dialect == PL_DIALECT_SWI && strcmp(nm, "$mod_callq")) {
+                const char * sv = cx->umod;
+                IR_t * qr;
+                cx->umod = "";
+                qr = goal(cx, pl_cc_fnc2("$mod_callq", (tree_t *) pl_atom_goal(sv), (tree_t *) t), γnext, ωfail, entry_out);
+                cx->umod = sv;
+                return qr;
+            }
             return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
         }
         if (ch && ch->t == TT_FNC && !g_stage2.rt_lowering) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; }
