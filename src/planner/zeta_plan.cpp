@@ -2002,6 +2002,16 @@ void zd_check_g(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char 
             int expect;
             if (dq < 0 || !zon[dq] || xb[dq] == INT_MIN) continue;
             expect = xb[i] + zout[i] - (xb[dq] + zout[dq]);
+            if (ig && g_planner.g_zd_rec_p && nodes[i]->n_operands > 0) {
+                const int jg = nidx(nodes, n, ig);
+                IR_t * rt = nodes[i]->operands[0];
+                const int kt = (rt && rt->op != IR_SUCCEED && rt->op != IR_FAIL) ? nidx(nodes, n, rt) : -1;
+                int aj = -1;
+                for (int j = 0; jg >= 0 && j < ig->n_operands; j++) if (ig->operands[j] == nodes[i]) { aj = j; break; }
+                const int gto = (jg >= 0 && jg < g_planner.g_zd_rec_p->n) ? g_planner.g_zd_rec_p->zn[jg].gto : -1;
+                const int vg = (aj >= 0 && gto >= 0 && (size_t)(gto + aj) < g_planner.g_zd_rec_p->v_gate.size()) ? g_planner.g_zd_rec_p->v_gate[(size_t)(gto + aj)] : INT_MIN;
+                if (kt >= 0 && zon[kt] && xb[kt] != INT_MIN && vg != INT_MIN) expect = xb[i] + zout[i] - (xb[kt] + zout[kt] - (nodes[i]->seal ? 0 : zd_k_g(cg, nodes[kt]))) - vg;
+            }
             edges++;
             if (zgpop[i] != expect) {
                 viol++;
