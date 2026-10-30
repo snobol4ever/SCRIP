@@ -18580,7 +18580,15 @@ static const char PL_PRELUDE_LIB_27_SRC[] =
     "    G = G0.\n"
     "'$error_qualify'(G, error:G).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
-    { "fm_elim", 3 },
+    { "chmod", 2 },
+    { "relative_file_name", 3 },
+    { "directory_file_path", 3 },
+    { "directory_member", 3 },
+    { "copy_file", 2 },
+    { "make_directory_path", 1 },
+    { "copy_directory", 2 },
+    { "delete_directory_and_contents", 1 },
+    { "delete_directory_contents", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
@@ -18592,11 +18600,345 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_28_LOADS[] = { "bv_q", "clpqr_class", "clpqr_project", "clpqr_redund", "store_q", 0 };
+static const char *const PL_PRELUDE_LIB_28_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_28_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_28_SRC[] =
+    "relative_file_name(Path, RelTo, RelPath) :-\n"
+    "    nonvar(Path),\n"
+    "    !,\n"
+    "    absolute_file_name(Path, AbsPath),\n"
+    "    absolute_file_name(RelTo, AbsRelTo),\n"
+    "    atomic_list_concat(PL, /, AbsPath),\n"
+    "    atomic_list_concat(RL, /, AbsRelTo),\n"
+    "    '$filesex_delete_common_prefix'(PL, RL, PL1, PL2),\n"
+    "    '$filesex_to_dot_dot'(PL2, DotDot, PL1),\n"
+    "    (   DotDot == []\n"
+    "    ->  RelPath = '.'\n"
+    "    ;   atomic_list_concat(DotDot, /, RelPath)\n"
+    "    ).\n"
+    "relative_file_name(Path, RelTo, RelPath) :-\n"
+    "    (   is_absolute_file_name(RelPath)\n"
+    "    ->  Path = RelPath\n"
+    "    ;   file_directory_name(RelTo, RelToDir),\n"
+    "        directory_file_path(RelToDir, RelPath, Path0),\n"
+    "        absolute_file_name(Path0, Path)\n"
+    "    ).\n"
+    "'$filesex_delete_common_prefix'([H|T01], [H|T02], T1, T2) :-\n"
+    "    !,\n"
+    "    '$filesex_delete_common_prefix'(T01, T02, T1, T2).\n"
+    "'$filesex_delete_common_prefix'(T1, T2, T1, T2).\n"
+    "'$filesex_to_dot_dot'([], Tail, Tail).\n"
+    "'$filesex_to_dot_dot'([_], Tail, Tail) :- !.\n"
+    "'$filesex_to_dot_dot'([_|T0], ['..'|T], Tail) :-\n"
+    "    '$filesex_to_dot_dot'(T0, T, Tail).\n"
+    "directory_file_path(Dir, File, Path) :-\n"
+    "    nonvar(Dir), nonvar(File),\n"
+    "    !,\n"
+    "    (   (   is_absolute_file_name(File)\n"
+    "        ;   Dir == '.'\n"
+    "        )\n"
+    "    ->  Path = File\n"
+    "    ;   sub_atom(Dir, _, _, 0, /)\n"
+    "    ->  atom_concat(Dir, File, Path)\n"
+    "    ;   atomic_list_concat([Dir, /, File], Path)\n"
+    "    ).\n"
+    "directory_file_path(Dir, File, Path) :-\n"
+    "    nonvar(Path),\n"
+    "    !,\n"
+    "    (   nonvar(Dir)\n"
+    "    ->  (   Dir == '.',\n"
+    "            \\+ is_absolute_file_name(Path)\n"
+    "        ->  File = Path\n"
+    "        ;   sub_atom(Dir, _, _, 0, /)\n"
+    "        ->  atom_concat(Dir, File, Path)\n"
+    "        ;   atom_concat(Dir, /, TheDir)\n"
+    "        ->  atom_concat(TheDir, File, Path)\n"
+    "        )\n"
+    "    ;   nonvar(File)\n"
+    "    ->  atom_concat(Dir0, File, Path),\n"
+    "        '$filesex_strip_trailing_slash'(Dir0, Dir)\n"
+    "    ;   file_directory_name(Path, Dir),\n"
+    "        file_base_name(Path, File)\n"
+    "    ).\n"
+    "directory_file_path(_, _, _) :-\n"
+    "    throw(error(instantiation_error(_), _)).\n"
+    "'$filesex_strip_trailing_slash'(Dir0, Dir) :-\n"
+    "    (   atom_concat(D, /, Dir0),\n"
+    "        D \\== ''\n"
+    "    ->  Dir = D\n"
+    "    ;   Dir = Dir0\n"
+    "    ).\n"
+    "directory_member(Directory, Member, Options) :-\n"
+    "    dict_create(Dict, options, Options),\n"
+    "    (   Dict.get(recursive) == true,\n"
+    "        \\+ Dict.get(follow_links) == false\n"
+    "    ->  empty_nb_set(Visited),\n"
+    "        DictOptions = Dict.put(visited, Visited)\n"
+    "    ;   DictOptions = Dict\n"
+    "    ),\n"
+    "    '$filesex_directory_member_dict'(Directory, Member, DictOptions).\n"
+    "'$filesex_directory_member_dict'(Directory, Member, Dict) :-\n"
+    "    '$filesex_directory_files'(Directory, Files, Dict),\n"
+    "    member(Entry, Files),\n"
+    "    \\+ '$filesex_special'(Entry),\n"
+    "    directory_file_path(Directory, Entry, AbsEntry),\n"
+    "    '$filesex_filter_link'(AbsEntry, Dict),\n"
+    "    (   exists_directory(AbsEntry)\n"
+    "    ->  (   '$filesex_filter_dir_member'(AbsEntry, Entry, Dict),\n"
+    "            Member = AbsEntry\n"
+    "        ;   '$filesex_filter_directory'(Entry, Dict),\n"
+    "            Dict.get(recursive) == true,\n"
+    "            \\+ '$filesex_hidden_file'(Entry, Dict),\n"
+    "            '$filesex_no_link_cycle'(AbsEntry, Dict),\n"
+    "            '$filesex_directory_member_dict'(AbsEntry, Member, Dict)\n"
+    "        )\n"
+    "    ;   '$filesex_filter_dir_member'(AbsEntry, Entry, Dict),\n"
+    "        Member = AbsEntry\n"
+    "    ).\n"
+    "'$filesex_directory_files'(Directory, Files, Dict) :-\n"
+    "    Errors = Dict.get(file_errors),\n"
+    "    !,\n"
+    "    '$filesex_errors_directory_files'(Errors, Directory, Files).\n"
+    "'$filesex_directory_files'(Directory, Files, _Dict) :-\n"
+    "    '$filesex_errors_directory_files'(warning, Directory, Files).\n"
+    "'$filesex_errors_directory_files'(fail, Directory, Files) :-\n"
+    "    catch(directory_files(Directory, Files), _, fail).\n"
+    "'$filesex_errors_directory_files'(warning, Directory, Files) :-\n"
+    "    catch(directory_files(Directory, Files), E,\n"
+    "          (   print_message(warning, E),\n"
+    "              fail)).\n"
+    "'$filesex_errors_directory_files'(error, Directory, Files) :-\n"
+    "    directory_files(Directory, Files).\n"
+    "'$filesex_filter_link'(File, Dict) :-\n"
+    "    \\+ ( Dict.get(follow_links) == false,\n"
+    "         read_link(File, _, _)\n"
+    "       ).\n"
+    "'$filesex_no_link_cycle'(Directory, Dict) :-\n"
+    "    Visited = Dict.get(visited),\n"
+    "    !,\n"
+    "    absolute_file_name(Directory, Canonical,\n"
+    "                       [ file_type(directory)\n"
+    "                       ]),\n"
+    "    add_nb_set(Canonical, Visited, true).\n"
+    "'$filesex_no_link_cycle'(_, _).\n"
+    "'$filesex_hidden_file'(Entry, Dict) :-\n"
+    "    false == Dict.get(hidden),\n"
+    "    sub_atom(Entry, 0, _, _, '.').\n"
+    "'$filesex_filter_dir_member'(_AbsEntry, Entry, Dict) :-\n"
+    "    Exclude = Dict.get(exclude),\n"
+    "    wildcard_match(Exclude, Entry),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(_AbsEntry, Entry, Dict) :-\n"
+    "    Include = Dict.get(matches),\n"
+    "    \\+ wildcard_match(Include, Entry),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(AbsEntry, _Entry, Dict) :-\n"
+    "    Type = Dict.get(file_type),\n"
+    "    \\+ '$filesex_matches_type'(Type, AbsEntry),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(_AbsEntry, Entry, Dict) :-\n"
+    "    ExtList = Dict.get(extensions),\n"
+    "    file_name_extension(_, Ext, Entry),\n"
+    "    \\+ memberchk(Ext, ExtList),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(AbsEntry, _Entry, Dict) :-\n"
+    "    Access = Dict.get(access),\n"
+    "    \\+ access_file(AbsEntry, Access),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(_AbsEntry, Entry, Dict) :-\n"
+    "    '$filesex_hidden_file'(Entry, Dict),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_dir_member'(_, _, _).\n"
+    "'$filesex_matches_type'(directory, Entry) :-\n"
+    "    !,\n"
+    "    exists_directory(Entry).\n"
+    "'$filesex_matches_type'(Type, Entry) :-\n"
+    "    \\+ exists_directory(Entry),\n"
+    "    user:prolog_file_type(Ext, Type),\n"
+    "    file_name_extension(_, Ext, Entry).\n"
+    "'$filesex_filter_directory'(Entry, Dict) :-\n"
+    "    Exclude = Dict.get(exclude_directory),\n"
+    "    wildcard_match(Exclude, Entry),\n"
+    "    !, fail.\n"
+    "'$filesex_filter_directory'(_, _).\n"
+    "copy_file(From, To) :-\n"
+    "    '$filesex_destination_file'(To, From, Dest),\n"
+    "    setup_call_cleanup(\n"
+    "        open(Dest, write, Out, [type(binary)]),\n"
+    "        '$filesex_copy_from'(From, Out),\n"
+    "        close(Out)).\n"
+    "'$filesex_copy_from'(File, Stream) :-\n"
+    "    setup_call_cleanup(\n"
+    "        open(File, read, In, [type(binary)]),\n"
+    "        copy_stream_data(In, Stream),\n"
+    "        close(In)).\n"
+    "'$filesex_destination_file'(Dir, File, Dest) :-\n"
+    "    exists_directory(Dir),\n"
+    "    !,\n"
+    "    file_base_name(File, Base),\n"
+    "    directory_file_path(Dir, Base, Dest).\n"
+    "'$filesex_destination_file'(Dest, _, Dest).\n"
+    "make_directory_path(Dir) :-\n"
+    "    '$filesex_make_directory_path_2'(Dir),\n"
+    "    !.\n"
+    "make_directory_path(Dir) :-\n"
+    "    permission_error(create, directory, Dir).\n"
+    "'$filesex_make_directory_path_2'(Dir) :-\n"
+    "    exists_directory(Dir),\n"
+    "    !.\n"
+    "'$filesex_make_directory_path_2'(Dir) :-\n"
+    "    atom_concat(RealDir, '/', Dir),\n"
+    "    RealDir \\== '',\n"
+    "    !,\n"
+    "    '$filesex_make_directory_path_2'(RealDir).\n"
+    "'$filesex_make_directory_path_2'(Dir) :-\n"
+    "    Dir \\== (/),\n"
+    "    !,\n"
+    "    file_directory_name(Dir, Parent),\n"
+    "    '$filesex_make_directory_path_2'(Parent),\n"
+    "    E = error(existence_error(directory, _), _),\n"
+    "    catch(make_directory(Dir), E,\n"
+    "          (   exists_directory(Dir)\n"
+    "          ->  true\n"
+    "          ;   throw(E)\n"
+    "          )).\n"
+    "copy_directory(From, To) :-\n"
+    "    (   exists_directory(To)\n"
+    "    ->  true\n"
+    "    ;   make_directory(To)\n"
+    "    ),\n"
+    "    directory_files(From, Entries),\n"
+    "    maplist('$filesex_copy_directory_content'(From, To), Entries).\n"
+    "'$filesex_copy_directory_content'(_From, _To, Special) :-\n"
+    "    '$filesex_special'(Special),\n"
+    "    !.\n"
+    "'$filesex_copy_directory_content'(From, To, Entry) :-\n"
+    "    directory_file_path(From, Entry, Source),\n"
+    "    directory_file_path(To, Entry, Dest),\n"
+    "    (   exists_directory(Source)\n"
+    "    ->  copy_directory(Source, Dest)\n"
+    "    ;   copy_file(Source, Dest)\n"
+    "    ).\n"
+    "'$filesex_special'(.).\n"
+    "'$filesex_special'(..).\n"
+    "delete_directory_and_contents(Dir) :-\n"
+    "    read_link(Dir, _, _),\n"
+    "    !,\n"
+    "    delete_file(Dir).\n"
+    "delete_directory_and_contents(Dir) :-\n"
+    "    directory_files(Dir, Files),\n"
+    "    maplist('$filesex_delete_directory_contents'(Dir), Files),\n"
+    "    E = error(existence_error(directory, _), _),\n"
+    "    catch(delete_directory(Dir), E,\n"
+    "          (   \\+ exists_directory(Dir)\n"
+    "          ->  true\n"
+    "          ;   throw(E)\n"
+    "          )).\n"
+    "'$filesex_delete_directory_contents'(_, Entry) :-\n"
+    "    '$filesex_special'(Entry),\n"
+    "    !.\n"
+    "'$filesex_delete_directory_contents'(Dir, Entry) :-\n"
+    "    directory_file_path(Dir, Entry, Delete),\n"
+    "    (   exists_directory(Delete)\n"
+    "    ->  delete_directory_and_contents(Delete)\n"
+    "    ;   E = error(existence_error(file, _), _),\n"
+    "        catch(delete_file(Delete), E,\n"
+    "              (   \\+ exists_file(Delete)\n"
+    "              ->  true\n"
+    "              ;   throw(E)))\n"
+    "    ).\n"
+    "delete_directory_contents(Dir) :-\n"
+    "    directory_files(Dir, Files),\n"
+    "    maplist('$filesex_delete_directory_contents'(Dir), Files).\n"
+    "chmod(File, +Spec) :-\n"
+    "    must_be(ground, Spec),\n"
+    "    !,\n"
+    "    '$filesex_mode_bits'(Spec, Bits),\n"
+    "    file_mode_(File, Mode0),\n"
+    "    Mode is Mode0 \\/ Bits,\n"
+    "    chmod_(File, Mode).\n"
+    "chmod(File, -Spec) :-\n"
+    "    must_be(ground, Spec),\n"
+    "    !,\n"
+    "    '$filesex_mode_bits'(Spec, Bits),\n"
+    "    file_mode_(File, Mode0),\n"
+    "    Mode is Mode0 /\\ \\Bits,\n"
+    "    chmod_(File, Mode).\n"
+    "chmod(File, Spec) :-\n"
+    "    must_be(ground, Spec),\n"
+    "    !,\n"
+    "    '$filesex_mode_bits'(Spec, Bits),\n"
+    "    chmod_(File, Bits).\n"
+    "'$filesex_mode_bits'(Spec, Spec) :-\n"
+    "    integer(Spec),\n"
+    "    !.\n"
+    "'$filesex_mode_bits'(Name, Bits) :-\n"
+    "    atom(Name),\n"
+    "    !,\n"
+    "    (   '$filesex_file_mode'(Name, Bits)\n"
+    "    ->  true\n"
+    "    ;   domain_error(posix_file_mode, Name)\n"
+    "    ).\n"
+    "'$filesex_mode_bits'(Spec, Bits) :-\n"
+    "    must_be(list(atom), Spec),\n"
+    "    phrase('$filesex_mode_bits'(0, Bits), Spec).\n"
+    "'$filesex_mode_bits'(Bits0, Bits) -->\n"
+    "    [Spec], !,\n"
+    "    (   { '$filesex_file_mode'(Spec, B), Bits1 is Bits0\\/B }\n"
+    "    ->  '$filesex_mode_bits'(Bits1, Bits)\n"
+    "    ;   { domain_error(posix_file_mode, Spec) }\n"
+    "    ).\n"
+    "'$filesex_mode_bits'(Bits, Bits) -->\n"
+    "    [].\n"
+    "'$filesex_file_mode'(suid, 0o4000).\n"
+    "'$filesex_file_mode'(sgid, 0o2000).\n"
+    "'$filesex_file_mode'(svtx, 0o1000).\n"
+    "'$filesex_file_mode'(Name, Bits) :-\n"
+    "    atom_chars(Name, Chars),\n"
+    "    phrase('$filesex_who_mask'(0, WMask0), Chars, Rest),\n"
+    "    (   WMask0 =:= 0\n"
+    "    ->  WMask = 0o0777\n"
+    "    ;   WMask = WMask0\n"
+    "    ),\n"
+    "    maplist('$filesex_mode_char', Rest, MBits),\n"
+    "    foldl('$filesex_or', MBits, 0, Mask),\n"
+    "    Bits is Mask /\\ WMask.\n"
+    "'$filesex_who_mask'(M0, M) -->\n"
+    "    [C],\n"
+    "    { '$filesex_who_mask'(C,M1), !,\n"
+    "      M2 is M0\\/M1\n"
+    "    },\n"
+    "    '$filesex_who_mask'(M2,M).\n"
+    "'$filesex_who_mask'(M, M) -->\n"
+    "    [].\n"
+    "'$filesex_who_mask'(o, 0o0007).\n"
+    "'$filesex_who_mask'(g, 0o0070).\n"
+    "'$filesex_who_mask'(u, 0o0700).\n"
+    "'$filesex_mode_char'(r, 0o0444).\n"
+    "'$filesex_mode_char'(w, 0o0222).\n"
+    "'$filesex_mode_char'(x, 0o0111).\n"
+    "'$filesex_or'(B1, B2, B) :-\n"
+    "    B is B1\\/B2.\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
+    { "fm_elim", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_29_LOADS[] = { "bv_q", "clpqr_class", "clpqr_project", "clpqr_redund", "store_q", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_29_METAS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_29_SRC[] =
     "fm_elim(Vs,Target,Pivots) :-\n"
     "\t'$fourmotz_q_prefilter'(Vs,Vsf),\n"
     "\t'$fourmotz_q_fm_elim_int'(Vsf,Target,Pivots).\n"
@@ -18837,24 +19179,24 @@ static const char PL_PRELUDE_LIB_28_SRC[] =
     "\t->  true\n"
     "\t;   '$fourmotz_q_occurs'(De,OrdV)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "fm_elim", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_29_LOADS[] = { "bv_r", "clpqr_class", "clpqr_project", "clpqr_redund", "store_r", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_29_METAS[] = {
+static const char *const PL_PRELUDE_LIB_30_LOADS[] = { "bv_r", "clpqr_class", "clpqr_project", "clpqr_redund", "store_r", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_30_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_29_SRC[] =
+static const char PL_PRELUDE_LIB_30_SRC[] =
     "fm_elim(Vs,Target,Pivots) :-\n"
     "\t'$fourmotz_r_prefilter'(Vs,Vsf),\n"
     "\t'$fourmotz_r_fm_elim_int'(Vsf,Target,Pivots).\n"
@@ -19095,26 +19437,26 @@ static const char PL_PRELUDE_LIB_29_SRC[] =
     "\t->  true\n"
     "\t;   '$fourmotz_r_occurs'(De,OrdV)\n"
     "\t).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "reset_gensym", 0 },
     { "reset_gensym", 1 },
     { "gensym", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_30_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_30_METAS[] = {
+static const char *const PL_PRELUDE_LIB_31_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_31_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_30_SRC[] =
+static const char PL_PRELUDE_LIB_31_SRC[] =
     "gensym(Base, Atom) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    flag(Key, Old, Old+1),\n"
@@ -19137,7 +19479,7 @@ static const char PL_PRELUDE_LIB_30_SRC[] =
     "reset_gensym(Base) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    set_flag(Key, 0).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "write_to_atom", 2 },
     { "writeq_to_atom", 2 },
     { "print_to_atom", 2 },
@@ -19311,10 +19653,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "sr_error_from_exception", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
     { "add_linedit_completion", 0 },
     { "add_stream_alias", 0 },
     { "add_stream_mirror", 0 },
@@ -19460,14 +19802,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { "writeq_to_codes", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_31_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_31_METAS[] = {
+static const char *const PL_PRELUDE_LIB_32_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_32_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_31_SRC[] =
+static const char PL_PRELUDE_LIB_32_SRC[] =
     "write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).\n"
     "writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).\n"
     "print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).\n"
@@ -20085,7 +20427,7 @@ static const char PL_PRELUDE_LIB_31_SRC[] =
     "'$gnu_b_sr_exc'(error(syntax_error(_), _), E) :- !, syntax_error_info(_, L, C, M), E = sr_error(error, syntax(L, C, M)).\n"
     "'$gnu_b_sr_exc'(error(F, _), sr_error(error, F)) :- !.\n"
     "'$gnu_b_sr_exc'(X, sr_error(exception, X)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
     { "#<#", 2 },
@@ -20143,7 +20485,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "#==>", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -20157,7 +20499,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -20171,7 +20513,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 700, "xfx", "#=#" },
     { 700, "xfx", "#\\=#" },
     { 700, "xfx", "#<#" },
@@ -20186,11 +20528,11 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
     { 720, "yfx", "#\\/\\" },
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_32_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_32_METAS[] = {
+static const char *const PL_PRELUDE_LIB_33_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_33_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_32_SRC[] =
+static const char PL_PRELUDE_LIB_33_SRC[] =
     "'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).\n"
     "'#\\\\='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#\\\\='(X1, Y1).\n"
     "'#<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#<'(X1, Y1).\n"
@@ -20342,7 +20684,7 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "'$gnu_is_prime'(N, D) :- D * D > N, !.\n"
     "'$gnu_is_prime'(N, D) :- N mod D =\\= 0, D1 is D + 1, '$gnu_is_prime'(N, D1).\n"
     "fd_reified_in(X, L, U, B) :- '#<==>'(B, in(X, '..'(L, U))).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "ht_new", 1 },
     { "ht_is_hashtable", 1 },
     { "ht_size", 2 },
@@ -20357,20 +20699,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "ht_keys", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_33_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_33_METAS[] = {
+static const char *const PL_PRELUDE_LIB_34_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_34_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "ht_new(ht(0,0,[](_))).\n"
     "ht_is_hashtable(HT) :-\n"
     "    nonvar(HT),\n"
@@ -20566,7 +20908,7 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "        )\n"
     "    ;   Keys = []\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "add_to_heap", 4 },
     { "delete_from_heap", 4 },
     { "empty_heap", 1 },
@@ -20581,20 +20923,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "singleton_heap", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_34_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_34_METAS[] = {
+static const char *const PL_PRELUDE_LIB_35_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_35_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char PL_PRELUDE_LIB_35_SRC[] =
     "add_to_heap(heap(Q0,M),P,X,heap(Q1,N)) :-\n"
     "    '$heaps_meld'(Q0,t(X,P,[]),Q1),\n"
     "    N is M+1.\n"
@@ -20673,7 +21015,7 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "    '$heaps_meld'(Q0, Q1, Q2),\n"
     "    '$heaps_pairing'(Qs, Q3),\n"
     "    '$heaps_meld'(Q2, Q3, Q).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "substitute_eq", 4 },
     { "memberchk_eq", 2 },
     { "intersect_eq", 3 },
@@ -20700,21 +21042,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "time", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_35_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_35_METAS[] = {
+static const char *const PL_PRELUDE_LIB_36_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_36_METAS[] = {
     { "time", 3, "time(0,-,-)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char PL_PRELUDE_LIB_36_SRC[] =
     ":- '$meta_spec'((\n"
     "\ttime(0, -, -))).\n"
     "'$hprolog_push_hprolog_library' :-\n"
@@ -20829,7 +21171,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "\tget_time(T1),\n"
     "\tWall is T1-T0,\n"
     "\tCPU is CPU1-CPU0.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "ineq", 4 },
     { "ineq_one", 4 },
     { "ineq_one_n_n_0", 1 },
@@ -20838,20 +21180,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "ineq_one_s_p_0", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_36_LOADS[] = { "bv_q", "store_q", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_36_METAS[] = {
+static const char *const PL_PRELUDE_LIB_37_LOADS[] = { "bv_q", "store_q", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_37_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char PL_PRELUDE_LIB_37_SRC[] =
     "ineq([],I,_,Strictness) :- '$ineq_q_ineq_ground'(Strictness,I).\n"
     "ineq([v(K,[X^1])|Tail],I,Lin,Strictness) :-\n"
     "\t'$ineq_q_ineq_cases'(Tail,I,Lin,Strictness,X,K).\n"
@@ -21807,7 +22149,7 @@ static const char PL_PRELUDE_LIB_36_SRC[] =
     "\tnormalize_scalar(Nb,Nbs),\n"
     "\tadd_linear_11(Nbs,Lin,Eq),\n"
     "\tsolve(Eq).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "ineq", 4 },
     { "ineq_one", 4 },
     { "ineq_one_n_n_0", 1 },
@@ -21816,20 +22158,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "ineq_one_s_p_0", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_37_LOADS[] = { "bv_r", "store_r", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_37_METAS[] = {
+static const char *const PL_PRELUDE_LIB_38_LOADS[] = { "bv_r", "store_r", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_38_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_37_SRC[] =
+static const char PL_PRELUDE_LIB_38_SRC[] =
     "ineq([],I,_,Strictness) :- '$ineq_r_ineq_ground'(Strictness,I).\n"
     "ineq([v(K,[X^1])|Tail],I,Lin,Strictness) :-\n"
     "\t'$ineq_r_ineq_cases'(Tail,I,Lin,Strictness,X,K).\n"
@@ -22891,24 +23233,24 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "\tnormalize_scalar(Nb,Nbs),\n"
     "\tadd_linear_11(Nbs,Lin,Eq),\n"
     "\tsolve(Eq).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "do_checks", 8 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_38_LOADS[] = { "bv_q", "clpqr_class", "nf_q", "store_q", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_38_METAS[] = {
+static const char *const PL_PRELUDE_LIB_39_LOADS[] = { "bv_q", "clpqr_class", "nf_q", "store_q", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_39_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_38_SRC[] =
+static const char PL_PRELUDE_LIB_39_SRC[] =
     "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
     "\t'$itf_q_numbers_only'(Y),\n"
     "\t'$itf_q_verify_nonzero'(No,Y),\n"
@@ -23008,24 +23350,24 @@ static const char PL_PRELUDE_LIB_38_SRC[] =
     "\t    solve(Lind)\n"
     "\t).\n"
     "'$itf_q_verify_lin'(_,_,_,_).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "do_checks", 8 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_39_LOADS[] = { "bv_r", "clpqr_class", "nf_r", "store_r", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_39_METAS[] = {
+static const char *const PL_PRELUDE_LIB_40_LOADS[] = { "bv_r", "clpqr_class", "nf_r", "store_r", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_40_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_39_SRC[] =
+static const char PL_PRELUDE_LIB_40_SRC[] =
     "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
     "\t'$itf_r_numbers_only'(Y),\n"
     "\t'$itf_r_verify_nonzero'(No,Y),\n"
@@ -23130,7 +23472,7 @@ static const char PL_PRELUDE_LIB_39_SRC[] =
     "\t    solve(Lind)\n"
     "\t).\n"
     "'$itf_r_verify_lin'(_,_,_,_).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "json_read", 2 },
     { "json_read", 3 },
     { "atom_json_term", 3 },
@@ -23145,20 +23487,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "atom_json_dict", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_40_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_40_METAS[] = {
+static const char *const PL_PRELUDE_LIB_41_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_41_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_40_SRC[] =
+static const char PL_PRELUDE_LIB_41_SRC[] =
     ":- dynamic 'json_write_hook'/4, 'json_dict_pairs'/2.\n"
     "'$json_default_json_options'(json_options(@(null), @(true), @(false), error, atom, '', _)).\n"
     "'$json_json_options_null'(json_options(A, _, _, _, _, _, _), A).\n"
@@ -23983,7 +24325,7 @@ static const char PL_PRELUDE_LIB_40_SRC[] =
     "    A=['Illegal comment'|B].\n"
     "'$json_json_syntax_error'(illegal_string_escape, A, B) :-\n"
     "    A=['Illegal escape sequence in string'|B].\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "lazy_list", 2 },
     { "lazy_list", 3 },
     { "lazy_list_materialize", 1 },
@@ -23998,24 +24340,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "lazy_list_iterator", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_41_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_41_METAS[] = {
+static const char *const PL_PRELUDE_LIB_42_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_42_METAS[] = {
     { "lazy_findall", 3, "lazy_findall(?,0,-)" },
     { "lazy_findall", 4, "lazy_findall(+,?,0,-)" },
     { "lazy_list", 2, "lazy_list(2,-)" },
     { "lazy_list", 3, "lazy_list(3,+,-)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_41_SRC[] =
+static const char PL_PRELUDE_LIB_42_SRC[] =
     ":- '$meta_spec'(( lazy_list(2, -), lazy_list(3, +, -), lazy_findall(?, 0, -), lazy_findall(+, ?, 0, -))).\n"
     "lazy_list(A, B) :-\n"
     "    put_attr(B, lazy_lists, lazy_list(A, _)).\n"
@@ -24243,7 +24585,7 @@ static const char PL_PRELUDE_LIB_41_SRC[] =
     "lazy_findall(A, B, C, D) :-\n"
     "    engine_create(B, C, E),\n"
     "    lazy_list(lazy_engine_next(E, A), D).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "listing", 0 },
     { "listing", 1 },
     { "listing", 2 },
@@ -24252,26 +24594,26 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
     { "portray_clause", 1 },
     { "portray_clause", 2 },
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_42_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_42_METAS[] = {
+static const char *const PL_PRELUDE_LIB_43_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_43_METAS[] = {
     { "listing", 1, "listing(:)" },
     { "listing", 2, "listing(:,+)" },
     { "portray_clause", 3, "portray_clause(+,+,:)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_42_SRC[] =
+static const char PL_PRELUDE_LIB_43_SRC[] =
     ":- '$meta_spec'((\n"
     "    listing(:),\n"
     "    listing(:, +),\n"
@@ -25116,7 +25458,7 @@ static const char PL_PRELUDE_LIB_42_SRC[] =
     "    ansi_format(Attributes, Format, Args).\n"
     "'$listing_comment'(Format, Args) :-\n"
     "    format(Format, Args).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
     { "member", 2 },
     { "append", 2 },
     { "append", 3 },
@@ -25154,22 +25496,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "subtract", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_43_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_43_METAS[] = {
+static const char *const PL_PRELUDE_LIB_44_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_44_METAS[] = {
     { "max_member", 3, "max_member(2,-,+)" },
     { "min_member", 3, "min_member(2,-,+)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_43_SRC[] =
+static const char PL_PRELUDE_LIB_44_SRC[] =
     ":- '$meta_spec'((\n"
     "    max_member(2, -, +),\n"
     "    min_member(2, -, +))).\n"
@@ -25463,7 +25805,7 @@ static const char PL_PRELUDE_LIB_43_SRC[] =
     "    ;   R = [E|R1],\n"
     "        subtract(T, D, R1)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "main", 0 },
     { "argv_options", 3 },
     { "argv_options", 4 },
@@ -25472,23 +25814,23 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
     { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_44_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_44_METAS[] = {
+static const char *const PL_PRELUDE_LIB_45_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_45_METAS[] = {
     { "argv_options", 3, "argv_options(:,-,-)" },
     { "argv_options", 4, "argv_options(:,-,-,+)" },
     { "argv_usage", 1, "argv_usage(:)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_44_SRC[] =
+static const char PL_PRELUDE_LIB_45_SRC[] =
     ":- '$meta_spec'((\n"
     "    argv_options(:, -, -),\n"
     "    argv_options(:, -, -, +),\n"
@@ -26055,7 +26397,7 @@ static const char PL_PRELUDE_LIB_44_SRC[] =
     "    set_prolog_flag(xpce_threaded, true),\n"
     "    set_prolog_flag(message_ide, true),\n"
     "    set_prolog_flag(toplevel_goal, prolog).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "$mctx_assert", 3 },
     { "$mctx_asserta", 3 },
     { "$mctx_assertz", 3 },
@@ -26069,20 +26411,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "$mctx_call", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_45_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_45_METAS[] = {
+static const char *const PL_PRELUDE_LIB_46_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_46_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_45_SRC[] =
+static const char PL_PRELUDE_LIB_46_SRC[] =
     "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
     "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
     "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
@@ -26121,7 +26463,7 @@ static const char PL_PRELUDE_LIB_45_SRC[] =
     "'$mctx_eff1'(M,C,As,M,E):-'$mctx_ext'(C,As,E).\n"
     "'$mctx_ext'(C,As,E):-nonvar(C),callable(C),C=..L0,append(L0,As,L1),E=..L1,!.\n"
     "'$mctx_ext'(C,_,C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
     { "empty_nb_set", 1 },
     { "add_nb_set", 2 },
     { "add_nb_set", 3 },
@@ -26130,20 +26472,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "nb_set_to_list", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_47_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_46_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_46_METAS[] = {
+static const char *const PL_PRELUDE_LIB_47_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_47_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_46_SRC[] =
+static const char PL_PRELUDE_LIB_47_SRC[] =
     "'$nb_set_initial_size'(32).\n"
     "empty_nb_set(nb_set(Buckets, 0)) :-\n"
     "    '$nb_set_initial_size'(Size),\n"
@@ -26205,7 +26547,7 @@ static const char PL_PRELUDE_LIB_46_SRC[] =
     "    nb_set_to_list(Set, OrdSet),\n"
     "    member(Key, OrdSet).\n"
     "size_nb_set(nb_set(_, Size), Size).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
     { "{}", 1 },
     { "nf", 2 },
     { "entailed", 1 },
@@ -26216,21 +26558,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
     { "nf2term", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_47_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_48_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_47_LOADS[] = { "bv_q", "clpqr_geler", "ineq_q", "store_q", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_47_METAS[] = {
+static const char *const PL_PRELUDE_LIB_48_LOADS[] = { "bv_q", "clpqr_geler", "ineq_q", "store_q", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_48_METAS[] = {
     { "wait_linear", 3, "wait_linear(?,?,0)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_47_SRC[] =
+static const char PL_PRELUDE_LIB_48_SRC[] =
     ":- '$meta_spec'(( wait_linear(?, ?, 0))).\n"
     "{Rel} :-\n"
     "\tvar(Rel),\n"
@@ -26933,7 +27275,7 @@ static const char PL_PRELUDE_LIB_47_SRC[] =
     "\t    nf2term(Nf,Term)\n"
     "\t},\n"
     "\t[clpq:{Term=Res},Goal].\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
     { "{}", 1 },
     { "nf", 2 },
     { "entailed", 1 },
@@ -26944,21 +27286,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
     { "nf2term", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_48_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_49_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_48_LOADS[] = { "bv_r", "clpqr_geler", "ineq_r", "store_r", 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_48_METAS[] = {
+static const char *const PL_PRELUDE_LIB_49_LOADS[] = { "bv_r", "clpqr_geler", "ineq_r", "store_r", 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_49_METAS[] = {
     { "wait_linear", 3, "wait_linear(?,?,:)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_48_SRC[] =
+static const char PL_PRELUDE_LIB_49_SRC[] =
     "{Rel} :-\n"
     "\tvar(Rel),\n"
     "\t!,\n"
@@ -27708,7 +28050,7 @@ static const char PL_PRELUDE_LIB_48_SRC[] =
     "'$nf_r_integerp'(X,I) :-\n"
     "\tfloor(X)=:=X,\n"
     "\tI is integer(X).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_EXPORTS[] = {
     { "option", 2 },
     { "option", 3 },
     { "select_option", 3 },
@@ -27718,21 +28060,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
     { "dict_options", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_49_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_50_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_49_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_49_METAS[] = {
+static const char *const PL_PRELUDE_LIB_50_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_50_METAS[] = {
     { "meta_options", 3, "meta_options(1,:,-)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_49_SRC[] =
+static const char PL_PRELUDE_LIB_50_SRC[] =
     ":- '$meta_spec'((\n"
     "    meta_options(1, :, -))).\n"
     "option(Opt, Options, Default) :-\n"
@@ -27909,27 +28251,27 @@ static const char PL_PRELUDE_LIB_49_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
     { "opt_parse", 5 },
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_50_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_51_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_50_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_50_METAS[] = {
+static const char *const PL_PRELUDE_LIB_51_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_51_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_50_SRC[] =
+static const char PL_PRELUDE_LIB_51_SRC[] =
     ":- dynamic 'parse_type'/3.\n"
     "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
     "    current_prolog_flag(argv, Argv),\n"
@@ -28310,7 +28652,7 @@ static const char PL_PRELUDE_LIB_50_SRC[] =
     "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
     "'$optparse_is_list_of_atoms'([]).\n"
     "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -28333,20 +28675,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_51_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_52_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_51_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_51_METAS[] = {
+static const char *const PL_PRELUDE_LIB_52_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_52_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_51_SRC[] =
+static const char PL_PRELUDE_LIB_52_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -28565,7 +28907,7 @@ static const char PL_PRELUDE_LIB_51_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -28574,21 +28916,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_52_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_53_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_52_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_52_METAS[] = {
+static const char *const PL_PRELUDE_LIB_53_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_53_METAS[] = {
     { "map_list_to_pairs", 3, "map_list_to_pairs(2,+,-)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_52_SRC[] =
+static const char PL_PRELUDE_LIB_53_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -28634,7 +28976,7 @@ static const char PL_PRELUDE_LIB_52_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -28646,20 +28988,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_53_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_54_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_53_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_53_METAS[] = {
+static const char *const PL_PRELUDE_LIB_54_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_54_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_53_SRC[] =
+static const char PL_PRELUDE_LIB_54_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -28883,7 +29225,7 @@ static const char PL_PRELUDE_LIB_53_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
     { "begin_tests", 1 },
     { "begin_tests", 2 },
     { "end_tests", 1 },
@@ -28892,20 +29234,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
     { "set_test_options", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_54_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_55_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_54_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_54_METAS[] = {
+static const char *const PL_PRELUDE_LIB_55_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_55_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_54_SRC[] =
+static const char PL_PRELUDE_LIB_55_SRC[] =
     ":- dynamic pj_test/4.\n"
     "begin_tests(Suite) :- pj_unit_open(Suite), pj_suites_add(Suite, []).\n"
     "begin_tests(Suite, Opts) :- pj_unit_open(Suite), pj_suites_add(Suite, Opts).\n"
@@ -29062,24 +29404,24 @@ static const char PL_PRELUDE_LIB_54_SRC[] =
     "pj_reverse(L, R) :- pj_rev(L, [], R).\n"
     "pj_rev([], R, R).\n"
     "pj_rev([H|T], A, R) :- pj_rev(T, [H|A], R).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
     { "valid_term_position", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_55_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_56_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_55_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_55_METAS[] = {
+static const char *const PL_PRELUDE_LIB_56_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_56_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_55_SRC[] =
+static const char PL_PRELUDE_LIB_56_SRC[] =
     "valid_term_position(Term, TermPos) :-\n"
     "    '$vtp'(0, 0x7fffffffffffffff, Term, TermPos).\n"
     "'$vtp'(OuterFrom, OuterTo, _Term, TermPos),\n"
@@ -29160,7 +29502,7 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$vtp_tail'(Tail0, HdPart, Tail) =>\n"
     "    HdPart = [],\n"
     "    Tail0 = Tail.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -29170,23 +29512,23 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_56_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_57_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_56_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_56_METAS[] = {
+static const char *const PL_PRELUDE_LIB_57_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_57_METAS[] = {
     { "phrase_from_file", 2, "phrase_from_file(//,+)" },
     { "phrase_from_file", 3, "phrase_from_file(//,+,+)" },
     { "phrase_from_stream", 2, "phrase_from_stream(//,+)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_56_SRC[] =
+static const char PL_PRELUDE_LIB_57_SRC[] =
     ":- '$meta_spec'((\n"
     "    phrase_from_file(//, +),\n"
     "    phrase_from_file(//, +, +),\n"
@@ -29272,7 +29614,7 @@ static const char PL_PRELUDE_LIB_56_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -29310,22 +29652,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_57_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_58_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_57_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_57_METAS[] = {
+static const char *const PL_PRELUDE_LIB_58_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_58_METAS[] = {
     { "compile", 1, "compile(:)" },
     { "on_exception", 3, "on_exception(+,0,0)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_57_SRC[] =
+static const char PL_PRELUDE_LIB_58_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -29439,7 +29781,7 @@ static const char PL_PRELUDE_LIB_57_SRC[] =
     "    on_exception(+, 0, 0))).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
     { "random", 1 },
     { "random_between", 3 },
     { "getrand", 1 },
@@ -29458,20 +29800,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
     { "random", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_58_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_59_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_58_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_58_METAS[] = {
+static const char *const PL_PRELUDE_LIB_59_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_59_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_58_SRC[] =
+static const char PL_PRELUDE_LIB_59_SRC[] =
     "'$random_check_gmp' :-\n"
     "    current_arithmetic_function(random_float),\n"
     "    !.\n"
@@ -29641,7 +29983,7 @@ static const char PL_PRELUDE_LIB_58_SRC[] =
     "'$random_partial_list'(List) :-\n"
     "    '$skip_list'(_, List, Tail),\n"
     "    var(Tail).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -29672,17 +30014,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_59_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_60_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_59_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_59_METAS[] = {
+static const char *const PL_PRELUDE_LIB_60_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_60_METAS[] = {
     { "rb_apply", 4, "rb_apply(+,+,2,-)" },
     { "rb_fold", 4, "rb_fold(3,+,+,-)" },
     { "rb_map", 2, "rb_map(?,1)" },
@@ -29690,7 +30032,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_59_METAS[] = {
     { "rb_partial_map", 4, "rb_partial_map(+,+,2,-)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_59_SRC[] =
+static const char PL_PRELUDE_LIB_60_SRC[] =
     ":- '$meta_spec'((\n"
     "    rb_map(+,2,-),\n"
     "    rb_map(?,1),\n"
@@ -30307,7 +30649,7 @@ static const char PL_PRELUDE_LIB_59_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -30318,20 +30660,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_60_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_61_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_60_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_60_METAS[] = {
+static const char *const PL_PRELUDE_LIB_61_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_61_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_60_SRC[] =
+static const char PL_PRELUDE_LIB_61_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -30441,29 +30783,29 @@ static const char PL_PRELUDE_LIB_60_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_61_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_62_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_61_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_61_METAS[] = {
+static const char *const PL_PRELUDE_LIB_62_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_62_METAS[] = {
     { "current_record", 2, "current_record(?,:)" },
     { "current_record_predicate", 2, "current_record_predicate(?,:)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_61_SRC[] =
+static const char PL_PRELUDE_LIB_62_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -30759,7 +31101,7 @@ static const char PL_PRELUDE_LIB_61_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_EXPORTS[] = {
     { "assignment", 2 },
     { "constraint", 3 },
     { "constraint", 4 },
@@ -30775,20 +31117,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
     { "variable_value", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_62_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_63_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_62_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_62_METAS[] = {
+static const char *const PL_PRELUDE_LIB_63_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_63_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_62_SRC[] =
+static const char PL_PRELUDE_LIB_63_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
     ":- endif.\n"
     "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
@@ -31729,7 +32071,7 @@ static const char PL_PRELUDE_LIB_62_SRC[] =
     "            print_message(warning, simplex(bounded))\n"
     "        ;   true\n"
     "        ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -31741,17 +32083,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_EXPORTS[] = {
     { "group_by", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_63_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_64_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_63_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_63_METAS[] = {
+static const char *const PL_PRELUDE_LIB_64_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_64_METAS[] = {
     { "call_nth", 2, "call_nth(0,?)" },
     { "distinct", 1, "distinct(0)" },
     { "distinct", 2, "distinct(?,0)" },
@@ -31763,7 +32105,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_63_METAS[] = {
     { "reduced", 3, "reduced(?,0,+)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_63_SRC[] =
+static const char PL_PRELUDE_LIB_64_SRC[] =
     ":- '$meta_spec'((\n"
     "    distinct(0),\n"
     "    distinct(?, 0),\n"
@@ -31931,7 +32273,7 @@ static const char PL_PRELUDE_LIB_63_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -31948,20 +32290,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
     { "renormalize", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_64_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_64_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_64_METAS[] = {
+static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_64_SRC[] =
+static const char PL_PRELUDE_LIB_65_SRC[] =
     "normalize_scalar(S,[S,0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -32156,7 +32498,7 @@ static const char PL_PRELUDE_LIB_64_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_q_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -32173,20 +32515,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
     { "renormalize", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
+static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_66_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_65_SRC[] =
+static const char PL_PRELUDE_LIB_66_SRC[] =
     "normalize_scalar(S,[S,0.0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -32407,7 +32749,7 @@ static const char PL_PRELUDE_LIB_65_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_r_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -32415,22 +32757,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_66_METAS[] = {
+static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
     { "indent_lines", 4, "indent_lines(1,+,+,-)" },
     { "interpolate_string", 4, "interpolate_string(:,-,+,+)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_66_SRC[] =
+static const char PL_PRELUDE_LIB_67_SRC[] =
     ":- '$meta_spec'((\n"
     "    interpolate_string(:, -, +, +),\n"
     "    indent_lines(1, +, +, -))).\n"
@@ -32644,10 +32986,8 @@ static const char PL_PRELUDE_LIB_66_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "open_string", 2 },
-    { "directory_file_path", 3 },
-    { "make_directory_path", 1 },
     { "exists_file", 1 },
     { "exists_directory", 1 },
     { "size_file", 2 },
@@ -32664,23 +33004,31 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "maplist", 7 },
     { "set_prolog_stack", 2 },
     { "call_with_depth_limit", 3 },
+    { "set_time_file", 3 },
+    { "link_file", 3 },
+    { "file_mode_", 2 },
+    { "chmod_", 2 },
+    { "read_link", 3 },
+    { "prolog_to_os_filename", 2 },
+    { "copy_stream_data", 2 },
+    { "copy_stream_data", 3 },
     { "get_time", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
+static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_67_SRC[] =
+static const char PL_PRELUDE_LIB_68_SRC[] =
     "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
@@ -32693,15 +33041,6 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "'$swb_stack_kv'(P) :- compound(P), P =.. [K, V0], memberchk(K, [limit, min_free, low, factor, spare]), !, ( var(V0) -> throw(error(instantiation_error, context('$syspreds':set_prolog_stack/2, _))) ; true ), catch(V is V0, error(Err, _), throw(error(Err, context('$syspreds':set_prolog_stack/2, _)))), ( K == limit -> set_prolog_flag(stack_limit, V) ; true ).\n"
     "'$swb_stack_kv'(P) :- ( compound(P) -> functor(P, K, _) ; K = P ), throw(error(domain_error(stack_parameter, K), context(system:'$set_prolog_stack'/4, _))).\n"
     "open_string(S, Stream) :- ( var(S) -> throw(error(instantiation_error, context(open_string/2, _))) ; true ), text_to_string(S, Str), atom_string(A, Str), open_input_atom_stream(A, Stream), '$gnu_os'(ts_unmark, Stream, _).\n"
-    "directory_file_path(Dir, File, Path) :- nonvar(Dir), nonvar(File), !, ( ( is_absolute_file_name(File) ; Dir == '.' ) -> Path = File ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atomic_list_concat([Dir, /, File], Path) ).\n"
-    "directory_file_path(Dir, File, Path) :- nonvar(Path), !, ( nonvar(Dir) -> ( Dir == '.', \\+ is_absolute_file_name(Path) -> File = Path ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atom_concat(Dir, /, TheDir) -> atom_concat(TheDir, File, Path) ) ; nonvar(File) -> atom_concat(Dir0, File, Path), '$swb_strip_slash'(Dir0, Dir) ; file_directory_name(Path, Dir), file_base_name(Path, File) ).\n"
-    "directory_file_path(_, _, _) :- throw(error(instantiation_error(_), _)).\n"
-    "'$swb_strip_slash'(Dir0, Dir) :- ( atom_concat(D, /, Dir0), D \\== '' -> Dir = D ; Dir = Dir0 ).\n"
-    "make_directory_path(Dir) :- '$swb_mdp'(Dir), !.\n"
-    "make_directory_path(Dir) :- throw(error(permission_error(create, directory, Dir), _)).\n"
-    "'$swb_mdp'(Dir) :- exists_directory(Dir), !.\n"
-    "'$swb_mdp'(Dir) :- atom_concat(RealDir, '/', Dir), RealDir \\== '', !, '$swb_mdp'(RealDir).\n"
-    "'$swb_mdp'(Dir) :- Dir \\== (/), !, file_directory_name(Dir, Parent), '$swb_mdp'(Parent), E = error(existence_error(directory, _), _), catch(make_directory(Dir), E, ( exists_directory(Dir) -> true ; throw(E) )).\n"
     "text_to_string(T, S) :- var(T), !, throw(error(instantiation_error, context(system:text_to_string/2, _))).\n"
     "text_to_string(T, S) :- T == [], !, S = \"\".\n"
     "text_to_string(T, S) :- string(T), !, S = T.\n"
@@ -32764,8 +33103,37 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "    (   call(G), '$dl_reached'(R), ( true ; '$dl_reset'(0), fail )\n"
     "    ;   '$dl_false'(R)\n"
     "    ).\n"
-    "'$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
+    "'$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).\n"
+    "'$swb_fx_text'(X, P, Ctx) :- ( var(X) -> throw(error(instantiation_error, context(Ctx, _))) ; atom(X) -> P = X ; string(X) -> atom_string(P, X) ; is_list(X), catch(text_to_string(X, S), _, fail) -> atom_string(P, S) ; throw(error(type_error(text, X), context(Ctx, _))) ).\n"
+    "'$swb_fx_err'(e(enoent, M), _, O) :- !, throw(error(existence_error(file, O), context(_, M))).\n"
+    "'$swb_fx_err'(e(eperm, M), A, O) :- !, throw(error(permission_error(A, file, O), context(_, M))).\n"
+    "'$swb_fx_err'(e(_, M), _, _) :- throw(error(system_error, context(_, M))).\n"
+    "set_time_file(F, Old, New) :- '$swb_fx_text'(F, P, files_ex:set_time_file/3), '$gnu_os'(st_times, P, R), ( R = t(A, M, C) -> true ; '$swb_fx_err'(R, stat, P) ), '$swb_fx_old'(Old, access, A), '$swb_fx_old'(Old, modified, M), '$swb_fx_old'(Old, changed, C), '$swb_fx_close'(Old), ( New == [] -> true ; '$swb_fx_new'(New, access, A, A1), '$swb_fx_new'(New, modified, M, M1), '$gnu_os'(utime, P-t(A1, M1), U), ( U == ok -> true ; '$swb_fx_err'(U, set_time, P) ) ).\n"
+    "'$swb_fx_old'(L, N, T) :- var(L), !, X =.. [N, T], L = [X|_].\n"
+    "'$swb_fx_old'([X|L], N, T) :- !, ( compound(X), functor(X, N, 1) -> arg(1, X, V), ( V = T -> true ; true ) ; '$swb_fx_old'(L, N, T) ).\n"
+    "'$swb_fx_old'(_, _, _).\n"
+    "'$swb_fx_close'(L) :- var(L), !, L = [].\n"
+    "'$swb_fx_close'([_|L]) :- !, '$swb_fx_close'(L).\n"
+    "'$swb_fx_close'(_).\n"
+    "'$swb_fx_new'(L, N, Cur, T) :- ( '$swb_fx_find'(L, N, X) -> '$swb_fx_time'(X, T) ; T is truncate(Cur) ).\n"
+    "'$swb_fx_find'(L, N, X) :- nonvar(L), L = [E|R], ( nonvar(E), compound(E), functor(E, N, 1) -> arg(1, E, X) ; '$swb_fx_find'(R, N, X) ).\n"
+    "'$swb_fx_time'(X, _) :- var(X), !, throw(error(instantiation_error, _)).\n"
+    "'$swb_fx_time'(now, T) :- !, get_time(T0), T is truncate(T0).\n"
+    "'$swb_fx_time'(X, T) :- number(X), !, T is truncate(X).\n"
+    "'$swb_fx_time'(X, _) :- throw(error(type_error(time, X), _)).\n"
+    "link_file(O, N, T) :- '$swb_fx_text'(O, OP, files_ex:link_file/3), '$swb_fx_text'(N, NP, files_ex:link_file/3), ( var(T) -> throw(error(instantiation_error, _)) ; \\+ atom(T) -> throw(error(type_error(atom, T), _)) ; T == symbolic -> Op = symlink ; T == hard -> Op = hardlink ; throw(error(domain_error(link_type, T), _)) ), '$gnu_os'(Op, OP-NP, R), ( R == ok -> true ; '$swb_fx_err'(R, link, NP) ).\n"
+    "file_mode_(F, M) :- '$swb_fx_text'(F, P, files_ex:file_mode_/2), '$gnu_os'(st_mode, P, R), ( integer(R) -> M = R ; '$swb_fx_err'(R, stat, P) ).\n"
+    "chmod_(F, M) :- '$swb_fx_text'(F, P, files_ex:chmod_/2), ( var(M) -> throw(error(instantiation_error, context(files_ex:chmod_/2, _))) ; integer(M) -> true ; throw(error(type_error(integer, M), context(files_ex:chmod_/2, _))) ), '$gnu_os'(chmod, P-M, R), ( R == ok -> true ; '$swb_fx_err'(R, chmod, M) ).\n"
+    "read_link(F, L, T) :- '$swb_fx_text'(F, P, system:read_link/3), '$gnu_os'(read_link, P, l(L0, T0)), L = L0, T = T0.\n"
+    "prolog_to_os_filename(P, O) :- P = O.\n"
+    "copy_stream_data(I, O) :- '$swb_csd'(I, O, -1).\n"
+    "copy_stream_data(I, O, N) :- ( var(N) -> throw(error(instantiation_error, context(system:copy_stream_data/3, _))) ; integer(N) -> true ; throw(error(type_error(integer, N), context(system:copy_stream_data/3, _))) ), '$swb_csd'(I, O, N).\n"
+    "'$swb_csd'(I, O, N) :- ( stream_property(I, type(binary)) -> '$swb_csdb'(I, O, N) ; '$swb_csdt'(I, O, N) ).\n"
+    "'$swb_csdt'(_, _, 0) :- !.\n"
+    "'$swb_csdt'(I, O, N) :- get_char(I, C), ( C == end_of_file -> true ; put_char(O, C), N1 is N - 1, '$swb_csdt'(I, O, N1) ).\n"
+    "'$swb_csdb'(_, _, 0) :- !.\n"
+    "'$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -32936,21 +33304,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "snapshot", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
     { "undefined", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
+static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_68_SRC[] =
+static const char PL_PRELUDE_LIB_69_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,subs):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_sget'(G,I,T),'$tbl_sanswer'(T,G).\n"
     "'$tbl_sget'(G,_,T):-'$tbl_vt'(VT),\\+'$trie_lookup'(VT,G,_),'$trie_entries'(VT,L),'$tbl_sfind'(L,VT,G,T0),!,T=T0.\n"
@@ -33401,7 +33769,7 @@ static const char PL_PRELUDE_LIB_68_SRC[] =
     "'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.\n"
     "'$tbl_rsrun'([],_,_,_,[]).\n"
     "'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -33418,17 +33786,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
+static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
     { "foldsubterms", 4, "foldsubterms(3,+,+,-)" },
     { "foldsubterms", 5, "foldsubterms(4,+,?,+,-)" },
     { "mapargs", 3, "mapargs(2,?,?)" },
@@ -33436,7 +33804,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
     { "mapsubterms_var", 3, "mapsubterms_var(2,?,?)" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_69_SRC[] =
+static const char PL_PRELUDE_LIB_70_SRC[] =
     ":- '$meta_spec'((\n"
     "    mapargs(2,?,?),\n"
     "    mapsubterms(2,?,?),\n"
@@ -33651,7 +34019,7 @@ static const char PL_PRELUDE_LIB_69_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "add_edges", 3 },
     { "add_vertices", 3 },
     { "complement", 2 },
@@ -33672,20 +34040,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "connect_ugraph", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
+static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_70_SRC[] =
+static const char PL_PRELUDE_LIB_71_SRC[] =
     "vertices([], []) :- !.\n"
     "vertices([Vertex-_|Graph], [Vertex|Vertices]) :-\n"
     "    vertices(Graph, Vertices).\n"
@@ -33943,7 +34311,7 @@ static const char PL_PRELUDE_LIB_70_SRC[] =
     "    ord_union(Rs0, Nei, Rs1, D),\n"
     "    append(Ns, D, Nsi),\n"
     "    '$ugraphs_reachable'(Nsi, G, Rs1, RsF).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "uri_components", 2 },
     { "uri_data", 3 },
     { "uri_data", 4 },
@@ -33963,20 +34331,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "uri_iri", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
+static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_71_SRC[] =
+static const char PL_PRELUDE_LIB_72_SRC[] =
     "uri_components(U, C) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_split'(Cs, S, A, P, Q, F), C = uri_components(S, A, P, Q, F).\n"
     "uri_components(U, C) :- nonvar(C), C = uri_components(S, A, P, Q, F), !, '$uri_build'(S, A, P, Q, F, Cs), atom_codes(U, Cs).\n"
     "uri_components(_, _) :- throw(error(instantiation_error, context(uri:uri_components/2, _))).\n"
@@ -34182,7 +34550,7 @@ static const char PL_PRELUDE_LIB_71_SRC[] =
     "'$uri_irienc'([], []).\n"
     "'$uri_irienc'([C|Cs], Es) :- C >= 128, !, '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_irienc'(Cs, Es1).\n"
     "'$uri_irienc'([C|Cs], [C|Es]) :- '$uri_irienc'(Cs, Es).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "numbervars", 1 },
     { "varnumbers", 2 },
     { "max_var_number", 3 },
@@ -34190,21 +34558,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "varnumbers_names", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
     { "numbervars", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
+static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_72_SRC[] =
+static const char PL_PRELUDE_LIB_73_SRC[] =
     "numbervars(Term) :-\n"
     "    numbervars(Term, 0, _).\n"
     "varnumbers(Term, Copy) :-\n"
@@ -34300,27 +34668,27 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "    I2 is I + 1,\n"
     "    '$varnumbers_varnumbers_names_args'(I2, Arity, Term, Bindings1, Bindings, Copy).\n"
     "'$varnumbers_varnumbers_names_args'(_, _, _, Bindings, Bindings, _).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_73_SRC[] =
+static const char PL_PRELUDE_LIB_74_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -34455,7 +34823,7 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -34480,20 +34848,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "set_xsb_param", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -34538,7 +34906,7 @@ static const char PL_PRELUDE_LIB_74_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "index", 2 },
     { "index", 3 },
     { "do_all", 1 },
@@ -34587,24 +34955,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "attv_unify", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
+static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_75_SRC[] =
+static const char PL_PRELUDE_LIB_76_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
@@ -34728,29 +35096,29 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
+static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_76_SRC[] =
+static const char PL_PRELUDE_LIB_77_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -34788,20 +35156,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "$tbl $xt_ntp", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
+static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_77_SRC[] =
+static const char PL_PRELUDE_LIB_78_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -34899,55 +35267,56 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "dicts", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC, PL_PRELUDE_LIB_25_METAS, PL_PRELUDE_LIB_25_LOADS, 0 },
     { "engines", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC, PL_PRELUDE_LIB_26_METAS, PL_PRELUDE_LIB_26_LOADS, 0 },
     { "error", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC, PL_PRELUDE_LIB_27_METAS, PL_PRELUDE_LIB_27_LOADS, 0 },
-    { "fourmotz_q", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC, PL_PRELUDE_LIB_28_METAS, PL_PRELUDE_LIB_28_LOADS, 1 },
-    { "fourmotz_r", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC, PL_PRELUDE_LIB_29_METAS, PL_PRELUDE_LIB_29_LOADS, 1 },
-    { "gensym", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC, PL_PRELUDE_LIB_30_METAS, PL_PRELUDE_LIB_30_LOADS, 0 },
-    { "gnu_builtins", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC, PL_PRELUDE_LIB_31_METAS, PL_PRELUDE_LIB_31_LOADS, 0 },
-    { "gnu_fd", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC, PL_PRELUDE_LIB_32_METAS, PL_PRELUDE_LIB_32_LOADS, 0 },
-    { "hashtable", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC, PL_PRELUDE_LIB_33_METAS, PL_PRELUDE_LIB_33_LOADS, 0 },
-    { "heaps", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC, PL_PRELUDE_LIB_34_METAS, PL_PRELUDE_LIB_34_LOADS, 0 },
-    { "hprolog", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC, PL_PRELUDE_LIB_35_METAS, PL_PRELUDE_LIB_35_LOADS, 1 },
-    { "ineq_q", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC, PL_PRELUDE_LIB_36_METAS, PL_PRELUDE_LIB_36_LOADS, 1 },
-    { "ineq_r", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC, PL_PRELUDE_LIB_37_METAS, PL_PRELUDE_LIB_37_LOADS, 1 },
-    { "itf_q", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC, PL_PRELUDE_LIB_38_METAS, PL_PRELUDE_LIB_38_LOADS, 1 },
-    { "itf_r", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC, PL_PRELUDE_LIB_39_METAS, PL_PRELUDE_LIB_39_LOADS, 1 },
-    { "json", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC, PL_PRELUDE_LIB_40_METAS, PL_PRELUDE_LIB_40_LOADS, 0 },
-    { "lazy_lists", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC, PL_PRELUDE_LIB_41_METAS, PL_PRELUDE_LIB_41_LOADS, 0 },
-    { "listing", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC, PL_PRELUDE_LIB_42_METAS, PL_PRELUDE_LIB_42_LOADS, 0 },
-    { "lists", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC, PL_PRELUDE_LIB_43_METAS, PL_PRELUDE_LIB_43_LOADS, 0 },
-    { "main", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC, PL_PRELUDE_LIB_44_METAS, PL_PRELUDE_LIB_44_LOADS, 0 },
-    { "mctx", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC, PL_PRELUDE_LIB_45_METAS, PL_PRELUDE_LIB_45_LOADS, 0 },
-    { "nb_set", PL_PRELUDE_LIB_46_EXPORTS, PL_PRELUDE_LIB_46_OPS, PL_PRELUDE_LIB_46_SHADOWS, PL_PRELUDE_LIB_46_QUIET, PL_PRELUDE_LIB_46_SRC, PL_PRELUDE_LIB_46_METAS, PL_PRELUDE_LIB_46_LOADS, 0 },
-    { "nf_q", PL_PRELUDE_LIB_47_EXPORTS, PL_PRELUDE_LIB_47_OPS, PL_PRELUDE_LIB_47_SHADOWS, PL_PRELUDE_LIB_47_QUIET, PL_PRELUDE_LIB_47_SRC, PL_PRELUDE_LIB_47_METAS, PL_PRELUDE_LIB_47_LOADS, 1 },
-    { "nf_r", PL_PRELUDE_LIB_48_EXPORTS, PL_PRELUDE_LIB_48_OPS, PL_PRELUDE_LIB_48_SHADOWS, PL_PRELUDE_LIB_48_QUIET, PL_PRELUDE_LIB_48_SRC, PL_PRELUDE_LIB_48_METAS, PL_PRELUDE_LIB_48_LOADS, 1 },
-    { "option", PL_PRELUDE_LIB_49_EXPORTS, PL_PRELUDE_LIB_49_OPS, PL_PRELUDE_LIB_49_SHADOWS, PL_PRELUDE_LIB_49_QUIET, PL_PRELUDE_LIB_49_SRC, PL_PRELUDE_LIB_49_METAS, PL_PRELUDE_LIB_49_LOADS, 0 },
-    { "optparse", PL_PRELUDE_LIB_50_EXPORTS, PL_PRELUDE_LIB_50_OPS, PL_PRELUDE_LIB_50_SHADOWS, PL_PRELUDE_LIB_50_QUIET, PL_PRELUDE_LIB_50_SRC, PL_PRELUDE_LIB_50_METAS, PL_PRELUDE_LIB_50_LOADS, 0 },
-    { "ordsets", PL_PRELUDE_LIB_51_EXPORTS, PL_PRELUDE_LIB_51_OPS, PL_PRELUDE_LIB_51_SHADOWS, PL_PRELUDE_LIB_51_QUIET, PL_PRELUDE_LIB_51_SRC, PL_PRELUDE_LIB_51_METAS, PL_PRELUDE_LIB_51_LOADS, 0 },
-    { "pairs", PL_PRELUDE_LIB_52_EXPORTS, PL_PRELUDE_LIB_52_OPS, PL_PRELUDE_LIB_52_SHADOWS, PL_PRELUDE_LIB_52_QUIET, PL_PRELUDE_LIB_52_SRC, PL_PRELUDE_LIB_52_METAS, PL_PRELUDE_LIB_52_LOADS, 0 },
-    { "pcre", PL_PRELUDE_LIB_53_EXPORTS, PL_PRELUDE_LIB_53_OPS, PL_PRELUDE_LIB_53_SHADOWS, PL_PRELUDE_LIB_53_QUIET, PL_PRELUDE_LIB_53_SRC, PL_PRELUDE_LIB_53_METAS, PL_PRELUDE_LIB_53_LOADS, 0 },
-    { "plunit", PL_PRELUDE_LIB_54_EXPORTS, PL_PRELUDE_LIB_54_OPS, PL_PRELUDE_LIB_54_SHADOWS, PL_PRELUDE_LIB_54_QUIET, PL_PRELUDE_LIB_54_SRC, PL_PRELUDE_LIB_54_METAS, PL_PRELUDE_LIB_54_LOADS, 0 },
-    { "prolog_source", PL_PRELUDE_LIB_55_EXPORTS, PL_PRELUDE_LIB_55_OPS, PL_PRELUDE_LIB_55_SHADOWS, PL_PRELUDE_LIB_55_QUIET, PL_PRELUDE_LIB_55_SRC, PL_PRELUDE_LIB_55_METAS, PL_PRELUDE_LIB_55_LOADS, 0 },
-    { "pure_input", PL_PRELUDE_LIB_56_EXPORTS, PL_PRELUDE_LIB_56_OPS, PL_PRELUDE_LIB_56_SHADOWS, PL_PRELUDE_LIB_56_QUIET, PL_PRELUDE_LIB_56_SRC, PL_PRELUDE_LIB_56_METAS, PL_PRELUDE_LIB_56_LOADS, 0 },
-    { "quintus", PL_PRELUDE_LIB_57_EXPORTS, PL_PRELUDE_LIB_57_OPS, PL_PRELUDE_LIB_57_SHADOWS, PL_PRELUDE_LIB_57_QUIET, PL_PRELUDE_LIB_57_SRC, PL_PRELUDE_LIB_57_METAS, PL_PRELUDE_LIB_57_LOADS, 0 },
-    { "random", PL_PRELUDE_LIB_58_EXPORTS, PL_PRELUDE_LIB_58_OPS, PL_PRELUDE_LIB_58_SHADOWS, PL_PRELUDE_LIB_58_QUIET, PL_PRELUDE_LIB_58_SRC, PL_PRELUDE_LIB_58_METAS, PL_PRELUDE_LIB_58_LOADS, 0 },
-    { "rbtrees", PL_PRELUDE_LIB_59_EXPORTS, PL_PRELUDE_LIB_59_OPS, PL_PRELUDE_LIB_59_SHADOWS, PL_PRELUDE_LIB_59_QUIET, PL_PRELUDE_LIB_59_SRC, PL_PRELUDE_LIB_59_METAS, PL_PRELUDE_LIB_59_LOADS, 0 },
-    { "readutil", PL_PRELUDE_LIB_60_EXPORTS, PL_PRELUDE_LIB_60_OPS, PL_PRELUDE_LIB_60_SHADOWS, PL_PRELUDE_LIB_60_QUIET, PL_PRELUDE_LIB_60_SRC, PL_PRELUDE_LIB_60_METAS, PL_PRELUDE_LIB_60_LOADS, 0 },
-    { "record", PL_PRELUDE_LIB_61_EXPORTS, PL_PRELUDE_LIB_61_OPS, PL_PRELUDE_LIB_61_SHADOWS, PL_PRELUDE_LIB_61_QUIET, PL_PRELUDE_LIB_61_SRC, PL_PRELUDE_LIB_61_METAS, PL_PRELUDE_LIB_61_LOADS, 0 },
-    { "simplex", PL_PRELUDE_LIB_62_EXPORTS, PL_PRELUDE_LIB_62_OPS, PL_PRELUDE_LIB_62_SHADOWS, PL_PRELUDE_LIB_62_QUIET, PL_PRELUDE_LIB_62_SRC, PL_PRELUDE_LIB_62_METAS, PL_PRELUDE_LIB_62_LOADS, 0 },
-    { "solution_sequences", PL_PRELUDE_LIB_63_EXPORTS, PL_PRELUDE_LIB_63_OPS, PL_PRELUDE_LIB_63_SHADOWS, PL_PRELUDE_LIB_63_QUIET, PL_PRELUDE_LIB_63_SRC, PL_PRELUDE_LIB_63_METAS, PL_PRELUDE_LIB_63_LOADS, 0 },
-    { "store_q", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_METAS, PL_PRELUDE_LIB_64_LOADS, 1 },
-    { "store_r", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_METAS, PL_PRELUDE_LIB_65_LOADS, 1 },
-    { "strings", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_METAS, PL_PRELUDE_LIB_66_LOADS, 0 },
-    { "swi_builtins", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 0 },
-    { "tabling", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
-    { "terms", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
-    { "ugraphs", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
-    { "uri", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
-    { "varnumbers", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
-    { "xsb_dialect", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
+    { "filesex", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC, PL_PRELUDE_LIB_28_METAS, PL_PRELUDE_LIB_28_LOADS, 0 },
+    { "fourmotz_q", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC, PL_PRELUDE_LIB_29_METAS, PL_PRELUDE_LIB_29_LOADS, 1 },
+    { "fourmotz_r", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC, PL_PRELUDE_LIB_30_METAS, PL_PRELUDE_LIB_30_LOADS, 1 },
+    { "gensym", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC, PL_PRELUDE_LIB_31_METAS, PL_PRELUDE_LIB_31_LOADS, 0 },
+    { "gnu_builtins", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC, PL_PRELUDE_LIB_32_METAS, PL_PRELUDE_LIB_32_LOADS, 0 },
+    { "gnu_fd", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC, PL_PRELUDE_LIB_33_METAS, PL_PRELUDE_LIB_33_LOADS, 0 },
+    { "hashtable", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC, PL_PRELUDE_LIB_34_METAS, PL_PRELUDE_LIB_34_LOADS, 0 },
+    { "heaps", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC, PL_PRELUDE_LIB_35_METAS, PL_PRELUDE_LIB_35_LOADS, 0 },
+    { "hprolog", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC, PL_PRELUDE_LIB_36_METAS, PL_PRELUDE_LIB_36_LOADS, 1 },
+    { "ineq_q", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC, PL_PRELUDE_LIB_37_METAS, PL_PRELUDE_LIB_37_LOADS, 1 },
+    { "ineq_r", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC, PL_PRELUDE_LIB_38_METAS, PL_PRELUDE_LIB_38_LOADS, 1 },
+    { "itf_q", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC, PL_PRELUDE_LIB_39_METAS, PL_PRELUDE_LIB_39_LOADS, 1 },
+    { "itf_r", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC, PL_PRELUDE_LIB_40_METAS, PL_PRELUDE_LIB_40_LOADS, 1 },
+    { "json", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC, PL_PRELUDE_LIB_41_METAS, PL_PRELUDE_LIB_41_LOADS, 0 },
+    { "lazy_lists", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC, PL_PRELUDE_LIB_42_METAS, PL_PRELUDE_LIB_42_LOADS, 0 },
+    { "listing", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC, PL_PRELUDE_LIB_43_METAS, PL_PRELUDE_LIB_43_LOADS, 0 },
+    { "lists", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC, PL_PRELUDE_LIB_44_METAS, PL_PRELUDE_LIB_44_LOADS, 0 },
+    { "main", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC, PL_PRELUDE_LIB_45_METAS, PL_PRELUDE_LIB_45_LOADS, 0 },
+    { "mctx", PL_PRELUDE_LIB_46_EXPORTS, PL_PRELUDE_LIB_46_OPS, PL_PRELUDE_LIB_46_SHADOWS, PL_PRELUDE_LIB_46_QUIET, PL_PRELUDE_LIB_46_SRC, PL_PRELUDE_LIB_46_METAS, PL_PRELUDE_LIB_46_LOADS, 0 },
+    { "nb_set", PL_PRELUDE_LIB_47_EXPORTS, PL_PRELUDE_LIB_47_OPS, PL_PRELUDE_LIB_47_SHADOWS, PL_PRELUDE_LIB_47_QUIET, PL_PRELUDE_LIB_47_SRC, PL_PRELUDE_LIB_47_METAS, PL_PRELUDE_LIB_47_LOADS, 0 },
+    { "nf_q", PL_PRELUDE_LIB_48_EXPORTS, PL_PRELUDE_LIB_48_OPS, PL_PRELUDE_LIB_48_SHADOWS, PL_PRELUDE_LIB_48_QUIET, PL_PRELUDE_LIB_48_SRC, PL_PRELUDE_LIB_48_METAS, PL_PRELUDE_LIB_48_LOADS, 1 },
+    { "nf_r", PL_PRELUDE_LIB_49_EXPORTS, PL_PRELUDE_LIB_49_OPS, PL_PRELUDE_LIB_49_SHADOWS, PL_PRELUDE_LIB_49_QUIET, PL_PRELUDE_LIB_49_SRC, PL_PRELUDE_LIB_49_METAS, PL_PRELUDE_LIB_49_LOADS, 1 },
+    { "option", PL_PRELUDE_LIB_50_EXPORTS, PL_PRELUDE_LIB_50_OPS, PL_PRELUDE_LIB_50_SHADOWS, PL_PRELUDE_LIB_50_QUIET, PL_PRELUDE_LIB_50_SRC, PL_PRELUDE_LIB_50_METAS, PL_PRELUDE_LIB_50_LOADS, 0 },
+    { "optparse", PL_PRELUDE_LIB_51_EXPORTS, PL_PRELUDE_LIB_51_OPS, PL_PRELUDE_LIB_51_SHADOWS, PL_PRELUDE_LIB_51_QUIET, PL_PRELUDE_LIB_51_SRC, PL_PRELUDE_LIB_51_METAS, PL_PRELUDE_LIB_51_LOADS, 0 },
+    { "ordsets", PL_PRELUDE_LIB_52_EXPORTS, PL_PRELUDE_LIB_52_OPS, PL_PRELUDE_LIB_52_SHADOWS, PL_PRELUDE_LIB_52_QUIET, PL_PRELUDE_LIB_52_SRC, PL_PRELUDE_LIB_52_METAS, PL_PRELUDE_LIB_52_LOADS, 0 },
+    { "pairs", PL_PRELUDE_LIB_53_EXPORTS, PL_PRELUDE_LIB_53_OPS, PL_PRELUDE_LIB_53_SHADOWS, PL_PRELUDE_LIB_53_QUIET, PL_PRELUDE_LIB_53_SRC, PL_PRELUDE_LIB_53_METAS, PL_PRELUDE_LIB_53_LOADS, 0 },
+    { "pcre", PL_PRELUDE_LIB_54_EXPORTS, PL_PRELUDE_LIB_54_OPS, PL_PRELUDE_LIB_54_SHADOWS, PL_PRELUDE_LIB_54_QUIET, PL_PRELUDE_LIB_54_SRC, PL_PRELUDE_LIB_54_METAS, PL_PRELUDE_LIB_54_LOADS, 0 },
+    { "plunit", PL_PRELUDE_LIB_55_EXPORTS, PL_PRELUDE_LIB_55_OPS, PL_PRELUDE_LIB_55_SHADOWS, PL_PRELUDE_LIB_55_QUIET, PL_PRELUDE_LIB_55_SRC, PL_PRELUDE_LIB_55_METAS, PL_PRELUDE_LIB_55_LOADS, 0 },
+    { "prolog_source", PL_PRELUDE_LIB_56_EXPORTS, PL_PRELUDE_LIB_56_OPS, PL_PRELUDE_LIB_56_SHADOWS, PL_PRELUDE_LIB_56_QUIET, PL_PRELUDE_LIB_56_SRC, PL_PRELUDE_LIB_56_METAS, PL_PRELUDE_LIB_56_LOADS, 0 },
+    { "pure_input", PL_PRELUDE_LIB_57_EXPORTS, PL_PRELUDE_LIB_57_OPS, PL_PRELUDE_LIB_57_SHADOWS, PL_PRELUDE_LIB_57_QUIET, PL_PRELUDE_LIB_57_SRC, PL_PRELUDE_LIB_57_METAS, PL_PRELUDE_LIB_57_LOADS, 0 },
+    { "quintus", PL_PRELUDE_LIB_58_EXPORTS, PL_PRELUDE_LIB_58_OPS, PL_PRELUDE_LIB_58_SHADOWS, PL_PRELUDE_LIB_58_QUIET, PL_PRELUDE_LIB_58_SRC, PL_PRELUDE_LIB_58_METAS, PL_PRELUDE_LIB_58_LOADS, 0 },
+    { "random", PL_PRELUDE_LIB_59_EXPORTS, PL_PRELUDE_LIB_59_OPS, PL_PRELUDE_LIB_59_SHADOWS, PL_PRELUDE_LIB_59_QUIET, PL_PRELUDE_LIB_59_SRC, PL_PRELUDE_LIB_59_METAS, PL_PRELUDE_LIB_59_LOADS, 0 },
+    { "rbtrees", PL_PRELUDE_LIB_60_EXPORTS, PL_PRELUDE_LIB_60_OPS, PL_PRELUDE_LIB_60_SHADOWS, PL_PRELUDE_LIB_60_QUIET, PL_PRELUDE_LIB_60_SRC, PL_PRELUDE_LIB_60_METAS, PL_PRELUDE_LIB_60_LOADS, 0 },
+    { "readutil", PL_PRELUDE_LIB_61_EXPORTS, PL_PRELUDE_LIB_61_OPS, PL_PRELUDE_LIB_61_SHADOWS, PL_PRELUDE_LIB_61_QUIET, PL_PRELUDE_LIB_61_SRC, PL_PRELUDE_LIB_61_METAS, PL_PRELUDE_LIB_61_LOADS, 0 },
+    { "record", PL_PRELUDE_LIB_62_EXPORTS, PL_PRELUDE_LIB_62_OPS, PL_PRELUDE_LIB_62_SHADOWS, PL_PRELUDE_LIB_62_QUIET, PL_PRELUDE_LIB_62_SRC, PL_PRELUDE_LIB_62_METAS, PL_PRELUDE_LIB_62_LOADS, 0 },
+    { "simplex", PL_PRELUDE_LIB_63_EXPORTS, PL_PRELUDE_LIB_63_OPS, PL_PRELUDE_LIB_63_SHADOWS, PL_PRELUDE_LIB_63_QUIET, PL_PRELUDE_LIB_63_SRC, PL_PRELUDE_LIB_63_METAS, PL_PRELUDE_LIB_63_LOADS, 0 },
+    { "solution_sequences", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_METAS, PL_PRELUDE_LIB_64_LOADS, 0 },
+    { "store_q", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_METAS, PL_PRELUDE_LIB_65_LOADS, 1 },
+    { "store_r", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_METAS, PL_PRELUDE_LIB_66_LOADS, 1 },
+    { "strings", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 0 },
+    { "swi_builtins", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
+    { "tabling", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
+    { "terms", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
+    { "ugraphs", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
+    { "uri", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
+    { "varnumbers", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };

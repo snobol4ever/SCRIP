@@ -12,6 +12,7 @@ int icn_builtin_arity(const char *name);
 extern int rt_icn_cset_member_n(const char *, long, int);
 #include <unistd.h>
 #include <sys/stat.h>
+#include <utime.h>
 #include <setjmp.h>
 #include <math.h>
 #include "snobol4_system_fns.h"
@@ -11714,6 +11715,48 @@ PL_CX_LEAF_HEAD(compound0, 3)
         else if (op && !strcmp(op, "arity") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], INTVAL((long long)plc_fid_arity(t.slen)), cx);
     }
 PL_CX_LEAF_TAIL
+static DESCR_t pl_fx_err(void) {
+    int e = errno;
+    DESCR_t a[2] = { pl_mk_atom(e == ENOENT ? "enoent" : (e == EACCES || e == EPERM) ? "eperm" : "other"), pl_mk_atom(strerror(e)) };
+    return pl_gnu_fn("e", 2, a);
+}
+static void pl_fx_canon(char *p) {
+    size_t n = strlen(p), ns = 0, w = 0;
+    int ab = p[0] == '/';
+    char *sg[n + 1];
+    char o[n + 2];
+    for (char *q = p; *q;) {
+        while (*q == '/') q++;
+        if (!*q) break;
+        char *t = q;
+        while (*q && *q != '/') q++;
+        if (*q) *q++ = 0;
+        if (!strcmp(t, ".")) continue;
+        if (!strcmp(t, "..") && ns > 0 && strcmp(sg[ns - 1], "..")) { ns--; continue; }
+        if (!strcmp(t, "..") && ab && ns == 0) continue;
+        sg[ns++] = t;
+    }
+    if (ab) o[w++] = '/';
+    for (size_t i = 0; i < ns; i++) { size_t l = strlen(sg[i]); if (i) o[w++] = '/'; memcpy(o + w, sg[i], l); w += l; }
+    if (!w) o[w++] = '.';
+    o[w] = 0;
+    memcpy(p, o, w + 1);
+}
+static DESCR_t pl_fx_target(const char *link, int n) {
+    struct stat ls;
+    if (lstat(link, &ls) != 0 || !S_ISLNK(ls.st_mode)) return pl_mk_atom(link);
+    if (n <= 0) return FAILDESCR;
+    size_t cn = (size_t)ls.st_size + 1, ln = strlen(link);
+    char c[cn + 1];
+    ssize_t k = readlink(link, c, cn);
+    if (k < 0 || (size_t)k >= cn) return FAILDESCR;
+    c[k] = 0;
+    char nx[ln + (size_t)k + 2];
+    if (c[0] == '/') memcpy(nx, c, (size_t)k + 1);
+    else { const char *sl = strrchr(link, '/'); size_t d = sl ? (size_t)(sl - link) : 0; memcpy(nx, link, d); if (sl) nx[d++] = '/'; memcpy(nx + d, c, (size_t)k + 1); }
+    pl_fx_canon(nx);
+    return pl_fx_target(nx, n - 1);
+}
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -11742,6 +11785,35 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 else if (!strcmp(op, "st_size")) ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_size), cx);
                 else if (!strcmp(op, "st_mtime")) ok = plw_unify_vals(args[2], REALVAL((double)sb.st_mtim.tv_sec + (double)sb.st_mtim.tv_nsec / 1e9), cx);
                 else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
+            }
+        } else if (!strcmp(op, "st_times") || !strcmp(op, "st_mode")) {
+            const char *p = pl_atom_str(a);
+            struct stat sb;
+            if (p && stat(p, &sb) != 0) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
+            else if (p && op[3] == 'm') ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_mode), cx);
+            else if (p) { DESCR_t t3[3] = { REALVAL((double)sb.st_atime), REALVAL((double)sb.st_mtime), REALVAL((double)sb.st_ctime) }; ok = plw_unify_vals(args[2], pl_gnu_fn("t", 3, t3), cx); }
+        } else if (!strcmp(op, "utime") || !strcmp(op, "symlink") || !strcmp(op, "hardlink") || !strcmp(op, "chmod")) {
+            DESCR_t x = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[0]) : FAILDESCR;
+            DESCR_t y = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[1]) : FAILDESCR;
+            const char *xp = pl_atom_str(x), *yp = pl_atom_str(y);
+            int r = -2;
+            if (op[0] == 'u' && xp && y.v == (DTYPE_t)DT_PLREF && plc_fid_arity(y.slen) == 2) {
+                DESCR_t ta = rt_pl_deref_val(((DESCR_t *)y.p)[0]), tm = rt_pl_deref_val(((DESCR_t *)y.p)[1]);
+                if (ta.v == DT_I && tm.v == DT_I) { struct utimbuf ub = { (time_t)ta.i, (time_t)tm.i }; r = utime(xp, &ub); }
+            } else if (op[0] == 's' && xp && yp) r = symlink(xp, yp);
+            else if (op[0] == 'h' && xp && yp) r = link(xp, yp);
+            else if (op[0] == 'c' && xp && y.v == DT_I) r = chmod(xp, (mode_t)(y.i & 07777));
+            if (r == 0) ok = plw_unify_vals(args[2], pl_mk_atom("ok"), cx);
+            else if (r == -1) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
+        } else if (!strcmp(op, "read_link")) {
+            const char *p = pl_atom_str(a);
+            struct stat ls;
+            if (p && lstat(p, &ls) == 0 && S_ISLNK(ls.st_mode)) {
+                size_t cn = (size_t)ls.st_size + 1;
+                char c[cn + 1];
+                ssize_t k = readlink(p, c, cn);
+                DESCR_t t = (k >= 0 && (size_t)k < cn) ? pl_fx_target(p, 20) : FAILDESCR;
+                if (!IS_FAIL_fn(t)) { c[k] = 0; DESCR_t lt[2] = { pl_mk_atom(c), t }; ok = plw_unify_vals(args[2], pl_gnu_fn("l", 2, lt), cx); }
             }
         } else if (!strncmp(op, "fseek", 5) || !strcmp(op, "ftruncate")) {
             extern FILE *fh_get(int);

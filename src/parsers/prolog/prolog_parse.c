@@ -3700,6 +3700,7 @@ static void pl_tree_collect_dcg_pk(const tree_t *b, pl_pk_set_t *h) {
 static void pl_tree_collect_pk(const tree_t *t, pl_pk_set_t *h) {
     if (!t) return;
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_pk_set_add(h, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0);
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "$dot")) pl_pk_set_add(h, "$dict_eval", 10, 3);
     if (pl_dcg_ctrl(t, 2, "-->")) pl_tree_collect_dcg_pk(t->c[1], h);
     if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_tree_collect_dcg_pk(t->c[0], h);
     for (int i = 0; i < t->n; i++) pl_tree_collect_pk(t->c[i], h);
@@ -3748,6 +3749,7 @@ static void pl_tree_collect_reach(const tree_t *t, pl_reach_t *r) {
         pl_reach_add(r, t->c[0]->v.sval, (int)strlen(t->c[0]->v.sval), (int)t->c[1]->v.ival + (t->v.sval[1] ? 2 : 0), 0);
         return;
     }
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "$dot")) pl_reach_add(r, "$dict_eval", 10, 3, 0);
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_reach_add(r, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0, 1);
     if (pl_dcg_ctrl(t, 2, "-->")) pl_dcg_collect_reach(t->c[1], r);
     if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_dcg_collect_reach(t->c[0], r);
@@ -3922,6 +3924,7 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     }
     if (mp) ct_drop(mp);
 }
+static int pl_tree_has_fn(const tree_t *t, const char *fn);
 static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
@@ -4098,6 +4101,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
+        for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(referenced, "$dict_eval"); break; }
         if ((imp[i] || called[i]) && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
         PlClause *nextc = NULL, *ph = NULL, *pt = NULL;
         int ji = 0;

@@ -1,14 +1,15 @@
 /*  swi_builtins.pl -- SWI-PROLOG BUILTINS THAT SCRIP LACKS, AS A PROLOG LAYER (hq_prolog 2026-10-15, row prolog-swi-tabling-the-xsb-loader-runs-the-xsb-test-drivers and the SWI census).
     SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file; the generator (util_gen_prolog_prelude_libs.py) embeds it in LOCAL mode, no SWI reader, no renames, its helpers
-    '$swb_'-named by hand. It is parsed only when a program names one of its exports. directory_file_path/3 and make_directory_path/1 are swipl 9.0.4's library(filesex) clauses
-    (BSD, Jan Wielemaker, VU University Amsterdam) with their foreign-library dependency removed; the rest are written here from the documented behaviour and graded against swipl by
+    '$swb_'-named by hand. It is parsed only when a program names one of its exports. directory_file_path/3 and make_directory_path/1 left for the vendored
+    library(filesex) itself (cao 2026-10-30); every export here is written from the documented behaviour and graded against swipl by
     test_gate_pl_swi_file_and_text_builtins_answer_as_swipl.sh. fast_term_serialized/2, fast_write/2 and fast_read/2 (cfo 2026-10-17) write SCRIP's own form, a length-prefixed
     canonical text of term_factorized's skeleton and substitution with every string carried beside it as an atom, so no reader flag changes what comes back; graded by
     test_gate_pl_maplist_include_and_exclude_exit_deterministically_and_fast_term_io_round_trips_as_swipl.sh. maplist/6 and maplist/7 (hq_prolog 2026-10-24) are what swipl's
     library(apply_macros) expansion gives every program whose load reaches library(clpfd), list-first like the base prelude's maplist/2..5; set_prolog_stack/2 checks the stack
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
-:- module(swi_builtins, [ open_string/2, directory_file_path/3, make_directory_path/1, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
-                          setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3, get_time/1]).
+:- module(swi_builtins, [ open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
+                          setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3,
+                          set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1]).
 get_time(T) :- '$gnu_os'(get_time, 0, T).
 maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).
 '$swb_maplist'([], [], [], [], [], _).
@@ -21,15 +22,6 @@ set_prolog_stack(S, P) :- ( atom(S), memberchk(S, [local, global, trail, argumen
 '$swb_stack_kv'(P) :- compound(P), P =.. [K, V0], memberchk(K, [limit, min_free, low, factor, spare]), !, ( var(V0) -> throw(error(instantiation_error, context('$syspreds':set_prolog_stack/2, _))) ; true ), catch(V is V0, error(Err, _), throw(error(Err, context('$syspreds':set_prolog_stack/2, _)))), ( K == limit -> set_prolog_flag(stack_limit, V) ; true ).
 '$swb_stack_kv'(P) :- ( compound(P) -> functor(P, K, _) ; K = P ), throw(error(domain_error(stack_parameter, K), context(system:'$set_prolog_stack'/4, _))).
 open_string(S, Stream) :- ( var(S) -> throw(error(instantiation_error, context(open_string/2, _))) ; true ), text_to_string(S, Str), atom_string(A, Str), open_input_atom_stream(A, Stream), '$gnu_os'(ts_unmark, Stream, _).
-directory_file_path(Dir, File, Path) :- nonvar(Dir), nonvar(File), !, ( ( is_absolute_file_name(File) ; Dir == '.' ) -> Path = File ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atomic_list_concat([Dir, /, File], Path) ).
-directory_file_path(Dir, File, Path) :- nonvar(Path), !, ( nonvar(Dir) -> ( Dir == '.', \+ is_absolute_file_name(Path) -> File = Path ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atom_concat(Dir, /, TheDir) -> atom_concat(TheDir, File, Path) ) ; nonvar(File) -> atom_concat(Dir0, File, Path), '$swb_strip_slash'(Dir0, Dir) ; file_directory_name(Path, Dir), file_base_name(Path, File) ).
-directory_file_path(_, _, _) :- throw(error(instantiation_error(_), _)).
-'$swb_strip_slash'(Dir0, Dir) :- ( atom_concat(D, /, Dir0), D \== '' -> Dir = D ; Dir = Dir0 ).
-make_directory_path(Dir) :- '$swb_mdp'(Dir), !.
-make_directory_path(Dir) :- throw(error(permission_error(create, directory, Dir), _)).
-'$swb_mdp'(Dir) :- exists_directory(Dir), !.
-'$swb_mdp'(Dir) :- atom_concat(RealDir, '/', Dir), RealDir \== '', !, '$swb_mdp'(RealDir).
-'$swb_mdp'(Dir) :- Dir \== (/), !, file_directory_name(Dir, Parent), '$swb_mdp'(Parent), E = error(existence_error(directory, _), _), catch(make_directory(Dir), E, ( exists_directory(Dir) -> true ; throw(E) )).
 text_to_string(T, S) :- var(T), !, throw(error(instantiation_error, context(system:text_to_string/2, _))).
 text_to_string(T, S) :- T == [], !, S = "".
 text_to_string(T, S) :- string(T), !, S = T.
@@ -94,3 +86,32 @@ call_with_depth_limit(G, L, R) :-
     ;   '$dl_false'(R)
     ).
 '$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).
+'$swb_fx_text'(X, P, Ctx) :- ( var(X) -> throw(error(instantiation_error, context(Ctx, _))) ; atom(X) -> P = X ; string(X) -> atom_string(P, X) ; is_list(X), catch(text_to_string(X, S), _, fail) -> atom_string(P, S) ; throw(error(type_error(text, X), context(Ctx, _))) ).
+'$swb_fx_err'(e(enoent, M), _, O) :- !, throw(error(existence_error(file, O), context(_, M))).
+'$swb_fx_err'(e(eperm, M), A, O) :- !, throw(error(permission_error(A, file, O), context(_, M))).
+'$swb_fx_err'(e(_, M), _, _) :- throw(error(system_error, context(_, M))).
+set_time_file(F, Old, New) :- '$swb_fx_text'(F, P, files_ex:set_time_file/3), '$gnu_os'(st_times, P, R), ( R = t(A, M, C) -> true ; '$swb_fx_err'(R, stat, P) ), '$swb_fx_old'(Old, access, A), '$swb_fx_old'(Old, modified, M), '$swb_fx_old'(Old, changed, C), '$swb_fx_close'(Old), ( New == [] -> true ; '$swb_fx_new'(New, access, A, A1), '$swb_fx_new'(New, modified, M, M1), '$gnu_os'(utime, P-t(A1, M1), U), ( U == ok -> true ; '$swb_fx_err'(U, set_time, P) ) ).
+'$swb_fx_old'(L, N, T) :- var(L), !, X =.. [N, T], L = [X|_].
+'$swb_fx_old'([X|L], N, T) :- !, ( compound(X), functor(X, N, 1) -> arg(1, X, V), ( V = T -> true ; true ) ; '$swb_fx_old'(L, N, T) ).
+'$swb_fx_old'(_, _, _).
+'$swb_fx_close'(L) :- var(L), !, L = [].
+'$swb_fx_close'([_|L]) :- !, '$swb_fx_close'(L).
+'$swb_fx_close'(_).
+'$swb_fx_new'(L, N, Cur, T) :- ( '$swb_fx_find'(L, N, X) -> '$swb_fx_time'(X, T) ; T is truncate(Cur) ).
+'$swb_fx_find'(L, N, X) :- nonvar(L), L = [E|R], ( nonvar(E), compound(E), functor(E, N, 1) -> arg(1, E, X) ; '$swb_fx_find'(R, N, X) ).
+'$swb_fx_time'(X, _) :- var(X), !, throw(error(instantiation_error, _)).
+'$swb_fx_time'(now, T) :- !, get_time(T0), T is truncate(T0).
+'$swb_fx_time'(X, T) :- number(X), !, T is truncate(X).
+'$swb_fx_time'(X, _) :- throw(error(type_error(time, X), _)).
+link_file(O, N, T) :- '$swb_fx_text'(O, OP, files_ex:link_file/3), '$swb_fx_text'(N, NP, files_ex:link_file/3), ( var(T) -> throw(error(instantiation_error, _)) ; \+ atom(T) -> throw(error(type_error(atom, T), _)) ; T == symbolic -> Op = symlink ; T == hard -> Op = hardlink ; throw(error(domain_error(link_type, T), _)) ), '$gnu_os'(Op, OP-NP, R), ( R == ok -> true ; '$swb_fx_err'(R, link, NP) ).
+file_mode_(F, M) :- '$swb_fx_text'(F, P, files_ex:file_mode_/2), '$gnu_os'(st_mode, P, R), ( integer(R) -> M = R ; '$swb_fx_err'(R, stat, P) ).
+chmod_(F, M) :- '$swb_fx_text'(F, P, files_ex:chmod_/2), ( var(M) -> throw(error(instantiation_error, context(files_ex:chmod_/2, _))) ; integer(M) -> true ; throw(error(type_error(integer, M), context(files_ex:chmod_/2, _))) ), '$gnu_os'(chmod, P-M, R), ( R == ok -> true ; '$swb_fx_err'(R, chmod, M) ).
+read_link(F, L, T) :- '$swb_fx_text'(F, P, system:read_link/3), '$gnu_os'(read_link, P, l(L0, T0)), L = L0, T = T0.
+prolog_to_os_filename(P, O) :- P = O.
+copy_stream_data(I, O) :- '$swb_csd'(I, O, -1).
+copy_stream_data(I, O, N) :- ( var(N) -> throw(error(instantiation_error, context(system:copy_stream_data/3, _))) ; integer(N) -> true ; throw(error(type_error(integer, N), context(system:copy_stream_data/3, _))) ), '$swb_csd'(I, O, N).
+'$swb_csd'(I, O, N) :- ( stream_property(I, type(binary)) -> '$swb_csdb'(I, O, N) ; '$swb_csdt'(I, O, N) ).
+'$swb_csdt'(_, _, 0) :- !.
+'$swb_csdt'(I, O, N) :- get_char(I, C), ( C == end_of_file -> true ; put_char(O, C), N1 is N - 1, '$swb_csdt'(I, O, N1) ).
+'$swb_csdb'(_, _, 0) :- !.
+'$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).
