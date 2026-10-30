@@ -11817,7 +11817,11 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else if (waitpid((pid_t)a.i, &ws, 0) != (pid_t)a.i) ok = pl_gnu_os_fail(cx);
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
-        else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
+        else if (!strcmp(op, "get_time")) {
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            ok = plw_unify_vals(args[2], REALVAL((double)ts.tv_sec + (double)ts.tv_nsec / 1e9), cx);
+        } else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
         else if (!strncmp(op, "sk_", 3)) ok = pl_gs_sock(op + 3, a, args[2], cx);
         else if (!strncmp(op, "ts_", 3)) ok = pl_gs_ts(op + 3, a, args[2], cx);
         else if (!strcmp(op, "compl")) ok = pl_atom_str(a) && plw_unify_vals(args[2], pl_gs_compl(pl_atom_str(a)), cx);

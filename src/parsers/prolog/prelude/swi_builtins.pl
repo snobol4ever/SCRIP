@@ -8,7 +8,8 @@
     library(apply_macros) expansion gives every program whose load reaches library(clpfd), list-first like the base prelude's maplist/2..5; set_prolog_stack/2 checks the stack
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
 :- module(swi_builtins, [ open_string/2, directory_file_path/3, make_directory_path/1, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
-                          setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3]).
+                          setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3, get_time/1]).
+get_time(T) :- '$gnu_os'(get_time, 0, T).
 maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).
 '$swb_maplist'([], [], [], [], [], _).
 '$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).

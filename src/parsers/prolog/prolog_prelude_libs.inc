@@ -32664,6 +32664,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "maplist", 7 },
     { "set_prolog_stack", 2 },
     { "call_with_depth_limit", 3 },
+    { "get_time", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
@@ -32680,6 +32681,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_67_SRC[] =
+    "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
