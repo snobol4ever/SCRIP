@@ -1017,6 +1017,11 @@ static tree_t *dcg_make_unify(TreeScope *ts, tree_t *a, tree_t *b) {
     return mk_raw(prolog_atom_intern("="), args, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *dcg_pass_unify(TreeScope *ts, tree_t *s_in, tree_t *s_out) {
+    extern int rt_pl_dialect_swi(void);
+    return (g_stage2.pl_dialect == PL_DIALECT_SWI || rt_pl_dialect_swi()) ? dcg_make_unify(ts, s_out, s_in) : dcg_make_unify(ts, s_in, s_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_out) {
     if (nt && (nt->t == TT_FNC || nt->t == TT_QLIT)) {
         int new_arity = nt->n + 2;
@@ -1064,7 +1069,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         tree_t **tmp = (tree_t **)rt_wsb_alloc((size_t)(n+1) * sizeof(tree_t *));
         int nn = dcg_flatten_conj(body->c[0], tmp, 0);
         for (int i = 0; i < nn; i++) buf[idx++] = tmp[i];
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if ((body->t == TT_QLIT || body->t == TT_FNC) && body->v.sval && (strcmp(body->v.sval, "[]") == 0 || strcmp(body->v.sval, "{}") == 0) && body->n == 0) {
@@ -1122,7 +1127,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         for (int i = ng - 2; i >= 0; i--) { tree_t *cg[2] = { buf_g[i], conj_g }; conj_g = mk_raw(prolog_atom_intern(","), cg, 2); }
         tree_t *nargs[1] = { conj_g };
         buf[idx++] = mk_raw(prolog_atom_intern("\\+"), nargs, 1);
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if (body->t == TT_VAR) {
@@ -1132,7 +1137,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
     }
     if (body->t == TT_CUT) {
         buf[idx++] = body;
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if (body->t == TT_QLIT && body->v.sval && strcmp(body->v.sval, "true") == 0) {
@@ -2305,10 +2310,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'((A;B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
     "'$dcg_body'('|'(A,B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
     "'$dcg_body'((C->T),S0,S,(GC->GT)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT).\n"
-    "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
-    "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"
+    "'$dcg_body'(\\+A,S0,S,(\\+GA,U)):-!,'$dcg_body'(A,S0,_,GA),'$dcg_pass'(S0,S,U).\n"
+    "'$dcg_body'({}(G),S0,S,(G,U)):-!,'$dcg_pass'(S0,S,U).\n"
     "'$dcg_body'({},S0,S,S0=S):-!.\n"
-    "'$dcg_body'(!,S0,S,(!,S0=S)):-!.\n"
+    "'$dcg_body'(!,S0,S,(!,U)):-!,'$dcg_pass'(S0,S,U).\n"
+    "'$dcg_pass'(S0,S,S=S0):-current_prolog_flag('$dialect',swi),!.\n"
+    "'$dcg_pass'(S0,S,S0=S).\n"
     "'$dcg_body'(NT,_,_,_):- \\+callable(NT),!,throw(error(type_error(callable,NT),_)).\n"
     "'$dcg_body'(NT,S0,S,G):-NT=..L0,'$dcg_list'(L0,[S0,S],L1),G=..L1.\n"
     "'$dcg_list'([],S,S).\n"
