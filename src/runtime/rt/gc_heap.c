@@ -3576,7 +3576,7 @@ static void gc_validate_record(const char *base, const char *oldtop) {
     fprintf(stderr, "[ZGC-VALIDATE] collection=%ld slots=%ld heap=%ld expired=%ld misfixed=%ld\n", g_runtime.gc.gc_runs + 1, n, hp, ex, mf);
 }
 #if RT_DIAG
-typedef struct gc_vh_t { long blocks, laid, slots, heap, expired, badhead, nostart, shortblk, unrowed_n; uint16_t unrowed_t; } gc_vh_t;
+typedef struct gc_vh_t { long blocks, laid, slots, heap, expired, badhead, nostart, shortblk, refused, untyped, unrowed_n; uint16_t unrowed_t; } gc_vh_t;
 static void gc_vh_vacancy(const char *v) {
     for (long i = g_runtime.gc.gc_vac ? g_runtime.gc.gc_vacn - 1 : -1; i >= 0; i--) {
         const gc_vac_t *e = &g_runtime.gc.gc_vac[i];
@@ -3600,19 +3600,23 @@ static void gc_vh_word(gc_vh_t *st, const rt_hblk_t *h, size_t off, const char *
         (const void *)v, (const void *)g_hp_top);
     gc_vh_vacancy(v);
 }
+static void gc_vh_slot(gc_vh_t *st, const rt_hblk_t *h, size_t plen, size_t o, uint16_t kind) {
+    const char *pay = (const char *)h + sizeof(rt_hblk_t);
+    size_t w = kind == GS_DESCR ? sizeof(DESCR_t) : sizeof(char *);
+    if (o + w > plen) { st->shortblk++; return; }
+    st->slots++;
+    if (kind == GS_RAW) gc_vh_word(st, h, o, *(const char *const *)(pay + o));
+    else if (gc_type_says_ref((const DESCR_t *)(pay + o))) gc_vh_word(st, h, o + offsetof(DESCR_t, p), (const char *)((const DESCR_t *)(pay + o))->p);
+}
 static void gc_vh_block(gc_vh_t *st, const rt_hblk_t *h, const gc_slot_row_t *row) {
     const char *pay = (const char *)h + sizeof(rt_hblk_t);
-    size_t plen = h->size - sizeof(rt_hblk_t), stride = row->stride ? row->stride : plen;
+    size_t plen = h->size - sizeof(rt_hblk_t), n = 0;
     st->laid++;
-    for (size_t b = 0; stride && b + stride <= plen; b += stride) {
-        for (unsigned k = 0; k < row->nslot; k++) {
-            size_t o = b + row->slot[k].off, w = row->slot[k].kind == GS_DESCR ? sizeof(DESCR_t) : sizeof(char *);
-            if (o + w > plen) { st->shortblk++; continue; }
-            st->slots++;
-            if (row->slot[k].kind == GS_RAW) gc_vh_word(st, h, o, *(const char *const *)(pay + o));
-            else if (gc_type_says_ref((const DESCR_t *)(pay + o))) gc_vh_word(st, h, o + offsetof(DESCR_t, p), (const char *)((const DESCR_t *)(pay + o))->p);
-        }
-    }
+    for (unsigned k = 0; k < row->nslot; k++) gc_vh_slot(st, h, plen, row->slot[k].off, row->slot[k].kind);
+    if (!row->run) return;
+    n = plen > row->run->off ? (plen - row->run->off) / row->run->stride : 0;
+    if (row->run->count_w) { size_t c = row->run->count_off + row->run->count_w <= plen ? *(const uint32_t *)(pay + row->run->count_off) : 0; if (c > n) st->shortblk++; else n = c; }
+    for (size_t i = 0; i < n; i++) for (unsigned k = 0; k < row->run->nslot; k++) gc_vh_slot(st, h, plen, row->run->off + i * row->run->stride + row->run->slot[k].off, row->run->slot[k].kind);
 }
 static void gc_validate_heap(void) {
     gc_vh_t st;
@@ -3631,14 +3635,17 @@ static void gc_validate_heap(void) {
         st.blocks++;
         if (!((g_runtime.abi.hp_fr.start[g >> 6] >> (g & 63)) & 1u)) st.nostart++;
         row = gc_slot_row_of(h->type);
-        if (!row) { if (!st.unrowed_n) st.unrowed_t = h->type; if (h->type == st.unrowed_t) st.unrowed_n++; } else if (row->nslot) gc_vh_block(&st, h, row);
+        if (!row) { if (!st.unrowed_n) st.unrowed_t = h->type; if (h->type == st.unrowed_t) st.unrowed_n++; } else if (row->cls == GR_UNTYPED) st.untyped++;
+        else if (row->cls == GR_REFUSE) {
+            if (st.refused++ < 16) fprintf(stderr, "[ZGC-VALIDATE-HEAP] REFUSED collection=%ld holder=%p kind=%s -- %s\n", g_runtime.gc.gc_runs + 1, (const void *)h, HB_KIND_NAME(h->type), row->from);
+        } else if (row->nslot || row->run) gc_vh_block(&st, h, row);
         p += h->size;
     }
     fprintf(stderr, "[ZGC-VALIDATE-HEAP] collection=%ld blocks=%ld slots=%ld unrowed=", g_runtime.gc.gc_runs + 1, st.blocks, st.slots);
     if (st.unrowed_n) fprintf(stderr, "%s:%ld", HB_KIND_NAME(st.unrowed_t), st.unrowed_n);
     else fputs("none", stderr);
-    fprintf(stderr, " findings=%ld laid=%ld heap=%ld expired=%ld badhead=%ld nostart=%ld shortblk=%ld\n", st.expired + st.badhead + st.nostart + st.shortblk, st.laid, st.heap, st.expired, st.badhead,
-        st.nostart, st.shortblk);
+    fprintf(stderr, " untyped=%ld findings=%ld laid=%ld heap=%ld expired=%ld badhead=%ld nostart=%ld shortblk=%ld refused=%ld\n", st.untyped,
+        st.expired + st.badhead + st.nostart + st.shortblk + st.refused, st.laid, st.heap, st.expired, st.badhead, st.nostart, st.shortblk, st.refused);
 }
 #endif
 static int gc_validate_on(void) { static int vld = -1; if (vld < 0) { const char *e = getenv("SCRIP_GC_VALIDATE"); vld = (e && *e == '1') ? 1 : 0; } return vld; }
