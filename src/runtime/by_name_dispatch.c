@@ -26161,6 +26161,26 @@ static void * pl_anum_atomics_in_list(DESCR_t lst) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_big_sign(DESCR_t b) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(b, INTVAL(0)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void * pl_swi_list_text_ball(DESCR_t x) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    long k = 0;
+    int cyc = 0, mode = 0;
+    DESCR_t end = pl_spine_end(x, &k, &cyc), cur = x;
+    if (!pl_is_cons(x) || cyc) return rt_pl_ball_kind2("type_error", "text", x);
+    for (; k-- > 0; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
+        DESCR_t e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+        size_t en = 0;
+        const char *es = e.v == DT_I ? (const char *)0 : pl_atom_str_n(e, &en);
+        int code = e.v == DT_I && e.i >= 0 && e.i <= 0x10FFFF, ch = es && en > 0 && (size_t)utf8_seqlen((unsigned char)es[0]) == en;
+        if (pl_iso_unbound(e)) return rt_pl_ball_instantiation();
+        if (!mode) mode = code ? 1 : ch ? 2 : 0;
+        if (mode != 2 && !code) return rt_pl_ball_kind2("type_error", "character_code", e);
+        if (mode == 2 && !ch) return rt_pl_ball_kind2("type_error", "character", e);
+    }
+    if (pl_iso_unbound(end)) return rt_pl_ball_instantiation();
+    return pl_is_nil(end) ? (void *)0 : rt_pl_ball_kind2("type_error", "text", x);
+}
 static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -26168,9 +26188,12 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     if (!strcmp(nm, "atom_length") && n == 2) {
         DESCR_t x = rt_pl_deref_val(a[0]), l = rt_pl_deref_val(a[1]);
         if (pl_iso_unbound(x)) return rt_pl_ball_instantiation();
-        if (!pl_anum_is_text(x) && !(pl_swi_dialect() && pl_anum_is_num(x))) return rt_pl_ball_kind2("type_error", "atom", x);
+        if (pl_swi_dialect() && x.v == (DTYPE_t)DT_PLREF) {
+            void *tb = pl_swi_list_text_ball(x);
+            if (tb) return tb;
+        } else if (!pl_anum_is_text(x) && !(pl_swi_dialect() && pl_anum_is_num(x))) return rt_pl_ball_kind2("type_error", "atom", x);
         if (!pl_iso_unbound(l) && l.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", l);
-        if (!pl_iso_unbound(l) && l.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", l);
+        if (!pl_iso_unbound(l) && l.i < 0 && !pl_swi_dialect()) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", l);
         return (void *)0;
     }
     if (!strcmp(nm, "number_string") && n == 2) {

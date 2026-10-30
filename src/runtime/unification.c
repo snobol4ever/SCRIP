@@ -676,7 +676,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             tl = pl_deref(&ca[1]);
             if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) {
                 cur = tl;
-                if (cur == tort) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
+                if (cur == tort && max_depth <= 0) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
                 if ((n & (n - 1)) == 0) tort = cur;
                 if (wx) { plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort); }
                 continue;
@@ -1604,7 +1604,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     char buf0[512], buf1[512];
     if (!strcmp(fn, "atom_length")) {
         size_t sn;
-        const char *s = plc_text_nil_empty(t0, buf0, sizeof buf0, &sn);
+        const char *s;
+        if (rt_pl_dialect_swi() && (int)t0->v == DT_PLREF && plc_fid_name(t0->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(t0->slen) == 2) {
+            int64_t k = 0;
+            for (pl_cell_t *c = t0; (int)c->v == DT_PLREF && plc_fid_name(c->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(c->slen) == 2; c = pl_deref(&((pl_cell_t *)c->p)[1])) k++;
+            return plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int(k), cx) ? 1 : 0;
+        }
+        s = plc_text_nil_empty(t0, buf0, sizeof buf0, &sn);
         if (!s) { return 0; }
         if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count_n(s, sn)), cx)) { return 0; }
         return 1;
@@ -3298,7 +3304,12 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ct
     return plc_text_out(str_cell, buf ? buf : "", as_str, cx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; pl_tr_ctx_t *cx; long nfr; } plc_cp_t;
+#define PLC_CC 16
+typedef struct { pl_cell_t *aa; pl_cell_t *na; uint32_t sl; } plc_cc_t;
+typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; pl_tr_ctx_t *cx; long nfr; plc_cc_t cc[PLC_CC]; } plc_cp_t;
+static plc_cc_t *plc_cc_at(plc_cp_t *w, pl_cell_t *aa) { return &w->cc[((uintptr_t)aa >> 4) & (PLC_CC - 1)]; }
+static pl_cell_t *plc_cc_get(plc_cp_t *w, pl_cell_t *aa, uint32_t sl) { plc_cc_t *e = plc_cc_at(w, aa); return (e->aa == aa && e->sl == sl) ? e->na : (pl_cell_t *)0; }
+static void plc_cc_put(plc_cp_t *w, pl_cell_t *aa, uint32_t sl, pl_cell_t *na) { plc_cc_t *e = plc_cc_at(w, aa); e->aa = aa; e->sl = sl; e->na = na; }
 static int plc_copy_run(void *wv) {
     plc_cp_t *w = (plc_cp_t *)wv;
     for (;;) {
@@ -3327,12 +3338,13 @@ static int plc_copy_run(void *wv) {
             }
         } else if ((int)d->v == DT_PLREF) {
             int fn = plc_fid_name(d->slen), ar = plc_fid_arity(d->slen);
-            pl_cell_t *aa = (pl_cell_t *)d->p, *na;
+            pl_cell_t *aa = (pl_cell_t *)d->p, *na, *hit = ar > 0 ? plc_cc_get(w, aa, d->slen) : (pl_cell_t *)0;
             uint64_t w0;
-            if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, plc_copy_run, w);
-            na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
-            if (!na) *w->d = *d;
+            if (hit) *w->d = pl_make_compound(fn, ar, hit);
+            else if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, plc_copy_run, w);
+            else if (!(na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1)))) *w->d = *d;
             else {
+                if (ar > 0) plc_cc_put(w, aa, d->slen, na);
                 memcpy(&w0, d, 8);
                 *w->d = pl_make_compound(fn, ar, na);
                 plr_push(&w->lg, d, (void *)aa, w0);
@@ -3359,6 +3371,7 @@ static pl_cell_t plc_copy_cx(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
     w.atts = atts;
     w.cx = cx;
     w.nfr = 0;
+    memset(w.cc, 0, sizeof w.cc);
     (void)plc_copy_run(&w);
     return out;
 }
@@ -3415,9 +3428,13 @@ static int plc_copy_share_run(void *wv) {
             pl_cell_t *aa = (pl_cell_t *)d->p, *na;
             uint64_t w0;
             if (ar <= 0) *w->d = *d;
-            else {
+            else if ((na = plc_cc_get(w, aa, d->slen))) {
+                *w->d = pl_make_compound(plc_fid_name(d->slen), ar, na);
+                plc_sh_changed(w);
+            } else {
                 if (!plr_room(&w->lg) || !plc_sh_room2(&w->ag)) return plc_sh_more(w);
                 na = (pl_cell_t *)rt_ws_alloc_descr((size_t)ar);
+                plc_cc_put(w, aa, d->slen, na);
                 memcpy(&w0, d, 8);
                 *w->d = pl_make_compound(plc_fid_name(d->slen), ar, na);
                 plr_push(&w->lg, d, (void *)aa, w0);
@@ -3475,6 +3492,7 @@ static pl_cell_t plc_copy_shared(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
     w.atts = atts;
     w.cx = cx;
     w.nfr = 0;
+    memset(w.cc, 0, sizeof w.cc);
     (void)plc_copy_share_run(&w);
     return out;
 }
