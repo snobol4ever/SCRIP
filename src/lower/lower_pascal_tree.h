@@ -246,23 +246,6 @@ typedef struct {
     struct { char *name; long long lo; } *pas_strarrs;
     int pas_strarrs_cap;
     int pas_nstrarr;
-    struct {
-        char *aname;
-        char *rname;
-        int nf;
-        int fcap;
-        char **fields;
-        char **fldenum;
-        char **fldtypename;
-        int *fldchar;
-        char **fldrec;
-        int *fldna;
-        long long *fldna_lo;
-        long long *fldna_hi;
-        long long *fldov;
-    } *pas_arrrecs;
-    int pas_arrrecs_cap;
-    int pas_narrrec;
     char **pas_case_tmp;
     int pas_case_cap;
     int pas_case_depth;
