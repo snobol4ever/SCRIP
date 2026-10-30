@@ -10231,15 +10231,18 @@ static int pl_flag_type_of(const pl_flag_t *fl) {
     if (*d == '-') d++;
     return *d && strspn(d, "0123456789") == strlen(d) ? PLF_INT : PLF_ATOM;
 }
-static const char *pl_flag_coerce(int type, DESCR_t v, char *buf, size_t n, const char **text) {
+static const char *pl_flag_coerce(int type, DESCR_t v, const char **text) {
+    extern void *rt_wsb_alloc(size_t);
     const char *s;
+    char *buf;
     *text = (const char *)0;
     if (type == PLF_TERM) return (const char *)0;
     if (type == PLF_BOOL) return v.v == (DTYPE_t)DT_PLATOM && (s = pl_atom_str(v)) && pl_flag_bool_text(s, text) ? (const char *)0 : "bool";
     if (type == PLF_ATOM) { *text = v.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(v) : (const char *)0; return *text ? (const char *)0 : "atom"; }
-    if (type == PLF_INT) { if (v.v != DT_I) return "integer"; snprintf(buf, n, "%lld", (long long)v.i); *text = buf; return (const char *)0; }
+    if (type == PLF_INT) { if (v.v != DT_I) return "integer"; buf = (char *)rt_wsb_alloc(32); snprintf(buf, 32, "%lld", (long long)v.i); *text = buf; return (const char *)0; }
     if (v.v != DT_R && v.v != DT_I) return "float";
-    snprintf(buf, n, "%.17g", v.v == DT_R ? v.r : (double)v.i);
+    buf = (char *)rt_wsb_alloc(40);
+    snprintf(buf, 40, "%.17g", v.v == DT_R ? v.r : (double)v.i);
     *text = buf;
     return (const char *)0;
 }
@@ -10247,8 +10250,7 @@ static int pl_flag_store(pl_flag_t *fl, void *cell, DESCR_t v, int type, int nor
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern pl_cell_t rt_pl_cell_snapshot(void *);
     extern char *rt_heap_strdup_c(const char *);
-    char buf[64];
-    const char *text, *bad = pl_flag_coerce(type, v, buf, sizeof buf, &text);
+    const char *text, *bad = pl_flag_coerce(type, v, &text);
     if (bad) { cx->ball = rt_pl_ball_kind2("type_error", bad, v); return 0; }
     if (type == PLF_TERM) {
         fl->term = rt_pl_cell_snapshot(cell);
@@ -10438,21 +10440,20 @@ PL_CX_LEAF_HEAD(create_prolog_flag, 4)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
-        char fb[128], tb[32], ab[32], cb[64];
         const char *fn, *tn, *an, *text;
         DESCR_t f = rt_pl_deref_val(args[0]), v = rt_pl_deref_val(args[1]);
         pl_flag_t *fl;
         int type;
         ok = 0;
         if (pl_val_unbound(f) || pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
-        else if (f.v != (DTYPE_t)DT_PLATOM || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-        else if (!pl_cell_text(args[2], tb, sizeof tb, &tn) || !pl_cell_text(args[3], ab, sizeof ab, &an)) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag_type", rt_pl_deref_val(args[2]));
+        else if (f.v != (DTYPE_t)DT_PLATOM || !pl_cell_text(args[0], (char *)0, 0, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if (!pl_cell_text(args[2], (char *)0, 0, &tn) || !pl_cell_text(args[3], (char *)0, 0, &an)) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag_type", rt_pl_deref_val(args[2]));
         else {
             int declared = strcmp(tn, "none") != 0;
             const char *bad;
             type = !strcmp(tn, "boolean") ? PLF_BOOL : !strcmp(tn, "atom") ? PLF_ATOM : !strcmp(tn, "integer") ? PLF_INT : !strcmp(tn, "float") ? PLF_FLOAT : !strcmp(tn, "term") ? PLF_TERM :
                 pl_flag_value_type(v);
-            if ((bad = pl_flag_coerce(type, v, cb, sizeof cb, &text))) cx->ball = rt_pl_ball_kind2("type_error", bad, v);
+            if ((bad = pl_flag_coerce(type, v, &text))) cx->ball = rt_pl_ball_kind2("type_error", bad, v);
             else if (!(fl = pl_flag_find_or_create(fn))) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
             else if (pl_flag_store(fl, &args[1], v, type, declared, cx)) { fl->user = 1; fl->mod = strcmp(an, "read") != 0; ok = 1; }
         }
@@ -10463,13 +10464,12 @@ PL_CX_LEAF_HEAD(flag_meta, 3)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
-        char fb[128];
         const char *fn, *dv;
         DESCR_t f = rt_pl_deref_val(args[0]);
         pl_flag_t *fl;
         ok = 0;
         if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
-        else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], (char *)0, 0, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
         else if ((dv = pl_dia_flag(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(dv[0] == 't' || dv[0] == 'f' ? "boolean" : "integer"), cx) && plw_unify_vals(args[2], pl_mk_atom("read"), cx);
         else if ((fl = pl_flag_find(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(pl_flag_type_name[pl_flag_type_of(fl)]), cx) && plw_unify_vals(args[2], pl_mk_atom(fl->mod ? "write" : "read"), cx);
     }

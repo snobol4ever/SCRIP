@@ -1068,6 +1068,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_dynamic_one", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
     { "pl_fh_push", GC_RET_VOID },
+    { "pl_flag_coerce", GC_RET_OTHER },
     { "pl_flag_find_or_create", GC_RET_OTHER },
     { "pl_flag_opt_true", GC_RET_DESCR },
     { "pl_flag_store", GC_RET_OTHER },
