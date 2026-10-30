@@ -685,7 +685,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_zrow_tret(const IR_t * nd);
-static std::string bcps_block_beta(int act);
+static std::string bcps_block_beta(int act, int frs);
 static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     int kt = g_emit.flat_frame_bytes;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
@@ -749,6 +749,7 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
     if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() +
         x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
     const int fr = !zsp && !sprec;
+    const int frs = fr && _.op_zres && _.op_xf_off == -1 && _.op_res_alias == off;
     int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && (g_emit_cfg->root_graph || g_emit_cfg->depth_counted));
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
@@ -809,6 +810,12 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
              + x86("mov", "rdi", "r12")
              + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
              + x86("def", L(86)))
+         + IF(frs, x86("note", "a retained callee left rsp at the bottom of its live region: carve this call's result cell there, so the store lands in the call's own cell "
+                                "and never in the callee's bottom cell (ARCH-PROLOG-ACTIVATION-LIFETIME 9.14 (b)); beta pops it before resuming the callee")
+                   + x86("test", "rax", "rax")
+                   + x86("jz", L(88))
+                   + x86_sub("rsp", 16) + x86_rsp_rec(-16)
+                   + x86("def", L(88)))
          + bcps_lvl_add(-1L)
          + x86("mov", "rax", "rdi")
          + x86("mov", "rdx", "rsi")
@@ -833,7 +840,7 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
          + x86_beta()
          + IF(zsp, x86_omega())
          + IF(sprec, bcps_block_rec_beta())
-         + IF(fr, bcps_block_beta(act))
+         + IF(fr, bcps_block_beta(act, frs))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 static std::string bcps_block_rec_beta(void) {
@@ -852,13 +859,14 @@ static std::string bcps_block_rec_beta(void) {
          + x86("def", L(22))
          + x86_omega();
 }
-static std::string bcps_block_beta(int act) {
+static std::string bcps_block_beta(int act, int frs) {
     return x86_pl_ball_rule(30, 22)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
          + x86("mov", FRQ(act), 0L)
+         + IF(frs, x86_add("rsp", 16) + x86_rsp_rec(16))
          + x86("mov", x86_hb(), "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")
