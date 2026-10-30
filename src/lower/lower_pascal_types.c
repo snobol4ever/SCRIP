@@ -857,6 +857,7 @@ static psym_t *pe_find(struct pty_state *s, const char *name) {
     return NULL;
 }
 int pty_is_pchar(const pty_t *t) { struct pty_state *s = pt_st(); return s && t && t == s->tpchar; }
+int pty_name_kind(const char *name) { struct pty_state *s = pt_st(); if (!s || !s->ecur) return 0; psym_t *p = pe_find(s, name); return p ? p->k : 0; }
 const pty_t *pty_name_type(const char *name) { struct pty_state *s = pt_st(); if (!s || !s->ecur) return NULL; psym_t *p = pe_find(s, name); return p ? p->t : NULL; }
 int pty_name_is(const char *name, pty_kind want) {
     struct pty_state *s = pt_st();

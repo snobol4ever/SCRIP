@@ -47,6 +47,7 @@ const void *pty_enter(const tree_t *src);
 void pty_leave(const void *prev);
 int pty_name_is(const char *name, pty_kind want);
 const pty_t *pty_name_type(const char *name);
+int pty_name_kind(const char *name);
 int pty_is_pchar(const pty_t *t);
 int pty_answer(const tree_t *low, pty_kind want);
 void pty_census(const char *pred, const tree_t *low, int typer);
