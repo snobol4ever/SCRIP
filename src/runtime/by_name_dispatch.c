@@ -3439,6 +3439,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (nmargs == 0 && (!strcmp(meth, "Numeric") || !strcmp(meth, "Real")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = recv; return 1; }
     if (recv.v == DT_A) {
+        if (nmargs == 0 && !rk_is_pair(recv) && !rk_is_jct(recv) && (!strcmp(meth, "Numeric") || !strcmp(meth, "Int") || !strcmp(meth, "Real"))) { *out = INTVAL(rk_av(recv).n); return 1; }
+        if (nmargs == 0 && !rk_is_pair(recv) && !rk_is_jct(recv) && !strcmp(meth, "Num")) { *out = (DESCR_t){ .v = DT_R, .r = (double) rk_av(recv).n }; return 1; }
         if (!rk_is_pair(recv) && !rk_is_jct(recv) && rk_list_more_methods(meth, recv, margs, nmargs, out)) return 1;
         if (rk_is_pair(recv)) {
             rk_av_t pa = rk_av(recv);
@@ -17266,7 +17268,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             return 1;
         }
         if (_recv0.v == DT_T && _recv0.tbl && mname0) {
-            if (!strcmp(mname0, "elems")) { *out = INTVAL(_recv0.tbl->size); return 1; }
+            if (!strcmp(mname0, "elems") || (nargs == 2 && (!strcmp(mname0, "Numeric") || !strcmp(mname0, "Int") || !strcmp(mname0, "Real")))) { *out = INTVAL(_recv0.tbl->size); return 1; }
+            if (nargs == 2 && !strcmp(mname0, "Num")) { *out = (DESCR_t){ .v = DT_R, .r = (double) _recv0.tbl->size }; return 1; }
             if (!strcmp(mname0, "keys")) { *out = rk_hash_list(_recv0, 'k'); return 1; }
             if (!strcmp(mname0, "values")) { *out = rk_hash_list(_recv0, 'v'); return 1; }
             if (!strcmp(mname0, "pairs")) { *out = rk_hash_list(_recv0, 'p'); return 1; }
