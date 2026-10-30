@@ -1479,6 +1479,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
     IR_t * unmk = build(cx, IR_UNMARK, NULL, ig);
     ir_operand_push(unmk, mark);
+    IR_LIT(unmk).ival = 4;
     tree_t * ct = ast_node_new(TT_FNC);
     ct->v.sval = (char *) "$catch_handle";
     ast_push(ct, (tree_t *) C);
