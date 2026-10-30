@@ -3304,7 +3304,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-        int frame_total = kt2 + (np + nl) * 16;
+        int frame_total = g_emit_cfg ? g_emit_cfg->pf.flat_gen_rbp : kt2 + (np + nl) * 16;
         g_emit.flat_carve_total = frame_total; g_emit.flat_gen_rbp = frame_total;
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);

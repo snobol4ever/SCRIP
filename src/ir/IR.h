@@ -308,6 +308,7 @@ struct IR_graph_t {
         int retains;
         int frame_bytes;
         int fp_total;
+        int flat_gen_rbp;
         int zframe;
         uint64_t * lay;
         int lay_n;
