@@ -3792,19 +3792,31 @@ static void pl_ri_put(pl_ri_t *ri, uint32_t *nr, int *hd, uint32_t hc, const cha
     c->next = hd[h];
     hd[h] = (int)(*nr)++;
 }
-static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
-    uint32_t udc, int imported) {
-    if (lib->import_only && !imported) return 0;
-    for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
-        int n = (int)strlen(e->nm);
-        uint32_t hn = pl_pk_hname(e->nm, n);
-        if (native_only && !strcmp(e->nm, native_only)) continue;
-        if (!pl_pk_has_h(rk, rkc, e->nm, n, hn, e->ar) && !(e->ar && pl_pk_has_h(rk, rkc, e->nm, n, hn, 0) && (imported || !pl_lib_quiet(lib, e->nm, 0)))) continue;
-        if (ud && pl_pk_has_h(ud, udc, e->nm, n, hn, e->ar)) continue;
-        if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
-        if (!(bk ? pl_pk_has_h(bk, bkc, e->nm, n, hn, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
+static int pl_lib_ex_cmp(const pl_prelude_lib_ex_t *e, const char *s, int n) {
+    int c = memcmp(e->nm, s, (size_t)(e->n < n ? e->n : n));
+    return c ? c : (e->n > n) - (e->n < n);
+}
+static void pl_libs_named(const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud, uint32_t udc,
+    const char *imp, char *named) {
+    int nex = (int)(sizeof PL_PRELUDE_LIB_EXPORT_INDEX / sizeof PL_PRELUDE_LIB_EXPORT_INDEX[0]);
+    for (uint32_t k = 0; k < rkc; k++) {
+        const pl_pk_t *r = &rk[k];
+        int lo = 0, hi = nex;
+        if (!r->s) continue;
+        while (lo < hi) { int m = (lo + hi) / 2; if (pl_lib_ex_cmp(&PL_PRELUDE_LIB_EXPORT_INDEX[m], r->s, r->n) < 0) lo = m + 1; else hi = m; }
+        for (int x = lo; x < nex && !pl_lib_ex_cmp(&PL_PRELUDE_LIB_EXPORT_INDEX[x], r->s, r->n); x++) {
+            const pl_prelude_lib_ex_t *e = &PL_PRELUDE_LIB_EXPORT_INDEX[x];
+            const pl_prelude_lib_t *lib = &PL_PRELUDE_LIBS[e->lib];
+            if (named[e->lib]) continue;
+            if (e->ar != r->ar && !(r->ar == 0 && e->ar && (imp[e->lib] || !pl_lib_quiet(lib, e->nm, 0)))) continue;
+            if (lib->import_only && !imp[e->lib]) continue;
+            if (native_only && !strcmp(e->nm, native_only)) continue;
+            if (ud && pl_pk_has(ud, udc, e->nm, e->ar)) continue;
+            if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
+            if (bk ? pl_pk_has(bk, bkc, e->nm, e->ar) : (pl_prelude_key_has(e->nm, e->ar) && pl_base_defines(base, base_last, e->nm, e->ar))) continue;
+            named[e->lib] = 1;
+        }
     }
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
@@ -3949,7 +3961,10 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         }
     }
     for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
+    char named[nlibs + 1];
+    memset(named, 0, sizeof named);
+    pl_libs_named(rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp, named);
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (named[i] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi, xsb)) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
     uint32_t bkc = pl_pk_cap(nb);
@@ -3979,7 +3994,9 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (!pl_clause_is_meta_spec(cl)) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
+            memset(named, 0, sizeof named);
+            pl_libs_named(lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp, named);
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && named[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi, xsb)) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
             ct_drop(lh.t);
         }
     }
