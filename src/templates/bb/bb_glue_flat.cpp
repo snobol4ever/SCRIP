@@ -28,11 +28,11 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_sh
 std::string bb_glue_call_pend_run(int base, long nargs, long off, int reg = 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_enter() {
-    return IF(_.op_fc_bytes + _.op_zpriv > 0, x86("sub", "rsp", _.op_fc_bytes + _.op_zpriv));
+    return IF(_.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_leave() {
-    return IF(_.op_fc_bytes + (_.op_in_beta ? 0 : _.op_zpriv) > 0, x86("add", "rsp", _.op_fc_bytes + (_.op_in_beta ? 0 : _.op_zpriv)));
+    return IF(_.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
 }
 int g_glue_entered = 0;
 int g_glue_o_sup = 0;
@@ -110,7 +110,7 @@ extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(long code);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 extern "C" long rt_pat_prim_member(int ch, long codes);
-int bb_glue_in_region(int reg) { return reg && _.op_zpriv >= 80 && !_.op_in_beta; }
+int bb_glue_in_region(int reg) { return reg && _.op_zrel >= 80; }
 static int glue_reg(int reg) { return bb_glue_in_region(reg); }
 #define GLUE_SAVE(rg) ( \
       IF(!(rg), x86("sub", "rsp", 64L)) \
@@ -222,7 +222,7 @@ std::string bb_glue_stno_unit_push(int reg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BGTE_CELL(rec_off) (_.op_zres && (rec_off) >= 0)
-#define BGTE_RO(rec_off) (BGTE_CELL(rec_off) ? (long)(rec_off) + _.op_zpriv : 0L)
+#define BGTE_RO(rec_off) (BGTE_CELL(rec_off) ? (long)(rec_off) + _.op_zrel : 0L)
 #define BGTE_EVAL_REG(reg, rec_off) (glue_reg(reg) && BGTE_CELL(rec_off))
 static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id, int rec_off, int reg) {
     return x86("cmp", "rax", (long)BGTE_VERDICT_EVAL)

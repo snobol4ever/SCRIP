@@ -12,7 +12,7 @@ struct znode_t {
     int trapd, zrunb, xbp, zabs, zdef, zcut, suc, t0x, t0p, sdb, sdbb;
     int djo, gto, fcsa, seam, zpk, relo, dsa, dsb;
     int awlo, awb, apk, ak16, abk0, abdu, ach, asa, asb, dsusp;
-    int ws, wek, wex, f0r, priv;
+    int ws, wek, wex, f0r, rel;
     int bu, sbk, sbb, sbp;
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
@@ -156,6 +156,8 @@ int zd_icn_suspend(const IR_t * nd);
 int zd_djx_of(const IR_t * nd);
 int zd_upost_of(const IR_t * nd);
 int zd_k_g(const IR_graph_t * cg, IR_t * nd);
+int zd_kf_g(const IR_graph_t * cg, IR_t * nd);
+int zd_rel_g(const IR_graph_t * cg, IR_t * nd);
 int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd);
 int zd_k(IR_t * nd);
 int zd_call_curmov(const IR_t * nd);

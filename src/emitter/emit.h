@@ -339,8 +339,7 @@ typedef struct {
     int op_selfload;
     int op_zf_unpinned;
     int op_zabs;
-    int op_zpriv;
-    int op_in_beta;
+    int op_zrel;
     int op_zsticky;
     int op_zk_own;
     int op_zcp_src;
