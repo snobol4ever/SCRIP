@@ -697,6 +697,10 @@ static int zd_pl_rest_ival(const IR_graph_t * cg, const IR_t * u) {
     if (!(IR_LIT(u).ival & 6)) return 0;
     return !((IR_LIT(u).ival & 32) && u->n_operands > 0 && zd_pl_bspine(cg, u->operands[0]));
 }
+static int zd_pl_unmark_takes_bound(const IR_graph_t * cg, const IR_t * u) {
+    if (!getenv("SCRIP_PL_GATE_CELLS") || (IR_LIT(u).ival & 8)) return 0;
+    return !((IR_LIT(u).ival & 32) && u->n_operands > 0 && zd_pl_bspine(cg, u->operands[0]));
+}
 static int zd_mark_restore(const IR_t * u) { return u && u->op == IR_UNMARK && u->n_operands > 0 && (IR_LIT(u).ival & 6) && !(IR_LIT(u).ival & 32); }
 static int zd_pl_unmark_bound(const IR_graph_t * cg, IR_t ** nodes, int n, int i) {
     IR_t * nd = nodes[i];
@@ -866,10 +870,12 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
             for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
                 moved = 0;
                 for (int h = 0; h < n; h++) {
-                    if (!zon[h] || claim[h] != h || known[h] || indef[h]) continue;
+                    if (!zon[h] || claim[h] != h || known[h]) continue;
                     int ub = (nodes[h]->op == IR_UNMARK && nodes[h]->n_operands > 0) ? nidx(nodes, n, nodes[h]->operands[0]) : -1;
-                    if (ub >= 0 && zon[ub] && claim[ub] >= 0 && claim[ub] != h && known[claim[ub]] && !indef[claim[ub]]) {
-                        base[h] = base[claim[ub]] + zout[ub] - zout[h]; known[h] = 1; moved = 1; continue;
+                    int bk = ub >= 0 && zon[ub] && claim[ub] >= 0 && claim[ub] != h && known[claim[ub]] && !indef[claim[ub]];
+                    if (indef[h] && !(bk && zd_pl_unmark_takes_bound(cg, nodes[h]))) continue;
+                    if (bk) {
+                        base[h] = base[claim[ub]] + zout[ub] - zout[h]; known[h] = 1; indef[h] = 0; moved = 1; continue;
                     }
                     for (int i = 0; i < n && !known[h]; i++) {
                         if (!zon[i] || claim[i] < 0 || claim[i] == h || !known[claim[i]] || indef[claim[i]]) continue;
