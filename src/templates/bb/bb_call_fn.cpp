@@ -38,6 +38,7 @@ std::string elem_access_flat_join(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_FN() (_.op_sval ? _.op_sval : "")
 #define CF_N() ((int)_.op_ival)
+#define CF_BLK() (_.op_call_blk)
 #define CF_ARG() (_.op_call_argbase)
 #define CF_RES() (_.op_call_resoff)
 #define CF_REFUSED() (_.op_call_refuse != CALL_REFUSE_NONE)
@@ -106,12 +107,11 @@ std::string cf_marshal() { return FOR(0, _.op_marg_n, [](int k) { return cf_marg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string cf_zd_copy() {
     return IF(CF_N() > 0,
-               emit_seq({ x86("sub", "rsp", (long)(CF_N() * 16)),
-                          FOR(0, CF_N(), [](int i) {
-                              return emit_seq({ x86("mov", "rax", ZOPQS(i, CF_N() * 16, 0)),
-                                                x86("mov", x86_zref(i * 16 + 0, 1), "rax"),
-                                                x86("mov", "rax", ZOPQS(i, CF_N() * 16, 8)),
-                                                x86("mov", x86_zref(i * 16 + 8, 1), "rax") }); }) }));
+               FOR(0, CF_N(), [](int i) {
+                   return emit_seq({ x86("mov", "rax", ZOPQS(i, 0, 0)),
+                                     x86("mov", x86_zref(CF_BLK() + i * 16 + 0, 1), "rax"),
+                                     x86("mov", "rax", ZOPQS(i, 0, 8)),
+                                     x86("mov", x86_zref(CF_BLK() + i * 16 + 8, 1), "rax") }); }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * cf_zd_cursor() { return _.op_call_dsave != INT_MIN ? RDQ("rbp", _.op_call_dsave) : x86_zref(16, 1); }
@@ -121,8 +121,7 @@ static std::string cf_zd_beta() { return _.op_beta_dead ? std::string() :
     emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor())), x86_jmp(X86P_OMEGA) }); }
 static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 std::string cf_zd_exit() {
-    return emit_seq({ IF(CF_N() > 0, x86("add", "rsp", (long)(CF_N() * 16))),
-                      x86("cmp", "al", (long)DT_FAIL),
+    return emit_seq({ x86("cmp", "al", (long)DT_FAIL),
                       x86_omega("je"),
                       x86("note", ZRESN())
                     + x86("mov", ZRES(0), "rax"),
@@ -156,11 +155,11 @@ static std::string cf_fnlbl() {
 static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, x86("add", "rsp", (long)BCFN_EVAL_REC))); }
 static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 static std::string cf_argv_rsi(int eval) {
-    return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", eval ? BCFN_EVAL_REC : 0)))
+    return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", (eval ? BCFN_EVAL_REC : 0) + CF_BLK())))
          + IF(CF_N() <= 0, x86("xor", "esi", "esi"));
 }
 static std::string cf_argv_rdi() {
-    return IF(CF_N() > 0, x86("lea", "rdi", RDQ("rsp", 0)))
+    return IF(CF_N() > 0, x86("lea", "rdi", RDQ("rsp", CF_BLK())))
          + IF(CF_N() <= 0, x86("xor", "edi", "edi"));
 }
 static std::string cf_try_enter(const std::string & out_lea) {
@@ -232,9 +231,9 @@ static std::string cf_baked_zd(int try_) {
                       x86("mov32", "esi", (long)CF_N()),
                       x86("lea", "rdx", "[rip + __]", _.op_call_rec_addr, _.op_call_rec_lbl),
                       try_
-                      ? emit_seq({ x86("lea", "rcx", RDQ("rsp", CF_N() * 16)),
-                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", CF_N() * 16))),
-                                   x86_rsp_load64("rax", CF_N() * 16) + x86_rsp_load64("rdx", CF_N() * 16 + 8),
+                      ? emit_seq({ x86("lea", "rcx", RDQ("rsp", 0)),
+                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", 0))),
+                                   x86_rsp_load64("rax", 0) + x86_rsp_load64("rdx", 8),
                                    x86_deflabel_id(29) + x86_rt_gc_poll_res() })
                       : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res() }) });
 }
@@ -271,7 +270,7 @@ static std::string cf_direct_flat() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_zd() {
-    return emit_seq({ x86("lea", "rdi", RDQ("rsp", 0)),
+    return emit_seq({ x86("lea", "rdi", RDQ("rsp", CF_BLK())),
                       x86("mov32", "esi", (long)CF_N()),
                       x86("call", _.op_call_sym, _.op_call_fp),
                       x86_rt_gc_poll_res(x86_cap_raise(std::string())) });
@@ -280,7 +279,7 @@ static std::string cf_direct_zd() {
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, uint64_t ofp) {
     return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call or redispatch node without the argv grant that holds its redispatch record (CEO-1552)"))
          + IF(rec_off >= 0,
-               x86("lea", "rdx", _.op_zres ? FRQB(rec_off, CF_N() * 16) : FRQ(rec_off))
+               x86("lea", "rdx", _.op_zres ? FRQB(rec_off, 0) : FRQ(rec_off))
              + x86("call", osym, ofp)
              + x86_rt_gc_poll_rec_sigma_word(1)
              + x86("test", "rax", "rax")
@@ -345,7 +344,7 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_jmp_id((join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_ARGV_LEA() ( \
-      IF(_.op_zres, x86("lea", "rdi", RDQ("rsp", 0))) \
+      IF(_.op_zres, x86("lea", "rdi", RDQ("rsp", CF_BLK()))) \
     + IF(!_.op_zres, x86("lea", "rdi", FRQ(CF_ARG()))) \
 )
 static std::string cf_open_method(const char * osym, uint64_t ofp) {

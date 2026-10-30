@@ -241,10 +241,15 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planne
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_GATE_ARM, BCS_PL_TO_TRAILED, BCS_PL_TO_DB };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_GATE_ARM, BCS_PL_TO_TRAILED, BCS_PL_TO_DB, BCS_CALL_ARGV, BCS_CALL_ARGV_CUR };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
+static int zd_call_argv_kind(const IR_t * nd) {
+    switch (nd->op) {
+    case IR_CALL_DIRECT: case IR_CALL_PL_LEAF: case IR_CALL_PAS_BI: case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: case IR_CALL_BYNAME: case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP:
+    case IR_CALL_APPLY: case IR_CALL_EVAL: return 1;
+    default: return 0; } }
 static int zd_pl_home(const IR_graph_t * cg) { return (zls_g_home_frame(cg) && zls_g_resumable_frame(cg)) ? 1 : 0; }
 extern "C" int rt_proc_is_registered(const char *); extern "C" int rt_proc_is_generator(const char *); extern "C" int rt_proc_dyn_scope(const char *); extern "C" int rt_proc_index_of(const char *);
 extern "C" int rt_proc_pinned(const char *);
@@ -279,6 +284,8 @@ static int zd_bcs_when(const IR_graph_t * cg, IR_t * nd, int w) {
     if (w == BCS_PL_TO_TRAILED) return (zd_pl_home(cg) && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && ir_range_trailed(nd)) ? 1 : 0;
     if (w == BCS_PL_TO_DB) return (zd_pl_home(cg) && nd->op == IR_TO && ir_range_kind_is(nd, "db")) ? 1 : 0;
     if (w == BCS_PL_GATE_ARM) return (nd->n_operands > 1 && planner_gate_cells(cg, nd->operands[1])) ? 1 : 0;
+    if (w == BCS_CALL_ARGV) return zd_call_argv_kind(nd);
+    if (w == BCS_CALL_ARGV_CUR) return zd_call_argv_kind(nd) && zd_call_curmov(nd);
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
@@ -289,6 +296,8 @@ static int zd_bcs_words(const IR_graph_t * cg, const IR_t * nd, int w) {
     if (w == -3) return 16 * (2 + nd->n_operands);
     if (w == -4) return planner_fence_k(cg, nd);
     if (w == -5) return planner_alt_k(cg, nd);
+    if (w == -6) return 16 * (1 + nd->n_operands);
+    if (w == -7) return 16 * (2 + nd->n_operands);
     return w;
 }
 static int zd_bcs_pick(const IR_graph_t * cg, IR_t * nd) {

@@ -5046,6 +5046,7 @@ static void call_pl_prepare(IR_t * nd, const char * fn, int narg, int fnroute) {
 void call_prepare(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int narg = (int)g_emit.op_ival; int strict = g_emit.op_strict; IR_e kind = nd->op; int route = lower_call_route(nd);
     int fnroute = (route == CALL_ROUTE_FN); int zd = (kind == IR_CALL_GEN) ? 0 : g_emit.op_zres;
+    g_emit.op_call_blk = zrow(nd)->curmov ? 32 : 16;
     g_emit.op_call_route = route; g_emit.op_call_refuse = CALL_REFUSE_NONE; g_emit.op_call_try = 0; g_emit.op_call_sym = ""; g_emit.op_call_fp = 0; g_emit.op_call_try_sym = "";
         g_emit.op_call_try_fp = 0;
     g_emit.op_call_open_sym = ""; g_emit.op_call_open_fp = 0; g_emit.op_call_bid = -1; g_emit.op_call_idx = -1; g_emit.op_call_argbase = -1; g_emit.op_call_resoff = -1; g_emit.op_call_rec_off = -1;
