@@ -2881,7 +2881,7 @@ void rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L, in
     }
     int tail = !semi && last && (bk == BK_BLOCK || bk == BK_SUB || bk == BK_METHOD || bk == BK_CATCH || bk == BK_GIVEN);
     tree_t *tr;
-    if (nmods) { tr = assign_forms(b, L, 0, BK_MAIN); if (!tr) tr = el_tree(b, e0); for (int i = 0; i < nmods; i++) tr = wrap_mod(b, modk[i], modx[i], tr); }
+    if (nmods) { tr = assign_forms(b, L, 0, BK_MAIN); if (!tr) tr = (single && t0->kind == TK_BLOCK && t0->val && !t0->npre && !t0->npost) ? t0->val : el_tree(b, e0); for (int i = 0; i < nmods; i++) tr = wrap_mod(b, modk[i], modx[i], tr); }
     else if (tail) tr = stmt_tail(b, L, bk);
     else tr = stmt_plain(b, L);
     app(b, list, tr, from);
