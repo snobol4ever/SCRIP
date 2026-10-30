@@ -76,7 +76,7 @@ static std::string bb_to_db() {
          + x86("def", L(1))
          + x86("mov", FRQ(_.op_off), (long)DT_I)
          + x86("mov", FRQ(_.op_off + 8), "rsi")
-         + IF(_.op_sc >= 0 && x86_resumable_frame() && _.op_to_trailed && ir_range_tag_has(_.node, 'd', 'e', 't'),
+         + IF(_.op_sc >= 0 && x86_resumable_frame() && _.op_to_trailed && _.op_to_db_last,
                x86("note",
                    "the data walk's last candidate: no later slot of this key is visible at G, so the enumeration's header is no choice and B returns to the choice it found, as a compiled clause cha"
                    "in exits det")

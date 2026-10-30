@@ -1110,6 +1110,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SUCCEED: bb_emit_x86(bb_succeed()); return 0;
     case IR_SUSPEND: { g_emit.op_activate_proc = IR_LIT(nd).sval; g_emit.op_var_form = nd->pat_static; bb_emit_x86(bb_suspend()); g_emit.op_var_form = 0; } return 0;
     case IR_TO: { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); g_emit.op_db_walk = ir_range_kind_is(nd, "db"); g_emit.op_to_trailed = ir_range_trailed(nd);
+        g_emit.op_to_db_last = ir_range_tag_has(nd, 'd', 'e', 't');
         bb_emit_x86(bb_to()); } return 0;
     case IR_MATCH_LEN: { bb_prepare(nd); { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0;
         g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : (const char *)0; } bb_emit_x86(bb_match_len()); } return 0;
@@ -1967,7 +1968,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (!bb_child0(nd) || !bb_child1(nd)) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
-        g_emit.op_db_walk = ir_range_kind_is(nd, "db"); g_emit.op_to_trailed = ir_range_trailed(nd);
+        g_emit.op_db_walk = ir_range_kind_is(nd, "db"); g_emit.op_to_trailed = ir_range_trailed(nd); g_emit.op_to_db_last = ir_range_tag_has(nd, 'd', 'e', 't');
         g_emit.op_sc = (g_emit.op_db_walk && nd->n_operands > 2 && nd->operands[2]) ? drive_value_slot(nd->operands[2]) : -1;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
