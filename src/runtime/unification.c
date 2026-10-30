@@ -3990,6 +3990,7 @@ typedef struct {
     int ix_off;
     int data_on;
     int data_off;
+    int entry_idx;
 } pl_db_t;
 #define PL_DB_FRAG_PAGES(f) (((f) >> 20) & 0x3FF)
 #define PL_DB_FRAG_HELD 0x40000000
@@ -4197,6 +4198,7 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->ix_off = 0;
             d->data_on = 0;
             d->data_off = 0;
+            d->entry_idx = -1;
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -5017,7 +5019,11 @@ static int pl_db_fragment(void *root, pl_db_t *db, int i) {
         }
         db->s[i].ridx = ridx;
         db->s[i].chain_off = off;
-        if (db->head_idx >= 0) { char hkey[fmt_len("%s@%d", key, db->head_idx)]; snprintf(hkey, sizeof hkey, "%s@%d", key, db->head_idx); pl_runtime_install_packet_entry(key, ar, hkey); }
+        if (db->head_idx >= 0) {
+            char hkey[fmt_len("%s@%d", key, db->head_idx)];
+            snprintf(hkey, sizeof hkey, "%s@%d", key, db->head_idx);
+            if (pl_runtime_install_packet_entry(key, ar, hkey)) db->entry_idx = db->head_idx;
+        }
     }
     return 1;
 }
@@ -5137,7 +5143,12 @@ static void pl_db_install_first(void *root, pl_db_t *db) {
     if (first >= 0 && db->s[first].ridx < 0 && !pl_db_fragment(root, db, first)) return;
     nm = first >= 0 ? pl_db_head_name((void *)&db->s[first].cl, &ar) : (const char *)0;
     if (!nm) return;
-    { PL_DB_KEY_VLA(key, nm, ar); char hkey[fmt_len("%s@%d", key, first)]; snprintf(hkey, sizeof hkey, "%s@%d", key, first); pl_runtime_install_packet_entry(key, ar, hkey); }
+    {
+        PL_DB_KEY_VLA(key, nm, ar);
+        char hkey[fmt_len("%s@%d", key, first)];
+        snprintf(hkey, sizeof hkey, "%s@%d", key, first);
+        if (pl_runtime_install_packet_entry(key, ar, hkey)) db->entry_idx = first;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_db_place(void *root, pl_db_t *db, int i) {
@@ -5348,7 +5359,7 @@ static int pl_db_reclaim_one(pl_db_t *db, int i) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_db_reclaim_cand(const pl_db_t *db, int i) { int f = db->s[i].frag; return db->s[i].erased && PL_DB_FRAG_REC(f) && !(f & PL_DB_FRAG_GONE) && i != db->head_idx; }
+static int pl_db_reclaim_cand(const pl_db_t *db, int i) { int f = db->s[i].frag; return db->s[i].erased && PL_DB_FRAG_REC(f) && !(f & PL_DB_FRAG_GONE) && i != db->head_idx && i != db->entry_idx; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_db_reclaim(pl_db_t *db) {
     extern long rt_gc_runs_count(void);
