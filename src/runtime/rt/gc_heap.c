@@ -44,7 +44,7 @@ _Static_assert(GC_FREE_PCT == 15,
 #include "gc_frame_map.h"
 #include "rt_pl_trail.h"
 #include "gc_audit_b.h"
-#include "gc_layout.h"
+#include "gc_slot_table.h"
 #include "../rtx/rtcc.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, live) == 72 && __builtin_offsetof(rt_hp_fr_t, start_abs) == 80 && __builtin_offsetof(rt_hp_fr_t, vis) == 88 &&
@@ -3576,42 +3576,40 @@ static void gc_validate_record(const char *base, const char *oldtop) {
     fprintf(stderr, "[ZGC-VALIDATE] collection=%ld slots=%ld heap=%ld expired=%ld misfixed=%ld\n", g_runtime.gc.gc_runs + 1, n, hp, ex, mf);
 }
 #if RT_DIAG
-typedef struct gc_vh_t { long blocks, laid, unlaid, slots, heap, expired, badhead, nostart, shortblk; } gc_vh_t;
-static const char *gc_vh_vacancy(const char *v, char *buf, size_t n) {
-    buf[0] = 0;
-    if (!g_runtime.gc.gc_vac) return buf;
-    for (long i = g_runtime.gc.gc_vacn - 1; i >= 0; i--) {
+typedef struct gc_vh_t { long blocks, laid, slots, heap, expired, badhead, nostart, shortblk, unrowed_n; uint16_t unrowed_t; } gc_vh_t;
+static void gc_vh_vacancy(const char *v) {
+    for (long i = g_runtime.gc.gc_vac ? g_runtime.gc.gc_vacn - 1 : -1; i >= 0; i--) {
         const gc_vac_t *e = &g_runtime.gc.gc_vac[i];
         if (!e->size || v < e->at || v >= e->at + (long)e->size) continue;
         if (e->fwd)
-            snprintf(buf, n, " -- a %s block of %u bytes lived at %p and was MOVED to %p by collection #%ld", HB_KIND_NAME(e->type), (unsigned)e->size, (const void *)e->at, (const void *)e->fwd,
+            fprintf(stderr, " -- a %s block of %u bytes lived at %p and was MOVED to %p by collection #%ld", HB_KIND_NAME(e->type), (unsigned)e->size, (const void *)e->at, (const void *)e->fwd,
             (long)e->gen);
-        else snprintf(buf, n, " -- a %s block of %u bytes lived at %p and was RECLAIMED by collection #%ld", HB_KIND_NAME(e->type), (unsigned)e->size, (const void *)e->at, (long)e->gen);
-        return buf;
+        else fprintf(stderr, " -- a %s block of %u bytes lived at %p and was RECLAIMED by collection #%ld", HB_KIND_NAME(e->type), (unsigned)e->size, (const void *)e->at, (long)e->gen);
+        break;
     }
-    return buf;
+    fputc('\n', stderr);
 }
 static void gc_vh_word(gc_vh_t *st, const rt_hblk_t *h, size_t off, const char *v) {
     const rt_hblk_t *t;
-    char vb[256];
     if (v < g_runtime.gc.hp_arena || v >= g_runtime.gc.hp_cap_end) return;
     st->heap++;
     t = gc_blk_of(v);
     if (t && t->type != HB_FILL && v >= (const char *)t + sizeof(rt_hblk_t)) return;
     if (st->expired++ >= 16) return;
-    fprintf(stderr, "[ZGC-VALIDATE-HEAP] EXPIRED collection=%ld holder=%p kind=%s offset=%ld value=%p new_top=%p%s\n", g_runtime.gc.gc_runs + 1, (const void *)h, HB_KIND_NAME(h->type), (long)off,
-        (const void *)v, (const void *)g_hp_top, gc_vh_vacancy(v, vb, sizeof vb));
+    fprintf(stderr, "[ZGC-VALIDATE-HEAP] EXPIRED collection=%ld holder=%p kind=%s offset=%ld value=%p new_top=%p", g_runtime.gc.gc_runs + 1, (const void *)h, HB_KIND_NAME(h->type), (long)off,
+        (const void *)v, (const void *)g_hp_top);
+    gc_vh_vacancy(v);
 }
-static void gc_vh_block(gc_vh_t *st, const rt_hblk_t *h, const gc_layout_t *ly) {
+static void gc_vh_block(gc_vh_t *st, const rt_hblk_t *h, const gc_slot_row_t *row) {
     const char *pay = (const char *)h + sizeof(rt_hblk_t);
-    size_t plen = h->size - sizeof(rt_hblk_t), stride = ly->stride ? ly->stride : plen;
+    size_t plen = h->size - sizeof(rt_hblk_t), stride = row->stride ? row->stride : plen;
     st->laid++;
     for (size_t b = 0; stride && b + stride <= plen; b += stride) {
-        for (unsigned k = 0; k < ly->nslot; k++) {
-            size_t o = b + ly->slot[k].off, w = ly->slot[k].kind == GL_DESCR ? sizeof(DESCR_t) : sizeof(char *);
+        for (unsigned k = 0; k < row->nslot; k++) {
+            size_t o = b + row->slot[k].off, w = row->slot[k].kind == GS_DESCR ? sizeof(DESCR_t) : sizeof(char *);
             if (o + w > plen) { st->shortblk++; continue; }
             st->slots++;
-            if (ly->slot[k].kind == GL_RAW) gc_vh_word(st, h, o, *(const char *const *)(pay + o));
+            if (row->slot[k].kind == GS_RAW) gc_vh_word(st, h, o, *(const char *const *)(pay + o));
             else if (gc_type_says_ref((const DESCR_t *)(pay + o))) gc_vh_word(st, h, o + offsetof(DESCR_t, p), (const char *)((const DESCR_t *)(pay + o))->p);
         }
     }
@@ -3622,8 +3620,7 @@ static void gc_validate_heap(void) {
     memset(&st, 0, sizeof st);
     while (p < g_hp_top) {
         const rt_hblk_t *h = (const rt_hblk_t *)p;
-        const int body = h->type > HB_ZCOL && h->type != HB_FILL;
-        const gc_layout_t *ly = body ? gc_layout_of(h->type) : (const gc_layout_t *)0;
+        const gc_slot_row_t *row;
         size_t g = (size_t)(p - g_runtime.gc.hp_arena) >> 4;
         if (h->size < sizeof(rt_hblk_t) || (h->size & 15u) || p + h->size > g_hp_top) {
             st.badhead++;
@@ -3633,12 +3630,15 @@ static void gc_validate_heap(void) {
         }
         st.blocks++;
         if (!((g_runtime.abi.hp_fr.start[g >> 6] >> (g & 63)) & 1u)) st.nostart++;
-        if (ly) gc_vh_block(&st, h, ly);
-        else if (body) st.unlaid++;
+        row = gc_slot_row_of(h->type);
+        if (!row) { if (!st.unrowed_n) st.unrowed_t = h->type; if (h->type == st.unrowed_t) st.unrowed_n++; } else if (row->nslot) gc_vh_block(&st, h, row);
         p += h->size;
     }
-    fprintf(stderr, "[ZGC-VALIDATE-HEAP] collection=%ld blocks=%ld laid=%ld unlaid=%ld slots=%ld heap=%ld expired=%ld badhead=%ld nostart=%ld shortblk=%ld\n", g_runtime.gc.gc_runs + 1, st.blocks,
-        st.laid, st.unlaid, st.slots, st.heap, st.expired, st.badhead, st.nostart, st.shortblk);
+    fprintf(stderr, "[ZGC-VALIDATE-HEAP] collection=%ld blocks=%ld slots=%ld unrowed=", g_runtime.gc.gc_runs + 1, st.blocks, st.slots);
+    if (st.unrowed_n) fprintf(stderr, "%s:%ld", HB_KIND_NAME(st.unrowed_t), st.unrowed_n);
+    else fputs("none", stderr);
+    fprintf(stderr, " findings=%ld laid=%ld heap=%ld expired=%ld badhead=%ld nostart=%ld shortblk=%ld\n", st.expired + st.badhead + st.nostart + st.shortblk, st.laid, st.heap, st.expired, st.badhead,
+        st.nostart, st.shortblk);
 }
 #endif
 static int gc_validate_on(void) { static int vld = -1; if (vld < 0) { const char *e = getenv("SCRIP_GC_VALIDATE"); vld = (e && *e == '1') ? 1 : 0; } return vld; }
