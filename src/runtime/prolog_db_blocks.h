@@ -24,6 +24,7 @@ typedef struct {
     int data_on;
     int data_off;
     int entry_idx;
+    int mod;
 } pl_db_t;
 typedef struct { char *key; int k; int meta; pl_db_t *db; int stat; int decl; int file; int line; int mf; int lib; } pl_db_key_t;
 typedef struct {
@@ -42,6 +43,11 @@ typedef struct {
     long *mtok;
     int mtn;
     int mtcap;
+    void *mods;
+    int nmods;
+    int modcap;
+    int *kmod;
+    int kmcap;
 } pl_db_reg_t;
 typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
 typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; } pl_trie_t;

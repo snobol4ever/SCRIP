@@ -25346,6 +25346,42 @@ static int pl_anum_is_compound(DESCR_t d);
 extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
 extern int rt_pl_db_cp_count(void *);
 extern const char *rt_pl_db_cp_nth(void *, int64_t, int *);
+DESCR_t rt_pl_dop_mod_get_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern int rt_pl_db_mod_get(void *, const char *, int, int64_t *);
+    int64_t v = 0;
+    int ok;
+    int limit;
+    const char *m;
+    const char *w;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    m = pl_atom_str(rt_pl_deref_val(args[0]));
+    w = pl_atom_str(rt_pl_deref_val(args[1]));
+    if (!m || !w) return FAILDESCR;
+    limit = w[0] == 'l';
+    if (!rt_pl_db_mod_get(root, m, limit, &v) || (limit && v == 0)) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    ok = plw_unify_vals(args[2], INTVAL((long long)v), cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_mod_set_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern int rt_pl_db_mod_set_limit(void *, const char *, int64_t);
+    DESCR_t n;
+    const char *m;
+    int r;
+    int ok;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    m = pl_atom_str(rt_pl_deref_val(args[0]));
+    n = rt_pl_deref_val(args[1]);
+    if (!m || n.v != DT_I) return FAILDESCR;
+    r = rt_pl_db_mod_set_limit(root, m, (int64_t)n.i);
+    rt_pl_tr_gc_sync(cx->tr);
+    ok = plw_unify_vals(args[2], INTVAL((long long)r), cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
 DESCR_t rt_pl_dop_pl_cp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     int ok;
     if (nargs != 1) return FAILDESCR;
@@ -25688,6 +25724,7 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             }
             char key[bnd_db_key_need((void *)&args[0])];
             if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return (void *)0;
+            if (!strcmp(op, "assert")) { extern void *rt_pl_db_space_ball(void *, const char *, void *); void *sb = rt_pl_db_space_ball(root, key, (void *)&args[0]); if (sb) return sb; }
             { char *sl = strrchr(key, '/'); if (sl) *sl = 0; return pl_db_static_ball(root, op, key, ar); }
         }
     }

@@ -4668,7 +4668,7 @@ DESCR_t rt_pl_dop_engine_self(DESCR_t *, int); DESCR_t rt_pl_dop_engine_id(DESCR
     DESCR_t rt_pl_dop_engine_stats(DESCR_t *, int); DESCR_t rt_pl_dop_gc_now(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_db_data_unify(DESCR_t *, int); DESCR_t rt_pl_dop_dl_push(DESCR_t *, int);
     DESCR_t rt_pl_dop_dl_reached(DESCR_t *, int); DESCR_t rt_pl_dop_dl_false(DESCR_t *, int); DESCR_t rt_pl_dop_dl_reset(DESCR_t *, int); DESCR_t rt_pl_dop_dl_tick(DESCR_t *, int);
-    DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int);
+    DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_mod_get(DESCR_t *, int); DESCR_t rt_pl_dop_mod_set(DESCR_t *, int);
     DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
@@ -4827,7 +4827,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$engine_self", 1, "rt_pl_dop_engine_self", rt_pl_dop_engine_self }, { "$engine_id", 2, "rt_pl_dop_engine_id", rt_pl_dop_engine_id },
         { "$engine_list", 1, "rt_pl_dop_engine_list", rt_pl_dop_engine_list }, { "$engine_reaped", 1, "rt_pl_dop_engine_reaped", rt_pl_dop_engine_reaped },
         { "$engine_stats", 4, "rt_pl_dop_engine_stats", rt_pl_dop_engine_stats }, { "$gc_now", 0, "rt_pl_dop_gc_now", rt_pl_dop_gc_now },
-        { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
+        { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$mod_get", 3, "rt_pl_dop_mod_get", rt_pl_dop_mod_get },
+            { "$mod_set", 3, "rt_pl_dop_mod_set", rt_pl_dop_mod_set }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
             rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
                 2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",
                     rt_pl_dop_pl_cp_guard },

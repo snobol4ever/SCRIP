@@ -4180,6 +4180,7 @@ int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_kmod_get(void *root, int64_t k);
 void * rt_pl_db_get(void *root, int64_t k) {
     if (!root || k < 0) return (void *)0;
     {
@@ -4207,6 +4208,7 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->data_on = 0;
             d->data_off = 0;
             d->entry_idx = -1;
+            d->mod = pl_db_kmod_get(root, k);
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -4377,6 +4379,94 @@ static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key) {
     for (int i = 0; i < r->n; i++) if (!strcmp(r->e[i].key, key)) return &r->e[i];
     return (pl_db_key_t *)0;
 }
+typedef struct { int atom; int pad; int64_t size; int64_t limit; } pl_db_mod_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_mod_find(pl_db_reg_t *r, int atom, int create) {
+    extern void *ct_grow(void *, size_t);
+    extern int prolog_atom_intern(const char *);
+    pl_db_mod_t *m;
+    if (!r) return -1;
+    if (r->nmods == 0) {
+        r->mods = ct_grow((void *)r->mods, 8 * sizeof(pl_db_mod_t));
+        r->modcap = 8;
+        m = (pl_db_mod_t *)r->mods;
+        memset(m, 0, 8 * sizeof(pl_db_mod_t));
+        m[0].atom = prolog_atom_intern("user");
+        r->nmods = 1;
+    }
+    m = (pl_db_mod_t *)r->mods;
+    for (int i = 0; i < r->nmods; i++) if (m[i].atom == atom) return i;
+    if (!create) return -1;
+    if (r->nmods == r->modcap) {
+        r->mods = ct_grow((void *)r->mods, (size_t)r->modcap * 2 * sizeof(pl_db_mod_t));
+        memset((pl_db_mod_t *)r->mods + r->modcap, 0, (size_t)r->modcap * sizeof(pl_db_mod_t));
+        r->modcap *= 2;
+        m = (pl_db_mod_t *)r->mods;
+    }
+    m[r->nmods].atom = atom;
+    m[r->nmods].size = 0;
+    m[r->nmods].limit = 0;
+    return r->nmods++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_mod_of_key(pl_db_reg_t *r, const char *key, int create) {
+    extern int prolog_atom_intern_n(const char *, size_t);
+    extern int prolog_atom_intern(const char *);
+    size_t n = 0;
+    while (key[n] && key[n] != ':') {
+        unsigned char c = (unsigned char)key[n];
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '$')) return pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+        n++;
+    }
+    if (!key[n] || n == 0) return pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+    return pl_db_mod_find(r, prolog_atom_intern_n(key, n), create);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_kmod_set(pl_db_reg_t *r, int k, int mod) {
+    extern void *ct_grow(void *, size_t);
+    if (!r || k < 0 || mod < 0) return;
+    if (k >= r->kmcap) {
+        int nc = r->kmcap > 0 ? r->kmcap : 64;
+        while (nc <= k) nc *= 2;
+        r->kmod = (int *)ct_grow((void *)r->kmod, (size_t)nc * sizeof(int));
+        memset(r->kmod + r->kmcap, 0, (size_t)(nc - r->kmcap) * sizeof(int));
+        r->kmcap = nc;
+    }
+    r->kmod[k] = mod;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_kmod_get(void *root, int64_t k) { pl_db_reg_t *r = pl_db_registry(root, 0); return (r && r->kmod && k >= 0 && k < r->kmcap) ? r->kmod[k] : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_shape_cells(const pl_cell_t *t) {
+    int64_t c = 0;
+    for (;;) {
+        t = pl_deref((pl_cell_t *)t);
+        c++;
+        if ((int)t->v != DT_PLREF || !t->p) return c;
+        { int ar = plc_fid_arity(t->slen); const pl_cell_t *a = (const pl_cell_t *)t->p; if (ar <= 0) return c; for (int i = 0; i + 1 < ar; i++) c += pl_db_shape_cells(&a[i]); t = &a[ar - 1]; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_clause_bytes(const pl_cell_t *cl) { return (int64_t)sizeof(pl_db_slot_t) + 16 * pl_db_shape_cells(cl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_term_bytes(const pl_cell_t *term) {
+    extern int prolog_atom_intern(const char *);
+    const pl_cell_t *t = pl_deref((pl_cell_t *)term);
+    if ((int)t->v == DT_PLREF && plc_fid_arity(t->slen) == 2 && plc_functor((pl_cell_t *)t) == prolog_atom_intern(":-")) return pl_db_clause_bytes(t);
+    return (int64_t)sizeof(pl_db_slot_t) + 16 * (pl_db_shape_cells(t) + 1 + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_db_mod_t * pl_db_mod_at(void *root, int idx) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    if (!r) return (pl_db_mod_t *)0;
+    if (r->nmods == 0) pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+    if (idx < 0 || idx >= r->nmods) idx = 0;
+    return (pl_db_mod_t *)r->mods + idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_mod_charge(void *root, pl_db_t *db, int64_t d) { pl_db_mod_t *m = pl_db_mod_at(root, db->mod); if (m) m->size += d; }
+static void pl_db_note_live(void *root, pl_db_t *db, int i) { pl_db_mod_charge(root, db, pl_db_clause_bytes(&db->s[i].cl)); }
 static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
     if (!r || !key) return (pl_db_key_t *)0;
     if (r->n >= r->cap) {
@@ -4401,6 +4491,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
         e->line = 0;
         e->mf = 0;
         e->lib = 0;
+        { int mi = pl_db_mod_of_key(r, key, 1); if (mi >= 0) ((pl_db_mod_t *)r->mods)[mi].size += (int64_t)sizeof(pl_db_key_t) + (int64_t)strlen(key) + 1; }
         pl_db_hix_index(r);
         return &r->e[r->n - 1];
     }
@@ -4717,6 +4808,7 @@ int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity) {
         if (!e) e = pl_db_reg_add(r, key);
         if (!e || !pl_db_cell_addr(root, k, 1)) return 0;
         e->k = (int)k;
+        pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
         if ((int)k + 1 > r->next_cell) r->next_cell = (int)k + 1;
         return 1;
     }
@@ -4736,6 +4828,7 @@ int rt_pl_db_cell_for(void *root, const char *name, int arity) {
         if (!e) e = pl_db_reg_add(r, key);
         if (!e || !pl_db_cell_addr(root, r->next_cell, 1)) return -1;
         e->k = r->next_cell++;
+        pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
         return e->k;
     }
 }
@@ -4919,6 +5012,50 @@ static int pl_db_key_current(void *root, pl_db_key_t *e) {
     if (db) return db->killed ? 0 : 1;
     return e->decl ? 1 : 0;
 }
+int rt_pl_db_mod_get(void *root, const char *module, int which, int64_t *out) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    int mi;
+    pl_db_mod_t *m;
+    if (!r || !module) return 0;
+    pl_db_mod_at(root, 0);
+    mi = pl_db_mod_find(r, prolog_atom_intern(module), 0);
+    if (mi < 0) return 0;
+    m = (pl_db_mod_t *)r->mods + mi;
+    *out = which ? m->limit : m->size;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_mod_set_limit(void *root, const char *module, int64_t n) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    int mi;
+    pl_db_mod_t *m;
+    if (!r || !module) return 1;
+    pl_db_mod_at(root, 0);
+    mi = pl_db_mod_find(r, prolog_atom_intern(module), 1);
+    m = (pl_db_mod_t *)r->mods + mi;
+    if (n != 0 && n < m->size) return 1;
+    m->limit = n;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_db_space_ball(void *root, const char *key, void *clause_term) {
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    pl_db_mod_t *m;
+    int mi;
+    int64_t need;
+    if (!r || !key || !clause_term || r->nmods == 0) return (void *)0;
+    mi = pl_db_mod_of_key(r, key, 0);
+    if (mi < 0) return (void *)0;
+    m = (pl_db_mod_t *)r->mods + mi;
+    if (!m->limit) return (void *)0;
+    need = pl_db_term_bytes((const pl_cell_t *)clause_term);
+    if (!pl_db_reg_find(r, key)) need += (int64_t)sizeof(pl_db_key_t) + (int64_t)strlen(key) + 1;
+    return (m->size + need > m->limit) ? rt_pl_ball_kind1("resource_error", "program_space") : (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cp_count(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0; if (!r) return 0; for (int i = 0; i < r->n; i++) if (pl_db_key_current(root, &r->e[i])) c++; return c; }
 const char * rt_pl_db_cp_nth(void *root, int64_t i, int *arity) {
     pl_db_reg_t *r = pl_db_registry(root, 0);
@@ -4935,6 +5072,7 @@ void * rt_pl_db_get_by_key(void *root, const char *key, int create) {
     if (!e) e = pl_db_reg_add(r, key);
     if (!e) return (void *)0;
     e->k = r->next_cell++;
+    pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
     return rt_pl_db_get(root, e->k);
 }
 int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar) {
@@ -5174,6 +5312,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
         pl_cell_t *t = pl_deref((pl_cell_t *)clause_term);
         pl_cell_t kids[2];
         pl_cell_t pair;
+        { pl_db_mod_t *pm = pl_db_mod_at(root, db->mod); if (pm && pm->limit && pm->size + pl_db_term_bytes(t) > pm->limit) return 0; }
         if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) {
             pl_cell_t *aa = (pl_cell_t *)t->p;
             kids[0] = aa[0];
@@ -5205,6 +5344,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
                 db->tail_idx = i;
             }
             db->n++;
+            pl_db_note_live(root, db, i);
             pl_ix_note(db, i, prepend);
             if (tx) pl_db_tx_note(root, db, 0, i);
             if (recompile) pl_db_place(root, db, i);
@@ -5377,7 +5517,13 @@ static void pl_db_reclaim(pl_db_t *db) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_db_note_erase(pl_db_t *db, int i, int gen) { db->s[i].erased = gen; db->erased_n++; db->recl_since++; if (i < db->recl_lo) db->recl_lo = i; }
+static void pl_db_note_erase(void *root, pl_db_t *db, int i, int gen) {
+    db->s[i].erased = gen;
+    db->erased_n++;
+    db->recl_since++;
+    if (i < db->recl_lo) db->recl_lo = i;
+    pl_db_mod_charge(root, db, -pl_db_clause_bytes(&db->s[i].cl));
+}
 static pl_cell_t * pl_db_tx_log(void *root) {
     extern int prolog_atom_intern(const char *);
     pl_db_reg_t *r = pl_db_registry(root, 0);
@@ -5410,7 +5556,7 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
         if (kind == 1) db->tx_pins++;
     }
 }
-static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(db, i, gen); pl_db_tx_note(root, db, 1, i); }
+static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(root, db, i, gen); pl_db_tx_note(root, db, 1, i); }
 int rt_pl_mod_ext(void *root, void *mc, void *gc, void *ec, void *out, pl_tr_ctx_t *cx) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);
@@ -5447,8 +5593,8 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
             if (db && i >= 0 && i < db->n) {
                 if (k->i == 1) {
                     if (db->tx_pins > 0) db->tx_pins--;
-                    if (op == 0 && db->s[i].erased) { db->s[i].erased = 0; if (db->erased_n > 0) db->erased_n--; }
-                } else if (op == 0 && !db->s[i].erased) pl_db_note_erase(db, i, db->next_ref++);
+                    if (op == 0 && db->s[i].erased) { db->s[i].erased = 0; if (db->erased_n > 0) db->erased_n--; pl_db_note_live(root, db, i); }
+                } else if (op == 0 && !db->s[i].erased) pl_db_note_erase(root, db, i, db->next_ref++);
             }
         }
         l = pl_deref(&cons[1]);
