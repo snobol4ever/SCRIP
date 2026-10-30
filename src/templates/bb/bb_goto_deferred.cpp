@@ -60,7 +60,7 @@ std::string bb_goto_deferred() {
          + x86("jmp", "rax")
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         + bb_setexit_take(2, 0L)
+         + bb_setexit_take(2, (long)_.op_zdepth)
          + x86_deflabel_id(2)
          + x86_gamma());
 }
