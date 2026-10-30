@@ -2441,13 +2441,28 @@ static int zls_layq_cmp(const void * a, const void * b) {
     if (x->size != y->size) return x->size > y->size ? -1 : 1;
     return (int)x->kind - (int)y->kind;
 }
+int zls_g_root_value_bytes(const IR_graph_t * g) { return zls_g_pinned_frame(g) ? zls_g_frame_bytes(g) - FLAT_FRAME_ALLOWANCE_ROOT : zls_g_frame_region(g); }
+static int zls_root_cells_q(const IR_graph_t * g, uint64_t * out, int cap, int m) {
+    if (!g->root_graph) return m;
+    int rg = zls_g_value_region(g), nc = g->standing_cells, clo = zls_g_root_value_bytes(g) - 8 * nc;
+    if (rg < 0 || clo < rg || nc < 0) {
+        const char * gn = zls_graph_name_get(g);
+        fprintf(stderr, "FATAL planner root layout: graph %s region=%d cells=%d cells_lo=%d -- the standing cells must lie between the value region and the reserved cell\n", gn ? gn : "?", rg, nc,
+            clo);
+        abort();
+    }
+    if (clo > rg) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg); }
+    if (nc > 0) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(clo, GC_LAY_RAW, 8); }
+    if (nc > 1) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(clo + 8, GC_LAY_PTR_GC, 8 * (nc - 1)); }
+    return m;
+}
 int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     int n = 0, m = 0, gaps = 0, conf = 0, expect = 0;
     if (gap_bytes) *gap_bytes = 0;
     if (conflicts) *conflicts = 0;
     if (!r || r->first_scope < 0) return -1;
-    if (zls_g_keys_only(g)) return 0;
+    if (zls_g_keys_only(g)) return zls_root_cells_q(g, out, cap, 0);
     cv_reserve(&g_lower.ir.zlq_v, (uint32_t)sizeof(zls_layq_t), (uint64_t)g_lower.ir.zf_n + 1, "zlq");
     for (int f = 0; f < g_lower.ir.zf_n; f++)
         if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0 && !(r->hf && zf[f].off + zf[f].size > r->fregion)) zlq[n++] =
@@ -2466,7 +2481,7 @@ int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_byte
     if (r->region > expect) gaps += r->region - expect;
     if (gap_bytes) *gap_bytes = gaps;
     if (conflicts) *conflicts = conf;
-    return m;
+    return zls_root_cells_q(g, out, cap, m);
 }
 static int zls_int_cmp(const void * a, const void * b) { int x = *(const int *)a, y = *(const int *)b; return x < y ? -1 : x > y ? 1 : 0; }
 static int zls_slot_matches(int f, int kind) {

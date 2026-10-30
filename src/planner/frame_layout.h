@@ -81,6 +81,7 @@ int zls_g_resumable_frame(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
 int zls_g_resumable_frame(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
+int zls_g_root_value_bytes(const IR_graph_t * g);
 int zls_g_block_base(const IR_graph_t * g);
 int zls_g_entry_block(const IR_graph_t * g);
 int zls_g_has_suspend(const IR_graph_t * g);

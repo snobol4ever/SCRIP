@@ -700,7 +700,7 @@ extern "C" int zls_frame_word_why(const IR_t * nd);
 extern "C" int zls_home_local_why(const IR_t * nd);
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_frame_home(const IR_t * nd);
-extern "C" int zls_g_value_region(const IR_graph_t * g);
+extern "C" int zls_g_value_region(const IR_graph_t * g); extern "C" int zls_g_root_value_bytes(const IR_graph_t * g);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes);
@@ -2982,21 +2982,14 @@ static void emit_gc_map_data(const char * fam) {
     g_emitter.g_gc_map_pending = 0;
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_emitter.g_zls_lay_gaps = 0; g_emitter.g_zls_lay_conf = 0;
     if (g_emitter.g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_emitter.g_blob_lay.p; lay_n = (int)g_emitter.g_blob_lay.len; }
-    else if (g_emit_cfg) { int gaps = 0, conf = 0;
-        int n = g_emit_cfg->pf.lay_n; gaps = g_emit_cfg->pf.lay_gaps; conf = g_emit_cfg->pf.lay_conf;
-        if ((int)g_emitter.g_zls_lay_v.cap < (n > 0 ? n : 0) + 3) cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)((n > 0 ? n : 0) + 3), "g_zls_lay");
-        for (int k = 0; k < n; k++) ((uint64_t *)g_emitter.g_zls_lay_v.p)[k] = g_emit_cfg->pf.lay[k];
-        uint64_t * g_zls_lay = (uint64_t *)g_emitter.g_zls_lay_v.p;
-        if (n >= 0 && g_emit_cfg->root_graph) { int rg = g_emit_cfg->pf.value_region, nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
-            if (rg < 0 || clo < rg || nc < 0)
-                { fprintf(stderr,
-                "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d value_bytes=%d -- the standing cells must lie between the value region and the reserved cell (gc_frame_map.h"
-                    " FLAT_FRAME_A"
-                "LLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_emitter.g_gc_value_bytes); abort(); }
-            if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
-            if (nc > 0) { g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_RAW, 8);
-                if (nc > 1) g_zls_lay[n++] = GC_LAY_Q(clo + 8, GC_LAY_PTR_GC, 8 * (nc - 1)); } }
-        if (n >= 0) { lay = g_zls_lay; lay_n = n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_emitter.g_zls_lay_gaps = gaps; g_emitter.g_zls_lay_conf = conf; } }
+    else if (g_emit_cfg && g_emit_cfg->pf.lay_n >= 0) {
+        if (g_emit_cfg->root_graph && g_emitter.g_gc_value_bytes != zls_g_root_value_bytes(g_emit_cfg)) {
+            fprintf(stderr, "FATAL emit_gc_map_data: root graph %s value_bytes=%d but the plan says %d\n", fam ? fam : "?", g_emitter.g_gc_value_bytes, zls_g_root_value_bytes(g_emit_cfg));
+            abort();
+        }
+        lay = g_emit_cfg->pf.lay; lay_n = g_emit_cfg->pf.lay_n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT;
+        g_emitter.g_zls_lay_gaps = g_emit_cfg->pf.lay_gaps; g_emitter.g_zls_lay_conf = g_emit_cfg->pf.lay_conf;
+    }
     emit_sep_rule('-');
     if (g_is_text) emit_textf(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n");
     emit_label_define_bb(&g_emitter.g_gc_map_lbl);

@@ -145,7 +145,6 @@ struct g_emitter_t {
     cv_t g_blob_lay;
     cv_t g_alt_pads;
     int g_zd_fence_exit = 0;
-    cv_t g_zls_lay_v;
     int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
     int blob_cont_copy_v = -1;
     int blob_zf_gc_only_v = -1;
