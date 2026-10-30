@@ -55,7 +55,7 @@ std::string bb_goto_deferred() {
          + x86_rt_gc_poll()
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", 1)
-         + IF(_.op_zgpop > 0, x86("add", "rsp", (long)_.op_zgpop))
+         + IF(_.op_zdepth > 0, x86("add", "rsp", (long)_.op_zdepth))
          + bb_goto_deferred_frame_release()
          + x86("jmp", "rax")
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "")
