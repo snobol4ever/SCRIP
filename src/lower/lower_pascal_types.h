@@ -15,11 +15,12 @@ struct pty {
     const void *bnd;
     int cap;
     int var;
+    int prec, pal, pmen;
     struct pty_lay *lay;
 };
 struct pty_state;
 struct pty_lay;
-struct pty_fld { int ch, ca, na, file, ptr, rec, en; long long calo, cahi, nalo, nahi, ov; const char *name; const pty_t *ft; int named, ph, tag; };
+struct pty_fld { int ch, ca, na, file, ptr, rec, en; long long calo, cahi, nalo, nahi, ov; const char *name; const pty_t *ft; int named, ph, tag; const pty_t *eft; int enm; };
 const pty_t *pty_type_by_name(const char *name);
 const pty_t *pty_rec_by_name(const char *name);
 void pty_note_recname(const char *name, const tree_t *recnode);

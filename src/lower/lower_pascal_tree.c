@@ -19,8 +19,6 @@ static void *pas_pool_grow(void *p, int *cap, size_t esz, int init) {
     return p;
 }
 static int pas_rtf(const char *rn, long idx, struct pty_fld *f) { const pty_t *t = pty_rec_by_name(rn); return t && idx >= 0 && pty_rec_fld(t, (int)idx, f); }
-#define PAS_RTCHK(tag, rn, idx, legacy, typer) do { long long _l = (long long)(legacy), _q = (long long)(typer); if (g_lower.pas.dump_types && _l != _q) fprintf(stderr, \
-    "PTYR %s %s %ld legacy=%lld typer=%lld\n", tag, (rn) ? (rn) : "-", (long)(idx), _l, _q); } while (0)
 static int pas_fcap(int n) { return n > 128 ? n : 128; }
 static void pas_pend_ensure(int n) {
     int oc = g_lower.pas.sem.pas_pend_cap;
@@ -2703,111 +2701,24 @@ static const char *pas_rectype_field_ptrto_by_index(const char *rn, long idx) {
     if (!pas_rtf(rn, idx, &f)) return NULL;
     return f.ptr && f.ft ? pty_name_of(f.ft->base ? f.ft->base : f.ft) : NULL;
 }
-static int pas_rectype_layout(const char *rn, long long *size_out, long long *align_out);
-static int pas_rectype_field_size_align_t(const char *rn, int idx, long long *sz, long long *al) {
-    if (!rn || idx < 0) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nrectype; i++) {
-        if (!g_lower.pas.sem.pas_rectypes[i].tname || strcmp(g_lower.pas.sem.pas_rectypes[i].tname, rn)) continue;
-        if (idx >= g_lower.pas.sem.pas_rectypes[i].nf) return 0;
-        long long s, nat;
-        if (g_lower.pas.sem.pas_rectypes[i].fldptrto[idx]) {
-            s = 8;
-            nat = 8;
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldrec[idx]) {
-            if (!pas_rectype_layout(g_lower.pas.sem.pas_rectypes[i].fldrec[idx], &s, &nat)) return 0;
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldca[idx]) {
-            long long cnt = g_lower.pas.sem.pas_rectypes[i].fldca_hi[idx] - g_lower.pas.sem.pas_rectypes[i].fldca_lo[idx] + 1;
-            s = cnt > 0 ? cnt : 1;
-            nat = 1;
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldna[idx]) {
-            long long cnt = g_lower.pas.sem.pas_rectypes[i].fldna_hi[idx] - g_lower.pas.sem.pas_rectypes[i].fldna_lo[idx] + 1;
-            if (cnt < 1) cnt = 1;
-            long long esz = 4;
-            if (g_lower.pas.sem.pas_rectypes[i].fldtypename[idx]) pas_sizeof_lookup(g_lower.pas.sem.pas_rectypes[i].fldtypename[idx], &esz);
-            s = cnt * esz;
-            nat = (esz < 1) ? 1 : (esz > 8 ? 8 : esz);
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldenum[idx]) {
-            long long ms;
-            if (!pas_enumtype_min_size(g_lower.pas.sem.pas_rectypes[i].fldenum[idx], &ms)) ms = 4;
-            s = ms;
-            nat = (ms < 1) ? 1 : (ms > 8 ? 8 : ms);
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldchar[idx] == 1) {
-            s = 1;
-            nat = 1;
-        } else if (g_lower.pas.sem.pas_rectypes[i].fldtypename[idx]) {
-            if (!pas_sizeof_lookup(g_lower.pas.sem.pas_rectypes[i].fldtypename[idx], &s)) return 0;
-            nat = (s < 1) ? 1 : (s > 8 ? 8 : s);
-        } else return 0;
-        *sz = s;
-        if (g_lower.pas.sem.pas_rectypes[i].packed) *al = 1;
-        else if (g_lower.pas.sem.pas_rectypes[i].align_mac68k) *al = (s == 1) ? 1 : 2;
-        else if (g_lower.pas.sem.pas_rectypes[i].pack_n > 0 && nat > g_lower.pas.sem.pas_rectypes[i].pack_n) *al = g_lower.pas.sem.pas_rectypes[i].pack_n;
-        else *al = nat;
-        return 1;
-    }
-    return 0;
-}
 static int pas_rectype_field_size_align(const char *rn, int idx, long long *sz, long long *al) {
-    int r = pas_rectype_field_size_align_t(rn, idx, sz, al);
-    if (g_lower.pas.dump_types && rn) {
-        long long qs = 0, qa = 0;
-        const pty_t *t = pty_rec_by_name(rn);
-        int q = t ? pty_rec_fld_sa(t, idx, &qs, &qa) : 0;
-        if (q != r || (r && (qs != *sz || qa != *al))) fprintf(stderr, "PTYR size_align %s %d legacy=%d/%lld/%lld typer=%d/%lld/%lld\n", rn, idx, r, r ? *sz : 0, r ? *al : 0, q, qs, qa);
-    }
-    return r;
-}
-static int pas_rectype_layout_t(const char *rn, long long *size_out, long long *align_out) {
-    if (!rn) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nrectype; i++) {
-        if (!g_lower.pas.sem.pas_rectypes[i].tname || strcmp(g_lower.pas.sem.pas_rectypes[i].tname, rn)) continue;
-        long long off = 0, maxal = 1;
-        for (int j = 0; j < g_lower.pas.sem.pas_rectypes[i].nf; j++) {
-            long long sz, al;
-            if (!pas_rectype_field_size_align(rn, j, &sz, &al)) return 0;
-            if (al > maxal) maxal = al;
-            if (al > 1) off = ((off + al - 1) / al) * al;
-            off += sz;
-        }
-        long long total;
-        if (g_lower.pas.sem.pas_rectypes[i].packed) total = off;
-        else if (g_lower.pas.sem.pas_rectypes[i].align_mac68k) total = ((off + 1) / 2) * 2;
-        else total = ((off + maxal - 1) / maxal) * maxal;
-        if (size_out) *size_out = total;
-        if (align_out) *align_out = maxal;
-        return 1;
-    }
-    return 0;
+    const pty_t *t = rn && idx >= 0 ? pty_rec_by_name(rn) : NULL;
+    return t ? pty_rec_fld_sa(t, idx, sz, al) : 0;
 }
 static int pas_rectype_layout(const char *rn, long long *size_out, long long *align_out) {
     long long ls = 0, la = 0;
-    int r = pas_rectype_layout_t(rn, &ls, &la);
+    const pty_t *t = rn ? pty_rec_by_name(rn) : NULL;
+    int r = t ? pty_rec_layout(t, &ls, &la) : 0;
     if (size_out) *size_out = ls;
     if (align_out) *align_out = la;
-    if (g_lower.pas.dump_types && rn) {
-        long long qs = 0, qa = 0;
-        const pty_t *t = pty_rec_by_name(rn);
-        int q = t ? pty_rec_layout(t, &qs, &qa) : 0;
-        if (q != r || (r && (qs != ls || qa != la))) fprintf(stderr, "PTYR layout %s legacy=%d/%lld/%lld typer=%d/%lld/%lld\n", rn, r, ls, la, q, qs, qa);
-    }
     return r;
 }
 static int pas_rectype_total_size(const char *rn, long long *out) { return pas_rectype_layout(rn, out, NULL); }
 static int pas_rectype_field_offset(const char *rn, int idx, long long *out) {
-    if (!rn || idx < 0) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nrectype; i++) {
-        if (!g_lower.pas.sem.pas_rectypes[i].tname || strcmp(g_lower.pas.sem.pas_rectypes[i].tname, rn)) continue;
-        if (idx >= g_lower.pas.sem.pas_rectypes[i].nf) return 0;
-        long long off = 0;
-        for (int j = 0; j <= idx; j++) {
-            long long sz, al;
-            if (!pas_rectype_field_size_align(rn, j, &sz, &al)) return 0;
-            if (al > 1) off = ((off + al - 1) / al) * al;
-            if (j == idx) { *out = off; return 1; }
-            off += sz;
-        }
-        return 0;
-    }
+    const pty_t *t = rn && idx >= 0 ? pty_rec_by_name(rn) : NULL;
+    if (!t || idx >= pty_rec_nf(t)) return 0;
+    long long off = 0;
+    for (int j = 0; j <= idx; j++) { long long sz, al; if (!pty_rec_fld_sa(t, j, &sz, &al)) return 0; if (al > 1) off = ((off + al - 1) / al) * al; if (j == idx) { *out = off; return 1; } off += sz; }
     return 0;
 }
 static const char *pas_rectype_field_enum_by_index(const char *rn, long idx) { struct pty_fld f; if (!pas_rtf(rn, idx, &f)) return NULL; return f.en && f.ft ? pty_name_of(f.ft) : NULL; }

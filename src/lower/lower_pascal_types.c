@@ -15,7 +15,7 @@ struct pscope { pscope_t *up; psym_t *s; };
 typedef struct { const void *key; const pty_t *t; int line, fld; } pty_ent;
 typedef struct { pty_ent *e; long n, cap; } pty_map;
 struct pty_state {
-    pty_map src, low, sstr, scp;
+    pty_map src, low, sstr, scp, prag;
     struct { const char *name; const pty_t *t; } *anon;
     int nanon, canon;
     pscope_t *cur, *ecur;
@@ -26,6 +26,7 @@ struct pty_state {
     pty_t *tint, *tchar, *tbool, *treal, *tsingle, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
+static void pt_prag_apply(struct pty_state *s, pty_t *t, const tree_t *n);
 static struct pty_state *pt_mk(void) { if (!g_lower.pas.sem.pty) g_lower.pas.sem.pty = (struct pty_state *)ct_zalloc(1, sizeof(struct pty_state)); return g_lower.pas.sem.pty; }
 static unsigned long pt_hash(const void *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ULL; return (unsigned long)(x >> 24); }
 static void pt_map_put(pty_map *m, const void *k, const pty_t *t, int line) {
@@ -273,6 +274,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         case TT_ENUM_TYPE:
         {
             pty_t *t = pt_ord(PTK_ENUM, NULL, 0, n->n - 1);
+            pt_prag_apply(s, t, n);
             for (int i = 0; i < n->n; i++) {
                 if (!n->c[i] || !n->c[i]->v.sval) continue;
                 psym_t *p = ps_def(s, n->c[i]->v.sval, 'e', t);
@@ -313,6 +315,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         case TT_RECORD:
         {
             pty_t *t = pt_new(PTK_RECORD, NULL);
+            pt_prag_apply(s, t, n);
             t->packed = off;
             t->lay = (struct pty_lay *)ct_zalloc(1, sizeof *t->lay);
             for (int i = off; i < n->n; i++) pt_rec_fields(s, t, n->c[i]);
@@ -721,6 +724,38 @@ static void pt_block(struct pty_state *s, const tree_t *b) {
         else if (PT_IS(c, TT_SEQ_EXPR) || PT_IS(c, TT_PROGRAM)) { pt_resolve_pending(s); pt_stmts(s, c); }
     }
 }
+struct pt_prag { int men, set, rec, al; };
+struct pt_pw { struct pt_prag cur, *stk; int sp, cap; };
+static void pt_prag_event(struct pt_pw *w, const char *ev) {
+    if (!strncmp(ev, "minenum ", 8)) w->cur.men = atoi(ev + 8);
+    else if (!strncmp(ev, "packset ", 8)) w->cur.set = atoi(ev + 8);
+    else if (!strncmp(ev, "packrec ", 8)) w->cur.rec = atoi(ev + 8);
+    else if (!strncmp(ev, "align ", 6)) w->cur.al = ev[6] == '1';
+    else if (!strcmp(ev, "push")) {
+        if (w->sp >= w->cap) { w->cap = w->cap ? w->cap * 2 : 16; w->stk = (struct pt_prag *)ct_grow(w->stk, (size_t)w->cap * sizeof *w->stk); }
+        w->stk[w->sp++] = w->cur;
+    } else if (!strcmp(ev, "pop") && w->sp > 0) {
+        w->sp--;
+        w->cur.men = w->stk[w->sp].men;
+        w->cur.set = w->stk[w->sp].set;
+        w->cur.rec = w->stk[w->sp].rec;
+    }
+}
+static void pt_prag_walk(struct pty_state *s, struct pt_pw *w, const tree_t *n) {
+    if (!n) return;
+    for (int i = 0; i < n->n; i++) {
+        const tree_t *a = n->c[i];
+        if (PT_IS(a, TT_ATTR) && a->v.sval && !strcmp(a->v.sval, ":pragma") && a->n > 0 && a->c[0] && a->c[0]->v.sval) pt_prag_event(w, a->c[0]->v.sval);
+    }
+    for (int i = 0; i < n->n; i++) if (!PT_IS(n->c[i], TT_ATTR)) pt_prag_walk(s, w, n->c[i]);
+    if (PT_IS(n, TT_RECORD) || PT_IS(n, TT_ENUM_TYPE)) pt_map_put(&s->prag, n, NULL, w->cur.men | (w->cur.rec << 8) | (w->cur.al << 16));
+}
+static void pt_prag_apply(struct pty_state *s, pty_t *t, const tree_t *n) {
+    const pty_ent *e = pt_map_get(&s->prag, n);
+    t->pmen = e ? (e->line & 0xff) : 4;
+    t->prec = e ? ((e->line >> 8) & 0xff) : 0;
+    t->pal = e ? ((e->line >> 16) & 1) : 0;
+}
 void pty_run(tree_t *prog, int fpc) {
     struct pty_state *s = pt_mk();
     s->fpc = fpc;
@@ -744,6 +779,7 @@ void pty_run(tree_t *prog, int fpc) {
     s->tpchar = pt_new(PTK_POINTER, "pchar");
     s->tpchar->base = s->tchar;
     ps_push(s);
+    { struct pt_pw w = { { 4, 0, 0, 0 }, NULL, 0, 0 }; pt_prag_walk(s, &w, prog); if (w.stk) ct_drop(w.stk); }
     pt_map_put(&s->scp, prog, (const pty_t *)s->cur, 0);
     ps_def(s, "input", 'v', s->ttext);
     ps_def(s, "output", 'v', s->ttext);
@@ -1033,7 +1069,7 @@ static int ty_sizeof(const pty_t *t, long long *out, int depth) {
     if (t->name && lk_bsize(t->name, &s) && t->k != PTK_ARRAY && t->k != PTK_RECORD) { *out = s; return 1; }
     switch (t->k) {
         case PTK_ENUM:
-        if (t->nf > 0) { long long fit = lk_fit(0, t->hi); *out = fit > 4 ? fit : 4; return 1; }
+        if (t->nf > 0) { long long fit = lk_fit(0, t->hi), ms = t->pmen ? t->pmen : 4; *out = fit > ms ? fit : ms; return 1; }
         if (t->bounded) { *out = lk_fit(t->lo, t->hi); return 1; }
         return 0;
         case PTK_INT:
@@ -1082,21 +1118,25 @@ static int ty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al, 
     } else if (f.na) {
         long long cnt = f.nahi - f.nalo + 1, esz = 4;
         if (cnt < 1) cnt = 1;
-        ty_sizeof(f.named ? f.ft : (f.ft && f.ft->k == PTK_ARRAY ? f.ft->base : f.ft), &esz, depth + 1);
+        const pty_t *et = f.enm ? f.eft : (f.eft && f.eft->k == PTK_ARRAY ? f.eft->base : f.eft);
+        if (f.eft && f.eft->k == PTK_ARRAY && ((!f.enm && f.eft->dyn) || (f.enm && f.eft->nix > 1))) et = NULL;
+        if (et) ty_sizeof(et, &esz, depth + 1);
         s = cnt * esz;
         nat = esz < 1 ? 1 : (esz > 8 ? 8 : esz);
     } else if (f.en) {
-        s = 4;
-        nat = 4;
+        s = f.eft && f.eft->pmen ? f.eft->pmen : 4;
+        nat = s < 1 ? 1 : (s > 8 ? 8 : s);
     } else if (f.ch == 1) {
         s = 1;
         nat = 1;
     } else {
-        if (!ty_sizeof(f.ft, &s, depth + 1)) return 0;
+        if (!(f.ph ? f.eft && f.eft->name : f.enm) || (f.eft && f.eft->k == PTK_STRING) || !ty_sizeof(f.eft, &s, depth + 1)) return 0;
         nat = s < 1 ? 1 : (s > 8 ? 8 : s);
     }
     *sz = s;
     if (r->packed) *al = 1;
+    else if (r->pal) *al = s == 1 ? 1 : 2;
+    else if (r->prec > 0 && nat > r->prec) *al = r->prec;
     else *al = nat;
     return 1;
 }
@@ -1104,7 +1144,7 @@ static int ty_rec_layout(const pty_t *r, long long *size_out, long long *align_o
     if (!r || !r->lay || depth > 8) return 0;
     long long off = 0, maxal = 1;
     for (int j = 0; j < r->lay->nf; j++) { long long sz, al; if (!ty_rec_fld_sa(r, j, &sz, &al, depth)) return 0; if (al > maxal) maxal = al; if (al > 1) off = ((off + al - 1) / al) * al; off += sz; }
-    long long total = r->packed ? off : ((off + maxal - 1) / maxal) * maxal;
+    long long total = r->packed ? off : r->pal ? ((off + 1) / 2) * 2 : ((off + maxal - 1) / maxal) * maxal;
     if (size_out) *size_out = total;
     if (align_out) *align_out = maxal;
     return 1;
@@ -1169,6 +1209,8 @@ int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o) {
     o->name = r->lay->name[i];
     o->ft = r->lay->ft[i];
     o->named = r->lay->named[i] & 1;
+    o->eft = f.ft;
+    o->enm = f.nm;
     o->ph = (r->lay->named[i] & 4) != 0;
     o->tag = (r->lay->named[i] & 2) != 0;
     return 1;
