@@ -7153,6 +7153,57 @@ static void rk_place_groups(tree_t * t, int * uid) {
     else if (!strcmp(t->v.sval, "__rk_given_mod") && t->n >= 3) rk_pl_modifier(t, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct rk_nsb { const struct rk_nsb * up; const char * from, * to; } rk_nsb_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_nsub_decl_name(const tree_t * d) {
+    return (d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0] && d->c[0]->t == TT_VAR && d->c[0]->v.sval && d->c[0]->v.sval[0] && !strchr(d->c[0]->v.sval, '$')) ? d->c[0]->v.sval : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_nsub_count(const tree_t * t, int in_pkg, rk_ns_t * seen, rk_ns_t * dup) {
+    if (!t) return;
+    const char * nm = in_pkg ? NULL : rk_nsub_decl_name(t);
+    if (nm) { if (rk_ns_has(seen, nm)) rk_ns_add(dup, nm); else rk_ns_add(seen, nm); }
+    for (int i = 0; i < t->n; i++) rk_nsub_count(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL, seen, dup);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_nsub_find(const rk_nsb_t * e, const char * nm) { for (; e; e = e->up) if (!strcmp(e->from, nm)) return e->to; return NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_nsub_amp(const rk_nsb_t * e, const char * nm) {
+    const char * to = (e && nm && nm[0] == '&') ? rk_nsub_find(e, nm + 1) : NULL;
+    if (!to) return NULL;
+    char b[strlen(to) + 2];
+    b[0] = '&';
+    strcpy(b + 1, to);
+    return intern(b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_nsub_walk(tree_t * t, const rk_nsb_t * env, const rk_ns_t * dup, int * ctr, int root) {
+    if (!t) return;
+    const rk_nsb_t * e = env;
+    int nk = (!root && (t->t == TT_SUB_DECL || t->t == TT_SEQ_EXPR)) ? t->n : 0;
+    rk_nsb_t nb[nk + 1];
+    int nn = 0;
+    for (int i = (t->t == TT_SUB_DECL) ? 1 : 0; i < nk; i++) {
+        tree_t * d = (t->c[i] && t->c[i]->t == TT_STMT) ? (tree_t *) stmt_subj(t->c[i]) : t->c[i];
+        const char * nm = rk_nsub_decl_name(d);
+        if (!nm || !rk_ns_has(dup, nm)) continue;
+        char b[strlen(nm) + 24];
+        snprintf(b, sizeof b, "%s-ns%d", nm, ++*ctr);
+        nb[nn] = (rk_nsb_t) { e, nm, intern(b) };
+        e = &nb[nn++];
+        d->c[0]->v.sval = (char *) e->to;
+    }
+    if (e && t->t == TT_FNC && t->v.sval) {
+        const char * to = rk_nsub_find(e, t->v.sval);
+        if (to && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, t->v.sval)) t->c[0]->v.sval = (char *) to;
+        if (to) t->v.sval = (char *) to;
+    }
+    if (e && t->t == TT_VAR) { const char * to = rk_nsub_amp(e, t->v.sval); if (to) t->v.sval = (char *) to; }
+    for (int i = 0; i < t->n; i++) rk_nsub_walk(t->c[i], e, dup, ctr, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_nested_sub_names(tree_t * prog) { rk_ns_t seen = { 0 }, dup = { 0 }; int ctr = 0; rk_nsub_count(prog, 0, &seen, &dup); if (dup.n) rk_nsub_walk(prog, NULL, &dup, &ctr, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_bool_rx(tree_t ** sp) {
     tree_t * t = *sp;
     if (!t) return;
@@ -7201,6 +7252,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_shadow_rename((tree_t *) prog);
         rk_wrap_bodies((tree_t *) prog);
         { int pl = 0; rk_place_groups((tree_t *) prog, &pl); }
+        rk_nested_sub_names((tree_t *) prog);
         rk_ss_collect(prog, &ss);
         if (ss.n) rk_ss_hoist((tree_t *) prog);
         rk_tv_classes(prog, &cls);
