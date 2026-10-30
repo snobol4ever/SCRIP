@@ -1812,6 +1812,26 @@ static const char * const PL_PRELUDE_SRC =
     "var_property(V,fresh(F)):-'$vp_get'(S),(S\\=='$none','$vp_memq'(V,S)->F=false;F=true).\n"
     "'$expand_bodies'(C,C).\n"
     "expand_goal(G,G):-var(G),!,'$vp_saw'(G).\n"
+    "expand_goal(G,X):-nonvar(G),current_prolog_flag('$apply_macros',true),'$am_phrase'(G,X0),!,X=X0.\n"
+    "'$am_phrase'(phrase(NT,Xs),G):-!,'$am_dcg'(NT,Xs,[],G).\n"
+    "'$am_phrase'(phrase(NT,Xs0,Xs),G):-!,'$am_dcg'(NT,Xs0,Xs,G).\n"
+    "'$am_phrase'(call_dcg(NT,Xs0,Xs),G):-'$am_dcg'(NT,Xs0,Xs,G).\n"
+    "'$am_dcg'(NT,_,_,_):-var(NT),!,fail.\n"
+    "'$am_dcg'(NT,Xs0,Xs,Xs0=DL):-'$am_terminal'(NT,DL,Xs),!.\n"
+    "'$am_dcg'(M:Q0,Xs0,Xs,M:Q):-!,'$am_dcg'(Q0,Xs0,Xs,Q).\n"
+    "'$am_dcg'(NT,_,_,_):-'$am_ctl'(NT),!,fail.\n"
+    "'$am_dcg'(NT,Xs0,Xs,G):-compound(NT),!,NT=..L0,append(L0,[Xs0,Xs],L),G=..L.\n"
+    "'$am_dcg'(NT,Xs0,Xs,G):-atom(NT),G=..[NT,Xs0,Xs].\n"
+    "'$am_terminal'([],DL,T):-!,DL=T.\n"
+    "'$am_terminal'(S,DL,T):-string(S),!,string_codes(S,L),append(L,T,DL).\n"
+    "'$am_terminal'(L,DL,T):-is_list(L),append(L,T,DL).\n"
+    "'$am_ctl'(!).\n"
+    "'$am_ctl'({_}).\n"
+    "'$am_ctl'((_,_)).\n"
+    "'$am_ctl'((_;_)).\n"
+    "'$am_ctl'((_->_)).\n"
+    "'$am_ctl'((_*->_)).\n"
+    "'$am_ctl'([_|_]).\n"
     "expand_goal(G,X):-current_predicate(goal_expansion/2),call(goal_expansion(G,G1)),G1\\==G,!,expand_goal(G1,X0),('$expand_wrap'(G,X0)->X=(X0,true);X=X0).\n"
     "'$expand_wrap'(G,R):-R=(_->_),G\\=(_->_).\n"
     "'$expand_wrap'(G,R):-R=(_*->_),G\\=(_*->_).\n"
@@ -2265,6 +2285,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$phrase'(G,_,_):-var(G),!,throw(error(instantiation_error,_)).\n"
     "'$phrase'(G,S0,S):- current_prolog_flag('$dialect',gnu),!,'$gnu_dcg_body'(G,f,S1,S2,[],t,Goal),S0=S1,S=S2,call(Goal).\n"
     "'$phrase'(G,S0,S):-'$dcg_body'(G,S0,S,Goal),call(Goal).\n"
+    "'$phrase_input'(V):-var(V),!.\n"
+    "'$phrase_input'([_|_]):-!.\n"
+    "'$phrase_input'([]):-!.\n"
+    "'$phrase_input'(D):-throw(error(type_error(list,D),_)).\n"
+    "'$phrase_rt'(G,S0,S):-(current_prolog_flag('$dialect',swi)->'$phrase_input'(S0),'$phrase_input'(S);true),'$phrase'(G,S0,S).\n"
     "'$dcg_body'(V,S0,S,phrase(V,S0,S)):-var(V),!.\n"
     "'$dcg_body'([],S0,S,S0=S):-!.\n"
     "'$dcg_body'([H|T],S0,S,S0=L):-!,'$dcg_list'([H|T],S,L).\n"
@@ -4062,7 +4087,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
-        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) { pl_cv_add(referenced, "$phrase"); pl_cv_add(referenced, "$phrase_rt"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) pl_cv_add(referenced, "$pl_pp_pcheck");
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
@@ -4291,7 +4316,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
     }
-    if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");

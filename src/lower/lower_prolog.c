@@ -2267,6 +2267,7 @@ static IR_t * pl_meta_call_dyn(lcx_t * cx, const tree_t * g, const tree_t * cons
 static int pl_tree_has_var(const tree_t * t) { if (!t) return 0; if (t->t == TT_VAR) return 1; for (int i = 0; i < t->n; i++) if (pl_tree_has_var(t->c[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_CALL_STATIC (1 << 30)
+static int pl_phrase_rt_checked(void) { extern int rt_proc_is_registered(const char *); return g_stage2.rt_lowering && rt_proc_is_registered(pl_pi_name("$phrase_rt", 3)); }
 static int pl_callee_static(lcx_t * cx, const char * nm, int ar, const char * key, int db_live, int defined) {
     if (g_stage2.rt_lowering || db_live || pl_decl_dyn_is(nm, ar)) return 0;
     if (defined) return 1;
@@ -2564,7 +2565,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term();
                     extra = xs;
                     nextra = 2;
-                    if (!pl_phrase_plain_nt(t->c[0])) return goal(cx, pl_cc_fnc3("$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out);
+                    int chk = pl_phrase_rt_checked() || g_stage2.pl_apply_macros;
+                    if (chk || !pl_phrase_plain_nt(t->c[0]))
+                        return goal(cx, pl_cc_fnc3(chk ? "$phrase_rt" : "$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out);
                 } else {
                     extra = (const tree_t * const *) &t->c[1];
                     nextra = t->n - 1;
