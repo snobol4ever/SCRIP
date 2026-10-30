@@ -164,6 +164,7 @@ void rt_call_args_clear_from(int n);
 extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include "core/utf8.h"
 #include "builtin_ids.h"
+#include "builtin_table.inc"
 #include "pattern_match.h"
 #include "rt/rt.h"
 #include "rt/rt_list_view.h"
