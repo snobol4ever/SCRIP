@@ -33942,10 +33942,23 @@ static const char PL_PRELUDE_LIB_70_SRC[] =
     "    append(Ns, D, Nsi),\n"
     "    '$ugraphs_reachable'(Nsi, G, Rs1, RsF).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
-    { "writef", 1 },
-    { "writef", 2 },
-    { "swritef", 2 },
-    { "swritef", 3 },
+    { "uri_components", 2 },
+    { "uri_data", 3 },
+    { "uri_data", 4 },
+    { "uri_normalized", 2 },
+    { "uri_normalized", 3 },
+    { "iri_normalized", 2 },
+    { "iri_normalized", 3 },
+    { "uri_normalized_iri", 2 },
+    { "uri_normalized_iri", 3 },
+    { "uri_resolve", 3 },
+    { "uri_is_global", 1 },
+    { "uri_query_components", 2 },
+    { "uri_authority_components", 2 },
+    { "uri_authority_data", 3 },
+    { "uri_encoded", 3 },
+    { "uri_file_name", 2 },
+    { "uri_iri", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
@@ -33962,6 +33975,232 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_71_SRC[] =
+    "uri_components(U, C) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_split'(Cs, S, A, P, Q, F), C = uri_components(S, A, P, Q, F).\n"
+    "uri_components(U, C) :- nonvar(C), C = uri_components(S, A, P, Q, F), !, '$uri_build'(S, A, P, Q, F, Cs), atom_codes(U, Cs).\n"
+    "uri_components(_, _) :- throw(error(instantiation_error, context(uri:uri_components/2, _))).\n"
+    "'$uri_codes'(T, Cs) :- atom(T), !, atom_codes(T, Cs).\n"
+    "'$uri_codes'(T, Cs) :- string(T), !, string_codes(T, Cs).\n"
+    "'$uri_codes'(T, Cs) :- number(T), !, number_codes(T, Cs).\n"
+    "'$uri_codes'(T, _) :- throw(error(type_error(atomic, T), _)).\n"
+    "'$uri_split'(Cs, S, A, P, Q, F) :-\n"
+    "    '$uri_scheme'(Cs, S, R0),\n"
+    "    '$uri_auth'(R0, A, R1),\n"
+    "    '$uri_until'(R1, [0'?, 0'#], PC, R2), atom_codes(P, PC),\n"
+    "    '$uri_search'(R2, Q, R3),\n"
+    "    '$uri_frag'(R3, F).\n"
+    "'$uri_scheme'(Cs, S, R) :- '$uri_until'(Cs, [0':, 0'/, 0'?, 0'#], Pre, [0':|R0]), Pre \\== [], !, atom_codes(S, Pre), R = R0.\n"
+    "'$uri_scheme'(Cs, _, Cs).\n"
+    "'$uri_auth'([0'/, 0'/|R0], A, R) :- !, '$uri_until'(R0, [0'/, 0'?, 0'#], AC, R), atom_codes(A, AC).\n"
+    "'$uri_auth'(R, _, R).\n"
+    "'$uri_search'([0'?|R0], Q, R) :- !, '$uri_until'(R0, [0'#], QC, R), atom_codes(Q, QC).\n"
+    "'$uri_search'(R, _, R).\n"
+    "'$uri_frag'([0'#|R0], F) :- !, atom_codes(F, R0).\n"
+    "'$uri_frag'(_, _).\n"
+    "'$uri_until'([], _, [], []).\n"
+    "'$uri_until'([C|Cs], Stops, B, A) :- ( memberchk(C, Stops) -> B = [], A = [C|Cs] ; B = [C|B1], '$uri_until'(Cs, Stops, B1, A) ).\n"
+    "'$uri_build'(S, A, P, Q, F, Cs) :-\n"
+    "    ( var(S) -> C1 = [] ; '$uri_codes'(S, SC), append(SC, [0':], C1) ),\n"
+    "    ( var(A) -> C2 = [] ; '$uri_codes'(A, AC), append([0'/, 0'/], AC, C2) ),\n"
+    "    ( var(P) -> C3 = [] ; '$uri_codes'(P, PC), '$uri_enc'(path, PC, 1, C3) ),\n"
+    "    ( var(Q) -> C4 = [] ; '$uri_codes'(Q, QC), '$uri_enc'(search, QC, 1, QE), C4 = [0'?|QE] ),\n"
+    "    ( var(F) -> C5 = [] ; '$uri_codes'(F, FC), '$uri_enc'(fragment, FC, 1, FE), C5 = [0'#|FE] ),\n"
+    "    append([C1, C2, C3, C4, C5], Cs).\n"
+    "uri_data(scheme, uri_components(S, _, _, _, _), S).\n"
+    "uri_data(authority, uri_components(_, A, _, _, _), A).\n"
+    "uri_data(path, uri_components(_, _, P, _, _), P).\n"
+    "uri_data(search, uri_components(_, _, _, Q, _), Q).\n"
+    "uri_data(fragment, uri_components(_, _, _, _, F), F).\n"
+    "uri_data(scheme, uri_components(_, A, P, Q, F), S, uri_components(S, A, P, Q, F)).\n"
+    "uri_data(authority, uri_components(S, _, P, Q, F), A, uri_components(S, A, P, Q, F)).\n"
+    "uri_data(path, uri_components(S, A, _, Q, F), P, uri_components(S, A, P, Q, F)).\n"
+    "uri_data(search, uri_components(S, A, P, _, F), Q, uri_components(S, A, P, Q, F)).\n"
+    "uri_data(fragment, uri_components(S, A, P, Q, _), F, uri_components(S, A, P, Q, F)).\n"
+    "'$uri_unreserved'(C) :- C >= 0'a, C =< 0'z, !.\n"
+    "'$uri_unreserved'(C) :- C >= 0'A, C =< 0'Z, !.\n"
+    "'$uri_unreserved'(C) :- C >= 0'0, C =< 0'9, !.\n"
+    "'$uri_unreserved'(C) :- memberchk(C, [0'-, 0'., 0'_, 0'~]).\n"
+    "'$uri_allowed'(_, C) :- '$uri_unreserved'(C), !.\n"
+    "'$uri_allowed'(path, C) :- memberchk(C, [0'!, 0'$, 0'&, 0'', 0'(, 0'), 0'*, 0'+, 0',, 0';, 0'=, 0':, 0'@, 0'/]), !.\n"
+    "'$uri_allowed'(segment, C) :- memberchk(C, [0'!, 0'$, 0'&, 0'', 0'(, 0'), 0'*, 0'+, 0',, 0';, 0'=, 0':, 0'@]), !.\n"
+    "'$uri_allowed'(search, C) :- memberchk(C, [0'!, 0'$, 0'&, 0'', 0'(, 0'), 0'*, 0'+, 0',, 0';, 0'=, 0':, 0'@, 0'/, 0'?]), !.\n"
+    "'$uri_allowed'(fragment, C) :- memberchk(C, [0'!, 0'$, 0'&, 0'', 0'(, 0'), 0'*, 0'+, 0',, 0';, 0'=, 0':, 0'@, 0'/, 0'?]), !.\n"
+    "'$uri_allowed'(query_value, C) :- memberchk(C, [0'!, 0'$, 0'', 0'(, 0'), 0'*, 0',, 0';, 0':, 0'@, 0'/, 0'?]), !.\n"
+    "'$uri_enc'(_, [], _, []).\n"
+    "'$uri_enc'(K, [0'%, H1, H2|Cs], 1, [0'%, H1, H2|Es]) :- '$uri_hexval'(H1, _), '$uri_hexval'(H2, _), !, '$uri_enc'(K, Cs, 1, Es).\n"
+    "'$uri_enc'(K, [C|Cs], Keep, Es) :- C < 128, '$uri_allowed'(K, C), !, Es = [C|Es1], '$uri_enc'(K, Cs, Keep, Es1).\n"
+    "'$uri_enc'(K, [C|Cs], Keep, Es) :- '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_enc'(K, Cs, Keep, Es1).\n"
+    "'$uri_pct'([], T, T).\n"
+    "'$uri_pct'([B|Bs], [0'%, H1, H2|T0], T) :- Hi is B >> 4, Lo is B /\\ 15, '$uri_hexdig'(Hi, H1), '$uri_hexdig'(Lo, H2), '$uri_pct'(Bs, T0, T).\n"
+    "'$uri_hexdig'(V, D) :- V < 10, !, D is 0'0 + V.\n"
+    "'$uri_hexdig'(V, D) :- D is 0'A + V - 10.\n"
+    "'$uri_hexval'(D, V) :- D >= 0'0, D =< 0'9, !, V is D - 0'0.\n"
+    "'$uri_hexval'(D, V) :- D >= 0'a, D =< 0'f, !, V is D - 0'a + 10.\n"
+    "'$uri_hexval'(D, V) :- D >= 0'A, D =< 0'F, V is D - 0'A + 10.\n"
+    "'$uri_utf8'(C, [C]) :- C < 0x80, !.\n"
+    "'$uri_utf8'(C, [B1, B2]) :- C < 0x800, !, B1 is 0xC0 \\/ (C >> 6), B2 is 0x80 \\/ (C /\\ 0x3F).\n"
+    "'$uri_utf8'(C, [B1, B2, B3]) :- C < 0x10000, !, B1 is 0xE0 \\/ (C >> 12), B2 is 0x80 \\/ ((C >> 6) /\\ 0x3F), B3 is 0x80 \\/ (C /\\ 0x3F).\n"
+    "'$uri_utf8'(C, [B1, B2, B3, B4]) :- B1 is 0xF0 \\/ (C >> 18), B2 is 0x80 \\/ ((C >> 12) /\\ 0x3F), B3 is 0x80 \\/ ((C >> 6) /\\ 0x3F), B4 is 0x80 \\/ (C /\\ 0x3F).\n"
+    "'$uri_dec'(Plus, Cs, Ds) :- '$uri_octets'(Plus, Cs, Os), '$uri_unutf8'(Os, Ds).\n"
+    "'$uri_octets'(_, [], []).\n"
+    "'$uri_octets'(P, [0'%, H1, H2|Cs], [o(B)|Os]) :- '$uri_hexval'(H1, V1), '$uri_hexval'(H2, V2), !, B is V1 * 16 + V2, '$uri_octets'(P, Cs, Os).\n"
+    "'$uri_octets'(1, [0'+|Cs], [c(32)|Os]) :- !, '$uri_octets'(1, Cs, Os).\n"
+    "'$uri_octets'(P, [C|Cs], [c(C)|Os]) :- '$uri_octets'(P, Cs, Os).\n"
+    "'$uri_unutf8'([], []).\n"
+    "'$uri_unutf8'([c(C)|Os], [C|Ds]) :- !, '$uri_unutf8'(Os, Ds).\n"
+    "'$uri_unutf8'([o(B)|Os], [C|Ds]) :- '$uri_seq'(B, N, V0), N > 0, '$uri_cont'(N, Os, V0, C, Os1), !, '$uri_unutf8'(Os1, Ds).\n"
+    "'$uri_unutf8'([o(B)|Os], [B|Ds]) :- '$uri_unutf8'(Os, Ds).\n"
+    "'$uri_seq'(B, 0, B) :- B < 0x80, !.\n"
+    "'$uri_seq'(B, 1, V) :- B >= 0xC0, B < 0xE0, !, V is B /\\ 0x1F.\n"
+    "'$uri_seq'(B, 2, V) :- B >= 0xE0, B < 0xF0, !, V is B /\\ 0x0F.\n"
+    "'$uri_seq'(B, 3, V) :- B >= 0xF0, B < 0xF8, V is B /\\ 0x07.\n"
+    "'$uri_cont'(0, Os, V, V, Os) :- !.\n"
+    "'$uri_cont'(N, [o(B)|Os], V0, V, Os1) :- B >= 0x80, B < 0xC0, V1 is (V0 << 6) \\/ (B /\\ 0x3F), N1 is N - 1, '$uri_cont'(N1, Os, V1, V, Os1).\n"
+    "uri_encoded(K, V, E) :- nonvar(V), !, '$uri_codes'(V, Cs), '$uri_comp'(K, K1), '$uri_enc'(K1, Cs, 0, Es), atom_codes(E, Es).\n"
+    "uri_encoded(K, V, E) :- '$uri_codes'(E, Cs), ( K == query_value -> P = 1 ; P = 0 ), '$uri_dec'(P, Cs, Ds), atom_codes(V, Ds).\n"
+    "'$uri_comp'(query_value, query_value) :- !.\n"
+    "'$uri_comp'(fragment, fragment) :- !.\n"
+    "'$uri_comp'(path, path) :- !.\n"
+    "'$uri_comp'(segment, segment) :- !.\n"
+    "'$uri_comp'(K, _) :- throw(error(domain_error(uri_component, K), _)).\n"
+    "uri_query_components(Q, L) :- nonvar(Q), !, '$uri_codes'(Q, Cs), '$uri_qparse'(Cs, L).\n"
+    "uri_query_components(Q, L) :- '$uri_qbuild'(L, Cs), atom_codes(Q, Cs).\n"
+    "'$uri_qparse'([], []) :- !.\n"
+    "'$uri_qparse'(Cs, [N = V|L]) :-\n"
+    "    ( '$uri_until'(Cs, [0'=], NC, [0'=|R0]) -> true ; throw(error(syntax_error(illegal_uri_query), _)) ),\n"
+    "    '$uri_until'(R0, [0'&, 0';], VC, R1),\n"
+    "    '$uri_dec'(1, NC, ND), atom_codes(N, ND), '$uri_dec'(1, VC, VD), atom_codes(V, VD),\n"
+    "    ( R1 = [_|R2] -> '$uri_qparse'(R2, L) ; L = [] ).\n"
+    "'$uri_qbuild'([], []).\n"
+    "'$uri_qbuild'([E|Es], Cs) :-\n"
+    "    '$uri_qpair'(E, N, V), '$uri_codes'(N, NC), '$uri_codes'(V, VC),\n"
+    "    '$uri_enc'(query_value, NC, 0, NE), '$uri_enc'(query_value, VC, 0, VE),\n"
+    "    append(NE, [0'=|VE], C0),\n"
+    "    ( Es == [] -> Cs = C0 ; '$uri_qbuild'(Es, R), append(C0, [0'&|R], Cs) ).\n"
+    "'$uri_qpair'(N = V, N, V) :- !.\n"
+    "'$uri_qpair'(N - V, N, V) :- !.\n"
+    "'$uri_qpair'(T, N, V) :- compound(T), T =.. [N, V], !.\n"
+    "'$uri_qpair'(T, _, _) :- throw(error(type_error(name_value, T), _)).\n"
+    "uri_authority_components(A, C) :- nonvar(A), !, '$uri_codes'(A, Cs), '$uri_aparse'(Cs, U, P, H, Pt), C = uri_authority(U, P, H, Pt).\n"
+    "uri_authority_components(A, uri_authority(U, P, H, Pt)) :-\n"
+    "    ( var(U) -> C1 = [] ; '$uri_codes'(U, UC), ( var(P) -> C1a = UC ; '$uri_codes'(P, PC), append(UC, [0':|PC], C1a) ), append(C1a, [0'@], C1) ),\n"
+    "    ( var(H) -> C2 = [] ; '$uri_codes'(H, C2) ),\n"
+    "    ( var(Pt) -> C3 = [] ; '$uri_codes'(Pt, PtC), C3 = [0':|PtC] ),\n"
+    "    append([C1, C2, C3], Cs), atom_codes(A, Cs).\n"
+    "'$uri_aparse'(Cs, U, P, H, Pt) :-\n"
+    "    ( '$uri_until'(Cs, [0'@], UI, [0'@|R]) -> '$uri_userinfo'(UI, U, P) ; R = Cs ),\n"
+    "    ( '$uri_until'(R, [0':], HC, [0':|PtC]) -> true ; HC = R, PtC = none ),\n"
+    "    ( HC == [] -> true ; atom_codes(H, HC) ),\n"
+    "    ( PtC == none -> true ; PtC == [] -> true ; '$uri_port'(PtC, Pt) ).\n"
+    "'$uri_userinfo'(UI, U, P) :- ( '$uri_until'(UI, [0':], UC, [0':|PC]) -> atom_codes(U, UC), atom_codes(P, PC) ; atom_codes(U, UI) ).\n"
+    "'$uri_port'(Cs, Pt) :- '$uri_digits'(Cs), !, number_codes(Pt, Cs).\n"
+    "'$uri_port'(Cs, Pt) :- atom_codes(Pt, Cs).\n"
+    "'$uri_digits'([D]) :- !, D >= 0'0, D =< 0'9.\n"
+    "'$uri_digits'([D|Ds]) :- D >= 0'0, D =< 0'9, '$uri_digits'(Ds).\n"
+    "uri_authority_data(user, uri_authority(U, _, _, _), U).\n"
+    "uri_authority_data(password, uri_authority(_, P, _, _), P).\n"
+    "uri_authority_data(host, uri_authority(_, _, H, _), H).\n"
+    "uri_authority_data(port, uri_authority(_, _, _, Pt), Pt).\n"
+    "uri_is_global(U) :- '$uri_codes'(U, Cs), '$uri_until'(Cs, [0':, 0'/, 0'?, 0'#], [C0, C1|Cr], [0':|_]), '$uri_alpha'(C0), '$uri_schemechars'([C1|Cr]).\n"
+    "'$uri_alpha'(C) :- C >= 0'a, C =< 0'z, !.\n"
+    "'$uri_alpha'(C) :- C >= 0'A, C =< 0'Z.\n"
+    "'$uri_schemechars'([]).\n"
+    "'$uri_schemechars'([C|Cs]) :- ( '$uri_alpha'(C) -> true ; C >= 0'0, C =< 0'9 -> true ; memberchk(C, [0'+, 0'-, 0'.]) ), '$uri_schemechars'(Cs).\n"
+    "uri_resolve(R, B, T) :-\n"
+    "    '$uri_codes'(R, RC), '$uri_split'(RC, Rs, Ra, Rp, Rq, Rf),\n"
+    "    '$uri_codes'(B, BC), '$uri_split'(BC, Bs, Ba, Bp, Bq, _),\n"
+    "    atom_codes(Rp, RpC), atom_codes(Bp, BpC),\n"
+    "    '$uri_resolve'(Rs, Ra, RpC, Rq, Bs, Ba, BpC, Bq, Ts, Ta, TpC, Tq),\n"
+    "    atom_codes(Tp, TpC), '$uri_build_raw'(Ts, Ta, Tp, Tq, Rf, Cs), atom_codes(T, Cs).\n"
+    "'$uri_resolve'(Rs, Ra, RpC, Rq, _, _, _, _, Rs, Ra, TpC, Rq) :- nonvar(Rs), !, '$uri_dots'(RpC, TpC).\n"
+    "'$uri_resolve'(_, Ra, RpC, Rq, Bs, _, _, _, Bs, Ra, TpC, Rq) :- nonvar(Ra), !, '$uri_dots'(RpC, TpC).\n"
+    "'$uri_resolve'(_, _, [], Rq, Bs, Ba, BpC, Bq, Bs, Ba, BpC, Tq) :- !, ( nonvar(Rq) -> Tq = Rq ; Tq = Bq ).\n"
+    "'$uri_resolve'(_, _, [0'/|Rp], Rq, Bs, Ba, _, _, Bs, Ba, TpC, Rq) :- !, '$uri_dots'([0'/|Rp], TpC).\n"
+    "'$uri_resolve'(_, _, RpC, Rq, Bs, Ba, BpC, _, Bs, Ba, TpC, Rq) :- '$uri_merge'(Ba, BpC, RpC, M), '$uri_dots'(M, TpC).\n"
+    "'$uri_merge'(Ba, [], RpC, [0'/|RpC]) :- nonvar(Ba), !.\n"
+    "'$uri_merge'(_, BpC, RpC, M) :- '$uri_lastslash'(BpC, Dir), append(Dir, RpC, M).\n"
+    "'$uri_lastslash'(Cs, Dir) :- append(Dir, Rest, Cs), last(Dir, 0'/), \\+ memberchk(0'/, Rest), !.\n"
+    "'$uri_lastslash'(_, []).\n"
+    "'$uri_build_raw'(S, A, P, Q, F, Cs) :-\n"
+    "    ( var(S) -> C1 = [] ; atom_codes(S, SC), append(SC, [0':], C1) ),\n"
+    "    ( var(A) -> C2 = [] ; atom_codes(A, AC), append([0'/, 0'/], AC, C2) ),\n"
+    "    atom_codes(P, C3),\n"
+    "    ( var(Q) -> C4 = [] ; atom_codes(Q, QC), C4 = [0'?|QC] ),\n"
+    "    ( var(F) -> C5 = [] ; atom_codes(F, FC), C5 = [0'#|FC] ),\n"
+    "    append([C1, C2, C3, C4, C5], Cs).\n"
+    "'$uri_dots'(In, Out) :- '$uri_rds'(In, [], Rev), reverse(Rev, Segs), append(Segs, Out).\n"
+    "'$uri_rds'([], Acc, Acc) :- !.\n"
+    "'$uri_rds'([0'., 0'., 0'/|In], Acc, Out) :- !, '$uri_rds'(In, Acc, Out).\n"
+    "'$uri_rds'([0'., 0'/|In], Acc, Out) :- !, '$uri_rds'(In, Acc, Out).\n"
+    "'$uri_rds'([0'/, 0'., 0'/|In], Acc, Out) :- !, '$uri_rds'([0'/|In], Acc, Out).\n"
+    "'$uri_rds'([0'/, 0'.], Acc, Out) :- !, '$uri_rds'([0'/], Acc, Out).\n"
+    "'$uri_rds'([0'/, 0'., 0'., 0'/|In], Acc, Out) :- !, '$uri_pop'(Acc, Acc1), '$uri_rds'([0'/|In], Acc1, Out).\n"
+    "'$uri_rds'([0'/, 0'., 0'.], Acc, Out) :- !, '$uri_pop'(Acc, Acc1), '$uri_rds'([0'/], Acc1, Out).\n"
+    "'$uri_rds'([0'.], Acc, Acc) :- !.\n"
+    "'$uri_rds'([0'., 0'.], Acc, Acc) :- !.\n"
+    "'$uri_rds'([0'/|In], Acc, Out) :- !, '$uri_until'(In, [0'/], Seg, Rest), '$uri_rds'(Rest, [[0'/|Seg]|Acc], Out).\n"
+    "'$uri_rds'(In, Acc, Out) :- '$uri_until'(In, [0'/], Seg, Rest), '$uri_rds'(Rest, [Seg|Acc], Out).\n"
+    "'$uri_pop'([], []).\n"
+    "'$uri_pop'([_|Acc], Acc).\n"
+    "uri_normalized(U, N) :- '$uri_norm'(uri, U, N).\n"
+    "uri_normalized(U, B, N) :- uri_resolve(U, B, A), uri_normalized(A, N).\n"
+    "iri_normalized(U, N) :- '$uri_norm'(iri, U, N).\n"
+    "iri_normalized(U, B, N) :- uri_resolve(U, B, A), iri_normalized(A, N).\n"
+    "uri_normalized_iri(U, N) :- '$uri_norm'(niri, U, N).\n"
+    "uri_normalized_iri(U, B, N) :- uri_resolve(U, B, A), uri_normalized_iri(A, N).\n"
+    "'$uri_norm'(How, U, N) :-\n"
+    "    '$uri_codes'(U, Cs), '$uri_split'(Cs, S0, A0, P0, Q0, F0),\n"
+    "    ( var(S0) -> S = S0 ; downcase_atom(S0, S) ),\n"
+    "    ( var(A0) -> A = A0 ; '$uri_lowhost'(A0, A) ),\n"
+    "    atom_codes(P0, PC0), '$uri_dots'(PC0, PC1), '$uri_esc'(How, PC1, PC), atom_codes(P, PC),\n"
+    "    '$uri_escpart'(How, Q0, Q), '$uri_escpart'(How, F0, F),\n"
+    "    '$uri_build_raw'(S, A, P, Q, F, NC), atom_codes(N, NC).\n"
+    "'$uri_lowhost'(A0, A) :- atom_codes(A0, Cs), ( '$uri_until'(Cs, [0'@], UI, [0'@|H]) -> '$uri_lower'(H, HL), append(UI, [0'@|HL], L) ; '$uri_lower'(Cs, L) ), atom_codes(A, L).\n"
+    "'$uri_lower'([], []).\n"
+    "'$uri_lower'([C|Cs], [L|Ls]) :- ( C >= 0'A, C =< 0'Z -> L is C + 32 ; L = C ), '$uri_lower'(Cs, Ls).\n"
+    "'$uri_escpart'(_, V, V) :- var(V), !.\n"
+    "'$uri_escpart'(How, V0, V) :- atom_codes(V0, C0), '$uri_esc'(How, C0, C), atom_codes(V, C).\n"
+    "'$uri_esc'(iri, Cs, Cs) :- !.\n"
+    "'$uri_esc'(How, Cs, Out) :- '$uri_escn'(How, Cs, Out).\n"
+    "'$uri_escn'(_, [], []).\n"
+    "'$uri_escn'(How, [0'%, H1, H2|Cs], Out) :- '$uri_hexval'(H1, V1), '$uri_hexval'(H2, V2), !, B is V1 * 16 + V2,\n"
+    "    ( B < 128, '$uri_unreserved'(B) -> Out = [B|Out1], Cs1 = Cs\n"
+    "    ; How == niri, B >= 0xC0, '$uri_seq'(B, N, V0), N > 0, '$uri_escoct'(N, Cs, Os, Cs1), '$uri_cont'(N, Os, V0, C, []) -> Out = [C|Out1]\n"
+    "    ; '$uri_hexdig'(V1, U1), '$uri_hexdig'(V2, U2), Out = [0'%, U1, U2|Out1], Cs1 = Cs ),\n"
+    "    '$uri_escn'(How, Cs1, Out1).\n"
+    "'$uri_escn'(How, [C|Cs], [C|Out]) :- '$uri_escn'(How, Cs, Out).\n"
+    "'$uri_escoct'(0, Cs, [], Cs) :- !.\n"
+    "'$uri_escoct'(N, [0'%, H1, H2|Cs], [o(B)|Os], Rest) :- '$uri_hexval'(H1, V1), '$uri_hexval'(H2, V2), B is V1 * 16 + V2, N1 is N - 1, '$uri_escoct'(N1, Cs, Os, Rest).\n"
+    "uri_file_name(U, F) :- nonvar(U), !, uri_components(U, uri_components(file, A, P, _, _)), ( var(A) -> true ; A == '' -> true ; A == localhost ), atom_codes(P, PC), '$uri_dec'(0, PC, FC), atom_codes(F, FC).\n"
+    "uri_file_name(U, F) :- '$uri_codes'(F, FC0), ( FC0 = [0'/|_] -> FC = FC0 ; absolute_file_name(F, Abs), atom_codes(Abs, FC) ), '$uri_enc'(path, FC, 0, PE), append([0'f, 0'i, 0'l, 0'e, 0':, 0'/, 0'/], PE, Cs), atom_codes(U, Cs).\n"
+    "uri_iri(U, I) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_iridec'(Cs, Ds), atom_codes(I, Ds).\n"
+    "uri_iri(U, I) :- '$uri_codes'(I, Cs), '$uri_irienc'(Cs, Es), atom_codes(U, Es).\n"
+    "'$uri_iridec'([], []).\n"
+    "'$uri_iridec'([0'%, H1, H2|Cs], [C|Ds]) :- '$uri_hexval'(H1, V1), '$uri_hexval'(H2, V2), B is V1 * 16 + V2, B >= 0xC0, '$uri_seq'(B, N, V0), N > 0, '$uri_escoct'(N, Cs, Os, Cs1), '$uri_cont'(N, Os, V0, C, []), !, '$uri_iridec'(Cs1, Ds).\n"
+    "'$uri_iridec'([C|Cs], [C|Ds]) :- '$uri_iridec'(Cs, Ds).\n"
+    "'$uri_irienc'([], []).\n"
+    "'$uri_irienc'([C|Cs], Es) :- C >= 128, !, '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_irienc'(Cs, Es1).\n"
+    "'$uri_irienc'([C|Cs], [C|Es]) :- '$uri_irienc'(Cs, Es).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
+    { "writef", 1 },
+    { "writef", 2 },
+    { "swritef", 2 },
+    { "swritef", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_72_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -34096,7 +34335,7 @@ static const char PL_PRELUDE_LIB_71_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -34121,20 +34360,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "set_xsb_param", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
+static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_72_SRC[] =
+static const char PL_PRELUDE_LIB_73_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -34179,7 +34418,7 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "index", 2 },
     { "index", 3 },
     { "do_all", 1 },
@@ -34228,24 +34467,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "attv_unify", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_73_SRC[] =
+static const char PL_PRELUDE_LIB_74_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
@@ -34369,29 +34608,29 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -34429,20 +34668,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "$tbl $xt_ntp", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
     { 0, 0, 0 }
 };
-static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
+static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_75_SRC[] =
+static const char PL_PRELUDE_LIB_76_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -34583,10 +34822,11 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "tabling", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
     { "terms", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
     { "ugraphs", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
-    { "xsb_dialect", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "uri", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
