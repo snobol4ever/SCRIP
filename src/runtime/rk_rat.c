@@ -169,6 +169,7 @@ static int rq_str_dbl(DESCR_t v, double *out) {
     *out = d;
     return 1;
 }
+RT_ENTRY_DECL(rk_rat_binop, leaf, 0);
 int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (!rq_kind(a) && !rq_kind(b)) return 0;
     DESCR_t an, ad, bn, bd;

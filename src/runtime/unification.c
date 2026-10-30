@@ -4117,6 +4117,7 @@ static void pl_ix_note(pl_db_t *db, int i, int prepend) {
     pl_ix_link(x, i, k, prepend);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_db_cand_first, leaf, 0);
 int rt_pl_db_cand_first(void *db_v, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_ix_t *x;
@@ -4131,6 +4132,7 @@ int rt_pl_db_cand_first(void *db_v, void *target) {
     return e ? e->first : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_db_cand_next, leaf, 0);
 int rt_pl_db_cand_next(void *db_v, int i, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_ix_t *x;
@@ -4145,6 +4147,7 @@ int rt_pl_db_cand_next(void *db_v, int i, void *target) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_db_cand_last, leaf, 0);
 int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n) return 1;
@@ -4860,6 +4863,7 @@ void rt_pl_db_meta_decl(void *root, const char *name, int64_t arity, const char 
 int rt_pl_db_key_line(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return e ? e->line : 0; }
 int rt_pl_db_key_mf(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return e ? e->mf : 0; }
 int rt_pl_db_cells_base(void *root, int64_t n);
+RT_ENTRY_DECL(rt_pl_db_decls_install, leaf, 0);
 void rt_pl_db_decls_install(const long *tab, void *root) {
     extern const char *prolog_atom_name(int);
     long cells;
@@ -5160,6 +5164,7 @@ static void pl_db_place(void *root, pl_db_t *db, int i) {
     if (leaving) pl_db_install_first(root, db);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_db_slot_ensure, leaf, 0);
 int rt_pl_db_slot_ensure(void *root, void *db_v, int i) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n) return 0;

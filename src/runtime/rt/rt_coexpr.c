@@ -176,8 +176,10 @@ static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_co_env, leaf, 0);
 uint64_t *rt_co_env(void) { return (g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx))->env; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coret, leaf, 0);
 uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting g_scrip_co_current)");
     g_scrip_co_current->resume_addr = resume_addr;
@@ -194,6 +196,7 @@ uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     return me->env;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_cofail, leaf, 0);
 void scrip_cofail(void) {
     if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
     scrip_coctx_t *me = g_scrip_co_current;
@@ -248,6 +251,7 @@ __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
     ".globl rt_genp_n2_conts\n" "rt_genp_n2_conts:\n" ".quad 5b\n" ".quad 6b\n" ".popsection\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coexpr_create, leaf, 0);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
     g_runtime.gc.scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
@@ -341,6 +345,7 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     return fresh;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coexpr_activate, leaf, 0);
 scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
     if ((uint8_t)tagw != DT_CO) {
         extern int core_icn_error(int code, DESCR_t val);

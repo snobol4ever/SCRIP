@@ -308,6 +308,7 @@ static const char * rt_coerce_errmsg(int code) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * rt_coerce_errtext(int code) { return rt_coerce_errmsg(code); }
+RT_ENTRY_DECL(rt_coerce_str_d, leaf, 0);
 int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int tc = (int)(codes & 0xffff);
@@ -420,6 +421,7 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; } else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_coerce_int_d, leaf, 0);
 int rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
@@ -450,6 +452,7 @@ static DESCR_t g_prim_val;
 void rt_eval_stage_enter(const char *name);
 void rt_eval_stage_leave_word(long word);
 rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered);
+RT_ENTRY_DECL(rt_pat_prim_open, open, 1);
 rt_call_next_t rt_pat_prim_open(const char *varname) {
     extern int rt_proc_is_registered(const char *name);
     if (varname && varname[0] == '*' && (unsigned char)varname[1] == 1) {
@@ -484,6 +487,7 @@ static long rt_pat_prim_int_error(int code) {
     if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
     return -1;
 }
+RT_ENTRY_DECL(rt_pat_prim_int_take, leaf, 0);
 long rt_pat_prim_int_take(long code) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val;
@@ -500,6 +504,7 @@ long rt_pat_prim_int_take(long code) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pat_prim_member, leaf, 0);
 long rt_pat_prim_member(int ch, long codes) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val, s;
@@ -515,6 +520,7 @@ long rt_pat_prim_member(int ch, long codes) {
     return (s.s && s.slen && memchr(s.s, ch, (size_t)s.slen)) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pat_prim_str_take, leaf, 0);
 long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val;
@@ -532,6 +538,7 @@ long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_coerce_real_d, leaf, 0);
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
@@ -766,6 +773,7 @@ __asm__( ".text\n" ".globl rt_ab_undef_sig_stub\n" ".type rt_ab_undef_sig_stub, 
     "  call rt_ab_undef_fn_fail\n" "  call rt_ret_faildescr\n" "  popq %rcx\n" "  popq %r8\n" "  movq %r8, %rsp\n" "  jmp *16(%rcx)\n" ".size rt_ab_undef_sig_stub, .-rt_ab_undef_sig_stub\n" );
 void rt_ab_undef_sig_stub(void);
 static inline int rt_alpha_unsealed(const void *v) { return !v || v == (const void *)(uintptr_t)rt_ab_undef_fn_stub || v == (const void *)(uintptr_t)rt_ab_undef_sig_stub; }
+RT_ENTRY_DECL(rt_ab_undef_fn_fail, leaf, 0);
 void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function called"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
@@ -949,6 +957,7 @@ int rt_proc_jmp_entry(const char *name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_fn, open, 1);
 void *rt_proc_fn(const char *name) {
     if (!name) return (void *)0;
     { int i = rt_proc_index_of(name); if (i >= 0) return (void *)g_runtime.abi.rt_gen_procs[i].fn; }
@@ -1099,6 +1108,7 @@ void rt_proc_set_pinned(const char *name, int v) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_pinned, leaf, 0);
 int rt_proc_pinned(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); return (i >= 0) ? g_runtime.abi.rt_gen_procs[i].pinned : 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen) {
@@ -1169,6 +1179,7 @@ gv_t g_call_args;
 void rt_call_args_need(int n) { uint64_t w = (uint64_t)(n > 8 ? n : 8); gv_reserve(&g_call_args, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), w, "g_call_args"); }
 void rt_call_args_clear_from(int n) { DESCR_t *a = CALL_ARGS; for (uint32_t i = (uint32_t)(n < 0 ? 0 : n); a && i < g_call_args.cap; i++) memset(&a[i], 0, sizeof(DESCR_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_arg_stage, leaf, 0);
 void rt_arg_stage(int idx, DESCR_t v) { if (idx < 0) return; rt_call_args_need(idx + 1); CALL_ARGS[idx] = v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
@@ -1554,6 +1565,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p);
 static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_runtime.misc.monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_runtime.misc.monitor_quiet_depth--; return v; }
 static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_runtime.misc.monitor_quiet_depth++; NV_SET_fn(nm, v); g_runtime.misc.monitor_quiet_depth--; }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
+RT_ENTRY_DECL(rt_shim_nv_in, leaf, 0);
 void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
     if (!p || !cells || !sig || !base) return;
@@ -1601,12 +1613,14 @@ static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells) {
         rt_shim_cell_set(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm, cells[j]);
     }
 }
+RT_ENTRY_DECL(rt_shim_nv_gamma, leaf, 0);
 DESCR_t rt_shim_nv_gamma(const char *proc, DESCR_t *cells) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
     if (!p || !cells) return NULVCL;
     rt_proc_resolve_cells(p);
     { const char *rn = p->result_name ? p->result_name : p->name; DESCR_t r = (rn && rt_shim_nv_name(rn)) ? rt_shim_cell_get(p->rcell, rn) : NULVCL; rt_shim_nv_restore(p, cells); return r; }
 }
+RT_ENTRY_DECL(rt_shim_nv_omega, leaf, 0);
 void rt_shim_nv_omega(const char *proc, DESCR_t *cells) { rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (p && cells) rt_shim_nv_restore(p, cells); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_initial_fire(int64_t site) {
@@ -1740,6 +1754,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_drop_frame_h, leaf, 0);
 void rt_proc_drop_frame_h(void **hslot) { void *frame = hslot ? *hslot : (void *)0; if (!frame) return; { rt_genp_s *g = rt_genp_lookup(frame); if (g) rt_genp_destroy(g); } *hslot = (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_frame_h(void **hslot) {
@@ -2002,6 +2017,7 @@ int rt_pl_dc_ok(const char *name, int nargs) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_dc_prep, leaf, 0);
 void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx) {
     (void)idx;
     DESCR_t *zf = (DESCR_t *)fb;
@@ -2091,6 +2107,7 @@ static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs) {
     return fb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_open, leaf, 0);
 long rt_proc_call_open(const char *name, int nargs) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; if (!p && name) p = rt_proc_find_alias(name); return rt_proc_call_open_p(&p, nargs); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_call_open_fnret(const char *name, int nargs) {
@@ -2099,6 +2116,7 @@ void *rt_proc_call_open_fnret(const char *name, int nargs) {
     return rt_proc_call_open_p(&p, nargs) ? (void *)p->fn : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_open_det, open, 1);
 void *rt_proc_call_open_det(long idx, int nargs) {
     if (idx < 0 || idx >= g_runtime.rt.rt_gen_proc_count) return (void *)0;
     {
@@ -2160,6 +2178,7 @@ void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DE
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep(void *fb, long region_bytes) { (void)fb; (void)region_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_jmp_frame_lexprep2, leaf, 0);
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes) { (void)suffix_off; memset(fb, 0, (size_t)region_bytes); }
 void *rt_frame_prep(void *fb, long fbytes) { (void)fb; (void)fbytes; return (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2202,6 +2221,7 @@ int rt_proc_gen_region_ft(const char *name) { rt_proc_t *p = rt_proc_find(name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_frame_bytes(const char *name, int bytes) { rt_proc_t *p = rt_proc_find(name); if (p && bytes > p->frame_bytes) p->frame_bytes = bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_define_bind_entry, leaf, 0);
 void rt_define_bind_entry(const char *fname, const char *entry) {
     extern void *rt_entry_resolve(const char *, int *);
     extern void *bb_ab_fn_cell_ptr(const char *);
@@ -2275,6 +2295,7 @@ void rt_proc_opsyn_bind(const char *nm, const char *old) {
     { rt_proc_t *p = rt_proc_find(key); if (p) rt_sno_shim_refresh_ent(p, nm, (void *)o.fn); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_define_site, leaf, 0);
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     {
@@ -2335,6 +2356,7 @@ void rt_define_site(const char *name, const char *params_csv, int nparams, int n
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_define_site_entry, leaf, 0);
 void rt_define_site_entry(const char *name, const char *entry) {
     extern void *rt_entry_resolve(const char *, int *);
     if (!name || !*name || !entry || !*entry) return;
@@ -2452,6 +2474,7 @@ DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t *cur) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_list_bang_key_at, leaf, 0);
 DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur) {
     extern int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t *out);
     extern int core_icn_error(int, DESCR_t);

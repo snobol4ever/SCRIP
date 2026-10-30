@@ -201,6 +201,7 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(dtp_fn_of, open, 1);
 void *dtp_fn_of(void *headv) {
     DTP_t *h = (DTP_t *)headv;
     if (!h) return (void *)0;
@@ -1228,6 +1229,7 @@ rt_dcap_next_t rt_dcap_land_ω(rt_dcf_t *c) {
     return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_dcap_resume, open, 1);
 rt_dcap_next_t rt_dcap_resume(rt_dcf_t *c) {
     if (!c) { rt_bomb("rt_dcap_resume: no spine record -- release_pump passes the one it carved"); return (rt_dcap_next_t){ 1, 0 }; }
     if (c->pend.args[0].v) { rt_bomb("rt_dcap_resume: the pending value trace is still open -- release_pump runs bb_glue_trace_pend_run before it resumes the pump"); return (rt_dcap_next_t){ 1, 0 }; }
@@ -1432,6 +1434,7 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n) {
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_at_cursor, leaf, 0);
 long rt_at_cursor(const char *varname, int cur_delta, trace_pend_t *pend) {
     if (!varname || !*varname) return 0;
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
@@ -1478,6 +1481,7 @@ static void rt_at_cursor_assign(DESCR_t nm, DESCR_t pos, trace_pend_t *pend) {
     else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_p_fn(nm.s, pos, pend);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_at_cursor_open, open, 1);
 rt_dcap_next_t rt_at_cursor_open(const char *varname, int cur_delta, rt_atco_t *rec) {
     extern rt_dcap_next_t rt_call_open_by_name(const char *, int);
     extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
@@ -1663,6 +1667,7 @@ rt_dcap_next_t c_rt_defer_open_cell(DESCR_t *cell, int ival_flag, rt_dfx_t *rec)
     return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_open_entry, open, 1);
 rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag, rt_dfx_t *rec) {
     rt_dfx_t *s = rt_dfx_init(rec);
     if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
@@ -1681,8 +1686,10 @@ rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag, rt_dfx_t 
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_open_rec, open, 1);
 rt_dcap_next_t rt_defer_open_rec(sno_dstar_rec_t *r, rt_dfx_t *rec) { rt_dfx_t *s = rt_dfx_init(rec); DESCR_t x = NULVCL; x.v = DT_X; x.slen = 0; x.p = r; return rt_defer_resolve(s, x); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_patv_defer_open_entry, open, 1);
 rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag, rt_dfx_t *rec) {
     rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t val;
@@ -1696,6 +1703,7 @@ rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word, rt_dfx_t *s) {
     { DESCR_t r = rt_call_land_γ(frame0, word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_land_chain, open, 1);
 rt_dcap_next_t rt_defer_land_chain(long word, rt_dfx_t *s) {
     extern DESCR_t rt_conve_chain_land(eval_frame_t *);
     (void)word;
@@ -1762,6 +1770,7 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag) {
     { DESCR_t val = rt_defer_nv_read(fb); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_cap_assign_patv, leaf, 0);
 long rt_cap_assign_patv(void *hv, long i, const char *fb, int saved_delta, int cur_delta) {
     DESCR_t nm = patv_slot(hv, i, fb, 0);
     trace_pend_t pend;
@@ -1779,6 +1788,7 @@ long rt_cap_assign_patv(void *hv, long i, const char *fb, int saved_delta, int c
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_at_cursor_patv, leaf, 0);
 long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta) {
     DESCR_t nm = patv_slot(hv, i, fb, 0);
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
@@ -1786,6 +1796,7 @@ long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_patv_defer_get_pat_dtp, leaf, 0);
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb) {
     { DTP_t *h = (DTP_t *)hv; if (h && h->snap && i >= 0 && i < h->nsnap) { DESCR_t sv = h->snap[i]; if (sv.v == DT_P && sv.p && ((DTP_t *)sv.p)->fn) return sv.p; } }
     { DESCR_t v = patv_slot(hv, i, fb, 0); if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; } }
@@ -1838,6 +1849,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_probe_run, open, 1);
 rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site) {
     extern void *dtp_fn_of(void *);
     rt_defer_pr_t r;
@@ -1867,8 +1879,10 @@ rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_match_value_get_pat_fn(DESCR_t *pval) { if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); return dtp_fn_of(pval->p); } return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_match_value_get_pat_dtp, leaf, 0);
 void *rt_match_value_get_pat_dtp(DESCR_t *pval) { if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); dtp_fn_of(pval->p); return pval->p; } return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_match_value_open, leaf, 0);
 long rt_match_value_open(DESCR_t *pval, rt_dfx_t *rec) {
     rt_dfx_t *s = rt_dfx_init(rec);
     if (!s) return 0;
@@ -2055,6 +2069,7 @@ DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_data_is_record_inst(DESCR_t obj) { DESCR_t *e = 0; int n = 0; return IS_DATA_INST_fn(obj) && obj.u && obj.u->type && obj.u->type->name && !rt_list_view(obj, &e, &n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(icn_field_get, leaf, 0);
 DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
@@ -2098,6 +2113,7 @@ static DESCR_t rt_field_var_cell(const char *fname, DESCR_t obj, DESCR_t *cell) 
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_field_var, leaf, 0);
 DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
@@ -2119,6 +2135,7 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_field_var_strict, leaf, 0);
 DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
@@ -2146,6 +2163,7 @@ DESCR_t c_rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t *cur, int elems_only);
+RT_ENTRY_DECL(rt_list_bang_var_at, leaf, 0);
 DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur) { return rt_list_bang_var_body(obj, cur, 0); }
 static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t *cur, int elems_only) {
     extern long rt_lvb_cursor(DESCR_t, int64_t *, int);
@@ -2238,6 +2256,7 @@ static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t *cur, int elems_only) 
     { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t *); return rt_list_bang_at(obj, cur); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_list_bang_elem_at, leaf, 0);
 DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur) { return rt_list_bang_var_body(obj, cur, 1); }
 DESCR_t rt_var_table_elem(DESCR_t d, DESCR_t *tbl_out, DESCR_t *key_out) {
     if (!IS_NAMETRAP_fn(d)) { if (tbl_out) tbl_out->v = DT_FAIL; return FAILDESCR; }
@@ -2374,6 +2393,7 @@ static DESCR_t rt_section_var_s(DESCR_t base, DESCR_t i1d, DESCR_t i2d, int stri
     return subscript_get2_s(base, i1d, i2d, strict);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_var_ref_cell_named, leaf, 0);
 DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name) {
     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
     vc->cellp = cellp;
@@ -2397,6 +2417,7 @@ DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_var, leaf, 0);
 DESCR_t rt_keyword_var(const char *name) {
     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
     vc->cellp = 0;
@@ -2614,6 +2635,7 @@ static int swap_tvsubs_fits(const VCELL_t *c) {
     long slen = sd.slen ? (long)sd.slen : (sd.s ? (long)strlen(sd.s) : 0);
     return c->pos + c->len - 1 <= slen;
 }
+RT_ENTRY_DECL(rt_swap_var, leaf, 0);
 DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     if (!IS_VARREF_fn(va) || !IS_VARREF_fn(vb)) return FAILDESCR;
     if (!IS_NAMETRAP_fn(va) || !IS_NAMETRAP_fn(vb)) {

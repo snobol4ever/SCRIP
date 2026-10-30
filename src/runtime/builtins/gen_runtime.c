@@ -18,6 +18,7 @@ extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int64_t v; int64_t ok; } WindowPos;
+RT_ENTRY_DECL(rt_icn_window_pos, leaf, 0);
 WindowPos rt_icn_window_pos(uint64_t lo, uint64_t hi) {
     extern int core_icn_int_ok_d(DESCR_t);
     extern int core_icn_error(int, DESCR_t);
@@ -36,6 +37,7 @@ WindowPos rt_icn_window_pos(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_icn_subject_coerce, leaf, 0);
 ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     uint64_t w[2];
     w[0] = lo;
@@ -64,6 +66,7 @@ ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_icn_needle_coerce, leaf, 0);
 ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -172,6 +175,7 @@ static long cvpos_of(DESCR_t v, long len, int *ok) {
     return (i > 0) ? i : (len + i + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_cvpos_pos, leaf, 0);
 int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
@@ -195,6 +199,7 @@ static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_rev_swap_fwd, leaf, 0);
 DESCR_t rt_rev_swap_fwd(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_t *save, int64_t *spill) {
     DESCR_t old_l = rsw_get(lkind, lp, spill);
     DESCR_t old_r = rsw_get(rkind, rp, spill);
@@ -205,12 +210,14 @@ DESCR_t rt_rev_swap_fwd(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_
     return old_r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_rev_swap_undo, leaf, 0);
 DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_t *save, int64_t *spill) {
     if (!rsw_set(lkind, lp, spill, save[0])) return FAILDESCR;
     rsw_set(rkind, rp, spill, save[1]);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_random_set, leaf, 0);
 DESCR_t rt_keyword_random_set(DESCR_t v) {
     long i;
     if (v.v == DT_I) i = (long)v.i;
@@ -220,6 +227,7 @@ DESCR_t rt_keyword_random_set(DESCR_t v) {
     return INTVAL((int64_t)i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_error_set, leaf, 0);
 DESCR_t rt_keyword_error_set(DESCR_t v) {
     long i;
     if (v.v == DT_I) i = (long)v.i;
@@ -230,6 +238,7 @@ DESCR_t rt_keyword_error_set(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
+RT_ENTRY_DECL(rt_keyword_trace_set, leaf, 0);
 DESCR_t rt_keyword_trace_set(DESCR_t v) {
     long i;
     if (v.v == DT_I) i = (long)v.i;
@@ -250,6 +259,7 @@ DESCR_t rt_keyword_trace_set(DESCR_t v) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_dump_set, leaf, 0);
 DESCR_t rt_keyword_dump_set(DESCR_t v) {
     long i;
     if (v.v == DT_I) i = (long)v.i;

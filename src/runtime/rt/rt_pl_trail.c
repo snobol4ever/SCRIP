@@ -60,6 +60,7 @@ void pl_tr_gc_root_ball(const char *base) {
     { void **ws = pl_tr_wslot_slot(base); if (*ws) rt_gc_visit_raw((const char **)ws); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_tr_refuse, leaf, 0);
 void rt_pl_tr_refuse(const char *tr) {
     unsigned long used = (unsigned long)((uintptr_t)tr & (PL_TR_ARENA_BYTES - 1)) / PL_TR_ENTRY_BYTES;
     fprintf(stderr, "scrip: prolog: trail arena exhausted after %lu conditional bindings (PL_TR_ARENA_LG2=%d, %lu MB) -- REFUSE rc=2, not a wrong answer\n", used, (int)PL_TR_ARENA_LG2,

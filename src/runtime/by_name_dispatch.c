@@ -412,6 +412,7 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
+RT_ENTRY_DECL(rt_pl_fresh_var_ref, leaf, 0);
 DESCR_t rt_pl_fresh_var_ref(uint64_t r14) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); pl_tr_ctx_t rcx = { 0 }; rcx.r14 = r14; pl_var_make(j, &rcx, 0); return pl_make_ref(j, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name) {
@@ -688,6 +689,7 @@ static const char *rk_match_text(DESCR_t d);
 static int rk_match_is_nil(DESCR_t d) { if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0; return FIELD_GET_fn(d, "ok").i == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_agg_truth(DESCR_t v);
+RT_ENTRY_DECL(rk_is_truthy, leaf, 0);
 int rk_is_truthy(DESCR_t v) {
     extern int rt_is_truthy(DESCR_t);
     if (rk_match_is_nil(v)) return 0;
@@ -4551,6 +4553,7 @@ static rt_call_next_t rk_redispatch_open(DESCR_t *args, int nargs, void *recp, i
 rt_call_next_t rk_callsame_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 0); }
 rt_call_next_t rk_callwith_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_apply_open, open, 1);
 rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
     extern rt_call_next_t rt_call_open_by_name(const char *, int);
     extern int rt_proc_is_registered(const char *);
@@ -4642,6 +4645,7 @@ void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) { rt_fire_buildplan_tweak_rq(cname, self, (long *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_tweak_open, leaf, 0);
 long rt_tweak_open(DESCR_t *out, const char *cname, trace_pend_t *pend) {
     if (!out || !cname || !*cname || !pend || !IS_DATA_INST_fn(*out)) return 0;
     pend->args[0] = STRVAL(rt_heap_fmt("%s__TWEAK", cname));
@@ -5083,6 +5087,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     return RT_GC_CALLBACK(rt_call_arr_strict(nm, argv, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_call_value_gen_h, gen, 0);
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
     if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
@@ -5159,6 +5164,7 @@ int rt_apply_unpack(DESCR_t lv, DESCR_t *buf, int cap) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_call_apply_gen_h, gen, 0);
 DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
     int an = rt_apply_unpack(lv, (DESCR_t *)0, 0);
     DESCR_t buf[an > 0 ? an : 1];
@@ -5217,7 +5223,9 @@ static CVSPINE_t rt_call_value_spine_prep_x(DESCR_t callee, DESCR_t *argv, int n
         return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), (gen ? 0 : 2) | ((long)(blk > 0 ? blk : 0) << 8) | ((long)((gen || rt_proc_dyn_scope(nm)) ? 1 : 0) << 16) };
     }
 }
+RT_ENTRY_DECL(rt_call_value_spine_prep, open, 1);
 CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) { return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, argv, n, 0)); }
+RT_ENTRY_DECL(rt_call_value_spine_prep_blk, open, 1);
 CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
     return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, argv, n, 1));
@@ -5230,7 +5238,9 @@ static CVSPINE_t rt_call_apply_spine_prep_x(DESCR_t callee, DESCR_t lv, int blk_
     if (n < 0) return (CVSPINE_t){ 0, 0 };
     return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, buf, n, blk_ok));
 }
+RT_ENTRY_DECL(rt_call_apply_spine_prep, open, 1);
 CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) { return rt_call_apply_spine_prep_x(callee, lv, 0); }
+RT_ENTRY_DECL(rt_call_apply_spine_prep_blk, open, 1);
 CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot) {
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
     return rt_call_apply_spine_prep_x(callee, lv, 1);
@@ -5374,6 +5384,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     return rt_proc_call_gen_h(key, ar + n, hslot, regs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_call_value_resume_h, gen, 0);
 DESCR_t rt_call_value_resume_h(void **hslot, int n) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
     if (!hslot || !*hslot) return FAILDESCR;
@@ -6767,6 +6778,7 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_unify_const_cold, leaf, 0);
 int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) { if (atom) return c->v == DT_PLATOM && c->i == k; return c->v == DT_I && c->i == k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_eng_inst_is(DESCR_t);
@@ -19255,6 +19267,7 @@ static const unsigned short g_pas_bi_bid[PBI_COUNT_] = { [PBI_abs] = BID___pas_a
     [PBI_sin] = BID___pas_sin, [PBI_sqrt] = BID___pas_sqrt, [PBI_trunc] = BID___pas_trunc, [PBI_write] = BID___pas_write, [PBI_writeln] = BID___pas_writeln, [PBI_round] = BID___pas_round,
     [PBI_halt] = BID___pas_halt, [PBI_frac] = BID___pas_frac, [PBI_assert] = BID___pas_assert, [PBI_pos] = BID___pas_pos, [PBI_mkdir] = BID___pas_mkdir, [PBI_rmdir] = BID___pas_rmdir,
     [PBI_swapendian] = BID___pas_swapendian, };
+RT_ENTRY_DECL(rt_call_pas_bi, leaf, 0);
 DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
     DESCR_t out = FAILDESCR;
     const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
@@ -19404,6 +19417,7 @@ static void rt_crec_fill(sno_callee_rec_t *r) {
     r->fi = same ? fi : -1;
     r->gen1 = rt_dtax_gen + 1u;
 }
+RT_ENTRY_DECL(rt_call_fld_sn4, leaf, 0);
 DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r) {
     extern unsigned rt_dtax_gen;
     extern const void *dat_type_blk(int);
@@ -19747,6 +19761,7 @@ static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 0)); }
 DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_make_list, leaf, 0);
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_reg3 = 1; }
@@ -26429,6 +26444,7 @@ static int rk_box_class_member(const char *p, unsigned c) {
     }
     return in;
 }
+RT_ENTRY_DECL(rk_box_step, leaf, 0);
 long rk_box_step(const char *subj, long delta, long end, const char *blob) {
     const char *spec = blob ? strchr(blob, ';') : (const char *) 0;
     if (!spec) return -1;
@@ -26438,6 +26454,7 @@ long rk_box_step(const char *subj, long delta, long end, const char *blob) {
     if (blob[0] == 'C') { int l; unsigned c; if (delta >= end) return -1; c = rk_box_cp(subj, delta, end, &l); return rk_box_class_member(spec, c) ? delta + l : -1; }
     return -1;
 }
+RT_ENTRY_DECL(rk_box_back, leaf, 0);
 long rk_box_back(const char *subj, long delta, const char *blob, long floor_delta) {
     const char *spec = blob ? strchr(blob, ';') : (const char *) 0;
     if (spec && blob[0] == 'L') { long k = (long) strlen(spec + 1); return delta - k >= floor_delta ? delta - k : floor_delta; }
@@ -26447,6 +26464,7 @@ long rk_box_back(const char *subj, long delta, const char *blob, long floor_delt
     return delta;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rk_box_match_build, leaf, 0);
 void rk_box_match_build(const char *subj, long span, const long *cells, const char *names) {
     int start = (int) (span >> 32), end = (int) (span & 0xFFFFFFFFL), n = (int) (cells[0] & 0xFFFFFFFFL), slen = (int) (cells[0] >> 32);
     const int *pairs = (const int *) (cells + 1);

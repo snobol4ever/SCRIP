@@ -4078,6 +4078,7 @@ __asm__( ".text\n" ".globl rt_gc_poll_slow\n" ".type rt_gc_poll_slow,@function\n
     "  popq %r8 ; .cfi_adjust_cfa_offset -8\n" "  popq %rdi ; .cfi_adjust_cfa_offset -8\n" "  popq %rsi ; .cfi_adjust_cfa_offset -8\n" "  popq %rdx ; .cfi_adjust_cfa_offset -8\n"
     "  popq %rcx ; .cfi_adjust_cfa_offset -8\n" "  popq %rax ; .cfi_adjust_cfa_offset -8\n" "  ret\n" "  .cfi_endproc\n" ".size rt_gc_poll_slow,.-rt_gc_poll_slow\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_gc_poll_asm, leaf, 0);
 __asm__( ".text\n" ".globl rt_gc_poll_asm\n" ".type rt_gc_poll_asm,@function\n" "rt_gc_poll_asm:\n" "  .cfi_startproc\n" "  cmpl $0, g_runtime+" GRT_S(G_RT_OFF_GC_IN)
     "(%rip)\n" "  jne  9f\n" "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n" "  movq g_gc_pending@GOTPCREL(%rip), %r11\n" "  cmpl $0, (%r11)\n" "  jne  2f\n" "  movq g_runtime+" GRT_S(G_RT_OFF_HP_GCLINE)
     "(%rip), %r11\n" "  testq %r11, %r11\n" "  je   1f\n" "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  movq g_runtime@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  cmpq %r11, %r10\n"

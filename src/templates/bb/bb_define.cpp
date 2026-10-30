@@ -59,6 +59,7 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(bb_ab_seal_alpha, leaf, 0);
 extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
     char cell[fmt_len("alpha$%s", pname)]; snprintf(cell, sizeof cell, "alpha$%s", pname);

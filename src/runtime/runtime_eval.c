@@ -786,7 +786,9 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
     g_runtime.abi.error = eval_marker_here(pe);
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
+RT_ENTRY_DECL(rt_eval_open, open, 1);
 rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 0); }
+RT_ENTRY_DECL(rt_eval_open_raise, open, 1);
 rt_eval_next_t rt_eval_open_raise(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
@@ -809,6 +811,7 @@ DESCR_t rt_conve_chain_land(eval_frame_t *f) {
     return eval_frame_land(f, !erred);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_eval_land, leaf, 0);
 DESCR_t rt_eval_land(long word) {
     eval_frame_t *f = (eval_frame_t *)(uintptr_t)word;
     if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_eval_land: %p is not an opened EVAL record on the spine\n", (void *)f); abort(); }
@@ -891,6 +894,7 @@ static const char *rt_goto_peek_name(const char *name) {
     return VARVAL_fn(iv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sno_goto_special_is, leaf, 0);
 int rt_sno_goto_special_is(const char *enc) {
     if (!enc || enc[0] != '^' || !enc[1]) return 0;
     const char *want = (enc[1] == 'R') ? "RETURN" : (enc[1] == 'F') ? "FRETURN" : (enc[1] == 'N') ? "NRETURN" : NULL;
@@ -948,6 +952,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_goto_resolve, open, 1);
 void *rt_goto_resolve(const char *name) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 0; return rt_goto_resolve_x(name, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_entry_resolve(const char *name, int *is_frag) {
