@@ -26,8 +26,11 @@ const pty_t *pty_rec_by_name(const char *name);
 void pty_note_recname(const char *name, const tree_t *recnode);
 int pty_rec_nf(const pty_t *r);
 int pty_rec_layout(const pty_t *r, long long *sz, long long *al);
+const char *pty_sel_rtype(const tree_t *low);
+void pty_note_temp(const char *name, const tree_t *like);
 int pty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al);
 int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o);
+const char *pty_fld_typename(const pty_t *r, int i);
 const char *pty_name_of(const pty_t *t);
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
     char **fldptrto, char **fldrec, char **fldenum, long long *fldov);

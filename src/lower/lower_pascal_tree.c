@@ -2685,12 +2685,7 @@ static int pas_pend_is_rectype(const char *rn) {
 }
 static int pas_rectype_field_is_ca(const char *rn, long idx) { struct pty_fld f; return pas_rtf(rn, idx, &f) ? f.ca != 0 : 0; }
 static int pas_rectype_field_is_char(const char *rn, long idx) { struct pty_fld f; return pas_rtf(rn, idx, &f) ? f.ch == 1 : 0; }
-static const char *pas_rectype_field_typename(const char *rn, long idx) {
-    if (!rn || idx < 0) return NULL;
-    for (int i = 0; i < g_lower.pas.sem.pas_nrectype; i++) if (g_lower.pas.sem.pas_rectypes[i].tname && !strcmp(g_lower.pas.sem.pas_rectypes[i].tname, rn)) return idx < g_lower.pas.sem.pas_rectypes[i]
-        .nf ? g_lower.pas.sem.pas_rectypes[i].fldtypename[idx] : NULL;
-    return NULL;
-}
+static const char *pas_rectype_field_typename(const char *rn, long idx) { const pty_t *t = rn && idx >= 0 ? pty_rec_by_name(rn) : NULL; return t ? pty_fld_typename(t, (int)idx) : NULL; }
 static int pas_rectype_field_is_bool(const char *rn, long idx) { struct pty_fld f; return pas_rtf(rn, idx, &f) ? f.ch == 2 : 0; }
 static int pas_rectype_field_is_na(const char *rn, long idx) { struct pty_fld f; return pas_rtf(rn, idx, &f) ? f.na != 0 : 0; }
 static long long pas_rectype_field_na_lo(const char *rn, long idx) { struct pty_fld f; return pas_rtf(rn, idx, &f) ? f.nalo : 0; }
@@ -3196,42 +3191,7 @@ static tree_t *pas_tree_clone(tree_t *e) {
     for (int i = 0; i < e->n; i++) ast_push(c, pas_tree_clone(e->c[i]));
     return c;
 }
-static const char *pas_with_sel_rtype(tree_t *sel) {
-    if (!sel) return NULL;
-    { const char *_er = pas_elem_rectype(sel); if (_er) return _er; }
-    if (sel->t == TT_VAR && sel->v.sval) {
-        for (int i = g_lower.pas.sem.pas_nrecvar - 1; i >= 0; i--) if (g_lower.pas.sem.pas_recvars[i].vname && !strcmp(g_lower.pas.sem.pas_recvars[i].vname, sel->v.sval)) {
-            const char *rt = NULL;
-            for (int j = 0; j < g_lower.pas.sem.pas_nrectype; j++) {
-                int match = 1;
-                if (!g_lower.pas.sem.pas_rectypes[j].tname) continue;
-                if (g_lower.pas.sem.pas_rectypes[j].nf != g_lower.pas.sem.pas_recvars[i].nf) continue;
-                for (int k = 0; k < g_lower.pas.sem.pas_recvars[i].nf; k++)
-                    if (!g_lower.pas.sem.pas_recvars[i].fields[k] || !g_lower.pas.sem.pas_rectypes[j].fields[k] ||
-                    strcmp(g_lower.pas.sem.pas_recvars[i].fields[k], g_lower.pas.sem.pas_rectypes[j].fields[k])) {
-                    match = 0;
-                    break;
-                }
-                if (match) { rt = g_lower.pas.sem.pas_rectypes[j].tname; break; }
-            }
-            return rt;
-        }
-    }
-    if (sel->t == TT_FNC && sel->n >= 2 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_deref")) { const char *ptn = pas_ptrexpr_target(sel->c[1]); return ptn; }
-    if (sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval) {
-        const char *_arn = NULL;
-        if (pas_arrrec_find(sel->c[0]->v.sval, &_arn) > 0 && _arn) return _arn;
-    }
-    if (sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && sel->c[1] && sel->c[1]->t == TT_ILIT) {
-        const char *_vfr = pas_recvar_field_rectype(sel->c[0]->v.sval, (long)sel->c[1]->v.ival);
-        if (_vfr) return _vfr;
-    }
-    if (sel->t == TT_IDX && sel->n >= 2 && sel->c[1] && sel->c[1]->t == TT_ILIT) {
-        const char *bt = pas_with_sel_rtype(sel->c[0]);
-        if (bt) { const char *_fr = pas_rectype_field_rectype_by_index(bt, sel->c[1]->v.ival); if (_fr) return _fr; return pas_rectype_field_ptrto_by_index(bt, sel->c[1]->v.ival); }
-    }
-    return NULL;
-}
+static const char *pas_with_sel_rtype(tree_t *sel) { return sel ? pty_sel_rtype(sel) : NULL; }
 static int pas_with_field_index(const char *rtype, const char *fname) { return pas_rectype_field_index(rtype, fname); }
 static int pas_with_recvar_field(const char *vname, const char *fname) { return pas_recvar_field_index(vname, fname); }
 static void pas_with_push(tree_t *sel) {
@@ -3251,6 +3211,7 @@ static tree_t *pas_with_tmp(tree_t *val, tree_t **pre) {
     const char *_nm = ct_strdup(_b);
     pas_scope_define(_nm);
     pas_local_add(_nm);
+    pty_note_temp(_nm, val);
     if (!*pre) *pre = ast_node_new(TT_SEQ_EXPR);
     ast_push(*pre, mk_assign(leaf_s(TT_VAR, _nm), val));
     return leaf_s(TT_VAR, _nm);
@@ -3417,22 +3378,6 @@ static int pas_actual_is_packed_component(tree_t *a) {
     if (base->t == TT_VAR && base->v.sval) return pas_recvar_is_packed(base->v.sval);
     const char *rt = pas_designator_rectype(base);
     return (rt && pas_rectype_is_packed(rt)) ? 1 : 0;
-}
-static const char *pas_field_typename(tree_t *e) {
-    if (!e || e->t != TT_IDX || e->n != 2 || !e->c[0] || !e->c[1]) return NULL;
-    const char *rt = NULL;
-    long long fi = -1;
-    if (e->slen == PAS_FIELD_IDX_MARK && e->c[0]->t == TT_IDX && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[1]->t == TT_ILIT) {
-        fi = e->c[1]->v.ival;
-        for (int i = 0; i < g_lower.pas.sem.pas_narrrec; i++) if (g_lower.pas.sem.pas_arrrecs[i].aname && !strcmp(g_lower.pas.sem.pas_arrrecs[i].aname, e->c[0]->c[0]->v.sval))
-            return (fi >= 0 && fi < g_lower.pas.sem.pas_arrrecs[i].fcap) ? g_lower.pas.sem.pas_arrrecs[i].fldtypename[fi] : NULL;
-        return NULL;
-    }
-    if (e->c[1]->t == TT_ILIT) { rt = pas_selector_rectype(e->c[0]); if (!rt) rt = pas_with_sel_rtype(e->c[0]); fi = e->c[1]->v.ival; }
-    if (!rt || fi < 0) return NULL;
-    for (int i = 0; i < g_lower.pas.sem.pas_nrectype; i++) if (g_lower.pas.sem.pas_rectypes[i].tname && !strcmp(g_lower.pas.sem.pas_rectypes[i].tname, rt))
-        return (fi < g_lower.pas.sem.pas_rectypes[i].nf) ? g_lower.pas.sem.pas_rectypes[i].fldtypename[fi] : NULL;
-    return NULL;
 }
 static int pas_is_setexpr(tree_t *e) { int t = pty_answer(e, PTK_SET); if (g_lower.pas.dump_types) pty_census("set", e, t); return t > 0; }
 static int pas_not_a_set(tree_t *e) {

@@ -1188,6 +1188,40 @@ const char *pty_name_of(const pty_t *t) {
     s->anon[s->nanon++].t = t;
     return nm;
 }
+static const pty_t *pt_sel_type(const tree_t *low, int depth) {
+    const pty_t *t = pty_of_low(low);
+    if (t || !low || depth > 16) return t;
+    if (PT_IS(low, TT_VAR) && low->v.sval) return pty_name_type(low->v.sval);
+    if (PT_IS(low, TT_FNC) && low->n >= 2 && low->c[0] && low->c[0]->v.sval && !strcmp(low->c[0]->v.sval, "__pas_deref")) {
+        const pty_t *p = pt_sel_type(low->c[1], depth + 1);
+        return p && p->k == PTK_POINTER ? pt_deref(pt_st(), p) : NULL;
+    }
+    if (PT_IS(low, TT_IDX) && low->n >= 2) {
+        const pty_t *b = pt_sel_type(low->c[0], depth + 1);
+        if (b && b->k == PTK_POINTER) b = pt_deref(pt_st(), b);
+        if (!b) return NULL;
+        if (b->k == PTK_ARRAY) return b->base;
+        struct pty_fld f;
+        if (b->k == PTK_RECORD && PT_IS(low->c[1], TT_ILIT) && pty_rec_fld(b, (int)low->c[1]->v.ival, &f)) return f.ft;
+    }
+    return NULL;
+}
+void pty_note_temp(const char *name, const tree_t *like) {
+    struct pty_state *s = pt_st();
+    const pty_t *t = s && s->ecur && name ? pt_sel_type(like, 0) : NULL;
+    if (!t) return;
+    psym_t *p = (psym_t *)ct_zalloc(1, sizeof *p);
+    p->name = name;
+    p->k = 'v';
+    p->t = (pty_t *)t;
+    p->next = s->ecur->s;
+    s->ecur->s = p;
+}
+const char *pty_sel_rtype(const tree_t *low) {
+    const pty_t *t = pt_sel_type(low, 0);
+    if (t && t->k == PTK_POINTER) t = pt_deref(pt_st(), t);
+    return t && t->k == PTK_RECORD && t->lay ? pty_name_of(t) : NULL;
+}
 int pty_rec_nf(const pty_t *r) { return r && r->lay ? r->lay->nf : 0; }
 int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o) {
     if (!r || !r->lay || i < 0 || i >= r->lay->nf) return 0;
@@ -1214,6 +1248,20 @@ int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o) {
     o->ph = (r->lay->named[i] & 4) != 0;
     o->tag = (r->lay->named[i] & 2) != 0;
     return 1;
+}
+const char *pty_fld_typename(const pty_t *r, int i) {
+    struct pty_fld f;
+    if (!pty_rec_fld(r, i, &f) || !f.eft) return NULL;
+    const pty_t *t = f.eft;
+    int nm = f.ph ? t->name != NULL : f.enm, d = 0;
+    if (!nm) while (t && t->k == PTK_ARRAY && t->dyn) { d++; t = t->base; }
+    if (!nm && !d) while (t && t->k == PTK_ARRAY) t = t->base;
+    const char *n = t && t->name ? t->name : NULL;
+    if (!d || !n) return n;
+    size_t len = strlen(n) + 16;
+    char *m = (char *)ct_zalloc(len, 1);
+    snprintf(m, len, "$dyn%d$%s", d, n);
+    return m;
 }
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
     char **fldptrto, char **fldrec, char **fldenum, long long *fldov) {
