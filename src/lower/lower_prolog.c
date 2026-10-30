@@ -4711,12 +4711,11 @@ static tree_t * pl_attv_clause(const tree_t * cl, const tree_t * mod, int lift) 
     const tree_t * hd = lift ? cl->c[1] : NULL;
     tree_t * nc = ast_node_new(TT_CLAUSE);
     nc->v = cl->v;
-    nc->v.dval = lift ? 3 : (mod ? ar + 1 : ar);
+    nc->v.dval = lift ? 1 + hd->n : (mod ? ar + 1 : ar);
     nc->line = cl->line;
     if (lift) {
         ast_push(nc, (tree_t *) cl->c[0]);
-        ast_push(nc, (tree_t *) hd->c[0]);
-        ast_push(nc, (tree_t *) hd->c[1]);
+        for (int i = 0; i < hd->n; i++) ast_push(nc, (tree_t *) hd->c[i]);
     } else {
         if (mod) ast_push(nc, (tree_t *) mod);
         for (int i = 0; i < ar; i++) ast_push(nc, (tree_t *) cl->c[i]);
@@ -4747,10 +4746,21 @@ static int pl_attv_hook_head(const tree_t * cl) {
         !strcmp(cl->c[1]->v.sval, "attr_unify_hook") && cl->c[1]->n == 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_goals_head(const tree_t * cl) {
+    return cl && cl->t == TT_CLAUSE && (int) cl->v.dval == 2 && cl->c[0] && (cl->c[0]->t == TT_QLIT || cl->c[0]->t == TT_NAME) && cl->c[1] && cl->c[1]->t == TT_FNC && cl->c[1]->v.sval &&
+        !strcmp(cl->c[1]->v.sval, "attribute_goals") && cl->c[1]->n == 3;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_attv_rewrite(const tree_t * prog) {
     int top = 0;
     for (int i = 0; i < prog->n; i++) { const tree_t * s = prog->c[i]; const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL; if (pl_attv_is_key(subj, "$wakeup/0")) top = 1; }
     if (!top) return prog;
+    int has_ct3 = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (pl_attv_is_key(subj, "copy_term/3")) has_ct3 = 1;
+    }
     g_stage2.pl_attv_armed = 1;
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
@@ -4759,6 +4769,10 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
     hooks->v.sval = (char *) "$attr_unify_hook/3";
     tree_t * mods = ast_node_new(TT_CHOICE);
     mods->v.sval = (char *) "$attr_hook_mod/1";
+    tree_t * goals = ast_node_new(TT_CHOICE);
+    goals->v.sval = (char *) "$attribute_goals/4";
+    tree_t * gmods = ast_node_new(TT_CHOICE);
+    gmods->v.sval = (char *) "$attr_goals_mod/1";
     const tree_t * cur_mod = pl_atom_goal("user");
     const tree_t * last = NULL;
     for (int i = 0; i < prog->n; i++) {
@@ -4770,7 +4784,8 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
         last = s;
         int hk = pl_attv_is_key(subj, "attr_unify_hook/2");
         int qk = pl_attv_is_key(subj, ":/2");
-        if (!hk && !qk) { ast_push(np, (tree_t *) s); continue; }
+        int gk = has_ct3 && pl_attv_is_key(subj, "attribute_goals/3");
+        if (!hk && !qk && !gk) { ast_push(np, (tree_t *) s); continue; }
         tree_t * ch = ast_node_new(TT_CHOICE);
         ch->v = subj->v;
         ch->line = subj->line;
@@ -4778,7 +4793,9 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
             const tree_t * cl = subj->c[k];
             if (!cl || cl->t != TT_CLAUSE) { ast_push(ch, (tree_t *) cl); continue; }
             if (hk) { ast_push(hooks, pl_attv_clause(cl, cur_mod, 0)); ast_push(mods, pl_attv_fact1(cur_mod)); continue; }
+            if (gk) { ast_push(goals, pl_attv_clause(cl, cur_mod, 0)); ast_push(gmods, pl_attv_fact1(cur_mod)); continue; }
             if (pl_attv_hook_head(cl)) { ast_push(hooks, pl_attv_clause(cl, NULL, 1)); ast_push(mods, pl_attv_fact1(cl->c[0])); continue; }
+            if (has_ct3 && pl_attv_goals_head(cl)) { ast_push(goals, pl_attv_clause(cl, NULL, 1)); ast_push(gmods, pl_attv_fact1(cl->c[0])); continue; }
             ast_push(ch, (tree_t *) cl);
         }
         if (ch->n > 0) ast_push(np, pl_table_stmt(s, ch));
@@ -4794,6 +4811,17 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
         ast_push(mods, pl_attv_fact1(pl_atom_goal("$none")));
         ast_push(np, pl_table_stmt(last, hooks));
         ast_push(np, pl_table_stmt(last, mods));
+        if (has_ct3) {
+            tree_t * gnone = ast_node_new(TT_CLAUSE);
+            gnone->v.dval = 4;
+            ast_push(gnone, (tree_t *) pl_atom_goal("$none"));
+            for (int k = 0; k < 3; k++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = k; ast_push(gnone, v); }
+            ast_push(gnone, (tree_t *) pl_atom_goal("fail"));
+            ast_push(goals, gnone);
+            ast_push(gmods, pl_attv_fact1(pl_atom_goal("$none")));
+            ast_push(np, pl_table_stmt(last, goals));
+            ast_push(np, pl_table_stmt(last, gmods));
+        }
     }
     return np;
 }
