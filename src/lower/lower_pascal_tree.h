@@ -191,15 +191,6 @@ typedef struct {
     int pas_arrptr_cap;
     int pas_narrptr;
     char *pas_pend_arr_ptrto;
-    struct { char *vname; char *rname; } *pas_ptrvars;
-    int pas_ptrvars_cap;
-    int pas_nptrvar;
-    int *pas_pvmarks;
-    int pas_pvmark_cap;
-    int pas_npvmark;
-    struct { char *pname; char *vnames[16]; char *rnames[16]; int n; PNodeList *params; } *pas_fwdpv;
-    int pas_fwdpv_cap;
-    int pas_nfwdpv;
     struct { int lo, hi, n, first, last, nested; } *pas_vcase_stk;
     int pas_vcase_cap;
     int pas_vcase_depth;

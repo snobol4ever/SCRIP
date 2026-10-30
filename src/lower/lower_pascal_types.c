@@ -299,7 +299,12 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
         {
             pty_t *t = pt_new(PTK_POINTER, NULL);
             const tree_t *tg = n->n ? n->c[0] : NULL;
-            if (PT_IS(tg, TT_VAR) && tg->v.sval) { t->base = pt_leaf(s, tg); if (!t->base) { t->fwd = tg->v.sval; pt_pend(s, t); } } else t->base = pt_type(s, tg);
+            if (PT_IS(tg, TT_VAR) && tg->v.sval) {
+                int own = 0;
+                for (psym_t *q = s->cur ? s->cur->s : NULL; q; q = q->next) if (q->k == 't' && q->name && !strcmp(q->name, tg->v.sval)) own = 1;
+                t->base = !own && ps_find_kind(s, tg->v.sval, 't') ? NULL : pt_leaf(s, tg);
+                if (!t->base) { t->fwd = tg->v.sval; pt_pend(s, t); }
+            } else t->base = pt_type(s, tg);
             return t;
         }
         case TT_ARRAY_TYPE:
@@ -1173,6 +1178,7 @@ void pty_note_recname(const char *name, const tree_t *recnode) {
     s->anon[s->nanon].name = name;
     s->anon[s->nanon++].t = e->t;
 }
+const pty_t *pty_pointee(const pty_t *t) { return t && t->k == PTK_POINTER ? pt_deref(pt_st(), t) : NULL; }
 const char *pty_name_of(const pty_t *t) {
     struct pty_state *s = pt_st();
     if (!s || !t) return NULL;
