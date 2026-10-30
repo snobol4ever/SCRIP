@@ -8841,6 +8841,7 @@ static int pl_getc_cp(FILE *f, char *seq, int *seqn) {
     int sn = 0, c = pl_getc_cp_raw(f, seq ? seq : sq, &sn);
     if (seqn) *seqn = sn;
     if (c != EOF) pl_getc_mirror(f, seq ? seq : sq, sn);
+    if (c >= 0x80 && sn == 1 && pl_swi_dialect() && pl_in_is_text()) { c = 0xFFFD; if (seq) memcpy(seq, "\xEF\xBF\xBD", 3); if (seqn) *seqn = 3; }
     return c;
 }
 static int pl_getc_cp_raw(FILE *f, char *seq, int *seqn) {
@@ -9204,7 +9205,28 @@ static int pl_read_esc_body(FILE *in, char **bp, size_t *np, size_t *kp) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_read_term_text(char **bp, size_t *np) {
+static size_t pl_utf8_ok_at(const unsigned char *s, size_t n) {
+    size_t w = s[0] < 0x80 ? 1 : (size_t)utf8_seqlen(s[0]);
+    if (s[0] >= 0x80 && w < 2) return 0;
+    for (size_t i = 1; i < w; i++) if (i >= n || (s[i] & 0xC0) != 0x80) return 0;
+    return w;
+}
+static int pl_text_fffd(char **bp, size_t *np) {
+    const unsigned char *s = (const unsigned char *)*bp;
+    size_t len = strlen(*bp), m = 0, k = 0, on = 0, w;
+    char *o = (char *)0;
+    for (size_t i = 0; i < len; i += w ? w : 1) if (!(w = pl_utf8_ok_at(s + i, len - i))) m++;
+    if (!m) return 1;
+    if (!pl_rb_room(&o, &on, len + 2 * m + 1)) return 0;
+    for (size_t i = 0; i < len; i += w ? w : 1) { if ((w = pl_utf8_ok_at(s + i, len - i))) { memcpy(o + k, s + i, w); k += w; } else { memcpy(o + k, "\xEF\xBF\xBD", 3); k += 3; } }
+    o[k] = 0;
+    *bp = o;
+    *np = on;
+    return 1;
+}
+static int pl_read_term_text_raw(char **bp, size_t *np);
+static int pl_read_term_text(char **bp, size_t *np) { int r = pl_read_term_text_raw(bp, np); if (r > 0 && pl_swi_dialect() && pl_in_is_text() && !pl_text_fffd(bp, np)) return -1; return r; }
+static int pl_read_term_text_raw(char **bp, size_t *np) {
     extern FILE *fh_cur_in_fp(void);
     FILE *in = fh_cur_in_fp();
     size_t k = 0;
