@@ -7,9 +7,10 @@ extern "C" {
 #include "descr.h"
 extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
 extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);
-extern DESCR_t rt_pl_fresh_var_ref(void);
+extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
 }
 #include "x86_asm.h"
+#include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" { int stage2_owner_varslot(const char * proc, const char * var); const char * stage2_owner_l3_ancestor(const char * proc); }
 #define VRF_BAD() (_.op_sa < 0 || _.op_off < 0)
@@ -42,12 +43,23 @@ std::string bb_var_ref_frame() {
 #define VR_ANON() (_.op_gva_k < 0 && _.op_sa == -1)
 #define VR_NAMED() (_.op_var_named == 1 && _.op_sval && (_.op_sa >= 0 || _.op_gva_k >= 0))
 #define VR_ICNZD() (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0))
+#define VR_PL_CREATE() IF(_.op_gva_k < 0 && _.op_sa >= 0 && x86_serial_vars(), \
+x86("note", "a Prolog variable is created at its first reference, in textual order: a virgin frame slot (the zero DESCR) becomes a self-referencing unbound cell that draws its creation serial") \
+                 + x86("lea", "rdx", FRQ(_.op_sa)) \
+                 + x86("mov", "ecx", RDD("rdx", 0)) \
+                 + x86("test", "ecx", "ecx") \
+                 + x86("jne", L(30)) \
+                 + PL_SERIAL_DRAW("rax") \
+                 + x86("mov", RDQ("rdx", 0), "rax") \
+                 + x86("mov", RDQ("rdx", 8), "rdx") \
+                 + x86("def", L(30)))
 std::string bb_var_ref() {
     x86_begin();
     return IF(_.op_off == -1, x86_alpha() + x86_bomb("bb_var_ref: needs own slot"))
          + IF(_.op_off != -1 && VR_ANON(),
                x86("comment", "IR_VAR_REF anon: rt_pl_fresh_var_ref -> PLJ PLVAR cell")
              + x86_alpha()
+             + (x86_serial_vars() ? x86("mov", "rdi", "r14") : x86("xor", "edi", "edi"))
              + x86("call", "rt_pl_fresh_var_ref", (uint64_t)(uintptr_t)(void *)rt_pl_fresh_var_ref)
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
@@ -77,6 +89,7 @@ std::string bb_var_ref() {
          + IF(_.op_off != -1 && !VR_ANON() && !VR_NAMED() && VR_ICNZD(),
                x86("comment", "IR_VAR_REF icn cells zd: NAMETRAP{DT_N,slen=1,&____slot} -> ZRES")
              + x86_alpha()
+             + VR_PL_CREATE()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))
              + x86("note", ZRESN())
              + x86("mov", ZRES(0), "rax")
@@ -91,6 +104,7 @@ std::string bb_var_ref() {
          + IF(_.op_off != -1 && !VR_ANON() && !VR_NAMED() && !VR_ICNZD(),
                x86("comment", "IR_VAR_REF")
              + x86_alpha()
+             + VR_PL_CREATE()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))
              + (_.op_gva_k >= 0
                  ? x86("note", gva_note(_.op_gva_k))

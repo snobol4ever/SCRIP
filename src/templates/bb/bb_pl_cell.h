@@ -2,6 +2,10 @@
 #define BB_PL_CELL_H
 #include "stage2.h"
 #include "g_runtime.h"
+#include "rt/rt_pl_trail.h"
+#define PL_SERIAL_DRAW(w) (x86("note", "creation serial: the next unbound cell's tag word is the root record's standing cell 255, which then advances by 512") \
+                    + x86("mov", (w), RDQ("r14", -PL_SERIAL_OFF)) \
+                    + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP))
 #define PL_SRC_RDI() (IF(!_.op_u_kid, x86("lea", "rdi", FRQ(_.op_u_slot))) \
                     + IF(_.op_u_kid, \
                           x86("note", "the cell is child " + std::to_string((long long)_.op_u_idx) + " of the parent box's compound: [parent.p + 16j]") \
@@ -55,9 +59,10 @@
                     + x86("je", L(lbind)) \
                     + x86("def", L(lbound)))
 #define PL_TRAIL(lstore, lrefuse, larm, lstk) (IF(g_stage2.pl_attv_armed, \
-                      x86("note", "attvar: a cell whose slen is PL_ATTV_SLEN is always trailed and lowers the wake word at the trail header +48 to this entry's offset") \
-                    + x86("mov", "edx", RDD("rdi", 4)) \
-                    + x86("cmp", "edx", (long)PL_ATTV_SLEN) \
+                      x86("note", "attvar: a DT_PLVAR cell with bit 8 of its tag word set is always trailed and lowers the wake word at the trail header +48 to this entry's offset") \
+                    + x86("mov", "edx", RDD("rdi", 0)) \
+                    + x86("and", "edx", (long)(255 | PL_VAR_ATTV)) \
+                    + x86("cmp", "edx", (long)(DT_PLVAR | PL_VAR_ATTV)) \
                     + x86("jne", L(larm)) \
                     + x86("mov", "rax", "r12") \
                     + x86("and", "rax", X86_PL_TR_ARENA_MASK) \

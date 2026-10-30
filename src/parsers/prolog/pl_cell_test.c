@@ -14,7 +14,7 @@ int main(void) {
     pl_cell_t at  = pl_make_atom(7);
     CHECK(pl_is_atom(&at) && pl_atom_id(&at) == 7, "inline atom id 7 round-trips");
     CHECK(pl_disc(&at) == 7, "atom id readable from disc without payload");
-    pl_cell_t V;  pl_init_var(&V, 0);
+    pl_cell_t V;  pl_init_var(&V, (const pl_tr_ctx_t *)0);
     CHECK(pl_is_var(&V), "fresh var is unbound");
     CHECK(pl_deref(&V) == &V, "unbound var derefs to its own self-ref root");
     pl_trail_t tr; pl_trail_init(&tr);
@@ -25,7 +25,7 @@ int main(void) {
     pl_trail_unwind(&tr, m0);
     CHECK(pl_is_var(&V) && pl_deref(&V) == &V, "after unwind, var is unbound again");
     CHECK(pl_trail_mark(&tr) == m0, "trail back to mark after unwind");
-    pl_cell_t A, B; pl_init_var(&A, 1); pl_init_var(&B, 2);
+    pl_cell_t A, B; pl_init_var(&A, (const pl_tr_ctx_t *)0); pl_init_var(&B, (const pl_tr_ctx_t *)0);
     int m1 = pl_trail_mark(&tr);
     pl_bind(&A, pl_make_ref(&B, 1), &tr);
     CHECK(pl_deref(&A) == &B, "A derefs through the ref chain to B");
@@ -41,11 +41,11 @@ int main(void) {
     CHECK(pl_functor(&cmp) == 1234 && pl_arity(&cmp) == 3, "functor/arity read from disc (no heap deref)");
     CHECK(pl_compound_heap(&cmp) == &dummy_heap, "heap pointer intact in payload");
     pl_trail_t big; pl_trail_init(&big);
-    pl_cell_t scratch; pl_init_var(&scratch, 0);
+    pl_cell_t scratch; pl_init_var(&scratch, (const pl_tr_ctx_t *)0);
     for (int k = 0; k < 1000; k++) pl_trail_push(&big, &scratch);
     CHECK(pl_trail_mark(&big) == 1000, "trail grew to 1000 entries with no fixed cap");
     pl_trail_t u; pl_trail_init(&u);
-    pl_cell_t P, Q; pl_init_var(&P, 0); pl_init_var(&Q, 1);
+    pl_cell_t P, Q; pl_init_var(&P, (const pl_tr_ctx_t *)0); pl_init_var(&Q, (const pl_tr_ctx_t *)0);
     int mu0 = pl_trail_mark(&u);
     CHECK(pl_unify(&P, &Q, &u), "unify(var P, var Q) succeeds");
     pl_cell_t seven = pl_make_int(7);
@@ -61,8 +61,8 @@ int main(void) {
     CHECK(!pl_unify(&a5, &a6, &u), "unify(atom5, atom6) fails");
     CHECK(!pl_unify(&i3a, &a5, &u), "unify(int, atom) fails (distinct tags)");
     pl_cell_t argsL[2], argsR[2];
-    pl_init_var(&argsL[0], 0); argsL[1] = pl_make_int(2);
-    argsR[0] = pl_make_int(1); pl_init_var(&argsR[1], 1);
+    pl_init_var(&argsL[0], (const pl_tr_ctx_t *)0); argsL[1] = pl_make_int(2);
+    argsR[0] = pl_make_int(1); pl_init_var(&argsR[1], (const pl_tr_ctx_t *)0);
     pl_cell_t fL = pl_make_compound(100, 2, argsL);
     pl_cell_t fR = pl_make_compound(100, 2, argsR);
     int mu1 = pl_trail_mark(&u);

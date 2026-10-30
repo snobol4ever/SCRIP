@@ -10,6 +10,7 @@
 #include <cstdio>
 #include "emit.h"
 #include "pin_va.h"
+#include "rt/rt_pl_trail.h"
 #include "../../ir/cset_block.h"
 extern "C" {
 extern uint64_t g_rtccb[32];
@@ -632,6 +633,7 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
 inline int x86_resumable_frame() { return emit_resumable_frame(); }
+inline int x86_serial_vars() { return (g_emit_cfg && g_emit_cfg->unbound_serial) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
@@ -1393,6 +1395,17 @@ inline std::string x86_reg_disp32_add_imm32(const char * base, int disp, long im
     return x86_rec("add") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp_add_imm64(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
+        else { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return x86_rec("add") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
     int g = x86_rnum(dst), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1990,6 +2003,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REGDISP32 && b.kind == XK_IMM) return x86_reg_disp32_add_imm32(a.base, a.off, b.imm);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp_add_imm64(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_add32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
@@ -2461,7 +2475,11 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
         if (site == X86H_DEF && port == X86P_ALPHA) { s += bb_glue_flat_enter();
-            for (int j = 0; j < _.op_zsticky / 16; j++) s += x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
+            for (int j = 0; j < _.op_zsticky / 16; j++) s += x86_serial_vars()
+                ? x86("note", "a Prolog variable homed in this box is created here: it draws its serial from the root record's standing cell 255 and points at itself")
+                + x86("mov", "rax", RDQ("r14", -PL_SERIAL_OFF)) + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP)
+                + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), "rax") + x86("lea", "rax", RDQ("rsp", _.op_zk_own + 16 * j)) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), "rax")
+                : x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();

@@ -37,7 +37,9 @@ void rt_pl_tr_free_arena(const char *tr, void *slab) {
 _Static_assert(PL_TR_HEADER_BYTES >= PL_TR_BALL_OFF + 8, "the pending-ball slot must fit inside the trail header, below the first entry");
 _Static_assert(PL_TR_WAKE_OFF == 48 && PL_TR_HEADER_BYTES >= PL_TR_WAKE_OFF + 8,
     "the attvar wake word (the lowest trail offset of an unwoken attributed-variable binding, 0 none): bb_cleanup.cpp, bb_pl_cell.h and rtx_plunify.s read offset 48");
-_Static_assert(PL_ATTV_SLEN == 0x56545441u, "an attributed variable's word 0 carries this exact slen ('ATTV'); rtx_plunify.s spells it as the literal 0x56545441");
+_Static_assert(PL_VAR_ATTV == 0x100 && PL_SERIAL_SHIFT == 9 && PL_SERIAL_STEP == 512 && PL_SERIAL_CELL == 255 && __builtin_offsetof(DESCR_t, src_node0) == 1,
+    "an unbound variable's word 0 is (serial << 9) | (attv << 8) | DT_PLVAR: the attributed bit is bit 0 of src_node0, rtx_plunify.s and bb_pl_cell.h spell it as the byte at +1 and the immediate 0x1"
+    "48, and the serial counter is " "standing cell 255 of the root record, [r14 - 24 - 8 * 255] = [r14 - 2064]");
 _Static_assert(PL_TR_RESIDUE_OFF == PL_TR_WAKE_OFF + 8 && PL_TR_HEADER_BYTES >= PL_TR_RESIDUE_OFF + 8,
     "the call_residue_vars/2 depth word, how many of its goals are running (0 none): while it is non-zero every attribute block made or changed is pushed on the trail with "
     "the pad PL_TR_PAD_RESIDUE and $crv_collect reads those entries from the call's mark; the prelude raises and lowers it on every exit of the goal, so it is never trailed");
