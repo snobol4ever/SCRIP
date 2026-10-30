@@ -16100,6 +16100,35 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = (DESCR_t){ .v = DT_BOOL, .i = (!IS_FAIL_fn(rr) && rk_is_truthy(rr)) ? 1 : 0 };
             return 1;
         }
+        if (rk_is_pair(args[1])) {
+            extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+            rk_av_t pp = rk_av(args[1]);
+            DESCR_t got, sm[2];
+            rk_cbh_t H = { g_rk_cbh_cur, { pp.n > 1 ? pp.el[1] : NULVCL, NULVCL } };
+            int ok = 0;
+            g_rk_cbh_cur = &H;
+            if (rk_is_pair(args[0])) {
+                rk_av_t tp = rk_av(args[0]);
+                H.d[1] = tp.n > 1 ? tp.el[1] : NULVCL;
+                sm[0] = tp.el[0];
+                sm[1] = pp.el[0];
+                ok = script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &got) && !IS_FAIL_fn(got) && rk_is_truthy(got);
+                sm[0] = H.d[1];
+                sm[1] = H.d[0];
+                ok = ok && script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &got) && !IS_FAIL_fn(got) && rk_is_truthy(got);
+                g_rk_cbh_cur = H.prev;
+                *out = (DESCR_t){ .v = DT_BOOL, .i = ok };
+                return 1;
+            }
+            const char * pk = rk_cstr(pp.el[0]);
+            char key[strlen(pk) + 1];
+            strcpy(key, pk);
+            DESCR_t ma[2] = { args[0], STRVAL(key) };
+            ok = script_try_call_builtin_by_name("meth_call", ma, 2, &got) && !IS_FAIL_fn(got);
+            g_rk_cbh_cur = H.prev;
+            *out = (DESCR_t){ .v = DT_BOOL, .i = ok && (rk_is_truthy(got) != 0) == (rk_is_truthy(H.d[0]) != 0) };
+            return 1;
+        }
         int sm_c = 0;
         extern int rk_rat_cmp(DESCR_t, DESCR_t, int *);
         double sm_r, sm_l;
