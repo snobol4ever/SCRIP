@@ -29,10 +29,16 @@
 #define HB_NVAR 225
 #define HB_FNCB 226
 #define HB_DATB 227
+#define HB_EVCH 228
+#define HB_LBLT 229
+#define HB_IOCH 230
+#define HB_TRCE 231
+#define HB_PROC 232
 #define HB_KIND_NAME(t_) ((t_) == HB_ZCOL ? "HB_ZCOL" : (t_) == HB_FILL ? "HB_FILL" : (t_) == HB_ZBLK ? "HB_ZBLK" : (t_) == HB_WSC ? "HB_WSC" : (t_) == HB_AGGV ? "HB_AGGV" : (t_) == HB_AGGP ? \
     "HB_AGGP" : (t_) == HB_AGGT ? "HB_AGGT" : (t_) == HB_AGGB ? "HB_AGGB" : (t_) == HB_ARR ? "HB_ARR" : (t_) == HB_DINST ? "HB_DINST" : (t_) == HB_DVEC ? "HB_DVEC" : (t_) == HB_WSB ? "HB_WSB" : (t_) \
     == HB_PLDB ? "HB_PLDB" : (t_) == HB_PLDBS ? "HB_PLDBS" : (t_) == HB_PLDBR ? "HB_PLDBR" : (t_) == HB_PLDBK ? "HB_PLDBK" : (t_) == HB_PVEC ? "HB_PVEC" : (t_) == HB_DTP ? "HB_DTP" : (t_) == \
-    HB_DTPRCP ? "HB_DTPRCP" : (t_) == HB_TRIE ? "HB_TRIE" : (t_) == HB_TRIEN ? "HB_TRIEN" : (t_) == HB_NVAR ? "HB_NVAR" : (t_) == HB_FNCB ? "HB_FNCB" : (t_) == HB_DATB ? "HB_DATB" : "HB_?")
+    HB_DTPRCP ? "HB_DTPRCP" : (t_) == HB_TRIE ? "HB_TRIE" : (t_) == HB_TRIEN ? "HB_TRIEN" : (t_) == HB_NVAR ? "HB_NVAR" : (t_) == HB_FNCB ? "HB_FNCB" : (t_) == HB_DATB ? "HB_DATB" : (t_) == HB_EVCH \
+    ? "HB_EVCH" : (t_) == HB_LBLT ? "HB_LBLT" : (t_) == HB_IOCH ? "HB_IOCH" : (t_) == HB_TRCE ? "HB_TRCE" : (t_) == HB_PROC ? "HB_PROC" : "HB_?")
 #define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
 #define HBF_TTL 0x0001
 #define HBF_MARK 0x0002

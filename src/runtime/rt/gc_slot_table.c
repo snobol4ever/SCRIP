@@ -2,6 +2,8 @@
 #include "gc_heap.h"
 #include "../core/core.h"
 #include "../pattern_blocks.h"
+#include "../eval_blocks.h"
+#include "rt_proc_block.h"
 #include "../prolog_db_blocks.h"
 #include "gc_slot_table.h"
 _Static_assert(sizeof(DESCR_t) == 16, "HB_DVEC is an array of DESCR_t cells, stride 16");
@@ -38,6 +40,15 @@ _Static_assert(sizeof(FNCBLK_t) == 88 && offsetof(FNCBLK_t, name) == 0 && offset
     "HB_FNCB holds one FNCBLK_t: the heap-pointer members are name, spec, entry_label, params, locals and next, fn is a code address; a new member means this row is re-read");
 _Static_assert(sizeof(DATBLK_t) == 40 && offsetof(DATBLK_t, name) == 0 && offsetof(DATBLK_t, fields) == 16 && offsetof(DATBLK_t, next) == 24,
     "HB_DATB holds one DATBLK_t: the heap-pointer members are name, fields and next; a new member means this row is re-read");
+_Static_assert(sizeof(eval_cache_ent_t) == 24 && offsetof(eval_cache_ent_t, key) == 0,
+    "HB_EVCH holds eval_cache_ent_t[]: the heap-pointer member is key, fn is code and gen a counter; a new member means this row is re-read");
+_Static_assert(sizeof(lbl_ent_t) == 16 && offsetof(lbl_ent_t, key) == 0, "HB_LBLT holds lbl_ent_t[]: the heap-pointer member is key, fn is code; a new member means this row is re-read");
+_Static_assert(sizeof(io_chan_t) == 64 && offsetof(io_chan_t, varname) == 8 && offsetof(io_chan_t, prebind) == 56,
+    "HB_IOCH holds io_chan_t[]: the heap-pointer members are varname and prebind, fp is libc and buf the compile-time arena; a new member means this row is re-read");
+_Static_assert(sizeof(trace_ent_t) == 40 && offsetof(trace_ent_t, name) == 8 && offsetof(trace_ent_t, tag) == 16 && offsetof(trace_ent_t, cbfn) == 24,
+    "HB_TRCE holds trace_ent_t[]: the heap-pointer members are name, tag and cbfn; a new member means this row is re-read");
+_Static_assert(sizeof(rt_proc_t) == 128 && offsetof(rt_proc_t, name) == 0 && offsetof(rt_proc_t, pnames) == 16 && offsetof(rt_proc_t, pcells) == 56 && offsetof(rt_proc_t, rcell) == 64 &&
+    offsetof(rt_proc_t, result_name) == 88, "HB_PROC holds rt_proc_t[]: the heap-pointer members are name, pnames, pcells, rcell and result_name, fn is code; a new member means this row is re-read");
 static const gc_sfield_t ss_descr[] = { { 0, GS_DESCR } };
 static const gc_sfield_t ss_raw[] = { { 0, GS_RAW } };
 static const gc_run_t run_descr = { 0, sizeof(DESCR_t), 0, 0, sizeof ss_descr / sizeof ss_descr[0], ss_descr };
@@ -66,7 +77,7 @@ static const gc_run_t run_dinst = { sizeof(DATINST_t), sizeof(DESCR_t), 0, 0, si
 static const gc_slot_row_t sr_str = { 0, HB_ZCOL, GR_TYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "string block: bytes, no heap pointer" };
 static const gc_slot_row_t sr_fill = { HB_FILL, HB_FILL, GR_TYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "FILL: a gap header over dead ground, no payload" };
 static const gc_slot_row_t sr_zblk = { HB_ZBLK, HB_ZBLK, GR_REFUSE, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "ZBLK: no producer and no struct; a block of this type seen is a finding" };
-static const gc_slot_row_t sr_wsc = { HB_WSC, HB_WSC, GR_UNTYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "WSC: untyped char workspace (35 producers, bytes and some pointer arrays)" };
+static const gc_slot_row_t sr_wsc = { HB_WSC, HB_WSC, GR_TYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "WSC: bytes, no collected-heap pointer (audited by producer, gc_wsb_producers.tsv)" };
 static const gc_slot_row_t sr_aggv = { HB_AGGV, HB_AGGV, GR_TYPED, sizeof ss_aggv / sizeof ss_aggv[0], ss_aggv, (const gc_run_t *)0, "VCELL_t" };
 static const gc_slot_row_t sr_aggp = { HB_AGGP, HB_AGGP, GR_TYPED, 0, (const gc_sfield_t *)0, &run_raw, "TBBUCK_t *[]: a table's bucket pointer vector" };
 static const gc_slot_row_t sr_aggt = { HB_AGGT, HB_AGGT, GR_TYPED, sizeof ss_aggt / sizeof ss_aggt[0], ss_aggt, (const gc_run_t *)0, "TBBLK_t" };
@@ -74,8 +85,7 @@ static const gc_slot_row_t sr_aggb = { HB_AGGB, HB_AGGB, GR_TYPED, 0, (const gc_
 static const gc_slot_row_t sr_arr = { HB_ARR, HB_ARR, GR_TYPED, sizeof ss_arr / sizeof ss_arr[0], ss_arr, (const gc_run_t *)0, "ARBLK_t" };
 static const gc_slot_row_t sr_dinst = { HB_DINST, HB_DINST, GR_TYPED, sizeof ss_dinst / sizeof ss_dinst[0], ss_dinst, &run_dinst, "DATINST_t, then its inline DESCR_t fields" };
 static const gc_slot_row_t sr_dvec = { HB_DVEC, HB_DVEC, GR_TYPED, 0, (const gc_sfield_t *)0, &run_descr, "DESCR_t[]" };
-static const gc_slot_row_t sr_wsb = { HB_WSB, HB_WSB, GR_UNTYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0,
-    "WSB: untyped workspace (321 producers; its pointers are described by the owner's root visitor)" };
+static const gc_slot_row_t sr_wsb = { HB_WSB, HB_WSB, GR_TYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0, "WSB: bytes, no collected-heap pointer (audited by producer, gc_wsb_producers.tsv)" };
 static const gc_slot_row_t sr_dtp = { HB_DTP, HB_DTP, GR_TYPED, sizeof ss_dtp / sizeof ss_dtp[0], ss_dtp, (const gc_run_t *)0, "DTP_t" };
 static const gc_slot_row_t sr_dtprcp = { HB_DTPRCP, HB_DTPRCP, GR_TYPED, sizeof ss_dtprcp / sizeof ss_dtprcp[0], ss_dtprcp, (const gc_run_t *)0, "dtp_rcp_t" };
 static const gc_slot_row_t sr_pldb = { HB_PLDB, HB_PLDB, GR_TYPED, sizeof ss_pldb / sizeof ss_pldb[0], ss_pldb, (const gc_run_t *)0, "pl_db_t" };
@@ -89,11 +99,27 @@ static const gc_sfield_t ss_nvar[] = { { offsetof(NV_t, name), GS_RAW }, { offse
 static const gc_sfield_t ss_fncb[] = { { offsetof(FNCBLK_t, name), GS_RAW }, { offsetof(FNCBLK_t, spec), GS_RAW }, { offsetof(FNCBLK_t, entry_label), GS_RAW }, { offsetof(FNCBLK_t, params), GS_RAW },
     { offsetof(FNCBLK_t, locals), GS_RAW }, { offsetof(FNCBLK_t, next), GS_RAW } };
 static const gc_sfield_t ss_datb[] = { { offsetof(DATBLK_t, name), GS_RAW }, { offsetof(DATBLK_t, fields), GS_RAW }, { offsetof(DATBLK_t, next), GS_RAW } };
+static const gc_sfield_t ss_evch[] = { { offsetof(eval_cache_ent_t, key), GS_RAW } };
+static const gc_sfield_t ss_lblt[] = { { offsetof(lbl_ent_t, key), GS_RAW } };
+static const gc_sfield_t ss_iochan[] = { { offsetof(io_chan_t, varname), GS_RAW }, { offsetof(io_chan_t, prebind), GS_RAW } };
+static const gc_sfield_t ss_trce[] = { { offsetof(trace_ent_t, name), GS_RAW }, { offsetof(trace_ent_t, tag), GS_RAW }, { offsetof(trace_ent_t, cbfn), GS_RAW } };
+static const gc_sfield_t ss_proc[] = { { offsetof(rt_proc_t, name), GS_RAW }, { offsetof(rt_proc_t, pnames), GS_RAW }, { offsetof(rt_proc_t, pcells), GS_RAW }, { offsetof(rt_proc_t, rcell), GS_RAW },
+    { offsetof(rt_proc_t, result_name), GS_RAW } };
+static const gc_run_t run_evch = { 0, sizeof(eval_cache_ent_t), 0, 0, sizeof ss_evch / sizeof ss_evch[0], ss_evch };
+static const gc_run_t run_lblt = { 0, sizeof(lbl_ent_t), 0, 0, sizeof ss_lblt / sizeof ss_lblt[0], ss_lblt };
+static const gc_run_t run_iochan = { 0, sizeof(io_chan_t), 0, 0, sizeof ss_iochan / sizeof ss_iochan[0], ss_iochan };
+static const gc_run_t run_trce = { 0, sizeof(trace_ent_t), 0, 0, sizeof ss_trce / sizeof ss_trce[0], ss_trce };
+static const gc_run_t run_proc = { 0, sizeof(rt_proc_t), 0, 0, sizeof ss_proc / sizeof ss_proc[0], ss_proc };
 static const gc_slot_row_t sr_nvar = { HB_NVAR, HB_NVAR, GR_TYPED, sizeof ss_nvar / sizeof ss_nvar[0], ss_nvar, (const gc_run_t *)0, "NV_t" };
 static const gc_slot_row_t sr_fncb = { HB_FNCB, HB_FNCB, GR_TYPED, sizeof ss_fncb / sizeof ss_fncb[0], ss_fncb, (const gc_run_t *)0, "FNCBLK_t" };
 static const gc_slot_row_t sr_datb = { HB_DATB, HB_DATB, GR_TYPED, sizeof ss_datb / sizeof ss_datb[0], ss_datb, (const gc_run_t *)0, "DATBLK_t" };
+static const gc_slot_row_t sr_evch = { HB_EVCH, HB_EVCH, GR_TYPED, 0, (const gc_sfield_t *)0, &run_evch, "eval_cache_ent_t[]" };
+static const gc_slot_row_t sr_lblt = { HB_LBLT, HB_LBLT, GR_TYPED, 0, (const gc_sfield_t *)0, &run_lblt, "lbl_ent_t[]" };
+static const gc_slot_row_t sr_iochan = { HB_IOCH, HB_IOCH, GR_TYPED, 0, (const gc_sfield_t *)0, &run_iochan, "io_chan_t[]" };
+static const gc_slot_row_t sr_trce = { HB_TRCE, HB_TRCE, GR_TYPED, 0, (const gc_sfield_t *)0, &run_trce, "trace_ent_t[]" };
+static const gc_slot_row_t sr_proc = { HB_PROC, HB_PROC, GR_TYPED, 0, (const gc_sfield_t *)0, &run_proc, "rt_proc_t[]" };
 static const gc_slot_row_t *const gc_slot_rows[] = { &sr_str, &sr_fill, &sr_zblk, &sr_wsc, &sr_aggv, &sr_aggp, &sr_aggt, &sr_aggb, &sr_arr, &sr_dinst, &sr_dvec, &sr_wsb, &sr_pvec, &sr_dtp, &sr_dtprcp,
-    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb };
+    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb, &sr_evch, &sr_lblt, &sr_iochan, &sr_trce, &sr_proc };
 const gc_slot_row_t *gc_slot_row_of(uint16_t type) {
     for (size_t i = 0; i < sizeof gc_slot_rows / sizeof gc_slot_rows[0]; i++) if (type >= gc_slot_rows[i]->lo && type <= gc_slot_rows[i]->hi) return gc_slot_rows[i];
     return (const gc_slot_row_t *)0;

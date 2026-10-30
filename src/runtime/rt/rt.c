@@ -21,6 +21,7 @@
 #include "sil_macros.h"
 #include "bb_pool.h"
 #include "bb_box.h"
+#include "rt_proc_block.h"
 #include "bb_pool.h"
 #include "bb_build.h"
 #include "ast.h"
@@ -578,35 +579,6 @@ typedef struct { const char *base; long len; } rt_subj_t;
 int * const rt_k_level_p = &g_runtime.abi.rt_k_level;
 static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { g_runtime.abi.kw_fnclevel = (int64_t)g_runtime.abi.rt_k_level - 1; }
 #define PROC_FRAME_QWORDS 512
-typedef struct rt_proc_s {
-    const char *name;
-    bb_box_fn fn;
-    const char **pnames;
-    int nparams;
-    int frame_nslots;
-    int decl_level;
-    int alpha_slot;
-    uint64_t byref_mask;
-    int frame_bytes;
-    int gen_region_ft;
-    DESCR_t **pcells;
-    DESCR_t *rcell;
-    int cells_done;
-    int is_generator;
-    int dyn_scope;
-    int stage_var;
-    const char *result_name;
-    int is_variadic;
-    int rest_kind;
-    int named_rest;
-    int jmp_entry;
-    unsigned int redefined : 15;
-    unsigned int thunk : 1;
-    unsigned int pinned : 16;
-    int zstatic;
-    int pnames_owned;
-    int nformals;
-} rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, pnames) == 16 && __builtin_offsetof(rt_proc_t, nparams) == 24 && __builtin_offsetof(rt_proc_t, pcells) == 56 &&
     __builtin_offsetof(rt_proc_t, rcell) == 64 && __builtin_offsetof(rt_proc_t, result_name) == 88 && sizeof(rt_proc_t) == 128,
     "rt_gc_proc_roots_run (rtx_gc.s) walks the procedure table at these offsets");
@@ -676,7 +648,7 @@ static int rt_proc_hash_lookup(const char *name) {
 static void rt_gen_proc_grow(void) {
     if (g_runtime.rt.rt_gen_proc_count < g_runtime.rt.rt_gen_proc_cap) return;
     int nc = g_runtime.rt.rt_gen_proc_cap ? g_runtime.rt.rt_gen_proc_cap * 2 : 64;
-    rt_proc_t *np = (rt_proc_t *)rt_wsb_realloc(g_runtime.abi.rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
+    rt_proc_t *np = (rt_proc_t *)rt_gcheap_grow_block(g_runtime.abi.rt_gen_procs, HB_PROC, (size_t)nc * sizeof(rt_proc_t));
     if (!np) return;
     g_runtime.abi.rt_gen_procs = np;
     g_runtime.rt.rt_gen_proc_cap = nc;
@@ -2262,7 +2234,7 @@ void rt_proc_opsyn_bind(const char *nm, const char *old) {
     rt_proc_t o = g_runtime.abi.rt_gen_procs[io];
     if (!o.fn || !o.dyn_scope) return;
     int np = o.nparams > 0 ? o.nparams : 0;
-    const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + 1) * sizeof(char *));
+    const char **pn = (const char **)rt_pvec_alloc((size_t)(np + 1));
     if (!pn) return;
     for (int k = 0; k < np; k++) pn[k] = (o.pnames && o.pnames[k]) ? rt_heap_strdup_c(o.pnames[k]) : (const char *)0;
     pn[np] = (const char *)0;

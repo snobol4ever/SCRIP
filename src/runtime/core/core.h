@@ -192,6 +192,8 @@ typedef struct _FNCBLK_t {
     int max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
+typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
+typedef struct { FILE *fp; char *varname; int is_output; int is_popen; char *buf; size_t cap; long rlen; int unit; char *prebind; } io_chan_t;
 void DEFINE_fn(const char *spec, FNCPTR_t fn);
 void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
 void register_fn_alias(const char *newname, const char *oldname);

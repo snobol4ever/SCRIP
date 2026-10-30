@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <math.h>
 #include "core.h"
+#include "eval_blocks.h"
 #include "dtp.h"
 #include "keywords.h"
 #include "sil_macros.h"
@@ -27,7 +28,6 @@ extern int Ω;
 extern int Δ;
 void rt_proc_set_rest_kind(const char *name, int kind);
 void rt_proc_set_named_rest(const char *name, int slot);
-typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn compile_chain(void *g, void *entry, void *out, const char *prefix);
 extern int emit_jmp_entry_for_chain(IR_graph_t *g);
@@ -39,7 +39,6 @@ extern void bb_pool_release(size_t mark);
 #define EVAL_TMP_MARKED "EVAL$"
 #define EVAL_TMP_LEGACY "ZZEVALZZ"
 #define EVAL_TMP eval_tmp_name()
-typedef struct g_eval_cache_ent { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 _Static_assert(sizeof(eval_frame_t) == 112, "bb_call_fn.cpp carves BCFN_EVAL_REC = 112 bytes on the spine for the EVAL record; the record drifted");
 typedef struct eval_cframe_s { eval_frame_t f; struct eval_cframe_s *prev; } eval_cframe_t;
 static eval_cframe_t *g_eval_cfr = NULL;
@@ -99,7 +98,7 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
         int drop = (keep + 1) * 4 > EVAL_SEEN_ONCE_TABLE_MAX && marks > 0;
         if (drop) keep -= marks;
         while ((keep + 1) * 4 > ncap) ncap *= 2;
-        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
+        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_gcheap_alloc(HB_EVCH, (size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
         for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || (g_runtime.eval.eval_cache[k].gen == now && !drop)))
@@ -833,7 +832,6 @@ DESCR_t rt_eval_dtx_land_ω(long word, eval_frame_t *f) { extern DESCR_t rt_call
 static DESCR_t eval_node(tree_t *e) { (void)e; fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_expr(const char *src) { if (!src || !*src) return NULVCL; tree_t *tree = parse_expr_pat_from_str(src); if (!tree) return FAILDESCR; return eval_node(tree); }
-typedef struct g_lbl_ent { char *key; eval_chain_fn fn; } lbl_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void eval_gc_roots(void) {
@@ -867,7 +865,7 @@ void rt_label_set_fn(const char *name, void *fn) {
     for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) { g_runtime.eval.lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_runtime.eval.lbl_n >= g_runtime.eval.lbl_cap) {
         int ncap = g_runtime.eval.lbl_cap ? g_runtime.eval.lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_wsb_realloc(g_runtime.eval.lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+        lbl_ent_t *nt = (lbl_ent_t *)rt_gcheap_grow_block(g_runtime.eval.lbl_tab, HB_LBLT, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
         g_runtime.eval.lbl_tab = nt;
         g_runtime.eval.lbl_cap = ncap;

@@ -1169,7 +1169,7 @@ static DESCR_t rk_first_shape(DESCR_t src, int i, int mode) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rk_av_t rk_av_args(DESCR_t *args, int from, int to) {
     int tot = 0, m = to > from ? to - from : 0;
-    rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) (m ? m : 1));
+    rk_av_t vs[m ? m : 1];
     for (int i = 0; i < m; i++) { vs[i] = rk_av(args[from + i]); tot += vs[i].n; }
     DESCR_t *all = tot ? (DESCR_t *) rt_ws_alloc_descr((size_t) tot) : NULL;
     int k = 0;
@@ -9061,8 +9061,8 @@ static void pl_vt_init(pl_vtab_t *vt, int occ) {
     unsigned hc = 16;
     vt->cap = occ + 1;
     while (hc < 2u * (unsigned)vt->cap) hc <<= 1;
-    vt->nm = (const char **)rt_wsb_alloc((size_t)vt->cap * sizeof(const char *));
-    vt->v = (DESCR_t *)rt_wsb_alloc((size_t)vt->cap * sizeof(DESCR_t));
+    vt->nm = (const char **)rt_pvec_alloc((size_t)vt->cap);
+    vt->v = (DESCR_t *)rt_ws_alloc_descr((size_t)vt->cap);
     vt->cnt = (int *)rt_wsb_alloc((size_t)vt->cap * sizeof(int));
     vt->hs = (int *)rt_wsb_alloc((size_t)hc * sizeof(int));
     memset(vt->hs, 0xff, (size_t)hc * sizeof(int));
@@ -15761,7 +15761,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             g_rk_cbh_cur = hold[0].prev;
             for (int i = 0; i < nargs; i++) args[i] = rk_is_seq(hold[i].d[0]) ? ((ARBLK_t *) hold[i].d[0].arr)->data[3] : hold[i].d[0];
         }
-        rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
+        rk_av_t vs[nargs > 0 ? nargs : 1];
         long long rows = zip ? -1 : 1;
         for (int i = 0; i < nargs; i++) { vs[i] = rk_av_args(args, i, i + 1); if (zip) rows = (rows < 0 || vs[i].n < rows) ? vs[i].n : rows; else rows *= vs[i].n; }
         if (rows <= 0) { *out = rk_mk_arr(NULL, 0); return 1; }
@@ -16095,7 +16095,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
         int tot = 0;
-        rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
+        rk_av_t vs[nargs > 0 ? nargs : 1];
         for (int i = 0; i < nargs; i++) { vs[i] = rk_av(args[i]); tot += vs[i].n; }
         DESCR_t *all = tot ? (DESCR_t *) rt_ws_alloc_descr((size_t) tot) : NULL;
         int k = 0;

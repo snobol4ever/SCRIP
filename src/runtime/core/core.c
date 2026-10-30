@@ -50,7 +50,6 @@ static void mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len);
 #define TRACE_TAB_N ((int)g_runtime.core.g_trace_tab.len)
-typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 #define trace_tab ((trace_ent_t *)g_runtime.core.g_trace_tab.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
@@ -105,7 +104,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
     trace_ent_t *e = trace_find(name, kind);
     if (!e) {
         for (int i = 0; i < TRACE_TAB_N; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
-        if (!e) e = (trace_ent_t *)gv_push(&g_runtime.core.g_trace_tab, (uint16_t)HB_WSB, (uint32_t)sizeof(trace_ent_t), "trace_tab");
+        if (!e) e = (trace_ent_t *)gv_push(&g_runtime.core.g_trace_tab, (uint16_t)HB_TRCE, (uint32_t)sizeof(trace_ent_t), "trace_tab");
         e->used = 1;
         e->kind = kind;
         e->name = lit ? name : rt_heap_strdup_c(name);
@@ -1912,7 +1911,6 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     return NULVCL;
 }
 #define IO_CHAN_STD_FROM 127
-typedef struct { FILE *fp; char *varname; int is_output; int is_popen; char *buf; size_t cap; long rlen; int unit; char *prebind; } io_chan_t;
 #define _io_chan ((io_chan_t *)g_runtime.core.io_chan.p)
 #define IO_CHAN_N ((int)g_runtime.core.io_chan.len)
 extern FILE *popen(const char *, const char *);
@@ -1921,7 +1919,7 @@ extern int pclose(FILE *);
 static int _io_slot(int unit, int create) {
     for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].unit == unit) return i;
     if (!create) return -1;
-    ((io_chan_t *)gv_push(&g_runtime.core.io_chan, (uint16_t)HB_WSB, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
+    ((io_chan_t *)gv_push(&g_runtime.core.io_chan, (uint16_t)HB_IOCH, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
     return IO_CHAN_N - 1;
 }
 static void _io_prebind_take(void) {
@@ -4991,7 +4989,7 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     {
         int np = probe->nparams, nl = probe->nlocals, k;
         extern void *rt_heap_alloc_c(size_t);
-        const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + nl + 1) * sizeof(char *));
+        const char **pn = (const char **)rt_pvec_alloc((size_t)(np + nl + 1));
         if (!pn) return FAILDESCR;
         for (k = 0; k < np; k++) pn[k] = rt_heap_strdup_c(probe->params[k]);
         for (k = 0; k < nl; k++) pn[np + k] = rt_heap_strdup_c(probe->locals[k]);

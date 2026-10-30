@@ -177,8 +177,7 @@ static DESCR_t icn_extfn_marshal_out(const icnx_descr_t *d) {
 static icnx_extlfuns_t *icnx_extl_funcs(DESCR_t v) { icnx_extblk_t *b = (icnx_extblk_t *)v.p; return b ? b->funcs : (icnx_extlfuns_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icnx_extl_call(icnx_fn_t fn, DESCR_t a, DESCR_t b, int n, icnx_descr_t *res) {
-    icnx_descr_t *st = (icnx_descr_t *)rt_heap_alloc_c(3 * sizeof *st);
-    if (!st) return 0;
+    icnx_descr_t st[3];
     st[0].dword = ICNX_D_Null;
     st[0].vword = 0;
     st[1] = icn_extfn_marshal_in(a);
