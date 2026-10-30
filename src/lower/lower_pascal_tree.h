@@ -22,7 +22,6 @@ struct pas_pend_frame {
     int *fldna;
     long long *fldna_lo;
     long long *fldna_hi;
-    long long *fldov;
     int nf;
 };
 typedef struct { const tree_t *n; int i; } pas_sem_step_t;
@@ -173,7 +172,6 @@ typedef struct {
     long long *pas_pend_fldca_hi;
     int *pas_pend_fldchar;
     int *pas_pend_fldfile;
-    long long *pas_pend_fldov;
     int pas_pend_nf;
     int pas_pend_cap;
     char *pas_pend_ptrtarget;
@@ -191,9 +189,6 @@ typedef struct {
     int pas_arrptr_cap;
     int pas_narrptr;
     char *pas_pend_arr_ptrto;
-    struct { int lo, hi, n, first, last, nested; } *pas_vcase_stk;
-    int pas_vcase_cap;
-    int pas_vcase_depth;
     struct { const char **names; int n, cap; int decl_level; const char *func_name; } *pas_lstk;
     int pas_lstk_cap;
     struct { char *name; long long hi; long long pack; } *pas_settypes;

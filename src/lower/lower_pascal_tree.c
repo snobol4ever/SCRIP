@@ -52,7 +52,6 @@ static void pas_pend_ensure(int n) {
     PAS_PEND_GROW(pas_pend_fldca_hi);
     PAS_PEND_GROW(pas_pend_fldchar);
     PAS_PEND_GROW(pas_pend_fldfile);
-    PAS_PEND_GROW(pas_pend_fldov);
     PAS_PEND_GROW(pas_pend_fldna);
     PAS_PEND_GROW(pas_pend_fldna_lo);
     PAS_PEND_GROW(pas_pend_fldna_hi);
@@ -2274,7 +2273,6 @@ static void pas_pend_nest_save(void) {
     fr->fldna = ct_zalloc((size_t)fc, sizeof *fr->fldna);
     fr->fldna_lo = ct_zalloc((size_t)fc, sizeof *fr->fldna_lo);
     fr->fldna_hi = ct_zalloc((size_t)fc, sizeof *fr->fldna_hi);
-    fr->fldov = ct_zalloc((size_t)fc, sizeof *fr->fldov);
     for (int i = 0; i < n; i++) {
         fr->fields[i] = g_lower.pas.sem.pas_pend_fields[i];
         fr->fldptrto[i] = g_lower.pas.sem.pas_pend_fldptrto[i];
@@ -2289,7 +2287,6 @@ static void pas_pend_nest_save(void) {
         fr->fldna[i] = g_lower.pas.sem.pas_pend_fldna[i];
         fr->fldna_lo[i] = g_lower.pas.sem.pas_pend_fldna_lo[i];
         fr->fldna_hi[i] = g_lower.pas.sem.pas_pend_fldna_hi[i];
-        fr->fldov[i] = g_lower.pas.sem.pas_pend_fldov[i];
     }
     g_lower.pas.sem.pas_pend_nf = 0;
 }
@@ -2312,7 +2309,6 @@ static void pas_pend_nest_restore(void) {
         g_lower.pas.sem.pas_pend_fldna[i] = fr->fldna[i];
         g_lower.pas.sem.pas_pend_fldna_lo[i] = fr->fldna_lo[i];
         g_lower.pas.sem.pas_pend_fldna_hi[i] = fr->fldna_hi[i];
-        g_lower.pas.sem.pas_pend_fldov[i] = fr->fldov[i];
     }
     g_lower.pas.sem.pas_pend_nf = n;
 }
@@ -2377,126 +2373,7 @@ static long long pas_array_nonparam_low(const char *name) {
         return g_lower.pas.sem.pas_arrays[i].low;
     return 0;
 }
-static void pas_vcase_push(void) {
-    if (g_lower.pas.sem.pas_vcase_depth > 0) g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth - 1].nested = 1;
-    if (g_lower.pas.sem.pas_vcase_depth >= g_lower.pas.sem.pas_vcase_cap) g_lower.pas.sem.pas_vcase_stk =
-        pas_pool_grow(g_lower.pas.sem.pas_vcase_stk, &g_lower.pas.sem.pas_vcase_cap, sizeof *g_lower.pas.sem.pas_vcase_stk, 8);
-    {
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].lo = 0;
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].hi = 0;
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].n = 0;
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].first = 0;
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].last = 0;
-        g_lower.pas.sem.pas_vcase_stk[g_lower.pas.sem.pas_vcase_depth].nested = 0;
-    }
-    g_lower.pas.sem.pas_vcase_depth++;
-}
-static const char *pas_rk_base(const char *tn) { for (int guard = 0; tn && guard < 8; guard++) { const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; } return tn; }
-static int pas_rk_scalar(const char *tn, int ischar, int isbool, long long esz, int *cls, long long *sz) {
-    long long s = 0, lo = 0, hi = -1;
-    const char *b;
-    if (ischar) { *cls = 4; *sz = 1; return 1; }
-    if (isbool) { *cls = 5; *sz = 1; return 1; }
-    if (!tn) { if (esz < 1 || esz > 8) return 0; *cls = (g_lower.pas.sem.pas_pend_sub_high >= g_lower.pas.sem.pas_pend_sub_low && g_lower.pas.sem.pas_pend_sub_low >= 0) ? 2 : 1; *sz = esz; return 1; }
-    b = pas_rk_base(tn);
-    if (pas_is_realtypename(b)) { if (pas_sizeof_lookup(b, &s) && (s == 4 || s == 8)) { *cls = 3; *sz = s; return 1; } return 0; }
-    if (pas_is_settype(b)) { if (pas_sizeof_lookup(b, &s) && s >= 1 && s <= 32) { *cls = 6; *sz = s; return 1; } return 0; }
-    if (pas_is_int_typename(b) || pas_subtype_high(b) >= 0 || pas_enumtype_high(b) >= 0) {
-        if (!pas_sizeof_lookup(b, &s) || s < 1 || s > 8) return 0;
-        *cls = (pas_ordinal_bound_lookup(b, &lo, &hi) && lo >= 0) || pas_enumtype_high(b) >= 0 ? 2 : 1;
-        *sz = s;
-        return 1;
-    }
-    return 0;
-}
-static long long pas_field_rk(int nf) {
-    const char *tn = g_lower.pas.sem.pas_pend_typename;
-    int cls = 0, ecls = 0;
-    long long sz = 0, count = 0;
-    if (g_lower.pas.sem.pas_pend_fldfile[nf] || g_lower.pas.sem.pas_pend_fldrec[nf] || g_lower.pas.sem.pas_pend_fldptrto[nf]) return 0;
-    if (g_lower.pas.sem.pas_pend_fldca[nf] || g_lower.pas.sem.pas_pend_fldna[nf]) {
-        long long lo = g_lower.pas.sem.pas_pend_fldca[nf] ? g_lower.pas.sem.pas_pend_fldca_lo[nf] : g_lower.pas.sem.pas_pend_fldna_lo[nf],
-            hi = g_lower.pas.sem.pas_pend_fldca[nf] ? g_lower.pas.sem.pas_pend_fldca_hi[nf] : g_lower.pas.sem.pas_pend_fldna_hi[nf];
-        if (hi < lo || hi - lo + 1 > 60000) return 0;
-        count = hi - lo + 1;
-        if (g_lower.pas.sem.pas_pend_fldca[nf]) { ecls = 4; sz = 1; } else if (!pas_rk_scalar(tn, 0, 0, 0, &ecls, &sz) || ecls == 6 || ecls == 3) return 0;
-        return 7 | (sz << 4) | ((long long)ecls << 12) | (count << 16);
-    }
-    if (!pas_rk_scalar(tn, g_lower.pas.sem.pas_pend_ischar, g_lower.pas.sem.pas_pend_isbool, g_lower.pas.sem.pas_pend_esz, &cls, &sz)) return 0;
-    return cls | (sz << 4);
-}
 static long long pas_rk_get(long long ov, int w) { return w == 0 ? (ov >> 16) & 0xF : w == 1 ? (ov >> 20) & 0xFF : w == 2 ? (ov >> 28) & 0xF : w == 3 ? (ov >> 32) & 0xFFFF : (ov >> 48) & 0xFF; }
-static int pas_arm_field(int first, int last, int arm, int j) {
-    int k = 0;
-    for (int i = first; i < last; i++) if (pas_rk_get(g_lower.pas.sem.pas_pend_fldov[i], 4) == arm) { if (k++ == j) return i; }
-    return -1;
-}
-static int pas_vcase_region_do(int d) {
-    if (d != 0) return 0;
-    int first = g_lower.pas.sem.pas_vcase_stk[d].first, last = g_lower.pas.sem.pas_vcase_stk[d].last, narms = g_lower.pas.sem.pas_vcase_stk[d].n;
-    if (narms < 2 || last <= first || last > g_lower.pas.sem.pas_pend_nf || g_lower.pas.sem.pas_vcase_stk[d].nested) return 0;
-    for (int i = first; i < last; i++) if (!pas_rk_get(g_lower.pas.sem.pas_pend_fldov[i], 0)) return 0;
-    int legacy = 1;
-    for (int a = 2; a <= narms && legacy; a++) {
-        for (int j = 0; ; j++) {
-            int r = pas_arm_field(first, last, 1, j), f = pas_arm_field(first, last, a, j);
-            if (r < 0 && f < 0) break;
-            if (r < 0 || f < 0) { legacy = 0; break; }
-            long long cr = pas_rk_get(g_lower.pas.sem.pas_pend_fldov[r], 0), cf = pas_rk_get(g_lower.pas.sem.pas_pend_fldov[f], 0);
-            if (cr != cf || pas_rk_get(g_lower.pas.sem.pas_pend_fldov[r], 1) != pas_rk_get(g_lower.pas.sem.pas_pend_fldov[f], 1) || !(cr == 1 || cr == 2 || cr == 4 || cr == 5)) { legacy = 0; break; }
-        }
-    }
-    if (legacy) return 0;
-    long long rsize = 0;
-    for (int a = 1; a <= narms; a++) {
-        long long off = 0;
-        for (int j = 0; ; j++) {
-            int i = pas_arm_field(first, last, a, j);
-            if (i < 0) break;
-            long long cls = pas_rk_get(g_lower.pas.sem.pas_pend_fldov[i], 0), es = pas_rk_get(g_lower.pas.sem.pas_pend_fldov[i], 1), cnt = pas_rk_get(g_lower.pas.sem.pas_pend_fldov[i], 3),
-                sz = cls == 7 ? es * cnt : es, al = es < 1 ? 1 : (es > 8 ? 8 : es);
-            off = (off + al - 1) / al * al;
-            g_lower.pas.sem.pas_pend_fldov[i] = (g_lower.pas.sem.pas_pend_fldov[i] & ~(0xFFFFLL << 32)) | (off << 32);
-            off += sz;
-        }
-        if (off > rsize) rsize = off;
-    }
-    if (rsize < 1 || rsize > 60000) return 0;
-    for (int i = first; i < last; i++) g_lower.pas.sem.pas_pend_fldov[i] =
-        (g_lower.pas.sem.pas_pend_fldov[i] & 0xFFFF0000LL) | (g_lower.pas.sem.pas_pend_fldov[i] & 0xFFFF00000000LL) | (long long)first | (rsize << 48);
-    return 1;
-}
-static void pas_vcase_region(int d) {
-    if (d < 0) return;
-    int first = g_lower.pas.sem.pas_vcase_stk[d].first, last = g_lower.pas.sem.pas_vcase_stk[d].last;
-    if (!pas_vcase_region_do(d)) for (int i = first; i < last; i++) g_lower.pas.sem.pas_pend_fldov[i] &= 0xFFFFFFFFLL;
-}
-static void pas_vcase_pop(void) {
-    if (g_lower.pas.sem.pas_vcase_depth > 0) pas_vcase_region(g_lower.pas.sem.pas_vcase_depth - 1);
-    if (g_lower.pas.sem.pas_vcase_depth > 0) g_lower.pas.sem.pas_vcase_depth--;
-}
-static int pas_field_overlayable(int a, int b) {
-    if (g_lower.pas.sem.pas_pend_fldrec[a] || g_lower.pas.sem.pas_pend_fldrec[b] || g_lower.pas.sem.pas_pend_fldca[a] || g_lower.pas.sem.pas_pend_fldca[b] || g_lower.pas.sem.pas_pend_fldna[a] ||
-        g_lower.pas.sem.pas_pend_fldna[b] || g_lower.pas.sem.pas_pend_fldfile[a] || g_lower.pas.sem.pas_pend_fldfile[b] || g_lower.pas.sem.pas_pend_fldptrto[a] ||
-        g_lower.pas.sem.pas_pend_fldptrto[b] || (g_lower.pas.sem.pas_pend_fldchar[a] == 1) != (g_lower.pas.sem.pas_pend_fldchar[b] == 1)) return 0;
-    const char *ta = g_lower.pas.sem.pas_pend_fldtypename[a], *tb = g_lower.pas.sem.pas_pend_fldtypename[b];
-    if ((ta && (pas_is_realtypename(ta) || pas_is_settype(ta) || !strcmp(ta, "string"))) || (tb && (pas_is_realtypename(tb) || pas_is_settype(tb) || !strcmp(tb, "string")))) return 0;
-    return 1;
-}
-static void pas_vcase_arm_end(int start) {
-    if (g_lower.pas.sem.pas_vcase_depth <= 0) return;
-    int end = g_lower.pas.sem.pas_pend_nf;
-    int d = g_lower.pas.sem.pas_vcase_depth - 1;
-    for (int i = start; i < end; i++) g_lower.pas.sem.pas_pend_fldov[i] = (g_lower.pas.sem.pas_pend_fldov[i] & ~(0xFFLL << 48)) | ((long long)(g_lower.pas.sem.pas_vcase_stk[d].n + 1) << 48);
-    if (g_lower.pas.sem.pas_vcase_stk[d].n == 0) g_lower.pas.sem.pas_vcase_stk[d].first = start;
-    g_lower.pas.sem.pas_vcase_stk[d].last = end;
-    if (g_lower.pas.sem.pas_vcase_stk[d].n++ == 0) { g_lower.pas.sem.pas_vcase_stk[d].lo = start; g_lower.pas.sem.pas_vcase_stk[d].hi = end; return; }
-    for (int j = 0; start + j < end && g_lower.pas.sem.pas_vcase_stk[d].lo + j < g_lower.pas.sem.pas_vcase_stk[d].hi; j++) {
-        int a = start + j;
-        int c = (int)(g_lower.pas.sem.pas_pend_fldov[g_lower.pas.sem.pas_vcase_stk[d].lo + j] & 0xFFFF);
-        if (c != a && pas_field_overlayable(a, c)) g_lower.pas.sem.pas_pend_fldov[a] = (g_lower.pas.sem.pas_pend_fldov[a] & ~0xFFFFLL) | (long long)c;
-    }
-}
 static void pas_pend_add(const char *f) {
     if (f) pas_pend_ensure(g_lower.pas.sem.pas_pend_nf + 1);
     if (f) {
@@ -2531,7 +2408,6 @@ static void pas_pend_add(const char *f) {
             ((g_lower.pas.sem.pas_pend_isbool && !g_lower.pas.sem.pas_pend_isarr && !g_lower.pas.sem.pas_pend_ptrtarget) ? 2 : 0);
         g_lower.pas.sem.pas_pend_fldfile[g_lower.pas.sem.pas_pend_nf] = g_lower.pas.sem.pas_pend_istfile ||
             (g_lower.pas.sem.pas_pend_typename && (!strcmp(g_lower.pas.sem.pas_pend_typename, "text") || pas_rectype_has_file(g_lower.pas.sem.pas_pend_typename)));
-        g_lower.pas.sem.pas_pend_fldov[g_lower.pas.sem.pas_pend_nf] = (long long)g_lower.pas.sem.pas_pend_nf | (pas_field_rk(g_lower.pas.sem.pas_pend_nf) << 16);
         g_lower.pas.sem.pas_pend_fields[g_lower.pas.sem.pas_pend_nf++] = ct_strdup(f);
         g_lower.pas.sem.pas_pend_ptrtarget = NULL;
         g_lower.pas.sem.pas_pend_arr_ischar = 0;
@@ -2558,7 +2434,6 @@ static int pas_rectype_to_pend(const char *tn) {
         g_lower.pas.sem.pas_pend_fldca_hi[k] = f.cahi;
         g_lower.pas.sem.pas_pend_fldchar[k] = f.ch;
         g_lower.pas.sem.pas_pend_fldfile[k] = f.file;
-        g_lower.pas.sem.pas_pend_fldov[k] = f.ov;
         g_lower.pas.sem.pas_pend_fields[k] = (char *)f.name;
     }
     return 1;
@@ -5348,7 +5223,7 @@ static pval E_case_open(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
-    if (n == NULL) { { pas_vcase_push(); pas_vt_open(); } return out; }
+    if (n == NULL) { { pas_vt_open(); } return out; }
     elab_bad("case_open", n);
     return out;
 }
@@ -6311,7 +6186,7 @@ static pval E_record_case_arm(const tree_t *n) {
         v[1] = E_constant_list(n->c[0], 0, n->c[0]->n);
         v[4] = E_case_arm_mark(NULL);
         v[5] = E_record_body(n->c[1]);
-        { pas_vcase_arm_end((int)v[4].ival); pas_vt_arm((int)v[4].ival, g_lower.pas.sem.pas_pend_nf, v[1].node); out.node = v[1].node; }
+        { pas_vt_arm((int)v[4].ival, g_lower.pas.sem.pas_pend_nf, v[1].node); out.node = v[1].node; }
         return out;
     }
     elab_bad("record_case_arm", n);
@@ -6346,7 +6221,6 @@ static pval E_record_case_opt(const tree_t *n) {
         v[6] = E_case_open(NULL);
         v[7] = E_record_case_list(n, 2, n->n);
         {
-            pas_vcase_pop();
             pas_scope_define(v[2].str);
             pas_variant_constants_in_tag_type(v[4].str, v[7].list);
             if (v[2].str) {
@@ -6361,7 +6235,7 @@ static pval E_record_case_opt(const tree_t *n) {
         v[2].str = tok_s(n->c[0]);
         v[4] = E_case_open(NULL);
         v[5] = E_record_case_list(n, 1, n->n);
-        { pas_vcase_pop(); pas_variant_constants_in_tag_type(v[2].str, v[5].list); if (v[2].str) pas_pend_add(v[2].str); pas_vt_close(-1); }
+        { pas_variant_constants_in_tag_type(v[2].str, v[5].list); if (v[2].str) pas_pend_add(v[2].str); pas_vt_close(-1); }
         return out;
     }
     if (n == NULL) { return out; }
@@ -6966,7 +6840,7 @@ static pval E_type(const tree_t *n) {
         if (g_lower.pas.dump_types)
             pty_lay_check(n, g_lower.pas.sem.pas_pend_nf, g_lower.pas.sem.pas_pend_fields, g_lower.pas.sem.pas_pend_fldchar, g_lower.pas.sem.pas_pend_fldca, g_lower.pas.sem.pas_pend_fldca_lo,
             g_lower.pas.sem.pas_pend_fldca_hi, g_lower.pas.sem.pas_pend_fldna, g_lower.pas.sem.pas_pend_fldna_lo, g_lower.pas.sem.pas_pend_fldna_hi, g_lower.pas.sem.pas_pend_fldfile,
-            g_lower.pas.sem.pas_pend_fldptrto, g_lower.pas.sem.pas_pend_fldrec, g_lower.pas.sem.pas_pend_fldenum, g_lower.pas.sem.pas_pend_fldov);
+            g_lower.pas.sem.pas_pend_fldptrto, g_lower.pas.sem.pas_pend_fldrec, g_lower.pas.sem.pas_pend_fldenum);
         {
             if (g_lower.pas.sem.pas_recbody_depth > 1) {
                 char _anm[32];

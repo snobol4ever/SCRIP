@@ -34,7 +34,7 @@ const char *pty_fld_typename(const pty_t *r, int i);
 const char *pty_name_of(const pty_t *t);
 const pty_t *pty_pointee(const pty_t *t);
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
-    char **fldptrto, char **fldrec, char **fldenum, long long *fldov);
+    char **fldptrto, char **fldrec, char **fldenum);
 void pty_run(tree_t *prog, int fpc);
 const pty_t *pty_of_src(const tree_t *n);
 const pty_t *pty_of_low(const tree_t *e);

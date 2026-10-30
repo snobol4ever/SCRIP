@@ -1270,7 +1270,7 @@ const char *pty_fld_typename(const pty_t *r, int i) {
     return m;
 }
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
-    char **fldptrto, char **fldrec, char **fldenum, long long *fldov) {
+    char **fldptrto, char **fldrec, char **fldenum) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     const pty_ent *e = pt_map_get(&s->src, rec);
@@ -1311,12 +1311,7 @@ void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *
         else if ((fldptrto[i] != NULL) != ptr) what = "ptr";
         else if ((fldrec[i] != NULL) != rc) what = "rec";
         else if ((fldenum[i] != NULL) != en) what = "enum";
-        else if (fldov[i] != L->ov[i]) what = "ov";
-        if (what && !strcmp(what, "ov")) {
-            bad++;
-            fprintf(stderr, "PTYL ov field=%s i=%d legacy=%llx typer=%llx kind=%s named=%d tname=%s lo=%lld hi=%lld\n", fields[i] ? fields[i] : "?", i, fldov[i], L->ov[i],
-                ft ? pty_kind_name(ft->k) : "-", (int)L->named[i], ft && ft->name ? ft->name : "-", ft ? ft->lo : 0, ft ? ft->hi : 0);
-        } else if (what) {
+        if (what) {
             bad++;
             fprintf(stderr,
                 "PTYL %s line=%d field=%s legacy[char=%d ca=%d na=%d file=%d ptr=%d rec=%d enum=%d bounds=%lld..%lld/%lld..%lld] typer[kind=%s char=%d arr=%d ischar=%d %lld..%lld named=%d]\n", what,
