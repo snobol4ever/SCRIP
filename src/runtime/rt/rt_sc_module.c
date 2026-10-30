@@ -76,10 +76,7 @@ static sc_module_t *sc_module_get(const char *lang) {
     m->i_inited = sc_slot_of(m->d, "ModInited");
     m->i_errpos = sc_slot_of(m->d, "ModErrPos");
     m->i_incl = sc_slot_of(m->d, "ModIncl");
-    if (m->i_src < 0 || m->i_path < 0 || m->i_lang < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) {
-        fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n");
-        abort();
-    }
+    if (m->i_src < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) { fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n"); abort(); }
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -144,8 +141,8 @@ DESCR_t rt_sc_module_parse_begin(const char *lang, const char *src, size_t len, 
     {
         char *hs = (char *)rt_heap_strdup_c(src ? src : "");
         m->base[m->i_src] = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = hs };
-        m->base[m->i_path] = path && *path ? STRVAL(rt_heap_strdup_c(path)) : NULVCL;
-        m->base[m->i_lang] = STRVAL(rt_heap_strdup_c(lang));
+        if (m->i_path >= 0) m->base[m->i_path] = path && *path ? STRVAL(rt_heap_strdup_c(path)) : NULVCL;
+        if (m->i_lang >= 0) m->base[m->i_lang] = STRVAL(rt_heap_strdup_c(lang));
         if (m->i_incl >= 0) m->base[m->i_incl] = incl && incl_len ? (DESCR_t){ .v = DT_S, .slen = (uint32_t)incl_len, .s = (char *)incl } : NULVCL;
         m->base[m->i_tree] = none;
         if (m->i_errpos >= 0) m->base[m->i_errpos] = (DESCR_t){ .v = DT_I, .slen = 0, .i = -1 };

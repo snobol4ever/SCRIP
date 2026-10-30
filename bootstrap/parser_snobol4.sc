@@ -377,33 +377,10 @@ function PPInc(ln, qc, r, nm, key, once, t, dir) {
     t ? *Preprocess;
     nreturn;
 }
-/* ==================================================================================================================== */
-/* ParseTree(src, path): the one parse the linked module and the driver share -- the include pre-pass, the per-parse setup and   */
-/* the Compiland match; the tree, or failure                                                                                      */
-function ParseTree(src, path, ptree) {
-    Src = src;
-    pf_name = path;
-    pp_err = '';
-    if (Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo'))) {
-        PPInit();
-        if (Src ? *Preprocess) { ; } else { pp_err = 1; }
-        if (IDENT(pp_err)) { Src = pp_out pp_buf; }
-    }
-    InitCounter();
-    InitStack();
-    SnCaseNow = ;
-    SnCase = ;
-    SnLblT = TABLE(256);
-    if (DIFFER(pp_err)) freturn;
-    if (Src ? *Compiland) {
-        ptree = Pop();
-        ParseTree = ptree;
-        return;
-    }
-    freturn;
-}
 /* the driver: one file from stdin, or each file of PARSER_FILES in turn with a == header; the tree is dumped statement by  */
-/* statement, or the parse refused with Parse Error; a linked module (mod_head.sc) skips it                                 */
+/* statement, or the parse refused with Parse Error. A linked module (mod_head.sc) skips the reading: the module's ModEntry     */
+/* (the Makefile writes it after mod_tail.sc) jumps to SnoParse with the text in ModSrc, the tree leaves in ModTree and the     */
+/* code falls out at ModEnd into the tail's return                                                                              */
 if (DIFFER(ModLinked)) goto ModEnd;
 pf_list = HOST(4, 'PARSER_FILES');
 pf_n = 0;
@@ -411,49 +388,47 @@ pf_bytes = 0;
 pf_parse = 0;
 pf_parse1 = 0;
 if (IDENT(pf_list)) { INPUT(.INPUT, 9, '[-f0 -r16777215]'); } else { INPUT(.pf_names, 8, pf_list); }
-while (LE(0, 1)) {
-    if (IDENT(pf_list)) {
-        Src = INPUT;
-    } else {
-        if (~(pf_name = pf_names)) break;
-        INPUT(.INPUT, 9, pf_name '[-r16777215]');
-        Src = INPUT;
-        ENDFILE(9);
-        pf_bytes = pf_bytes + SIZE(Src);
-        OUTPUT = '== ' pf_name;
-    }
-    pp_err = '';
-    if (Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo'))) {
-        PPInit();
-        if (Src ? *Preprocess) { ; } else { pp_err = 1; }
-        if (IDENT(pp_err)) { Src = pp_out pp_buf; }
-    }
-    pf_a = TIME();
-    InitCounter();
-    InitStack();
-    SnCaseNow = ;
-    SnCase = ;
-    SnLblT = TABLE(256);
-    if (DIFFER(pp_err)) {
-        pf_parse = pf_parse + (TIME() - pf_a);
-        OUTPUT = 'Parse Error.';
-    } else if (Src ? *Compiland) {
-        ptree = Pop();
-        pf_parse = pf_parse + (TIME() - pf_a);
-        pf_i = 1;
-        pf_nk = n(ptree);
-        while (LE(pf_i, pf_nk)) {
-            pf_cmd = ITEM(c(ptree), pf_i);
-            if (t(pf_cmd) ? (POS(0) ('TT_STMT' | 'TT_END') RPOS(0))) { TreeDump(pf_cmd); }
-            pf_i = pf_i + 1;
-        }
-        TreeDumpEnd();
-    } else {
-        pf_parse = pf_parse + (TIME() - pf_a);
-        OUTPUT = 'Parse Error.';
-    }
-    pf_n = pf_n + 1;
-    if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
-    if (IDENT(pf_list)) break;
+SnoNext: if (IDENT(pf_list)) {
+    Src = INPUT;
+} else {
+    if (~(pf_name = pf_names)) goto ModEnd;
+    INPUT(.INPUT, 9, pf_name '[-r16777215]');
+    Src = INPUT;
+    ENDFILE(9);
+    pf_bytes = pf_bytes + SIZE(Src);
+    OUTPUT = '== ' pf_name;
 }
+SnoParse: if (DIFFER(ModLinked)) { Src = ModSrc; }
+pp_err = '';
+if (Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo'))) {
+    PPInit();
+    if (Src ? *Preprocess) { ; } else { pp_err = 1; }
+    if (IDENT(pp_err)) { Src = pp_out pp_buf; }
+}
+pf_a = TIME();
+InitCounter();
+InitStack();
+SnCaseNow = ;
+SnCase = ;
+SnLblT = TABLE(256);
+ptree = ;
+if (IDENT(pp_err)) { if (Src ? *Compiland) { ptree = Pop(); } }
+pf_parse = pf_parse + (TIME() - pf_a);
+if (DIFFER(ModLinked)) { ModTree = ptree; goto ModEnd; }
+if (IDENT(ptree)) {
+    OUTPUT = 'Parse Error.';
+} else {
+    pf_i = 1;
+    pf_nk = n(ptree);
+    while (LE(pf_i, pf_nk)) {
+        pf_cmd = ITEM(c(ptree), pf_i);
+        if (t(pf_cmd) ? (POS(0) ('TT_STMT' | 'TT_END') RPOS(0))) { TreeDump(pf_cmd); }
+        pf_i = pf_i + 1;
+    }
+    TreeDumpEnd();
+}
+pf_n = pf_n + 1;
+if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
+if (IDENT(pf_list)) goto ModEnd;
+goto SnoNext;
 ModEnd: if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;

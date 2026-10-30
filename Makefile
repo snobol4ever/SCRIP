@@ -1939,6 +1939,9 @@ RT_SRC_ALL := $(shell find $(SRC) -type f 2>/dev/null)
 # after the reserved 741 (SC_GVA_RESERVE, the SNOBOL4 parser's count; a parser with more cells refuses its load until each module has its own island).
 SC_MOD_LANGS := snobol4 snocone rebus icon prolog pascal raku
 SC_MOD_LIB := global case assign match counter stack tree ShiftReduce tdump gen qize semantic omega trace
+# the parse label of each WIRED language's parser, the target of the ONE line the chain ends with (ModEntry, after mod_tail.sc: mod_tail.sc names only ModEntry and stays language-neutral);
+# a language with no entry here ends its chain with ModEntry: return, a parse that yields no tree (cto 2026-10-29 22:1x CDT, ARCH-PARSER-SC-BOOTSTRAP.md section 7.x, D3 road 2)
+SC_MOD_ENTRY_snobol4 := sno_SnoParse
 sc_mod_pfx = $(if $(filter snobol4,$(1)),sno_,$(if $(filter snocone,$(1)),snc_,$(if $(filter raku,$(1)),rak_,$(if $(filter rebus,$(1)),reb_,$(if $(filter icon,$(1)),icn_,$(if $(filter prolog,$(1)),pro_,pas_))))))
 SC_MOD_OBJS := $(SC_MOD_LANGS:%=out/sc_mod/scmod_%.o)
 PARSER_SOS := $(SC_MOD_LANGS:%=out/libscrip_parser_%.so)
@@ -1959,7 +1962,7 @@ out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 $(SC_MOD_LANGS:%=out/sc_mod/scmod_%.sc): out/sc_mod/scmod_%.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) bootstrap/parser_%.sc Makefile
 	@mkdir -p out/sc_mod
 	@{ printf "ModPrefix = 'mod_';\nimport mod_head;\nModPrefix = 'sc_';\n"; for f in $(SC_MOD_LIB); do printf "import '%s';\n" $$f; done; \
-	   printf "ModPrefix = '$(call sc_mod_pfx,$*)';\nimport parser_$*;\n"; printf "ModPrefix = 'mod_';\nimport mod_tail;\n"; } > $@
+	   printf "ModPrefix = '$(call sc_mod_pfx,$*)';\nimport parser_$*;\n"; printf "ModPrefix = 'mod_';\nimport mod_tail;\nModEntry: $(if $(SC_MOD_ENTRY_$*),goto $(SC_MOD_ENTRY_$*),return);\n"; } > $@
 $(SC_MOD_OBJS): out/sc_mod/scmod_%.o: out/sc_mod/scmod_%.sc out/scrip0
 	./out/scrip0 --module parser_$* --compile --out=out/sc_mod/scmod_$*.s out/sc_mod/scmod_$*.sc < /dev/null
 	$(CC) -c out/sc_mod/scmod_$*.s -o $@
