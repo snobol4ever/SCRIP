@@ -240,6 +240,8 @@ struct IR_graph_t {
     const char ** lname_ix_ln;
     int resume_slot;
     int resumable_callable;
+    int depth_counted;
+    int dl_pair;
     int keeps_choice;
     int rt_redefinable;
     int decl_level;

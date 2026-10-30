@@ -171,6 +171,7 @@ typedef struct {
     const int * kill_last;
     const int * kill_co;
     int kill_nv;
+    const tree_t * dl_skip;
 } lcx_t;
 static const char * pl_vname(const lcx_t * cx, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2376,7 +2377,38 @@ static int pl_trace_stmt_control(const tree_t * t) {
     return !strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dl_wants_tick(const lcx_t * cx, const tree_t * t) {
+    extern int pl_prelude_defines(const char *, int);
+    static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "not", "call", "findall", "forall", "once", "ignore", "catch", "setup_call_cleanup", "call_cleanup", "true", "fail", ":", "bagof",
+        "setof", NULL };
+    const char * nm;
+    int n;
+    if (cx->cur_key && (!strncmp(cx->cur_key, "$dl_", 4) || !strcmp(cx->cur_key, "call_with_depth_limit/3"))) return 0;
+    if (cx->cur_key) {
+        const char * sl = strrchr(cx->cur_key, '/');
+        if (sl && sl != cx->cur_key) {
+            char kn[sl - cx->cur_key + 1];
+            memcpy(kn, cx->cur_key, (size_t)(sl - cx->cur_key));
+            kn[sl - cx->cur_key] = 0;
+            if (pl_prelude_defines(kn, atoi(sl + 1)) && !pl_file_defines(kn, atoi(sl + 1))) return 0;
+        }
+    }
+    if (t->t == TT_UNIFY) return !(t->n == 2 && t->c[0] && t->c[1] && (t->c[0]->t == TT_VAR || t->c[1]->t == TT_VAR));
+    if (t->t != TT_FNC && t->t != TT_QLIT && t->t != TT_NAME) return 0;
+    nm = t->v.sval;
+    n = (t->t == TT_FNC) ? t->n : 0;
+    if (!nm || nm[0] == '$') return 0;
+    for (int i = 0; ctl[i]; i++) if (!strcmp(nm, ctl[i])) return 0;
+    if (t->t == TT_FNC && n == 2 && (!strcmp(nm, "=") || !strcmp(nm, "==") || !strcmp(nm, "\\==")) && t->c[0] && t->c[1] && (t->c[0]->t == TT_VAR || t->c[1]->t == TT_VAR)) return 0;
+    return pl_user_defines(nm, n) || pl_prelude_defines(nm, n) || pl_db_owned(nm, n) ? 0 : 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    if (t && g_stage2.depth_counted && cx->dl_skip != t && pl_dl_wants_tick(cx, t)) {
+        cx->dl_skip = t;
+        return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$dl_tick", pl_cc_ilit(0)), (tree_t *) t), γnext, ωfail, entry_out);
+    }
+    if (cx->dl_skip == t) cx->dl_skip = NULL;
     if (!t || !pl_trace_wanted() || cx->stmt_depth > 0 || pl_trace_stmt_control(t)) return goal_inner(cx, t, γnext, ωfail, entry_out);
     IR_t * e = NULL;
     cx->stmt_depth++;
@@ -3048,6 +3080,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
             if (!strcmp(nm, "read_term") && t->n == 3) return pl_leaf_lv(cx, "$read_term_opts_s", t, 3, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_decls") && t->n >= 1) return pl_leaf_lv(cx, "$db_decls", t, t->n, γnext, ωfail, entry_out);
+            if (t->n == 1 && (!strcmp(nm, "$dl_push") || !strcmp(nm, "$dl_reached") || !strcmp(nm, "$dl_false") || !strcmp(nm, "$dl_reset") || !strcmp(nm, "$dl_tick")))
+                return pl_leaf_lv(cx, nm, t, 1, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_data") && t->n == 1) {
                 int dar = 0;
                 const char * dpn = pl_head_key(t->c[0], &dar);
@@ -3679,6 +3713,7 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
     g->nslots = arity + nl + 8;
     g->resumable_callable = 1;
     g->unbound_serial = 1;
+    g->depth_counted = g_stage2.depth_counted;
     g->deterministic = 1;
     g->home_frame = 1;
 }
@@ -3898,6 +3933,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
     {
         extern void zls_frame_resident_mark(const IR_t *);
         IR_graph_t * g = pl_pred_graph(ch, key);
+        if (g && g_stage2.depth_counted && key && !strcmp(key, "call_with_depth_limit/3")) g->dl_pair = 1;
         if (g && g->home_frame) for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_TABLE_HDR) zls_frame_resident_mark(g->all[i]);
         return bb_program_add(&g_stage2.bbp, g);
     }
@@ -3939,6 +3975,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     {
         extern int rt_proc_is_registered(const char *);
         extern void rt_proc_register(const char *, const char **, int);
+        if (!g_stage2.depth_counted && rt_proc_is_registered("call_with_depth_limit/3")) g_stage2.depth_counted = 1;
         if (!rt_proc_is_registered(key)) rt_proc_register(ct_strdup(key), (const char **) 0, arity);
     }
     { extern void bb_pool_init(void); bb_pool_init(); }
@@ -5920,6 +5957,13 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
     if (meth) ast_push(np, pl_table_stmt(meth_s, meth));
     return np;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_names_depth_limit(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n == 3 && t->v.sval && !strcmp(t->v.sval, "call_with_depth_limit")) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_names_depth_limit(t->c[i])) return 1;
+    return 0;
+}
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
@@ -5933,6 +5977,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
     prog = pl_attv_rewrite(prog);
+    if (!g_stage2.depth_counted && pl_names_depth_limit(prog)) g_stage2.depth_counted = 1;
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;
@@ -6323,7 +6368,11 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             }
         }
     }
-    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) { g_stage2.bbp.table[_gi]->resumable_callable = 1; g_stage2.bbp.table[_gi]->unbound_serial = 1; }
+    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) {
+        g_stage2.bbp.table[_gi]->resumable_callable = 1;
+        g_stage2.bbp.table[_gi]->unbound_serial = 1;
+        g_stage2.bbp.table[_gi]->depth_counted = g_stage2.depth_counted;
+    }
     for (int i = 0; i < g_stage2.proc_count; i++) {
         const char * pk = g_stage2.proc_table[i].name;
         int bi = g_stage2.proc_table[i].bb_idx;

@@ -1537,11 +1537,19 @@ void zls_build(IR_graph_t * g) {
         ct_drop(hv);
         ct_drop(wl);
     }
-    int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;
+    int s0 = (g->nparams > 0 || g->resumable_callable || g->depth_counted) ? 1 : 0;
     for (int i = 0; !s0 && i < g->n; i++) if (g->all[i] && rb[i] && (g->all[i]->op == IR_RETURN || g->all[i]->op == IR_SUSPEND)) s0 = 1;
     int blk = zls_g_block_args(g);
-    int base = s0 ? 16 + ((g->nparams > 0 && !blk) ? g->nparams * 16 : 0) : 0;
-    if (s0)
+    int dlp = (s0 && g->depth_counted && g->dl_pair) ? 32 : 0;
+    int base = s0 ? 16 + dlp + ((g->nparams > 0 && !blk) ? g->nparams * 16 : 0) : 0;
+    if (s0 && g->depth_counted)
+        zls_field(root, 0, 16, ZK_RAW, 0,
+        "depth words (a depth-counted program, ARCH-PROLOG-DATABASE section 8: LEVEL at base +0 is this activation's depth, LIMITER at base +8 the address of the active limiter's pair or 0; read by "
+        "the callee through the link at kt-8, never followed by the collector)", (const IR_t *)0);
+    if (dlp)
+        zls_field(root, 16, 32, ZK_RAW, 0,
+        "depth pair (the limiter's own: LIMIT at +16, REACHED at +24, OUTER -- the limiter active when this one began -- at +32; the active-limiter word of every callee names +16)", (const IR_t *)0);
+    if (s0 && !g->depth_counted)
         zls_field(root, 0, 16, ZK_DESCR, 0,
         "return value (IR_RETURN stores the graph result DESCR at frame +0 and the graph gamma loads it into rdi:rsi; zeroed by the prologue, a valid null DESCR until then)", (const IR_t *)0);
     int k = 0;
@@ -1553,9 +1561,9 @@ void zls_build(IR_graph_t * g) {
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
         cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
         *zls_nix_slot(nix, nix_cap, g->pnames[i]) = g->pnames[i];
-        zv[g_lower.ir.zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + i * 16 };
+        zv[g_lower.ir.zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + dlp + i * 16 };
         r->n_vslots++;
-        if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
+        if (!blk) zls_field(root, 16 + dlp + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int hf = g->home_frame ? 1 : 0;
     r->hf = hf;

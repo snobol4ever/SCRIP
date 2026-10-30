@@ -462,10 +462,12 @@ static std::string zf_pro_packet(int kt) {
                    "base), as a multi-clause chain's alternation is, so every binding of a caller cell is trailed and the chain-omega's unwind undoes it before the next clause")
            + x86_pl_frame_choice_open(x86_hb(), kt, 236, 237, g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? -1 : 245);
 }
+static std::string zf_pro_depth(int kt);
+static std::string zf_epo_pl(int kt);
 static std::string zf_pro_finish(const std::string & s, int kt) {
     return (g_emit.flat_pkt && (!g_emit_cfg || kt - g_emit_cfg->jcon_value_region != FLAT_FRAME_ALLOWANCE_PINNED))
          ? x86_bomb("packet fragment: the pinned allowance is not 96, the G word at [kt-80] has no home")
-         : emit_seq({s, IF(g_emit.flat_pkt, zf_pro_packet(kt)), zf_pro_map(kt)});
+         : emit_seq({s, IF(g_emit.flat_pkt, zf_pro_packet(kt)), zf_pro_depth(kt), zf_pro_map(kt)});
 }
 static int zf_pro_kt(int kt) {
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
@@ -476,6 +478,28 @@ static int zf_pro_np(void) {
 }
 static int zf_pro_nl(void) {
     return g_emit_cfg ? g_emit_cfg->nlocals : 0;
+}
+static std::string zf_pro_depth(int kt) {
+    if (!(g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph)) return std::string();
+    return x86("comment",
+        "DEPTH-COUNTED (ARCH-PROLOG-DATABASE section 8): LEVEL is the caller's plus 1 and LIMITER the caller's, copied down through the link at [kt-8] from the caller's base +0 and +8; "
+                          "an active limiter's REACHED (pair +8) rises to this level, and a level over its LIMIT (pair +0) is this clause's omega -- the predicate fails, no ball")
+         + x86("mov", "rax", RDQ("rsp", kt - 8))
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("add", "rcx", 1L)
+         + x86("mov", RDQ("rsp", 0), "rcx")
+         + x86("mov", "rdi", RDQ("rax", 8))
+         + x86("mov", RDQ("rsp", 8), "rdi")
+         + x86("test", "rdi", "rdi")
+         + x86("je", L(961))
+         + x86("cmp", "rcx", RDQ("rdi", 8))
+         + x86("jle", L(960))
+         + x86("mov", RDQ("rdi", 8), "rcx")
+         + x86("def", L(960))
+         + x86("cmp", "rcx", RDQ("rdi", 0))
+         + x86("jle", L(961))
+         + (g_emit.flat_pkt && g_emit.flat_pkt_chainω_p ? x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p) : zf_epo_pl(kt))
+         + x86("def", L(961));
 }
 static std::string zf_pro(int kt) {
     return zf_pro_finish(emit_seq({zf_pro_head(zf_pro_kt(kt)), zf_pro_body(kt, zf_pro_np(), zf_pro_nl()), zf_pro_display(kt, zf_display_level())}), kt);

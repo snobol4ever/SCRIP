@@ -1432,7 +1432,7 @@ static PlClause *parse_clause(Parser *p) {
     return cl;
 }
 static const char * const PL_PRELUDE_SRC =
-    "member(X,[X|_]).\n"
+    "member(El,[H|T]):-'$member_'(T,El,H).\n"
     "reset(G,B,C):-'$co_enter'(G,H,R,N),'$reset_k'(R,H,N,B,C).\n"
     "'$co_enter'(G,H,R,N):-nonvar(G),G='$cont'(H0,N0),!,H=H0,'$co_resume'(H0,1,N0,R,N).\n"
     "'$co_enter'(G,H,R,N):-'$co_start'(G,H,R,N).\n"
@@ -1575,7 +1575,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$when_suspend_list'([V=W|Unifier],Goal):-'$when_suspend'(V,Goal),(var(W)->'$when_suspend'(W,Goal);true),'$when_suspend_list'(Unifier,Goal).\n"
     "'$when_suspend'(V,Goal):-(get_attr(V,when,call(G0))->put_attr(V,when,call((G0,Goal)));put_attr(V,when,call(Goal))).\n"
     "'$when_hook'(call(Goal),Other):-(get_attr(Other,when,call(GOther))->del_attr(Other,when),call(Goal),call(GOther);call(Goal)).\n"
-    "member(X,[_|T]):-member(X,T).\n"
+    "'$member_'(_,El,El).\n"
+    "'$member_'([H|T],El,_):-'$member_'(T,El,H).\n"
     "append([],L,L).\n"
     "append([H|T],L,[H|R]):-append(T,L,R).\n"
     "reverse(L,R):-'$skip_list'(_,L,T),(T==[]->'$reverse_'(L,[],R);'$reverse_b'(L,R,[],R)).\n"

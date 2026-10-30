@@ -25013,6 +25013,51 @@ DESCR_t rt_pl_dop_db_data_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, voi
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_dl_push_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
+    int64_t *w = (int64_t *)fb;
+    DESCR_t lv;
+    (void)cx;
+    if (nargs != 1) return FAILDESCR;
+    lv = rt_pl_deref_val(args[0]);
+    if (lv.v != DT_I) return FAILDESCR;
+    w[2] = w[0] + lv.i;
+    w[3] = w[0];
+    w[1] = (int64_t)(uintptr_t)&w[2];
+    return pl_ok();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_dl_reached_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
+    int64_t *w = (int64_t *)fb;
+    DESCR_t v;
+    if (nargs != 1) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    v = INTVAL(w[3] - w[0]);
+    { char *tr0 = cx->tr; int ok = plw_unify_vals(args[0], v, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_dl_reset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) { int64_t *w = (int64_t *)fb; (void)args; (void)nargs; (void)cx; w[3] = w[0] + 1; return pl_ok(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_dl_tick_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
+    int64_t *w = (int64_t *)fb, *pair = (int64_t *)(uintptr_t)w[1], lvl = w[0] + 1;
+    (void)args;
+    (void)nargs;
+    (void)cx;
+    if (!pair) return pl_ok();
+    if (lvl > pair[1]) pair[1] = lvl;
+    return lvl > pair[0] ? FAILDESCR : pl_ok();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_dl_false_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
+    extern int prolog_atom_intern(const char *);
+    int64_t *w = (int64_t *)fb;
+    DESCR_t v;
+    if (nargs != 1) return FAILDESCR;
+    if (w[3] <= w[2]) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    v = pl_make_atom(prolog_atom_intern("depth_limit_exceeded"));
+    { char *tr0 = cx->tr; int ok = plw_unify_vals(args[0], v, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); return rt_pl_db_abolish(root, db) ? pl_ok() : FAILDESCR; }

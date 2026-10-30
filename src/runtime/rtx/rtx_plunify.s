@@ -146,6 +146,111 @@ RTX_FUNC(rt_pl_dop_db_data_unify)
 .Lpdu_ret:
     ret
 RTX_ENDF(rt_pl_dop_db_data_unify)
+RTX_FUNC(rt_pl_dop_dl_push)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_push_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_push_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_push_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_push_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_push_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_push)
+RTX_FUNC(rt_pl_dop_dl_reached)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_reached_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_reached_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_reached_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_reached_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_reached_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_reached)
+RTX_FUNC(rt_pl_dop_dl_false)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_false_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_false_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_false_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_false_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_false_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_false)
+RTX_FUNC(rt_pl_dop_dl_reset)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_reset_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_reset_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_reset_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_reset_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_reset_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_reset)
+RTX_FUNC(rt_pl_dop_dl_tick)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_tick_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_tick_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_tick_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_tick_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_tick_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_tick)
 RTX_FUNC(rt_pl_dop_clause_unify)
     RTX_SUB_RSP(CTX_FRAME)
     CTX_SAVE

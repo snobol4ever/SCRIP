@@ -749,7 +749,7 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
     if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() +
         x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
     const int fr = !zsp && !sprec;
-    int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
+    int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && (g_emit_cfg->root_graph || g_emit_cfg->depth_counted));
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
          + IF(fr, x86("mov", FRQ(act), 0L))

@@ -81,6 +81,7 @@ typedef struct stage2_t {
     int pl_dialect;
     int pl_scc_aux_n;
     int pl_attv_armed;
+    int depth_counted;
     int rk_infix_armed;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
