@@ -1713,7 +1713,7 @@ YY_RULE_SETUP
 case 61:
 /* rule 61 can match eol */
 YY_RULE_SETUP
-{ for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
+{ for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_COMMA; }
 	YY_BREAK
 case 62:
 *yy_cp = yyg->yy_hold_char; /* undo effects of setting up yytext */
