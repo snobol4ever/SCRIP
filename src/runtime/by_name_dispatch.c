@@ -9102,13 +9102,14 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
         {
             extern int rt_pl_double_quotes_mode(void);
             const char *b = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : "";
+            size_t bl = (t->n > 0 && t->c[0] && t->c[0]->v.sval && t->c[0]->slen > 0) ? (size_t)t->c[0]->slen : strlen(b);
             int m = rt_pl_double_quotes_mode();
-            if (m == 3) return rt_pl_make_string_cell(b);
-            if (m == 0) return pl_mk_atom_dup(b, strlen(b));
+            if (m == 3) return rt_pl_make_string_cell_n(b, bl);
+            if (m == 0) return pl_mk_atom_dup(b, bl);
             {
                 extern int rt_pl_u8_get(const char *s, int *adv);
                 DESCR_t acc = pl_nil();
-                for (size_t i = strlen(b); i > 0;) {
+                for (size_t i = bl; i > 0;) {
                     size_t p = i - 1;
                     int a, cp;
                     while (p > 0 && i - p < 4 && ((unsigned char)b[p] & 0xC0) == 0x80) p--;
@@ -12464,12 +12465,41 @@ PL_CX_LEAF_HEAD(format3, 3)
         }
     }
 PL_CX_LEAF_TAIL
+static int pl_text_nul_quoted(const char *s, size_t n, const char **out) {
+    char *o = (char *)rt_wsb_alloc(3 * n + 1);
+    size_t k = 0;
+    char q = 0;
+    for (size_t i = 0; i < n; i++) {
+        char c = s[i];
+        if (!c) { if (!q && !(i >= 2 && s[i - 1] == '\'' && s[i - 2] == '0')) return 0; memcpy(o + k, "\\0\\", 3); k += 3; continue; }
+        o[k++] = c;
+        if (q) {
+            if (c == '\\' && i + 1 < n && s[i + 1]) o[k++] = s[++i];
+            else if (c == q) q = 0;
+        } else if (c == '%') {
+            while (i + 1 < n && s[i + 1] && s[i + 1] != '\n') o[k++] = s[++i];
+        } else if (c == '/' && i + 1 < n && s[i + 1] == '*') {
+            size_t j = ++i;
+            o[k++] = s[i];
+            while (i + 1 < n && s[i + 1] && !(s[i + 1] == '/' && s[i] == '*' && i > j)) o[k++] = s[++i];
+        } else if (c == '"' || c == '`' || (c == '\'' && !(i >= 1 && s[i - 1] == '0' && (i < 2 || !(isalnum((unsigned char)s[i - 2]) || s[i - 2] == '_'))))) q = c;
+    }
+    o[k] = 0;
+    *out = o;
+    return 1;
+}
 static int pl_term_text_leaf(DESCR_t *args, int as_str, pl_tr_ctx_t *cx) {
     char b[65536];
     const char *txt;
+    size_t tl = 0;
     DESCR_t t;
     pl_vtab_t vt;
-    if (pl_cell_text(args[1], b, sizeof b, &txt)) {
+    if (pl_cell_text_n(args[1], b, sizeof b, &txt, &tl)) {
+        if (tl > strlen(txt) && !pl_text_nul_quoted(txt, tl, &txt)) {
+            extern void *rt_pl_ball_kind1(const char *, const char *);
+            cx->ball = rt_pl_ball_kind1("syntax_error", "illegal_character");
+            return 0;
+        }
         if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", PL_SYNERR(vt)); return 0; }
         return plw_unify_vals(args[0], t, cx);
     }

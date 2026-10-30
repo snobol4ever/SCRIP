@@ -342,9 +342,6 @@ static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted) {
             case '\v':
             fputs("\\v", fp);
             break;
-            case '\0':
-            fputs("\\0\\", fp);
-            break;
             default:
             if (c < 0x20 || c == 0x7f) fprintf(fp, "\\x%x\\", (unsigned)c);
             else fputc(c, fp);
