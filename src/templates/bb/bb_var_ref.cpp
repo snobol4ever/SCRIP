@@ -59,7 +59,7 @@ std::string bb_var_ref() {
          + IF(_.op_off != -1 && VR_ANON(),
                x86("comment", "IR_VAR_REF anon: rt_pl_fresh_var_ref -> PLJ PLVAR cell")
              + x86_alpha()
-             + (x86_serial_vars() ? x86("mov", "rdi", "r14") : x86("xor", "edi", "edi"))
+             + x86(x86_serial_vars() ? "mov" : "xor", x86_serial_vars() ? "rdi" : "edi", x86_serial_vars() ? "r14" : "edi")
              + x86("call", "rt_pl_fresh_var_ref", (uint64_t)(uintptr_t)(void *)rt_pl_fresh_var_ref)
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
