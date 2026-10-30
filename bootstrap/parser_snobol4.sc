@@ -107,10 +107,8 @@ $'~'        =  *$'  ' '~'  *$'  ';
 $','        =  *$' ' ',' *$' ';
 $'('        =  '(' *$' ';
 $'['        =  '[' *$' ';
-$'<'        =  '<' *$' ';
 $')'        =  *$' ' ')';
 $']'        =  *$' ' ']';
-$'>'        =  *$' ' '>';
 /* ==================================================================================================================== */
 /* THE EXPRESSION, as src/parsers/snobol4/snobol4.y builds it (Lon 2026-09-30: the C tree is canonical, and "the tree is */
 /* built from tokens in the same order as they are recognized by the PATTERN ... directly and once only"): every left-     */
@@ -162,7 +160,6 @@ Expr14      =  '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
             |  *Expr15;
 Expr15      =  *Expr17 *Expr15t;
 Expr15t     =  FENCE(  epsilon . *PushCounter() . *IncCounter() *$'[' FENCE(*ArgList | epsilon) *$']' . *Reduce('TT_IDX', nTop()) . *PopCounter() *Expr15t
-                     | epsilon . *PushCounter() . *IncCounter() *$'<' FENCE(*ArgList | epsilon) *$'>' . *Reduce('TT_IDX', nTop()) . *PopCounter() *Expr15t
                      | epsilon);
 /* a call: the name is held (PushVal) when its '(' is recognised and SnoCall builds the ONE node -- TT_FNC <name>, or the  */
 /* pattern primitive's own kind for snobol4.y pat_prim_kind's names (exact case), ARB BAL REM FAIL SUCCEED ABORT keeping it */
@@ -197,10 +194,8 @@ Expr17      =  FENCE(
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
 /* a goto target as snobol4.y goto_label_expr: (L) and ($L) are the label's text, ($'s') the string, ($(e)) the           */
-/* expression, ($A<i>) and ($A[i]) the subscript expression A<i> (goto_sub), (F(args)) a call, <e> TT_GOTO_DIRECT e         */
-GoSub1      =  FENCE(  epsilon . *PushCounter() . *IncCounter() '[' FENCE(*ArgList | epsilon) ']' . *Reduce('TT_IDX', nTop()) . *PopCounter()
-                    |  epsilon . *PushCounter() . *IncCounter() '<' FENCE(*ArgList | epsilon) '>' . *Reduce('TT_IDX', nTop()) . *PopCounter()
-                    );
+/* expression, ($A[i]) the subscript expression A[i] (goto_sub), (F(args)) a call, <e> TT_GOTO_DIRECT e                      */
+GoSub1      =  FENCE(  epsilon . *PushCounter() . *IncCounter() '[' FENCE(*ArgList | epsilon) ']' . *Reduce('TT_IDX', nTop()) . *PopCounter() );
 GoInner     =  FENCE(  '$' '(' *$' ' *Expr *$' ' ')'
                     |  '$' (*Id) . thx . *Shift('TT_VAR', REPLACE(thx, SnLT[SnCase], SnUT[SnCase])) *GoSub1 *Expr15t
                     |  '$' "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'"
