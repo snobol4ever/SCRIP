@@ -7153,6 +7153,21 @@ static void rk_place_groups(tree_t * t, int * uid) {
     else if (!strcmp(t->v.sval, "__rk_given_mod") && t->n >= 3) rk_pl_modifier(t, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_bool_rx(tree_t ** sp) {
+    tree_t * t = *sp;
+    if (!t) return;
+    if (t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_regex")) { *sp = rk_case_match(leaf_sval2(TT_VAR, "_"), t); return; }
+    if (t->t == TT_SEQ || t->t == TT_ALT || t->t == TT_NOT) for (int i = 0; i < t->n; i++) rk_bool_rx(&t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_bool_regexes(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_bool_regexes(t->c[i]);
+    if ((t->t == TT_IF || t->t == TT_UNLESS || t->t == TT_WHILE || t->t == TT_UNTIL || t->t == TT_NOT || t->t == TT_TERNARY) && t->n > 0) rk_bool_rx(&t->c[0]);
+    else if (t->t == TT_REPEAT && t->n > 1) rk_bool_rx(&t->c[1]);
+    else if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "__rk_mkbool")) rk_bool_rx(&t->c[1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_sub_topic(tree_t * t, int in_pkg) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_sub_topic(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
@@ -7198,6 +7213,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         rk_builtin_refs((tree_t *) prog, &subs);
         rk_ctl_rhs((tree_t *) prog);
         rk_attr_aliases((tree_t *) prog);
+        rk_bool_regexes((tree_t *) prog);
         rk_sub_topic((tree_t *) prog, 0);
     }
     rk_role_specialize((tree_t *) prog);
