@@ -192,7 +192,7 @@ int prolog_u_letter(const char *s, int *adv) {
     else if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80) { n = 4; cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); }
     else { *adv = 1; return 0; }
     *adv = n;
-    if (cp < 0xC0 || cp == 0xD7 || cp == 0xF7 || (cp >= 0x2000 && cp < 0x2C00) || (cp >= 0x3000 && cp < 0x3040) || (cp >= 0xFE00 && cp < 0xFE70) || (cp >= 0xFF00 && cp < 0xFF10) || (cp >= 0xE000 && cp < 0xF900) || (cp >= 0x1F000 && cp < 0x1FB00)) return 0;
+    if (cp < 0xC0 || cp == 0xD7 || cp == 0xF7 || (cp >= 0x2000 && cp < 0x2C00) || (cp >= 0x3000 && cp < 0x3040) || (cp >= 0xFE00 && cp < 0xFE70) || (cp >= 0xFF00 && cp < 0xFF10) || (cp >= 0xE000 && cp < 0xF900) || (cp >= 0x1F000 && cp < 0x1FB00) || (cp >= 0xFFF0 && cp <= 0xFFFF)) return 0;
     if (cp <= 0xDE) return 1;
     if (cp <= 0xFF) return 2;
     if (cp < 0x180) { if (cp < 0x138) return (cp & 1) ? 2 : 1; if (cp >= 0x139 && cp < 0x149) return (cp & 1) ? 1 : 2; if (cp >= 0x14A && cp < 0x178) return (cp & 1) ? 2 : 1;
@@ -350,7 +350,7 @@ S_QUOTED:
                                                                                                                                          : "invalid escape sequence in double-quoted token",
                                                                                     e0[1] == 'u' || e0[1] == 'U' ? "Illegal \\u or \\U sequence" : swi_culprit1("undefined_char_escape", (unsigned char)e0[1])); }
                                                                                                                                                goto S_QUOTED;      }
-    if ((PEEK(0) == '\n' && !lx->swi) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
+    if ((PEEK(0) == '\n' && !lx->nlq) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
                                                                                                                     : "unescaped layout character in double-quoted token"); }
                                                                      {  if (PEEK(0) == '\n') NL(); sb_put(lx, PEEK(0)); ADV(1);                goto S_QUOTED;      }
 S_GRAPHIC:
@@ -411,6 +411,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->fenced = 0;
     lx->iso = 0;
     lx->swi = lx_dialect_marker(lx->src);
+    lx->nlq = lx->swi;
     lx->tstart = 0; lx->last_end = 0; lx->cm = NULL; lx->ncm = 0; lx->ccm = 0;
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0; lx->run0 = 0; lx->pc = NULL;
     memset(&lx->peek, 0, sizeof lx->peek);

@@ -29,7 +29,7 @@ typedef struct RkLang {
     int start; int stop; int stop2; int nrep;
     const char *here; int here_len;
 } RkLang;
-typedef struct { char *delim; int dlen; RkLang lang; } RkHere;
+typedef struct { char *delim; int dlen; RkLang lang; tree_t *node; } RkHere;
 typedef struct { int prec; int sub; int assoc; int from; int to; } StackOp;
 typedef struct RkP {
     const char *s; int n; const char *file;
@@ -51,7 +51,7 @@ typedef struct RkP {
     RkName *names; int nnames; int cnames;
     int depth; int st_uid;
     char *pkg;
-    int finished;
+    int finished, finish_from;
     int comp_unit_begin;
     RkMyst *myst; int nmyst; int cmyst; int myst_off; int saw_inv; int last_inv; int lax; int quote_block; int lang_e;
     RkPkg *pkgs; int npkgs; int cpkgs;
@@ -691,14 +691,14 @@ static int r_pod(RkP *p, int pos) {
     if (!(is_word_cp(c) || c == '\\')) return -1;
     q++;
     int nl; int e = pod_ident(p, q, &nl);
-    if (nl == 6 && !memcmp(p->s + q, "finish", 6)) { p->finished = 1; return p->n; }
+    if (nl == 6 && !memcmp(p->s + q, "finish", 6)) { p->finished = 1; p->finish_from = line_end(p, e); return p->n; }
     if (nl == 5 && !memcmp(p->s + q, "begin", 5)) {
         int r = e;
         r = NSPAN(p, r, ck(is_hspace_cp));
         int bl; int be = pod_ident(p, r, &bl);
         if (bl == 0) panic_at(p, q, "Pod block without a name after =begin");
         const char *name = p->s + r;
-        if (bl == 6 && !memcmp(name, "finish", 6)) { p->finished = 1; return p->n; }
+        if (bl == 6 && !memcmp(name, "finish", 6)) { p->finished = 1; p->finish_from = line_end(p, be); return p->n; }
         int depth = 1;
         int l = line_end(p, be);
         while (l < p->n) {
@@ -1209,10 +1209,14 @@ static int r_heredoc_bodies(RkP *p, int pos) {
         p->nhere--;
         RkLang L = h.lang;
         L.here = h.delim; L.here_len = h.dlen; L.start = 0;
+        RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
+        p->qc = NULL; p->nqc = 0; p->cqc = 0;
         int e; r_nibble_until(p, pos, &L, &e);
         if (e < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
         int s = here_stopper(p, e, &L);
         if (s < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
+        if (p->build && h.node) rkb_heredoc_body(p->B, h.node, pos, e, NSPAN(p, e, ck(is_hspace_cp)) - e, L.sc || L.clos, p->qc, p->nqc);
+        p->qc = sq; p->nqc = sn; p->cqc = sc;
         pos = s;
     }
     return pos;
@@ -2190,7 +2194,7 @@ static int x_peek(RkP *p, RkX *x) {
         while (x->ns && st[x->ns - 1].sub > o.prec) x->ns--;
         if (x->ns == ns0 && o.to - o.from >= 2 && at_lit(p, o.from, ":=") && paren_list_term(p, x->tq, x->tt)) panic_at(p, o.from, "Cannot use bind operator with this left-hand side");
         if (at_lit(p, o.from, "==>>") || at_lit(p, o.from, "<<==")) panic_at(p, o.from, "%.4s feed operator not yet implemented. Sorry.", p->s + o.from);
-        if (o.flags & OF_FAKE) { if (p->build && p->tm.kind == TK_CP) rkb_adverb(p->B, x->cur, p->tm.name); x->last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } x->last_end = w;
+        if (o.flags & OF_FAKE) { if (p->build && p->tm.kind == TK_CP) rkb_adverb(p->B, x->cur, &p->tm); x->last_end = e; w = r_ws(p, e); if (w < 0) { e = -1; break; } x->last_end = w;
             continue; }
         break;
     }
@@ -3210,8 +3214,10 @@ static int r_quote_raw(RkP *p, int pos);
 static int r_quote(RkP *p, int pos) {
     RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
     p->qc = NULL; p->nqc = 0; p->cqc = 0;
+    int nh = p->nhere;
     int e = r_quote_raw(p, pos);
-    if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc);
+    if (e >= 0 && p->build && p->nhere > nh) { rkb_heredoc_stub(p->B, &p->tm, pos, e); p->here[p->nhere - 1].node = p->tm.t; }
+    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc);
     p->qc = sq; p->nqc = sn; p->cqc = sc;
     return e;
 }
@@ -3583,9 +3589,9 @@ static int r_term(RkP *p, int pos) {
             if (e >= 0 && p->build) { rkb_contextualize(p->B, &p->tm, "item"); p->tm.from = pos; }
             return e;
         }
-        if (c == '@' && ch(p, pos + 1) == '$' && (is_alpha_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == '_') && !p->in_decl && !p->qsigil) {
+        if ((c == '@' || c == '%') && ch(p, pos + 1) == '$' && (is_alpha_cp(cp_at(p, pos + 2)) || ch(p, pos + 2) == '_') && !p->in_decl && !p->qsigil) {
             e = r_variable(p, pos + 1);
-            if (e >= 0 && p->build) { rkb_var(p->B, &p->tm, pos + 1, e, NULL, 0); rkb_contextualize(p->B, &p->tm, "list"); p->tm.from = pos; }
+            if (e >= 0 && p->build) { rkb_var(p->B, &p->tm, pos + 1, e, NULL, 0); rkb_contextualize(p->B, &p->tm, c == '@' ? "list" : "hash"); p->tm.from = pos; }
             return e;
         }
         e = r_variable(p, pos);
@@ -3847,7 +3853,7 @@ static void mark_param_traits(tree_t *tv, const RkTrait *tr, int n, int pref) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
     int q = pos; int e = -1; int ntc = 0;
-    int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
+    int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0, keyfrom = -1, keyto = -1;
     for (;;) { int t = r_type_constraint(p, q); if (t < 0) break; RK_GROW(tf, ntc, ctf, int); RK_GROW(tt, ntc, ctt, int); tf[ntc] = q;
         { int te = t; while (te > q && asc_space((unsigned char) p->s[te - 1])) te--; tt[ntc] = te; } q = t; ntc++;
         }
@@ -3857,7 +3863,7 @@ static int r_parameter(RkP *p, int pos) {
         int v = r_param_var(p, q + l);
         pref = l == 2 ? 'L' : c;
         if (v >= 0) { e = v; vfrom = q + l; vto = v; }
-        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) add_value_name(p, p->s + q + 1, e - q - 1); }
+        else if (c == '+' && is_alpha_cp(cp_at(p, q + 1))) { e = r_identifier(p, q + 1); if (e >= 0) { add_value_name(p, p->s + q + 1, e - q - 1); vfrom = q + 1; vto = e; } }
         else if (c == '+') e = q + 1;
     }
     else if (c == '\\' || c == '|') {
@@ -3874,7 +3880,8 @@ static int r_parameter(RkP *p, int pos) {
         int v = r_param_var(p, q);
         if (v >= 0) { vfrom = q; vto = v; }
         if (v < 0) { v = r_named_param(p, q); if (v >= 0) { named = 1; int k = q; while (k < v && p->s[k] != '$' && p->s[k] != '@' && p->s[k] != '%' && p->s[k] != '&') k++; vfrom = k; vto = v;
-            while (vto > vfrom && p->s[vto - 1] == ')') vto--; } }
+            while (vto > vfrom && p->s[vto - 1] == ')') vto--;
+            int ki = r_identifier(p, q + 1); if (ki >= 0 && ch(p, ki) == '(') { keyfrom = q + 1; keyto = ki; } } }
         if (v >= 0) { e = v; if (ch(p, e) == '?' || ch(p, e) == '!') { suffix = ch(p, e); e++; } }
         else if (ntc) e = q;
         else {
@@ -3888,12 +3895,13 @@ static int r_parameter(RkP *p, int pos) {
     q = r_traits(p, q); q = ws(p, q);
     RkTrait *ptr = p->tr; int nptr = p->ntr;
     p->pwhere = NULL;
-    for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
+    tree_t *subsig = NULL;
+    for (;;) { int sgn = ch(p, q) == '[' || ch(p, q) == '('; if (sgn) p->sig = NULL; int t = r_post_constraint(p, q); if (t < 0) break; if (sgn && p->sig) subsig = p->sig; q = ws(p, t); }
     tree_t *pw = p->pwhere;
     p->pwhere = NULL;
     int d = r_default_value(p, q);
     RkList *dflt = d >= 0 ? takelst(p) : NULL;
-    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); if (pw) { tree_t *wv = param_var_of(p->tv); if (wv) { tree_t *wc = ast_node_new(TT_FNC); tree_t *wn = ast_node_new(TT_VAR); wc->v.sval = (char *) "__rk_where"; wn->v.sval = (char *) "__rk_where"; ast_push(wc, wn); ast_push(wc, pw); ast_push(wv, wc); } } }
+    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); if (keyfrom >= 0) rkb_param_key(p->B, p->tv, p->s + keyfrom, keyto - keyfrom); if (subsig) { tree_t *sv = param_var_of(p->tv); if (sv) ast_push(sv, subsig); } if (pw) { tree_t *wv = param_var_of(p->tv); if (wv) { tree_t *wc = ast_node_new(TT_FNC); tree_t *wn = ast_node_new(TT_VAR); wc->v.sval = (char *) "__rk_where"; wn->v.sval = (char *) "__rk_where"; ast_push(wc, wn); ast_push(wc, pw); ast_push(wv, wc); } } }
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
@@ -5084,7 +5092,7 @@ static int r_comp_unit(RkP *p) {
     p->comp_unit_begin = 0;
     scope_enter(p);
     int e = r_statementlist(p, q);
-    if (p->build) { if (p->last_real_semi) rkb_empty(p->B, list, BK_MAIN); p->tv = rkb_program(p->B, list); }
+    if (p->build) { if (p->last_real_semi) rkb_empty(p->B, list, BK_MAIN); if (p->finished) rkb_finish(p->B, list, p->s + p->finish_from, p->n - p->finish_from); p->tv = rkb_program(p->B, list); }
     e = ws(p, e);
     if (e < p->n && !p->finished) {
         int c = ch(p, e);

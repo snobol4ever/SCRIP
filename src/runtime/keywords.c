@@ -185,6 +185,7 @@ const char *kw_cset_intern(const char *canon, int len) {
     if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_runtime.kw.kw_cset_names[hit].ptr; }
     { char *stable = kw_cset_block_new(canon, len); kw_cset_append(stable, NULL, len); return stable; }
 }
+RT_ENTRY_DECL(rt_icn_cset_register, leaf, 0);
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
     {
@@ -387,18 +388,14 @@ void rt_kw_dump_values(void (*emit)(void *cx, const char *name, DESCR_t v), void
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_kw_index(const char *kw) { if (!kw) return -1; if (!sn4_kw_spelling_is_canonical(kw)) return -1; const KWB_ENT_t *e = kwb_find(kw); if (!e) return -1; return (int)(e - g_kwb); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_kw_read_idx, leaf, 0);
 DESCR_t rt_kw_read_idx(int64_t idx) { if (idx < 0 || idx >= (int64_t)g_kwb_n) return NULVCL; kwb_init_once(); DESCR_t out; if (kwb_read_ent(&g_kwb[idx], &out)) return out; return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_kw_write_idx, leaf, 0);
 DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t)g_kwb_n) return v; kwb_init_once(); return kwb_write_ent(&g_kwb[idx], v) < 0 ? FAILDESCR : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
-    if (!strcmp(kw,"pos")) return INTVAL(g_runtime.abi.scan_pos);
-    if (!strcmp(kw,"subject")) {
-        extern long rt_scan_subj_len(void);
-        if (!g_runtime.abi.scan_subj) return STRVAL("");
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
-    }
     if (!strcmp(kw,"e")) return REALVAL(2.718281828459045);
     if (!strcmp(kw,"pi")) return REALVAL(3.141592653589793);
     if (!strcmp(kw,"phi")) return REALVAL(1.618033988749895);
@@ -519,6 +516,7 @@ DESCR_t kw_read(const char *kw) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_read, leaf, 0);
 DESCR_t rt_keyword_read(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
@@ -534,6 +532,7 @@ DESCR_t rt_keyword_read(const char *sval) {
     return NV_GET_fn(sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_read_snobol4, leaf, 0);
 DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
@@ -599,6 +598,7 @@ void rt_stmt_enter(long stno, long line) {
     if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit && kwb_error(244, "statement count exceeds value of stlimit keyword")) g_runtime.misc.kw_stlimit += 10;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_stmt_enter_p, leaf, 0);
 void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
     g_runtime.abi.lastno = g_runtime.abi.stno;
     g_runtime.abi.stno = stno;
@@ -614,6 +614,7 @@ void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
     if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit && kwb_error(244, "statement count exceeds value of stlimit keyword")) g_runtime.misc.kw_stlimit += 10;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_keyword_gen, gen, 0);
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;

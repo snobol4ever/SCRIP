@@ -240,6 +240,8 @@ struct IR_graph_t {
     const char ** lname_ix_ln;
     int resume_slot;
     int resumable_callable;
+    int depth_counted;
+    int dl_pair;
     int keeps_choice;
     int rt_redefinable;
     int decl_level;
@@ -277,6 +279,7 @@ struct IR_graph_t {
     int home_frame;
     int root_graph;
     int standing_cells;
+    int unbound_serial;
     int runtime_fragment_graph;
     int is_variadic;
     int rest_kind;
@@ -310,6 +313,7 @@ struct IR_graph_t {
         int lay_n;
         int lay_gaps;
         int lay_conf;
+        unsigned lay_flags;
         const char * name;
         int choice_n;
         int choice_leaf;

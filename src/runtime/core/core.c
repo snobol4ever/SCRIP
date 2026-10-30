@@ -50,7 +50,6 @@ static void mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len);
 #define TRACE_TAB_N ((int)g_runtime.core.g_trace_tab.len)
-typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 #define trace_tab ((trace_ent_t *)g_runtime.core.g_trace_tab.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
@@ -105,7 +104,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
     trace_ent_t *e = trace_find(name, kind);
     if (!e) {
         for (int i = 0; i < TRACE_TAB_N; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
-        if (!e) e = (trace_ent_t *)gv_push(&g_runtime.core.g_trace_tab, (uint16_t)HB_WSB, (uint32_t)sizeof(trace_ent_t), "trace_tab");
+        if (!e) e = (trace_ent_t *)gv_push(&g_runtime.core.g_trace_tab, (uint16_t)HB_TRCE, (uint32_t)sizeof(trace_ent_t), "trace_tab");
         e->used = 1;
         e->kind = kind;
         e->name = lit ? name : rt_heap_strdup_c(name);
@@ -382,6 +381,7 @@ void rt_trace_all_set(int on) {
         trace_unregister("*", TRK_RETURN);
     }
 }
+RT_ENTRY_DECL(rt_trace_label_hook_p, leaf, 0);
 void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
     if (trace_idle()) return;
     if (!name || !*name) return;
@@ -547,6 +547,7 @@ void rt_trace_call_hook_ip(const char *fname, long island, trace_pend_t *pend) {
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
     { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args_ip(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_runtime.abi.stno, island, pend, 0); }
 }
+RT_ENTRY_DECL(rt_trace_call_hook_p, leaf, 0);
 void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend) { rt_trace_call_hook_ip(fname, 0, pend); }
 void rt_trace_call_hook(const char *fname) { rt_trace_call_hook_ip(fname, 0, (trace_pend_t *)0); }
 #else
@@ -574,6 +575,7 @@ static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b, c; } g_icn_op;
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
+RT_ENTRY_DECL(core_icn_toby_ctx, leaf, 0);
 void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by) { g_icn_op.sym = "to"; g_icn_op.arity = 3; g_icn_op.a = *from; g_icn_op.b = *to; g_icn_op.c = *by; }
 void core_icn_op_ctx_clear(void) { g_icn_op.sym = (const char *)0; }
 const char *core_icn_binop_sym(int bcode) {
@@ -883,6 +885,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
 }
 static void core_icn_report(int code, DESCR_t val, const char *msg) { core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val); exit(1); }
 #if RT_DIAG
+RT_ENTRY_DECL(rt_trace_call_hook_f, leaf, 0);
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     if (trace_idle()) return;
     if (np < 0) np = 0;
@@ -890,6 +893,7 @@ void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
     { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_runtime.abi.stno); }
 }
+RT_ENTRY_DECL(rt_trace_suspend_hook, leaf, 0);
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) {
     if (trace_idle()) return;
     if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
@@ -910,6 +914,7 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     g_runtime.abi.line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_trace_gen_return_hook, leaf, 0);
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) {
     if (trace_idle()) return;
     if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
@@ -927,8 +932,10 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
     g_runtime.core.trace_recursion_depth--;
     if (h) *(long *)((char *)h + 64) |= 1;
 }
+RT_ENTRY_DECL(rt_trace_gen_fail_hook, leaf, 0);
 void rt_trace_gen_fail_hook(const char *fname, void *h) { if (trace_idle()) return; if (h && (*(const long *)((const char *)h + 64) & 1)) return; rt_trace_fail_hook(fname); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_trace_resume_hook, leaf, 0);
 void rt_trace_resume_hook(const char *pname, void *h) {
     if (trace_idle()) return;
     if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
@@ -957,13 +964,17 @@ void rt_trace_fail_hook_ip(const char *fname, long island, trace_pend_t *pend, l
     extern const char *rt_proc_trace_canon(const char *);
     rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, FAILDESCR, g_runtime.abi.stno, island, pend, rstno);
 }
+RT_ENTRY_DECL(rt_trace_fail_hook_p, leaf, 0);
 void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno) { rt_trace_fail_hook_ip(fname, 0, pend, rstno); }
+RT_ENTRY_DECL(rt_trace_fail_hook, leaf, 0);
 void rt_trace_fail_hook(const char *fname) { rt_trace_fail_hook_ip(fname, 0, (trace_pend_t *)0, 0); }
 void rt_trace_return_hook_ip(const char *fname, DESCR_t retval, long island, trace_pend_t *pend, long long rstno) {
     extern const char *rt_proc_trace_canon(const char *);
     if (!trace_idle()) rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_runtime.abi.stno, island, pend, rstno);
 }
+RT_ENTRY_DECL(rt_trace_return_hook_p, leaf, 0);
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno) { rt_trace_return_hook_ip(fname, retval, 0, pend, rstno); }
+RT_ENTRY_DECL(rt_trace_return_hook, leaf, 0);
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { rt_trace_return_hook_ip(fname, retval, 0, (trace_pend_t *)0, 0); }
 #else
 void rt_trace_fail_hook(const char *fname) { (void)fname; }
@@ -995,6 +1006,7 @@ static void mon_send(const char *kind, const char *name, const char *value) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno);
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val);
+RT_ENTRY_DECL(rt_trace_stmt, leaf, 0);
 void rt_trace_stmt(long line) {
     if (trace_idle()) return;
     if (g_runtime.abi.trace_budget == 0) return;
@@ -1265,12 +1277,14 @@ void sno_trace_value(const char *name, DESCR_t val) {
     if (sno_name_is_output_assoc(name)) return;
     rt_trace_value(name, val);
 }
+RT_ENTRY_DECL(sno_trace_call, leaf, 0);
 void sno_trace_call(const char *fname) {
     extern const char *rt_proc_trace_canon(const char *);
     if (g_runtime.abi.trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
     rt_trace_call(rt_proc_trace_canon(fname), (DESCR_t *)0, 0);
 }
+RT_ENTRY_DECL(sno_trace_return, leaf, 0);
 void sno_trace_return(const char *fname, DESCR_t retval) {
     extern const char *rt_proc_trace_canon(const char *);
     if (g_runtime.abi.trace_budget == 0 || !fname || !*fname) return;
@@ -1470,14 +1484,18 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
     comm_var_tail(name, val, hook);
 }
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) { comm_var_hook_p(name, val, file, line, stno, hook, (trace_pend_t *)0); }
+RT_ENTRY_DECL(comm_var_open, leaf, 0);
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend) { comm_var_hook_p(name, val, (const char *)0, 0, stno, 0, pend); }
+RT_ENTRY_DECL(rt_value_trace_open, leaf, 0);
 long rt_value_trace_open(const char *name, trace_pend_t *pend) {
     DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
     if (!cell) return 0;
     comm_var_hook_p(name, *cell, stmt_src_get_file(), 0, 0, 0, pend);
     return pend->args[0].v ? 2 : 0;
 }
+RT_ENTRY_DECL(rt_trace_pend_run, leaf, 0);
 void rt_trace_pend_run(trace_pend_t *pend) { (void)RT_GC_CALLBACK(APPLY_fn(VARVAL_fn(pend->args[0]), &pend->args[1], 2)); }
+RT_ENTRY_DECL(rt_trace_pend_close, leaf, 0);
 void rt_trace_pend_close(trace_pend_t *pend) {
     if (!pend->args[0].v) return;
     rt_pl_port_trace_cb(pend->args[0].s, 2);
@@ -1491,6 +1509,7 @@ void rt_trace_pend_close(trace_pend_t *pend) {
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
     pend->hook.slen = 0;
 }
+RT_ENTRY_DECL(rt_call_pend_close, leaf, 0);
 void rt_call_pend_close(trace_pend_t *pend) { pend->args[0].v = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { comm_var_hook(name, val, file, line, stno, 0); }
@@ -1892,7 +1911,6 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     return NULVCL;
 }
 #define IO_CHAN_STD_FROM 127
-typedef struct { FILE *fp; char *varname; int is_output; int is_popen; char *buf; size_t cap; long rlen; int unit; char *prebind; } io_chan_t;
 #define _io_chan ((io_chan_t *)g_runtime.core.io_chan.p)
 #define IO_CHAN_N ((int)g_runtime.core.io_chan.len)
 extern FILE *popen(const char *, const char *);
@@ -1901,7 +1919,7 @@ extern int pclose(FILE *);
 static int _io_slot(int unit, int create) {
     for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].unit == unit) return i;
     if (!create) return -1;
-    ((io_chan_t *)gv_push(&g_runtime.core.io_chan, (uint16_t)HB_WSB, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
+    ((io_chan_t *)gv_push(&g_runtime.core.io_chan, (uint16_t)HB_IOCH, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
     return IO_CHAN_N - 1;
 }
 static void _io_prebind_take(void) {
@@ -2369,6 +2387,7 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *setexit_label_get(char *buf, size_t bufsz) { if (!(core_setexit_on() && sxl_set())) return NULL; strncpy(buf, SXL, bufsz - 1); buf[bufsz - 1] = '\0'; SXL[0] = '\0'; return buf; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(sno_setexit_fire_on_end, leaf, 0);
 void sno_setexit_fire_on_end(void) {
     char buf[g_runtime.core.setexit_label.p ? strlen(SXL) + 1 : 1];
     if (g_runtime.abi.kw_errlimit == 0 || !core_setexit_on_end()) return;
@@ -2769,6 +2788,8 @@ void core_lib_init(void) {
     { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
 #endif
     extern void register_fn_lit(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
+    extern DESCR_t sno_stmt_error_fn(DESCR_t *, int);
+    register_fn_lit("SNO$STERR", sno_stmt_error_fn, 0, 0);
     register_fn_lit("GT", _GT_, 2, 2);
     register_fn_lit("LT", _LT_, 2, 2);
     register_fn_lit("GE", _GE_, 2, 2);
@@ -3042,6 +3063,8 @@ void core_runtime_error(int code, const char *msg) {
             memcpy(lbl, SXL, sizeof lbl);
             SXL[0] = '\0';
             if (g_runtime.abi.kw_errlimit > 0) g_runtime.abi.kw_errlimit--;
+            if (G_ERROR_IS_EVAL(g_runtime.abi.error) && G_ERROR_EVAL_LEVEL(g_runtime.abi.error) == G_ERROR_EVAL_LEVEL(G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel))) g_runtime.abi.error =
+                G_ERROR_EVAL_ERRED_AT(g_runtime.abi.kw_fnclevel);
             rt_kw_publish_error(code, msg);
             if (strcmp(lbl, "ABORT")) {
                 extern uint64_t g_rtccb[32];
@@ -3060,6 +3083,7 @@ void core_runtime_error(int code, const char *msg) {
             if (G_ERROR_IS_EVAL(g_runtime.abi.error) && G_ERROR_EVAL_LEVEL(g_runtime.abi.error) == G_ERROR_EVAL_LEVEL(G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel))) g_runtime.abi.error =
                 G_ERROR_EVAL_ERRED_AT(g_runtime.abi.kw_fnclevel);
             rt_kw_publish_error(code, msg);
+            { extern uint64_t g_rtccb[32]; g_rtccb[26] = 0; }
             return;
         }
     }
@@ -3234,6 +3258,7 @@ const char *core_icn_errmsg(int code) { return icn_errmsg(code); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_startup_error_no_main(void) { fflush(stdout); fprintf(stderr, "scrip: error %d: %s\n  at startup\n", 117, icn_errmsg(117)); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_icn_error, leaf, 0);
 int core_icn_error(int code, DESCR_t val) {
     if (g_runtime.abi.error != 0 && !G_ERROR_IS_EVAL(g_runtime.abi.error)) {
         g_runtime.abi.error--;
@@ -3274,6 +3299,7 @@ DESCR_t rt_quit_trap_300(DESCR_t *args, int nargs) { (void)args; (void)nargs; co
 DESCR_t rt_quit_trap_320(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_quit_trap_install(core_quit_trap_320_sig); return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_by_zero_check(int64_t by) { int r = by == 0 ? core_icn_error(211, INTVAL(by)) : 0; core_icn_op_ctx_clear(); return r; }
+RT_ENTRY_DECL(core_icn_by_zero_at, leaf, 0);
 int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by) {
     if (by->i != 0) { if (g_icn_op.sym) core_icn_op_ctx_clear(); return 0; }
     if (!g_icn_op.sym) core_icn_toby_ctx(from, to, by);
@@ -3301,6 +3327,7 @@ static int core_icn_int_ok(DESCR_t d) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_icn_argtype_check, leaf, 0);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code) {
     uint64_t w[2];
     w[0] = lo;
@@ -3317,6 +3344,7 @@ int64_t core_icn_to_int_d(DESCR_t d) {
     return to_int(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_icn_to_int_check, leaf, 0);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_to_int_d(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_num_operand_ok_d(DESCR_t d, int code) { if (core_icn_int_ok(d)) return 1; core_icn_error(code, d); core_icn_op_ctx_clear(); return 0; }
@@ -3325,6 +3353,7 @@ int core_icn_int_operand_ok_d(DESCR_t d) { return core_icn_num_operand_ok_d(d, 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_core_icn_int_operand_ok(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_int_operand_ok_d(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_icn_limit_count_check, leaf, 0);
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -3490,7 +3519,7 @@ void DEFDAT_fn(const char *spec) {
     if (close) *close = '\0';
     DATBLK_t *prev = _udef_lookup(name);
     if (prev && _udef_fields_same(prev, fields_str)) return;
-    DATBLK_t *t = rt_wsb_alloc(sizeof(DATBLK_t));
+    DATBLK_t *t = rt_gcheap_alloc(HB_DATB, sizeof(DATBLK_t));
     t->name = rt_heap_strdup_c(name);
     int nfields = 0;
     char *tmp = rt_heap_strdup_c(fields_str);
@@ -3553,20 +3582,6 @@ void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
     DATBLK_t *t = obj.u->type;
     for (int i = 0; i < t->nfields; i++) if (strcasecmp(t->fields[i], field) == 0) { obj.u->fields[i] = val; return; }
 }
-typedef struct _VarEntry {
-    char *name;
-    uint32_t nlen;
-    int has_nul;
-    unsigned long serial;
-    int std_detached;
-    DESCR_t val;
-    DESCR_t *cell;
-    int is_gva;
-    int is_const;
-    int touched;
-    int is_io;
-    struct _VarEntry *next;
-} NV_t;
 #define VB(h) (((NV_t **)g_runtime.abi.var_buckets.p)[h])
 #define VBR(h) (g_runtime.abi.var_buckets.p ? VB(h) : (NV_t *)0)
 _Static_assert(offsetof(NV_t, name) == 0 && offsetof(NV_t, nlen) == 8 && offsetof(NV_t, has_nul) == 12 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, is_gva) == 56 &&
@@ -3680,7 +3695,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     NV_t *e = _var_bucket_find(key);
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
-    e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), key, __builtin_strlen(key));
+    e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), key, __builtin_strlen(key));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3722,18 +3737,13 @@ static DESCR_t NV_GET_untapped(const char *name) {
         if (g_runtime.core.kw_trim) { while (nread > 0 && (_io_chan[ch].buf[nread-1] == ' ' || _io_chan[ch].buf[nread-1] == '\t')) { _io_chan[ch].buf[--nread] = '\0'; } }
         return STRVAL(rt_heap_strdup_c(_io_chan[ch].buf));
     }
-    if (strcmp (name, "&subject") == 0) {
-        extern long rt_scan_subj_len(void);
-        if (!g_runtime.abi.scan_subj) return NULVCL;
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
-    }
-    if (strcmp (name, "&pos") == 0) { return INTVAL(g_runtime.abi.scan_pos); }
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *); if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(NV_GET_fn, leaf, 0);
 DESCR_t NV_GET_fn(const char *name) {
     DESCR_t v = NV_GET_untapped(name);
 #if RT_DIAG
@@ -3742,6 +3752,7 @@ DESCR_t NV_GET_fn(const char *name) {
     return v;
 }
 #if RT_DIAG
+RT_ENTRY_DECL(NV_GET_open, leaf, 0);
 DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) {
     DESCR_t v = NV_GET_untapped(name);
     if (g_runtime.core.trace_access_n != 0 && name && *name) {
@@ -3806,17 +3817,6 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     }
     if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) { const char *s = IS_STR(val) ? rt_cstr_d(val) : ""; fprintf(stderr, "%s\n", s); return val; }
-    if (strcmp (name, "&subject") == 0) {
-        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
-        {
-            extern void rt_scan_subj_len_set(const char *, long);
-            long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu) ? (long)val.slen : (s ? (long)strlen(s) : 0);
-            if (!s) { g_runtime.abi.scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
-            { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; g_runtime.abi.scan_subj = c; rt_scan_subj_len_set(c, n); }
-        }
-        return val;
-    }
-    if (strcmp (name, "&pos") == 0) { g_runtime.abi.scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
     if (g_runtime.misc.kw_ctx) {
         static const char *const known_kw[] = { "STLIMIT","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH", "FTRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE", "ALPHABET","UCASE","LCASE","DIGITS","PI",
             "PARM", "STEXEC","STCOUNT","STNO","DUMP","ABEND", "TRACE","GTRACE","FATALLIMIT","ERRLIMIT","ERRTYPE","ERRTEXT", "INPUT","OUTPUT","TERMINAL","PUNCHAR", NULL };
@@ -3846,7 +3846,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3863,6 +3863,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(NV_SET_fn, leaf, 0);
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) { return NV_SET_p_fn(name, val, (trace_pend_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_EXISTS_fn(const char *name) {
@@ -3900,7 +3901,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
         core_runtime_error(341, eb);
         return val;
     }
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3924,7 +3925,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
         core_runtime_error(341, eb);
         return val;
     }
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3950,6 +3951,7 @@ const char *NV_intern_name_fn(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_CELL_PLAIN_fn(const char *name) { _var_init(); if (!name) return (DESCR_t *)0; NV_t *e = _var_find_cached(name); return (e && !e->is_io) ? (e->is_gva ? e->cell : &e->val) : (DESCR_t *)0; }
+RT_ENTRY_DECL(NV_PTR_fn, leaf, 0);
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
     if (!name) return NULL;
@@ -3976,7 +3978,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
+    NV_t *e = nv_entry_name(rt_gcheap_alloc(HB_NVAR, sizeof(NV_t)), name, __builtin_strlen(name));
     e->val = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -4428,20 +4430,6 @@ void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; a
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && g_runtime.core.kw_code != 0) { fflush((FILE *) 0); _exit((int) g_runtime.core.kw_code); } }
 void rt_code_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; on_exit(code_at_exit, (void *) 0); } }
-typedef struct _FNCBLK_t {
-    char *name;
-    char *spec;
-    char *entry_label;
-    FNCPTR_t fn;
-    int nparams;
-    char **params;
-    int nlocals;
-    char **locals;
-    int min_args;
-    int max_args;
-    int max_set;
-    struct _FNCBLK_t *next;
-} FNCBLK_t;
 _Static_assert(__builtin_offsetof(NV_t, name) == 0 && __builtin_offsetof(NV_t, val) == 32 && __builtin_offsetof(NV_t, cell) == 48 && __builtin_offsetof(NV_t, next) == 72 &&
     __builtin_offsetof(FNCBLK_t, name) == 0 && __builtin_offsetof(FNCBLK_t, spec) == 8 && __builtin_offsetof(FNCBLK_t, entry_label) == 16 && __builtin_offsetof(FNCBLK_t, nparams) == 32 &&
     __builtin_offsetof(FNCBLK_t, params) == 40 && __builtin_offsetof(FNCBLK_t, nlocals) == 48 && __builtin_offsetof(FNCBLK_t, locals) == 56 && __builtin_offsetof(FNCBLK_t, next) == 80 &&
@@ -4475,7 +4463,7 @@ static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_f
 static FNCBLK_t *_func_head_at(unsigned h) { return g_runtime.core.func_bslab ? _func_buckets[h] : (FNCBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->min_args = 0;
     fe->max_args = 0;
     fe->max_set = 0;
@@ -4592,7 +4580,7 @@ static void core_fn_register_impl(const char *name, FNCPTR_t fn, int min_args, i
             return;
         }
     }
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->name = fe->spec = fe->entry_label = lit ? (char *)name : rt_heap_strdup_c(name);
     fe->fn = fn;
     fe->nparams = 0;
@@ -4811,7 +4799,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     FNCBLK_t *old_entry = NULL;
     unsigned ho = _func_hash(oldname);
     for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) { if (strcmp(e->name, oldname) == 0) { old_entry = e; break; } }
-    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->name = rt_heap_strdup_c(newname);
     if (old_entry) {
         fe->spec = old_entry->spec;
@@ -5001,7 +4989,7 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     {
         int np = probe->nparams, nl = probe->nlocals, k;
         extern void *rt_heap_alloc_c(size_t);
-        const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + nl + 1) * sizeof(char *));
+        const char **pn = (const char **)rt_pvec_alloc((size_t)(np + nl + 1));
         if (!pn) return FAILDESCR;
         for (k = 0; k < np; k++) pn[k] = rt_heap_strdup_c(probe->params[k]);
         for (k = 0; k < nl; k++) pn[np + k] = rt_heap_strdup_c(probe->locals[k]);
@@ -5546,4 +5534,5 @@ void core_gc_roots(void) {
     rt_gc_visit_descr(&g_icn_op.c);
 #endif
 }
+RT_ENTRY_DECL(core_icn_int_ok_d, leaf, 0);
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }

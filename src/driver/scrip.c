@@ -1644,6 +1644,7 @@ static void icn_register_locals(const char *pname, IR_graph_t *g) {
     rt_proc_set_local_offs(pname, offs, g->nlocals);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int refuse_dash_o(void) { fprintf(stderr, "scrip: -o FILE is refused: SPITBOL's -o=file names the compilation listing, so the assembly output of --compile is --out=FILE\n"); return 2; }
 int main(int argc, char **argv) {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     int mode_run = 0;
@@ -1782,7 +1783,7 @@ int main(int argc, char **argv) {
             const char *rest = argv[argi] + 2;
             long v;
             if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
-            if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
+            if (sw == 'o') return refuse_dash_o();
             if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
             if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
             if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
@@ -1855,14 +1856,7 @@ int main(int argc, char **argv) {
             oi--;
             continue;
         }
-        if (argv[oi][0] == '-' && argv[oi][1] == 'o') {
-            int eat = 1;
-            if (argv[oi][2] != '\0') output_path = argv[oi] + 2;
-            else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; }
-            for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat];
-            argc -= eat;
-            oi--;
-        }
+        if (argv[oi][0] == '-' && argv[oi][1] == 'o' && argv[oi][2] != '=') return refuse_dash_o();
     }
     if (opt_pp_only) {
         extern int icn_pp_echo(const char *path);
@@ -2397,6 +2391,8 @@ int main(int argc, char **argv) {
             extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
             extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
             g_medium = BB_MEDIUM_TEXT;
+            { extern void emit_program_open(void); emit_program_open(); }
+            { extern void rt_sc_module_standalone(void); rt_sc_module_standalone(); }
             FILE * _out = stdout;
             if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } }
             emit_set_sink(_out);

@@ -87,83 +87,9 @@ fast_read(In, T) :- get_byte(In, B0), ( B0 < 0 -> T = end_of_file ; '$swb_getlen
 '$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\ 7) << 18) \/ ((B2 /\ 63) << 12) \/ ((B3 /\ 63) << 6) \/ (B4 /\ 63).
 
 call_with_depth_limit(G, L, R) :-
-    ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ),
-    '$swb_dl_save'(Old),
-    '$swb_dl_reset',
-    catch(
-        (   '$swb_dl_top'(G, L),
-            nb_getval('$swb_dl_max', R0),
-            (   '$swb_dl_restore'(Old), R = R0
-            ;   '$swb_dl_reset', fail
-            )
-        ;   nb_getval('$swb_dl_over', Over), '$swb_dl_restore'(Old), Over == true, R = depth_limit_exceeded
-        ),
-        E,
-        ( '$swb_dl_restore'(Old), throw(E) )
+    '$dl_check'(L),
+    '$dl_push'(L),
+    (   call(G), '$dl_reached'(R), ( true ; '$dl_reset'(0), fail )
+    ;   '$dl_false'(R)
     ).
-'$swb_dl_save'(s(M, O)) :- ( nb_current('$swb_dl_max', M) -> true ; M = 1 ), ( nb_current('$swb_dl_over', O) -> true ; O = false ).
-'$swb_dl_restore'(s(M, O)) :- nb_setval('$swb_dl_max', M), nb_setval('$swb_dl_over', O).
-'$swb_dl_reset' :- nb_setval('$swb_dl_max', 1), nb_setval('$swb_dl_over', false).
-'$swb_dl_top'(G, L) :-
-    (   nonvar(G), '$swb_dl_control'(G) -> '$swb_dl_enter'(1, L), '$swb_dl_solve'(G, 2, L)
-    ;   '$swb_dl_solve'(G, 1, L)
-    ).
-'$swb_dl_control'((_, _)).
-'$swb_dl_control'((_ ; _)).
-'$swb_dl_control'((_ -> _)).
-'$swb_dl_control'(\+ _).
-'$swb_dl_solve'(G, D, L) :-
-    (   var(G) -> throw(error(instantiation_error, call/1))
-    ;   G = (A, B) -> '$swb_dl_solve'(A, D, L), '$swb_dl_solve'(B, D, L)
-    ;   G = (C *-> T ; E) -> ( '$swb_dl_solve'(C, D, L) *-> '$swb_dl_solve'(T, D, L) ; '$swb_dl_solve'(E, D, L) )
-    ;   G = (C -> T ; E) -> ( '$swb_dl_solve'(C, D, L) -> '$swb_dl_solve'(T, D, L) ; '$swb_dl_solve'(E, D, L) )
-    ;   G = (A ; B) -> ( '$swb_dl_solve'(A, D, L) ; '$swb_dl_solve'(B, D, L) )
-    ;   G = (C -> T) -> ( '$swb_dl_solve'(C, D, L) -> '$swb_dl_solve'(T, D, L) )
-    ;   G = (\+ A) -> \+ '$swb_dl_solve'(A, D, L)
-    ;   ( G == true ; G == ! ) -> true
-    ;   G == fail -> fail
-    ;   G = '$swb_dl_inline'(A) -> call(A)
-    ;   '$swb_dl_enter'(D, L), '$swb_dl_call'(G, D, L)
-    ).
-'$swb_dl_call'(G, D, L) :-
-    (   G = once(A) -> D1 is D + 1, ( '$swb_dl_solve'(A, D1, L) -> true )
-    ;   G = ignore(A) -> D1 is D + 1, ( '$swb_dl_solve'(A, D1, L) -> true ; true )
-    ;   G = forall(A, B) -> D1 is D + 1, \+ ( '$swb_dl_solve'(A, D1, L), \+ '$swb_dl_solve'(B, D1, L) )
-    ;   G = findall(T, A, R) -> D1 is D + 6, findall(T, '$swb_dl_solve'(A, D1, L), R)
-    ;   G = catch(A, C, H) -> D1 is D + 1, catch('$swb_dl_solve'(A, D1, L), C, '$swb_dl_solve'(H, D1, L))
-    ;   G =.. [call, A|Extra] -> D1 is D + 1, '$swb_dl_extend'(A, Extra, G1), '$swb_dl_solve'(G1, D1, L)
-    ;   G = call_with_depth_limit(_, _, _) -> D1 is D + 1, '$swb_dl_enter'(D1, L), call(G)
-    ;   '$swb_dl_user'(G) -> '$swb_dl_clause'(G, D, L)
-    ;   call(G)
-    ).
-'$swb_dl_extend'(A, [], A) :- !.
-'$swb_dl_extend'(A, Extra, G) :- A =.. L0, append(L0, Extra, L1), G =.. L1.
-'$swb_dl_enter'(D, L) :-
-    nb_getval('$swb_dl_max', M),
-    (   D > M -> nb_setval('$swb_dl_max', D) ; true ),
-    (   D > L -> nb_setval('$swb_dl_over', true), fail ; true ).
-'$swb_dl_user'(G) :- callable(G), \+ predicate_property(G, built_in), ( predicate_property(G, file(_)) ; predicate_property(G, dynamic) ), !.
-'$swb_dl_clause'(G, D, L) :-
-    D1 is D + 1,
-    functor(G, N, A),
-    functor(H, N, A),
-    clause(H, B0),
-    '$swb_dl_mark'(B0, B),
-    H = G,
-    (   '$swb_dl_split'(B, Pre, Post)
-    ->  '$swb_dl_solve'(Pre, D1, L), !, '$swb_dl_solve'(Post, D1, L)
-    ;   '$swb_dl_solve'(B, D1, L)
-    ).
-'$swb_dl_mark'(B0, B) :-
-    (   var(B0) -> B = B0
-    ;   B0 = (X, Y) -> B = (X1, Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)
-    ;   B0 = (X ; Y) -> B = (X1 ; Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)
-    ;   B0 = (X -> Y) -> B = (X1 -> Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)
-    ;   B0 = (X *-> Y) -> B = (X1 *-> Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)
-    ;   B0 = (\+ X) -> B = (\+ X1), '$swb_dl_mark'(X, X1)
-    ;   '$swb_dl_inline_goal'(B0) -> B = '$swb_dl_inline'(B0)
-    ;   B = B0
-    ).
-'$swb_dl_inline_goal'(G) :- ( G = (X = Y) ; G = (X == Y) ; G = (X \== Y) ), ( var(X) ; var(Y) ), !.
-'$swb_dl_split'(!, true, true) :- !.
-'$swb_dl_split'((A, Rest), Pre, Post) :- ( A == ! -> Pre = true, Post = Rest ; '$swb_dl_split'(Rest, P1, Post), Pre = (A, P1) ).
+'$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).

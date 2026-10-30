@@ -184,8 +184,8 @@ function PasDir(d, l, r, m, fnc) {
     nreturn;
 }
 /* ==================================================================================================================== */
-/* A leaf (pascal_leaf): the pending events become its (TT_ATTR :pragma) children, in the order they were raised.  */
-function Lf(k, v, i, n) {
+/* A leaf (pascal_leaf): the pending events become its (TT_ATTR :pragma) children, in the order they were raised; an enumeration member whose source text differs from its folded text then gets (TT_ATTR :spelling (TT_QLIT text)) (pascal.y enum_member).  */
+function Lf(k, v, sp, i, n) {
     Lf = .dummy;
     n = pas_nev;
     i = 0;
@@ -197,6 +197,7 @@ function Lf(k, v, i, n) {
         if (DIFFER(pas_h)) { i = pas_h; } else { i = (IDENT(dialect, 'delphi') 1, 0); }
         if (GT(i, 0)) { Shift('TT_QLIT', 'ansistr'); Reduce('TT_ATTR', 1, ':pragma'); n = n + 1; }
     }
+    if (DIFFER(sp)) { Shift('TT_QLIT', sp); Reduce('TT_ATTR', 1, ':spelling'); n = n + 1; }
     if (GT(n, 0)) { Reduce(k, n, v); } else { Shift(k, v); }
     pas_nev = 0;
     nreturn;
@@ -626,7 +627,8 @@ TypeName        =   (*Ident) . tnm . *Lf('TT_VAR', lwr(tnm)) FENCE(*$'.' (*Ident
 /* A function's result type: a unit-qualified name is its last name (pascal.y result_type).  */
 ResType         =   ( (*Ident) *$'.' *TypeId | *TypeId );
 /* A type denoter, ISO 7185 6.4.  */
-EnumType        =   epsilon . *PushCounter() *$'(' *Name . *IncCounter() ARBNO(*$',' *Name . *IncCounter()) *$')' . *Reduce('TT_ENUM_TYPE', nTop()) . *PopCounter();
+EnumMember      =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx), (DIFFER(thx, lwr(thx)) thx, ''));
+EnumType        =   epsilon . *PushCounter() *$'(' *EnumMember . *IncCounter() ARBNO(*$',' *EnumMember . *IncCounter()) *$')' . *Reduce('TT_ENUM_TYPE', nTop()) . *PopCounter();
 SimpleType      =   ( *EnumType
                     | *Expr1 *$'..' *Expr1 . *Reduce('TT_SUBRANGE', 2)
                     | *TypeName

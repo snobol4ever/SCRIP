@@ -29,12 +29,6 @@ extern int * const rt_k_level_p;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_entry_dispatch_str(void) {
-    return IF_M4(IF(g_is_text,
-               std::string("  cmp esi, 0\n")
-             + "  je " + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
-             + "  jmp " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n"));
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
     return IF_M4(IF(g_flat_data_any,
@@ -44,8 +38,7 @@ static std::string xa_flat_data_section_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void) {
-    auto s = xa_entry_dispatch_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
+    bb_emit_x86(x86_bomb("xa_entry_dispatch: no lowerer constructs an XA_ENTRY_DISPATCH node (CEO-2009 under CEO-2002); a program that gets here names itself"));
 }
 extern "C" void xa_flat_data_section(void) {
     auto s = xa_flat_data_section_str();
@@ -60,97 +53,83 @@ extern "C" { struct rt_sxt_fr_s; extern struct rt_sxt_fr_s * const rt_sxt_fr_p; 
 extern "C" struct gv_s g_call_args;
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_dc_stub_str(void) {
-    x86_begin();
-    int kt = g_emit.flat_frame_bytes;
-    int anchor = -1;
-    int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
-    extern int g_flat_dc_np;
-    int np = g_flat_dc_np;
-    static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (g_emit_cfg && g_emit_cfg->pf.block_args) {
-        int nb = g_emit_cfg->nparams;
-        if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
-        std::string zs = x86("comment",
+extern int g_flat_dc_np;
+static const char * const zf_dc_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+static std::string zf_dc_rets(long n) {
+    return x86_deflabel_id(2)
+         + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, (int)n)
+         + x86("add", "rsp", n)
+         + x86("ret")
+         + x86_deflabel_id(3)
+         + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, (int)n)
+         + x86("add", "rsp", n)
+         + x86("mov32", "eax", 104L)
+         + x86("xor", "edx", "edx")
+         + x86("ret");
+}
+static std::string zf_dc_block_head(int nb) {
+    return x86("comment",
             "the block protocol, Raku regime: the direct-call stub builds the callee's argument block on the spine from "
                 "the caller's cells and jumps past the staged entry; no rt_arg_stage, no poll (nothing can allocate between here and the callee's first safe point)")
             + x86("pop", "rax")
             + x86("push", "rax")
             + x86("push", "rax")
             + IF(nb > 0, x86("sub", "rsp", (long)(16 * nb)));
-        for (int i = 0; i < np; i++)
-            zs += x86("mov", "rax", "[" + std::string(argreg[i]) + " + 0]")
-                + x86("mov", "rdi", "[" + std::string(argreg[i]) + " + 8]")
-                + x86("mov", RDQ("rsp", 16 * i), "rax")
-                + x86("mov", RDQ("rsp", 16 * i + 8), "rdi");
-        for (int i = np; i < nb; i++)
-            zs += x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
-                + x86("mov", RDQ("rsp", 16 * i + 8), 0L);
-        zs += x86_lea_id("rcx", 2)
-            + x86_lea_id("rdx", 3)
-            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?")
-            + x86_deflabel_id(2)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("ret")
-            + x86_deflabel_id(3)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("mov32", "eax", 104L)
-            + x86("xor", "edx", "edx")
-            + x86("ret");
-        return zs;
-    }
-    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) {
-        static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
-        bool need_align_pad = (np > 0) && (np % 2 == 1);
-        std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
+}
+static std::string zf_dc_block_pass(int i) {
+    return x86("mov", "rax", "[" + std::string(zf_dc_argreg[i]) + " + 0]")
+         + x86("mov", "rdi", "[" + std::string(zf_dc_argreg[i]) + " + 8]")
+         + x86("mov", RDQ("rsp", 16 * i), "rax")
+         + x86("mov", RDQ("rsp", 16 * i + 8), "rdi");
+}
+static std::string zf_dc_block_snul(int i) {
+    return x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
+         + x86("mov", RDQ("rsp", 16 * i + 8), 0L);
+}
+static std::string zf_dc_block(int np, int nb) {
+    return (np > nb || nb > 12) ? x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters")
+         : emit_seq({zf_dc_block_head(nb), FOR(0, np, zf_dc_block_pass), FOR(np, nb, zf_dc_block_snul),
+                     x86_lea_id("rcx", 2) + x86_lea_id("rdx", 3) + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?") + zf_dc_rets(8)});
+}
+static int zf_dc_pad(int np) {
+    return (np > 0 && np % 2 == 1) ? 1 : 0;
+}
+static int zf_dc_pushbytes(int np) {
+    return np * 8 + (zf_dc_pad(np) ? 8 : 0);
+}
+static std::string zf_dc_zf_head(int np) {
+    return emit_seq({x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
             + x86("pop", "rax")
             + x86("push", "rax")
-            + x86("push", "rax");
-        if (need_align_pad) zs += x86("push", "rax");
-        for (int i = np - 1; i >= 0; i--) zs += x86("push", dcarg4[i]);
-        int push_bytes = np * 8 + (need_align_pad ? 8 : 0);
-        for (int i = 0; i < np; i++) {
-            zs += x86("mov", "rax", "[rsp + " + std::to_string(i * 8) + "]")
+            + x86("push", "rax"),
+        IF(zf_dc_pad(np), x86("push", "rax")),
+        FOR(0, np, [&](int j) { return x86("push", zf_dc_argreg[np - 1 - j]); })});
+}
+static std::string zf_dc_zf_stage(int i) {
+            return x86("mov", "rax", "[rsp + " + std::to_string(i * 8) + "]")
                 + x86("mov32", "edi", (long)i)
                 + x86("mov", "rsi", "[rax + 0]")
                 + x86("mov", "rdx", "[rax + 8]")
                 + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
-           + x86_rt_gc_poll();
-        }
-        if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
-        if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
-            zs += x86_lea_id("rcx", 3) + x86("push", "rcx")
-                + x86_lea_id("rcx", 2) + x86("push", "rcx")
-                + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
-                + x86_deflabel_id(2)
-                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
-                + x86("add", "rsp", 24L)
-                + x86("ret")
-                + x86_deflabel_id(3)
-                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
-                + x86("add", "rsp", 24L)
-                + x86("mov32", "eax", 104L)
-                + x86("xor", "edx", "edx")
-                + x86("ret");
-            return zs;
-        }
-        zs += x86_lea_id("rcx", 2)
-            + x86_lea_id("rdx", 3)
-            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
-            + x86_deflabel_id(2)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("ret")
-            + x86_deflabel_id(3)
-            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
-            + x86("add", "rsp", 8L)
-            + x86("mov32", "eax", 104L)
-            + x86("xor", "edx", "edx")
-            + x86("ret");
-        return zs;
-    }
+         + x86_rt_gc_poll();
+}
+static std::string zf_dc_zf_wire(void) {
+    return x86_lea_id("rcx", 3) + x86("push", "rcx")
+         + x86_lea_id("rcx", 2) + x86("push", "rcx")
+         + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
+         + zf_dc_rets(24);
+}
+static std::string zf_dc_zf_plain(void) {
+    return x86_lea_id("rcx", 2)
+         + x86_lea_id("rdx", 3)
+         + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
+         + zf_dc_rets(8);
+}
+static std::string zf_dc_zf(int np) {
+    return emit_seq({zf_dc_zf_head(np), FOR(0, np, zf_dc_zf_stage), IF(zf_dc_pushbytes(np) > 0, x86("add", "rsp", (long)zf_dc_pushbytes(np))),
+                     (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_dc_zf_wire() : zf_dc_zf_plain()});
+}
+static std::string zf_dc_pl(int kt, int np) {
     return x86("comment", "PL-DC direct-call entry: retaddr -> kt-32 pad, wires -> local ret-shims, one prep crossing, shared body")
          + x86("pop", "rax")
          + x86("sub", "rsp", (long)(kt + 16))
@@ -161,10 +140,9 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("mov", FRQ(kt - 24), "rax")
          + x86_lea_id("rax", 3)
          + x86("mov", FRQ(kt - 16), "rax")
-         + IF(anchor >= 0, x86("mov", FRQ(anchor), "rsp"))
-         + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), argreg[i]); })
+         + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), zf_dc_argreg[i]); })
          + x86("mov", "rdi", "rsp")
-         + x86("mov32", "esi", (long)suffix)
+         + x86("mov32", "esi", (long)(g_emit.flat_seed_off >= 16 ? g_emit.flat_seed_off : 16))
          + x86("mov32", "edx", (long)(kt - 32))
          + x86("mov32", "ecx", (long)np)
          + x86("mov32", "r8d", (long)np)
@@ -190,22 +168,18 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("push", "r11")
          + x86_jmpfn("rt_pl_dc_leave_ω", TEMPLATE_FN_ADDR(rt_pl_dc_leave_ω));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_block_staged_entry_str(void) {
+static std::string zf_dc(int kt, int np) {
+    return (g_emit_cfg && g_emit_cfg->pf.block_args) ? zf_dc_block(np, g_emit_cfg->nparams)
+         : (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) ? zf_dc_zf(np)
+         : zf_dc_pl(kt, np);
+}
+static std::string xa_flat_dc_stub_str(void) {
     x86_begin();
-    int nb = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    if (nb <= 0) return std::string();
-    if (nb > 12) return x86_bomb("xa_flat_block_staged_entry: more than 12 parameters");
-    std::string s = x86("comment",
-        "the staged entry of a block-protocol graph (every by-name road, glue and C entry stages g_call_args and jumps "
-            "here): build the argument block on the spine from the staged cells, a cell beyond the medium's capacity a "
-                "null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
-        + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
-        + x86("mov", "rdi", "[rsi + 0]")
-        + x86("mov", "esi", RDD("rsi", 12))
-        + x86("sub", "rsp", (long)(16 * nb));
-    for (int i = 0; i < nb; i++) {
-        s += x86("cmp", "esi", (long)(i + 1))
+    return zf_dc(g_emit.flat_frame_bytes, g_flat_dc_np);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string zf_bse_cell(int i) {
+        return x86("cmp", "esi", (long)(i + 1))
            + x86_jcc_id("jb", 2 * i)
            + x86("mov", "rax", "[rdi + " + std::to_string(16 * i) + "]")
            + x86("mov", RDQ("rsp", 16 * i), "rax")
@@ -216,8 +190,22 @@ static std::string xa_flat_block_staged_entry_str(void) {
            + x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
            + x86("mov", RDQ("rsp", 16 * i + 8), 0L)
            + x86_deflabel_id(2 * i + 1);
-    }
-    return s;
+}
+static std::string zf_bse(int nb) {
+    return nb <= 0 ? std::string() : nb > 12 ? x86_bomb("xa_flat_block_staged_entry: more than 12 parameters")
+         : emit_seq({x86("comment",
+        "the staged entry of a block-protocol graph (every by-name road, glue and C entry stages g_call_args and jumps "
+            "here): build the argument block on the spine from the staged cells, a cell beyond the medium's capacity a "
+                "null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
+        + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
+        + x86("mov", "rdi", "[rsi + 0]")
+        + x86("mov", "esi", RDD("rsi", 12))
+        + x86("sub", "rsp", (long)(16 * nb)),
+                     FOR(0, nb, zf_bse_cell)});
+}
+static std::string xa_flat_block_staged_entry_str(void) {
+    x86_begin();
+    return zf_bse(g_emit_cfg ? g_emit_cfg->nparams : 0);
 }
 extern "C" void xa_flat_block_staged_entry(void) { bb_emit_x86(xa_flat_block_staged_entry_str()); }
 extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }
@@ -275,6 +263,7 @@ static std::string pl_standing_cells_zero(int kt, int n) {
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int rt_pl_db_frame_cells(void);
+extern "C" int rt_pl_db_slot_ensure(void * root, void * db, int i);
 static std::string xa_flat_pkt_cell_rax(int k) {
     int nf = rt_pl_db_frame_cells();
     if (k < nf) return x86("mov", "rax", RDQ("r14", -24 - 8 * k));
@@ -345,14 +334,8 @@ static std::string xa_flat_pkt_fresh_entry_str(void) {
 }
 extern "C" void xa_flat_pkt_fresh_entry(void) { bb_emit_x86(xa_flat_pkt_fresh_entry_str()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_zframe_prologue_str(void) {
-    if (!g_emit.zframe_graph) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
-    int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-    uint64_t _seed_fp; { void (*_f)(void *) = rt_pl_quad_seed; _seed_fp = (uint64_t)(uintptr_t)(void *)_f; }
-    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
+static std::string zf_pro_head(int kt) {
+    return x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
@@ -361,7 +344,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
                              + x86("mov", x86_hb(), "rsp")
                              : (emit_jmp_pin_legacy() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp") : std::string()))
              + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64))
-                                                      + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
+                                                      + x86("call_bare", "rt_pl_quad_seed", TEMPLATE_FN_ADDR(rt_pl_quad_seed)))
              + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
                    x86("comment", "RUNG 10b ζ-STANDING CELLS (ARCH sec B.15, sec C ruling): one named root cell per dynamic predicate, carved INSIDE this root frame just under "
                                   "the header block (emit.cpp added 8*n to the region) and reached from any depth as [r14 - 24 - 8k] -- never a global, never one table of all of "
@@ -384,106 +367,146 @@ static std::string xa_flat_zframe_prologue_str(void) {
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
-    if (x86_resumable_frame()) {
-        int zb = kt - 64;
-        s += x86("comment",
+}
+static std::string zf_pro_zero(int zb) {
+    return zb <= 128 ? FOR(0, zb / 8, [&](int q) { return x86("mov", RDQ("rsp", 8 * q), 0L); })
+                     : x86("mov", "rdi", "rsp")
+                     + x86("xor", "eax", "eax")
+                     + x86("mov32", "ecx", (long)(zb / 8))
+                     + x86("rep_stosq");
+}
+static std::string zf_pro_resumable(int kt) {
+    return x86("comment",
             "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the arguments are the caller's block at [rbp+kt+16i], "
                 "never copied; the value region [0, kt-64) is zeroed inline so every mapped slot is a null DESCR at the first poll")
-           + (zb <= 128 ? FOR(0, zb / 8, [&](int q) { return x86("mov", RDQ("rsp", 8 * q), 0L); })
-                        : x86("mov", "rdi", "rsp")
-                        + x86("xor", "eax", "eax")
-                        + x86("mov32", "ecx", (long)(zb / 8))
-                        + x86("rep_stosq"));
-    } else if (g_emit_cfg && g_emit_cfg->pf.block_args) {
-        int zb = kt - 32;
-        s += x86("comment",
+           + zf_pro_zero(kt - 64)
+           + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
+                x86("comment",
+                    "the creation serial: standing cell 255 is the next unbound cell's tag word, seeded to serial 1 after the value region is zeroed; every unbound-cell creation reads it and adds 51"
+                    "2 (PL_SERIAL_CELL)")
+              + x86("mov", RDQ("rsp", kt - 64 - PL_SERIAL_OFF), (long)((long)DT_PLVAR | PL_SERIAL_STEP)));
+}
+static std::string zf_pro_block_args(int kt) {
+    return x86("comment",
             "the block protocol, Raku regime (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2 as landed for Prolog at e95282e39): the arguments are the caller's block at [rsp+kt+16i], "
                 "never copied; the value region [0, kt-32) is zeroed inline; the string-extension table is invalidated inline, as rt_icn_zframe_args_install did (c8701b17e)")
-           + (zb <= 128 ? FOR(0, zb / 8, [&](int q) { return x86("mov", RDQ("rsp", 8 * q), 0L); })
-                        : x86("mov", "rdi", "rsp")
-                        + x86("xor", "eax", "eax")
-                        + x86("mov32", "ecx", (long)(zb / 8))
-                        + x86("rep_stosq"))
+           + zf_pro_zero(kt - 32)
            + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_sxt_fr_p, "rt_sxt_fr_p")
            + x86("mov", "rax", RDQ("rax", 0))
            + x86("mov", RDD("rax", 20), 1L)
            + x86("mov", RDQ("rax", 0), 0L);
-    } else if (g_emit.flat_lex) {
-        extern int g_flat_dc_np;
-        if (g_flat_dc_np >= 0) {
-            if (kt > 48) {
-                int data_bytes = kt - 32;
-                s += x86("mov", "rdi", "rsp")
-                   + x86("xor", "eax", "eax")
-                   + x86("mov32", "ecx", (long)data_bytes)
-                   + x86("rep_stosb");
-            }
-            uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
-            s += x86("mov", "rdi", "rsp")
-               + x86("mov32", "esi", (long)np)
-               + x86("mov32", "edx", (long)nl)
-               + x86("call", "rt_icn_zframe_args_install", _args_fp);
-        } else {
-            uint64_t _lex_fp; { void (*_f)(void *, long, long) = rt_jmp_frame_lexprep2; _lex_fp = (uint64_t)(uintptr_t)(void *)_f; }
-            int seed_off = g_emit.flat_seed_off ? g_emit.flat_seed_off : 16;
-            s += x86("mov", "rdi", "rsp")
-               + x86("mov32", "esi", (long)seed_off)
-               + x86("mov32", "edx", (long)(kt - 32))
-               + x86("call_bare", "rt_jmp_frame_lexprep2", _lex_fp);
-            if (np > 0) {
-                uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                s += x86("mov", "rdi", "rsp")
-                   + x86("mov32", "esi", (long)np)
-                   + x86("mov32", "edx", 0L)
-                   + x86("call_bare", "rt_icn_zframe_args_install", _args_fp);
-            }
-        }
-    } else {
-        if (kt > 48) {
-            int data_bytes = kt - 32;
-            s += x86("mov", "rdi", "rsp")
-               + x86("xor", "eax", "eax")
-               + x86("mov32", "ecx", (long)data_bytes)
-               + x86("rep_stosb");
-        }
-        if (np > 0 || nl > 0) {
-            uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
-            s += x86("mov", "rdi", "rsp")
-               + x86("mov32", "esi", (long)np)
-               + x86("mov32", "edx", (long)nl)
-               + x86("call", "rt_icn_zframe_args_install", _args_fp);
-        }
-    }
-    { int _dl = zf_display_level();
-      if (_dl && _dl <= 3) {
-    const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
-          s += x86("comment", "PAS-DISPLAY-1: save caller display[L] into [kt-40]; display[L] = this frame")
-             + x86("mov", FRQ(kt - 40), _dr)
-             + x86("mov", _dr, "rsp"); }
-      else if (_dl > 3) {
-    int _off = zf_display_mem_off(_dl);
-          if (_off < 0) { s += x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (save)"); }
-          else { s += x86("comment", "PAS-DISPLAY-N: save [r15+off] into [kt-40]; [r15+off] = this frame")
-                    + x86("mov", "rax", RDQ("r15", _off))
-                    + x86("mov", FRQ(kt - 40), "rax")
-                    + x86("mov", "rax", "rsp")
-                    + x86("mov", RDQ("r15", _off), "rax"); } } }
-    if (g_emit.flat_pkt) { if (!g_emit_cfg
-        || kt - g_emit_cfg->jcon_value_region != FLAT_FRAME_ALLOWANCE_PINNED) return x86_bomb("packet fragment: the pinned allowance is not 96, the G word at [kt-80] has no home");
-        s += x86("comment", "PACKET FRAGMENT: G (the generation this call took) as a packed RAW word in the pinned allowance's spare cell [kt-80], read by the chain-omega and the gamma scan")
+}
+static std::string zf_pro_stosb(int kt) {
+    return IF(kt > 48, x86("mov", "rdi", "rsp")
+                     + x86("xor", "eax", "eax")
+                     + x86("mov32", "ecx", (long)(kt - 32))
+                     + x86("rep_stosb"));
+}
+static std::string zf_pro_args(int np, int nl, const char * call) {
+    return x86("mov", "rdi", "rsp")
+         + x86("mov32", "esi", (long)np)
+         + x86("mov32", "edx", (long)nl)
+         + x86(call, "rt_icn_zframe_args_install", TEMPLATE_FN_ADDR(rt_icn_zframe_args_install));
+}
+static std::string zf_pro_lexprep(int kt) {
+    return x86("mov", "rdi", "rsp")
+         + x86("mov32", "esi", (long)(g_emit.flat_seed_off ? g_emit.flat_seed_off : 16))
+         + x86("mov32", "edx", (long)(kt - 32))
+         + x86("call_bare", "rt_jmp_frame_lexprep2", TEMPLATE_FN_ADDR(rt_jmp_frame_lexprep2));
+}
+extern int g_flat_dc_np;
+static std::string zf_pro_lex(int kt, int np, int nl) {
+    return g_flat_dc_np >= 0 ? emit_seq({zf_pro_stosb(kt), zf_pro_args(np, nl, "call")})
+                             : emit_seq({zf_pro_lexprep(kt), IF(np > 0, zf_pro_args(np, 0, "call_bare"))});
+}
+static std::string zf_pro_plain(int kt, int np, int nl) {
+    return emit_seq({zf_pro_stosb(kt), IF(np > 0 || nl > 0, zf_pro_args(np, nl, "call"))});
+}
+static std::string zf_pro_body(int kt, int np, int nl) {
+    return x86_resumable_frame() ? zf_pro_resumable(kt)
+         : (g_emit_cfg && g_emit_cfg->pf.block_args) ? zf_pro_block_args(kt)
+         : g_emit.flat_lex ? zf_pro_lex(kt, np, nl)
+         : zf_pro_plain(kt, np, nl);
+}
+static std::string zf_pro_display_reg(int kt, const char * dr) {
+    return x86("comment", "PAS-DISPLAY-1: save caller display[L] into [kt-40]; display[L] = this frame")
+         + x86("mov", FRQ(kt - 40), dr)
+         + x86("mov", dr, "rsp");
+}
+static std::string zf_pro_display_mem(int kt, int off) {
+    return off < 0 ? x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (save)")
+         : x86("comment", "PAS-DISPLAY-N: save [r15+off] into [kt-40]; [r15+off] = this frame")
+         + x86("mov", "rax", RDQ("r15", off))
+         + x86("mov", FRQ(kt - 40), "rax")
+         + x86("mov", "rax", "rsp")
+         + x86("mov", RDQ("r15", off), "rax");
+}
+static std::string zf_pro_display(int kt, int dl) {
+    return (dl && dl <= 3) ? zf_pro_display_reg(kt, dl == 1 ? "r13" : dl == 2 ? "r14" : "r15")
+         : dl > 3 ? zf_pro_display_mem(kt, zf_display_mem_off(dl))
+         : std::string();
+}
+static std::string zf_pro_map(int kt) {
+    return (g_emit_cfg && g_emit_cfg->root_graph) ? emit_gc_map_register(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0, 0u)
+         : emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
+        (!g_runtime.eval.rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
+        (zf_pas_nest_graph() ? GC_LINK_Q(kt + (int)zf_det_block_size(), kt - 8, kt + (int)zf_det_block_size() + 16, x86_hb_on() ? 0u : GC_LINK_RBP_KEPT) :
+        GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0), x86_hb_on() ? 0u : GC_LINK_RBP_KEPT)));
+}
+static std::string zf_pro_packet(int kt) {
+    return x86("comment", "PACKET FRAGMENT: G (the generation this call took) as a packed RAW word in the pinned allowance's spare cell [kt-80], read by the chain-omega and the gamma scan")
            + x86("mov", "rax", "r8") + x86_shift_imm("shl", 4, "rax", 8) + x86_or_imm("rax", (long)DT_RAW)
            + x86("mov", FRQ(kt - 80), "rax")
            + x86("mov", FRQ(kt - 72), 0L)
            + x86("note",
                "PACKET FRAGMENT: this frame is the youngest choice from its entry (B = its header, the floor word at its "
                    "base), as a multi-clause chain's alternation is, so every binding of a caller cell is trailed and the chain-omega's unwind undoes it before the next clause")
-           + x86_pl_frame_choice_open(x86_hb(), kt, 236, 237, g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? -1 : 245); }
-    if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_register(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0, 0u);
-    else s += emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
-        (!g_runtime.eval.rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
-        (zf_pas_nest_graph() ? GC_LINK_Q(kt + (int)zf_det_block_size(), kt - 8, kt + (int)zf_det_block_size() + 16, x86_hb_on() ? 0u : GC_LINK_RBP_KEPT) :
-        GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0), x86_hb_on() ? 0u : GC_LINK_RBP_KEPT)));
-    return s;
+           + x86_pl_frame_choice_open(x86_hb(), kt, 236, 237, g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? -1 : 245);
+}
+static std::string zf_pro_depth(int kt);
+static std::string zf_epo_pl(int kt);
+static std::string zf_pro_finish(const std::string & s, int kt) {
+    return (g_emit.flat_pkt && (!g_emit_cfg || kt - g_emit_cfg->jcon_value_region != FLAT_FRAME_ALLOWANCE_PINNED))
+         ? x86_bomb("packet fragment: the pinned allowance is not 96, the G word at [kt-80] has no home")
+         : emit_seq({s, IF(g_emit.flat_pkt, zf_pro_packet(kt)), zf_pro_depth(kt), zf_pro_map(kt)});
+}
+static int zf_pro_kt(int kt) {
+    if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
+    return kt;
+}
+static int zf_pro_np(void) {
+    return g_emit_cfg ? g_emit_cfg->nparams : 0;
+}
+static int zf_pro_nl(void) {
+    return g_emit_cfg ? g_emit_cfg->nlocals : 0;
+}
+static std::string zf_pro_depth(int kt) {
+    if (!(g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph)) return std::string();
+    return x86("comment",
+        "DEPTH-COUNTED (ARCH-PROLOG-DATABASE section 8): LEVEL is the caller's plus 1 and LIMITER the caller's, copied down through the link at [kt-8] from the caller's base +0 and +8; "
+                          "an active limiter's REACHED (pair +8) rises to this level, and a level over its LIMIT (pair +0) is this clause's omega -- the predicate fails, no ball")
+         + x86("mov", "rax", RDQ("rsp", kt - 8))
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("add", "rcx", 1L)
+         + x86("mov", RDQ("rsp", 0), "rcx")
+         + x86("mov", "rdi", RDQ("rax", 8))
+         + x86("mov", RDQ("rsp", 8), "rdi")
+         + x86("test", "rdi", "rdi")
+         + x86("je", L(961))
+         + x86("cmp", "rcx", RDQ("rdi", 8))
+         + x86("jle", L(960))
+         + x86("mov", RDQ("rdi", 8), "rcx")
+         + x86("def", L(960))
+         + x86("cmp", "rcx", RDQ("rdi", 0))
+         + x86("jle", L(961))
+         + (g_emit.flat_pkt && g_emit.flat_pkt_chainω_p ? x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p) : zf_epo_pl(kt))
+         + x86("def", L(961));
+}
+static std::string zf_pro(int kt) {
+    return zf_pro_finish(emit_seq({zf_pro_head(zf_pro_kt(kt)), zf_pro_body(kt, zf_pro_np(), zf_pro_nl()), zf_pro_display(kt, zf_display_level())}), kt);
+}
+static std::string xa_flat_zframe_prologue_str(void) {
+    return g_emit.zframe_graph ? zf_pro(g_emit.flat_frame_bytes) : std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -661,20 +684,20 @@ const char * xa_icn_trace_pname(void) {
          : g_emit.flat_fam;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_zframe_epilogue_γ_str(void) {
-    if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
-        return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
+static int zf_epi_kt(void) {
+    return g_emit.flat_frame_bytes + ((g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
+}
+extern int xa_icn_block_size(void);
+static std::string zf_epg_gen(int kt) {
+    return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
-    }
-    extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
-        return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
+}
+static std::string zf_epg_wire(int kt) {
+    return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
          + x86("push", "rax")
@@ -692,8 +715,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
                             + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
                             : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
-    if (zf_pas_nest_graph())
-        return x86("mov", "rdi", "rax")
+}
+static std::string zf_epg_nest(int kt) {
+    return x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
              + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
@@ -701,8 +725,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
-    if (x86_resumable_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
-        return x86("comment",
+}
+static std::string zf_epg_pkt(int kt) {
+    return x86("comment",
             "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the "
                 "clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the "
                     "choice and exits det; B younger -> the clause's own beta; B older -> a cut ran, det")
@@ -747,16 +772,16 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("def", L(233))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + x86("xor", "eax", "eax") + zf_release(kt) + zf_pin_restore(kt)
-             + x86("jmp", "rcx"); }
-    if (x86_resumable_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
-        int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
-        return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
+             + x86("jmp", "rcx");
+}
+static std::string zf_epg_pl(int kt) {
+    return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
              + x86("comment",
                  "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
              + x86("mov32", "edi", (long)DT_I)
              + x86("mov32", "esi", 1L)
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 24))
-             + IF(_plretain,
+             + IF(!(g_emit_cfg && g_emit_cfg->root_graph),
                    x86("mov", "rax", RDQ(x86_hb(), kt - 40))
                  + x86("cmp", "r13", "rax")
                  + x86("je", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_altdet_p)
@@ -768,7 +793,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("xor", "eax", "eax")
              + zf_release(kt)
              + zf_pin_restore(kt)
-             + x86("jmp", "rcx"); }
+             + x86("jmp", "rcx");
+}
+static std::string zf_epg_plain(int kt) {
     return x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", RDQ(x86_hb(), kt - 24))
@@ -778,13 +805,20 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          + std::string("")
          + x86("jmp", "rcx");
 }
+static std::string zf_epg(int kt) {
+    return (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epg_gen(kt)
+         : (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epg_wire(kt)
+         : zf_pas_nest_graph() ? zf_epg_nest(kt)
+         : (x86_resumable_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) ? zf_epg_pkt(kt)
+         : (x86_resumable_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) ? zf_epg_pl(kt)
+         : zf_epg_plain(kt);
+}
+static std::string xa_flat_zframe_epilogue_γ_str(void) {
+    return xa_flat_class_zf() ? zf_epg(zf_epi_kt()) : std::string();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_zframe_epilogue_ω_str(void) {
-    if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
-        return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
+static std::string zf_epo_wire(int kt) {
+    return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))
@@ -800,18 +834,18 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
                             + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))
                             : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_ω();
-    if (zf_pas_nest_graph())
-        return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
+}
+static std::string zf_epo_nest(int kt) {
+    return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
              + zf_display_restore(kt)
              + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
              + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
-    if (x86_resumable_frame() && g_emit.flat_pkt) {
-        int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot; int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
-        if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
-        return x86_def_ext(g_emit.flat_pkt_chainω_p)
+}
+static std::string zf_epo_pkt_walk(int kt, int k, int i, int np) {
+    return x86_def_ext(g_emit.flat_pkt_chainω_p)
              + IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
              + x86("comment",
                  "PACKET FRAGMENT chain-omega (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): undo this clause's bindings, restore B and "
@@ -851,6 +885,28 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("jl", L(224))
              + x86("def", L(223))
              + x86("mov", "r11d", RDD("r10", 24))
+             + x86("test", "r11d", "r11d")
+             + x86("jns", L(226))
+             +
+                 x86("note",
+                 "a slot no call has reached has no fragment yet (ARCH-PROLOG-DATABASE section 5 narrowed to the flip): compile it now, from the slot index and the packet's root cell, and walk on")
+             + x86("push", "rcx")
+             + x86("push", "rdx")
+             + x86("push", "rsi")
+             + x86("push", "r8")
+             + xa_flat_pkt_cell_rax(k)
+             + x86("mov", "rdx", "rsi")
+             + x86("mov", "rsi", "rax")
+             + x86("mov", "rdi", "r14")
+             + x86("call", "rt_pl_db_slot_ensure", (uint64_t)(uintptr_t)(void *)rt_pl_db_slot_ensure)
+             + x86("pop", "r8")
+             + x86("pop", "rsi")
+             + x86("pop", "rdx")
+             + x86("pop", "rcx")
+             + xa_flat_pkt_cell_rax(k) + x86("mov", "r9", RDQ("rax", 0))
+             + xa_flat_pkt_slot_addr("rsi", "r10", "r11")
+             + x86("def", L(226))
+             + x86("mov", "r11d", RDD("r10", 24))
              + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
              + x86("mov", "rdi", RDQ("rdi", GRT_AT(rt_gen_procs)))
              + x86_shift_imm("shl", 4, "r11", 7) + x86("add", "rdi", "r11")
@@ -865,14 +921,19 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_walk_p)
              + x86("def", L(225)) + IF(np > 0,
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
-    }
-    if (x86_resumable_frame())
-        return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
+}
+static std::string zf_epo_pkt(int kt, int k, int i, int np) {
+    return (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) ? x86_bomb("packet fragment chain-omega without its labels") : zf_epo_pkt_walk(kt, k, i, np);
+}
+static std::string zf_epo_pl(int kt) {
+    return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx");
+}
+static std::string zf_epo_plain(int kt) {
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is "
                           "WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
@@ -881,6 +942,16 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
          + zf_pin_restore(kt)
          + std::string("")
          + x86("jmp", "rcx");
+}
+static std::string zf_epo(int kt) {
+    return (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epo_wire(kt)
+         : zf_pas_nest_graph() ? zf_epo_nest(kt)
+         : (x86_resumable_frame() && g_emit.flat_pkt) ? zf_epo_pkt(kt, g_emit.flat_pkt_cell, g_emit.flat_pkt_slot, zf_pro_np())
+         : x86_resumable_frame() ? zf_epo_pl(kt)
+         : zf_epo_plain(kt);
+}
+static std::string xa_flat_zframe_epilogue_ω_str(void) {
+    return xa_flat_class_zf() ? zf_epo(zf_epi_kt()) : std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {

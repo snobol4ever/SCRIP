@@ -11,6 +11,9 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
+int rt_pl_db_cand_first(void * db, void * target);
+int rt_pl_db_cand_next(void * db, int i, void * target);
+int rt_pl_db_cand_last(void * db, int i, void * target, int g);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -46,8 +49,14 @@ static std::string bb_to_db() {
          + x86("mov", "r9", RDQ("rax", 0))
          + x86("mov", "r8d", RDD("rax", 20))
          + x86("mov", FRQ(_.op_off + 32), "r8")
-         + x86("mov", "esi", RDD("rax", 24))
-         + x86("movsxd", "rsi", "esi")
+         + IF(_.op_sc >= 0,
+               x86("mov", "rdi", "rax")
+             + x86("lea", "rsi", FRQ(_.op_sc))
+             + x86("call", "rt_pl_db_cand_first", (uint64_t)(uintptr_t)(void *)rt_pl_db_cand_first)
+             + x86("movsxd", "rsi", "eax"))
+         + IF(_.op_sc < 0,
+               x86("mov", "esi", RDD("rax", 24))
+             + x86("movsxd", "rsi", "esi"))
          + x86("mov", FRQ(_.op_off + 16), "rsi")
          + xa_to_trail_mark()
          + x86("def", L(0))
@@ -67,13 +76,32 @@ static std::string bb_to_db() {
          + x86("def", L(1))
          + x86("mov", FRQ(_.op_off), (long)DT_I)
          + x86("mov", FRQ(_.op_off + 8), "rsi")
+         + IF(_.op_sc >= 0 && x86_resumable_frame() && _.op_to_trailed && _.op_to_db_last,
+               x86("note",
+                   "the data walk's last candidate: no later slot of this key is visible at G, so the enumeration's header is no choice and B returns to the choice it found, as a compiled clause cha"
+                   "in exits det")
+             + xa_to_db_load_store(26)
+             + x86("mov", "rdi", "rax")
+             + x86("lea", "rdx", FRQ(_.op_sc))
+             + x86("mov", "rcx", FRQ(_.op_off + 32))
+             + x86("call", "rt_pl_db_cand_last", (uint64_t)(uintptr_t)(void *)rt_pl_db_cand_last)
+             + x86("test", "eax", "eax")
+             + x86("je", L(2))
+             + x86("mov", "r13", FRQ(_.op_off + 48))
+             + x86("def", L(2)))
          + x86_gamma()
          + x86_beta()
          + xa_to_trail_unwind()
          + x86("mov", "rsi", FRQ(_.op_off + 16)) + xa_to_db_load_store(24) + xa_to_db_slot_addr()
          + x86("def", L(3))
-         + x86("mov", "esi", RDD("r10", 32))
-         + x86("movsxd", "rsi", "esi")
+         + IF(_.op_sc >= 0,
+               x86("mov", "rdi", "rax")
+             + x86("lea", "rdx", FRQ(_.op_sc))
+             + x86("call", "rt_pl_db_cand_next", (uint64_t)(uintptr_t)(void *)rt_pl_db_cand_next)
+             + x86("movsxd", "rsi", "eax"))
+         + IF(_.op_sc < 0,
+               x86("mov", "esi", RDD("r10", 32))
+             + x86("movsxd", "rsi", "esi"))
          + x86("mov", FRQ(_.op_off + 16), "rsi")
          + x86("jmp", L(0));
 }

@@ -4,7 +4,7 @@
 #define HB_AGGV 206
 #define HB_DINST 213
 #define HB_DVEC 214
-#define MK_MOVES 0xFFDE7
+#define MK_MOVES 0x807FDE7
 #define GC_FRAME_MAP_TBL_HDR 128
 #define DATA_ELEMS_SLEN 1
 #define PROCVAL_SLEN 0xFFFFFFFE
@@ -141,7 +141,7 @@
 318:
     movzx   edx, word ptr [rax + 12]
     sub     edx, HB_AGGV
-    cmp     edx, 19
+    cmp     edx, 27
     ja      319f
     mov     ebp, MK_MOVES
     bt      ebp, edx
@@ -772,8 +772,13 @@ RTX_ENTRY(rt_gc_walk_words_a)
 .Lmk_m_pldb:
     mov     r10, qword ptr [rsi]
     test    r10, r10
-    je      .Lmk_loop
+    je      .Lmk_m_pldb1
     MK_RAW rsi
+.Lmk_m_pldb1:
+    mov     r10, qword ptr [rsi + 64]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+64
     jmp     .Lmk_loop
 .Lmk_m_pldbs:
     mov     edx, dword ptr [rax + 8]
@@ -2304,8 +2309,8 @@ RTX_FUNC(rt_gc_site_find_a)
     jg      .Lsf_es_miss
     lea     rbp, [rax + rdx]
     sar     rbp, 1
-    mov     r11, rbp
-    shl     r11, 4
+    lea     r11, [rbp + rbp*2]
+    shl     r11, 3
     add     r11, r8
     cmp     qword ptr [r11], rdi
     je      .Lsf_hit
@@ -3946,7 +3951,6 @@ RTX_FUNC(gc_collect_ex)
     RTX_CALL(kw_cset_gc_roots)
     RTX_CALL(core_gc_roots)
     RTX_CALL(dat_gc_roots)
-    RTX_CALL(gen_gc_roots)
     RTX_CALL(pas_gc_roots)
     RTX_CALL(pl_gc_roots)
     RTX_CALL(rt_gc_root_args)
@@ -3962,8 +3966,6 @@ RTX_FUNC(gc_collect_ex)
     je      .Lgx_sh0
     mov     rcx, qword ptr [rip + Σ@GOTPCREL]
     cmp     rdx, qword ptr [rcx]
-    je      .Lgx_shv
-    cmp     rdx, GRT(G_RT_OFF_SCAN_SUBJ)
     je      .Lgx_shv
     cmp     GRTD(G_RT_OFF_GC_GC_SHIELD_R_IS_PROBE), 0
     jne     .Lgx_sh0

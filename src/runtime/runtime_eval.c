@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <math.h>
 #include "core.h"
+#include "eval_blocks.h"
 #include "dtp.h"
 #include "keywords.h"
 #include "sil_macros.h"
@@ -27,7 +28,6 @@ extern int Ω;
 extern int Δ;
 void rt_proc_set_rest_kind(const char *name, int kind);
 void rt_proc_set_named_rest(const char *name, int slot);
-typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn compile_chain(void *g, void *entry, void *out, const char *prefix);
 extern int emit_jmp_entry_for_chain(IR_graph_t *g);
@@ -39,7 +39,6 @@ extern void bb_pool_release(size_t mark);
 #define EVAL_TMP_MARKED "EVAL$"
 #define EVAL_TMP_LEGACY "ZZEVALZZ"
 #define EVAL_TMP eval_tmp_name()
-typedef struct g_eval_cache_ent { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 _Static_assert(sizeof(eval_frame_t) == 112, "bb_call_fn.cpp carves BCFN_EVAL_REC = 112 bytes on the spine for the EVAL record; the record drifted");
 typedef struct eval_cframe_s { eval_frame_t f; struct eval_cframe_s *prev; } eval_cframe_t;
 static eval_cframe_t *g_eval_cfr = NULL;
@@ -99,7 +98,7 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
         int drop = (keep + 1) * 4 > EVAL_SEEN_ONCE_TABLE_MAX && marks > 0;
         if (drop) keep -= marks;
         while ((keep + 1) * 4 > ncap) ncap *= 2;
-        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
+        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_gcheap_alloc(HB_EVCH, (size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
         for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || (g_runtime.eval.eval_cache[k].gen == now && !drop)))
@@ -786,7 +785,9 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
     g_runtime.abi.error = eval_marker_here(pe);
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
+RT_ENTRY_DECL(rt_eval_open, open, 1);
 rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 0); }
+RT_ENTRY_DECL(rt_eval_open_raise, open, 1);
 rt_eval_next_t rt_eval_open_raise(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
@@ -809,6 +810,7 @@ DESCR_t rt_conve_chain_land(eval_frame_t *f) {
     return eval_frame_land(f, !erred);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_eval_land, leaf, 0);
 DESCR_t rt_eval_land(long word) {
     eval_frame_t *f = (eval_frame_t *)(uintptr_t)word;
     if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_eval_land: %p is not an opened EVAL record on the spine\n", (void *)f); abort(); }
@@ -830,7 +832,6 @@ DESCR_t rt_eval_dtx_land_ω(long word, eval_frame_t *f) { extern DESCR_t rt_call
 static DESCR_t eval_node(tree_t *e) { (void)e; fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_expr(const char *src) { if (!src || !*src) return NULVCL; tree_t *tree = parse_expr_pat_from_str(src); if (!tree) return FAILDESCR; return eval_node(tree); }
-typedef struct g_lbl_ent { char *key; eval_chain_fn fn; } lbl_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void eval_gc_roots(void) {
@@ -864,7 +865,7 @@ void rt_label_set_fn(const char *name, void *fn) {
     for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) { g_runtime.eval.lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_runtime.eval.lbl_n >= g_runtime.eval.lbl_cap) {
         int ncap = g_runtime.eval.lbl_cap ? g_runtime.eval.lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_wsb_realloc(g_runtime.eval.lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+        lbl_ent_t *nt = (lbl_ent_t *)rt_gcheap_grow_block(g_runtime.eval.lbl_tab, HB_LBLT, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
         g_runtime.eval.lbl_tab = nt;
         g_runtime.eval.lbl_cap = ncap;
@@ -891,6 +892,7 @@ static const char *rt_goto_peek_name(const char *name) {
     return VARVAL_fn(iv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sno_goto_special_is, leaf, 0);
 int rt_sno_goto_special_is(const char *enc) {
     if (!enc || enc[0] != '^' || !enc[1]) return 0;
     const char *want = (enc[1] == 'R') ? "RETURN" : (enc[1] == 'F') ? "FRETURN" : (enc[1] == 'N') ? "NRETURN" : NULL;
@@ -919,8 +921,14 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
         return rt_goto_resolve_x(inm, undef);
     }
     if (name[0] == '<') {
-        DESCR_t cv = NV_GET_fn(name + 1);
-        if (cv.v != DT_C || cv.slen < 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
+        int retake = name[1] == '!';
+        DESCR_t cv = NV_GET_fn(name + 1 + retake);
+        if (cv.v != DT_C || cv.slen < 3 || !cv.ptr) {
+            extern void core_runtime_error(int code, const char *msg);
+            if (retake) core_runtime_error(332, "goto continue with error in failure goto");
+            else core_runtime_error(24, "goto operand is not code");
+            return NULL;
+        }
         return cv.ptr;
     }
     if (!strcmp(name, "END")) return NULL;
@@ -942,6 +950,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_goto_resolve, open, 1);
 void *rt_goto_resolve(const char *name) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 0; return rt_goto_resolve_x(name, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_entry_resolve(const char *name, int *is_frag) {
@@ -1052,11 +1061,39 @@ void *rt_goto_resolve_ck(const char *name, int *undef) { return rt_goto_resolve_
 __asm__( ".text\n" ".globl rt_setexit_continue_tramp\n" "rt_setexit_continue_tramp:\n" "  movq g_rtccb@GOTPCREL(%rip), %rax\n" "  movq 208(%rax), %rcx\n" "  movq $0, 208(%rax)\n"
     "  movq 216(%rax), %rdx\n" "  movq 224(%rax), %rbp\n" "  movq 232(%rax), %r12\n" "  movq %rdx, %rsp\n" "  jmp *%rcx\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t code_at(const char *src, long base);
-DESCR_t code(const char *src) { return code_at(src, 0); }
-DESCR_t code_at(const char *src, long base) {
+static void code_stmt_line(tree_t *st, const char *tag, int line) {
+    tree_t *a = (tree_t *) stmt_attr_find(st, tag);
+    char buf[32];
+    snprintf(buf, sizeof buf, "%d", line);
+    if (a && a->n > 0 && a->c[0]) a->c[0]->v.sval = ct_strdup(buf);
+    else ast_push(st, ast_attr_int(tag, line));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_stmt_error_fn(DESCR_t *a, int n) {
+    extern void core_runtime_error(int code, const char *msg);
+    (void) a;
+    (void) n;
+    core_runtime_error(7, "compilation error encountered during execution");
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *code_stmt_in_error(long line) {
+    extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+    tree_t *st = ast_stmt_new(TT_STMT), *fn = ast_node_new(TT_FNC);
+    fn->v.sval = ct_strdup("SNO$STERR");
+    ast_push(st, ast_attr_int(":line", (int) line));
+    ast_push(st, ast_attr_int(":lline", (int) line));
+    ast_push(st, ast_attr_expr(":subj", fn));
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t code_at(const char *src, long base, long endline);
+DESCR_t code(const char *src) { return code_at(src, 0, 0); }
+DESCR_t code_at(const char *src, long base, long endline) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src) return FAILDESCR;
+    long ncalls = ++g_runtime.eval.sno_code_calls;
+    long text_line = endline > 0 ? endline + ncalls : 0;
     const char *illegal = NULL, *orig = src;
     {
         long bad = sno_text_illegal_at(src);
@@ -1076,7 +1113,7 @@ DESCR_t code_at(const char *src, long base) {
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
-    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base);
+    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base, long code_line);
     extern const char *sno_stmt_label(const tree_t *s);
     extern int g_frame_active;
     extern void sno_error_quiet_begin(void);
@@ -1108,6 +1145,10 @@ DESCR_t code_at(const char *src, long base) {
         }
         if (!nst) { prog = ast_stmt_new(TT_PROGRAM); tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 1)); ast_push(prog, st); empty = 1; } else if (nmt == nst) empty = nst;
     }
+    if (text_line > 0) for (int i = 0; i < prog->n; i++) {
+        tree_t *c = prog->c[i];
+        if (c && c->t == TT_STMT) { code_stmt_line(c, ":line", (int)text_line); code_stmt_line(c, ":lline", (int)text_line); }
+    }
     const char *parse_err = sno_error_captured();
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
     int pe = 0, pe_at = -1;
@@ -1122,6 +1163,8 @@ DESCR_t code_at(const char *src, long base) {
         if (pe && !parse_err) parse_err = pm ? pm : "";
     }
     if (pe_at >= 0) { tree_t *pre = ast_stmt_new(TT_PROGRAM); for (int i = 0; i < pe_at; i++) ast_push(pre, prog->c[i]); prog = pre; }
+    int sterr = 0;
+    if ((parse_err || illegal) && !empty && prog->n > 0) { ast_push(prog, code_stmt_in_error(text_line > 0 ? text_line : 1)); sterr = 1; }
     if (g_runtime.eval.sno_stmt_compiled < base) g_runtime.eval.sno_stmt_compiled = base;
     long stno_base = g_runtime.eval.sno_stmt_compiled;
     extern int sno_pat_count(void);
@@ -1140,7 +1183,7 @@ DESCR_t code_at(const char *src, long base) {
         if (k == 0 || (lbl && lbl[0])) {
             int rfl_sv = g_runtime.eval.rt_fragment_emit;
             g_runtime.eval.rt_fragment_emit = 1;
-            IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base);
+            IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base, endline);
             g_runtime.eval.rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
@@ -1172,7 +1215,7 @@ DESCR_t code_at(const char *src, long base) {
         if (patn > pat0) sno_pat_thunks_build(pat0);
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }
     }
-    g_runtime.eval.sno_stmt_compiled += (long)(k - empty) + 1;
+    g_runtime.eval.sno_stmt_compiled += (long)(k - sterr - empty) + ((parse_err || illegal) ? 0 : 1);
     if (parse_err || illegal) { g_runtime.kw.sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};

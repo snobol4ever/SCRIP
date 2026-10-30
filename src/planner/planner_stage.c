@@ -76,14 +76,16 @@ void planner_graph_facts(IR_graph_t * g) {
         g->pf.choice_fence = fn;
     }
     {
-        extern int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *);
+        extern int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *, unsigned *);
         int cap = 64, gaps = 0, conf = 0, n;
+        unsigned fl = 0;
         uint64_t * q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t));
-        while ((n = zls_g_layout_q(g, q, cap, &gaps, &conf)) > cap) { cap *= 2; q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t)); }
+        while ((n = zls_g_layout_q(g, q, cap, &gaps, &conf, &fl)) > cap) { cap *= 2; q = (uint64_t *)ct_zalloc((size_t)cap, sizeof(uint64_t)); }
         g->pf.lay = q;
         g->pf.lay_n = n;
         g->pf.lay_gaps = gaps;
         g->pf.lay_conf = conf;
+        g->pf.lay_flags = fl;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

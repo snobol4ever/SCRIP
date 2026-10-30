@@ -93,6 +93,7 @@ int rt_binop_overload_armed_by(const char *pn) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_relop_rat, leaf, 0);
 int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     extern int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
     extern int rt_is_truthy(DESCR_t v);
@@ -103,6 +104,7 @@ int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_binop_overload_open, open, 1);
 rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
     extern const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na);
     extern rt_call_next_t rt_call_open_by_name(const char *name, int nargs);
@@ -805,6 +807,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_cset_compl, leaf, 0);
 DESCR_t rt_cset_compl(DESCR_t a) {
     char _cbuf[64];
     int rawlen;

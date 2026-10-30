@@ -12,7 +12,10 @@ RTX_GATE_DEF(plunify)
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
-#define PL_ATTV_SLEN      0x56545441
+#define PL_VAR_ATTV_MASK  0x1FF
+#define PL_VAR_ATTV_WORD  0x148
+#define PL_SERIAL_SLOT    -2064
+#define PL_SERIAL_STEP    512
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
 #define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
 #define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
@@ -122,6 +125,132 @@ RTX_FUNC(rt_pl_dop_ball_pending)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_pl_dop_ball_pending)
+RTX_FUNC(rt_pl_dop_db_data_unify)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, r14
+    call rt_pl_dop_db_data_unify_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdu_ret
+    test    rcx, rcx
+    jz      .Lpdu_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdu_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdu_ret:
+    ret
+RTX_ENDF(rt_pl_dop_db_data_unify)
+RTX_FUNC(rt_pl_dop_dl_push)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_push_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_push_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_push_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_push_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_push_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_push)
+RTX_FUNC(rt_pl_dop_dl_reached)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_reached_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_reached_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_reached_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_reached_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_reached_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_reached)
+RTX_FUNC(rt_pl_dop_dl_false)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_false_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_false_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_false_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_false_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_false_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_false)
+RTX_FUNC(rt_pl_dop_dl_reset)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_reset_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_reset_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_reset_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_reset_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_reset_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_reset)
+RTX_FUNC(rt_pl_dop_dl_tick)
+    RTX_SUB_RSP(CTX_FRAME)
+    CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
+    mov     rdx, rsp
+    mov     rcx, rbp
+    call rt_pl_dop_dl_tick_c; RTX_GVA_R9
+    mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
+    RTX_ADD_RSP(CTX_FRAME)
+    cmp     al, DT_FAIL
+    jne     .Lpdl_dl_tick_ret
+    test    rcx, rcx
+    jz      .Lpdl_dl_tick_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpdl_dl_tick_fail:
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lpdl_dl_tick_ret:
+    ret
+RTX_ENDF(rt_pl_dop_dl_tick)
 RTX_FUNC(rt_pl_dop_clause_unify)
     RTX_SUB_RSP(CTX_FRAME)
     CTX_SAVE
@@ -189,7 +318,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r10]
     PL_U_UNB(r10, .Lun_a_unb, .Lun_a_bnd)
 .Lun_a_unb:
-    cmp     dword ptr [r10 + 4], PL_ATTV_SLEN
+    and     eax, PL_VAR_ATTV_MASK
+    cmp     eax, PL_VAR_ATTV_WORD
     je      .Lun_restart
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_both_unb, .Lun_a_unb_b_bnd)
@@ -208,7 +338,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [r10 + 8], rdx
     jmp     .Lun_next
 .Lun_both_unb:
-    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
+    and     eax, PL_VAR_ATTV_MASK
+    cmp     eax, PL_VAR_ATTV_WORD
     je      .Lun_restart
     cmp     r10, rsp
     jbe     .Lun_a_heap
@@ -231,7 +362,9 @@ RTX_FUNC(rtx_pl_unify)
     je      .Lun_refstore
 .Lun_norm:
     PL_U_TRAIL(r11, Lun_t2)
-    mov     qword ptr [r11], DT_PLVAR
+    mov     rax, qword ptr [r14 + PL_SERIAL_SLOT]
+    add     qword ptr [r14 + PL_SERIAL_SLOT], PL_SERIAL_STEP
+    mov     qword ptr [r11], rax
     mov     qword ptr [r11 + 8], r11
 .Lun_refstore:
     PL_U_TRAIL(r10, Lun_t3)
@@ -242,7 +375,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_b_unb_a_bnd, .Lun_both_bnd)
 .Lun_b_unb_a_bnd:
-    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
+    and     eax, PL_VAR_ATTV_MASK
+    cmp     eax, PL_VAR_ATTV_WORD
     je      .Lun_restart
     cmp     byte ptr [r10], DT_PLREF
     jne     .Lun_oc4
@@ -484,6 +618,7 @@ PL_CTX_LEAF_BALL(stamp_date_time)
 PL_CTX_LEAF_BALL(date_time_stamp)
 PL_CTX_LEAF_BALL(format_time_text)
 PL_CTX_LEAF_BALL(create_prolog_flag)
+PL_CTX_LEAF_BALL(flag_meta)
 PL_CTX_LEAF_BALL(unifiable)
 PL_CTX_LEAF_BALL(succ)
 PL_CTX_LEAF_BALL(plus)

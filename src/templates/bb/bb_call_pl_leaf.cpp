@@ -34,7 +34,7 @@ DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 #define PLS() (_.op_pl_sub)
 #define PL_L_ZF 248
 #define PL_L_ZX 249
-#define PLAQ(off) (_.op_zres ? RDQ("rsp", (off)) : FRQ(PLA() + (off)))
+#define PLAQ(off) (_.op_zres ? x86_zref(_.op_call_blk + (off), 1) : FRQ(PLA() + (off)))
 #define PL_GAMMA() (_.op_zres ? x86("jmp", L(PL_L_ZX)) : x86_gamma())
 #define PL_OMEGA(cc) (_.op_zres ? x86((cc), L(PL_L_ZF)) : x86_omega(cc))
 #define PL_TRAMP() IF(!_.op_zres, x86_beta_trampoline())
@@ -344,7 +344,19 @@ static std::string pl_arm_mkc() {
              + x86("mov", RDQ("r10", 8), "rdi")
              + x86("jmp", L(101))
              + x86("def", L(113))
-             + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
+             +
+                 x86("note",
+                 "a frame cell is moved to the heap: the new cell is the same variable, so it keeps the frame cell's serial; a virgin frame cell (the zero DESCR, DT_FAIL, a self name) draws one")
+             + x86("mov", "eax", RDD("rdi", 0))
+             + x86("cmp", "al", (long)DT_PLVAR)
+             + x86("jne", L(114))
+             + x86("mov", "rax", RDQ("rdi", 0))
+             + x86("and", "rax", (long)~(long)PL_VAR_ATTV)
+             + x86("jmp", L(115))
+             + x86("def", L(114))
+             + PL_SERIAL_DRAW("rax")
+             + x86("def", L(115))
+             + x86("mov", RDQ("r10", 0), "rax")
              + x86("mov", RDQ("r10", 8), "r10")
              + PL_TRAIL(109, 111, 160, 170)
              + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)

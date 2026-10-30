@@ -6,7 +6,6 @@
 #include "emit.h"
 extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" int emit_zrow_sprec(const IR_t * nd);
-extern "C" int emit_zrow_opvs(const IR_t * nd, int k);
 extern "C" {
 #include "bb_template_common.h"
 #include "stage2.h"
@@ -14,6 +13,7 @@ extern "C" {
 #include "bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
+#include "bb_pl_cell.h"
 #include "rt/gc_heap.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
@@ -489,7 +489,7 @@ std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
-    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = emit_zrow_opvs(_.node, i);
+    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = _.op_opvs[i];
         return (s >= 0 && x86_key_unbacked(s)) ? -1 : s; };
     auto arms = [&](int lb, int lg) -> std::string {
         return x86("def", L(lb + 3))
@@ -533,10 +533,8 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("mov", "eax", RDD("rdi", 0))
              + x86("test", "eax", "eax")
              + x86("je", L(lg + 1))
+             + x86("and", "eax", (long)(255 | PL_VAR_ATTV))
              + x86("cmp", "eax", (long)DT_PLVAR)
-             + x86("jne", L(lsk + 99))
-             + x86("mov", "ecx", RDD("rdi", 4))
-             + x86("test", "ecx", "ecx")
              + x86("jne", L(lsk + 99))
              + x86("mov", "rax", RDQ("rdi", 8))
              + x86("cmp", "rax", "rdi")
@@ -572,7 +570,16 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("pop", "r11")
              + x86("pop", "rdi")
              + x86("pop", "rsi")
-             + x86("mov", RDQ("rax", 0), (long)DT_PLVAR)
+             + x86("note", "the globalized variable keeps the frame cell's serial (the same variable); a virgin frame cell (the zero DESCR) draws one")
+             + x86("mov", "ecx", RDD("rdi", 0))
+             + x86("cmp", "cl", (long)DT_PLVAR)
+             + x86("jne", L(lg + 600))
+             + x86("mov", "rcx", RDQ("rdi", 0))
+             + x86("jmp", L(lg + 601))
+             + x86("def", L(lg + 600))
+             + PL_SERIAL_DRAW("rcx")
+             + x86("def", L(lg + 601))
+             + x86("mov", RDQ("rax", 0), "rcx")
              + x86("mov", RDQ("rax", 8), "rax")
              + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)
              + x86("mov", RDQ("rdi", 8), "rax")
@@ -678,8 +685,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_zrow_tret(const IR_t * nd);
-extern "C" int emit_zrow_cft(const IR_t * nd);
-static std::string bcps_block_beta(int act);
+static std::string bcps_block_beta(int act, int frs);
 static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     int kt = g_emit.flat_frame_bytes;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
@@ -689,7 +695,7 @@ static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
     for (int i = 0; i < n; i++) {
         IR_t * a = ir_call_arg(_.node, i);
         if (!a || a->op != IR_VAR_REF || !a->sval || a->seal != (home ? IR_SEAL_KILL_HOME : IR_SEAL_KILL_VALUE)) continue;
-        int vs = emit_zrow_opvs(_.node, i), seen = 0;
+        int vs = _.op_opvs[i], seen = 0;
         if (vs < 0 || x86_key_unbacked(vs)) continue;
         if (!home) cp += x86("mov", "rax", FRQB(vs, bump))
                        + x86("mov", "rdx", FRQB(vs + 8, bump))
@@ -743,7 +749,8 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
     if (sprec && (zsp || !_.op_zres || _.op_xf_off != -1)) return x86_alpha() +
         x86_bomb("bcps_block_arm: the plan puts this call's resume record on the spine, but the call is not a retaining spine call");
     const int fr = !zsp && !sprec;
-    int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
+    const int frs = fr && _.op_zres && _.op_xf_off == -1 && _.op_res_alias == off;
+    int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && (g_emit_cfg->root_graph || g_emit_cfg->depth_counted));
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
          + IF(fr, x86("mov", FRQ(act), 0L))
@@ -803,6 +810,12 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
              + x86("mov", "rdi", "r12")
              + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
              + x86("def", L(86)))
+         + IF(frs, x86("note", "a retained callee left rsp at the bottom of its live region: carve this call's result cell there, so the store lands in the call's own cell "
+                                "and never in the callee's bottom cell (ARCH-PROLOG-ACTIVATION-LIFETIME 9.14 (b)); beta pops it before resuming the callee")
+                   + x86("test", "rax", "rax")
+                   + x86("jz", L(88))
+                   + x86_sub("rsp", 16) + x86_rsp_rec(-16)
+                   + x86("def", L(88)))
          + bcps_lvl_add(-1L)
          + x86("mov", "rax", "rdi")
          + x86("mov", "rdx", "rsi")
@@ -827,7 +840,7 @@ static std::string bcps_block_arm(int off, int act, long idx, int sprec) {
          + x86_beta()
          + IF(zsp, x86_omega())
          + IF(sprec, bcps_block_rec_beta())
-         + IF(fr, bcps_block_beta(act))
+         + IF(fr, bcps_block_beta(act, frs))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 static std::string bcps_block_rec_beta(void) {
@@ -846,13 +859,14 @@ static std::string bcps_block_rec_beta(void) {
          + x86("def", L(22))
          + x86_omega();
 }
-static std::string bcps_block_beta(int act) {
+static std::string bcps_block_beta(int act, int frs) {
     return x86_pl_ball_rule(30, 22)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
          + x86("mov", FRQ(act), 0L)
+         + IF(frs, x86_add("rsp", 16) + x86_rsp_rec(16))
          + x86("mov", x86_hb(), "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")
@@ -1007,7 +1021,7 @@ static std::string bcps_spine_gen_arm() {
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, gi_idx, sprec);
     if (sprec) return x86_alpha() + x86_bomb("bb_call_proc_staged: the plan puts this call's resume record on the spine, but the call does not take the block protocol");
     int n2_fb = -1, cb_np = 0, cb_va = 0, callee_blk = (gi_idx >= 0 && _.op_sval) ? bb_proc_target_icn_block(_.op_sval, &cb_np, &cb_va) : 0;
-    if ((icn_gen_regime() || callee_blk) && _.op_sval) n2_fb = emit_zrow_cft(_.node);
+    if ((icn_gen_regime() || callee_blk) && _.op_sval) n2_fb = _.op_cft;
     if ((icn_gen_regime() || callee_blk) && n2_fb <= 0) return x86_alpha()
         + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta()
             + x86_bomb("N-3: beta re-entry into a refused generator call site");

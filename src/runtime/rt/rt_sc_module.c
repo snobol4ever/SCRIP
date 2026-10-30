@@ -31,9 +31,11 @@ long rt_sc_gva_reserve(void) {
     const sc_module_t *m = &g_runtime.misc.sc_mod;
     const sc_module_desc_t *d = (const sc_module_desc_t *)m->d;
     if (m->no_reserve) return 0;
+    if (m->standalone) return SC_GVA_RESERVE;
     return (d && d->n_gva > SC_GVA_RESERVE) ? d->n_gva : SC_GVA_RESERVE;
 }
 void rt_sc_module_compiling(void) { g_runtime.misc.sc_mod.no_reserve = 1; }
+void rt_sc_module_standalone(void) { g_runtime.misc.sc_mod.standalone = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static sc_module_t *sc_module_get(const char *lang);
 int rt_sc_module_linked(const char *lang) { return sc_module_get(lang) ? 1 : 0; }
@@ -76,10 +78,7 @@ static sc_module_t *sc_module_get(const char *lang) {
     m->i_inited = sc_slot_of(m->d, "ModInited");
     m->i_errpos = sc_slot_of(m->d, "ModErrPos");
     m->i_incl = sc_slot_of(m->d, "ModIncl");
-    if (m->i_src < 0 || m->i_path < 0 || m->i_lang < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) {
-        fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n");
-        abort();
-    }
+    if (m->i_src < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) { fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n"); abort(); }
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -120,6 +119,7 @@ static void sc_module_init(sc_module_t *m) {
         g_runtime.misc.core_stack_floor_raised = 1;
     }
     core_lib_init();
+    { extern void rt_sxt_gva_lo(int, int); rt_sxt_gva_lo(0, 1); }
     { extern int rt_sxt_gva_count_get(void); if (rt_sxt_gva_count_get() < (int)d->n_gva) rt_gva_island((int)d->n_gva); }
     if (d->module_init) ((void (*)(void))d->module_init)();
     if (d->proc_tab && d->proc_names && d->n_proc > 0) rt_proc_table_fill(d->proc_tab, d->proc_names, (int)d->n_proc);
@@ -144,8 +144,8 @@ DESCR_t rt_sc_module_parse_begin(const char *lang, const char *src, size_t len, 
     {
         char *hs = (char *)rt_heap_strdup_c(src ? src : "");
         m->base[m->i_src] = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = hs };
-        m->base[m->i_path] = path && *path ? STRVAL(rt_heap_strdup_c(path)) : NULVCL;
-        m->base[m->i_lang] = STRVAL(rt_heap_strdup_c(lang));
+        if (m->i_path >= 0) m->base[m->i_path] = path && *path ? STRVAL(rt_heap_strdup_c(path)) : NULVCL;
+        if (m->i_lang >= 0) m->base[m->i_lang] = STRVAL(rt_heap_strdup_c(lang));
         if (m->i_incl >= 0) m->base[m->i_incl] = incl && incl_len ? (DESCR_t){ .v = DT_S, .slen = (uint32_t)incl_len, .s = (char *)incl } : NULVCL;
         m->base[m->i_tree] = none;
         if (m->i_errpos >= 0) m->base[m->i_errpos] = (DESCR_t){ .v = DT_I, .slen = 0, .i = -1 };

@@ -251,7 +251,10 @@ RTX_ENTRY(sno_concat_d)
     cmp     r11, qword ptr [rdx + 0]
     jne     .Lsc_ext_bad
     mov     edi, dword ptr [rax + 16]
-    mov     r11d, RTX_GVA_VA
+    mov     r11d, dword ptr [rax + 24]
+    sub     edi, r11d
+    shl     r11, 4
+    add     r11, RTX_GVA_VA
     xor     r10d, r10d
     cmp     edi, 8
     jl      .Lsc_ext_scan

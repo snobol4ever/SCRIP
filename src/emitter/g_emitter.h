@@ -36,7 +36,17 @@ struct emit_dir_ref { cv_t * chunks; cv_t * names; cv_t * hix; int * n; size_t e
 typedef struct { unsigned char set[256]; int nempty, impure, unknown; } blob_fg_t;
 typedef struct { cv_t var; cv_t thunk; } blob_fg_deps_t;
 typedef struct { const char * var; const char * thunk; const char * from; int conflict; } blob_fg_bind_t;
-typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
+typedef struct {
+    uint64_t pc;
+    int32_t depth;
+    uint16_t kind;
+    uint16_t rule;
+    int32_t zdepth, fcb, fcbase, demit;
+    const char * bk;
+    int mn;
+    const IR_t * nd;
+    int32_t wk_off, wk_n, wk_e, wk_pre;
+} gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 struct zeta_plan_t;
 struct g_emitter_t {
@@ -44,7 +54,6 @@ struct g_emitter_t {
     std::vector<zsm_frame_rec_t> zsm_frames;
     int zsm_frames_last = -1;
     int zsm_frame_on = -1;
-    int zsm_frame_diag = -1;
     int g_zd_abs = 0;
     int g_zd_def = 1;
     int g_zd_cutd = -1;
@@ -136,7 +145,6 @@ struct g_emitter_t {
     cv_t g_blob_lay;
     cv_t g_alt_pads;
     int g_zd_fence_exit = 0;
-    cv_t g_zls_lay_v;
     int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
     int blob_cont_copy_v = -1;
     int blob_zf_gc_only_v = -1;
@@ -154,11 +162,11 @@ struct g_emitter_t {
     bb_label_t g_gc_map_lbl;
     int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
     unsigned g_gc_map_flags = 0;
-    int tbl_hdr_off = -1;
     uint64_t g_gc_map_link = 0;
     cv_t g_gc_map_names_v;
     int gc_sites_report_on_v = -1;
     cv_t g_gc_sites_v;
+    cv_t g_gc_sites_wk;
     int g_gc_sites_armed = 0, g_gc_sites_last_off = -1, g_gc_sites_names_n = 0;
     cv_t g_gc_sites_names_v;
     gc_match_lvl_t g_gc_match_out;

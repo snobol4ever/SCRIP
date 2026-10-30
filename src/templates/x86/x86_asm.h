@@ -10,6 +10,7 @@
 #include <cstdio>
 #include "emit.h"
 #include "pin_va.h"
+#include "rt/rt_pl_trail.h"
 #include "../../ir/cset_block.h"
 extern "C" {
 extern uint64_t g_rtccb[32];
@@ -596,8 +597,8 @@ inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_fc_jcc_gamma(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc(const char * mnem, int port) {
-    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || (_.op_xrec & 8) || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
-    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || (_.op_xrec & 6) || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
+    if (port == X86P_OMEGA && (x86_fc_on() || _.op_zpriv > 0 || _.op_wpop != 0 || (_.op_xrec & 8) || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zpriv > 0 || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || (_.op_xrec & 6) || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
@@ -632,11 +633,11 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
 inline int x86_resumable_frame() { return emit_resumable_frame(); }
+inline int x86_serial_vars() { return (g_emit_cfg && g_emit_cfg->unbound_serial) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
-inline int x86_rsp_slide_known() { return 1; }
-inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+inline int x86_frame_off(int off) { return _.op_zslid ? -1 : off + _.op_zdepth; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->cell_frame)) || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
 extern "C" int zls_g_generator_top(const IR_graph_t * g);
 inline int gen_frame_top() { return g_emit_cfg ? g_emit_cfg->pf.generator_top : 0; }
@@ -1130,7 +1131,7 @@ inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zref(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
+    snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off + _.op_zpriv);
     return b[i];
 }
 inline const char * RDQ(const char * base, int off);
@@ -1391,6 +1392,17 @@ inline std::string x86_reg_disp32_add_imm32(const char * base, int disp, long im
         return x86_Lrec(c);
     }
     return x86_rec("add") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp_add_imm64(const char * base, int disp, long imm) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex;
+        if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
+        else { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        return x86_Lrec(c);
+    }
+    return x86_rec("add") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
@@ -1990,6 +2002,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REGDISP32 && b.kind == XK_IMM) return x86_reg_disp32_add_imm32(a.base, a.off, b.imm);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp_add_imm64(a.base, a.off, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_add32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
@@ -2356,19 +2369,21 @@ inline std::string x86_srf_floater(int wire_disp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
-extern "C" void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
-extern "C" uint64_t rt_scan_sync_in(void);
-inline std::string x86_scan_sync_out_force() {
-    return x86("mov", "rdi", "r13")
-         + x86("mov", "esi", "r15d")
-         + x86("mov", "rdx", "r14")
-         + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+extern "C" uint64_t *rt_co_env(void);
+inline std::string x86_scan_env_store() {
+    return x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+         + x86("mov", "[rax + 0]", "r13")
+         + x86("mov", "[rax + 8]", "r14")
+         + x86("mov", "[rax + 16]", "r15");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_sync_in_rr_force() {
+inline std::string x86_scan_env_load_rr() {
     return x86("push", "rax") + x86("push", "rdx")
-         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-         + x86("mov", "r14", "rax")
+         + x86("call", "rt_co_env", (uint64_t)(uintptr_t)(void *)rt_co_env)
+         + x86("mov", "r14", "[rax + 8]")
+         + x86("mov", RDQ("rax", 0), 0L)
+         + x86("mov", RDQ("rax", 8), 0L)
+         + x86("mov", RDQ("rax", 16), 0L)
          + x86("pop", "rdx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2456,14 +2471,21 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
             _.x86_uid);
     if (site == X86H_JMP && port == X86P_OMEGA && x86_omega_trace_on())
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    if (x86_fc_on()) {
+    if ((site == X86H_DEF || site == X86H_DEF_PAIR) && port == X86P_BETA) _.op_in_beta = 1;
+    if (x86_fc_on() || _.op_zpriv > 0) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
         if (site == X86H_DEF && port == X86P_ALPHA) { s += bb_glue_flat_enter();
-            for (int j = 0; j < _.op_zsticky / 16; j++) s += x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
+            for (int j = 0; j < _.op_zsticky / 16; j++) s += x86_serial_vars()
+                ? x86("note", "a Prolog variable homed in this box is created here: it draws its serial from the root record's standing cell 255 and points at itself")
+                + x86("mov", "rax", RDQ("r14", -PL_SERIAL_OFF)) + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP)
+                + x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j), "rax") + x86("lea", "rax", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j)) +
+                    x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j + 8), "rax")
+                : x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + _.op_zpriv + 16 * j + 8), 0L); }
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA && !_.op_wsteal) s += bb_glue_flat_leave();
+        if (site == X86H_JMP && port == X86P_OMEGA && _.op_wsteal && !_.op_in_beta && _.op_zpriv > 0) s += x86_add("rsp", (long)_.op_zpriv);
     }
     if (site == X86H_DEF && port == X86P_BETA && _.op_zbgrow > 0) s += x86("sub", "rsp", (long)_.op_zbgrow);
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zcp_dst >= 0 || (_.op_xrec & 2)))
@@ -2472,7 +2494,7 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
            + x86("mov", "rax", (_.op_xrec & 1) ? RDQ("rbp", _.op_zcp_sxf + 8) : x86_zref(_.op_zcp_src + 8, 1))
            + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf + 8) : x86_zref(_.op_zcp_dst + 8, 1), "rax");
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_xrec & 4)) s += x86("mov", "rsp", RDQ("rbp", _.op_grec)) + IF(_.op_grec_pop != 0, x86_add("rsp", (long)_.op_grec_pop));
-    else if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
+    else if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zgpop != 0 || (_.op_zpriv > 0 && !_.op_in_beta))) s += x86_add("rsp", (long)(_.op_zgpop + (_.op_in_beta ? 0 : _.op_zpriv)));
     if (site == X86H_JMP && port == X86P_OMEGA && (_.op_xrec & 8)) s += x86("mov", "rsp", RDQ("rbp", _.op_wrec)) + IF(_.op_wrec_pop != 0, x86_add("rsp", (long)_.op_wrec_pop));
     else if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA) {
@@ -2526,7 +2548,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov", "rdi", (long)_.nid)
          + x86("mov", "rsi", "rbp")
          + (own > 0L ? x86_movabs_r64("rcx", (uint64_t)(kind | ((long)_.op_node_kind << 8)) | ((uint64_t)own << 24)) : x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8))))
-         + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
+         + x86("mov", "r8", (!_.op_zslid && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
          + x86_movabs_r64("r9", (uint64_t)emit_zsm_word(_.node, _.op_zres, _.op_subj_cell, own) | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
@@ -2543,7 +2565,7 @@ inline std::string x86_zsm_disc(long restore) {
          + x86("mov", "rdi", (long)_.nid)
          + x86("mov", "rsi", "rbp")
          + x86("mov", "rcx", (long)(10 | ((long)_.op_node_kind << 8)))
-         + x86("mov", "r8", restore)
+         + x86("mov", "r8", _.op_zslid ? -1L : restore)
          + x86("mov", "r9", 0L)
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
@@ -2892,12 +2914,11 @@ inline std::string x86_rtx_verdict_cmp(int kind) {
     return x86("cmp", "al", (long)RTX_NOT_HANDLED);
 }
 inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
-    static int seq;
     const char * cname = 0;
     int kind = 0;
     void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname, &kind) : 0;
     if (!caddr) return std::string();
-    const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, seq++);
+    const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, _.x86_vd_seq++);
     return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 extern "C" void rt_pl_cap_raise(void);
@@ -2943,6 +2964,9 @@ inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & 
 #define x86_rt_gc_poll_or(fail) x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(fail))
 #define x86_rt_gc_poll_fails() x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(std::string()))
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
+inline int x86_poll_in_region(long n, int reg) { return reg && _.op_zpriv >= n && !_.op_in_beta; }
+inline std::string x86_poll_open(long n, int reg) { return x86_poll_in_region(n, reg) ? std::string() : x86("sub", "rsp", n); }
+inline std::string x86_poll_close(long n, int reg) { return x86_poll_in_region(n, reg) ? std::string() : x86("add", "rsp", n); }
 inline std::string x86_rt_gc_poll_res_scan_regs(const std::string & raise) {
 return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one described cell and the box result rax:rdx as a second, both swept and relocated across the poll")
          + x86("sub", "rsp", (long)32)
@@ -2962,12 +2986,12 @@ return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one 
          + x86("add", "rsp", (long)32)
          + raise);
 }
-inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string()) {
+inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string(), int reg = 0) {
 if (x86_scan_regs_graph()) return x86_rt_gc_poll_res_scan_regs(raise);
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
     "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
-         + x86("sub", "rsp", (long)32)
+         + x86_poll_open(32, reg)
          + x86_reg_disp32_store64("rsp", 0, "r13")
          + x86_reg_disp32_store64("rsp", 16, "rax")
          + x86_reg_disp32_store64("rsp", 24, "rdx")
@@ -2979,7 +3003,7 @@ return x86_gc_gate(x86("comment",
          + x86_reg_disp32_load64("r13", "rsp", 0)
          + x86_reg_disp32_load64("rax", "rsp", 16)
          + x86_reg_disp32_load64("rdx", "rsp", 24)
-         + x86("add", "rsp", (long)32)
+         + x86_poll_close(32, reg)
          + raise);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2993,8 +3017,8 @@ inline std::string x86_align_call_enter() {
 inline std::string x86_align_call_leave() {
     return x86_rsp_load64("rsp", 0) + x86_rsp_mark('Z');
 }
-inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
-return x86_gc_gate(x86("sub", "rsp", (long)32)
+inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0, int reg = 0) {
+return x86_gc_gate(x86_poll_open(32, reg)
          + x86_rsp_store32_imm(0, (long)DT_S)
          + IF(lenreg32 != NULL, x86_rsp_store32(4, lenreg32))
          + IF(lenreg32 == NULL, x86_rsp_store32_imm(4, (long)0))
@@ -3009,9 +3033,9 @@ return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_load64(preg, 8)
          + IF(keep_rax, x86_rsp_load64("rax", 16))
          + IF(keep_rdx, x86_rsp_load64("rdx", 24))
-         + x86("add", "rsp", (long)32));
+         + x86_poll_close(32, reg));
 }
-inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax); }
+inline std::string x86_rt_gc_poll_rec_sigma(int keep_rax, int reg = 0) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 0, reg); }
 inline std::string x86_rt_gc_poll_rec_name(const char * preg) {
 return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86_rsp_store32_imm(0, (long)DT_N)
@@ -3070,7 +3094,7 @@ return x86_gc_gate(x86("comment",
 }
 inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
 inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
-inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
+inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax, int reg = 0) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1, reg); }
 extern "C" int64_t rt_cvpos_pos(DESCR_t v, int64_t len);
 extern "C" int core_icn_int_ok_d(DESCR_t v);
 extern "C" int core_icn_error(int code, DESCR_t v);
@@ -3140,6 +3164,67 @@ inline std::string x86_icn_subject_set(int a, int mode, int k) {
          + x86("def", L(k + 1))
          + x86("xor", "r14d", "r14d");
 }
+typedef struct { int64_t v; int64_t ok; } WindowPos;
+extern "C" WindowPos rt_icn_window_pos(uint64_t lo, uint64_t hi);
+inline std::string x86_scan_window_pos(int slot, int is_j, int k, int kfail) {
+    if (slot < 0) return is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L);
+    return x86("mov", "rax", FRQ(slot))
+         + x86("cmp", "al", (long)DT_SNUL)
+         + x86("jne", L(k))
+         + (is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L))
+         + x86("jmp", L(k + 2))
+         + x86("def", L(k))
+         + x86("cmp", "al", (long)DT_I)
+         + x86("jne", L(k + 1))
+         + x86("mov", "rax", FRQ(slot + 8))
+         + x86("jmp", L(k + 3))
+         + x86("def", L(k + 1))
+         + x86("mov", "rdi", FRQ(slot))
+         + x86("mov", "rsi", FRQ(slot + 8))
+         + x86("call", "rt_icn_window_pos", (uint64_t)(uintptr_t)(void *)rt_icn_window_pos)
+         + x86("test", "rdx", "rdx")
+         + x86("je", L(kfail))
+         + x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86("def", L(k + 3))
+         + x86("test", "rax", "rax")
+         + x86("jg", L(k + 4))
+         + x86("add", "rax", "rcx")
+         + x86("def", L(k + 4))
+         + x86("cmp", "rax", 1L)
+         + x86("jl", L(kfail))
+         + x86("cmp", "rax", "rcx")
+         + x86("jg", L(kfail))
+         + x86("def", L(k + 2));
+}
+inline std::string x86_scan_window(int wi, int wj, int bank, int k) {
+    return x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86_scan_window_pos(wi, 0, k, k + 5)
+         + x86("mov", "r14", "rax")
+         + x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86_scan_window_pos(wj, 1, k + 10, k + 5)
+         + x86("mov", "rdx", "rax")
+         + x86("mov", "rax", "r14")
+         + x86("cmp", "rax", "rdx")
+         + x86("jle", L(k + 6))
+         + x86("mov", "rcx", "rax")
+         + x86("mov", "rax", "rdx")
+         + x86("mov", "rdx", "rcx")
+         + x86("def", L(k + 6))
+         + x86("sub", "rax", 1L)
+         + x86("mov", "r14", "rax")
+         + x86("sub", "rdx", 1L)
+         + x86("mov", "r15", "rdx")
+         + x86("jmp", L(k + 7))
+         + x86("def", L(k + 5))
+         + x86("mov", "r13", FRQ(bank + 8))
+         + x86("mov", "r14", FRQ(bank + 16))
+         + x86("mov", "r15", FRQ(bank + 24))
+         + x86_omega()
+         + x86("def", L(k + 7));
+}
 inline std::string x86_icn_subject_result(int off) {
     return x86("mov", "eax", "r15d")
          + x86("shl", "rax", 32L)
@@ -3164,8 +3249,8 @@ return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86_rsp_load64("rdx", 40)
          + x86("add", "rsp", (long)48));
 }
-inline std::string x86_rt_gc_poll_rec_res() {
-return x86_gc_gate(x86("sub", "rsp", (long)32)
+inline std::string x86_rt_gc_poll_rec_res(int reg = 0) {
+return x86_gc_gate(x86_poll_open(32, reg)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
          + x86_rsp_store64(16, "r13")
@@ -3177,7 +3262,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_load64("rax", 0)
          + x86_rsp_load64("rdx", 8)
          + x86_rsp_load64("r13", 16)
-         + x86("add", "rsp", (long)32));
+         + x86_poll_close(32, reg));
 }
 #include "stage2.h"
 std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy);

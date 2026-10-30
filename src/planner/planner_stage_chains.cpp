@@ -45,7 +45,10 @@ void planner_stage_procs(stage2_t * s2, int from_pi, int mode) {
     for (int pi = from_pi; pi < s2->proc_count; pi++) planner_stage_proc(s2, pi, mode);
 }
 void planner_proc_road(stage2_t * s2, int pi, int rt, planner_road_t * rd) {
-    ProcEntry * pe = &s2->proc_table[pi]; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    ProcEntry * pe = &s2->proc_table[pi];
+    if (pe->bb_idx < 0 || pe->bb_idx >= s2->bbp.count)
+        { fprintf(stderr, "scrip: planner_proc_road: proc %s has no graph (bb_idx %d of %d): ir_delete_all invalidated it\n", pe->name ? pe->name : "?", pe->bb_idx, s2->bbp.count); exit(2); }
+    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     const planner_road_t * rr = planner_road_of(pe->proc_entry_node ? pe->proc_entry_node : g->entry);
     if (rr) *rd = *rr; else planner_road_proc(s2, pi, rd, rt);
 }

@@ -74,7 +74,7 @@ void stage2_reset(void) {
     g_stage2.module_registry.main_mod = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_delete_all(stage2_t *s2) { if (s2) bb_program_free(&s2->bbp); }
+void ir_delete_all(stage2_t *s2) { if (!s2) return; bb_program_free(&s2->bbp); for (int i = 0; i < s2->proc_count; i++) s2->proc_table[i].bb_idx = -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int stage2_label_grow(stage2_t *s2) {
     if (s2->label_count >= s2->label_cap) { s2->label_cap = s2->label_cap ? s2->label_cap * 2 : 16; s2->label_table = ct_grow(s2->label_table, (size_t)s2->label_cap * sizeof(LabelEntry)); }

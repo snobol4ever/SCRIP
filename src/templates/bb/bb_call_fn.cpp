@@ -38,6 +38,8 @@ std::string elem_access_flat_join(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_FN() (_.op_sval ? _.op_sval : "")
 #define CF_N() ((int)_.op_ival)
+#define CF_BLK() (_.op_call_blk)
+#define CF_REC_CELL() (_.op_zres && _.op_call_rec >= 0)
 #define CF_ARG() (_.op_call_argbase)
 #define CF_RES() (_.op_call_resoff)
 #define CF_REFUSED() (_.op_call_refuse != CALL_REFUSE_NONE)
@@ -106,23 +108,21 @@ std::string cf_marshal() { return FOR(0, _.op_marg_n, [](int k) { return cf_marg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string cf_zd_copy() {
     return IF(CF_N() > 0,
-               emit_seq({ x86("sub", "rsp", (long)(CF_N() * 16)),
-                          FOR(0, CF_N(), [](int i) {
-                              return emit_seq({ x86("mov", "rax", ZOPQS(i, CF_N() * 16, 0)),
-                                                x86("mov", x86_zref(i * 16 + 0, 1), "rax"),
-                                                x86("mov", "rax", ZOPQS(i, CF_N() * 16, 8)),
-                                                x86("mov", x86_zref(i * 16 + 8, 1), "rax") }); }) }));
+               FOR(0, CF_N(), [](int i) {
+                   return emit_seq({ x86("mov", "rax", ZOPQS(i, 0, 0)),
+                                     x86("mov", x86_zref(CF_BLK() + i * 16 + 0, 1), "rax"),
+                                     x86("mov", "rax", ZOPQS(i, 0, 8)),
+                                     x86("mov", x86_zref(CF_BLK() + i * 16 + 8, 1), "rax") }); }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * cf_zd_cursor() { return _.op_call_dsave != INT_MIN ? RDQ("rbp", _.op_call_dsave) : x86_zref(16, 1); }
 static std::string cf_zd_save() { return IF(_.op_call_curmov, x86("mov", cf_zd_cursor(), "r14")); }
-static std::string cf_zd_sync() { return IF(_.op_call_scansync, x86_scan_sync_out_force()); }
+static std::string cf_zd_sync() { return IF(_.op_call_scansync, x86_scan_env_store()); }
 static std::string cf_zd_beta() { return _.op_beta_dead ? std::string() :
-    emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor()) + x86_scan_sync_out_force()), x86_jmp(X86P_OMEGA) }); }
-static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
+    emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor())), x86_jmp(X86P_OMEGA) }); }
+static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 std::string cf_zd_exit() {
-    return emit_seq({ IF(CF_N() > 0, x86("add", "rsp", (long)(CF_N() * 16))),
-                      x86("cmp", "al", (long)DT_FAIL),
+    return emit_seq({ x86("cmp", "al", (long)DT_FAIL),
                       x86_omega("je"),
                       x86("note", ZRESN())
                     + x86("mov", ZRES(0), "rax"),
@@ -138,11 +138,11 @@ std::string cf_flat_exit() {
                       x86_omega("je"),
                       x86_gamma(),
                       x86_beta(),
-                      IF(_.op_call_curmov, x86("mov", "r14", FRQ(_.op_call_dsave)) + x86_scan_sync_out_force()),
+                      IF(_.op_call_curmov, x86("mov", "r14", FRQ(_.op_call_dsave))),
                       x86_omega() });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cf_pre_road() { return emit_seq({ IF(_.op_call_curmov, x86("mov", FRQ(_.op_call_dsave), "r14")), IF(_.op_call_scansync, x86_scan_sync_out_force()) }); }
+static std::string cf_pre_road() { return emit_seq({ IF(_.op_call_curmov, x86("mov", FRQ(_.op_call_dsave), "r14")), IF(_.op_call_scansync, x86_scan_env_store()) }); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_fnlbl() {
     return IF(_.op_call_fnlbl_fresh,
@@ -153,21 +153,21 @@ static std::string cf_fnlbl() {
          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)CF_FN(), _.op_call_fnlbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, x86("add", "rsp", (long)BCFN_EVAL_REC))); }
-static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
+static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval && !CF_REC_CELL(), x86("add", "rsp", (long)BCFN_EVAL_REC))); }
+static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 static std::string cf_argv_rsi(int eval) {
-    return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", eval ? BCFN_EVAL_REC : 0)))
+    return IF(CF_N() > 0, x86("lea", "rsi", x86_zref((eval && !CF_REC_CELL() ? BCFN_EVAL_REC : 0) + CF_BLK(), 1)))
          + IF(CF_N() <= 0, x86("xor", "esi", "esi"));
 }
 static std::string cf_argv_rdi() {
-    return IF(CF_N() > 0, x86("lea", "rdi", RDQ("rsp", 0)))
+    return IF(CF_N() > 0, x86("lea", "rdi", x86_zref(CF_BLK(), 1)))
          + IF(CF_N() <= 0, x86("xor", "edi", "edi"));
 }
 static std::string cf_try_enter(const std::string & out_lea) {
     return x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N())
          +
              bb_glue_try_enter(_.op_call_try_sym, _.op_call_try_fp, "rt_call_land_γ", TEMPLATE_FN_ADDR(rt_call_land_γ), "rt_call_land_ω", TEMPLATE_FN_ADDR(rt_call_land_ω), 100, 108, 29, 0, 0,
-             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"));
+             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"), _.op_call_rec, _.op_zres);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_byname_flat(int open, int eval) {
@@ -205,7 +205,7 @@ static std::string cf_byname_zd(int open, int eval) {
                                    x86("call", _.op_call_sym, _.op_call_fp) }),
                       cf_join29(open, eval),
                       cf_zd_sync_in(),
-                      x86_rt_gc_poll_res() });
+                      x86_rt_gc_poll_res(std::string(), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_baked_flat(int try_) {
@@ -232,11 +232,11 @@ static std::string cf_baked_zd(int try_) {
                       x86("mov32", "esi", (long)CF_N()),
                       x86("lea", "rdx", "[rip + __]", _.op_call_rec_addr, _.op_call_rec_lbl),
                       try_
-                      ? emit_seq({ x86("lea", "rcx", RDQ("rsp", CF_N() * 16)),
-                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", CF_N() * 16))),
-                                   x86_rsp_load64("rax", CF_N() * 16) + x86_rsp_load64("rdx", CF_N() * 16 + 8),
-                                   x86_deflabel_id(29) + x86_rt_gc_poll_res() })
-                      : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res() }) });
+                      ? emit_seq({ x86("lea", "rcx", x86_zref(0, 1)),
+                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", x86_zref(0, 1)), _.op_call_rec, _.op_zres),
+                                   x86("mov", "rax", ZRES(0)) + x86("mov", "rdx", ZRES(8)),
+                                   x86_deflabel_id(29) + x86_rt_gc_poll_res(std::string(), 1) })
+                      : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res(std::string(), 1) }) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_pas_bi_flat() {
@@ -256,7 +256,7 @@ static std::string cf_pas_bi_zd() {
                       x86("mov32", "esi", (long)CF_N()),
                       x86("mov32", "edx", _.op_call_idx),
                       x86("call", "rt_call_pas_bi", TEMPLATE_FN_ADDR(rt_call_pas_bi)),
-                      x86_rt_gc_poll_res() });
+                      x86_rt_gc_poll_res(std::string(), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_flat() {
@@ -271,81 +271,83 @@ static std::string cf_direct_flat() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_zd() {
-    return emit_seq({ x86("lea", "rdi", RDQ("rsp", 0)),
+    return emit_seq({ x86("lea", "rdi", x86_zref(CF_BLK(), 1)),
                       x86("mov32", "esi", (long)CF_N()),
                       x86("call", _.op_call_sym, _.op_call_fp),
-                      x86_rt_gc_poll_res(x86_cap_raise(std::string())) });
+                      x86_rt_gc_poll_res(x86_cap_raise(std::string()), 1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, uint64_t ofp) {
     return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call or redispatch node without the argv grant that holds its redispatch record (CEO-1552)"))
          + IF(rec_off >= 0,
-               x86("lea", "rdx", _.op_zres ? FRQB(rec_off, CF_N() * 16) : FRQ(rec_off))
+               x86("lea", "rdx", _.op_zres ? FRQB(rec_off, 0) : FRQ(rec_off))
              + x86("call", osym, ofp)
-             + x86_rt_gc_poll_rec_sigma_word(1)
+             + x86_rt_gc_poll_rec_sigma_word(1, _.op_zres)
              + x86("test", "rax", "rax")
              + x86_jcc_id("jz", decl_id)
-             + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 1)
+             + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 1, _.op_zres)
              + x86_deflabel_id(base + 5)
              + x86("call", "rk_method_land_γ", (uint64_t)(uintptr_t)(void *)rk_method_land_γ)
-             + x86_rt_gc_poll_rec_res()
+             + x86_rt_gc_poll_rec_res(_.op_zres)
              + x86_jmp_id(join_id)
              + x86_deflabel_id(base + 6)
              + x86("call", "rk_method_land_ω", (uint64_t)(uintptr_t)(void *)rk_method_land_ω)
-             + x86_rt_gc_poll_rec_res()
+             + x86_rt_gc_poll_rec_res(_.op_zres)
              + x86_jmp_id(join_id));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
     return x86("call", "rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open)
-         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86_rt_gc_poll_rec_sigma_word(1, _.op_zres)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", decl_id)
-         + bb_glue_stno_unit_push()
-         + bb_glue_enter_c2bb(base, base + 5, base + 6)
+         + bb_glue_stno_unit_push(_.op_zres)
+         + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 0, _.op_zres)
          + x86_deflabel_id(base + 5)
-         + x86("mov", "rcx", "rsp")
+         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rcx", RDQ("rsp", 64)) : x86("mov", "rcx", "rsp"))
          + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
-         + x86_rt_gc_poll_rec_res()
-         + x86("add", "rsp", 16L)
+         + x86_rt_gc_poll_rec_res(_.op_zres)
+         + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
-         + x86("mov", "rsi", "rsp")
+         + (bb_glue_in_region(_.op_zres) ? x86("lea", "rsi", RDQ("rsp", 64)) : x86("mov", "rsi", "rsp"))
          + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
-         + x86_rt_gc_poll_rec_res()
-         + x86("add", "rsp", 16L)
+         + x86_rt_gc_poll_rec_res(_.op_zres)
+         + IF(!bb_glue_in_region(_.op_zres), x86("add", "rsp", 16L))
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) \
-                                                     + x86("mov", "rdx", "rsp") \
+#define BCFN_REC_PTR(reg) ( IF(!CF_REC_CELL(), x86("mov", (reg), "rsp")) \
+                          + IF(CF_REC_CELL(), x86("lea", (reg), x86_zref(_.op_call_rec, 1))) )
+#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( IF(!CF_REC_CELL(), x86("sub", "rsp", (long)BCFN_EVAL_REC)) \
+                                                     + BCFN_REC_PTR("rdx") \
                                                      + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
-         + x86_rt_gc_poll_rec_sigma_word(1) \
+         + x86_rt_gc_poll_rec_sigma_word(1, CF_REC_CELL()) \
          + x86("test", "rax", "rax") \
          + x86_jcc_id("jz", (decl_id)) \
          + x86("mov", "rcx", "rdx") \
          + x86("shr", "rcx", 62L) \
          + x86("test", "rcx", "rcx") + x86_jcc_id("jnz", (base) + 37) \
-         + bb_glue_enter_chain_ret((base) + 1) \
+         + bb_glue_enter_chain_ret((base) + 1, CF_REC_CELL()) \
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 37) + x86("shl", "rdx", 2L) \
          + x86("shr", "rdx", 2L) \
-         + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36) \
+         + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36, -1, 0, CF_REC_CELL()) \
          + x86_deflabel_id((base) + 35) \
-         + x86("mov", "rcx", "rsp") \
+         + BCFN_REC_PTR("rcx") \
          + x86("call", "rt_eval_dtx_land_γ", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_γ) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 36) \
-         + x86("mov", "rsi", "rsp") \
+         + BCFN_REC_PTR("rsi") \
          + x86("call", "rt_eval_dtx_land_ω", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_ω) \
-         + x86_rt_gc_poll_rec_res() \
+         + x86_rt_gc_poll_rec_res(CF_REC_CELL()) \
          + x86_jmp_id((join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_ARGV_LEA() ( \
-      IF(_.op_zres, x86("lea", "rdi", RDQ("rsp", 0))) \
+      IF(_.op_zres, x86("lea", "rdi", x86_zref(CF_BLK(), 1))) \
     + IF(!_.op_zres, x86("lea", "rdi", FRQ(CF_ARG()))) \
 )
 static std::string cf_open_method(const char * osym, uint64_t ofp) {
@@ -437,14 +439,15 @@ std::string bb_call_gen() {
          + IF(CF_REFUSED(), cf_refuse())
          + IF(!CF_REFUSED(), emit_seq({ cf_marshal(),
                                         x86("mov", FRQ(_.op_call_genoff), (long)0),
-                                        IF(_.op_call_scansync, x86_scan_sync_out_force()),
                                         x86("def", L(60)),
+                                        IF(_.op_call_scansync, x86_scan_env_store()),
                                         cf_fnlbl(),
                                         x86("lea", "rsi", FRQ(CF_ARG())),
                                         x86("mov32", "edx", (long)CF_N()),
                                         x86("lea", "rcx", FRQ(_.op_call_genoff)),
                                         x86("rtcc_wb"),
                                         x86("call_bare", (_.op_strict ? "rt_call_arr_gen_strict" : "rt_call_arr_gen"), TEMPLATE_FN_ADDR((_.op_strict ? rt_call_arr_gen_strict : rt_call_arr_gen))),
+                                        IF(_.op_call_scansync, x86_scan_env_load_rr()),
                                         x86_rt_gc_poll_res(),
                                         x86("rtcc_rl"),
                                         x86("mov", FRQ(CF_RES()), "rax"),

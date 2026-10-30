@@ -19,21 +19,20 @@ _Static_assert(sizeof(scrip_coctx_t) <= sizeof(((g_coexpr_t *)0)->root_ctx) && _
     "its size contract");
 scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
-typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
+typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 16,
-    "pkg layout drift: slot 16 is the creator's r14 and nothing reads it -- the trampoline loads (r13, r14, r15) from the starting context's env record, the three words the activator stored");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 24, "pkg layout drift: rbx");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 32, "pkg layout drift: csav5");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 40,
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 16,
+    "pkg layout drift: rbx -- the creator's r14 had slot 16 and nothing read it, so it is gone; the trampoline loads (r13, r14, r15) from the starting context's env record");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 24, "pkg layout drift: csav5");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 32,
     "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's "
     "own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- t"
     "he target pointer was garbage, not the co-expression.");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_rbp) == 64,
-    "pkg layout drift: body_rbp -- the trampoline stores the body frame's rbp at 64(pkg) before it jumps in; that frame's link words lie outside the copied image, so the chain over the maps stops th"
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_rbp) == 56,
+    "pkg layout drift: body_rbp -- the trampoline stores the body frame's rbp at 56(pkg) before it jumps in; that frame's link words lie outside the copied image, so the chain over the maps stops th"
     "ere as the coroutine start (gc_heap.c gc_sw_run, scrip_co_body_base)");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 48, "pkg layout drift: frame_bytes -- the trampoline reads it at 48(pkg) to size the frame-snapshot restore onto the body stack");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 40, "pkg layout drift: frame_bytes -- the trampoline reads it at 40(pkg) to size the frame-snapshot restore onto the body stack");
 _Static_assert(sizeof(DESCR_t) == 16,
     "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
@@ -125,6 +124,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint6
     if (first == 0) scrip_co_thread_start(new_ctx);
     new_ctx->started = 1;
     memcpy(new_ctx->env, old->env, sizeof old->env);
+    memset(old->env, 0, sizeof old->env);
     __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
     { extern void rt_gc_park_site_at(uint64_t *, char **, char **, uint64_t, char *, char *); rt_gc_park_site_at(&old->park_pc, &old->park_r, &old->park_srbp, epc, efp + 16, *(char **)efp); }
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
@@ -176,8 +176,10 @@ static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_co_env, leaf, 0);
 uint64_t *rt_co_env(void) { return (g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx))->env; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coret, leaf, 0);
 uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting g_scrip_co_current)");
     g_scrip_co_current->resume_addr = resume_addr;
@@ -194,6 +196,7 @@ uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     return me->env;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_cofail, leaf, 0);
 void scrip_cofail(void) {
     if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
     scrip_coctx_t *me = g_scrip_co_current;
@@ -210,10 +213,11 @@ void scrip_cofail(void) {
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
     const uint64_t *env = g_scrip_co_current->env;
-    __asm__ volatile ( "mov 0(%1), %%r13\n\t" "mov 16(%1), %%r15\n\t" "mov  8(%0), %%r12\n\t" "mov 8(%1), %%r14\n\t" "mov 24(%0), %%rbx\n\t" "mov 40(%0), %%r9\n\t" "mov 32(%0), %%rsi\n\t"
-        "mov 48(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t" "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t"
-        "mov %%rsp, %%rbp\n\t" "mov 56(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "mov %%rbp, 64(%0)\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "mov %%rbp, 64(%0)\n\t"
-        "jmp *%%rax\n\t" : : "r"(pkg), "r"(env) : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
+    __asm__ volatile ( "mov 0(%1), %%r13\n\t" "mov 16(%1), %%r15\n\t" "mov  8(%0), %%r12\n\t" "mov 8(%1), %%r14\n\t" "movq $0, 0(%1)\n\t" "movq $0, 8(%1)\n\t" "movq $0, 16(%1)\n\t"
+        "mov 16(%0), %%rbx\n\t" "mov 32(%0), %%r9\n\t" "mov 24(%0), %%rsi\n\t" "mov 40(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t"
+        "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t" "mov %%rsp, %%rbp\n\t" "mov 48(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "mov %%rbp, 56(%0)\n\t" "cld\n\t" "rep movsb\n\t"
+        "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "mov %%rbp, 56(%0)\n\t" "jmp *%%rax\n\t" : : "r"(pkg), "r"(env) : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9",
+        "memory" );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
@@ -247,6 +251,7 @@ __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
     ".globl rt_genp_n2_conts\n" "rt_genp_n2_conts:\n" ".quad 5b\n" ".quad 6b\n" ".popsection\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coexpr_create, leaf, 0);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
     g_runtime.gc.scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
@@ -255,7 +260,6 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0];
-    pkg->r14 = regs[2];
     pkg->rbx = regs[4];
     pkg->csav5 = regs[5];
     pkg->gva = regs[6];
@@ -330,7 +334,7 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     uint64_t regs[7];
     regs[0] = opkg->r12;
     regs[1] = 0;
-    regs[2] = opkg->r14;
+    regs[2] = 0;
     regs[3] = 0;
     regs[4] = opkg->rbx;
     regs[5] = opkg->csav5 + opkg->below;
@@ -341,6 +345,7 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     return fresh;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(scrip_coexpr_activate, leaf, 0);
 scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
     if ((uint8_t)tagw != DT_CO) {
         extern int core_icn_error(int code, DESCR_t val);

@@ -12,5 +12,6 @@ typedef struct {
     int lbl_n;
     int lbl_cap;
     long sno_stmt_compiled;
+    long sno_code_calls;
 } g_eval_t;
 #endif

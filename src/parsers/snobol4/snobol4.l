@@ -442,7 +442,7 @@ G       ({WS}|{CONT})*
 <BODY>{G}")"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_depth && --gt_depth == 0) { gt_have_operand=1; BEGIN(GT); return T_GOTO_XRPAREN; } return T_RPAREN; }
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 <BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { gt_have_operand=1; BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
-<BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
+<BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_COMMA; }
 <BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return T_FUNCTION; }
 <BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |

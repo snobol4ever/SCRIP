@@ -164,6 +164,36 @@ DESCR_t POP_fn(void);
 DESCR_t TOP_fn(void);
 int STACK_DEPTH_fn(void);
 typedef DESCR_t (*FNCPTR_t)(DESCR_t *args, int nargs);
+typedef struct _VarEntry {
+    char *name;
+    uint32_t nlen;
+    int has_nul;
+    unsigned long serial;
+    int std_detached;
+    DESCR_t val;
+    DESCR_t *cell;
+    int is_gva;
+    int is_const;
+    int touched;
+    int is_io;
+    struct _VarEntry *next;
+} NV_t;
+typedef struct _FNCBLK_t {
+    char *name;
+    char *spec;
+    char *entry_label;
+    FNCPTR_t fn;
+    int nparams;
+    char **params;
+    int nlocals;
+    char **locals;
+    int min_args;
+    int max_args;
+    int max_set;
+    struct _FNCBLK_t *next;
+} FNCBLK_t;
+typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
+typedef struct { FILE *fp; char *varname; int is_output; int is_popen; char *buf; size_t cap; long rlen; int unit; char *prebind; } io_chan_t;
 void DEFINE_fn(const char *spec, FNCPTR_t fn);
 void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
 void register_fn_alias(const char *newname, const char *oldname);
@@ -292,9 +322,9 @@ static inline int core_err_is_terminal(int code) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: return 0; default: return 1; } }
+static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: case 332: return 0; default: return 1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 24: case 25: case 35: return 1; default: return 0; } }
+static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 25: case 35: return 1; default: return 0; } }
 extern const char alphabet[257];
 void core_lib_init(void);
 DESCR_t pat_lit(const char *s);

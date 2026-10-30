@@ -59,6 +59,7 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(bb_ab_seal_alpha, leaf, 0);
 extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
     char cell[fmt_len("alpha$%s", pname)]; snprintf(cell, sizeof cell, "alpha$%s", pname);
@@ -82,11 +83,11 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
       x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
     + x86("mov", "rax", RDQ("rax", 0)) \
     + x86("add", RDD("rax", 0), (long)1) \
-    + x86("mov", "ecx", RDD("rax", 0)) \
-    + x86("movsxd", "rcx", "ecx") \
-    + x86("sub", "rcx", (long)1) \
+    + x86("mov", "r11d", RDD("rax", 0)) \
+    + x86("movsxd", "r11", "r11d") \
+    + x86("sub", "r11", (long)1) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx") \
+    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "r11") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_save(off) ( \
@@ -101,36 +102,36 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
 #define bb_stno_last_from_callee() ( \
       x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement") \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", "rcx", RDQ("rax", GRT_AT(stno))) \
+    + x86("mov", "r11", RDQ("rax", GRT_AT(stno))) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(lastno)), "rcx") \
+    + x86("mov", RDQ("rax", GRT_AT(lastno)), "r11") \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", "rcx", RDQ("rax", GRT_AT(line))) \
+    + x86("mov", "r11", RDQ("rax", GRT_AT(line))) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(lastline)), "rcx") \
+    + x86("mov", RDQ("rax", GRT_AT(lastline)), "r11") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_restore(off) ( \
       x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit") \
     + bb_stno_last_from_callee() \
-    + x86_rsp_load64("rcx", (off)) \
+    + x86_rsp_load64("r11", (off)) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(stno)), "rcx") \
-    + x86_rsp_load64("rcx", (off) + 8) \
+    + x86("mov", RDQ("rax", GRT_AT(stno)), "r11") \
+    + x86_rsp_load64("r11", (off) + 8) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(line)), "rcx") \
+    + x86("mov", RDQ("rax", GRT_AT(line)), "r11") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_fnclevel_leave() ( \
       x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
     + x86("mov", "rax", RDQ("rax", 0)) \
-    + x86("mov", "ecx", RDD("rax", 0)) \
-    + x86("movsxd", "rcx", "ecx") \
-    + x86("sub", "rcx", (long)1) \
-    + x86("mov", RDD("rax", 0), "ecx") \
-    + x86("sub", "rcx", (long)1) \
+    + x86("mov", "r11d", RDD("rax", 0)) \
+    + x86("movsxd", "r11", "r11d") \
+    + x86("sub", "r11", (long)1) \
+    + x86("mov", RDD("rax", 0), "r11d") \
+    + x86("sub", "r11", (long)1) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
-    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx") \
+    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "r11") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_bind() {
@@ -412,10 +413,8 @@ static std::string bd_shim(int inl5) {
                         + x86_rsp_store64(16 * k + 8, "rax")
                         + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL)
                         + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
-     + x86("push", "rcx")
              + bb_fnclevel_enter()
-             + bb_stno_save((int)(16 * xt4 + 8))
-             + x86("pop", "rcx")
+             + bb_stno_save((int)(16 * xt4))
              + NVIN()
      + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
              + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
@@ -574,10 +573,8 @@ static std::string bd_shim(int inl5) {
              + x86("pop", "rax")
              + x86("pop", "rdx")
              + FRESTORE(bb_shim_id_beta(nf4))
-     + x86("push", "rcx")
-             + bb_stno_restore((int)(16 * xt4 + 8))
+             + bb_stno_restore((int)(16 * xt4))
              + bb_fnclevel_leave()
-             + x86("pop", "rcx")
              + WNRESTORE()
              + x86("mov", "rcx", SIGQ(8))
              + x86("add", "rsp", F4)
@@ -655,10 +652,8 @@ static std::string bd_shim(int inl5) {
              + x86("pop", "rdi")
              + x86_deflabel_id(240))
              + FRESTORE(bb_shim_id_omega(nf4))
-     + x86("push", "rcx")
-             + bb_stno_restore((int)(16 * xt4 + 8))
+             + bb_stno_restore((int)(16 * xt4))
              + bb_fnclevel_leave()
-             + x86("pop", "rcx")
              + WNRESTORE()
              + x86("mov", "rcx", SIGQ(16))
              + x86("add", "rsp", F4)

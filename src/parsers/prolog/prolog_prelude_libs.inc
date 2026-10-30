@@ -32757,86 +32757,12 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n"
     "call_with_depth_limit(G, L, R) :-\n"
-    "    ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ),\n"
-    "    '$swb_dl_save'(Old),\n"
-    "    '$swb_dl_reset',\n"
-    "    catch(\n"
-    "        (   '$swb_dl_top'(G, L),\n"
-    "            nb_getval('$swb_dl_max', R0),\n"
-    "            (   '$swb_dl_restore'(Old), R = R0\n"
-    "            ;   '$swb_dl_reset', fail\n"
-    "            )\n"
-    "        ;   nb_getval('$swb_dl_over', Over), '$swb_dl_restore'(Old), Over == true, R = depth_limit_exceeded\n"
-    "        ),\n"
-    "        E,\n"
-    "        ( '$swb_dl_restore'(Old), throw(E) )\n"
+    "    '$dl_check'(L),\n"
+    "    '$dl_push'(L),\n"
+    "    (   call(G), '$dl_reached'(R), ( true ; '$dl_reset'(0), fail )\n"
+    "    ;   '$dl_false'(R)\n"
     "    ).\n"
-    "'$swb_dl_save'(s(M, O)) :- ( nb_current('$swb_dl_max', M) -> true ; M = 1 ), ( nb_current('$swb_dl_over', O) -> true ; O = false ).\n"
-    "'$swb_dl_restore'(s(M, O)) :- nb_setval('$swb_dl_max', M), nb_setval('$swb_dl_over', O).\n"
-    "'$swb_dl_reset' :- nb_setval('$swb_dl_max', 1), nb_setval('$swb_dl_over', false).\n"
-    "'$swb_dl_top'(G, L) :-\n"
-    "    (   nonvar(G), '$swb_dl_control'(G) -> '$swb_dl_enter'(1, L), '$swb_dl_solve'(G, 2, L)\n"
-    "    ;   '$swb_dl_solve'(G, 1, L)\n"
-    "    ).\n"
-    "'$swb_dl_control'((_, _)).\n"
-    "'$swb_dl_control'((_ ; _)).\n"
-    "'$swb_dl_control'((_ -> _)).\n"
-    "'$swb_dl_control'(\\+ _).\n"
-    "'$swb_dl_solve'(G, D, L) :-\n"
-    "    (   var(G) -> throw(error(instantiation_error, call/1))\n"
-    "    ;   G = (A, B) -> '$swb_dl_solve'(A, D, L), '$swb_dl_solve'(B, D, L)\n"
-    "    ;   G = (C *-> T ; E) -> ( '$swb_dl_solve'(C, D, L) *-> '$swb_dl_solve'(T, D, L) ; '$swb_dl_solve'(E, D, L) )\n"
-    "    ;   G = (C -> T ; E) -> ( '$swb_dl_solve'(C, D, L) -> '$swb_dl_solve'(T, D, L) ; '$swb_dl_solve'(E, D, L) )\n"
-    "    ;   G = (A ; B) -> ( '$swb_dl_solve'(A, D, L) ; '$swb_dl_solve'(B, D, L) )\n"
-    "    ;   G = (C -> T) -> ( '$swb_dl_solve'(C, D, L) -> '$swb_dl_solve'(T, D, L) )\n"
-    "    ;   G = (\\+ A) -> \\+ '$swb_dl_solve'(A, D, L)\n"
-    "    ;   ( G == true ; G == ! ) -> true\n"
-    "    ;   G == fail -> fail\n"
-    "    ;   G = '$swb_dl_inline'(A) -> call(A)\n"
-    "    ;   '$swb_dl_enter'(D, L), '$swb_dl_call'(G, D, L)\n"
-    "    ).\n"
-    "'$swb_dl_call'(G, D, L) :-\n"
-    "    (   G = once(A) -> D1 is D + 1, ( '$swb_dl_solve'(A, D1, L) -> true )\n"
-    "    ;   G = ignore(A) -> D1 is D + 1, ( '$swb_dl_solve'(A, D1, L) -> true ; true )\n"
-    "    ;   G = forall(A, B) -> D1 is D + 1, \\+ ( '$swb_dl_solve'(A, D1, L), \\+ '$swb_dl_solve'(B, D1, L) )\n"
-    "    ;   G = findall(T, A, R) -> D1 is D + 6, findall(T, '$swb_dl_solve'(A, D1, L), R)\n"
-    "    ;   G = catch(A, C, H) -> D1 is D + 1, catch('$swb_dl_solve'(A, D1, L), C, '$swb_dl_solve'(H, D1, L))\n"
-    "    ;   G =.. [call, A|Extra] -> D1 is D + 1, '$swb_dl_extend'(A, Extra, G1), '$swb_dl_solve'(G1, D1, L)\n"
-    "    ;   G = call_with_depth_limit(_, _, _) -> D1 is D + 1, '$swb_dl_enter'(D1, L), call(G)\n"
-    "    ;   '$swb_dl_user'(G) -> '$swb_dl_clause'(G, D, L)\n"
-    "    ;   call(G)\n"
-    "    ).\n"
-    "'$swb_dl_extend'(A, [], A) :- !.\n"
-    "'$swb_dl_extend'(A, Extra, G) :- A =.. L0, append(L0, Extra, L1), G =.. L1.\n"
-    "'$swb_dl_enter'(D, L) :-\n"
-    "    nb_getval('$swb_dl_max', M),\n"
-    "    (   D > M -> nb_setval('$swb_dl_max', D) ; true ),\n"
-    "    (   D > L -> nb_setval('$swb_dl_over', true), fail ; true ).\n"
-    "'$swb_dl_user'(G) :- callable(G), \\+ predicate_property(G, built_in), ( predicate_property(G, file(_)) ; predicate_property(G, dynamic) ), !.\n"
-    "'$swb_dl_clause'(G, D, L) :-\n"
-    "    D1 is D + 1,\n"
-    "    functor(G, N, A),\n"
-    "    functor(H, N, A),\n"
-    "    clause(H, B0),\n"
-    "    '$swb_dl_mark'(B0, B),\n"
-    "    H = G,\n"
-    "    (   '$swb_dl_split'(B, Pre, Post)\n"
-    "    ->  '$swb_dl_solve'(Pre, D1, L), !, '$swb_dl_solve'(Post, D1, L)\n"
-    "    ;   '$swb_dl_solve'(B, D1, L)\n"
-    "    ).\n"
-    "'$swb_dl_mark'(B0, B) :-\n"
-    "    (   var(B0) -> B = B0\n"
-    "    ;   B0 = (X, Y) -> B = (X1, Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)\n"
-    "    ;   B0 = (X ; Y) -> B = (X1 ; Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)\n"
-    "    ;   B0 = (X -> Y) -> B = (X1 -> Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)\n"
-    "    ;   B0 = (X *-> Y) -> B = (X1 *-> Y1), '$swb_dl_mark'(X, X1), '$swb_dl_mark'(Y, Y1)\n"
-    "    ;   B0 = (\\+ X) -> B = (\\+ X1), '$swb_dl_mark'(X, X1)\n"
-    "    ;   '$swb_dl_inline_goal'(B0) -> B = '$swb_dl_inline'(B0)\n"
-    "    ;   B = B0\n"
-    "    ).\n"
-    "'$swb_dl_inline_goal'(G) :- ( G = (X = Y) ; G = (X == Y) ; G = (X \\== Y) ), ( var(X) ; var(Y) ), !.\n"
-    "'$swb_dl_split'(!, true, true) :- !.\n"
-    "'$swb_dl_split'((A, Rest), Pre, Post) :- ( A == ! -> Pre = true, Post = Rest ; '$swb_dl_split'(Rest, P1, Post), Pre = (A, P1) ).\n";
+    "'$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
@@ -34250,6 +34176,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "ti", 1 },
     { "thread_shared", 1 },
     { "document_export", 1 },
+    { "read_canonical", 1 },
+    { "read_canonical", 2 },
+    { "file_open", 3 },
+    { "file_close", 1 },
+    { "file_read", 3 },
+    { "str_cat", 3 },
+    { "gc_strings", 0 },
+    { "set_xsb_param", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
@@ -34282,6 +34216,25 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
     "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
     "load_dync(File) :- consult(File).\n"
+    "read_canonical(Term) :- read_term(Term, []).\n"
+    "read_canonical(Stream, Term) :- read_term(Stream, Term, []).\n"
+    "file_open(Name, Mode, Stream) :- '$xsb_fo_mode'(Mode, M), ( M == string -> open_string(Name, Stream) ; open(Name, M, Stream) ).\n"
+    "'$xsb_fo_mode'(0, read) :- !.\n"
+    "'$xsb_fo_mode'(1, write) :- !.\n"
+    "'$xsb_fo_mode'(2, append) :- !.\n"
+    "'$xsb_fo_mode'(3, string) :- !.\n"
+    "'$xsb_fo_mode'(M, read) :- ( M == r ; M == rb ), !.\n"
+    "'$xsb_fo_mode'(M, write) :- ( M == w ; M == wb ), !.\n"
+    "'$xsb_fo_mode'(M, append) :- ( M == a ; M == ab ), !.\n"
+    "'$xsb_fo_mode'(M, _) :- throw(error(domain_error(file_mode, M), file_open/3)).\n"
+    "file_close(Stream) :- close(Stream).\n"
+    "file_read(Stream, Term, Vars) :- read_term(Stream, Term, [variable_names(Bs), variables(Ws)]), '$xsb_vv'(Ws, Bs, Vars).\n"
+    "'$xsb_vv'([], _, _).\n"
+    "'$xsb_vv'([W|Ws], Bs, [vv(N, W)|Vs]) :- ( member(N0 = V0, Bs), V0 == W -> N = N0 ; N = '_' ), '$xsb_vv'(Ws, Bs, Vs).\n"
+    "str_cat(A, B, C) :- atom_concat(A, B, C).\n"
+    "gc_strings.\n"
+    "set_xsb_param(float_display_format, Opts) :- !, ( memberchk(precision(N), Opts) -> true ; N = 15 ), create_prolog_flag('$xsb_float_precision', N, []).\n"
+    "set_xsb_param(_, _).\n"
     "ensure_dync_loaded(File) :- '$lf_list'(File, Fs), '$xsb_edl'(Fs).\n"
     "'$xsb_edl'([]).\n"
     "'$xsb_edl'([F|Fs]) :- catch(load_files(F, [dialect(xsb), if(not_loaded)]), error(E, load_files/2), throw(error(E, ensure_dync_loaded/1))), '$xsb_edl'(Fs).\n"
@@ -34306,7 +34259,38 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "compile", 1 },
     { "compile", 2 },
     { "min_ed_dis", 3 },
+    { "gc_dynamic", 1 },
+    { "retract_nr", 1 },
+    { "file_write", 2 },
+    { "file_flush", 2 },
+    { "file_seek", 4 },
+    { "file_truncate", 3 },
+    { "print_file_contents", 1 },
+    { "rm", 1 },
+    { "xsb_configuration", 2 },
+    { "gc_heap", 0 },
+    { "storage_insert_fact", 3 },
+    { "storage_find_fact", 2 },
+    { "storage_delete_all", 1 },
+    { "storage_insert_fact_bt", 3 },
+    { "storage_delete_fact", 3 },
+    { "storage_delete_fact_bt", 3 },
+    { "storage_insert_keypair", 4 },
+    { "storage_insert_keypair_bt", 4 },
+    { "storage_find_keypair", 3 },
+    { "storage_delete_keypair", 3 },
+    { "storage_delete_keypair_bt", 3 },
+    { "storage_reclaim_space", 1 },
+    { "reclaim_space", 1 },
+    { "asserti", 2 },
+    { "assertzi", 2 },
+    { "assertai", 2 },
+    { "concat_atom", 2 },
+    { "concat_atom", 3 },
     { "import", 1 },
+    { "install_verify_attribute_handler", 4 },
+    { "install_verify_attribute_handler", 5 },
+    { "attv_unify", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
@@ -34327,6 +34311,44 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
+    "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
+    "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
+    "'$xsb_ca_atomic'([]).\n"
+    "'$xsb_ca_atomic'([X|Xs]) :- atomic(X), '$xsb_ca_atomic'(Xs).\n"
+    ":- dynamic '$xsb_st'/2.\n"
+    ":- dynamic '$xsb_kp'/3.\n"
+    "gc_heap.\n"
+    "storage_insert_fact(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1 ).\n"
+    "storage_find_fact(N, F) :- '$xsb_st'(N, F).\n"
+    "storage_delete_all(N) :- retractall('$xsb_st'(N, _)).\n"
+    "storage_insert_fact_bt(N, F, I) :- ( '$xsb_st'(N, G), G =@= F -> I = 0 ; assertz('$xsb_st'(N, F)), I = 1, ( true ; '$xsb_st_del'(N, F), fail ) ).\n"
+    "'$xsb_st_del'(N, F) :- '$xsb_st'(N, G), G =@= F, !, retract('$xsb_st'(N, G)).\n"
+    "storage_delete_fact(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1 ; D = 0 ).\n"
+    "storage_delete_fact_bt(N, F, D) :- ( '$xsb_st'(N, G), G =@= F -> retract('$xsb_st'(N, G)), D = 1, ( true ; assertz('$xsb_st'(N, G)), fail ) ; D = 0 ).\n"
+    "storage_insert_keypair(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1 ).\n"
+    "storage_insert_keypair_bt(N, K, V, I) :- ( '$xsb_kp'(N, K, V0) -> ( V0 == V -> I = 0 ; I = -1 ) ; assertz('$xsb_kp'(N, K, V)), I = 1, ( true ; retract('$xsb_kp'(N, K, V)), fail ) ).\n"
+    "storage_find_keypair(N, K, V) :- '$xsb_kp'(N, K, V).\n"
+    "storage_delete_keypair(N, K, D) :- ( retract('$xsb_kp'(N, K, _)) -> D = 1 ; D = 0 ).\n"
+    "storage_delete_keypair_bt(N, K, D) :- ( retract('$xsb_kp'(N, K, V)) -> D = 1, ( true ; assertz('$xsb_kp'(N, K, V)), fail ) ; D = 0 ).\n"
+    "storage_reclaim_space(_).\n"
+    "reclaim_space(F) :- ( var(F) -> throw(error(instantiation_error, _)) ; true ).\n"
+    "asserti(C, _) :- assertz(C).\n"
+    "assertzi(C, _) :- assertz(C).\n"
+    "assertai(C, _) :- asserta(C).\n"
+    "file_write(S, T) :- write(S, T).\n"
+    "file_flush(S, 0) :- flush_output(S).\n"
+    "file_seek(S, Off, Whence, 0) :- catch(flush_output(S), _, true), '$xsb_fseek'(Whence, Op), '$gnu_os'(Op, S, Off).\n"
+    "'$xsb_fseek'(0, fseek0) :- !.\n"
+    "'$xsb_fseek'(1, fseek1) :- !.\n"
+    "'$xsb_fseek'(2, fseek2) :- !.\n"
+    "'$xsb_fseek'(W, _) :- throw(error(domain_error(file_seek_place, W), file_seek/4)).\n"
+    "file_truncate(S, Len, 0) :- '$gnu_os'(ftruncate, S, Len).\n"
+    "print_file_contents(F) :- setup_call_cleanup(open(F, read, S), '$xsb_pfc'(S), close(S)).\n"
+    "'$xsb_pfc'(S) :- get_char(S, C), ( C == end_of_file -> true ; put_char(C), '$xsb_pfc'(S) ).\n"
+    "rm(F) :- '$gnu_os'(unlink, F, _).\n"
+    "xsb_configuration(os_type, 'linux-gnu').\n"
+    "gc_dynamic(N) :- ( var(N) -> N = 0 ; throw(error(type_error(variable, N), gc_dynamic/1)) ).\n"
+    "retract_nr(C) :- retract(C).\n"
     "index(_, _).\n"
     "index(_, _, _).\n"
     "do_all(G) :- ( call(G), fail ; true ).\n"
@@ -34397,6 +34419,9 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$xsb_ttc_plain1'([C|Cs]) :- ( C >= 97, C =< 122 -> true ; C >= 65, C =< 90 -> true ; C =:= 95 -> true ; C >= 48, C =< 57 ), '$xsb_ttc_plain1'(Cs).\n"
     "'$xsb_ttc_dq'([], Cs, Cs).\n"
     "'$xsb_ttc_dq'([C|Cs], [C|Cs0], Cs1) :- ( C =:= 39 -> Cs0 = [39|Cs0a], '$xsb_ttc_dq'(Cs, Cs0a, Cs1) ; '$xsb_ttc_dq'(Cs, Cs0, Cs1) ).\n"
+    "install_verify_attribute_handler(Mod, Attr, Value, Handler) :- install_verify_attribute_handler(Mod, Attr, Value, Handler, warning_on).\n"
+    "install_verify_attribute_handler(Mod, Attr, Value, Handler, _) :- catch(retractall('$xsb_vah'(Mod, _, _, _)), _, true), assertz('$xsb_vah'(Mod, Attr, Value, Handler)).\n"
+    "attv_unify(V, Value) :- ( attvar(V) -> '$attv_set'(V, []) ; true ), V = Value.\n"
     "compile(F) :- compile(F, []).\n"
     "compile(F, Opts) :- ( var(F) -> throw(error(instantiation_error, compile/2)) ; \\+ atom(F) -> throw(error(type_error(atom, F), compile/2)) ; true ),\n"
     "    ( is_list(Opts) -> true ; throw(error(type_error(list, Opts), compile/2)) ), '$xsb_ld_path'(F, _).\n"

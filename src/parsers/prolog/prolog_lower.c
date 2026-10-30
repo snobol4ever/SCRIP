@@ -511,6 +511,35 @@ int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
 int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
 int prolog_dialect_xsb_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_XSB; }
+static int pl_tree_has_dot2(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, ".")) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_has_dot2(t->c[i])) return 1;
+    return 0;
+}
+static void pl_dot2_rename(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, ".")) t->v.sval = (char *)"$dot";
+    for (int i = 0; i < t->n; i++) pl_dot2_rename(t->c[i]);
+}
+static int pl_dcg_rule(const tree_t *tr) {
+    return tr && tr->t == TT_CLAUSE && tr->n == 1 && tr->c[0] && tr->c[0]->t == TT_FNC && tr->c[0]->n == 2 && tr->c[0]->v.sval && !strcmp(tr->c[0]->v.sval, "-->");
+}
+static int pl_clause_swi_dot(const PlClause *cl) { return cl && cl->lineno && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n > 0 && !pl_dcg_rule(cl->tr) && pl_tree_has_dot2(cl->tr); }
+static void pl_clause_swi_dot_rename(tree_t *tr) {
+    for (int i = 0; tr->c[0] && i < tr->c[0]->n; i++) pl_dot2_rename(tr->c[0]->c[i]);
+    for (int i = 1; i < tr->n; i++) pl_dot2_rename(tr->c[i]);
+}
+int prolog_program_swi_dot(const PlClause *head) {
+    int swi = g_stage2.pl_dialect == PL_DIALECT_SWI, dot = 0;
+    if (g_stage2.pl_dialect == PL_DIALECT_GNU || g_stage2.pl_dialect == PL_DIALECT_XSB) return 0;
+    for (const PlClause *c = head; c; c = c->next) {
+        if (prolog_clause_marks_xsb(c)) return 0;
+        swi |= prolog_clause_marks_swi(c);
+        dot |= pl_clause_swi_dot(c);
+    }
+    return swi && dot;
+}
 static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
@@ -552,6 +581,7 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         pl_prog->nclauses++;
     }
     if (marker) g_stage2.pl_dialect = PL_DIALECT_SWI;
+    for (PlClause *cl = pl_prog->head; cl && g_stage2.pl_dialect == PL_DIALECT_SWI; cl = cl->next) if (pl_clause_swi_dot(cl)) pl_clause_swi_dot_rename(cl->tr);
     int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
@@ -1325,6 +1355,30 @@ static void pl_drop_ill_bodies(PlProgram *pl_prog) {
         pp = &cl->next;
     }
 }
+static void pl_dcg_nt_facts(PlProgram *pl_prog) {
+    if (g_stage2.pl_dialect != PL_DIALECT_SWI || !pl_prog->src || !strstr(pl_prog->src, "expand_term")) return;
+    PlClause *last = pl_prog->head;
+    while (last && last->next) last = last->next;
+    pl_prog->tail = last;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
+        const tree_t *h = (cl->is_dcg && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n > 0) ? cl->tr->c[0] : (const tree_t *)0;
+        if (!h || h->t != TT_FNC || !h->v.sval || !strcmp(h->v.sval, ":")) continue;
+        PlClause *d = ct_zalloc(1, sizeof(PlClause));
+        tree_t *c = ast_node_new(TT_CLAUSE), *f = ast_node_new(TT_FNC), *n = ast_node_new(TT_QLIT), *a = ast_node_new(TT_ILIT);
+        n->v.sval = h->v.sval;
+        a->v.ival = h->n;
+        f->v.sval = (char *)"$dcg_nt";
+        ast_push(f, n);
+        ast_push(f, a);
+        ast_push(c, f);
+        d->lineno = cl->lineno;
+        d->tr = c;
+        if (pl_prog->tail) pl_prog->tail->next = d; else pl_prog->head = d;
+        pl_prog->tail = d;
+        pl_prog->nclauses++;
+        if (cl == last) break;
+    }
+}
 static void pl_yall_lower_program(PlProgram *pl_prog) {
     int k = 0;
     if (!pl_yall_loaded(pl_prog)) return;
@@ -1335,6 +1389,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
     pl_dq_lower_program(pl_prog);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
+    pl_dcg_nt_facts(pl_prog);
     pl_yall_lower_program(pl_prog);
     pl_drop_ill_bodies(pl_prog);
     pl_module_flatten(pl_prog);

@@ -147,10 +147,12 @@ function TDump(x, outNm, i, t) {
 /* ==================================================================================================================== */
 /* a real as C's printf %g prints it (ast_print.c: every TT_FLIT): 6 significant digits rounded half to even, trailing */
 /* zeros dropped, the exponent form d.ddddde+XX when the decimal exponent is below -4 or at least 6. The value is scaled */
-/* ONCE by an exact power of ten, so a tie such as 36524.25 stays a tie.                                                  */
+/* ONCE by an exact power of ten, so a tie such as 36524.25 stays a tie; a power above 1e308 would overflow, so 300 digits of it are taken */
+/* off the value first (a real below 1e-303, which no tie can reach).                                                                          */
 function TreeDumpScale(a, k, p, n) {
     p = 1.0;
     n = (GE(k, 0) k, -k);
+    if (GT(n, 308)) { a = (GE(k, 0) a * 1.0e300, a / 1.0e300); n = n - 300; }
     while (GT(n, 0)) { p = p * 10.0; n = n - 1; }
     TreeDumpScale = (GE(k, 0) a * p, a / p);
     return;
@@ -161,6 +163,7 @@ function TreeDumpScale(a, k, p, n) {
 function TreeDumpErr(a, k, s, p, n, x, c, xh, xl, yh, yl, ph, pl) {
     p = 1.0;
     n = (GE(k, 0) k, -k);
+    if (GT(n, 308)) { TreeDumpErr = 0; return; }
     while (GT(n, 0)) { p = p * 10.0; n = n - 1; }
     x = (GE(k, 0) a, s);
     c = 134217729.0 * x; xh = c - (c - x); xl = x - xh;

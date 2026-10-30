@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include "lower.h"
 #include "g_lower.h"
-#define PAS_MAX_SCOPE 64
-typedef struct pas_scope_s { const char * names[PAS_MAX_SCOPE]; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
+typedef struct pas_scope_s { const char ** names; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;
 struct pas_fact { const char * nm; struct pas_fact * up; };
 typedef struct {
@@ -1056,9 +1055,10 @@ static void build_scope(pas_scope_t * sc, const tree_t * pd, pas_scope_t * outer
     const tree_t * locals = (pd->n > 0) ? pd->c[pd->n - 1] : NULL;
     if (locals && locals->t != TT_VLIST) locals = NULL;
     sc->byref = (params && params->t == TT_VLIST) ? params->v.ival : 0;
-    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n && sc->n < PAS_MAX_SCOPE; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
+    sc->names = (const char **) ct_zalloc((size_t) ((params && params->t == TT_VLIST ? params->n : 0) + (locals ? locals->n : 0) + 1), sizeof *sc->names);
+    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
     sc->nparams = sc->n;
-    if (locals) for (int i = 0; i < locals->n && sc->n < PAS_MAX_SCOPE; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
+    if (locals) for (int i = 0; i < locals->n; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_procs(const tree_t * body, const tree_t * parent) {

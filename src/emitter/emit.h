@@ -313,6 +313,9 @@ typedef struct {
     int op_sa;
     int op_sb;
     int op_sc;
+    int op_wi;
+    int op_wj;
+    int op_ww;
     int op_off;
     int op_omega_is_death;
     int op_own_mark;
@@ -336,6 +339,8 @@ typedef struct {
     int op_selfload;
     int op_zf_unpinned;
     int op_zabs;
+    int op_zpriv;
+    int op_in_beta;
     int op_zsticky;
     int op_zk_own;
     int op_zcp_src;
@@ -370,6 +375,7 @@ typedef struct {
     int op_num_real;
     int op_db_walk;
     int op_to_trailed;
+    int op_to_db_last;
     int op_imm_a_ok;
     int op_imm_b_ok;
     long op_imm_a;
@@ -467,6 +473,7 @@ typedef struct {
     const char * flat_fam;
     struct bb_label_t gc_code_lbl;
     int gc_code_seq;
+    int x86_vd_seq;
     const char ** xa_label_names;
     int * xa_label_pcs;
     int xa_label_count;
@@ -528,7 +535,10 @@ typedef struct {
     int op_subj_cell;
     int zop_seen;
     int op_zdepth;
+    int op_zslid;
     int op_zrun;
+    int op_wk_off, op_wk_n, op_wk_e, op_wk_pre;
+    const uint64_t * op_wk_pool;
     int op_zxb;
     int op_vdj_live;
     int op_zres;
@@ -636,6 +646,8 @@ typedef struct {
     int op_call_dsave;
     int op_call_scansync;
     int op_call_curmov;
+    int op_call_blk;
+    int op_call_rec;
     int op_call_elem_access;
     int op_call_sb_exit;
     int op_call_fnlbl_fresh;
@@ -686,10 +698,8 @@ static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; exter
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline const char * emit_pl_fb(void) { return "rbp"; }
 #ifdef __cplusplus
-extern "C" int emit_pl_fence_on(void);
 extern "C" int emit_pl_scc_armed(void);
 #else
-int emit_pl_fence_on(void);
 int emit_pl_scc_armed(void);
 #endif
 static inline int emit_rec_rsp_arm(void) {

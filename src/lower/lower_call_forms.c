@@ -54,6 +54,23 @@ int lower_call_node_is_curmov(const IR_t * nd) {
     { int r = lower_call_route(nd); return (r == CALL_ROUTE_BYNAME && lower_call_road_kind(nd, r) == IR_CALL_BYNAME) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int lower_call_node_has_rec(const IR_t * nd) {
+    if (!nd) return 0;
+    switch (nd->op) {
+        case IR_CALL_CALLEE_REC:
+        case IR_CALL_EVAL:
+        return 1;
+        case IR_CALL_BYNAME:
+        case IR_CALL_TRY:
+        case IR_CALL_METHOD:
+        case IR_CALL_REDISP:
+        case IR_CALL_APPLY:
+        return lower_call_tail_try(nd->sval ? nd->sval : "", nd->strict) ? 1 : 0;
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_call_pas_bi(const char * fn) { return (fn && fn[0] == '_' && fn[1] == '_' && fn[2] == 'p' && fn[3] == 'a' && fn[4] == 's' && fn[5] == '_') ? rt_pas_bi_index(fn) : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_call_tail_try(const char * fn, int strict) { int k = sn4_byname_kind(fn, strict); return k == 3 || (k == 5 && rt_builtin_tail_may_open(fn)); }
@@ -69,7 +86,8 @@ int lower_call_open(const char * fn, int narg, int strict) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_arity(const char * op) {
     static const char * const b2[] = { "add", "sub", "mul", "div", "idiv", "divf", "mod", "rem", "fpow", "pow", "min", "max", "gcd", "xor", "shr", "shl", "band", "bor", 0 };
-    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", 0 };
+    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", "asin",
+        "acos", "tan", "log10", 0 };
     static const char * const b0[] = { "pi", "e", 0 };
     for (int i = 0; b2[i]; i++) if (!strcmp(op, b2[i])) return 2;
     for (int i = 0; b1[i]; i++) if (!strcmp(op, b1[i])) return 1;

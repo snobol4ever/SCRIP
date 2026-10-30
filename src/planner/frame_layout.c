@@ -413,7 +413,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_SCAN:
         if (nd) {
             zls_field(scope_id, off, 16, ZK_DESCR, 0,
-                "scan.suspend-leave live subject cell: a DT_S cell {tag, slen = the inner subject's carried length, s = the subject pointer rt_scan_live_subj banks across the suspension}, which rt_s"
+                "scan.suspend-leave live subject cell: a DT_S cell {tag, slen = the inner subject's carried length, s = the subject pointer the scan banks across the suspension}, which rt_s"
                 "can_reenter_live takes back at resume -- a collected-heap pointer the walker relocates as a cell, so a generator suspended off the chain keeps it through the spine sweep (ARCH-GC 13"
                 ".5, the PTR_GC word converted at STEP B)", nd);
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0,
@@ -1537,11 +1537,19 @@ void zls_build(IR_graph_t * g) {
         ct_drop(hv);
         ct_drop(wl);
     }
-    int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;
+    int s0 = (g->nparams > 0 || g->resumable_callable || g->depth_counted) ? 1 : 0;
     for (int i = 0; !s0 && i < g->n; i++) if (g->all[i] && rb[i] && (g->all[i]->op == IR_RETURN || g->all[i]->op == IR_SUSPEND)) s0 = 1;
     int blk = zls_g_block_args(g);
-    int base = s0 ? 16 + ((g->nparams > 0 && !blk) ? g->nparams * 16 : 0) : 0;
-    if (s0)
+    int dlp = (s0 && g->depth_counted && g->dl_pair) ? 32 : 0;
+    int base = s0 ? 16 + dlp + ((g->nparams > 0 && !blk) ? g->nparams * 16 : 0) : 0;
+    if (s0 && g->depth_counted)
+        zls_field(root, 0, 16, ZK_RAW, 0,
+        "depth words (a depth-counted program, ARCH-PROLOG-DATABASE section 8: LEVEL at base +0 is this activation's depth, LIMITER at base +8 the address of the active limiter's pair or 0; read by "
+        "the callee through the link at kt-8, never followed by the collector)", (const IR_t *)0);
+    if (dlp)
+        zls_field(root, 16, 32, ZK_RAW, 0,
+        "depth pair (the limiter's own: LIMIT at +16, REACHED at +24, OUTER -- the limiter active when this one began -- at +32; the active-limiter word of every callee names +16)", (const IR_t *)0);
+    if (s0 && !g->depth_counted)
         zls_field(root, 0, 16, ZK_DESCR, 0,
         "return value (IR_RETURN stores the graph result DESCR at frame +0 and the graph gamma loads it into rdi:rsi; zeroed by the prologue, a valid null DESCR until then)", (const IR_t *)0);
     int k = 0;
@@ -1553,9 +1561,9 @@ void zls_build(IR_graph_t * g) {
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
         cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
         *zls_nix_slot(nix, nix_cap, g->pnames[i]) = g->pnames[i];
-        zv[g_lower.ir.zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + i * 16 };
+        zv[g_lower.ir.zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + dlp + i * 16 };
         r->n_vslots++;
-        if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
+        if (!blk) zls_field(root, 16 + dlp + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int hf = g->home_frame ? 1 : 0;
     r->hf = hf;
@@ -2433,13 +2441,50 @@ static int zls_layq_cmp(const void * a, const void * b) {
     if (x->size != y->size) return x->size > y->size ? -1 : 1;
     return (int)x->kind - (int)y->kind;
 }
-int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts) {
+int zls_g_root_value_bytes(const IR_graph_t * g) { return zls_g_pinned_frame(g) ? zls_g_frame_bytes(g) - FLAT_FRAME_ALLOWANCE_ROOT : zls_g_frame_region(g); }
+static int zls_root_cells_q(const IR_graph_t * g, uint64_t * out, int cap, int m) {
+    if (!g->root_graph) return m;
+    int rg = zls_g_value_region(g), nc = g->standing_cells, clo = zls_g_root_value_bytes(g) - 8 * nc;
+    if (rg < 0 || clo < rg || nc < 0) {
+        const char * gn = zls_graph_name_get(g);
+        fprintf(stderr, "FATAL planner root layout: graph %s region=%d cells=%d cells_lo=%d -- the standing cells must lie between the value region and the reserved cell\n", gn ? gn : "?", rg, nc,
+            clo);
+        abort();
+    }
+    if (clo > rg) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg); }
+    if (nc > 0) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(clo, GC_LAY_RAW, 8); }
+    if (nc > 1) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(clo + 8, GC_LAY_PTR_GC, 8 * (nc - 1)); }
+    return m;
+}
+static int zls_tbl_hdr_q(const IR_graph_t * g, uint64_t * out, int cap, int m, unsigned * flags) {
+    int at = -1;
+    if (m > cap) return m;
+    for (int j = 0; j < g->n; j++) {
+        const IR_t * x = g->all[j];
+        int off = (x && x->op == IR_TABLE_HDR) ? zls_off(x) : -1;
+        if (off < 0 || zls_key_unbacked(g, off)) continue;
+        if (at >= 0 && at != off) {
+            const char * gn = zls_graph_name_get(g);
+            fprintf(stderr, "FATAL planner table header: graph %s holds two table headers at %d and %d -- the chain walk reads one resumer triple per frame map (ARCH-PROLOG-WFS-TABLING 8.10 (5))\n",
+                gn ? gn : "?", at, off);
+            abort();
+        }
+        at = off;
+    }
+    if (at < 0) return m;
+    if (m >= cap) return cap + 1;
+    out[m++] = GC_LAY_Q(at + 16 + 16 * 12, GC_LAY_DESCR, 48);
+    if (flags) *flags |= GC_FRAME_MAP_TBL_HDR;
+    return m;
+}
+int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts, unsigned * flags) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     int n = 0, m = 0, gaps = 0, conf = 0, expect = 0;
     if (gap_bytes) *gap_bytes = 0;
     if (conflicts) *conflicts = 0;
     if (!r || r->first_scope < 0) return -1;
-    if (zls_g_keys_only(g)) return 0;
+    if (flags) *flags = 0;
+    if (zls_g_keys_only(g)) return zls_tbl_hdr_q(g, out, cap, zls_root_cells_q(g, out, cap, 0), flags);
     cv_reserve(&g_lower.ir.zlq_v, (uint32_t)sizeof(zls_layq_t), (uint64_t)g_lower.ir.zf_n + 1, "zlq");
     for (int f = 0; f < g_lower.ir.zf_n; f++)
         if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0 && !(r->hf && zf[f].off + zf[f].size > r->fregion)) zlq[n++] =
@@ -2458,7 +2503,7 @@ int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_byte
     if (r->region > expect) gaps += r->region - expect;
     if (gap_bytes) *gap_bytes = gaps;
     if (conflicts) *conflicts = conf;
-    return m;
+    return zls_tbl_hdr_q(g, out, cap, zls_root_cells_q(g, out, cap, m), flags);
 }
 static int zls_int_cmp(const void * a, const void * b) { int x = *(const int *)a, y = *(const int *)b; return x < y ? -1 : x > y ? 1 : 0; }
 static int zls_slot_matches(int f, int kind) {

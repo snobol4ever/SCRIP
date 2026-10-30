@@ -35,11 +35,6 @@ _Static_assert(offsetof(g_runtime_t, abi.dcap_nv_key) == G_RT_OFF_DCAP_NV_KEY, "
 _Static_assert(offsetof(g_runtime_t, abi.dcap_nv_cell) == G_RT_OFF_DCAP_NV_CELL, "abi.dcap_nv_cell moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.dcap_nv_seen) == G_RT_OFF_DCAP_NV_SEEN, "abi.dcap_nv_seen moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.sno_defer_cells) == G_RT_OFF_SNO_DEFER_CELLS, "abi.sno_defer_cells moved: run util_g_runtime_abi_offsets.py");
-_Static_assert(offsetof(g_runtime_t, abi.scan_subj) == G_RT_OFF_SCAN_SUBJ, "abi.scan_subj moved: run util_g_runtime_abi_offsets.py");
-_Static_assert(offsetof(g_runtime_t, abi.scan_subj_len) == G_RT_OFF_SCAN_SUBJ_LEN, "abi.scan_subj_len moved: run util_g_runtime_abi_offsets.py");
-_Static_assert(offsetof(g_runtime_t, abi.scan_subj_ptr) == G_RT_OFF_SCAN_SUBJ_PTR, "abi.scan_subj_ptr moved: run util_g_runtime_abi_offsets.py");
-_Static_assert(offsetof(g_runtime_t, abi.scan_pos) == G_RT_OFF_SCAN_POS, "abi.scan_pos moved: run util_g_runtime_abi_offsets.py");
-_Static_assert(offsetof(g_runtime_t, abi.scan_depth) == G_RT_OFF_SCAN_DEPTH, "abi.scan_depth moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.repl_trace) == G_RT_OFF_REPL_TRACE, "abi.repl_trace moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.rt_k_level) == G_RT_OFF_RT_K_LEVEL, "abi.rt_k_level moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.zdp_anchor_rsp) == G_RT_OFF_ZDP_ANCHOR_RSP, "abi.zdp_anchor_rsp moved: run util_g_runtime_abi_offsets.py");

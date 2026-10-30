@@ -8,6 +8,7 @@ typedef struct {
     int inited;
     int busy;
     int no_reserve;
+    int standalone;
     char lang[16];
     int i_src;
     int i_path;

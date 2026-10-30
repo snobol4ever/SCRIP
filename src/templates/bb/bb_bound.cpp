@@ -37,7 +37,7 @@ std::string bb_bound() {
          + IF(!BND_BOMB() && BND_PL(),
                _.op_sb == 1
              ? x86_alpha() + x86_pl_choice_mark(FRQ(_.op_off), 245)
-         + IF(emit_pl_fence_on(), x86("mov", FRQ(_.op_off + 8), "rsp"))
+         + x86("mov", FRQ(_.op_off + 8), "rsp")
          + x86_pl_header_open(_.op_off, _.op_off + 16)
                + x86_gamma() + x86_beta_trampoline()
              : (_.op_ival & 8)

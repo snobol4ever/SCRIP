@@ -80,7 +80,8 @@ int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
 void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
 int pascal_dialect(void) { return g_pascal_cenv.dialect; }
 int pascal_last_tok(void) { return g_pascal_cenv.last_tok; }
-void pascal_last_ident_set(const char *p, int n) { g_pascal_cenv.ident_p = p; g_pascal_cenv.ident_n = n; }
+static char g_pascal_ident_buf[256];
+void pascal_last_ident_set(const char *p, int n) { if (n > 255) n = 255; memcpy(g_pascal_ident_buf, p, (size_t)n); g_pascal_ident_buf[n] = '\0'; g_pascal_cenv.ident_p = g_pascal_ident_buf; g_pascal_cenv.ident_n = n; }
 tree_t *pascal_last_ident_qlit(void) {
     tree_t *q = ast_node_new(TT_QLIT);
     char *s = ct_alloc((size_t)g_pascal_cenv.ident_n + 1);
@@ -88,6 +89,16 @@ tree_t *pascal_last_ident_qlit(void) {
     s[g_pascal_cenv.ident_p ? g_pascal_cenv.ident_n : 0] = '\0';
     q->v.sval = s;
     return q;
+}
+static tree_t *pas_enum_member(tree_t *id) {
+    tree_t *q = pascal_last_ident_qlit();
+    if (id && id->v.sval && q->v.sval && strcmp(id->v.sval, q->v.sval)) {
+        tree_t *a = ast_node_new(TT_ATTR);
+        a->v.sval = ct_strdup(":spelling");
+        ast_push(a, q);
+        ast_push(id, a);
+    }
+    return id;
 }
 int pascal_lex_wrapped(void) {
 #undef pascal_yylex
@@ -190,7 +201,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
 %type <node> pf_section id_list body statement_list body_stmt statement statement_no_label call call_with_args argument_list argument assignment
-%type <node> selector recv_primary expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
+%type <node> selector recv_primary enum_list enum_member expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
 %type <node> typed_value typed_value_list field_value_list
@@ -351,7 +362,7 @@ packed_opt:
     |{ $$ = NULL; }
     ;
 simple_type:
-    LPARENT id_list RPARENT { $$ = pt_retag($2, TT_ENUM_TYPE); for (int _i = 0; $$ && _i < $$->n; _i++) cenv_int($$->c[_i]->v.sval, _i); }
+    LPARENT enum_list RPARENT { $$ = pt_retag($2, TT_ENUM_TYPE); for (int _i = 0; $$ && _i < $$->n; _i++) cenv_int($$->c[_i]->v.sval, _i); }
     |IDENT { pascal_note_type_ident($1); $$ = $1; }
     |IDENT LBRACK b_expr RBRACK { pascal_note_type_ident($1); $$ = pt_add(pt_add(pt_new(TT_IDX), $1), $3); }
     |IDENT PERIOD IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
@@ -506,6 +517,13 @@ pf_section:
     |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
     |PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
     |FUNCTIONSY IDENT pf_params COLON result_type { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
+    ;
+enum_list:
+    enum_list COMMA enum_member { $$ = pt_add($1, $3); }
+    |enum_member { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    ;
+enum_member:
+    IDENT { $$ = pas_enum_member($1); }
     ;
 id_list:
     id_list COMMA IDENT { $$ = pt_add($1, $3); }

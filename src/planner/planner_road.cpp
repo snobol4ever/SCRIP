@@ -12,7 +12,10 @@ void planner_road_named(const char * pname, int dyn_scope, int is_generator, con
 }
 void planner_road_pattern(planner_road_t * rd) { planner_road_none(rd); rd->jmp_entry = 1; rd->pat = 1; }
 void planner_road_proc(stage2_t * s2, int pi, planner_road_t * rd, int rt) {
-    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name;
+    if (pe->bb_idx < 0 || pe->bb_idx >= s2->bbp.count)
+        { fprintf(stderr, "scrip: planner_road_proc: proc %s has no graph (bb_idx %d of %d): ir_delete_all invalidated it\n", pe->name ? pe->name : "?", pe->bb_idx, s2->bbp.count); exit(2); }
+    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     if (pe->thunk_kind == PROC_THUNK_PATTERN) planner_road_pattern(rd); else planner_road_named(pname, pe->dyn_scope, pe->is_generator, g, rd);
     rd->gen_proc = pe->is_generator;
