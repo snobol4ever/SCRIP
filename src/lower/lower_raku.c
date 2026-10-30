@@ -2221,7 +2221,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_LOOP_NEXT:
         { IR_t * tgt = !cx->loops ? NULL : (t->t == TT_LOOP_BREAK) ? cx->loops->exit : cx->loops->next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
         case TT_EVERY:
-        if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && !t->c[0]->v.sval) {
+        if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && (!t->c[0]->v.sval || !strcmp(t->c[0]->v.sval, "_"))) {
             char sn[48];
             snprintf(sn, sizeof sn, "__forsv_%d", ++g_lower.rk.lower_rv_forlist_ctr);
             const char * sv = intern(sn);
