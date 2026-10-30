@@ -1133,7 +1133,9 @@ extern "C" void planner_mark_pass(const IR_graph_t * cg, unsigned char * ind) {
         while (!rl.empty()) { int v = rl.back(); rl.pop_back(); IR_t * x = nodes[v];
             for (int e = 0; e < zd_pl_edges(x); e++) { if (e == 0 && zd_edge_retains_g(cg, x)) continue;
                 if (e <= 1) { IR_t * ig = (e == 0 && x->op == IR_GATE_ARM && !x->γ.node && x->n_operands > 1) ? x->operands[1] : (IR_t *)0;
-                    if (ig ? port_sz_beta(ig->γ.sz) : port_sz_beta(zd_edge_sz(x, e))) continue; }
+                    if (ig ? port_sz_beta(ig->γ.sz) : port_sz_beta(zd_edge_sz(x, e))) { int w = zst_edge(nodes, n, v, e);
+                        if (w >= 0 && w != v && nodes[w]->op == IR_GATE) reach(nodes[w]);
+                        continue; } }
                 int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
                 reach(nodes[w]); } }
         for (int u = 0; u < n; u++) { IR_t * x = nodes[u]; int ub = zd_mark_restore(x) ? nidx(nodes, n, x->operands[0]) : -1;
