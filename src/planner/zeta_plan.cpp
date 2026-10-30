@@ -2096,11 +2096,11 @@ static int zd_cross_code(const IR_graph_t * cg, IR_t ** nodes, int n, int k, int
                     else if (o == IR_STATEMENT_BEGIN || zd_pl_cut(cg, nodes[x])) out = 1u;
                     if (c) out |= 1u << c;
                 }
-                IR_t * sc[1 + 64]; int ns = 0, o2 = (int)nodes[x]->op;
+                IR_t * sc[1 + nodes[x]->n_operands]; int ns = 0, o2 = (int)nodes[x]->op;
                 sc[ns++] = nodes[x]->γ.node;
                 if (!w && zd_check_arm_env(o2)) {
                     int na = (o2 == IR_DISJUNCTION) ? (int)IR_LIT(nodes[x]).ival : -1;
-                    for (int q = 0; q < nodes[x]->n_operands && ns < 65; q++) if (na < 0 || (q < 2 * na && !(q & 1))) sc[ns++] = nodes[x]->operands[q];
+                    for (int q = 0; q < nodes[x]->n_operands; q++) if (na < 0 || (q < 2 * na && !(q & 1))) sc[ns++] = nodes[x]->operands[q];
                 }
                 for (int s = 0; s < ns; s++) {
                     IR_t * t = sc[s] ? zd_chase(sc[s]) : (IR_t *)0;
@@ -2136,11 +2136,11 @@ void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
             st.resize((size_t)((X[(size_t)j] / 8 + 63) / 64), 0u);
             zd_wk_own(g, nodes[j], own);
             for (size_t c = 0; c < own.size(); c++) if (own[c]) { int w = X[(size_t)j] / 8 - 1 - (int)c; if (w >= 0) st[(size_t)w / 64] |= 1ull << (w % 64); }
-            IR_t * sc[1 + 64]; int ns = 0, o2 = (int)nodes[j]->op;
+            IR_t * sc[1 + nodes[j]->n_operands]; int ns = 0, o2 = (int)nodes[j]->op;
             sc[ns++] = nodes[j]->γ.node;
             if (zd_check_arm_env(o2)) {
                 int na = (o2 == IR_DISJUNCTION) ? (int)IR_LIT(nodes[j]).ival : -1;
-                for (int q = 0; q < nodes[j]->n_operands && ns < 65; q++) if (na < 0 || (q < 2 * na && !(q & 1))) sc[ns++] = nodes[j]->operands[q];
+                for (int q = 0; q < nodes[j]->n_operands; q++) if (na < 0 || (q < 2 * na && !(q & 1))) sc[ns++] = nodes[j]->operands[q];
             }
             for (int s = 0; s < ns; s++) {
                 IR_t * t = sc[s] ? zd_chase(sc[s]) : (IR_t *)0;

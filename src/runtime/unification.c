@@ -528,10 +528,11 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_put_float(plc_vmap *m, pl_cell_t *d) {
     int prec = m->fprec;
-    char spec = m->fspec, fmt[16], buf[512];
+    char spec = m->fspec, fmt[16];
     if (prec < 0) { plc_wt_num(m->fp, d); return; }
     if (prec == 0) prec = 17;
     snprintf(fmt, sizeof fmt, "%%.%d%c", prec, spec ? spec : 'g');
+    char buf[snprintf((char *)0, 0, fmt, d->r) + 3];
     snprintf(buf, sizeof buf, fmt, d->r);
     if (!spec || spec == 'g') {
         char *e = strchr(buf, 'e');
@@ -542,12 +543,12 @@ static void plc_put_float(plc_vmap *m, pl_cell_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_put_int(plc_vmap *m, long v) {
     FILE *fp = m->fp;
-    unsigned long u;
+    unsigned long u, b = (unsigned long)m->ibase;
     char buf[72];
     int n = 0;
     if (m->ibase < 2) { fprintf(fp, "%ld", v); return; }
     u = v < 0 ? 0UL - (unsigned long)v : (unsigned long)v;
-    do { int dg = (int)(u % (unsigned long)m->ibase); buf[n++] = (char)(dg < 10 ? '0' + dg : 'a' + dg - 10); u /= (unsigned long)m->ibase; } while (u);
+    do { int dg = (int)(u % b); buf[n++] = (char)(dg < 10 ? '0' + dg : 'a' + dg - 10); u /= b; } while (u);
     if (v < 0) fputc('-', fp);
     if (m->ipfx) { if (m->inamed) fputs(m->ibase == 16 ? "0x" : "0o", fp); else fprintf(fp, "%d'", m->ibase); }
     while (n) fputc(buf[--n], fp);
@@ -3703,15 +3704,14 @@ void *rt_pl_ball_set_xsb_arith_msg(void *ball, const char *msg, const char *goal
     return ball;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_writeq_text(DESCR_t d, char *buf, size_t cap, int ignore_ops) {
+const char *rt_pl_writeq_text(DESCR_t d, int ignore_ops, size_t *len) {
     extern FILE *fh_memsink_open(char **, size_t *);
     char *bp = (char *)0;
     size_t bn = 0;
     FILE *ms = fh_memsink_open(&bp, &bn);
     plc_vmap m;
-    if (!cap) return;
-    buf[0] = 0;
-    if (!ms) return;
+    *len = 0;
+    if (!ms) return "";
     plc_atoms_ready();
     m.n = 0;
     m.vnc = 0;
@@ -3734,7 +3734,9 @@ void rt_pl_writeq_text(DESCR_t d, char *buf, size_t cap, int ignore_ops) {
     if (ignore_ops) plc_wt((pl_cell_t *)&d, 1, 1, 1, -1, 0, 1200, &m);
     else plc_writeq((pl_cell_t *)&d, &m);
     fclose(ms);
-    if (bp) { size_t n = bn < cap - 1 ? bn : cap - 1; memcpy(buf, bp, n); buf[n] = 0; }
+    if (!bp) return "";
+    *len = bn;
+    return bp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit) {

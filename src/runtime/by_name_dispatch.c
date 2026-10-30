@@ -6149,27 +6149,24 @@ static const char *pl_xsb_arith_name(const char *sfx, int ar) {
 static void pl_xsb_arith_ctx(void **ball, const char *sfx, int ar, DESCR_t *kids, DESCR_t *ev, int k, const char *nm, const DESCR_t *whole) {
     extern int rt_pl_ball_xsb_arith_kind(void *);
     extern void *rt_pl_ball_set_xsb_arith_msg(void *, const char *, const char *);
-    extern void rt_pl_writeq_text(DESCR_t, char *, size_t, int);
+    extern const char *rt_pl_writeq_text(DESCR_t, int, size_t *);
     extern DESCR_t rt_pl_deref_val(DESCR_t);
-    char a0[1024], a1[1024], msg[2400];
-    const char *op;
+    const char *op, *s0 = "", *s1 = "", *f;
+    size_t n0 = 0, n1 = 0;
     DESCR_t o0, o1;
     int kind, neg1 = ar == 1 && sfx && !strcmp(sfx, "neg");
     if (!ball || !*ball || !kids || !pl_xsb_dialect() || !(kind = rt_pl_ball_xsb_arith_kind(*ball))) return;
     if (whole) {
         if (!nm || (ar != 1 && ar != 2) || !pl_xsb_arith_name(sfx, ar)) return;
-        {
-            int sym = !(nm[0] >= 'a' && nm[0] <= 'z');
-            rt_pl_writeq_text(rt_pl_deref_val(kids[0]), a1, sizeof a1, 1);
-            if (ar == 2) {
-                char t[1024];
-                rt_pl_writeq_text(rt_pl_deref_val(kids[1]), t, sizeof t, 1);
-                snprintf(a0, sizeof a0, sym ? "'%s'(%s,%s)" : "%s(%s,%s)", nm, a1, t);
-            } else snprintf(a0, sizeof a0, sym ? "'%s'(%s)" : "%s(%s)", nm, a1);
-        }
-        if (ar == 1) snprintf(msg, sizeof msg, " In evaluable function (Goal: %s)", nm);
-        else if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s)", nm, a0);
-        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s)", nm, a0);
+        int sym = !(nm[0] >= 'a' && nm[0] <= 'z');
+        s0 = rt_pl_writeq_text(rt_pl_deref_val(kids[0]), 1, &n0);
+        if (ar == 2) s1 = rt_pl_writeq_text(rt_pl_deref_val(kids[1]), 1, &n1);
+        f = ar == 2 ? (sym ? "'%s'(%.*s,%.*s)" : "%s(%.*s,%.*s)") : (sym ? "'%s'(%.*s)" : "%s(%.*s)");
+        char a0[snprintf((char *)0, 0, f, nm, (int)n0, s0, (int)n1, s1) + 1];
+        snprintf(a0, sizeof a0, f, nm, (int)n0, s0, (int)n1, s1);
+        f = ar == 1 ? " In evaluable function (Goal: %s)" : kind == 1 ? " Uninstantiated argument of evaluable function %s/2 (Goal: %s)" : " Wrong type in evaluable function %s/2 (Goal: %s)";
+        char msg[snprintf((char *)0, 0, f, nm, a0) + 1];
+        snprintf(msg, sizeof msg, f, nm, a0);
         *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, a0);
         return;
     }
@@ -6177,17 +6174,21 @@ static void pl_xsb_arith_ctx(void **ball, const char *sfx, int ar, DESCR_t *kids
     if (!op) return;
     o0 = 0 < k ? ev[0] : rt_pl_deref_val(kids[0]);
     o1 = ar == 2 ? (1 < k ? ev[1] : rt_pl_deref_val(kids[1])) : o0;
-    a0[0] = a1[0] = 0;
     if (ar == 1 && !neg1) {
-        rt_pl_writeq_text(o0, a0, sizeof a0, 0);
-        snprintf(msg, sizeof msg, " In evaluable function (Goal: %s(%s))", op, a0);
-    } else {
-        if (neg1) { snprintf(a0, sizeof a0, "0"); rt_pl_writeq_text(o0, a1, sizeof a1, 0); } else { rt_pl_writeq_text(o0, a0, sizeof a0, 0); rt_pl_writeq_text(o1, a1, sizeof a1, 0); }
-        if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s(%s,%s))", op, op, a0, a1);
-        else if (kind == 2) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2: (Goal: %s(%s,%s))", op, op, a0, a1);
-        else if (o0.v != DT_I && o0.v != DT_BIG) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2  (Goal: %s(%s,%s))", op, op, a0, a1);
-        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s(%s,%s)", op, op, a0, a1);
+        s0 = rt_pl_writeq_text(o0, 0, &n0);
+        f = " In evaluable function (Goal: %s(%.*s))";
+        char msg[snprintf((char *)0, 0, f, op, (int)n0, s0) + 1];
+        snprintf(msg, sizeof msg, f, op, (int)n0, s0);
+        *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, (const char *)0);
+        return;
     }
+    if (neg1) { s0 = "0"; n0 = 1; s1 = rt_pl_writeq_text(o0, 0, &n1); } else { s0 = rt_pl_writeq_text(o0, 0, &n0); s1 = rt_pl_writeq_text(o1, 0, &n1); }
+    if (kind == 1) f = " Uninstantiated argument of evaluable function %s/2 (Goal: %s(%.*s,%.*s))";
+    else if (kind == 2) f = " Wrong type in evaluable function %s/2: (Goal: %s(%.*s,%.*s))";
+    else if (o0.v != DT_I && o0.v != DT_BIG) f = " Wrong type in evaluable function %s/2  (Goal: %s(%.*s,%.*s))";
+    else f = " Wrong type in evaluable function %s/2 (Goal: %s(%.*s,%.*s)";
+    char msg[snprintf((char *)0, 0, f, op, op, (int)n0, s0, (int)n1, s1) + 1];
+    snprintf(msg, sizeof msg, f, op, op, (int)n0, s0, (int)n1, s1);
     *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, (const char *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
