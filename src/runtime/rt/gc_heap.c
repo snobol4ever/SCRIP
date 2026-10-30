@@ -2742,11 +2742,11 @@ static void gc_frames_visit_judge(const uint64_t *v) {
 }
 static int gc_chw_line(char *buf, size_t sz) {
     return snprintf(buf, sz,
-        "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld beyond-stop"
+        "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld pseg-walks"
         "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld bad-link=%ld no-entry=%ld top-above=%ld | f"
         "rame-links=%ld links-below=%ld | visitor: s" "ame=%ld differ=%ld refused=%ld | ghost=%ld" "\n", g_runtime.gc.gc_chw.runs, g_runtime.gc.gc_chw.whole, g_runtime.gc.gc_chw.frames,
         g_runtime.gc.gc_chw.offchain, g_runtime.gc.gc_chw.missing, g_runtime.gc.gc_chw.mapdiff, g_runtime.gc.gc_chw.xblob, g_runtime.gc.gc_chw.xgen, g_runtime.gc.gc_chw.xroot,
-        g_runtime.gc.gc_chw.xplain, g_runtime.gc.gc_chw.beyond, g_runtime.gc.gc_chw.shrt, g_runtime.gc.gc_chw.s_root, g_runtime.gc.gc_chw.s_nosite, g_runtime.gc.gc_chw.s_frameless,
+        g_runtime.gc.gc_chw.xplain, g_runtime.gc.gc_chw.psegs, g_runtime.gc.gc_chw.shrt, g_runtime.gc.gc_chw.s_root, g_runtime.gc.gc_chw.s_nosite, g_runtime.gc.gc_chw.s_frameless,
         g_runtime.gc.gc_chw.s_unknown, g_runtime.gc.gc_chw.s_cycle, g_runtime.gc.gc_chw.s_nolink, g_runtime.gc.gc_chw.s_rise, g_runtime.gc.gc_chw.s_left, g_runtime.gc.gc_chw.s_costart,
         g_runtime.gc.gc_chw.s_badlink, g_runtime.gc.gc_chw.s_noentry, g_runtime.gc.gc_chw.s_topabove, g_runtime.gc.gc_chw.links, g_runtime.gc.gc_chw.links_below, g_runtime.gc.gc_chw.v_same,
         g_runtime.gc.gc_chw.v_diff, g_runtime.gc.gc_chw.v_refused, g_runtime.gc.gc_chw.ghost);
@@ -3328,6 +3328,7 @@ static void gc_visit_pseg(rt_hblk_t *h) {
     gc_ent_t ent;
     gc_sw_t s;
     const char *rbp;
+    g_runtime.gc.gc_chw.psegs++;
     rt_gc_visit_raw_c((const char **)&b->link);
     rt_gc_visit_raw_c((const char **)&b->sched);
     for (uint64_t i = 0; i < b->tn; i++, rec += 64) {
