@@ -263,6 +263,7 @@ static std::string pl_standing_cells_zero(int kt, int n) {
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int rt_pl_db_frame_cells(void);
+extern "C" int rt_pl_db_slot_ensure(void * root, void * db, int i);
 static std::string xa_flat_pkt_cell_rax(int k) {
     int nf = rt_pl_db_frame_cells();
     if (k < nf) return x86("mov", "rax", RDQ("r14", -24 - 8 * k));
@@ -883,6 +884,28 @@ static std::string zf_epo_pkt_walk(int kt, int k, int i, int np) {
              + x86("cmp", "r11d", "r8d")
              + x86("jl", L(224))
              + x86("def", L(223))
+             + x86("mov", "r11d", RDD("r10", 24))
+             + x86("test", "r11d", "r11d")
+             + x86("jns", L(226))
+             +
+                 x86("note",
+                 "a slot no call has reached has no fragment yet (ARCH-PROLOG-DATABASE section 5 narrowed to the flip): compile it now, from the slot index and the packet's root cell, and walk on")
+             + x86("push", "rcx")
+             + x86("push", "rdx")
+             + x86("push", "rsi")
+             + x86("push", "r8")
+             + xa_flat_pkt_cell_rax(k)
+             + x86("mov", "rdx", "rsi")
+             + x86("mov", "rsi", "rax")
+             + x86("mov", "rdi", "r14")
+             + x86("call", "rt_pl_db_slot_ensure", (uint64_t)(uintptr_t)(void *)rt_pl_db_slot_ensure)
+             + x86("pop", "r8")
+             + x86("pop", "rsi")
+             + x86("pop", "rdx")
+             + x86("pop", "rcx")
+             + xa_flat_pkt_cell_rax(k) + x86("mov", "r9", RDQ("rax", 0))
+             + xa_flat_pkt_slot_addr("rsi", "r10", "r11")
+             + x86("def", L(226))
              + x86("mov", "r11d", RDD("r10", 24))
              + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
              + x86("mov", "rdi", RDQ("rdi", GRT_AT(rt_gen_procs)))

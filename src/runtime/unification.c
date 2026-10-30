@@ -5067,13 +5067,14 @@ static int pl_db_data_enter(void *root, pl_db_t *db, int i) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_db_data_leave(void *root, pl_db_t *db, int upto) { db->data_off = 1; db->data_on = 0; for (int j = 0; j < upto; j++) if (!db->s[j].erased) pl_db_fragment(root, db, j); }
+static void pl_db_data_leave(pl_db_t *db) { db->data_off = 1; db->data_on = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_db_install_first(pl_db_t *db) {
+static void pl_db_install_first(void *root, pl_db_t *db) {
     extern int pl_runtime_install_packet_entry(const char *, int, const char *);
     int ar = 0, first = -1;
     const char *nm;
-    for (int j = db->head_idx; j >= 0 && first < 0; j = db->s[j].next_idx) if (!db->s[j].erased && db->s[j].ridx >= 0) first = j;
+    for (int j = db->head_idx; j >= 0 && first < 0; j = db->s[j].next_idx) if (!db->s[j].erased) first = j;
+    if (first >= 0 && db->s[first].ridx < 0 && !pl_db_fragment(root, db, first)) return;
     nm = first >= 0 ? pl_db_head_name((void *)&db->s[first].cl, &ar) : (const char *)0;
     if (!nm) return;
     { PL_DB_KEY_VLA(key, nm, ar); char hkey[fmt_len("%s@%d", key, first)]; snprintf(hkey, sizeof hkey, "%s@%d", key, first); pl_runtime_install_packet_entry(key, ar, hkey); }
@@ -5083,9 +5084,16 @@ static void pl_db_place(void *root, pl_db_t *db, int i) {
     int leaving;
     if (!db->data_off && pl_db_data_fact(db, i)) { if (!db->data_on && pl_db_data_enter(root, db, i)) db->data_on = 1; if (db->data_on) return; }
     leaving = !db->data_off;
-    if (leaving) pl_db_data_leave(root, db, i);
+    if (leaving) pl_db_data_leave(db);
     pl_db_fragment(root, db, i);
-    if (leaving) pl_db_install_first(db);
+    if (leaving) pl_db_install_first(root, db);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_slot_ensure(void *root, void *db_v, int i) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || i < 0 || i >= db->n) return 0;
+    if (db->s[i].ridx >= 0) return 1;
+    return pl_db_fragment(root, db, i);
 }
 static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int recompile, int tx) {
     extern int prolog_atom_intern(const char *);
@@ -5176,7 +5184,7 @@ static void pl_db_reclaim_report(pl_db_t *db) {
     {
         unsigned char mk[db->n];
         pl_db_rr_t r = { db, mk, 0 };
-        int ar = 0, live = 0, recount = 0, unrec = 0, vis = 0, raw = 0, only = 0, ok;
+        int ar = 0, live = 0, recount = 0, unrec = 0, vis = 0, raw = 0, only = 0, ok, comp = 0;
         long pages = 0, gone = 0;
         const char *nm = (const char *)0, *top = rt_gc_program_stack_top();
         char probe = 0;
@@ -5185,6 +5193,7 @@ static void pl_db_reclaim_report(pl_db_t *db) {
         for (const char *w = (const char *)(((uintptr_t)&probe + 7) & ~(uintptr_t)7); top && w + 8 <= top; w += 8) pl_db_rr_mark(&r, *(const char * const *)w, 2);
         for (int i = 0; i < db->n; i++) {
             if (!nm) nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
+            if (db->s[i].ridx >= 0) comp++;
             if (!db->s[i].erased) { live++; continue; }
             recount++;
             if (!PL_DB_FRAG_REC(db->s[i].frag)) unrec++;
@@ -5195,9 +5204,9 @@ static void pl_db_reclaim_report(pl_db_t *db) {
             if ((mk[i] & 2) && !(mk[i] & 1)) only++;
         }
         fprintf(stderr,
-            "[PL-RECLAIM] key=%s/%d slots=%d live=%d erased=%d recount=%d erased_pages=%ld unrecorded=%d visitor=%s frames=%ld visitor_live=%d raw_live=%d raw_only=%d pool_used=%zu slot_bytes=%ld"
-            " reclaimed=%d reclaimed_pages=%ld\n", nm ? nm : "?", ar, db->n, live, db->erased_n, recount, pages, unrec, ok ? "whole" : "refused", r.frames, vis, raw, only, bb_pool_used(),
-            (long)db->cap * (long)sizeof(pl_db_slot_t), db->recl_n, gone);
+            "[PL-RECLAIM] key=%s/%d slots=%d live=%d erased=%d recount=%d erased_pages=%ld unrecorded=%d visitor=%s frames=%ld visitor_live=%d raw_live=%d raw_only=%d compiled=%d pool_used=%zu slot_"
+            "bytes=%ld" " reclaimed=%d reclaimed_pages=%ld\n", nm ? nm : "?", ar, db->n, live, db->erased_n, recount, pages, unrec, ok ? "whole" : "refused", r.frames, vis, raw, only, comp,
+            bb_pool_used(), (long)db->cap * (long)sizeof(pl_db_slot_t), db->recl_n, gone);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
