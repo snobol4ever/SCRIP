@@ -216,14 +216,16 @@ std::string bb_glue_stno_unit_push(void) {
          + x86_rsp_store64(8, "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define BGTE_CELL(rec_off) (_.op_zres && (rec_off) >= 0)
+#define BGTE_RO(rec_off) (BGTE_CELL(rec_off) ? (long)(rec_off) : 0L)
 static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id, int rec_off) {
-    const int cell = _.op_zres && rec_off >= 0;
     return x86("cmp", "rax", (long)BGTE_VERDICT_EVAL)
          + x86_jcc_id("jne", base + 70)
          + x86("mov", "rdi", "rdx")
          + x86("mov32", "esi", 1L)
-         + IF(!cell, x86("sub", "rsp", (long)BGTE_EVAL_REC) + x86("mov", "rdx", "rsp"))
-         + IF(cell, x86("lea", "rdx", RDQ("rsp", rec_off)))
+         + IF(!BGTE_CELL(rec_off), x86("sub", "rsp", (long)BGTE_EVAL_REC))
+         + IF(!BGTE_CELL(rec_off), x86("mov", "rdx", "rsp"))
+         + IF(BGTE_CELL(rec_off), x86("lea", "rdx", RDQ("rsp", rec_off)))
          + x86("call", "rt_eval_open_raise", (uint64_t)(uintptr_t)(void *)rt_eval_open_raise)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
@@ -231,10 +233,10 @@ static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id, int r
          + bb_glue_enter_chain_ret(base + 71)
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land)
          + x86_rt_gc_poll_rec_res()
-         + IF(!cell, x86("add", "rsp", (long)BGTE_EVAL_REC))
+         + IF(!BGTE_CELL(rec_off), x86("add", "rsp", (long)BGTE_EVAL_REC))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 72)
-         + IF(!cell, x86("add", "rsp", (long)BGTE_EVAL_REC))
+         + IF(!BGTE_CELL(rec_off), x86("add", "rsp", (long)BGTE_EVAL_REC))
          + x86_jmp_id(val_id)
          + x86_deflabel_id(base + 70);
 }
@@ -242,8 +244,6 @@ static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id, int r
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
     const std::string & tweak_out_lea, int eval_arm, int rec_off)
     {
-    const int cell = _.op_zres && rec_off >= 0;
-    const long ro = cell ? rec_off : 0;
     return x86("call", try_sym, try_fp)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
@@ -253,15 +253,15 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
              + x86_jcc_id("jne", base + 9)
              + tweak_out_lea
              + x86("mov", "rsi", "rdx")
-             + IF(!cell, x86("sub", "rsp", 112L))
-             + x86("mov", RDQ("rsp", ro), 0L)
-             + x86("mov", RDQ("rsp", ro + 8), 0L)
-             + IF(!cell, x86("mov", "rdx", "rsp"))
-             + IF(cell, x86("lea", "rdx", RDQ("rsp", ro)))
+             + IF(!BGTE_CELL(rec_off), x86("sub", "rsp", 112L))
+             + x86("mov", RDQ("rsp", BGTE_RO(rec_off)), 0L)
+             + x86("mov", RDQ("rsp", BGTE_RO(rec_off) + 8), 0L)
+             + IF(!BGTE_CELL(rec_off), x86("mov", "rdx", "rsp"))
+             + IF(BGTE_CELL(rec_off), x86("lea", "rdx", RDQ("rsp", BGTE_RO(rec_off))))
              + x86("call", "rt_tweak_open", (uint64_t)(uintptr_t)(void *)rt_tweak_open)
              + x86_rt_gc_poll()
-             + bb_glue_call_pend_run(base + 30, 2L, ro)
-             + IF(!cell, x86("add", "rsp", 112L))
+             + bb_glue_call_pend_run(base + 30, 2L, BGTE_RO(rec_off))
+             + IF(!BGTE_CELL(rec_off), x86("add", "rsp", 112L))
              + x86_jmp_id(val_id)
              + x86_deflabel_id(base + 9))
          + IF(eval_arm, bb_glue_try_eval_arm(base, val_id, join_id, rec_off))

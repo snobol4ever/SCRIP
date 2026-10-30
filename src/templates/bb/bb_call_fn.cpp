@@ -317,7 +317,8 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define BCFN_REC_PTR(reg) ( IF(!CF_REC_CELL(), x86("mov", (reg), "rsp")) + IF(CF_REC_CELL(), x86("lea", (reg), x86_zref(_.op_call_rec, 1))) )
+#define BCFN_REC_PTR(reg) ( IF(!CF_REC_CELL(), x86("mov", (reg), "rsp")) \
+                          + IF(CF_REC_CELL(), x86("lea", (reg), x86_zref(_.op_call_rec, 1))) )
 #define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( IF(!CF_REC_CELL(), x86("sub", "rsp", (long)BCFN_EVAL_REC)) \
                                                      + BCFN_REC_PTR("rdx") \
                                                      + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
