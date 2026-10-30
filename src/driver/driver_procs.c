@@ -49,7 +49,7 @@ void driver_register_proc(stage2_t * s2, int pi) {
 void driver_proc_props(stage2_t * s2, int pi) {
     ProcEntry * pe = &s2->proc_table[pi];
     const char * pname = pe->name;
-    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    IR_graph_t * g = stage2_proc_graph(s2, pi, "driver_proc_props");
     rt_proc_set_generator(pname, pe->is_generator);
     rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0);
     rt_proc_set_pinned(pname, zls_g_entry_block(g));
@@ -65,7 +65,7 @@ void driver_proc_props(stage2_t * s2, int pi) {
 void * driver_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {
     ProcEntry * pe = &s2->proc_table[pi];
     const char * pname = pe->name;
-    IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    IR_graph_t * g = stage2_proc_graph(s2, pi, "driver_install_proc");
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     g_emit_cfg = g;
     driver_proc_props(s2, pi);

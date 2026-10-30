@@ -105,6 +105,7 @@ void emit_proc_prepare(stage2_t *s2, int pi, const planner_road_t *rd, int *isp_
 int emit_jmp_entry_for_road(const planner_road_t *rd, IR_graph_t *g, const char *pname);
 void emit_flat_road(planner_road_t *rd);
 int bb_proc_find(const char * fname);
+IR_graph_t * stage2_proc_graph(const stage2_t *s2, int pi, const char *who);
 #ifdef __cplusplus
 }
 #endif

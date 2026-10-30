@@ -4394,11 +4394,9 @@ static DESCR_t invoke_method_proc_rq(const char *procname, DESCR_t *callargs, in
     int pi;
     for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, procname) == 0) break;
     if (pi >= g_stage2.proc_count) { rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k]; return rk_proc_descr_rq(procname, total, rq); }
-    if (g_stage2.proc_table[pi].bb_idx >= 0) {
-        extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na);
+    {
         extern int rt_proc_has_native_fn(const char *name);
         if (rt_proc_has_native_fn(procname)) { rt_call_args_need(total); for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k]; return rk_proc_descr_rq(procname, total, rq); }
-        return ir_call_proc(pi, callargs, total);
     }
     return proc_table_call(pi, callargs, total);
 }
@@ -4428,7 +4426,7 @@ static rt_call_next_t rk_method_open_at(DESCR_t *args, int nargs, rk_redisp_t *r
     {
         int pi;
         for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) break;
-        if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(procname))) return none;
+        if (pi < g_stage2.proc_count && !rt_proc_has_native_fn(procname)) return none;
     }
     if (!rt_define_returns_by_frame(procname)) return none;
     DESCR_t *argv = (DESCR_t *)((char *)rec - 16 * nargs);
@@ -4525,7 +4523,7 @@ static rt_call_next_t rk_redispatch_open(DESCR_t *args, int nargs, void *recp, i
     {
         int pi;
         for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, nproc)) break;
-        if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(nproc))) return none;
+        if (pi < g_stage2.proc_count && !rt_proc_has_native_fn(nproc)) return none;
     }
     if (!rt_define_returns_by_frame(nproc)) return none;
     rec->self = top->self;

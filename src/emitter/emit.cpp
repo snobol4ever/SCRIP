@@ -4341,7 +4341,7 @@ extern "C" void emit_flat_road(planner_road_t * rd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_proc_prepare(stage2_t * s2, int pi, const planner_road_t * rd, int * isp_out) {
-    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = stage2_proc_graph(s2, pi, "emit_proc_prepare");
     g_emit_cfg = g;
     g_gen_proc_active = rd->gen_proc; g_flat_frame_floor = rd->floor;
     int isp = rd->pat; emit_jmp_entry_for_road(rd, g, pname);
