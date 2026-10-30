@@ -7687,6 +7687,8 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern int fh_alloc(FILE *);
+    extern int rt_pl_dialect_xsb(void);
+    extern int prolog_atom_intern(const char *);
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
@@ -7704,6 +7706,23 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
         extern void *rt_pl_ball_culprit1(const char *, DESCR_t);
         cx->ball = rt_pl_ball_culprit1("uninstantiation_error", rt_pl_deref_val(args[2]));
         return 0;
+    }
+    if (f.v == (DTYPE_t)DT_PLREF && rt_pl_dialect_xsb() && plc_fid_arity(f.slen) == 1 && plc_fid_name(f.slen) == prolog_atom_intern("atom") && pl_atom_str(m) && !strcmp(pl_atom_str(m), "read")) {
+        DESCR_t a0 = rt_pl_deref_val(((DESCR_t *)f.p)[0]);
+        const char *txt = pl_atom_str(a0);
+        FILE *tf;
+        int ti;
+        if (pl_val_unbound(a0)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+        if (txt) {
+            tf = tmpfile();
+            if (!tf || (txt[0] && fwrite(txt, 1, strlen(txt), tf) != strlen(txt))) { if (tf) fclose(tf); cx->ball = rt_pl_ball_kind2("resource_error", "memory", f); return 0; }
+            rewind(tf);
+            ti = fh_alloc(tf);
+            if (ti < 0) { fclose(tf); return 0; }
+            g_fh[ti].mode = 'r';
+            g_fh[ti].name = rt_heap_strdup_c("atom stream");
+            return plw_unify_vals(args[2], pl_mk_stream(ti), cx);
+        }
     }
     if (f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn) || !pl_cell_text(args[1], mb, sizeof mb, &md)) return 0;
@@ -9084,8 +9103,17 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
             if (m == 3) return rt_pl_make_string_cell(b);
             if (m == 0) return pl_mk_atom_dup(b, strlen(b));
             {
+                extern int rt_pl_u8_get(const char *s, int *adv);
                 DESCR_t acc = pl_nil();
-                for (size_t i = strlen(b); i > 0; i--) { char one[2]; one[0] = b[i - 1]; one[1] = 0; acc = pl_cons(m == 2 ? INTVAL((unsigned char)b[i - 1]) : pl_mk_atom_dup(one, 1), acc); }
+                for (size_t i = strlen(b); i > 0;) {
+                    size_t p = i - 1;
+                    int a, cp;
+                    while (p > 0 && i - p < 4 && ((unsigned char)b[p] & 0xC0) == 0x80) p--;
+                    cp = rt_pl_u8_get(b + p, &a);
+                    if ((size_t)a != i - p) { p = i - 1; cp = (unsigned char)b[p]; a = 1; }
+                    acc = pl_cons(m == 2 ? INTVAL(cp) : pl_mk_atom_dup(b + p, (size_t)a), acc);
+                    i = p;
+                }
                 return acc;
             }
         }

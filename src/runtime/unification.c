@@ -189,6 +189,7 @@ static int plc_atom_needs_quoting(const char *name) {
     extern int rt_pl_dialect_xsb(void);
     if (!name || !name[0]) return 1;
     if (rt_pl_dialect_xsb() && (!strcmp(name, "{}") || !strcmp(name, ";"))) return 1;
+    if (rt_pl_dialect_xsb()) for (const char *q = name; *q; q++) if ((unsigned char)*q >= 0x80) return 1;
     if (!strcmp(name, "[]") || !strcmp(name, "{}") || !strcmp(name, "!") || !strcmp(name, ";")) return 0;
     if (isupper((unsigned char)name[0]) || name[0] == '_') return 1;
     {
@@ -2236,7 +2237,12 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                     ball = rt_pl_ball_kind1("representation_error", "character_code");
                     break;
                 }
-                { long r = have_n ? nval : 1; char c = (char)cv; for (long i = 0; i < r; i++) plc_fb_add(&f, &c, 1); }
+                {
+                    long r = have_n ? nval : 1;
+                    char c[8];
+                    int cl = (cv >= 0x80 && (rt_pl_dialect_swi() || rt_pl_dialect_xsb())) ? rt_pl_u8_put(c, (int)cv) : (c[0] = (char)cv, 1);
+                    for (long i = 0; i < r; i++) plc_fb_add(&f, c, (size_t)cl);
+                }
             } else if (*p == 'd' || *p == 'D') {
                 long iv;
                 if (have_n && nval < 0) { ball = rt_pl_ball_kind2("domain_error", "format_argument", pl_make_int(nval)); break; }
@@ -2312,9 +2318,12 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                 char *tx = (char *)0;
                 size_t tn = 0;
                 if (!plc_fmt_text(h, &tx, &tn, &ball)) break;
-                if (have_n && (size_t)nval < tn) tn = (size_t)(nval < 0 ? 0 : nval);
-                plc_fb_add(&f, tx, tn);
-                if (have_n && (size_t)nval > tn && !rt_pl_dialect_swi()) for (size_t i = tn; i < (size_t)nval; i++) plc_fb_add(&f, " ", 1);
+                if (have_n && nval >= 0) {
+                    size_t cn = pl_u8_count_n(tx, tn), want = (size_t)nval;
+                    if (want < cn) { size_t bi = 0; for (size_t k = 0; k < want; k++) { int a; (void)rt_pl_u8_get(tx + bi, &a); bi += (size_t)a; } tn = bi; cn = want; }
+                    plc_fb_add(&f, tx, tn);
+                    if (want > cn && !rt_pl_dialect_swi()) for (size_t i = cn; i < want; i++) plc_fb_add(&f, " ", 1);
+                } else plc_fb_add(&f, tx, tn);
                 ct_drop(tx);
             } else if (*p == 'W') {
                 pl_cell_t *o = plc_fmt_next_arg(&args);
