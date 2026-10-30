@@ -644,6 +644,7 @@ typedef struct {
     int op_call_scansync;
     int op_call_curmov;
     int op_call_blk;
+    int op_call_rec;
     int op_call_elem_access;
     int op_call_sb_exit;
     int op_call_fnlbl_fresh;

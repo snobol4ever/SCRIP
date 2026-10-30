@@ -21,7 +21,7 @@ extern DESCR_t rt_eval_land(long word);
 #define BGTE_EVAL_REC 112
 #define BGTE_VERDICT_EVAL 3
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
-    const std::string & tweak_out_lea = std::string(), int eval_arm = 0);
+    const std::string & tweak_out_lea = std::string(), int eval_arm = 0, int rec_off = -1);
 std::string bb_glue_enter_chain_ret(int lid);
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim);
 std::string bb_glue_call_pend_run(int base, long nargs, long off);
@@ -216,13 +216,14 @@ std::string bb_glue_stno_unit_push(void) {
          + x86_rsp_store64(8, "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id) {
+static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id, int rec_off) {
+    const int cell = _.op_zres && rec_off >= 0;
     return x86("cmp", "rax", (long)BGTE_VERDICT_EVAL)
          + x86_jcc_id("jne", base + 70)
          + x86("mov", "rdi", "rdx")
          + x86("mov32", "esi", 1L)
-         + x86("sub", "rsp", (long)BGTE_EVAL_REC)
-         + x86("mov", "rdx", "rsp")
+         + IF(!cell, x86("sub", "rsp", (long)BGTE_EVAL_REC) + x86("mov", "rdx", "rsp"))
+         + IF(cell, x86("lea", "rdx", RDQ("rsp", rec_off)))
          + x86("call", "rt_eval_open_raise", (uint64_t)(uintptr_t)(void *)rt_eval_open_raise)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
@@ -230,17 +231,19 @@ static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id) {
          + bb_glue_enter_chain_ret(base + 71)
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land)
          + x86_rt_gc_poll_rec_res()
-         + x86("add", "rsp", (long)BGTE_EVAL_REC)
+         + IF(!cell, x86("add", "rsp", (long)BGTE_EVAL_REC))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 72)
-         + x86("add", "rsp", (long)BGTE_EVAL_REC)
+         + IF(!cell, x86("add", "rsp", (long)BGTE_EVAL_REC))
          + x86_jmp_id(val_id)
          + x86_deflabel_id(base + 70);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
-    const std::string & tweak_out_lea, int eval_arm)
+    const std::string & tweak_out_lea, int eval_arm, int rec_off)
     {
+    const int cell = _.op_zres && rec_off >= 0;
+    const long ro = cell ? rec_off : 0;
     return x86("call", try_sym, try_fp)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
@@ -250,17 +253,18 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
              + x86_jcc_id("jne", base + 9)
              + tweak_out_lea
              + x86("mov", "rsi", "rdx")
-             + x86("sub", "rsp", 112L)
-             + x86("mov", RDQ("rsp", 0), 0L)
-             + x86("mov", RDQ("rsp", 8), 0L)
-             + x86("mov", "rdx", "rsp")
+             + IF(!cell, x86("sub", "rsp", 112L))
+             + x86("mov", RDQ("rsp", ro), 0L)
+             + x86("mov", RDQ("rsp", ro + 8), 0L)
+             + IF(!cell, x86("mov", "rdx", "rsp"))
+             + IF(cell, x86("lea", "rdx", RDQ("rsp", ro)))
              + x86("call", "rt_tweak_open", (uint64_t)(uintptr_t)(void *)rt_tweak_open)
              + x86_rt_gc_poll()
-             + bb_glue_call_pend_run(base + 30, 2L, 0L)
-             + x86("add", "rsp", 112L)
+             + bb_glue_call_pend_run(base + 30, 2L, ro)
+             + IF(!cell, x86("add", "rsp", 112L))
              + x86_jmp_id(val_id)
              + x86_deflabel_id(base + 9))
-         + IF(eval_arm, bb_glue_try_eval_arm(base, val_id, join_id))
+         + IF(eval_arm, bb_glue_try_eval_arm(base, val_id, join_id, rec_off))
          + IF(stno, bb_glue_stno_unit_push())
          + bb_glue_enter_c2bb(base, base + 5, base + 6, in_shim ? base + 7 : -1)
          + x86_deflabel_id(base + 5)
@@ -279,9 +283,9 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
          + x86_deflabel_id(val_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const std::string & tweak_out_lea) {
+std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const std::string & tweak_out_lea, int rec_off) {
     return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
-                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea, 1);
+                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea, 1, rec_off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PEND_CALL_ID(base, n) ((base) + (n))

@@ -39,6 +39,7 @@ std::string elem_access_flat_join(void);
 #define CF_FN() (_.op_sval ? _.op_sval : "")
 #define CF_N() ((int)_.op_ival)
 #define CF_BLK() (_.op_call_blk)
+#define CF_REC_CELL() (_.op_zres && _.op_call_rec >= 0)
 #define CF_ARG() (_.op_call_argbase)
 #define CF_RES() (_.op_call_resoff)
 #define CF_REFUSED() (_.op_call_refuse != CALL_REFUSE_NONE)
@@ -152,10 +153,10 @@ static std::string cf_fnlbl() {
          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)CF_FN(), _.op_call_fnlbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, x86("add", "rsp", (long)BCFN_EVAL_REC))); }
+static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval && !CF_REC_CELL(), x86("add", "rsp", (long)BCFN_EVAL_REC))); }
 static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 static std::string cf_argv_rsi(int eval) {
-    return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", (eval ? BCFN_EVAL_REC : 0) + CF_BLK())))
+    return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", (eval && !CF_REC_CELL() ? BCFN_EVAL_REC : 0) + CF_BLK())))
          + IF(CF_N() <= 0, x86("xor", "esi", "esi"));
 }
 static std::string cf_argv_rdi() {
@@ -166,7 +167,7 @@ static std::string cf_try_enter(const std::string & out_lea) {
     return x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N())
          +
              bb_glue_try_enter(_.op_call_try_sym, _.op_call_try_fp, "rt_call_land_γ", TEMPLATE_FN_ADDR(rt_call_land_γ), "rt_call_land_ω", TEMPLATE_FN_ADDR(rt_call_land_ω), 100, 108, 29, 0, 0,
-             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"));
+             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"), _.op_call_rec);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_byname_flat(int open, int eval) {
@@ -232,7 +233,7 @@ static std::string cf_baked_zd(int try_) {
                       x86("lea", "rdx", "[rip + __]", _.op_call_rec_addr, _.op_call_rec_lbl),
                       try_
                       ? emit_seq({ x86("lea", "rcx", RDQ("rsp", 0)),
-                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", 0))),
+                                   bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", 0)), _.op_call_rec),
                                    x86_rsp_load64("rax", 0) + x86_rsp_load64("rdx", 8),
                                    x86_deflabel_id(29) + x86_rt_gc_poll_res() })
                       : emit_seq({ x86("call", "rt_call_fld_sn4", TEMPLATE_FN_ADDR(rt_call_fld_sn4)), x86_rt_gc_poll_res() }) });
@@ -316,8 +317,9 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) \
-                                                     + x86("mov", "rdx", "rsp") \
+#define BCFN_REC_PTR(reg) ( IF(!CF_REC_CELL(), x86("mov", (reg), "rsp")) + IF(CF_REC_CELL(), x86("lea", (reg), RDQ("rsp", _.op_call_rec))) )
+#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( IF(!CF_REC_CELL(), x86("sub", "rsp", (long)BCFN_EVAL_REC)) \
+                                                     + BCFN_REC_PTR("rdx") \
                                                      + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
          + x86_rt_gc_poll_rec_sigma_word(1) \
          + x86("test", "rax", "rax") \
@@ -333,12 +335,12 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86("shr", "rdx", 2L) \
          + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36) \
          + x86_deflabel_id((base) + 35) \
-         + x86("mov", "rcx", "rsp") \
+         + BCFN_REC_PTR("rcx") \
          + x86("call", "rt_eval_dtx_land_γ", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_γ) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 36) \
-         + x86("mov", "rsi", "rsp") \
+         + BCFN_REC_PTR("rsi") \
          + x86("call", "rt_eval_dtx_land_ω", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_ω) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) )
