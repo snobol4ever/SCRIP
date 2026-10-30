@@ -9798,7 +9798,7 @@ static int pl_var_name_ok(const char *n) {
     return 1;
 }
 static const char *const pl_write_bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode",
-    "space_args", 0 };
+    "space_args", "$lists", 0 };
 static int pl_write_opt_bare_ok(const char *on) { for (int i = 0; on && pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return 1; return 0; }
 static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     const char *as;

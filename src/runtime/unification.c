@@ -1118,7 +1118,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.space_args = 0;
     m.next_arg = 0;
     int portable = 0, quoted = 0, ignore_ops = 0, numbervars = 0, prio = rt_pl_dialect_xsb() ? 1000 : 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"),
-        nolists = 0, nobraces = 0;
+        nolists = 0, nobraces = 0, keeplists = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -1138,6 +1138,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
             } else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
             else if (on && (!strcmp(on, "no_lists") || !strcmp(on, "dotlists"))) nolists = plc_opt_is_true(o);
             else if (on && !strcmp(on, "brace_terms")) nobraces = !plc_opt_is_true(o);
+            else if (on && !strcmp(on, "$lists")) keeplists = plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
             else if (on && !strcmp(on, "portable") && rt_pl_dialect_xsb()) portable = plc_opt_is_true(o);
             else if (on && !strcmp(on, "float_precision") && rt_pl_dialect_xsb()) {
@@ -1191,6 +1192,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     }
     if (ignore_ops && rt_pl_dialect_swi()) ignore_ops = 1 | (nolists ? 0 : 2) | (nobraces ? 0 : 4);
     if (rt_pl_dialect_xsb()) { if (portable) ignore_ops = 1 | 2 | 4; m.xstr = ignore_ops != 1; m.xopf = 1; }
+    if (ignore_ops == 1 && keeplists) ignore_ops = 1 | 2;
     pl_cell_t *tt = pl_deref((pl_cell_t *)term_cell);
     int br = 0, p1 = 0, p2 = 0, lm, rm;
     if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }

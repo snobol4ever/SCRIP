@@ -42,7 +42,7 @@ fast_term_serialized(T, S) :- ( string(S) -> true ; throw(error(type_error(strin
 fast_write(Out, T) :- '$swb_ftser'(T, S, fast_write/2), string_codes(S, Cs), '$swb_u8e'(Cs, Bs), length(Bs, N), number_codes(N, NCs), '$swb_putb'(NCs, Out), put_byte(Out, 46),
     '$swb_putb'(Bs, Out).
 fast_read(In, T) :- get_byte(In, B0), ( B0 < 0 -> T = end_of_file ; '$swb_getlen'(In, B0, 0, N), length(Bs, N), '$swb_getb'(Bs, In), '$swb_u8d'(Bs, Cs), string_codes(S, Cs), '$swb_ftdes'(S, T) ).
-'$swb_ftser'(T, S, PI) :- term_factorized(T, K, Sb), '$swb_ftblob'(K-Sb, PI), '$swb_ftstr'(K-Sb, KS, [], Ps), with_output_to(string(S), write_canonical('$fts'(KS, Ps))).
+'$swb_ftser'(T, S, PI) :- term_factorized(T, K, Sb), '$swb_ftblob'(K-Sb, PI), '$swb_ftstr'(K-Sb, KS, [], Ps), with_output_to(string(S), write_term('$fts'(KS, Ps), [quoted(true), ignore_ops(true), '$lists'(true)])).
 '$swb_ftdes'(S, T) :- term_string(R, S), R = '$fts'(K-Sb, Ps), '$swb_ftstrb'(Ps), '$swb_ftbind'(Sb), T = K.
 '$swb_ftstr'(X, X, P, P) :- var(X), !.
 '$swb_ftstr'(X, V, P, [V-A|P]) :- string(X), !, atom_string(A, X).
