@@ -2016,7 +2016,7 @@ $(RT_SO0): $(RT_PIC_OBJS) Makefile
 out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -fPIC -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
-	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,'$$ORIGIN' -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
 $(SC_MOD_LANGS:%=out/sc_mod/scmod_%.sc): out/sc_mod/scmod_%.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) bootstrap/parser_%.sc Makefile
 	@mkdir -p out/sc_mod
 	@{ printf "ModPrefix = 'mod_';\nimport mod_head;\nModPrefix = 'sc_';\n"; for f in $(SC_MOD_LIB); do printf "import '%s';\n" $$f; done; \
@@ -2097,11 +2097,15 @@ FORCE:
 # `make libscrip_rt` + rerun, not a full 118s `make scrip`.  Lon directive 2026-07-25.
 # For consistency, --run (mode-3) and --compile (mode-4) both use the same libscrip_rt.so.
 # RPATH baked in so the binary finds the .so at out/libscrip_rt.so relative to the repo root.
+# ⛔⭐ THE RPATH IS $ORIGIN-RELATIVE, NEVER THE BUILDING ROOT'S ABSOLUTE out/ (the cto, 2026-10-31 16:5x CDT, found on the cqo's root: a build FETCHED from the cache
+# (CEO-2041 step 6) carried its PRODUCER's absolute rpath, so the cqo's scrip loaded a runtime from another seat's scratch worktree). scrip sits at the root and finds
+# out/ as $ORIGIN/out; scrip0, scrip-ipp and the parser tools sit in out/ and find it as $ORIGIN. A binary then belongs to the tree it is copied into, which is what
+# one build per tree needs; util_build_cache.sh refuses to publish or fetch an artifact whose rpath names an absolute directory.
 scrip: libscrip_rt
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -fPIC -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver.o
 	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver.o \
-	    -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt \
+	    -Wl,-rpath,'$$ORIGIN/out' -L$(abspath out) -lscrip_rt \
 	    $(LIBS) -o scrip
 	@echo "Built: scrip (dynamic, links out/libscrip_rt.so)"
 
@@ -2117,11 +2121,11 @@ parsers: $(PARSER_LANGS:%=out/parser_%)
 out/scrip-ipp: $(SRC)/tools/ipp.icn scrip libscrip_rt
 	@mkdir -p $(OBJ) out
 	./scrip --compile --out=$(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null
-	$(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@
+	$(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,'$$ORIGIN' -L$(abspath out) -lscrip_rt -lm -lpthread -o $@
 out/parser_%: $(SRC)/tools/parser_main.c libscrip_rt
 	@mkdir -p $(OBJ) out
 	$(CC) $(CRT) -DPARSER_LANG_$(shell echo $* | tr a-z A-Z) -c $(SRC)/tools/parser_main.c -o $(OBJ)/parser_$*.o
-	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/parser_$*.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt $(LIBS) -o $@
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/parser_$*.o -Wl,-rpath,'$$ORIGIN' -L$(abspath out) -lscrip_rt $(LIBS) -o $@
 
 
 # test_emit_io retired (2026-05-25): it existed only to keep the dead g_text_buf/g_bin_buf
