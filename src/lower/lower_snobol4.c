@@ -26,6 +26,7 @@ extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; int ppos; IR_t * prim2; } sprearg_t;
 typedef struct sno_kw_link { const char * nm; const struct sno_kw_link * up; } sno_kw_link_t;
+struct sno_tvec_s;
 typedef struct {
     IR_graph_t * g;
     const sno_kw_link_t * kw_chain;
@@ -45,6 +46,8 @@ typedef struct {
     IR_t * seq_rlast_for;
     IR_t * seq_rtail;
     const tree_t * wn_tree;
+    struct sno_tvec_s * capro;
+    struct sno_tvec_s * capro_cand;
 } scx_t;
 typedef struct { const char * fname; const char * entry; const char * result_name; const char ** names; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
@@ -2066,7 +2069,7 @@ static int sno_is_flush(const tree_t * t) { return t && sno_pat_eff_kind(t) == T
 static int sno_is_fence1(const tree_t * t) { return t && t->t == TT_FENCE && t->n > 0; }
 static int sno_is_fence0(const tree_t * t) { return sno_is_fence(t) && !sno_is_fence1(t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const tree_t ** v; int n, cap; } sno_tvec_t;
+typedef struct sno_tvec_s { const tree_t ** v; int n, cap; } sno_tvec_t;
 static void sno_tvec_push(sno_tvec_t * e, const tree_t * t) {
     if (e->n >= e->cap) { e->cap = e->cap ? e->cap * 2 : 16; e->v = (const tree_t **) ct_grow((void *) e->v, (size_t) e->cap * sizeof *e->v); }
     e->v[e->n++] = t;
@@ -2388,6 +2391,19 @@ static void sno_elem_pre(scx_t * cx, const tree_t * tg, IR_t * prim, IR_t * prim
     cx->pre[cx->npre].snapg = sno_elem_snapg;
     cx->pre[cx->npre].ppos = 0;
     cx->npre++;
+}
+static void sno_capt_ordasg(scx_t * cx, const tree_t * tg) {
+    if (!cx->capro || cx->snap || !tg || tg->t != TT_DEFER || tg->n < 1 || !tg->c[0] || tg->c[0]->t != TT_INDIRECT || tg->c[0]->n < 1 || !tg->c[0]->c[0] || tg->c[0]->c[0]->t != TT_VAR ||
+        cx->npre < 0 || cx->npre >= 64) return;
+    const char * nm = tg->c[0]->c[0]->v.sval;
+    for (int k = 0; k < cx->capro->n; k++) {
+        const tree_t * a = cx->capro->v[k];
+        if (!a || a->t != TT_ASSIGN || a->n < 2 || !a->c[0] || a->c[0]->t != TT_VAR || !a->c[0]->v.sval || strcmp(a->c[0]->v.sval, nm)) continue;
+        cx->pre[cx->npre] = (sprearg_t){ .arg = a };
+        cx->npre++;
+        cx->capro->v[k] = NULL;
+        return;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_lambda_kind(const char * n, int nargs) {
@@ -2889,6 +2905,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             IR_LIT(nd).sval = (char *) cvn;
             sno_ω_to(nd, fail);
             if (ek) sno_elem_pre(cx, ctg, nd, NULL);
+            else sno_capt_ordasg(cx, ctg);
             return nd;
         }
         case TT_ARB:
@@ -2966,6 +2983,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             cx->ppos = (pp && t->slen == 240) ? pp : 30;
             IR_t * pe = sno_capt_body(cx, t->c[0], nd, save, &itail);
             if (ek) sno_elem_pre(cx, t->c[1], nd, save);
+            else sno_capt_ordasg(cx, t->n > 1 ? t->c[1] : NULL);
             lc_γ_to(save, pe);
             sno_ω_to(nd, itail);
             ir_operand_push(nd, pe);
@@ -3003,6 +3021,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             cx->ppos = (pp && t->slen == 240) ? pp : 25;
             IR_t * pe = sno_capt_body(cx, t->c[0], nd, save, &itail);
             if (ek) sno_elem_pre(cx, t->c[1], nd, save);
+            else sno_capt_ordasg(cx, t->n > 1 ? t->c[1] : NULL);
             lc_γ_to(save, pe);
             sno_ω_to(nd, itail);
             ir_operand_push(nd, pe);
@@ -3358,6 +3377,8 @@ static int sno_mkpat_here(const tree_t * t) {
     tx.pat_seal = NULL;
     tx.npre = 0;
     tx.snap = 1;
+    tx.capro = NULL;
+    tx.capro_cand = NULL;
     tx.ppos = 0;
     tx.prog_nstmt = 0;
     tx.stno_base = 0;
@@ -3418,6 +3439,8 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     tx.pat_seal = NULL;
     tx.npre = 0;
     tx.snap = 1;
+    tx.capro = NULL;
+    tx.capro_cand = NULL;
     tx.ppos = 0;
     tx.prog_nstmt = 0;
     tx.stno_base = 0;
@@ -3502,7 +3525,7 @@ static const tree_t * sno_capt_elem_rewrite(const tree_t * t, sno_tvec_t * pro) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_capt_prologue(scx_t * cx, sno_tvec_t * pro, IR_t * entry, IR_t * fail) {
-    for (int k = pro->n - 1; k >= 0; k--) { IR_t * r = NULL; entry = sx_lower(cx, pro->v[k], entry, fail, &r); }
+    for (int k = pro->n - 1; k >= 0; k--) { IR_t * r = NULL; if (pro->v[k]) entry = sx_lower(cx, pro->v[k], entry, fail, &r); }
     ct_drop(pro->v);
     pro->v = NULL;
     pro->n = 0;
@@ -3552,7 +3575,10 @@ static IR_t * sx_scan(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t *
     const tree_t * p0 = (t->n > 1) ? t->c[1] : NULL;
     const tree_t * p1 = sno_capt_elem_rewrite(p0, &cpro);
     if (p1 != p0) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, t->c[0]); ast_push(sc, (tree_t *) p1); t = sc; }
+    sno_tvec_t * svc = cx->capro_cand;
+    cx->capro_cand = &cpro;
     IR_t * e = sx_scan_body(cx, t, γ, ω, res);
+    cx->capro_cand = svc;
     return sno_capt_prologue(cx, &cpro, e, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3796,7 +3822,10 @@ static IR_t * sx_assign(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
         for (int k = 2; k < t->n; k++) ast_push(as, t->c[k]);
         t = as;
     }
+    sno_tvec_t * svc = cx->capro_cand;
+    cx->capro_cand = &apro;
     IR_t * e = sx_assign_body(cx, t, γ, ω, res);
+    cx->capro_cand = svc;
     return sno_capt_prologue(cx, &apro, e, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3869,7 +3898,15 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     int before_pat = g->n;
     sno_cap_defer_reset();
     IR_t * pat_entry;
-    { int _mcsv = g_lower.sno.pat_match_ctx; g_lower.sno.pat_match_ctx = 1; cx->ppos = 240; pat_entry = sno_pat_node(cx, ptt, release, head); g_lower.sno.pat_match_ctx = _mcsv; }
+    {
+        int _mcsv = g_lower.sno.pat_match_ctx;
+        g_lower.sno.pat_match_ctx = 1;
+        cx->ppos = 240;
+        cx->capro = cx->capro_cand;
+        pat_entry = sno_pat_node(cx, ptt, release, head);
+        cx->capro = NULL;
+        g_lower.sno.pat_match_ctx = _mcsv;
+    }
     lc_γ_to(head, pat_entry);
     {
         int fp_stmt = 0;
@@ -3996,6 +4033,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     IR_t * after = head;
     if (g_lower.sno.sno_lower_match_preord < 0) { const char * e = getenv("SCRIP_PRE_ORDER"); g_lower.sno.sno_lower_match_preord = (e && *e == '0') ? 0 : 1; }
     for (int pi = g_lower.sno.sno_lower_match_preord ? cx->npre - 1 : 0; g_lower.sno.sno_lower_match_preord ? (pi >= 0) : (pi < cx->npre); pi += g_lower.sno.sno_lower_match_preord ? -1 : 1) {
+        if (!cx->pre[pi].prim) { IR_t * av = NULL; after = sx_lower(cx, cx->pre[pi].arg, after, fJ, &av); continue; }
         if (cx->pre[pi].snapg) {
             char nb[32];
             snprintf(nb, sizeof nb, "PATV$%d", g_lower.sno.sno_lower_match_snapctr++);
@@ -4091,6 +4129,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     cx.pat_seal = NULL;
     cx.npre = 0;
     cx.snap = 0;
+    cx.capro = NULL;
+    cx.capro_cand = NULL;
     cx.ppos = 0;
     cx.prog_nstmt = (long)nst + 1 + stno_base;
     cx.prog_endline = code_line;
@@ -4267,6 +4307,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 if (p1 != p0) { extern tree_t *ast_stmt_new(tree_e kind); tree_t * sc3 = ast_stmt_new(TT_SCAN); ast_push(sc3, subj->c[0]); ast_push(sc3, (tree_t *) p1); subj = sc3; }
             }
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
+            cx.capro_cand = &cpro;
             if (!sno_pat_supported(ptt)) {
                 if (ptt) {
                     extern tree_t *ast_stmt_new(tree_e kind);
@@ -4278,6 +4319,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     ast_push(sc2, (tree_t *) sbj);
                     ast_push(sc2, (tree_t *) dd);
                     IR_t * e2 = sno_lower_match(&cx, sc2, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ, &match_land[i]);
+                    cx.capro_cand = NULL;
                     lc_γ_to(asn, e2);
                     lc_γ_to(anchor[i], sno_capt_prologue(&cx, &cpro, ec, fA));
                     continue;
@@ -4285,6 +4327,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 sno_fatal("pattern match with no pattern operand", NULL);
             }
             IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ, &match_land[i]);
+            cx.capro_cand = NULL;
             lc_γ_to(anchor[i], sno_capt_prologue(&cx, &cpro, e, fA));
             continue;
         }
@@ -4321,7 +4364,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 tree_t * sc = ast_stmt_new(TT_SCAN);
                 ast_push(sc, (tree_t *) sbj);
                 ast_push(sc, capt);
+                cx.capro_cand = &cpro;
                 IR_t * e = sno_lower_match(&cx, sc, NULL, 0, sJ, fA, NULL);
+                cx.capro_cand = NULL;
                 if (pasn) { lc_γ_to(pasn, e); e = pent; }
                 lc_γ_to(anchor[i], sno_capt_prologue(&cx, &cpro, e, fA));
                 continue;
@@ -4707,6 +4752,8 @@ void sno_expr_thunks_build(int x0) {
         ex.pat_seal = NULL;
         ex.npre = 0;
         ex.snap = 0;
+        ex.capro = NULL;
+        ex.capro_cand = NULL;
         ex.ppos = 0;
         ex.prog_nstmt = 0;
         ex.stno_base = 0;
@@ -4842,6 +4889,8 @@ void sno_pat_thunks_build(int p0) {
         px.pat_seal = NULL;
         px.npre = 0;
         px.snap = 1;
+        px.capro = NULL;
+        px.capro_cand = NULL;
         px.ppos = 0;
         px.prog_nstmt = 0;
         px.stno_base = 0;
@@ -5495,6 +5544,8 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     px.pat_seal = NULL;
     px.npre = 0;
     px.snap = 0;
+    px.capro = NULL;
+    px.capro_cand = NULL;
     px.ppos = 0;
     px.prog_nstmt = 0;
     px.stno_base = 0;
