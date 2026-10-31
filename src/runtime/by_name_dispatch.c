@@ -8366,7 +8366,20 @@ static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
     }
     return (void *)0;
 }
-PL_CX_LEAF_HEAD(sort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
+static DESCR_t pl_sort_cycle_cells(DESCR_t orig) {
+    extern int rt_pl_dialect_swi(void);
+    DESCR_t cur = rt_pl_deref_val(orig), acc = pl_nil();
+    long n = 0;
+    int cyc;
+    if (!rt_pl_dialect_swi()) return orig;
+    (void)pl_spine_end(cur, &n, &cyc);
+    if (!cyc) return orig;
+    for (long i = 0; i < n; i++) { acc = pl_cons(((DESCR_t *)cur.p)[0], acc); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); }
+    return acc;
+}
+PL_CX_LEAF_HEAD(sort, 2)
+    { DESCR_t a2[2] = { pl_sort_cycle_cells(args[0]), args[1] }; void *b = pl_sort_args_ball(a2, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &a2[0], &args[1], cx); }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
