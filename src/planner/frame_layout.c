@@ -2456,13 +2456,35 @@ static int zls_root_cells_q(const IR_graph_t * g, uint64_t * out, int cap, int m
     if (nc > 1) { if (m >= cap) return cap + 1; out[m++] = GC_LAY_Q(clo + 8, GC_LAY_PTR_GC, 8 * (nc - 1)); }
     return m;
 }
-int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts) {
+static int zls_tbl_hdr_q(const IR_graph_t * g, uint64_t * out, int cap, int m, unsigned * flags) {
+    int at = -1;
+    if (m > cap) return m;
+    for (int j = 0; j < g->n; j++) {
+        const IR_t * x = g->all[j];
+        int off = (x && x->op == IR_TABLE_HDR) ? zls_off(x) : -1;
+        if (off < 0 || zls_key_unbacked(g, off)) continue;
+        if (at >= 0 && at != off) {
+            const char * gn = zls_graph_name_get(g);
+            fprintf(stderr, "FATAL planner table header: graph %s holds two table headers at %d and %d -- the chain walk reads one resumer triple per frame map (ARCH-PROLOG-WFS-TABLING 8.10 (5))\n",
+                gn ? gn : "?", at, off);
+            abort();
+        }
+        at = off;
+    }
+    if (at < 0) return m;
+    if (m >= cap) return cap + 1;
+    out[m++] = GC_LAY_Q(at + 16 + 16 * 12, GC_LAY_DESCR, 48);
+    if (flags) *flags |= GC_FRAME_MAP_TBL_HDR;
+    return m;
+}
+int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts, unsigned * flags) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     int n = 0, m = 0, gaps = 0, conf = 0, expect = 0;
     if (gap_bytes) *gap_bytes = 0;
     if (conflicts) *conflicts = 0;
     if (!r || r->first_scope < 0) return -1;
-    if (zls_g_keys_only(g)) return zls_root_cells_q(g, out, cap, 0);
+    if (flags) *flags = 0;
+    if (zls_g_keys_only(g)) return zls_tbl_hdr_q(g, out, cap, zls_root_cells_q(g, out, cap, 0), flags);
     cv_reserve(&g_lower.ir.zlq_v, (uint32_t)sizeof(zls_layq_t), (uint64_t)g_lower.ir.zf_n + 1, "zlq");
     for (int f = 0; f < g_lower.ir.zf_n; f++)
         if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0 && !(r->hf && zf[f].off + zf[f].size > r->fregion)) zlq[n++] =
@@ -2481,7 +2503,7 @@ int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_byte
     if (r->region > expect) gaps += r->region - expect;
     if (gap_bytes) *gap_bytes = gaps;
     if (conflicts) *conflicts = conf;
-    return zls_root_cells_q(g, out, cap, m);
+    return zls_tbl_hdr_q(g, out, cap, zls_root_cells_q(g, out, cap, m), flags);
 }
 static int zls_int_cmp(const void * a, const void * b) { int x = *(const int *)a, y = *(const int *)b; return x < y ? -1 : x > y ? 1 : 0; }
 static int zls_slot_matches(int f, int kind) {

@@ -29,8 +29,9 @@ _Static_assert(sizeof(pl_db_reg_t) == 120 && offsetof(pl_db_reg_t, e) == 0 && of
     offsetof(pl_db_reg_t, mtok) == 72, "HB_PLDBR holds one pl_db_reg_t: the pointer members are e, ovf, tries, hix and mtok; a new member means this row is re-read");
 _Static_assert(sizeof(pl_trie_node_t) == 72 && offsetof(pl_trie_node_t, tok) == 0 && offsetof(pl_trie_node_t, val) == 16 && offsetof(pl_trie_node_t, parent) == 32 &&
     offsetof(pl_trie_node_t, kids) == 40, "HB_TRIEN holds one pl_trie_node_t: tok and val are DESCR_t cells, parent and kids are pointers; a new member means this row is re-read");
-_Static_assert(sizeof(pl_trie_t) == 64 && offsetof(pl_trie_t, root) == 0 && offsetof(pl_trie_t, ents) == 8 && offsetof(pl_trie_t, status) == 32 && offsetof(pl_trie_t, data) == 48,
-    "HB_TRIE holds one pl_trie_t: root and ents are pointers, status and data are DESCR_t cells; a new member means this row is re-read");
+_Static_assert(sizeof(pl_trie_t) == 144 && offsetof(pl_trie_t, root) == 0 && offsetof(pl_trie_t, ents) == 8 && offsetof(pl_trie_t, status) == 32 && offsetof(pl_trie_t, data) == 48 &&
+    offsetof(pl_trie_t, sl) == 64 && offsetof(pl_trie_sl_t, sched) == 40 && offsetof(pl_trie_sl_t, pcons) == 48 && offsetof(pl_trie_sl_t, ncons) == 64,
+    "HB_TRIE holds one pl_trie_t: root, ents and sl.sched are pointers, status, data, sl.pcons and sl.ncons are DESCR_t cells; a new member means this row is re-read");
 _Static_assert(sizeof(DATINST_t) == 32 && offsetof(DATINST_t, type) == 0 && offsetof(DATINST_t, fields) == 8,
     "HB_DINST holds one DATINST_t: the pointer members are type and fields, then the inline DESCR_t field cells when fields points past the header");
 _Static_assert(sizeof(NV_t) == 80 && offsetof(NV_t, name) == 0 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, next) == 72,
@@ -49,6 +50,9 @@ _Static_assert(sizeof(trace_ent_t) == 40 && offsetof(trace_ent_t, name) == 8 && 
     "HB_TRCE holds trace_ent_t[]: the heap-pointer members are name, tag and cbfn; a new member means this row is re-read");
 _Static_assert(sizeof(rt_proc_t) == 128 && offsetof(rt_proc_t, name) == 0 && offsetof(rt_proc_t, pnames) == 16 && offsetof(rt_proc_t, pcells) == 56 && offsetof(rt_proc_t, rcell) == 64 &&
     offsetof(rt_proc_t, result_name) == 88, "HB_PROC holds rt_proc_t[]: the heap-pointer members are name, pnames, pcells, rcell and result_name, fn is code; a new member means this row is re-read");
+_Static_assert(sizeof(rt_pseg_t) == 160 && offsetof(rt_pseg_t, sched) == 120 && offsetof(rt_pseg_t, link) == 152,
+    "HB_PSEG holds one rt_pseg_t, then the parked stack bytes and the trail records the chain over the maps walks: the header's heap-pointer members are sched and link; a new member means this row i"
+    "s re-read");
 static const gc_sfield_t ss_descr[] = { { 0, GS_DESCR } };
 static const gc_sfield_t ss_raw[] = { { 0, GS_RAW } };
 static const gc_run_t run_descr = { 0, sizeof(DESCR_t), 0, 0, sizeof ss_descr / sizeof ss_descr[0], ss_descr };
@@ -68,8 +72,8 @@ static const gc_sfield_t ss_pldbk_e[] = { { offsetof(pl_db_key_t, key), GS_RAW }
 static const gc_run_t run_pldbk = { 0, sizeof(pl_db_key_t), 0, 0, sizeof ss_pldbk_e / sizeof ss_pldbk_e[0], ss_pldbk_e };
 static const gc_sfield_t ss_pldbr[] = { { offsetof(pl_db_reg_t, e), GS_RAW }, { offsetof(pl_db_reg_t, ovf), GS_RAW }, { offsetof(pl_db_reg_t, tries), GS_RAW }, { offsetof(pl_db_reg_t, hix), GS_RAW },
     { offsetof(pl_db_reg_t, mtok), GS_RAW } };
-static const gc_sfield_t ss_trie[] = { { offsetof(pl_trie_t, root), GS_RAW }, { offsetof(pl_trie_t, ents), GS_RAW }, { offsetof(pl_trie_t, status), GS_DESCR }, { offsetof(pl_trie_t, data),
-    GS_DESCR } };
+static const gc_sfield_t ss_trie[] = { { offsetof(pl_trie_t, root), GS_RAW }, { offsetof(pl_trie_t, ents), GS_RAW }, { offsetof(pl_trie_t, status), GS_DESCR }, { offsetof(pl_trie_t, data), GS_DESCR },
+    { offsetof(pl_trie_t, sl.sched), GS_RAW }, { offsetof(pl_trie_t, sl.pcons), GS_DESCR }, { offsetof(pl_trie_t, sl.ncons), GS_DESCR } };
 static const gc_sfield_t ss_trien[] = { { offsetof(pl_trie_node_t, tok), GS_DESCR }, { offsetof(pl_trie_node_t, val), GS_DESCR }, { offsetof(pl_trie_node_t, parent), GS_RAW },
     { offsetof(pl_trie_node_t, kids), GS_RAW } };
 static const gc_sfield_t ss_dinst[] = { { offsetof(DATINST_t, type), GS_RAW }, { offsetof(DATINST_t, fields), GS_RAW } };
@@ -99,6 +103,7 @@ static const gc_sfield_t ss_nvar[] = { { offsetof(NV_t, name), GS_RAW }, { offse
 static const gc_sfield_t ss_fncb[] = { { offsetof(FNCBLK_t, name), GS_RAW }, { offsetof(FNCBLK_t, spec), GS_RAW }, { offsetof(FNCBLK_t, entry_label), GS_RAW }, { offsetof(FNCBLK_t, params), GS_RAW },
     { offsetof(FNCBLK_t, locals), GS_RAW }, { offsetof(FNCBLK_t, next), GS_RAW } };
 static const gc_sfield_t ss_datb[] = { { offsetof(DATBLK_t, name), GS_RAW }, { offsetof(DATBLK_t, fields), GS_RAW }, { offsetof(DATBLK_t, next), GS_RAW } };
+static const gc_sfield_t ss_pseg[] = { { offsetof(rt_pseg_t, sched), GS_RAW }, { offsetof(rt_pseg_t, link), GS_RAW } };
 static const gc_sfield_t ss_evch[] = { { offsetof(eval_cache_ent_t, key), GS_RAW } };
 static const gc_sfield_t ss_lblt[] = { { offsetof(lbl_ent_t, key), GS_RAW } };
 static const gc_sfield_t ss_iochan[] = { { offsetof(io_chan_t, varname), GS_RAW }, { offsetof(io_chan_t, prebind), GS_RAW } };
@@ -118,8 +123,9 @@ static const gc_slot_row_t sr_lblt = { HB_LBLT, HB_LBLT, GR_TYPED, 0, (const gc_
 static const gc_slot_row_t sr_iochan = { HB_IOCH, HB_IOCH, GR_TYPED, 0, (const gc_sfield_t *)0, &run_iochan, "io_chan_t[]" };
 static const gc_slot_row_t sr_trce = { HB_TRCE, HB_TRCE, GR_TYPED, 0, (const gc_sfield_t *)0, &run_trce, "trace_ent_t[]" };
 static const gc_slot_row_t sr_proc = { HB_PROC, HB_PROC, GR_TYPED, 0, (const gc_sfield_t *)0, &run_proc, "rt_proc_t[]" };
+static const gc_slot_row_t sr_pseg = { HB_PSEG, HB_PSEG, GR_TYPED, sizeof ss_pseg / sizeof ss_pseg[0], ss_pseg, (const gc_run_t *)0, "rt_pseg_t" };
 static const gc_slot_row_t *const gc_slot_rows[] = { &sr_str, &sr_fill, &sr_zblk, &sr_wsc, &sr_aggv, &sr_aggp, &sr_aggt, &sr_aggb, &sr_arr, &sr_dinst, &sr_dvec, &sr_wsb, &sr_pvec, &sr_dtp, &sr_dtprcp,
-    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb, &sr_evch, &sr_lblt, &sr_iochan, &sr_trce, &sr_proc };
+    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb, &sr_evch, &sr_lblt, &sr_iochan, &sr_trce, &sr_proc, &sr_pseg };
 const gc_slot_row_t *gc_slot_row_of(uint16_t type) {
     for (size_t i = 0; i < sizeof gc_slot_rows / sizeof gc_slot_rows[0]; i++) if (type >= gc_slot_rows[i]->lo && type <= gc_slot_rows[i]->hi) return gc_slot_rows[i];
     return (const gc_slot_row_t *)0;

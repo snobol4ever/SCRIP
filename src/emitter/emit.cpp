@@ -2462,7 +2462,7 @@ static int blob_carve_pad(void) { if (g_emitter.blob_carve_pad_v < 0) { const ch
 int blob_frame_bytes(void) { const zeta_plan_t * r = g_planner.g_zd_rec_p; return (g_emit_cfg && r && r->cfg == g_emit_cfg) ? r->blob_bytes : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_carve_bytes(void) { int b = blob_frame_bytes(); return b > 0 ? b + 16 : 0; }
-extern "C" int zls_g_layout_q(const IR_graph_t *, uint64_t *, int, int *, int *); extern "C" int zls_g_region(const IR_graph_t *);
+extern "C" int zls_g_region(const IR_graph_t *);
 int blob_cont_copy(void) { if (g_emitter.blob_cont_copy_v < 0) { const char * e = getenv("SCRIP_BLOB_CONT_COPY"); g_emitter.blob_cont_copy_v = (e && *e == '1') ? 1 : 0;
     } return g_emitter.blob_cont_copy_v; }
 static int blob_zf_gc_only(void) { if (g_emitter.blob_zf_gc_only_v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_GC_ONLY"), * d = getenv("SCRIP_DIAG");
@@ -2991,7 +2991,7 @@ static void emit_gc_map_data(const char * fam) {
             fprintf(stderr, "FATAL emit_gc_map_data: root graph %s value_bytes=%d but the plan says %d\n", fam ? fam : "?", g_emitter.g_gc_value_bytes, zls_g_root_value_bytes(g_emit_cfg));
             abort();
         }
-        lay = g_emit_cfg->pf.lay; lay_n = g_emit_cfg->pf.lay_n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT;
+        lay = g_emit_cfg->pf.lay; lay_n = g_emit_cfg->pf.lay_n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT | g_emit_cfg->pf.lay_flags;
         g_emitter.g_zls_lay_gaps = g_emit_cfg->pf.lay_gaps; g_emitter.g_zls_lay_conf = g_emit_cfg->pf.lay_conf;
     }
     emit_sep_rule('-');
@@ -4650,7 +4650,9 @@ DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t
 DESCR_t rt_pl_dop_trie_new(DESCR_t *, int); DESCR_t rt_pl_dop_trie_alive(DESCR_t *, int); DESCR_t rt_pl_dop_trie_destroy(DESCR_t *, int); DESCR_t rt_pl_dop_trie_insert(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entries(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entry_key(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
-DESCR_t rt_pl_dop_tbh_close(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_leading(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_own(DESCR_t *, int);
+DESCR_t rt_pl_dop_tbh_close(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_park(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_sl(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_resume_all(DESCR_t *, int);
+    DESCR_t rt_pl_dop_tbh_leading(DESCR_t *, int);
+    DESCR_t rt_pl_dop_tbh_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_own(DESCR_t *, int);
 DESCR_t rt_pl_dop_tbh_set(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_bset(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlget(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlset(DESCR_t *, int);
     DESCR_t rt_pl_dop_tx_db(DESCR_t *, int); DESCR_t rt_pl_dop_mod_ext(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
@@ -4850,7 +4852,9 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$trie_entries", 2, "rt_pl_dop_trie_entries", rt_pl_dop_trie_entries }, { "$trie_entry_key", 3, "rt_pl_dop_trie_entry_key", rt_pl_dop_trie_entry_key },
         { "$trie_count", 2, "rt_pl_dop_trie_count", rt_pl_dop_trie_count }, { "$trie_meta_set", 3, "rt_pl_dop_trie_meta_set", rt_pl_dop_trie_meta_set },
         { "$trie_meta_get", 3, "rt_pl_dop_trie_meta_get", rt_pl_dop_trie_meta_get }, { "$tbl_vt", 1, "rt_pl_dop_tbl_vt", rt_pl_dop_tbl_vt },
-        { "$tbh_close", 0, "rt_pl_dop_tbh_close", rt_pl_dop_tbh_close }, { "$tbh_leading", 0, "rt_pl_dop_tbh_leading", rt_pl_dop_tbh_leading },
+        { "$tbh_close", 0, "rt_pl_dop_tbh_close", rt_pl_dop_tbh_close }, { "$tbl_park", 1, "rt_pl_dop_tbl_park", rt_pl_dop_tbl_park }, { "$tbl_sl", 3, "rt_pl_dop_tbl_sl", rt_pl_dop_tbl_sl },
+            { "$tbl_resume_all", 1, "rt_pl_dop_tbl_resume_all",
+            rt_pl_dop_tbl_resume_all }, { "$tbh_leading", 0, "rt_pl_dop_tbh_leading", rt_pl_dop_tbh_leading },
         { "$tbh_get", 2, "rt_pl_dop_tbh_get", rt_pl_dop_tbh_get }, { "$tbh_own", 2, "rt_pl_dop_tbh_own", rt_pl_dop_tbh_own }, { "$tbh_set", 2, "rt_pl_dop_tbh_set", rt_pl_dop_tbh_set },
         { "$tbh_bset", 2, "rt_pl_dop_tbh_bset", rt_pl_dop_tbh_bset }, { "$tbl_dlget", 1, "rt_pl_dop_tbl_dlget", rt_pl_dop_tbl_dlget },
         { "$tbl_dlset", 1, "rt_pl_dop_tbl_dlset", rt_pl_dop_tbl_dlset }, { "$tx_db", 2, "rt_pl_dop_tx_db", rt_pl_dop_tx_db }, { "$mod_ext", 4, "rt_pl_dop_mod_ext", rt_pl_dop_mod_ext },

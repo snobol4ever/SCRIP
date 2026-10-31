@@ -18,7 +18,7 @@ struct gc_spine_rec_t { struct rt_hblk_t *h; const char *graph; long off; const 
 struct gc_rng_t { const char *lo, *hi; };
 struct gc_seg_t { char *lo, *hi; };
 struct g_gc_chw_t {
-    long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
+    long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, psegs, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
         s_badlink, s_noentry, s_topabove, links, links_below, said_link, v_same, v_diff, v_refused, ghost;
     uint64_t fsum;
 };

@@ -2,6 +2,7 @@
 #define PROLOG_DB_BLOCKS_H
 #include "../parsers/prolog/pl_cell.h"
 #include "core/core.h"
+#include "rt/rt_pl_trail.h"
 typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int frag; } pl_db_slot_t;
 typedef struct {
     pl_db_slot_t *s;
@@ -51,5 +52,5 @@ typedef struct {
     int kmcap;
 } pl_db_reg_t;
 typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
-typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; } pl_trie_t;
+typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; pl_trie_sl_t sl; } pl_trie_t;
 #endif

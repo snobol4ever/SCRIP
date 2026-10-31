@@ -4649,6 +4649,9 @@ void pl_trie_gc_visit(uint16_t type, void *p) {
         if (t->ents) rt_gc_visit_raw((const char **)&t->ents);
         rt_gc_visit_descr(&t->status);
         rt_gc_visit_descr(&t->data);
+        if (t->sl.pcons.v) rt_gc_visit_descr(&t->sl.pcons);
+        if (t->sl.ncons.v) rt_gc_visit_descr(&t->sl.ncons);
+        if (t->sl.sched) rt_gc_visit_raw((const char **)(void *)&t->sl.sched);
         return;
     }
     {
@@ -4919,6 +4922,19 @@ int rt_pl_trie_entry_key(void *root, int64_t id, int64_t ent, void *out_cell, pl
     return pl_trie_give(pl_trie_key_term(n), out_cell, cx);
 }
 int rt_pl_trie_count(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? t->nvals : -1; }
+int rt_pl_tbl_abolish_id(void *root, int64_t id) {
+    pl_trie_t *t = pl_trie_at(root, id), *vt = pl_trie_at(root, rt_pl_trie_tbl_vt(root));
+    if (!t) return 0;
+    if (vt) {
+        pl_cell_t *d = pl_deref((pl_cell_t *)&t->data);
+        if ((int)d->v == DT_PLREF && d->p) {
+            pl_trie_node_t *n = pl_trie_descend(vt, (pl_cell_t *)d->p, 0, (int *)0);
+            if (n && n->has_val) { n->has_val = 0; memset(&n->val, 0, sizeof n->val); if (n->ent >= 0) { vt->ents[n->ent] = (void *)0; n->ent = -1; } vt->nvals--; }
+        }
+    }
+    return rt_pl_trie_destroy(root, id);
+}
+pl_trie_sl_t * rt_pl_trie_sl(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? &t->sl : (pl_trie_sl_t *)0; }
 int rt_pl_trie_meta_set(void *root, int64_t id, int which, void *cell) {
     pl_trie_t *t = pl_trie_at(root, id);
     if (!t) return 0;
@@ -4993,6 +5009,7 @@ int rt_pl_tbh_open(void *root, void *arg, pl_tr_ctx_t *cx) {
         int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
         h[0] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)prev };
         for (int f = 1; f < PL_TBH_CELLS; f++) h[f] = (DESCR_t){ .v = DT_RAW, .i = (int64_t)(uintptr_t)pl_tbh_fwd(prev, f) };
+        h[PL_TBH_CELLS + 1] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)cx->tr };
         return k >= 0 && rt_pl_b_set(root, k, arg, cx);
     }
 }
@@ -5003,6 +5020,19 @@ int rt_pl_tbh_close(void *root, pl_tr_ctx_t *cx) {
     { DESCR_t prev = (DESCR_t){ .v = DT_I, .i = h[0].i }; return rt_pl_b_set(root, k, (void *)&prev, cx); }
 }
 int rt_pl_tbh_leading(void *root) { return pl_tbh_cur(root) != (DESCR_t *)0; }
+DESCR_t * rt_pl_tbh_current(void *root) { return pl_tbh_cur(root); }
+int64_t rt_pl_tbl_chain_get(void *root) {
+    int64_t k = rt_pl_db_cell_for(root, "$tbl_chain", -1);
+    pl_cell_t **cell = k >= 0 ? (pl_cell_t **)pl_db_cell_addr(root, k, 0) : (pl_cell_t **)0;
+    pl_cell_t *v = (cell && *cell && !plc_gvar_absent(*cell)) ? pl_deref(*cell) : (pl_cell_t *)0;
+    return (v && (int)v->v == DT_I) ? v->i - 1 : -1;
+}
+int rt_pl_tbl_chain_set(void *root, int64_t id) {
+    int64_t k = rt_pl_db_cell_for(root, "$tbl_chain", -1);
+    DESCR_t v = (DESCR_t){ .v = DT_I, .i = id + 1 };
+    return k >= 0 && rt_pl_nb_set(root, k, (void *)&v);
+}
+int64_t rt_pl_tbh_table(void *root) { DESCR_t *c = pl_tbh_owner(root, 1); return (c && (int)c->v == DT_I) ? c->i : -1; }
 int rt_pl_tbh_get(void *root, int64_t f, void *out, pl_tr_ctx_t *cx) {
     DESCR_t *c = (f >= 1 && f < PL_TBH_CELLS) ? pl_tbh_owner(root, (int)f) : (DESCR_t *)0;
     return c && plc_unify_cells_cx((pl_cell_t *)out, (pl_cell_t *)c, cx) ? 1 : 0;
