@@ -9986,6 +9986,7 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { PLF_NONE = 0, PLF_BOOL, PLF_ATOM, PLF_INT, PLF_FLOAT, PLF_TERM, PLF_GONE };
 typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; int user; int type; } pl_flag_t;
 static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_procedure_arity",
     "1024", 0, { 0 } }, { "max_char_code", "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } },
@@ -9996,8 +9997,8 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on",
     "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", "xsb", 0 } }, { "prefer_rationals", "false", 1, { "true", "false",
     0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero",
-    0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } },
-    { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
+    0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1, PLF_GONE }, { "min_tagged_integer", "-72057594037927936", 0,
+    { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
     { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false", 0 } }, { "color_term", "false", 1, { "true", "false",
     0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
@@ -10105,8 +10106,7 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
     return &pl_flags[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { PLF_NONE = 0, PLF_BOOL, PLF_ATOM, PLF_INT, PLF_FLOAT, PLF_TERM };
-static const char *const pl_flag_type_name[] = { "atom", "boolean", "atom", "integer", "float", "term" };
+static const char *const pl_flag_type_name[] = { "atom", "boolean", "atom", "integer", "float", "term", "integer" };
 static int pl_flag_bool_text(const char *s, const char **norm) {
     if (!strcmp(s, "true") || !strcmp(s, "on")) { *norm = "true"; return 1; }
     if (!strcmp(s, "false") || !strcmp(s, "off")) { *norm = "false"; return 1; }
@@ -10165,6 +10165,27 @@ static int pl_flag_store(pl_flag_t *fl, void *cell, DESCR_t v, int type, int nor
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_restraint_kind(const char *nm) {
+    if (!strcmp(nm, "max_table_subgoal_size") || !strcmp(nm, "max_table_answer_size") || !strcmp(nm, "max_answers_for_subgoal")) return 1;
+    if (!strcmp(nm, "max_table_subgoal_size_action")) return 2;
+    return !strcmp(nm, "max_table_answer_size_action") || !strcmp(nm, "max_answers_for_subgoal_action") ? 3 : 0;
+}
+static int pl_restraint_action_ok(int kind, const char *t) { return !strcmp(t, "error") || !strcmp(t, "suspend") || !strcmp(t, "warning") || (kind == 3 && !strcmp(t, "bounded_rationality")); }
+static int pl_restraint_set(const char *nm, int kind, void *cell, DESCR_t v, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    const char *t = v.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(v) : (const char *)0;
+    pl_flag_t *fl;
+    if (kind == 1 && t && !strcmp(t, "infinite")) { if ((fl = pl_flag_find(nm))) fl->type = PLF_GONE; return 1; }
+    if (kind == 1 && v.v != DT_I) { cx->ball = rt_pl_ball_kind2("type_error", "integer", v); return 0; }
+    if (kind == 1 && v.i < 0) { cx->ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", v); return 0; }
+    if (kind != 1 && !t) { cx->ball = rt_pl_ball_kind2("type_error", "atom", v); return 0; }
+    if (kind != 1 && !pl_restraint_action_ok(kind, t)) { cx->ball = rt_pl_ball_kind2("domain_error", "restraint_action", v); return 0; }
+    if (!(fl = pl_flag_find_or_create(nm))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", pl_mk_atom_dup(nm, strlen(nm))); return 0; }
+    fl->user = 1;
+    fl->mod = 1;
+    return pl_flag_store(fl, cell, v, kind == 1 ? PLF_INT : PLF_ATOM, 1, cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_round_mode(const char *v) {
     if (!v) return -1;
     return !strcmp(v, "to_nearest") ? FE_TONEAREST : !strcmp(v, "to_positive") ? FE_UPWARD : !strcmp(v, "to_negative") ? FE_DOWNWARD : !strcmp(v, "to_zero") ? FE_TOWARDZERO : -1;
@@ -10216,6 +10237,9 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             ok = plw_unify_vals(args[1], (dv[0] == 't' || dv[0] == 'f') ? pl_mk_atom(dv) : INTVAL((int64_t)strtoll(dv, (char **)0, 10)), cx);
         } else if (!(fl = pl_flag_find(fn))) {
             if (!pl_swi_dialect()) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+            else if (pl_restraint_kind(fn) >= 2) ok = plw_unify_vals(args[1], pl_mk_atom("error"), cx);
+        } else if (fl->type == PLF_GONE) {
+            ok = 0;
         } else if (fl->is_term) {
             DESCR_t o = pl_flag_term_value(fl);
             ok = plw_unify_vals(args[1], o, cx);
@@ -10276,11 +10300,14 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
         DESCR_t f = rt_pl_deref_val(args[0]);
         DESCR_t v = rt_pl_deref_val(args[1]);
         pl_flag_t *fl;
+        int kind;
         ok = 0;
         if (pl_val_unbound(f) || pl_val_unbound(v)) {
             cx->ball = rt_pl_ball_instantiation();
         } else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) {
             cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        } else if ((kind = pl_restraint_kind(fn)) && (pl_swi_dialect() || pl_flag_find(fn))) {
+            ok = pl_restraint_set(fn, kind, &args[1], v, cx);
         } else if (!(fl = pl_flag_find(fn)) && !(pl_swi_dialect() && (fl = pl_flag_find_or_create(fn)) && (fl->user = 1))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
         } else if (fl->type && !fl->mod) {
@@ -10380,8 +10407,11 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
         char fb[128], vb[128];
         const char *fn, *vn;
         pl_flag_t *fl;
+        int kind;
         ok = 1;
-        if (pl_cell_text(args[0], fb, sizeof fb, &fn) && pl_cell_text(args[1], vb, sizeof vb, &vn)) {
+        if (pl_cell_text(args[0], fb, sizeof fb, &fn) && (kind = pl_restraint_kind(fn)) && (pl_swi_dialect() || pl_flag_find(fn))) {
+            ok = pl_restraint_set(fn, kind, &args[1], rt_pl_deref_val(args[1]), cx);
+        } else if (pl_cell_text(args[0], fb, sizeof fb, &fn) && pl_cell_text(args[1], vb, sizeof vb, &vn)) {
             if (!strcmp(fn, "$tbl_hook")) {
                 extern void pl_lower_hook_dyn_mark(const char *, int);
                 const char *sl = strrchr(vn, '/');
