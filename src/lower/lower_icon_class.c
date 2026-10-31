@@ -4,10 +4,11 @@
 #include "lower.h"
 #include "g_lower.h"
 #include "../parsers/snobol4/scrip_cc.h"
+#include "../parsers/icon/icon_driver.h"
 typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
 typedef struct cx_class { const tree_t * node; const char * name; cx_sv supers, fields, anc; cx_meth * meth; int nmeth, cmeth; const tree_t * init; int built; } cx_class;
-typedef struct { cx_class * cls; int ncls, ccls, tmp; cx_sv gmeth; } cx_st;
+typedef struct { cx_class * cls; int ncls, ccls, tmp, use_image; cx_sv gmeth; } cx_st;
 typedef struct { cx_st * st; const cx_class * cls; cx_sv shadow; } cx_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cx_push(cx_sv * s, const char * w) {
@@ -139,6 +140,7 @@ static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
     }
     if (n->t == TT_FNC && n->n > 0 && n->c[0]) {
         tree_t * f = n->c[0];
+        if (x->st->use_image && f->t == TT_VAR && f->v.sval && !strcmp(f->v.sval, "image") && !cx_has(&x->shadow, "image") && !(x->cls && cx_is_method(x, "image"))) f->v.sval = "__uimage";
         if (f->t == TT_VAR && f->v.sval && cx_is_method(x, f->v.sval)) {
             tree_t * out = ast_node_new(TT_FNC);
             ast_push(out, cx_fld(cx_fld(cx_var("self"), "__m"), f->v.sval));
@@ -240,6 +242,56 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     for (int i = 2; i < c->node->n; i++) { const tree_t * m = c->node->c[i]; if (m->n > 2) ast_push(prog, cx_stmt(cx_method_proc(st, c, m))); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char * b; size_t n, cap; } cx_sb;
+static void cx_sb_add(cx_sb * s, const char * t) {
+    size_t l = strlen(t);
+    if (s->n + l + 1 > s->cap) { s->cap = (s->n + l + 1) * 2; s->b = (char *) ct_grow(s->b, s->cap); }
+    memcpy(s->b + s->n, t, l + 1);
+    s->n += l;
+}
+static int cx_refs(const tree_t * n, const char * nm) {
+    if (!n) return 0;
+    if (n->t == TT_VAR && n->v.sval && !strcmp(n->v.sval, nm)) return 1;
+    for (int i = 0; i < n->n; i++) if (cx_refs(n->c[i], nm)) return 1;
+    return 0;
+}
+static void cx_list_proc(cx_sb * sb, cx_st * st, const char * pname, int methods) {
+    cx_sb_add(sb, "procedure ");
+    cx_sb_add(sb, pname);
+    cx_sb_add(sb, "(o)\n   local t;\n   t := type(o);\n");
+    for (int i = 0; i < st->ncls; i++) {
+        const cx_class * c = &st->cls[i];
+        cx_sb_add(sb, "   if t == \"");
+        cx_sb_add(sb, c->name);
+        cx_sb_add(sb, "__state\" then return [");
+        int first = 1;
+        if (!methods) { cx_sb_add(sb, "\"__s\", \"__m\""); first = 0; }
+        for (int k = 0; k < (methods ? c->nmeth : c->fields.n); k++) {
+            if (!first) cx_sb_add(sb, ", ");
+            first = 0;
+            cx_sb_add(sb, "\"");
+            if (methods) { cx_sb_add(sb, c->meth[k].owner); cx_sb_add(sb, "_"); cx_sb_add(sb, c->meth[k].name); } else cx_sb_add(sb, c->fields.v[k]);
+            cx_sb_add(sb, "\"");
+        }
+        cx_sb_add(sb, "];\n");
+    }
+    cx_sb_add(sb, "end\n");
+}
+static void cx_prelude(cx_st * st, tree_t * prog) {
+    cx_sb sb;
+    memset(&sb, 0, sizeof sb);
+    if (cx_refs(prog, "classname")) cx_sb_add(&sb, "procedure classname(o)\n   local t;\n   t := type(o);\n   if t[-7:0] == \"__state\" then return t[1:-7];\nend\n");
+    if (cx_refs(prog, "membernames")) cx_list_proc(&sb, st, "membernames", 0);
+    if (cx_refs(prog, "methodnames")) cx_list_proc(&sb, st, "methodnames", 1);
+    if (st->use_image)
+        cx_sb_add(&sb,
+        "procedure __uimage(x)\n   local s, t;\n   t := type(x);\n   if not (t[-7:0] == \"__state\") then return image(x);\n   s := image(x);\n   return \"object \" || t[1:-7] || s[find(\"__state\","
+        " s) + 7:find(\"(\", s)] || \"(\" || (*x - 2) || \")\";\nend\n");
+    if (!sb.n) return;
+    tree_t * pre = (tree_t *) icon_compile_parse(sb.b, "<unicon-prelude>");
+    for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_expand_classes(tree_t * prog) {
     if (!prog) return;
     cx_st st;
@@ -257,6 +309,7 @@ void icn_expand_classes(tree_t * prog) {
     }
     if (!st.ncls) return;
     for (int i = 0; i < st.ncls; i++) cx_build(&st, &st.cls[i]);
+    st.use_image = cx_refs(prog, "image");
     int w = 0;
     for (int i = 0; i < prog->n; i++) {
         tree_t * s = prog->c[i];
@@ -267,4 +320,5 @@ void icn_expand_classes(tree_t * prog) {
     }
     prog->n = w;
     for (int i = 0; i < st.ncls; i++) cx_emit_class(&st, &st.cls[i], prog);
+    cx_prelude(&st, prog);
 }
