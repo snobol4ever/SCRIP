@@ -1,6 +1,6 @@
 #ifndef RT_ENTRY_TABLE_INC
 #define RT_ENTRY_TABLE_INC
-#define RT_ENTRIES 557
+#define RT_ENTRIES 560
 enum { RT_CONV_NONE = 0, RT_CONV_LEAF = 1, RT_CONV_GEN = 2, RT_CONV_OPEN = 3, RT_CONV_ASM = 4 };
 enum { RT_RC_NONE = 0, RT_RC_DESCR = 1, RT_RC_OTHER = 2, RT_RC_VOID = 3, RT_RC_UNKNOWN = 4 };
 enum { RT_CLOB_R8 = 1, RT_CLOB_R9 = 2, RT_CLOB_R10 = 4, RT_CLOB_R11 = 8, RT_CLOB_STATED = 16 };
@@ -149,7 +149,8 @@ static const rt_entry_t g_rt_entries[RT_ENTRIES] = { { "NV_GET_fn", RT_CONV_LEAF
     -1 }, { "rt_pl_dop_succ", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tab_sb", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbh_bset", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "rt_pl_dop_tbh_close", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbh_get", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbh_leading", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "rt_pl_dop_tbh_own", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbh_set", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_dlget", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
-    { "rt_pl_dop_tbl_dlset", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_open", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_vt", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
+    { "rt_pl_dop_tbl_dlset", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_open", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_park", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
+    { "rt_pl_dop_tbl_resume_all", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_sl", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_tbl_vt", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "rt_pl_dop_tell", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_telling", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_term_string", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "rt_pl_dop_term_to_atom", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_term_variables", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_trie_alive", RT_CONV_ASM, RT_RC_DESCR, 1, 29,
     -1 }, { "rt_pl_dop_trie_count", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_trie_delete", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_trie_destroy", RT_CONV_ASM, RT_RC_DESCR, 1,

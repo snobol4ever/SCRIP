@@ -849,7 +849,9 @@ RTX_FUNC(rt_pl_dop_tbl_park)
     call    rt_pl_pseg_park
     test    rax, rax
     jnz     1f
+    RTX_GVA_R9
     mov     r12, qword ptr [rsp + CTX_TR]
+    .cfi_remember_state
     mov     rsp, rbp
     pop     rbp
     .cfi_def_cfa rsp, 8
@@ -857,6 +859,7 @@ RTX_FUNC(rt_pl_dop_tbl_park)
     mov     eax, DT_FAIL
     xor     edx, edx
     ret
+    .cfi_restore_state
 1:  mov     rdi, rax
     call    rt_pl_pseg_next
     jmp     rt_pl_pseg_switch
@@ -887,6 +890,7 @@ RTX_FUNC(rt_pl_pseg_ball)
     mov     rcx, qword ptr [r11 + PSCH_RET]
     mov     rsp, qword ptr [r11 + PSCH_ENTRY]
     add     rsp, 8
+    RTX_GVA_R9
     mov     eax, DT_FAIL
     xor     edx, edx
     jmp     rcx
@@ -911,6 +915,7 @@ RTX_FUNC(rt_pl_pseg_switch)
     mov     r14, qword ptr [r11 + PSEG_R14]
     mov     r15, qword ptr [r11 + PSEG_R15]
     mov     rsp, qword ptr [r11 + PSEG_ORIG]
+    RTX_GVA_R9
     mov     eax, DT_I
     mov     edx, 1
     ret
@@ -924,6 +929,7 @@ RTX_FUNC(rt_pl_pseg_switch)
     mov     rcx, qword ptr [r11 + PSCH_RET]
     mov     rsp, qword ptr [r11 + PSCH_ENTRY]
     add     rsp, 8
+    RTX_GVA_R9
     mov     eax, DT_I
     mov     edx, 1
     jmp     rcx
