@@ -18337,7 +18337,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     ;
     if (id == PBI_rounde && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0), e = rint(d);
-        if (!(e >= -2147483647.0 && e <= 2147483647.0)) pas_file_err("6.6.6.3", "round(x) of a value that rounds outside -maxint..maxint, so no such integer value exists", NULL);
+        if (!(e > -9223372036854775809.0 && e < 9223372036854775808.0)) { fflush(NULL); fprintf(stderr, "Runtime error 207 at $0\n"); exit(207); }
         *out = INTVAL((long long)e);
         return 1;
     }
@@ -19065,7 +19065,8 @@ static int pas_bi_chrlit(DESCR_t *args, int nargs, DESCR_t *out) { if (nargs != 
 static int pas_bi_trunc(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1 && nargs != 2) return 0;
     double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
-    if (nargs == 2 && !(trunc(d) >= -2147483647.0 && trunc(d) <= 2147483647.0))
+    if (nargs == 2 && IS_INT_fn(args[1]) && args[1].i == 2 && !(d > -9223372036854775809.0 && d < 9223372036854775808.0)) { fflush(NULL); fprintf(stderr, "Runtime error 207 at $0\n"); exit(207); }
+    if (nargs == 2 && !(IS_INT_fn(args[1]) && args[1].i == 2) && !(trunc(d) >= -2147483647.0 && trunc(d) <= 2147483647.0))
         pas_file_err("6.6.6.3", "trunc(x) of a value whose integer part is not in -maxint..maxint, so no such integer value exists", NULL);
     *out = INTVAL((long long)d);
     return 1;

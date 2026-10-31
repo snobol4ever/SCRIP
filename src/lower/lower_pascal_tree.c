@@ -943,7 +943,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             return floop;
         }
     }
-    if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(1));
+    if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(g_lower.pas.sem.pas_dialect_fpc ? 2 : 1));
     if (name && !strcmp(name, "int") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
     if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1(g_lower.pas.sem.pas_dialect_fpc ? "__pas_rounde" : "__pas_round", args->items[0]);
     if (name && !strcmp(name, "halt") && (!args || args->count == 0)) return mk_fnc0("__pas_halt");

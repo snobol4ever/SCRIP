@@ -15,6 +15,7 @@ function ExtractWordPos(wn: integer; const sv: string; const wd: TSysCharSet; va
 function ExtractWord(wn: integer; const sv: string; const wd: TSysCharSet): string;
 function WordCount(const sv: string; const wd: TSysCharSet): integer;
 function Dec2Numb(nv: int64; ln, bs: integer): string;
+function Numb2USA(const S: string): string;
 implementation
 function ReverseString(s: string): string;
 var r: string; i: integer;
@@ -132,6 +133,23 @@ begin
   end;
   while length(rs) < ln do rs := '0' + rs;
   Dec2Numb := rs
+end;
+function Numb2USA(const S: string): string;
+var i, na: integer; rs: string;
+begin
+  i := length(S);
+  rs := S;
+  na := 0;
+  while i > 0 do
+  begin
+    if ((length(rs) - i + 1 - na) mod 3 = 0) and (i <> 1) then
+    begin
+      insert(',', rs, i);
+      inc(na)
+    end;
+    dec(i)
+  end;
+  Numb2USA := rs
 end;
 function AnsiReplaceStr(const AText, AFromText, AToText: string): string;
 var pp: integer; rs, rest: string;
