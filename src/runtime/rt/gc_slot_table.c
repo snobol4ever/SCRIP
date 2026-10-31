@@ -21,8 +21,8 @@ _Static_assert(sizeof(dtp_rcp_t) == 48 && offsetof(dtp_rcp_t, s) == 8 && offseto
     "HB_DTPRCP holds one dtp_rcp_t: the pointer members are s, l and r; a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_slot_t) == 40 && offsetof(pl_db_slot_t, cl) == 0 && sizeof(pl_cell_t) == 16,
     "HB_PLDBS is a vector of pl_db_slot_t whose clause cell cl is a DESCR_t; the other members are ints; a new member means this row is re-read");
-_Static_assert(sizeof(pl_db_t) == 96 && offsetof(pl_db_t, s) == 0 && offsetof(pl_db_t, ix) == 64,
-    "HB_PLDB holds one pl_db_t: the pointer members are s (the PLDBS vector) and ix (the index block); a new member means this row is re-read");
+_Static_assert(sizeof(pl_db_t) == 104 && offsetof(pl_db_t, s) == 0 && offsetof(pl_db_t, ix) == 64 && offsetof(pl_db_t, src) == 96,
+    "HB_PLDB holds one pl_db_t: the pointer members are s (the PLDBS vector), ix (the index block) and src (the source record, two ints a slot); a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_key_t) == 48 && offsetof(pl_db_key_t, key) == 0 && offsetof(pl_db_key_t, db) == 16,
     "HB_PLDBK is a vector of pl_db_key_t whose pointer members are key and db; a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_reg_t) == 120 && offsetof(pl_db_reg_t, e) == 0 && offsetof(pl_db_reg_t, ovf) == 24 && offsetof(pl_db_reg_t, tries) == 32 && offsetof(pl_db_reg_t, hix) == 56 &&
@@ -67,7 +67,7 @@ static const gc_sfield_t ss_dtp[] = { { offsetof(DTP_t, rcp), GS_RAW }, { offset
 static const gc_sfield_t ss_dtprcp[] = { { offsetof(dtp_rcp_t, s), GS_RAW }, { offsetof(dtp_rcp_t, l), GS_RAW }, { offsetof(dtp_rcp_t, r), GS_RAW } };
 static const gc_sfield_t ss_pldbs_e[] = { { offsetof(pl_db_slot_t, cl), GS_DESCR } };
 static const gc_run_t run_pldbs = { 0, sizeof(pl_db_slot_t), 0, 0, sizeof ss_pldbs_e / sizeof ss_pldbs_e[0], ss_pldbs_e };
-static const gc_sfield_t ss_pldb[] = { { offsetof(pl_db_t, s), GS_RAW }, { offsetof(pl_db_t, ix), GS_RAW } };
+static const gc_sfield_t ss_pldb[] = { { offsetof(pl_db_t, s), GS_RAW }, { offsetof(pl_db_t, ix), GS_RAW }, { offsetof(pl_db_t, src), GS_RAW } };
 static const gc_sfield_t ss_pldbk_e[] = { { offsetof(pl_db_key_t, key), GS_RAW }, { offsetof(pl_db_key_t, db), GS_RAW } };
 static const gc_run_t run_pldbk = { 0, sizeof(pl_db_key_t), 0, 0, sizeof ss_pldbk_e / sizeof ss_pldbk_e[0], ss_pldbk_e };
 static const gc_sfield_t ss_pldbr[] = { { offsetof(pl_db_reg_t, e), GS_RAW }, { offsetof(pl_db_reg_t, ovf), GS_RAW }, { offsetof(pl_db_reg_t, tries), GS_RAW }, { offsetof(pl_db_reg_t, hix), GS_RAW },

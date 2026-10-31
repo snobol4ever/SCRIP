@@ -27,6 +27,7 @@ typedef struct {
     int entry_idx;
     int mod;
     int whole;
+    int *src;
 } pl_db_t;
 typedef struct { char *key; int k; int meta; pl_db_t *db; int stat; int decl; int file; int line; int mf; int lib; } pl_db_key_t;
 typedef struct {

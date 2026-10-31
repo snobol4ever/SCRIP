@@ -25505,8 +25505,14 @@ DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok()
 extern int rt_pl_db_seed(void *, void *, void *);
 static int bnd_db_key_need(void *cell);
 extern int rt_pl_db_term_key(void *, char *, size_t, int *);
+static int pl_seed_src(void *db, DESCR_t *args, int ok) {
+    extern int rt_pl_db_src_set_last(void *, int, int);
+    DESCR_t fv = rt_pl_deref_val(args[3]), lv = rt_pl_deref_val(args[4]);
+    if (ok) rt_pl_db_src_set_last(db, (int)fv.v == DT_PLATOM ? (int)fv.i : -1, lv.v == DT_I ? (int)lv.i : 0);
+    return ok;
+}
 DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
-    if (nargs != 3) return FAILDESCR;
+    if (nargs != 5) return FAILDESCR;
     pl_atoms_ready();
     {
         extern void *rt_pl_db_get_by_key(void *, const char *, int);
@@ -25521,9 +25527,10 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
             extern int rt_pl_db_key_is_declared(void *, const char *);
             char key[bnd_db_key_need((void *)&args[2])];
             int ar = 0;
-            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3) ? pl_ok() : FAILDESCR;
+            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return pl_seed_src(db, args, rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3)) ?
+                pl_ok() : FAILDESCR;
         }
-        return rt_pl_db_seed(root, db, (void *)&args[2]) ? pl_ok() : FAILDESCR;
+        return pl_seed_src(db, args, rt_pl_db_seed(root, db, (void *)&args[2])) ? pl_ok() : FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -26154,6 +26161,14 @@ DESCR_t rt_pl_dop_db_ref_r_c(DESCR_t *args, int nargs, void *root) {
         }
     }
 }
+PL_CX_LEAF_HEAD(db_clause_src, 3)
+    {
+        extern int rt_pl_db_src_of_ref(void *, int, int *, int *);
+        int ref = 0, file = -1, line = 0;
+        void *db = pl_db_of_clref(rt_pl_deref_val(args[0]), (void *)(uintptr_t)cx->r14, &ref);
+        ok = db && rt_pl_db_src_of_ref(db, ref, &file, &line) && file >= 0 && plw_unify_vals(args[1], pl_make_atom(file), cx) && plw_unify_vals(args[2], INTVAL((long long)line), cx);
+    }
+PL_CX_LEAF_TAIL
 DESCR_t rt_pl_dop_db_erase_ref_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_slot_of_ref(void *, int);
     extern int rt_pl_db_erase(void *, void *, int);

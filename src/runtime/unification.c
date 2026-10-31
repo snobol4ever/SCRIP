@@ -4103,6 +4103,7 @@ _Static_assert(sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_slot_t, er
 _Static_assert(__builtin_offsetof(pl_db_t, s) == 0 && __builtin_offsetof(pl_db_t, n) == 8 && __builtin_offsetof(pl_db_t, next_ref) == 20 && __builtin_offsetof(pl_db_t, head_idx) == 24,
     "xa_flat.cpp's packet entry and bb_to.cpp's db walk bake the store layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
 _Static_assert(__builtin_offsetof(pl_db_t, ix) == 64, "rtx_gc.s's HB_PLDB visitor marks the index block through the word at +64 (ARCH-PROLOG-DATABASE section 7)");
+_Static_assert(__builtin_offsetof(pl_db_t, src) == 96, "rtx_gc.s's HB_PLDB visitor marks the source record through the word at +96 (ARCH-PROLOG-DATABASE section 23)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ** pl_db_cell_addr(void *root, int64_t k, int create);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4322,6 +4323,7 @@ int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_kmod_get(void *root, int64_t k);
+static int pl_db_src_grow(pl_db_t *db, int n, int cap);
 void * rt_pl_db_get(void *root, int64_t k) {
     if (!root || k < 0) return (void *)0;
     {
@@ -4351,7 +4353,8 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->entry_idx = -1;
             d->mod = pl_db_kmod_get(root, k);
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
-            if (!d->s) { d->cap = 0; }
+            d->src = (int *)0;
+            if (!d->s || !pl_db_src_grow(d, 0, d->cap)) { d->cap = 0; }
             *cell = d;
         }
         return (void *)*cell;
@@ -5456,6 +5459,19 @@ int rt_pl_db_assert_ref(void *root, void *db_v, void *clause_term, int prepend) 
     return db->s[db->n - 1].ref;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_src_set_last(void *db_v, int file, int line) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || db->n < 1 || !db->src) return 0;
+    db->src[2 * (db->n - 1)] = file;
+    db->src[2 * (db->n - 1) + 1] = line;
+    return 1;
+}
+int rt_pl_db_src_of_ref(void *db_v, int ref, int *file, int *line) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || ref < 1 || !db->src) return 0;
+    for (int i = 0; i < db->n; i++) if (db->s[i].ref == ref) { *file = db->src[2 * i]; *line = db->src[2 * i + 1]; return 1; }
+    return 0;
+}
 int rt_pl_db_slot_of_ref(void *db_v, int ref) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || ref < 1) return -1;
@@ -5657,6 +5673,14 @@ int rt_pl_db_slot_ensure(void *root, void *db_v, int i) {
     if (db->s[i].ridx >= 0) return 1;
     return pl_db_fragment(root, db, i);
 }
+static int pl_db_src_grow(pl_db_t *db, int n, int cap) {
+    extern void *rt_heap_alloc_c(size_t);
+    int *ns = (int *)rt_heap_alloc_c((size_t)(cap > 0 ? cap : 1) * 2 * sizeof(int));
+    if (!ns) return 0;
+    for (int i = 0; i < cap; i++) { ns[2 * i] = i < n && db->src ? db->src[2 * i] : -1; ns[2 * i + 1] = i < n && db->src ? db->src[2 * i + 1] : 0; }
+    db->src = ns;
+    return 1;
+}
 static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int recompile, int tx) {
     extern int prolog_atom_intern(const char *);
     pl_db_t *db = (pl_db_t *)db_v;
@@ -5665,6 +5689,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
     db->killed = 0;
     if (db->n >= db->cap) {
         int nc = db->cap > 0 ? db->cap * 2 : 8;
+        if (!pl_db_src_grow(db, db->n, nc)) return 0;
         pl_db_slot_t *ns = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)nc * sizeof(pl_db_slot_t));
         if (!ns) return 0;
         for (int i = 0; i < db->n; i++) ns[i] = db->s[i];
@@ -5690,6 +5715,8 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
             int i = db->n;
             if (db->next_ref < 1) db->next_ref = 1;
             db->s[i].cl = stored;
+            db->src[2 * i] = -1;
+            db->src[2 * i + 1] = 0;
             db->s[i].erased = 0;
             db->s[i].ref = db->next_ref++;
             db->s[i].ridx = -1;
