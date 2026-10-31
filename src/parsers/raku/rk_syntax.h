@@ -6,6 +6,7 @@ unsigned rk_uniname_cp(const char *s, int n);
 const char *rk_uniname_seq(const char *s, int n);
 int rk_is_core_type(const char *s);
 int rk_is_core_routine(const char *s);
+int rk_word_sep_at(const char *s, int n, int pos, int *len);
 #include "ast.h"
 tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg);
 #endif

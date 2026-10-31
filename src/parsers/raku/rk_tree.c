@@ -972,11 +972,11 @@ static int words_ok(const char *s, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *b_words(RkB *b, const char *s, int n) {
     tree_t *call = make_call("__rk_arr"); int wc = 0;
-    int i = 0;
+    int i = 0, l = 1;
     while (i < n) {
-        while (i < n && (s[i] == ' ' || s[i] == '\t')) i++;
+        while (i < n && rk_word_sep_at(s, n, i, &l)) i += l;
         if (i >= n) break;
-        int w = i; while (i < n && s[i] != ' ' && s[i] != '\t') i++;
+        int w = i; while (i < n && !rk_word_sep_at(s, n, i, &l)) i += l;
         SB t = { 0 };
         for (int j = w; j < i; j++) { if (s[j] == '\\' && j + 1 < i && s[j + 1] == '\\') { sb_c(&t, '\\'); j++; } else sb_c(&t, s[j]); }
         expr_add_child(call, leaf_sval(TT_QLIT, sb_str(&t))); wc++;
