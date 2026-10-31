@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include "lower.h"
+#include "ir/ast.h"
+#include "lower/lower_prolog_chr.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_common.h"
 typedef struct { const char * name; int arity; } ch_con_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * ch_atom(const char * s) { tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) s; return n; }

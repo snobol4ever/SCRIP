@@ -5,7 +5,16 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdint.h>
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_prolog.h"
+#include "lower/lower_prolog_chr.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/IR.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_common.h"
+#include "lower/lc_vec.h"
 #include "emit.h"
 #include "stage2.h"
 #include "../parsers/snobol4/scrip_cc.h"

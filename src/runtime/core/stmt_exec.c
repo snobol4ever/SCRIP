@@ -7,7 +7,8 @@
 #include "bb_build.h"
 #include "bb_pool.h"
 #include "emit.h"
-#include "lower.h"
+#include "ir/ast.h"
+#include "ir/bb_box.h"
 #include "ast.h"
 #include "bb_box.h"
 const char *Σ = NULL;

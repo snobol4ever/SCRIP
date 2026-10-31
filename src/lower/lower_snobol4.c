@@ -8,7 +8,15 @@
 #include <stdio.h>
 #include <time.h>
 #include <setjmp.h>
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_snobol4.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/IR.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_common.h"
 #include "g_lower.h"
 #include "dtp.h"
 #include "bb_program.h"

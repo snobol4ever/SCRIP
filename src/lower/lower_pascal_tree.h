@@ -233,4 +233,5 @@ typedef struct {
     int fln;
     int pas_routine_alias_n;
 } g_lower_pas_sem_t;
+tree_t *lower_pascal_tree(tree_t *pruned, const char *filename);
 #endif

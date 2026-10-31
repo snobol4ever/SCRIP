@@ -22,7 +22,11 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "core.h"
 #include "sil_macros.h"
 #include "runtime_shim.h"
-#include "lower.h"
+#include "ir/SM.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/bb_box.h"
 #include "SM.h"
 #include "bb_build.h"
 extern DESCR_t pat_at_cursor(const char *varname);

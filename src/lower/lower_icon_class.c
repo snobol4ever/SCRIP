@@ -1,7 +1,9 @@
 #include <string.h>
 #include <stdio.h>
 #include "ct_arena.h"
-#include "lower.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen.h"
 #include "g_lower.h"
 #include "../parsers/snobol4/scrip_cc.h"
 #include "../parsers/icon/icon_driver.h"

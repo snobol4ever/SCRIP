@@ -3,7 +3,15 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_pascal.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/IR.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lc_vec.h"
+#include "lower/lower_common.h"
 #include "g_lower.h"
 typedef struct pas_scope_s { const char ** names; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;

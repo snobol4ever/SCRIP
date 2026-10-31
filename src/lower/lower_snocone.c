@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "lower.h"
+#include "ir/ast.h"
+#include "lower/lower_snocone.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
 #include "parsers/snocone/snocone_driver.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e lsc_prim_kind(const char *s) {

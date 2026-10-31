@@ -4,7 +4,16 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <math.h>
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_icon.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/IR.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_common.h"
+#include "lower/lc_vec.h"
 #include "g_lower.h"
 extern int icn_builtin_is_known(const char *);
 extern int icn_builtin_arity(const char *);

@@ -6,7 +6,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_raku.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/IR.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_common.h"
 #include "g_lower.h"
 typedef struct rk_loopfr_s { const char * label; IR_t * exit; IR_t * next; IR_t * redo; struct rk_loopfr_s * up; } rk_loopfr_t;
 typedef struct {

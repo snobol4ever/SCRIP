@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include "ct_arena.h"
 #include "ast.h"
-#include "lower.h"
+#include "ir/bb_box.h"
+#include "runtime/builtins/gen.h"
 #include "g_lower.h"
 #include "lower_pascal_types.h"
 #define PT_IS(x, k) ((x) && (x)->t == (k))

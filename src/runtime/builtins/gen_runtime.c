@@ -9,7 +9,8 @@
 #include "rt_diag.h"
 #include "coerce.h"
 #include "../by_name_dispatch.h"
-#include "../../lower/lower.h"
+#include "ir/IR.h"
+#include "ir/bb_box.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

@@ -2,7 +2,12 @@
 #include "g_runtime.h"
 #include <stdlib.h>
 #include "scrip_sm.h"
-#include "lower.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "ir/IR.h"
+#include "runtime/builtins/gen.h"
 #include "../parsers/snobol4/scrip_cc.h"
 #include "IR.h"
 #include "bb_program.h"

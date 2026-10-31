@@ -14,7 +14,17 @@
 #include "runtime/builtins/gen_runtime.h"
 #include "driver/driver.h"
 #include "driver/polyglot.h"
-#include "lower.h"
+#include "ir/SM.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "lower/lower_icon.h"
+#include "lower/lower_pascal.h"
+#include "lower/lower_prolog.h"
+#include "lower/lower_raku.h"
+#include "lower/lower_snobol4.h"
+#include "lower/lower_snocone.h"
+#include "runtime/builtins/gen.h"
+#include "lower/lower_pascal_tree.h"
 #include "SM.h"
 int g_fi8_gen_init_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
