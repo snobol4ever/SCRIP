@@ -2124,6 +2124,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dbg_rm'([X|Xs],T,R):-('$dbg_variant'(X,T)->R=R1;R=[X|R1]),'$dbg_rm'(Xs,T,R1).\n"
     "'$dbg_variant'(A,B):-copy_term(A,A1),numbervars(A1,0,_),copy_term(B,B1),numbervars(B1,0,_),A1==B1.\n"
     "':'(M,_):-var(M),!,throw(error(instantiation_error,(:)/2)).\n"
+    "':'(M,G):-current_prolog_flag('$dialect',xsb),!,'$xsb_modr'(M,K),'$mod_call'(K,G).\n"
     "':'(M,G):-'$mod_call'(M,G).\n"
     "':'(M,G,A):-'$mod_ext'(M,G,1,G2),call(G2,A).\n"
     "':'(M,G,A,B):-'$mod_ext'(M,G,2,G2),call(G2,A,B).\n"
@@ -3338,7 +3339,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_idx'([]).\n"
     "'$lfx_idx'([index|R]):-'$lfx_idx'(R).\n"
     "'$lfx_terms'([],_,_,_,_,[]).\n"
-    "'$lfx_terms'([T|Ts],M,Ks,Tb,A,Is):-'$lfx_term'(T,M,Ks,Tb,A,Is,I0),'$lfx_terms'(Ts,M,Ks,Tb,A,I0).\n"
+    "'$lfx_terms'([T|Ts],M,Ks,Tb,A,Is):-'$xsb_psub'(M,T,T1),'$lfx_term'(T1,M,Ks,Tb,A,Is,I0),'$lfx_terms'(Ts,M,Ks,Tb,A,I0).\n"
     "'$lfx_term'(T,_,_,_,_,I,I):-var(T),!.\n"
     "'$lfx_term'((:-initialization(G)),M,Ks,_,_,[G2|I0],I0):-!,'$lfx_body'(G,M,Ks,G2).\n"
     "'$lfx_term'((:-D),M,Ks,_,A,I,I):-!,'$lfx_dir'(D,M,Ks,A).\n"
@@ -3347,6 +3348,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_term'(C,M,Ks,Tb,_,I,I):-'$lfx_clause'(C,M,Ks,Tb,C2),catch(('$db_t_guard'(C2,assertz),'$db_consult_t'(C2)),E,(format(user_error,'Warning: load raised: ~q~n',[E]))).\n"
     "'$lfx_dir'(D,_,_,_):-var(D),!.\n"
     "'$lfx_dir'(table(_),_,_,_):-!.\n"
+    "'$lfx_dir'(module(N,_),M,_,_):-compound(N),!,N=..[_|Fs],'$xsb_pbind'(M,Fs).\n"
+    "'$lfx_dir'(D,M,_,_):-compound(D),functor(D,module_parameters,_),!,D=..[_|Fs],'$xsb_pbind'(M,Fs).\n"
     "'$lfx_dir'(op(_,_,_),_,_,_):-!.\n"
     "'$lfx_dir'(ensure_loaded(F),M,_,A):-!,'$lf_list'(F,Fl),'$lfx_rels'(Fl,A,Ps),load_files(M:Ps,[dialect(xsb),if(not_loaded)]).\n"
     "'$lfx_dir'([F|Fs],M,_,A):-!,'$lfx_rels'([F|Fs],A,Ps),load_files(M:Ps,[dialect(xsb)]).\n"
@@ -3416,7 +3419,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_impq'(G,M,G2):-callable(G),functor(G,F,N),catch('$lfx_imp'(M,F,N,Mod),_,fail),!,'$lfx_q'(Mod,F,Q),G=..[_|As],G2=..[Q|As].\n"
     "'$lfx_import'(from(Ps,Mod),M,_):-memberchk(Mod,[usermod,user]),!,'$lfx_imps'(Ps,M,user).\n"
     "'$lfx_import'(from(Ps,Mod),M,A):-atom(Mod),'$lf_rel'(A,Mod,P0),catch('$lf_path'(P0,[dialect(xsb)],P),_,fail),!,load_files(Mod:P,[dialect(xsb),if(not_loaded)]),'$lfx_imps'(Ps,M,Mod).\n"
+    "'$lfx_import'(as(from(Ps,Mod),Qs),M,_):-!,'$lfx_impas'(Ps,Qs,M,Mod).\n"
     "'$lfx_import'(_,_,_).\n"
+    "'$lfx_impas'(V,_,_,_):-var(V),!.\n"
+    "'$lfx_impas'((A,B),(C,D),M,Mod):-!,'$lfx_impas'(A,C,M,Mod),'$lfx_impas'(B,D,M,Mod).\n"
+    "'$lfx_impas'(P/N,Q/N,M,Mod):-atom(P),atom(Q),integer(N),!,functor(H,Q,N),H=..[_|As],'$lfx_q'(M,Q,QQ),QH=..[QQ|As],G=..[P|As],assertz((QH:-'$xsb_qcall'(Mod,G))).\n"
+    "'$lfx_impas'(_,_,_,_).\n"
     "'$lfx_imps'(V,_,_):-var(V),!.\n"
     "'$lfx_imps'((A,B),M,Mod):-!,'$lfx_imps'(A,M,Mod),'$lfx_imps'(B,M,Mod).\n"
     "'$lfx_imps'(F/N,M,Mod):-atom(F),integer(N),M\\==Mod,!,assertz('$lfx_imp'(M,F,N,Mod)).\n"
@@ -4322,6 +4330,12 @@ static int pl_tree_has_fn(const tree_t *t, const char *fn) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_fn(t->c[i], fn)) return 1;
     return 0;
 }
+static int pl_tree_dyn_modq(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_VAR || (t->c[0]->t == TT_FNC && t->c[0]->v.sval))) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_dyn_modq(t->c[i])) return 1;
+    return 0;
+}
 static int pl_tree_var_clause_goal(const tree_t *t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->v.sval && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR) {
@@ -4484,6 +4498,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
         if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
+        if (xsb_prog && cl->tr && pl_tree_dyn_modq(cl->tr)) pl_cv_add(&referenced, "load_files");
     }
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");

@@ -14,7 +14,7 @@
     term_to_atom/2,3 and term_to_codes/2,3 are XSB's (syslib/string.P) and WRITE ONLY: the term is copied and written as codes, the default options ignore_ops(canonical), quoted(false), numbervars(false), so a
     compound is f(a,b) whatever its operators, a proper list [a,b], an unbound variable _h0, _h1, ... in order of first occurrence (a repeated variable keeps its number), a float as number_codes writes it and
     an atom as its text (quoted(true) quotes what XSB's if_not_need_quote refuses); SWI's term_to_atom/2 parses text, so it stays SWI's outside the XSB dialect (prolog_tests/large_arity_prolog). gc_dynamic/1 (syslib/standard.P: check_var, then the count of retracted clauses the delayed reclamation freed) answers 0, SCRIP frees a retracted clause at once so none is pending, and a bound argument is type_error(variable, N); XSB's own count is its storage's timing and no answer (CEO-1934, CEO-2012 (c)), so the retract_tests *_gc_* programs print it on lines the package mask replaces. retract_nr/1 is retract/1 (assert.P: the same retraction without reclaiming the clause; XSB prints an obsolete warning on stderr; retract_tests *_gc_*). file_write/2 (xsb_writ), file_flush/2, file_seek/4 (place 0 set, 1 current, 2 end), file_truncate/3 (truncates the file and leaves the position at the new end, measured on XSB 5.0.0), print_file_contents/1 (file_io) and rm/1 (shell) are XSB's file routines over the streams file_open/3 returns, each answering 0 for its status argument (io_tests/io_basics); xsb_configuration/2 answers os_type linux-gnu, measured on XSB 5.0.0. gc_heap/0 is XSB's heap collection, a no-op here (SCRIP collects at its own safe points), and storage_insert_fact/3, storage_find_fact/2 and storage_delete_all/1 are lib/storage.P's named fact storage (a trie in XSB, a dynamic table here: a variant fact is inserted once, Inserted is 1 for a new fact and 0 for one already there) that prolog_tests/gctest fills and empties. concat_atom/2,3 (syslib/string.P) join atomic elements, a number included (concat_atom([x,1], A) gives x1), and fail on a compound element, where backcomp.pl's route through atom_concat/3 raises XSB's strict type_error(atom, 1) (the generator's SHADOWS rows replace backcomp's in the XSB dialect; prolog_tests/gctest in mode 4). */
-:- module(xsb_dialect, [ term_new_mod/3, index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, file_write/2, file_flush/2, file_seek/4, file_truncate/3, print_file_contents/1, rm/1, xsb_configuration/2, gc_heap/0, storage_insert_fact/3, storage_find_fact/2, storage_delete_all/1, storage_insert_fact_bt/3, storage_delete_fact/3, storage_delete_fact_bt/3, storage_insert_keypair/4, storage_insert_keypair_bt/4, storage_find_keypair/3, storage_delete_keypair/3, storage_delete_keypair_bt/3, storage_reclaim_space/1, reclaim_space/1, asserti/2, assertzi/2, assertai/2, concat_atom/2, concat_atom/3, import/1, install_verify_attribute_handler/4, install_verify_attribute_handler/5, attv_unify/2 ]).
+:- module(xsb_dialect, [ term_new_mod/3, index/2, index/3, do_all/1, do_all/2, term_size/2, number_digits/2, is_acyclic/1, term_to_atom/2, term_to_atom/3, term_to_codes/2, term_to_codes/3, compile/1, compile/2, min_ed_dis/3, gc_dynamic/1, retract_nr/1, file_write/2, file_flush/2, file_seek/4, file_truncate/3, print_file_contents/1, rm/1, xsb_configuration/2, gc_heap/0, storage_insert_fact/3, storage_find_fact/2, storage_delete_all/1, storage_insert_fact_bt/3, storage_delete_fact/3, storage_delete_fact_bt/3, storage_insert_keypair/4, storage_insert_keypair_bt/4, storage_find_keypair/3, storage_delete_keypair/3, storage_delete_keypair_bt/3, storage_reclaim_space/1, reclaim_space/1, asserti/2, assertzi/2, assertai/2, concat_atom/2, concat_atom/3, import/1, install_verify_attribute_handler/4, install_verify_attribute_handler/5, attv_unify/2, expand_filename/2, '$xsb_modr'/2, '$xsb_pbind'/2, '$xsb_psub'/3, '$xsb_qcall'/2 ]).
 concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).
 concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).
 '$xsb_ca_atomic'([]).
@@ -136,6 +136,41 @@ min_ed_dis(S, T, D) :- atom_codes(S, Cs), atom_codes(T, Ds), length(Ds, N), numl
 '$xsb_med_row'(Ds, C, I, Prev, [I|Cur]) :- '$xsb_med_cells'(Ds, C, Prev, I, Cur).
 '$xsb_med_cells'([], _, _, _, []).
 '$xsb_med_cells'([D|Ds], C, [Diag, Up|Prev], Left, [X|Xs]) :- ( C =:= D -> Sub = Diag ; Sub is Diag + 1 ), U1 is Up + 1, L1 is Left + 1, X is min(Sub, min(U1, L1)), '$xsb_med_cells'(Ds, C, [Up|Prev], X, Xs).
+import(from(Ps, Mod)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Ps, Mod).
+import(as(from(Ps, Mod), Qs)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Qs, Mod).
 import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).
 import(_).
 '$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).
+expand_filename(F, A) :- absolute_file_name(F, A).
+:- dynamic '$xsb_mf'/2.
+:- dynamic '$xsb_ml'/1.
+:- dynamic '$xsb_pf'/3.
+:- dynamic '$xsb_pa'/2.
+'$xsb_modr'(M, _) :- var(M), !, throw(error(instantiation_error, (:)/2)).
+'$xsb_modr'(M, KA) :- '$xsb_mkey'(M, K), ( compound(K) -> format(atom(KA), '~q', [K]) ; KA = K ), '$xsb_mload'(K, KA).
+'$xsb_qcall'(M, G) :- '$xsb_modr'(M, K), '$mod_call'(K, G).
+'$xsb_mkey'(B>>F, K) :- !, '$xsb_mkey'(B, K), ( compound(K) -> functor(K, N, _) ; N = K ), ( '$xsb_mf'(N, _) -> true ; assertz('$xsb_mf'(N, F)) ).
+'$xsb_mkey'(usermod, user) :- !.
+'$xsb_mkey'(M, K) :- compound(M), M =.. [N|As], As \== [], !, '$xsb_mkeys'(As, Ks), K =.. [N|Ks].
+'$xsb_mkey'(M, M).
+'$xsb_mkeys'([], []).
+'$xsb_mkeys'([A|As], [K|Ks]) :- '$xsb_mkey'(A, K), '$xsb_mkeys'(As, Ks).
+'$xsb_mload'(_, KA) :- ( KA == user ; '$xsb_ml'(KA) ), !.
+'$xsb_mload'(K, KA) :- '$xsb_mfile'(K, F), !, assertz('$xsb_ml'(KA)), retractall('$xsb_pa'(KA, _)), ( compound(K) -> K =.. [_|As] ; As = [] ), assertz('$xsb_pa'(KA, As)),
+    catch(load_files(KA:F, [dialect(xsb)]), E, ( retractall('$xsb_ml'(KA)), throw(E) )).
+'$xsb_mload'(_, _).
+'$xsb_mfile'(K, F) :- ( compound(K) -> functor(K, N, _) ; N = K ), ( '$xsb_mf'(N, F) -> true ; atom_concat(N, '.P', FP), atom_concat(N, '.pl', FL), ( exists_file(FP) ; exists_file(FL) ), F = N ).
+'$xsb_pbind'(M, Fs) :- retractall('$xsb_pf'(M, _, _)), ( '$xsb_pa'(M, As) -> true ; As = [] ), assertz('$xsb_pf'(M, Fs, As)).
+'$xsb_psub'(M, T, T1) :- ( '$xsb_pf'(M, Fs, As), As \== [] -> '$xsb_psubst'(Fs, As, T, T1) ; T1 = T ).
+'$xsb_psubst'(Fs, As, T, T1) :- atom(T), !, ( '$xsb_psub_a'(Fs, As, T, A) -> T1 = A ; T1 = T ).
+'$xsb_psubst'(Fs, As, T, T1) :- compound(T), !, T =.. [F|Args], '$xsb_psubl'(Args, Fs, As, Args1), T1 =.. [F|Args1].
+'$xsb_psubst'(_, _, T, T).
+'$xsb_psubl'([], _, _, []).
+'$xsb_psubl'([X|Xs], Fs, As, [Y|Ys]) :- '$xsb_psubst'(Fs, As, X, Y), '$xsb_psubl'(Xs, Fs, As, Ys).
+'$xsb_psub_a'([F|_], [A|_], T, A) :- F == T, !.
+'$xsb_psub_a'([_|Fs], [_|As], T, A) :- '$xsb_psub_a'(Fs, As, T, A).
+'$xsb_impmod'(Mod) :- nonvar(Mod), ( Mod = (_>>_) ; compound(Mod), functor(Mod, N, _), N \== usermod ), !.
+'$xsb_impstub'(V, _, _) :- var(V), !.
+'$xsb_impstub'((A,B), Qs, Mod) :- !, ( nonvar(Qs), Qs = (C,D) -> true ; C = A, D = B ), '$xsb_impstub'(A, C, Mod), '$xsb_impstub'(B, D, Mod).
+'$xsb_impstub'(P/N, Q/N, Mod) :- atom(P), atom(Q), integer(N), !, functor(H, Q, N), H =.. [_|As], G =.. [P|As], assertz((H :- '$xsb_qcall'(Mod, G))).
+'$xsb_impstub'(_, _, _).

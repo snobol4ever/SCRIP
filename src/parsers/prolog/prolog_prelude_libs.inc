@@ -35506,6 +35506,11 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "install_verify_attribute_handler", 4 },
     { "install_verify_attribute_handler", 5 },
     { "attv_unify", 2 },
+    { "expand_filename", 2 },
+    { "$xsb_modr", 2 },
+    { "$xsb_pbind", 2 },
+    { "$xsb_psub", 3 },
+    { "$xsb_qcall", 2 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
@@ -35647,9 +35652,44 @@ static const char PL_PRELUDE_LIB_79_SRC[] =
     "'$xsb_med_row'(Ds, C, I, Prev, [I|Cur]) :- '$xsb_med_cells'(Ds, C, Prev, I, Cur).\n"
     "'$xsb_med_cells'([], _, _, _, []).\n"
     "'$xsb_med_cells'([D|Ds], C, [Diag, Up|Prev], Left, [X|Xs]) :- ( C =:= D -> Sub = Diag ; Sub is Diag + 1 ), U1 is Up + 1, L1 is Left + 1, X is min(Sub, min(U1, L1)), '$xsb_med_cells'(Ds, C, [Up|Prev], X, Xs).\n"
+    "import(from(Ps, Mod)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Ps, Mod).\n"
+    "import(as(from(Ps, Mod), Qs)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Qs, Mod).\n"
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
-    "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
+    "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n"
+    "expand_filename(F, A) :- absolute_file_name(F, A).\n"
+    ":- dynamic '$xsb_mf'/2.\n"
+    ":- dynamic '$xsb_ml'/1.\n"
+    ":- dynamic '$xsb_pf'/3.\n"
+    ":- dynamic '$xsb_pa'/2.\n"
+    "'$xsb_modr'(M, _) :- var(M), !, throw(error(instantiation_error, (:)/2)).\n"
+    "'$xsb_modr'(M, KA) :- '$xsb_mkey'(M, K), ( compound(K) -> format(atom(KA), '~q', [K]) ; KA = K ), '$xsb_mload'(K, KA).\n"
+    "'$xsb_qcall'(M, G) :- '$xsb_modr'(M, K), '$mod_call'(K, G).\n"
+    "'$xsb_mkey'(B>>F, K) :- !, '$xsb_mkey'(B, K), ( compound(K) -> functor(K, N, _) ; N = K ), ( '$xsb_mf'(N, _) -> true ; assertz('$xsb_mf'(N, F)) ).\n"
+    "'$xsb_mkey'(usermod, user) :- !.\n"
+    "'$xsb_mkey'(M, K) :- compound(M), M =.. [N|As], As \\== [], !, '$xsb_mkeys'(As, Ks), K =.. [N|Ks].\n"
+    "'$xsb_mkey'(M, M).\n"
+    "'$xsb_mkeys'([], []).\n"
+    "'$xsb_mkeys'([A|As], [K|Ks]) :- '$xsb_mkey'(A, K), '$xsb_mkeys'(As, Ks).\n"
+    "'$xsb_mload'(_, KA) :- ( KA == user ; '$xsb_ml'(KA) ), !.\n"
+    "'$xsb_mload'(K, KA) :- '$xsb_mfile'(K, F), !, assertz('$xsb_ml'(KA)), retractall('$xsb_pa'(KA, _)), ( compound(K) -> K =.. [_|As] ; As = [] ), assertz('$xsb_pa'(KA, As)),\n"
+    "    catch(load_files(KA:F, [dialect(xsb)]), E, ( retractall('$xsb_ml'(KA)), throw(E) )).\n"
+    "'$xsb_mload'(_, _).\n"
+    "'$xsb_mfile'(K, F) :- ( compound(K) -> functor(K, N, _) ; N = K ), ( '$xsb_mf'(N, F) -> true ; atom_concat(N, '.P', FP), atom_concat(N, '.pl', FL), ( exists_file(FP) ; exists_file(FL) ), F = N ).\n"
+    "'$xsb_pbind'(M, Fs) :- retractall('$xsb_pf'(M, _, _)), ( '$xsb_pa'(M, As) -> true ; As = [] ), assertz('$xsb_pf'(M, Fs, As)).\n"
+    "'$xsb_psub'(M, T, T1) :- ( '$xsb_pf'(M, Fs, As), As \\== [] -> '$xsb_psubst'(Fs, As, T, T1) ; T1 = T ).\n"
+    "'$xsb_psubst'(Fs, As, T, T1) :- atom(T), !, ( '$xsb_psub_a'(Fs, As, T, A) -> T1 = A ; T1 = T ).\n"
+    "'$xsb_psubst'(Fs, As, T, T1) :- compound(T), !, T =.. [F|Args], '$xsb_psubl'(Args, Fs, As, Args1), T1 =.. [F|Args1].\n"
+    "'$xsb_psubst'(_, _, T, T).\n"
+    "'$xsb_psubl'([], _, _, []).\n"
+    "'$xsb_psubl'([X|Xs], Fs, As, [Y|Ys]) :- '$xsb_psubst'(Fs, As, X, Y), '$xsb_psubl'(Xs, Fs, As, Ys).\n"
+    "'$xsb_psub_a'([F|_], [A|_], T, A) :- F == T, !.\n"
+    "'$xsb_psub_a'([_|Fs], [_|As], T, A) :- '$xsb_psub_a'(Fs, As, T, A).\n"
+    "'$xsb_impmod'(Mod) :- nonvar(Mod), ( Mod = (_>>_) ; compound(Mod), functor(Mod, N, _), N \\== usermod ), !.\n"
+    "'$xsb_impstub'(V, _, _) :- var(V), !.\n"
+    "'$xsb_impstub'((A,B), Qs, Mod) :- !, ( nonvar(Qs), Qs = (C,D) -> true ; C = A, D = B ), '$xsb_impstub'(A, C, Mod), '$xsb_impstub'(B, D, Mod).\n"
+    "'$xsb_impstub'(P/N, Q/N, Mod) :- atom(P), atom(Q), integer(N), !, functor(H, Q, N), H =.. [_|As], G =.. [P|As], assertz((H :- '$xsb_qcall'(Mod, G))).\n"
+    "'$xsb_impstub'(_, _, _).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { "", 0 }
@@ -36088,6 +36128,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$xs_memv", 8, 2, 72 },
     { "$xs_minus", 9, 3, 72 },
     { "$xs_q", 5, 4, 72 },
+    { "$xsb_modr", 9, 2, 79 },
+    { "$xsb_pbind", 10, 2, 79 },
+    { "$xsb_psub", 9, 3, 79 },
+    { "$xsb_qcall", 10, 2, 79 },
     { "$xt_ntp", 7, 1, 81 },
     { "$xt_tv1", 7, 2, 81 },
     { ":<", 2, 2, 27 },
@@ -36428,6 +36472,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "exists_directory", 16, 1, 71 },
     { "exists_file", 11, 1, 71 },
     { "expand_file_name", 16, 2, 71 },
+    { "expand_filename", 15, 2, 79 },
     { "export", 6, 1, 78 },
     { "export_binding", 14, 1, 8 },
     { "export_binding", 14, 1, 9 },
