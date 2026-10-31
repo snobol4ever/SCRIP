@@ -123,11 +123,7 @@ int prolog_atom_intern_n(const char *s, size_t n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned int tag_hash(int mod, int name) { unsigned int h = 2166136261u; h ^= (unsigned int)mod; h *= 16777619u; h ^= (unsigned int)name; h *= 16777619u; return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int tag_plain(int id) {
-    const char *nm;
-    if (id < 0 || id >= g_runtime.atoms.atom_len || !(nm = g_runtime.atoms.atom_names[id])) return id;
-    return prolog_atom_intern_n(nm, pool_len(nm));
-}
+static int tag_plain(int id) { const char *nm; if (id < 0 || id >= g_runtime.atoms.atom_len || !(nm = g_runtime.atoms.atom_names[id])) return id; return prolog_atom_intern_n(nm, pool_len(nm)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tag_grow(void) {
     int old = g_runtime.atag.ht_size, ns = old ? old * 2 : 8;
@@ -187,6 +183,7 @@ int prolog_atom_carved(char *p, size_t n, size_t k) {
     return atom_add(p, k, h);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(prolog_atom_intern, leaf, 0);
 int prolog_atom_intern(const char *name) { if (!name) name = ""; return prolog_atom_intern_n(name, strlen(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_atom_intern_lit(const char *s) {
@@ -346,6 +343,7 @@ int prolog_op_col_user(int atom, int fix) { return (atom >= 0 && atom < g_runtim
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_cols_ready(void) { return g_runtime.atoms.opcols_ready; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_functor_table_install, leaf, 0);
 void rt_pl_functor_table_install(const long *tab) {
     if (!tab) return;
     long n = tab[0];
@@ -370,6 +368,7 @@ void rt_pl_functor_table_install(const long *tab) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_atom_table_install, leaf, 0);
 void rt_pl_atom_table_install(const long *tab) {
     if (!tab) return;
     long n = tab[0];
@@ -399,6 +398,7 @@ void rt_pl_atom_table_install(const long *tab) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(prolog_atom_init, leaf, 0);
 void prolog_atom_init(void) {
     g_runtime.atoms.atom_dot = prolog_atom_intern(".");
     g_runtime.atoms.atom_nil = prolog_atom_intern("[]");

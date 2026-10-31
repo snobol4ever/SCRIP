@@ -154,6 +154,7 @@ _Static_assert(RT_STACK_HUGE == 2097152UL,
     "ger raises RLIMIT_STACK for a program that adopted. Measured: calculator-1 58 ms -> 33 ms, 13,675 faults -> 1,459, output unchanged. A failed map returns 0 and the program stays on the stack it"
     " was given. THE TOP 256 KB SITS ABOVE THE LAST 2 MB BOUNDARY (cto 2026-10-17): a partial chunk can never take a huge page, so a program whose stack stays shallow never zero-fills 2 MB at its fi"
     "rst touch (an Icon hello's resident set 6,916 -> about 4,900 KB), and a deep one pays 64 small faults before the huge-page region");
+RT_ENTRY_DECL(rt_main_stack_adopt, leaf, 0);
 char *rt_main_stack_adopt(void) {
     extern long rt_sw_stack_bytes(void);
     extern void rt_gc_stack_top_adopt(char *);

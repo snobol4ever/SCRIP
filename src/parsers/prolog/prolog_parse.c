@@ -257,6 +257,7 @@ int prolog_op_permission(const char *name, int prec, const char *type) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(prolog_op_table_add, leaf, 0);
 int prolog_op_table_add(const char *name, int prec, const char *type) {
     Assoc assoc; Fixity fix;
     if (!name || !type) return 0;

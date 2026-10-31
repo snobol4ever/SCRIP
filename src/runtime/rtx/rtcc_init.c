@@ -13,6 +13,7 @@ void rtcc_load_scratch(void) {
         "m"(g_rtccb[RTCC_SLOT_R9]) : "r8", "r9", "r10", "r11");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rtcc_load_all, leaf, 0);
 void rtcc_load_all(void) {
     if (!g_runtime.abi.rtcc_on) return;
     const uint64_t * blk = g_rtccb;

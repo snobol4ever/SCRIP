@@ -368,4 +368,5 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
 void rt_zdp_sm_init(void) { }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_bomb, leaf, 0);
 void rt_bomb(const char *msg) { fflush(NULL); fprintf(stderr, "libscrip_rt: BOMB — %s\n", msg ? msg : "(no message)"); abort(); }

@@ -1275,6 +1275,7 @@ static __attribute__((used, noinline)) void gc_point_arr_body(DESCR_t *arr, int 
     gc_point_arr_run(arr, n, r0, floor, is_probe, &ent);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_gc_point_arr_c, leaf, 0);
 void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor) {
 #if RT_DIAG
     g_runtime.abi.gc_poll_site = (const char *)__builtin_return_address(0);
@@ -1283,6 +1284,7 @@ void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor) {
     gc_point_arr_run(arr, n, r0, floor, 0, &ent);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_gc_point_arr_probe_c, leaf, 0);
 void rt_gc_point_arr_probe_c(DESCR_t *arr, int n, const char **saved_subject_reg, char *floor) {
     gc_ent_t ent = { __builtin_return_address(0), (const char *)__builtin_frame_address(0) + 16, *(const void *const *)__builtin_frame_address(0) };
     gc_point_arr_run(arr, n, saved_subject_reg, floor, 1, &ent);
@@ -1745,6 +1747,7 @@ void rt_gc_frame_sites_drop_range(const void *lo, const void *hi) {
     g_runtime.gc.gc_sblk_n = w;
     gc_site_blk_maxhi_from(0);
 }
+RT_ENTRY_DECL(rt_gc_frame_sites_install_counted, leaf, 0);
 void rt_gc_frame_sites_install_counted(const void *tab) {
     const uint64_t *t = (const uint64_t *)tab;
     int n0 = g_runtime.gc.gc_sblk_n;
@@ -1756,6 +1759,7 @@ extern const gc_site_blk_t *rt_gc_site_find_a(uint64_t pc, const gc_site_ent_t *
 #define gc_site_find(pc, eo) rt_gc_site_find_a((pc), (eo), g_runtime.gc.gc_sblk, (long)g_runtime.gc.gc_sblk_n)
 long rt_gc_frame_sites_count(void) { long n = 0; for (int b = 0; b < g_runtime.gc.gc_sblk_n; b++) n += g_runtime.gc.gc_sblk[b].n; return n; }
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
+RT_ENTRY_DECL(rt_gc_frame_maps_install_counted, leaf, 0);
 void rt_gc_frame_maps_install_counted(const void *tab) {
     const uint64_t *t = (const uint64_t *)tab;
     int n;
@@ -1843,6 +1847,7 @@ static int gc_phdr_cb(struct dl_phdr_info *info, size_t sz, void *data) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_static_segs_init(void) { if (g_runtime.gc.gc_nseg >= 0) return; g_runtime.gc.gc_nseg = 0; dl_iterate_phdr(gc_phdr_cb, (void *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_gcheap_warmup, leaf, 0);
 void rt_gcheap_warmup(void) { gc_static_segs_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void *__libc_stack_end;
@@ -1922,11 +1927,13 @@ static const gc_frame_map_t *gc_root_map(void) {
     for (int i = g_runtime.gc.gc_maps_n - 1; i >= 0; i--) if (g_runtime.gc.gc_maps[i] && (g_runtime.gc.gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_runtime.gc.gc_maps[i];
     return (const gc_frame_map_t *)0;
 }
+RT_ENTRY_DECL(rt_program_top_adopt, leaf, 0);
 void rt_program_top_adopt(char *entry_sp) {
     const gc_frame_map_t *r = gc_root_map();
     if (!r || !entry_sp || g_runtime.gc.gc_program_top) return;
     g_runtime.gc.gc_program_top = entry_sp + ((r->flags & GC_FRAME_MAP_ICN_PROC) ? 0L : (long)r->value_bytes + 16 + (long)r->header_bytes);
 }
+RT_ENTRY_DECL(rt_program_top_adopt_top, leaf, 0);
 void rt_program_top_adopt_top(char *top) { if (!gc_root_map() || !top || g_runtime.gc.gc_program_top) return; g_runtime.gc.gc_program_top = top; }
 char *rt_gc_program_stack_top(void) { return g_runtime.gc.gc_program_top ? g_runtime.gc.gc_program_top : gc_stack_top(); }
 _Static_assert(sizeof(void *) == 8,

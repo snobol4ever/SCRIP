@@ -2780,6 +2780,7 @@ int rt_environ_has(const char *prefix) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_lib_init, leaf, 0);
 void core_lib_init(void) {
     static int core_lib_inited = 0;
     if (core_lib_inited) return;
@@ -3197,8 +3198,10 @@ static void core_quit_trap_install(void (*h)(int)) {
     sigaction(SIGQUIT, &sa, NULL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_quit_trap_300, leaf, 0);
 DESCR_t rt_quit_trap_300(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_quit_trap_install(core_quit_trap_300_sig); return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_quit_trap_320, leaf, 0);
 DESCR_t rt_quit_trap_320(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_quit_trap_install(core_quit_trap_320_sig); return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_by_zero_check(int64_t by) { int r = by == 0 ? core_icn_error(211, INTVAL(by)) : 0; core_icn_op_ctx_clear(); return r; }
@@ -3254,6 +3257,7 @@ int core_icn_num_operand_ok_d(DESCR_t d, int code) { if (core_icn_int_ok(d)) ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_int_operand_ok_d(DESCR_t d) { return core_icn_num_operand_ok_d(d, 101); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_core_icn_int_operand_ok, leaf, 0);
 int c_core_icn_int_operand_ok(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_int_operand_ok_d(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(core_icn_limit_count_check, leaf, 0);
@@ -4678,6 +4682,7 @@ static int rt_gtn_str(const char *s, long n, DESCR_t *out) {
     goto gtn11;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_fp_model_spitbol, leaf, 0);
 DESCR_t rt_fp_model_spitbol(DESCR_t *a, int n) { (void)a; (void)n; _mm_setcsr(_mm_getcsr() | 0x8040u); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = 1; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_gtn_real(const char *s, long n, double *out) { DESCR_t d; if (!s || !rt_gtn_str(s, n, &d)) return 0; *out = IS_REAL(d) ? d.r : (double)d.i; return 1; }

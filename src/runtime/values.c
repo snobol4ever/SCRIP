@@ -9,6 +9,7 @@ static int vcell_same(const VCELL_t *x, const VCELL_t *y) {
     if (x->tbl || y->tbl) return x->tbl == y->tbl && c_descr_identical(x->key_d, y->key_d);
     return x->pos == y->pos && x->len == y->len && c_descr_identical(x->sv, y->sv);
 }
+RT_ENTRY_DECL(c_descr_identical, leaf, 0);
 int c_descr_identical(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return 0;
     int an = (a.v == DT_SNUL) || (a.v == DT_S && (!a.s || (a.slen == 0xFFFFFFFFu ? !*a.s : a.slen == 0)));

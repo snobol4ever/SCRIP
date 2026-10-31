@@ -1201,6 +1201,7 @@ rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const ch
     return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_dcap_land_γ, open, 1);
 rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, rt_dcf_t *c) {
     extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t, long);
     extern DESCR_t rt_proc_call_epilogue_named_γ(const char *, long);
@@ -1215,6 +1216,7 @@ rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, rt_dcf_t *c) {
     return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_dcap_land_ω, open, 1);
 rt_dcap_next_t rt_dcap_land_ω(rt_dcf_t *c) {
     extern DESCR_t rt_proc_call_epilogue_ω(long);
     extern DESCR_t rt_proc_call_epilogue_named_ω(const char *, long);
@@ -1585,6 +1587,7 @@ static int rt_defer_name_as_string(DESCR_t *val) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_defer_close, leaf, 0);
 int c_rt_defer_close(int cur_delta, rt_dfx_t *sp) {
     if (!sp) return -1;
     rt_dfx_t s = *sp;
@@ -1659,6 +1662,7 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r) {
     return (rt_dcap_next_t){ 0, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_defer_open_cell, open, 1);
 rt_dcap_next_t c_rt_defer_open_cell(DESCR_t *cell, int ival_flag, rt_dfx_t *rec) {
     rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t val = cell ? *cell : NULVCL;
@@ -1696,6 +1700,7 @@ rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int iv
     return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_land_γ, open, 1);
 rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word, rt_dfx_t *s) {
     extern DESCR_t rt_call_land_γ(DESCR_t, long);
     if (!s) { rt_bomb("rt_defer_land_γ: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
@@ -1710,6 +1715,7 @@ rt_dcap_next_t rt_defer_land_chain(long word, rt_dfx_t *s) {
     return rt_defer_resolve(s, rt_conve_chain_land(&((rt_dfxe_t *)s)->ev));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_defer_land_ω, open, 1);
 rt_dcap_next_t rt_defer_land_ω(long word, rt_dfx_t *s) {
     extern DESCR_t rt_call_land_ω(long);
     if (!s) { rt_bomb("rt_defer_land_ω: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
@@ -1745,6 +1751,7 @@ void rt_patv_freeze(void *hv, const char *bn, long n) {
     h->nsnap = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sno_mkpat_d, leaf, 0);
 DESCR_t rt_sno_mkpat_d(DESCR_t *args, int nargs) {
     const sno_thunk_rec_t *r = (nargs >= 1 && args[0].v == DT_I) ? (const sno_thunk_rec_t *)(uintptr_t)args[0].i : (const sno_thunk_rec_t *)0;
     if (!r || !r->fn) return FAILDESCR;
@@ -2007,6 +2014,7 @@ static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, in
     return rtx_try_rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_table_assign_fast, leaf, 0);
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
 #if RT_DIAG
     extern int g_gc_pending;
@@ -2080,6 +2088,7 @@ DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_icn_field_get_at, leaf, 0);
 DESCR_t c_icn_field_get_at(const char *fname, DESCR_t obj, long at1) {
     long at = at1 - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
@@ -2146,6 +2155,7 @@ DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_field_var_strict_at, leaf, 0);
 DESCR_t c_rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
     int store_only = (at1 & ICN_FIELD_PLAIN) != 0;
     long at = (at1 & ~(long)ICN_FIELD_PLAIN) - 1;
@@ -2730,11 +2740,16 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz) {
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) { return subscript_get_s(arr, idx, 0); }
 DESCR_t subscript_get_strict(DESCR_t arr, DESCR_t idx) { return subscript_get_s(arr, idx, 1); }
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) { return subscript_get2_ext_s(arr, i, end, 0); }
+RT_ENTRY_DECL(subscript_get2_ext_strict, leaf, 0);
 DESCR_t subscript_get2_ext_strict(DESCR_t arr, DESCR_t i, DESCR_t end) { return subscript_get2_ext_s(arr, i, end, 1); }
+RT_ENTRY_DECL(subscript_get2, leaf, 0);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 0); }
+RT_ENTRY_DECL(subscript_get2_strict, leaf, 0);
 DESCR_t subscript_get2_strict(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 1); }
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 0); }
+RT_ENTRY_DECL(rt_section_var_strict, leaf, 0);
 DESCR_t rt_section_var_strict(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 1); }
+RT_ENTRY_DECL(c_rt_subscript_val, leaf, 0);
 DESCR_t c_rt_subscript_val(DESCR_t base, DESCR_t idx) {
     extern DESCR_t rt_deref(DESCR_t);
     extern DESCR_t c_rt_subscript_var_container_only(DESCR_t, DESCR_t);
@@ -2746,6 +2761,7 @@ DESCR_t c_rt_subscript_val(DESCR_t base, DESCR_t idx) {
     { DESCR_t r = c_rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_subscript_val_strict, leaf, 0);
 DESCR_t c_rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
     DESCR_t declined = { .v = RTX_NOT_HANDLED };
     if (base.v == DT_N && base.slen == 1 && base.ptr) base = *(DESCR_t *)base.ptr;
@@ -2770,11 +2786,17 @@ DESCR_t c_rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
     }
     return declined;
 }
+RT_ENTRY_DECL(c_rt_subscript_var, leaf, 0);
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }
+RT_ENTRY_DECL(c_rt_subscript_var_strict, leaf, 0);
 DESCR_t c_rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
+RT_ENTRY_DECL(c_rt_subscript_var_container_only, leaf, 0);
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 0); }
 DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 1); }
 DESCR_t rt_random_var(DESCR_t base) { return rt_random_var_s(base, 0); }
+RT_ENTRY_DECL(rt_random_var_strict, leaf, 0);
 DESCR_t rt_random_var_strict(DESCR_t base) { return rt_random_var_s(base, 1); }
+RT_ENTRY_DECL(c_rt_assign_var, leaf, 0);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 0); }
+RT_ENTRY_DECL(c_rt_assign_var_strict, leaf, 0);
 DESCR_t c_rt_assign_var_strict(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 1); }

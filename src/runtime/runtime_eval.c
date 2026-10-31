@@ -830,7 +830,9 @@ static DESCR_t eval_dtx_land(eval_frame_t *f, DESCR_t r) {
     g_runtime.abi.error = f->esv.i;
     return erred ? FAILDESCR : r;
 }
+RT_ENTRY_DECL(rt_eval_dtx_land_γ, leaf, 0);
 DESCR_t rt_eval_dtx_land_γ(DESCR_t frame0, long word, eval_frame_t *f) { extern DESCR_t rt_call_land_γ(DESCR_t, long); return eval_dtx_land(f, rt_call_land_γ(frame0, word)); }
+RT_ENTRY_DECL(rt_eval_dtx_land_ω, leaf, 0);
 DESCR_t rt_eval_dtx_land_ω(long word, eval_frame_t *f) { extern DESCR_t rt_call_land_ω(long); return eval_dtx_land(f, rt_call_land_ω(word)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_node(tree_t *e) { (void)e; fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n"); abort(); }

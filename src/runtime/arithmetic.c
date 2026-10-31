@@ -129,6 +129,7 @@ rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t big_str_operand(DESCR_t d);
 int operand_is_real_str(DESCR_t v);
+RT_ENTRY_DECL(c_rt_relop_val_coerce, leaf, 0);
 void c_rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
     if (IS_REAL(a) || IS_REAL(b) || operand_is_real_str(a) || operand_is_real_str(b)) { *out = REALVAL(to_real(b)); return; }
     if (b.v == DT_BIG) { *out = b; return; }
@@ -435,10 +436,16 @@ static DESCR_t rt_big_direct(int op, DESCR_t a, DESCR_t b) {
     core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, \
     my); return r; }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
-RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-    RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-    RT_BINOP_ENTRY(c_rt_mul, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-    RT_BINOP_ENTRY(c_rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(c_rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
+RT_ENTRY_DECL(c_rt_add, leaf, 0);
+RT_ENTRY_DECL(c_rt_add_sno, leaf, 0);
+RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); }) RT_ENTRY_DECL(c_rt_sub_sno, leaf, 0);
+RT_ENTRY_DECL(c_rt_sub, leaf, 0);
+RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); }) RT_ENTRY_DECL(c_rt_mul_sno, leaf, 0);
+RT_ENTRY_DECL(c_rt_mul, leaf, 0);
+RT_BINOP_ENTRY(c_rt_mul, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); }) RT_ENTRY_DECL(c_rt_div_sno, leaf, 0);
+RT_ENTRY_DECL(c_rt_div_strict, leaf, 0);
+RT_ENTRY_DECL(c_rt_mod_strict, leaf, 0);
+RT_BINOP_ENTRY(c_rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(c_rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_pas_div_error(int bcode, int fpc, DESCR_t a, DESCR_t b) {
     extern void pas_file_err(const char *clause, const char *what, const char *proc);
@@ -451,18 +458,24 @@ static DESCR_t rt_pas_div_error(int bcode, int fpc, DESCR_t a, DESCR_t b) {
     exit(code);
 }
 static int rt_pas_zero_divisor(DESCR_t b) { return (b.v == DT_I && b.i == 0) || (b.v == DT_R && b.r == 0.0); }
+RT_ENTRY_DECL(c_rt_div_diviso, leaf, 0);
 DESCR_t c_rt_div_diviso(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_DIV, 0, a, b); return c_rt_div(a, b); }
 DESCR_t c_rt_div_divrc(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_DIV, 1, a, b); return c_rt_div(a, b); }
+RT_ENTRY_DECL(c_rt_mod_diviso, leaf, 0);
 DESCR_t c_rt_mod_diviso(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_MOD, 0, a, b); return c_rt_mod(a, b); }
 DESCR_t c_rt_mod_divrc(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_MOD, 1, a, b); return c_rt_mod(a, b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_big_add(DESCR_t, DESCR_t);
 DESCR_t rt_big_sub(DESCR_t, DESCR_t);
 DESCR_t rt_big_mul(DESCR_t, DESCR_t);
-RT_BINOP_ENTRY_S(rt_add_big, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }, 0)
-    RT_BINOP_ENTRY_S(rt_sub_big, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }, 0)
-    RT_BINOP_ENTRY_S(rt_mul_big, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }, 0)
+RT_ENTRY_DECL(rt_add_big, leaf, 0);
+RT_BINOP_ENTRY_S(rt_add_big, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }, 0) RT_ENTRY_DECL(rt_sub_big, leaf, 0);
+RT_BINOP_ENTRY_S(rt_sub_big, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }, 0) RT_ENTRY_DECL(rt_mul_big, leaf, 0);
+RT_BINOP_ENTRY_S(rt_mul_big, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_cdiff_strict, leaf, 0);
+RT_ENTRY_DECL(rt_cunion, leaf, 0);
+RT_ENTRY_DECL(rt_cunion_strict, leaf, 0);
 RT_BINOP_ENTRY(rt_pow, BINOP_POW, ) RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, ) RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, ) RT_BINOP_ENTRY(rt_cdiff, BINOP_CDIFF, )
     RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, ) static DESCR_t big_route_operand(DESCR_t d) {
     if (d.v == DT_BIG || d.v == DT_I) return d;
@@ -836,6 +849,7 @@ static DESCR_t rt_num_neg_s(DESCR_t a, int strict) {
 }
 DESCR_t rt_num_neg(DESCR_t a) { return rt_num_neg_s(a, 0); }
 DESCR_t rt_num_neg_strict(DESCR_t a) { return rt_num_neg_s(a, 1); }
+RT_ENTRY_DECL(rt_num_neg_sno, leaf, 0);
 DESCR_t rt_num_neg_sno(DESCR_t a) { return rt_num_neg_s(a, 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_pos(DESCR_t a) {
@@ -846,6 +860,7 @@ DESCR_t rt_num_pos(DESCR_t a) {
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));
 }
+RT_ENTRY_DECL(rt_num_pos_sno, leaf, 0);
 DESCR_t rt_num_pos_sno(DESCR_t a) {
     a = NAME_AS_STR_fn(a);
     if (a.v == DT_BIG) return a;

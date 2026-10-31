@@ -364,6 +364,7 @@ static DESCR_t rt_coerce_shown_d(const DESCR_t *v) {
     return *v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_coerce_num2_d, leaf, 0);
 void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     if (IS_FAIL(*self) || IS_FAIL(*other)) { *out = FAILDESCR; return; }
@@ -654,6 +655,7 @@ static void rt_gen_proc_grow(void) {
     g_runtime.rt.rt_gen_proc_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_register, leaf, 0);
 void rt_proc_register(const char *name, const char **pnames, int nparams) {
     if (!name) return;
     {
@@ -739,6 +741,7 @@ void rt_proc_reset(void) {
     if (g_runtime.rt.proc_hsl) memset(g_runtime.rt.proc_hsl, 0, (size_t)g_runtime.rt.proc_hcap * sizeof(int));
 }
 void rt_ab_undef_fn_fail(void);
+RT_ENTRY_DECL(rt_ab_undef_fn_stub, leaf, 0);
 __asm__( ".text\n" ".globl rt_ab_undef_fn_stub\n" ".type rt_ab_undef_fn_stub, @function\n" "rt_ab_undef_fn_stub:\n" "  andq $-16, %rsp\n" "  call rt_ab_undef_fn_fail\n" "  ud2\n"
     ".size rt_ab_undef_fn_stub, .-rt_ab_undef_fn_stub\n" );
 __asm__( ".text\n" ".globl rt_ab_undef_sig_stub\n" ".type rt_ab_undef_sig_stub, @function\n" "rt_ab_undef_sig_stub:\n" "  movq %rsp, %rax\n" "  andq $-16, %rsp\n" "  pushq %rax\n" "  pushq %rcx\n"
@@ -748,6 +751,7 @@ static inline int rt_alpha_unsealed(const void *v) { return !v || v == (const vo
 RT_ENTRY_DECL(rt_ab_undef_fn_fail, leaf, 0);
 void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function called"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(gva_register, leaf, 0);
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
     int k0 = names ? 0 : n;
@@ -835,6 +839,7 @@ DESCR_t *rt_gva_cell_of(const void *p) {
     return (a >= (uintptr_t)RT_GVA_VA && a - (uintptr_t)RT_GVA_VA < (uintptr_t)g_runtime.rt.gva_mapped && !((a - (uintptr_t)RT_GVA_VA) & 15u)) ? (DESCR_t *)p : (DESCR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_gva_island, leaf, 0);
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > g_runtime.rt.gva_mapped) {
         size_t want = g_runtime.rt.gva_mapped ? g_runtime.rt.gva_mapped : RT_GVA_WINDOW_BYTES;
@@ -940,6 +945,7 @@ void *rt_proc_fn(const char *name) {
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_nparams, leaf, 0);
 void rt_proc_set_nparams(const char *name, int nparams) { rt_proc_t *p = rt_proc_find(name); if (p) p->nparams = nparams; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_nformals(const char *name, int nformals) { rt_proc_t *p = rt_proc_find(name); if (p) p->nformals = nformals; }
@@ -995,6 +1001,7 @@ void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) 
     { int i = ploc_find(name); if (i >= 0) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_runtime.rt.proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; }
 }
+RT_ENTRY_DECL(rt_proc_loc_add, leaf, 0);
 void rt_proc_loc_add(const char *name, const char **pnames, int nparams, const char **lnames, int nlocals, const int *loffs) {
     if (!name) return;
     { rt_proc_loc_t *e = &CV_PUSH(g_runtime.rt.proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; e->lnames = lnames; e->nlocals = nlocals; e->loffs = loffs; }
@@ -1086,6 +1093,7 @@ void rt_proc_set_pinned(const char *name, int v) {
 RT_ENTRY_DECL(rt_proc_pinned, leaf, 0);
 int rt_proc_pinned(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); return (i >= 0) ? g_runtime.abi.rt_gen_procs[i].pinned : 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_generator, leaf, 0);
 void rt_proc_set_generator(const char *name, int is_gen) {
     if (!name) return;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_runtime.abi.rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } }
@@ -1105,12 +1113,14 @@ void rt_proc_set_named_rest(const char *name, int slot) { { int i = rt_proc_hash
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_named_rest(const char *name) { { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_runtime.abi.rt_gen_procs[i].named_rest; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_jmpentry, leaf, 0);
 void rt_proc_set_jmpentry(const char *name, int on) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_runtime.abi.rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_generator(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); if (i >= 0) return g_runtime.abi.rt_gen_procs[i].is_generator; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_fn_at(int idx, bb_box_fn fn) { if (idx >= 0 && idx < g_runtime.rt.rt_gen_proc_count) g_runtime.abi.rt_gen_procs[idx].fn = fn; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_fn, leaf, 0);
 void rt_proc_set_fn(const char *name, bb_box_fn fn) {
     if (!name) return;
     {
@@ -1192,6 +1202,7 @@ int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_nret_name, leaf, 0);
 DESCR_t rt_nret_name(DESCR_t r) {
     extern DESCR_t c_rt_sno_name_dl(DESCR_t *, int);
     extern void core_runtime_error(int code, const char *msg);
@@ -1208,6 +1219,7 @@ DESCR_t rt_nret_fix(DESCR_t r, int wn) {
     rt_g_want_name = 0;
     return r;
 }
+RT_ENTRY_DECL(rt_nret_fix_tiny, leaf, 0);
 DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; return rt_nret_fix(r, wn); }
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_frame_prep(void *fb, long fbytes);
@@ -1513,6 +1525,7 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_seal_alpha, leaf, 0);
 void rt_proc_seal_alpha(const char * name, void * fn) {
     if (!name || !fn) return;
     {
@@ -1535,6 +1548,7 @@ void rt_ab_cell_bind(const char *name, void **quad) {
         quad[0] = (void *)cell;
     }
 }
+RT_ENTRY_DECL(rt_ab_cell_bind_table, leaf, 0);
 void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
 static void rt_proc_resolve_cells(rt_proc_t *p);
 static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_runtime.misc.monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_runtime.misc.monitor_quiet_depth--; return v; }
@@ -1887,6 +1901,7 @@ void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_icn_zframe_args_install, leaf, 0);
 void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
     { extern void rt_sxt_frames_present(void); rt_sxt_frames_present(); }
     char *base = (char *)base_p;
@@ -1920,8 +1935,10 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_epilogue_γ, leaf, 0);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched) { rt_lvl_leave(touched); return frame0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_epilogue_ω, leaf, 0);
 DESCR_t rt_proc_call_epilogue_ω(long touched) { rt_lvl_leave(touched); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked);
@@ -1940,7 +1957,9 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_epilogue_named_γ, leaf, 0);
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn) { return rt_proc_epilogue_named(name, 0, wn); }
+RT_ENTRY_DECL(rt_proc_call_epilogue_named_ω, leaf, 0);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name, long wn) { return rt_proc_epilogue_named(name, 1, wn); }
 static DESCR_t rt_proc_epilogue_idx(long idxw, int failed) {
     long idx = idxw & RT_IDXW_MASK;
@@ -1973,6 +1992,7 @@ void **rt_pl_dc_slot(long idx) {
         return &ch[(size_t)idx % RT_DC_CHUNK];
     }
 }
+RT_ENTRY_DECL(rt_proc_set_dcfn, leaf, 0);
 void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_lookup(name) : -1; { void **sl = rt_pl_dc_slot(i); if (sl) *sl = fp; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dc_ok(const char *name, int nargs) {
@@ -2009,8 +2029,10 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_dc_leave_γ, leaf, 0);
 DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_dc_leave_ω, leaf, 0);
 DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
@@ -2111,6 +2133,7 @@ void *rt_proc_call_open_det0(long idx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_open_det1, open, 1);
 void *rt_proc_call_open_det1(long idx, DESCR_t *a0) {
     if (idx < 0 || idx >= g_runtime.rt.rt_gen_proc_count) return (void *)0;
     {
@@ -2121,6 +2144,7 @@ void *rt_proc_call_open_det1(long idx, DESCR_t *a0) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_call_open_det2, open, 1);
 void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1) {
     if (idx < 0 || idx >= g_runtime.rt.rt_gen_proc_count) return (void *)0;
     {
@@ -2191,9 +2215,11 @@ static rt_proc_t * rt_proc_find(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_frame(const char *name, int nslots, int decl_level) { rt_proc_t *p = rt_proc_find(name); if (p) { p->frame_nslots = nslots; p->decl_level = decl_level; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_gen_region_ft, leaf, 0);
 void rt_proc_set_gen_region_ft(const char *name, int ft) { rt_proc_t *p = rt_proc_find(name); if (p) p->gen_region_ft = ft; }
 int rt_proc_gen_region_ft(const char *name) { rt_proc_t *p = rt_proc_find(name); return p ? p->gen_region_ft : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_set_frame_bytes, leaf, 0);
 void rt_proc_set_frame_bytes(const char *name, int bytes) { rt_proc_t *p = rt_proc_find(name); if (p && bytes > p->frame_bytes) p->frame_bytes = bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_define_bind_entry, leaf, 0);
@@ -2396,6 +2422,7 @@ DESCR_t rt_proc_define(const char *spec) { (void)spec; return NULVCL; }
 extern void rt_set_last_ok(int v);
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_size_d, leaf, 0);
 DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     DESCR_t v = {0};
     v.v = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
@@ -2486,6 +2513,7 @@ void rt_gc_root_args(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nofail_abort(void) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(35, "unexpected failure in -nofail mode"); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_proc_register_rec, leaf, 0);
 void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
     _Static_assert(sizeof(rt_proc_reg_rec_t) == 72 && __builtin_offsetof(rt_proc_reg_rec_t, star) == 64, "ONE-REG record is 72 bytes, the thunk's star record last");
     _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52,

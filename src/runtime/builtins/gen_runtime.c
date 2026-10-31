@@ -88,6 +88,7 @@ ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_match_enter, leaf, 0);
 ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ;
     extern int Σlen;
@@ -120,6 +121,7 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_rt_match_replace, leaf, 0);
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
     uint64_t w[2];

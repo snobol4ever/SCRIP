@@ -3920,6 +3920,7 @@ void *rt_pl_ball_permission3(const char *op, const char *type, DESCR_t culprit) 
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_root_omega, leaf, 0);
 void rt_pl_root_omega(void) { extern void *rt_pl_ball_take(void); void *ball = rt_pl_ball_take(); if (!ball) exit(0); rt_pl_ball_report(ball); exit(2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_ball_report(void *ball) {

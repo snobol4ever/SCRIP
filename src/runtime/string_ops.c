@@ -63,6 +63,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int so_sno_cat_bad(DESCR_t v) { return v.v == DT_A || v.v == DT_T || IS_DATA_INST_fn(v) || rt_name_textless(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_sno_concat_d, leaf, 0);
 DESCR_t c_sno_concat_d(DESCR_t a, DESCR_t b) {
     if (!IS_FAIL_fn(a) && !IS_FAIL_fn(b) && !IS_NULL_fn(a) && !IS_NULL_fn(b)) {
         if (so_sno_cat_bad(a)) { core_runtime_error(8, "concatenation left operand is not a string or pattern"); return FAILDESCR; }
@@ -87,6 +88,7 @@ static DESCR_t so_icn_op_error(const char *op, int code, DESCR_t a, DESCR_t b, D
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_icn_lconcat_d, leaf, 0);
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     extern int core_icn_error(int code, DESCR_t val);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
@@ -95,6 +97,7 @@ DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(c_str_concat_fracdigit_d, leaf, 0);
 DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
     extern char *rt_big_str(DESCR_t);
     extern int core_icn_error(int code, DESCR_t val);

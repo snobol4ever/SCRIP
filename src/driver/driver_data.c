@@ -112,6 +112,7 @@ DatType *dat_register(const char *spec) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(record_register, leaf, 0);
 void record_register(const char *spec) {
     if (!spec || !*spec) return;
     const char *p = spec;
@@ -481,6 +482,7 @@ int dat_attributes(const char *name, const char **out, int max) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(dat_set_live, leaf, 0);
 void dat_set_live(const char *name, int live) { DatType *t = dat_find_type(name); if (t) t->live = (char)(live ? 1 : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
