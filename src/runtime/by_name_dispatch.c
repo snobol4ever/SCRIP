@@ -17528,6 +17528,14 @@ static void pas_fmt_str_real(double v, int min_width, int frac, char *o) {
     if (n > nsci) dot += pas_fmt_round(dg, &n, nsci);
     pas_fmt_exp(minus, dg, n, nsci, n > 0 ? dot - 1 : 0, min_width, o);
 }
+static void pas_fmt_fixed_double(double v, int min_width, int frac, char *o) {
+    if (!isfinite(v) || frac < 0) { pas_fmt_str_real(v, min_width, frac, o); return; }
+    int dot, minus = signbit(v) != 0;
+    unsigned char dg[24];
+    int n = pas_fmt_digits(v, dg, &dot);
+    if (n > 17) dot += pas_fmt_round(dg, &n, 17);
+    if (!pas_fmt_fixed(minus, dg, n, dot, min_width, frac, o)) pas_fmt_str_real(v, min_width, frac, o);
+}
 static void pas_fmt_del(char *s, int i, int cnt) { memmove(s + i, s + i + cnt, strlen(s + i + cnt) + 1); }
 static void pas_fmt_ins(char *s, int i, const char *x, int cnt) { memmove(s + i + cnt, s + i, strlen(s + i) + 1); memcpy(s + i, x, (size_t)cnt); }
 static void pas_fmt_float_shape(char kind, char *s) {
@@ -18264,8 +18272,11 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         long long w = IS_INT_fn(args[1]) ? args[1].i : -1, p = IS_INT_fn(args[2]) ? args[2].i : -1;
         size_t cap = (size_t)(w > 0 ? w : 0) + 96;
         char *b = rt_wsb_alloc(cap), *o = rt_wsb_alloc(cap);
-        if (IS_REAL_fn(args[0]) && p >= 0) snprintf(o, cap, "%*.*f", (int)(w < 0 ? 0 : w), (int)(p > 16 ? 16 : p), args[0].r);
-        else if (IS_REAL_fn(args[0])) {
+        if (IS_REAL_fn(args[0]) && p >= 0) {
+            char _fxb[(size_t)(w > 255 ? w : 255) + 64];
+            pas_fmt_fixed_double(args[0].r, (int)(w < 0 ? 0 : w), (int)(p > 255 ? 255 : p), _fxb);
+            snprintf(o, cap, "%s", _fxb);
+        } else if (IS_REAL_fn(args[0])) {
             int prec = w < 0 ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : (int)w - 8));
             pas_real_str_exp(args[0].r, b, (int)cap, prec, 3, IS_INT_fn(args[3]) && args[3].i);
             int sp = b[0] == '-' ? 0 : 1, len = (int)strlen(b), fw = w < 0 ? len + sp : (len + sp > w ? len + sp : (int)w);
@@ -22467,8 +22478,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
                 if (_fw2 < 0) _fw2 = 0;
                 if (_fp2 < 0) _fp2 = 0;
-                if (_fp2 > 16) _fp2 = 16;
-                fprintf(_dest, "%*.*f", (int)_fw2, (int)_fp2, _rv);
+                if (_fp2 > 255) _fp2 = 255;
+                char _fxb[(size_t)(_fw2 > 255 ? _fw2 : 255) + 64];
+                pas_fmt_fixed_double(_rv, (int)_fw2, (int)_fp2, _fxb);
+                fputs(_fxb, _dest);
                 _pi += 2;
                 continue;
             }

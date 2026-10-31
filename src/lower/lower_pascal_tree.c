@@ -165,7 +165,8 @@ static tree_t *ilit(long long v) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival 
 static tree_t *flit(double v) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = v; return e; }
 static tree_t *bin(tree_e k, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(k); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *un(tree_e k, tree_t *a) { tree_t *e = ast_node_new(k); ast_push(e, a); return e; }
-static tree_t *mk_neg(tree_t *a) { if (a && a->t == TT_FLIT) { a->v.dval = -a->v.dval; return a; } return un(TT_MNS, a); }
+static int pas_expr_is_real(tree_t *e);
+static tree_t *mk_neg(tree_t *a) { if (a && a->t == TT_FLIT) { a->v.dval = -a->v.dval; return a; } if (a && pas_expr_is_real(a)) return bin(TT_MUL, a, flit(-1.0)); return un(TT_MNS, a); }
 static tree_t *prog_of(PNodeList *l) { tree_t *e = ast_node_new(TT_PROGRAM); if (l) for (int i = 0; i < l->count; i++) ast_push(e, l->items[i]); return e; }
 static tree_t *seq_of(PNodeList *l) { if (l && l->count == 1) return l->items[0]; tree_t *e = ast_node_new(TT_SEQ_EXPR); if (l) for (int i = 0; i < l->count; i++) ast_push(e, l->items[i]); return e; }
 static const char *map_io(const char *fn) {
@@ -486,7 +487,11 @@ static int pas_dyn_elem_is_string(tree_t *base) {
 static int pas_expr_is_real(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_FLIT || e->t == TT_DIV) return 1;
-    if (e->t == TT_VAR && e->v.sval) return pas_var_is_real(e->v.sval);
+    if (e->t == TT_VAR && e->v.sval) { const pty_t *vt; return pas_var_is_real(e->v.sval) || ((vt = pty_name_type(e->v.sval)) && vt->k == PTK_REAL); }
+    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+        static const char *const rf[] = { "__pas_sin", "__pas_cos", "__pas_exp", "__pas_sqrt", "__pas_ln", "__pas_arctan", 0 };
+        for (int i = 0; rf[i]; i++) if (!strcmp(e->c[0]->v.sval, rf[i])) return 1;
+    }
     if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL) && e->n == 2) return pas_expr_is_real(e->c[0]) || pas_expr_is_real(e->c[1]);
     if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_expr_is_real(e->c[0]);
     if (e->t == TT_IDX && e->n == 2 && e->c[1] && e->c[1]->t == TT_ILIT) {
@@ -3577,9 +3582,10 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         mk_chr_wrap(rhs);
     if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_QLIT && pas_func_returns_stringish(sel->c[0]->v.sval) &&
         pas_is_charexpr(rhs)) rhs = pas_concat_operand(rhs);
-    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval) && !pas_array_isdyn(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
-    if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->c[0]->v.sval)) rhs =
+    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval) && !pas_array_isdyn(sel->v.sval) && !pas_expr_is_real(rhs)) rhs =
         bin(TT_ADD, rhs, flit(0.0));
+    if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->c[0]->v.sval) && !pas_expr_is_real(rhs))
+        rhs = bin(TT_ADD, rhs, flit(0.0));
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs) {
         int _dbf = pas_var_is_boolfam(sel->v.sval);
         int _sbf = (rhs->t == TT_VAR && rhs->v.sval) ? pas_var_is_boolfam(rhs->v.sval) : 0;
