@@ -54,6 +54,8 @@ typedef struct {
     } pas_scope;
     int pas_iso_errors;
     int pas_seen_mode_directive;
+    int pas_ptrcell;
+    int pas_addr_int;
     int pas_dialect_fpc;
     int pas_mode_iso;
     int pas_fname_is_call;

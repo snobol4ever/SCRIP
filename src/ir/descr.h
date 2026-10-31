@@ -13,6 +13,7 @@
 typedef enum {
     DT_SNUL = 0x00, DT_S = 0x02, DT_I = 0x03, DT_R = 0x05, DT_P = 0x08, DT_A = 0x10, DT_T = 0x18, DT_C = 0x20, DT_N = 0x28, DT_K = 0x30, DT_E = 0x38, DT_FH = 0x40, DT_PLVAR = 0x48, DT_PLREF = 0x50,
         DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_CPLX = 0xA8, DT_PLATOM = 0xB0, DT_EXTL = 0xB8,
+        DT_PCELL = 0xC0,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -48,6 +49,9 @@ DESCR_SASSERT(DT_PLATOM > DT_CPLX && DT_PLATOM < 0x100 && !(DT_PLATOM & DT_NUMER
     "the SNOBOL4/Icon ARRAY tag, with an integer payload -- the collector's DT_A arm read atom id 0x8e as an ARBLK pointer (row prolog-an-atom-wears-the-array-tag). "
     "It is safe under the collector because gc_type_says_ref is an explicit switch whose default returns 0, NOT because it sits above DT_ORDER (DT_CPLX sits above "
     "DT_ORDER and is a ref); IS_DATA_TAG_fn's v < DT_RAW bound excludes it; and it reads neither numeric nor string under the 8-bit mask, like DT_FAIL");
+DESCR_SASSERT(DT_PCELL > DT_EXTL && DT_PCELL < 0x100 && !(DT_PCELL & DT_NUMERIC_BIT) && (DT_PCELL & (DT_NOTSTR_MASK & 0xFF)) && (DT_PCELL & 7) == 0,
+    "DT_PCELL is the Pascal pointer to a cell, {v, slen = element index (signed 32), ptr = the address of the cell holding element 0} (ARCH-PASCAL-REDESIGN.md R5 amended (1)): it is neither numeric "
+    "nor string, " "sits above DT_ORDER so the v >= DT_DATA tests exclude it by their v < DT_RAW bound, and the collector visits it as the DT_S interior-pointer arm (MK_PLAIN_I)");
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;

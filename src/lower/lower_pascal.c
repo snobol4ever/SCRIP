@@ -304,6 +304,7 @@ static IR_t * pas_index_fault(pcx_t * cx, IR_t * ω) {
 static uint64_t pas_callee_byref_mask(const char * name) {
     if (!name) return 0;
     if (!strcmp(name, "__pas_elem_ref")) return 4ULL;
+    if (!strcmp(name, "__pas_addr_var")) return 1ULL;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return g_stage2.proc_table[pi].byref_mask;
     return 0;
 }

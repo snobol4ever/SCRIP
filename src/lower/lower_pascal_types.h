@@ -23,6 +23,7 @@ struct pty_state;
 struct pty_lay;
 struct pty_fld { int ch, ca, na, file, ptr, rec, en; long long calo, cahi, nalo, nahi, ov; const char *name; const pty_t *ft; int named, ph, tag; const pty_t *eft; int enm; };
 const pty_t *pty_type_by_name(const char *name);
+int pty_int_typename(const char *name);
 const pty_t *pty_rec_by_name(const char *name);
 const pty_vt_t *pty_rec_vt(const pty_t *r);
 void pty_note_recname(const char *name, const tree_t *recnode);

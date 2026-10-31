@@ -1191,6 +1191,8 @@ RTX_ENTRY(rt_gc_walk_words_a)
     je      .Lsw_str
     cmp     eax, DT_X
     je      .Lsw_str
+    cmp     eax, DT_PCELL
+    je      .Lsw_str
     cmp     eax, DT_N
     je      .Lsw_n
     cmp     eax, DT_T
@@ -1362,6 +1364,8 @@ RTX_ENDF(rt_gc_mark_run)
 .byte MK_PLAIN
 .org .Lmk_class + DT_EXTL
 .byte MK_PLAIN
+.org .Lmk_class + DT_PCELL
+.byte MK_PLAIN_I
 .org .Lmk_class + 256
 .p2align 6
 .Lmk_known:

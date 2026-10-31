@@ -1403,7 +1403,7 @@ static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)
 static inline int gc_tag_bears_ptr(uint8_t v) __attribute__((always_inline));
 static inline int gc_tag_bears_ptr(uint8_t v) {
     return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX ||
-        v == DT_EXTL;
+        v == DT_EXTL || v == DT_PCELL;
 }
 void gc_wl_grow(void) {
     g_runtime.abi.gc_mk.wlcap = g_runtime.abi.gc_mk.wlcap ? g_runtime.abi.gc_mk.wlcap * 2 : 4096;
@@ -1508,6 +1508,7 @@ void gc_visit_one(DESCR_t *d) {
         case DT_S:
         case DT_SNUL:
         case DT_X:
+        case DT_PCELL:
         {
             rt_hblk_t *h = gc_blk_of(d->s);
             if (!h) return;
@@ -2051,6 +2052,8 @@ static int gc_type_says_ref(const DESCR_t *d) {
         return 1;
         case DT_EXTL:
         return 1;
+        case DT_PCELL:
+        return 1;
         case DT_P:
         return 1;
         case DT_PLVAR:
@@ -2192,6 +2195,7 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph) {
 #endif
 static int gc_cell_ok(const DESCR_t *d) {
     if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s); return (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) ? 1 : 0; }
+    if (d->v == DT_PCELL) { rt_hblk_t *h = gc_blk_of(d->s); return (h && d->s >= (char *)(h + 1) && d->s < (char *)h + h->size) ? 1 : 0; }
     if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); return (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) ? 1 : 0; }
     if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); return (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) ? 1 : 0; }
     if (d->v == DT_N && d->slen != 0 && d->slen != 1 && d->slen != 2) return gc_blk_of(d->s) ? 1 : 0;

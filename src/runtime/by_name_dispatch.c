@@ -4074,6 +4074,7 @@ static unsigned pas_mt_u32rand(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
+    if (p.v == DT_PCELL) { if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn); return (DESCR_t *) p.ptr + (int32_t) p.slen; }
     if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
     if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
     DESCR_t *hc = pas_heap_cell(p.i, 0);
@@ -17717,6 +17718,34 @@ DESCR_t pas_dispose(DESCR_t *args, int nargs) {
 }
 DESCR_t pas_deref(DESCR_t *args, int nargs) { (void) nargs; return *pas_heap_ref(args[0], "__pas_deref"); }
 DESCR_t pas_deref_set(DESCR_t *args, int nargs) { (void) nargs; *pas_heap_ref(args[0], "__pas_deref_set") = args[1]; return args[1]; }
+static DESCR_t pas_pcell(void *base, long idx) { return (DESCR_t){ .v = DT_PCELL, .slen = (uint32_t)(int32_t) idx, .ptr = base }; }
+DESCR_t pas_addr(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; return pas_pcell((void *) b->data, rk_ival(args[1]) - b->lo); }
+    pas_file_err("6.5.4", "the address of an element is taken of a value that is no array or record variable", "__pas_addr");
+    return FAILDESCR;
+}
+DESCR_t pas_addr_var(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    if (args[0].v == DT_N && args[0].slen == 1 && args[0].ptr) return pas_pcell(args[0].ptr, 0);
+    pas_file_err("6.5.4", "the address of a variable is taken of a name that denotes no variable cell", "__pas_addr_var");
+    return FAILDESCR;
+}
+DESCR_t pas_ptr_inc(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    if (args[0].v != DT_PCELL || !args[0].ptr) pas_file_err("6.5.4", "pointer arithmetic on a pointer that denotes no cell", "__pas_ptr_inc");
+    return pas_pcell(args[0].ptr, (long) (int32_t) args[0].slen + rk_ival(args[1]));
+}
+static uintptr_t pas_ptr_word(DESCR_t p) { return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t)(int32_t) p.slen; }
+DESCR_t pas_ptr_eq(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v == DT_PCELL || args[1].v == DT_PCELL) return INTVAL(args[0].v == args[1].v && pas_ptr_word(args[0]) == pas_ptr_word(args[1]) ? 1 : 0);
+    if (IS_INT_fn(args[0]) && IS_INT_fn(args[1])) return INTVAL(args[0].i == args[1].i ? 1 : 0);
+    return INTVAL(args[0].v == args[1].v && args[0].i == args[1].i ? 1 : 0);
+}
 DESCR_t pas_field_set(DESCR_t *args, int nargs) {
     DESCR_t *hc = pas_heap_ref(args[0], "__pas_field_set");
     long idx = rk_ival(args[1]);
@@ -17862,6 +17891,14 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_902;
         case PBI_valval:
         goto L_pbi_902;
+        case PBI_addr:
+        goto L_pbi_903;
+        case PBI_addr_var:
+        goto L_pbi_904;
+        case PBI_ptr_inc:
+        goto L_pbi_905;
+        case PBI_ptr_eq:
+        goto L_pbi_906;
         case PBI_strf:
         goto L_pbi_182;
         case PBI_dynlen:
@@ -18226,6 +18263,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         *out = STRVAL(o);
         return 1;
     }
+    L_pbi_903:
+    ;
+    if (id == PBI_addr && nargs == 2) { *out = pas_addr(args, nargs); return 1; }
+    L_pbi_904:
+    ;
+    if (id == PBI_addr_var && nargs == 1) { *out = pas_addr_var(args, nargs); return 1; }
+    L_pbi_905:
+    ;
+    if (id == PBI_ptr_inc && nargs == 2) { *out = pas_ptr_inc(args, nargs); return 1; }
+    L_pbi_906:
+    ;
+    if (id == PBI_ptr_eq && nargs == 2) { *out = pas_ptr_eq(args, nargs); return 1; }
     L_pbi_902:
     ;
     if ((id == PBI_valcode || id == PBI_valval) && nargs == 2) {

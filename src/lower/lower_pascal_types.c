@@ -118,6 +118,7 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     if (!strcmp(n, "file")) return s->tfile;
     if (!strcmp(n, "pointer")) return s->tptr;
     if (!strcmp(n, "pchar") || !strcmp(n, "pansichar") || !strcmp(n, "pwidechar")) return s->tpchar;
+    if (n[0] == 'p' && n[1]) { pty_t *e = pt_builtin(s, n + 1); if (e && e->k != PTK_UNKNOWN && e->k != PTK_POINTER) { pty_t *t = pt_new(PTK_POINTER, n); t->base = e; return t; } }
     return NULL;
 }
 static pty_t *pt_named(struct pty_state *s, const char *n) { psym_t *p = ps_find_kind(s, n, 't'); return p ? p->t : pt_builtin(s, n); }
@@ -1192,6 +1193,7 @@ static int ty_rec_layout(const pty_t *r, long long *size_out, long long *align_o
 }
 int pty_rec_layout(const pty_t *r, long long *sz, long long *al) { return ty_rec_layout(r, sz, al, 0); }
 int pty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al) { return ty_rec_fld_sa(r, idx, sz, al, 0); }
+int pty_int_typename(const char *name) { struct pty_state *s = pt_st(); if (!s || !name) return 0; const pty_t *t = pt_named(s, name); return t && t->k == PTK_INT; }
 const pty_t *pty_type_by_name(const char *name) {
     struct pty_state *s = pt_st();
     if (!s || !s->ecur) return NULL;
