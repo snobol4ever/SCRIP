@@ -336,10 +336,12 @@ static long gc_box_kb(void) {
 static void rt_gcheap_init(void) {
     gc_knobs_hoist();
     long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
+    extern int rt_environ_has(const char *);
+    int senv = rt_environ_has("SCRIP_");
     { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
-    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
+    { const char *e = (senv ? getenv("SCRIP_HEAP_MB") : (const char *)0); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
     {
-        const char *e = getenv("SCRIP_HEAP_KB");
+        const char *e = (senv ? getenv("SCRIP_HEAP_KB") : (const char *)0);
         if (e && *e) {
             long v = atol(e);
             if (v < (long)GC_HEAP_KB_FLOOR || v > gc_box_kb()) {
@@ -353,9 +355,9 @@ static void rt_gcheap_init(void) {
     }
     cap_kb = (long)GC_HEAP_CAP_KB;
     if (cap_kb < kb) cap_kb = kb;
-    { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
+    { const char *e = (senv ? getenv("SCRIP_HEAP_MAX_MB") : (const char *)0); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
     {
-        const char *e = getenv("SCRIP_HEAP_CAP_KB");
+        const char *e = (senv ? getenv("SCRIP_HEAP_CAP_KB") : (const char *)0);
         if (e && *e) {
             long v = atol(e);
             if (v < kb) {
@@ -411,7 +413,7 @@ static void rt_gcheap_init(void) {
     rt_gcheap_line_reset(0);
     gc_static_segs_init();
 #if RT_DIAG
-    { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
+    { const char *b = senv ? getenv("SCRIP_GC_BIRTH_LEDGER") : (const char *)0; if (b && *b && *b != '0') (void)gc_vac_ledger(); }
 #endif
     (void)gc_stack_top();
 }

@@ -2773,6 +2773,13 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 }
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return g_runtime.core.sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_environ_has(const char *prefix) {
+    extern char **environ;
+    size_t n = strlen(prefix);
+    for (char **v = environ; v && *v; v++) if ((*v)[0] == prefix[0] && strncmp(*v, prefix, n) == 0) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
     static int core_lib_inited = 0;
     if (core_lib_inited) return;
@@ -2787,28 +2794,32 @@ void core_lib_init(void) {
     if (!g_runtime.misc.user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_runtime.misc.user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); g_runtime.core.start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
 #if RT_DIAG
-    const char *mon_fifo = getenv("MONITOR_READY_PIPE");
-    if (mon_fifo && mon_fifo[0]) {
-        g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
-        if (g_runtime.abi.monitor_fd < 0) g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY);
-        const char *go_pipe = getenv("MONITOR_GO_PIPE");
-        if (go_pipe && go_pipe[0]) g_runtime.core.monitor_ack_fd = open(go_pipe, O_RDONLY);
-        const char *names_path = getenv("MONITOR_NAMES_FILE");
-        if (names_path && names_path[0]) (void)load_names_file_bin(names_path);
+    if (!rt_environ_has("SCRIP_") && !rt_environ_has("MONITOR")) {
+        if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = 0;
     } else {
-        const char *mon = getenv("MONITOR");
-        if (mon && mon[0] == '1') g_runtime.abi.monitor_fd = 2;
+        const char *mon_fifo = getenv("MONITOR_READY_PIPE");
+        if (mon_fifo && mon_fifo[0]) {
+            g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
+            if (g_runtime.abi.monitor_fd < 0) g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY);
+            const char *go_pipe = getenv("MONITOR_GO_PIPE");
+            if (go_pipe && go_pipe[0]) g_runtime.core.monitor_ack_fd = open(go_pipe, O_RDONLY);
+            const char *names_path = getenv("MONITOR_NAMES_FILE");
+            if (names_path && names_path[0]) (void)load_names_file_bin(names_path);
+        } else {
+            const char *mon = getenv("MONITOR");
+            if (mon && mon[0] == '1') g_runtime.abi.monitor_fd = 2;
+        }
+        {
+            const char *ev_ftr = getenv("SCRIP_FTRACE");
+            if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_runtime.abi.kw_ftrace = v; }
+            const char *ev_tr = getenv("SCRIP_TRACE");
+            if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_runtime.misc.kw_trace = v; }
+            const char *ev_rktr = getenv("SCRIP_TRACE");
+            if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_runtime.abi.trace_budget = v; }
+            if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+        }
+        { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
     }
-    {
-        const char *ev_ftr = getenv("SCRIP_FTRACE");
-        if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_runtime.abi.kw_ftrace = v; }
-        const char *ev_tr = getenv("SCRIP_TRACE");
-        if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_runtime.misc.kw_trace = v; }
-        const char *ev_rktr = getenv("SCRIP_TRACE");
-        if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_runtime.abi.trace_budget = v; }
-        if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
-    }
-    { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
 #endif
     NV_SET_fn("ARB", pat_arb());
     NV_SET_fn("BAL", pat_bal());
