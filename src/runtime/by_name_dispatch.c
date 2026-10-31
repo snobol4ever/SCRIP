@@ -17768,6 +17768,15 @@ DESCR_t pas_ptr_eq(DESCR_t *args, int nargs) {
     if (IS_INT_fn(args[0]) && IS_INT_fn(args[1])) return INTVAL(args[0].i == args[1].i ? 1 : 0);
     return INTVAL(args[0].v == args[1].v && args[0].i == args[1].i ? 1 : 0);
 }
+DESCR_t pas_pdx(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    long long i = rk_ival(args[1]), lo = rk_ival(args[2]), hi = rk_ival(args[3]);
+    DESCR_t *cell = pas_heap_ref(args[0], "__pas_pdx");
+    if (cell->v == DT_A && cell->arr) { ARBLK_t *b = (ARBLK_t *) cell->arr; if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data) return pas_pcell_at((void *) b->data, i - b->lo, "__pas_pdx"); }
+    if (args[0].v != DT_PCELL) pas_file_err("6.5.4", "an element is indexed through a pointer that holds no cell kind", "__pas_pdx");
+    return pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + (i - lo), "__pas_pdx");
+}
 DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
     (void) nargs;
     if (args[0].v != DT_PCELL || args[1].v != DT_PCELL) return INTVAL(0);
@@ -17956,6 +17965,8 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_906;
         case PBI_ptr_diff:
         goto L_pbi_907;
+        case PBI_pdx:
+        goto L_pbi_911;
         case PBI_pchar_of:
         goto L_pbi_908;
         case PBI_pstrlen:
@@ -18338,6 +18349,9 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_906:
     ;
     if (id == PBI_ptr_eq && nargs == 2) { *out = pas_ptr_eq(args, nargs); return 1; }
+    L_pbi_911:
+    ;
+    if (id == PBI_pdx && nargs == 4) { *out = pas_pdx(args, nargs); return 1; }
     L_pbi_907:
     ;
     if (id == PBI_ptr_diff && nargs == 2) { *out = pas_ptr_diff(args, nargs); return 1; }

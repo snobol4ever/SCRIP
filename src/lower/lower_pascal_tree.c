@@ -791,6 +791,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     (sk == 2 ? ilit(255) : (_zb ? bin(TT_SUB, mk_fnc1("length", pas_tree_clone(v)), ilit(1)) : mk_fnc1("length", pas_tree_clone(v))));
             }
         }
+        if (v && v->t == TT_VAR && v->v.sval) { long long _tl, _th; if (pty_array_bounds(pty_name_type(v->v.sval), &_tl, &_th)) return ilit(name[0] == 'l' ? _tl : _th); }
     }
     if (name && (!strcmp(name, "low") || !strcmp(name, "high")) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_FNC && args->items[0]->n == 2 && args->items[0]->c[0] &&
         args->items[0]->c[0]->v.sval && !strcmp(args->items[0]->c[0]->v.sval, "__pas_deref")) {
@@ -6397,6 +6398,21 @@ static pval E_selector_raw(const tree_t *n) {
     if (IS(n, TT_IDX)) {
         v[1] = E_selector(n->c[0]);
         v[3] = E_expression_list(n, 1, n->n);
+        if (v[3].list && v[3].list->count == 1 && v[1].node && v[1].node->t == TT_FNC && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->v.sval &&
+            !strcmp(v[1].node->c[0]->v.sval, "__pas_deref") && pas_ptr_typed(v[1].node->c[1])) {
+            long long _lo, _hi;
+            if (pty_array_bounds(pty_pointee(pty_of_low(v[1].node->c[1])), &_lo, &_hi)) {
+                tree_t *_dx = ast_node_new(TT_FNC);
+                ast_push(_dx, leaf_s(TT_VAR, "__pas_pdx"));
+                ast_push(_dx, v[1].node->c[1]);
+                ast_push(_dx, v[3].list->items[0]);
+                ast_push(_dx, ilit(_lo));
+                ast_push(_dx, ilit(_hi));
+                pty_note_ptr_to(_dx, n);
+                out.node = mk_deref(_dx);
+                return out;
+            }
+        }
         if (v[3].list && v[3].list->count == 1 && pas_ptr_typed(v[1].node)) { out.node = mk_deref(mk_fnc2("__pas_ptr_inc", v[1].node, v[3].list->items[0])); return out; }
         if (v[1].node &&
             ((v[1].node->t == TT_VAR && v[1].node->v.sval && (pas_var_string_kind(v[1].node->v.sval) || pas_sconst_get(v[1].node->v.sval))) || (v[1].node->t == TT_QLIT && v[1].node->v.sval)) &&

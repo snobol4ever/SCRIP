@@ -869,6 +869,14 @@ int pty_name_is(const char *name, pty_kind want) {
     if (p->t->k == PTK_BOOL && p->t->wbool) return want == PTK_INT;
     return p->t->k == want;
 }
+void pty_note_ptr_to(const tree_t *low, const tree_t *src) {
+    struct pty_state *s = pt_st();
+    const pty_ent *e = s && low && src ? pt_map_get(&s->src, src) : NULL;
+    if (!e || !e->t) return;
+    pty_t *t = pt_new(PTK_POINTER, NULL);
+    t->base = (pty_t *) e->t;
+    pt_map_put(&s->low, low, t, 0);
+}
 void pty_note_kind(const tree_t *low, pty_kind k) { struct pty_state *s = pt_mk(); if (low) pt_map_put(&s->low, low, pt_new(k, NULL), 0); }
 int pty_answer(const tree_t *low, pty_kind want) {
     const pty_t *t = pty_of_low(low);
@@ -1208,6 +1216,12 @@ const pty_t *pty_formal_type(const char *name, int idx) {
         k += m;
     }
     return NULL;
+}
+int pty_array_bounds(const pty_t *t, long long *lo, long long *hi) {
+    if (!t || t->k != PTK_ARRAY || t->dyn || t->nix != 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 0;
+    *lo = t->ix[0]->lo;
+    *hi = t->ix[0]->hi;
+    return 1;
 }
 int pty_int_typename(const char *name) { struct pty_state *s = pt_st(); if (!s || !name) return 0; const pty_t *t = pt_named(s, name); return t && t->k == PTK_INT; }
 const pty_t *pty_type_by_name(const char *name) {
