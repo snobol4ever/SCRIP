@@ -2522,7 +2522,8 @@ extern "C" long planner_zsm_row_word(const IR_graph_t * g, const zeta_plan_t * r
     const IR_t * nd = rec->nodes[i];
     int rel = rec->gp && rec->wp;
     long k = zd_k_g(g, (IR_t *)nd), gp = rel ? rec->gp[i] : 0, wp = rel ? rec->wp[i] : 0;
-    int o = (int)nd->op, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE;
+    int o = (int)nd->op, en = o == IR_MATCH_END || o == IR_MATCH_REPLACE, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || en;
+    if (en) gp += zd_rel_g(g, (IR_t *)nd);
     IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
     int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
     int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
