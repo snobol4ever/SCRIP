@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include <dirent.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * icn_read_file(const char * path) {
     FILE * f = fopen(path, "rb");
@@ -104,6 +105,79 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
     ct_drop((void *) loaded);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_pkg_file_is(const char * path, const char * pkg) {
+    char * src = icn_read_file(path);
+    if (!src) return 0;
+    IcnLexer lx; icn_lex_init(&lx, src); lx.unicon = 1;
+    IcnToken a = icn_lex_next(&lx), b = icn_lex_next(&lx);
+    int ok = a.kind == TK_PACKAGE && (b.kind == TK_IDENT || b.kind == TK_STRING) && b.val.sval.data && !strcmp(b.val.sval.data, pkg);
+    ct_drop(src);
+    return ok;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_pkg_dir_files(const char * d, const char * pkg, char *** out, int * n, int * cap) {
+    char one[PATH_MAX + 64]; snprintf(one, sizeof one, "%s/%s.icn", d, pkg);
+    if (access(one, R_OK) == 0) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = ct_strdup(one); return; }
+    DIR * dp = opendir(d);
+    if (!dp) return;
+    struct dirent * de;
+    while ((de = readdir(dp))) {
+        size_t l = strlen(de->d_name);
+        if (l < 5 || strcmp(de->d_name + l - 4, ".icn")) continue;
+        snprintf(one, sizeof one, "%s/%s", d, de->d_name);
+        if (!icn_pkg_file_is(one, pkg)) continue;
+        if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); }
+        (*out)[(*n)++] = ct_strdup(one);
+    }
+    closedir(dp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_resolve_imports(tree_t * prog, const char * filename) {
+    if (!prog) return;
+    const char * slash = strrchr(filename, '/'); char dir[slash ? (size_t)(slash - filename) + 1 : 2];
+    if (slash) { size_t dl = (size_t)(slash - filename); memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
+    const char ** seen = NULL; int nseen = 0, cseen = 0;
+    for (int scan = 0; scan < prog->n; scan++) {
+        const tree_t * subj = icn_stmt_subject(prog->c[scan]);
+        if (!subj || subj->t != TT_USE_DECL) continue;
+        for (int k = 0; k < subj->n; k++) {
+            const char * nm = (subj->c[k] && subj->c[k]->v.sval) ? subj->c[k]->v.sval : NULL;
+            if (!nm) continue;
+            int dup = 0; for (int d = 0; d < nseen; d++) if (!strcmp(seen[d], nm)) { dup = 1; break; }
+            if (dup) continue;
+            if (nseen == cseen) { cseen = cseen ? cseen * 2 : 8; seen = (const char **) ct_grow((void *) seen, (size_t) cseen * sizeof *seen); }
+            seen[nseen++] = nm;
+            char ** files = NULL; int nf = 0, cf = 0;
+            icn_pkg_dir_files(dir, nm, &files, &nf, &cf);
+            const char * pev[2] = { getenv("IPATH"), getenv("ICONPATH") };
+            for (int v = 0; v < 2 && !nf; v++) for (const char * q = pev[v]; q && *q && !nf;) {
+                const char * colon = strchr(q, ':'); size_t seg = colon ? (size_t)(colon - q) : strlen(q);
+                if (seg > 0) { char dd[seg + 1]; memcpy(dd, q, seg); dd[seg] = '\0'; icn_pkg_dir_files(dd, nm, &files, &nf, &cf); }
+                if (!colon) break;
+                q = colon + 1;
+            }
+            if (!nf) { fprintf(stderr, "icon: import: cannot find package %s (imported from %s); searched %s and IPATH\n", nm, filename, dir); exit(1); }
+            for (int f = 0; f < nf; f++) {
+                char * src = icn_read_file(files[f]);
+                if (!src) { fprintf(stderr, "icon: import: cannot read %s\n", files[f]); exit(1); }
+                IcnLexer lx2; icn_pp_set_source_path(files[f]); icn_lex_init(&lx2, src); lx2.unicon = icn_source_is_unicon(src);
+                IcnParser p2; icn_parse_init(&p2, &lx2);
+                tree_t * sub_ast = NULL;
+                CODE_t * sp = icn_parse_file(&p2, &sub_ast);
+                if (p2.had_error) { fprintf(stderr, "icon: parse error in imported file %s: %s\n", files[f], p2.errmsg); exit(1); }
+                ct_drop(sp);
+                const char * pkgname = NULL;
+                if (sub_ast) for (int j = 0; j < sub_ast->n && !pkgname; j++) { const tree_t * sj = icn_stmt_subject(sub_ast->c[j]); if (sj && sj->t == TT_MODULE_DECL) pkgname = sj->v.sval; }
+                const char * lb = strrchr(files[f], '/'); lb = lb ? lb + 1 : files[f];
+                if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) {
+                    if (sub_ast->c[j]->t == TT_STMT) { ast_push(sub_ast->c[j], ast_attr_leaf(":file", lb)); if (pkgname) ast_push(sub_ast->c[j], ast_attr_leaf(":pkg", pkgname)); }
+                    ast_push(prog, sub_ast->c[j]);
+                }
+            }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * icn_top_subject(const tree_t * s) {
     while (s && s->t == TT_STMT) { const tree_t * subj = NULL; for (int i = 0; i < s->n; i++) { const tree_t * a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) { subj = (a->n > 0) ? a->c[0] : NULL; break; } } s = subj; }
     return s;
@@ -111,7 +185,7 @@ static const tree_t * icn_top_subject(const tree_t * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_mark_proc_refs(const tree_t * n, const tree_t ** procs, int np, char * keep) {
     if (!n) return;
-    if (n->t == TT_VAR && n->v.sval) for (int k = 0; k < np; k++) if (!keep[k] && procs[k]->v.sval && !strcmp(procs[k]->v.sval, n->v.sval)) keep[k] = 1;
+    if (n->t == TT_VAR && n->v.sval) { const char * qn = strrchr(n->v.sval, ':'); qn = (qn && qn > n->v.sval && qn[-1] == ':') ? qn + 1 : n->v.sval; for (int k = 0; k < np; k++) if (!keep[k] && procs[k]->v.sval && !strcmp(procs[k]->v.sval, qn)) keep[k] = 1; }
     for (int i = 0; i < n->n; i++) icn_mark_proc_refs(n->c[i], procs, np, keep);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -158,7 +232,7 @@ void *icon_compile_parse(const char *source, const char *filename) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile_finish(void *parsed, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
-    if (out_ast) { *out_ast = (tree_t *)parsed; if (*out_ast) icn_resolve_links(*out_ast, filename); }
+    if (out_ast) { *out_ast = (tree_t *)parsed; if (*out_ast) { icn_resolve_imports(*out_ast, filename); icn_resolve_links(*out_ast, filename); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile(const char *source, const char *filename, tree_t **out_ast) {

@@ -292,8 +292,132 @@ static void cx_prelude(cx_st * st, tree_t * prog) {
     for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char * pkg; const char * name; } pk_decl;
+typedef struct { pk_decl * d; int n, cap; } pk_decls;
+typedef struct { const char * file; const tree_t * stmt; const char * pkg; } pk_stmt;
+typedef struct { pk_decls decls; const char ** ifile; cx_sv * ilist; int nif, cif; } pk_st;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pk_pkg_of(const tree_t * s, const char * mainpkg) { const tree_t * a = stmt_attr_find(s, ":pkg"); const char * v = a ? stmt_attr_str(a) : NULL; return v && *v ? v : mainpkg; }
+static void pk_decl_add(pk_decls * ds, const char * pkg, const char * name) {
+    for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name)) return;
+    if (ds->n == ds->cap) { ds->cap = ds->cap ? ds->cap * 2 : 16; ds->d = (pk_decl *) ct_grow(ds->d, (size_t) ds->cap * sizeof *ds->d); }
+    ds->d[ds->n].pkg = pkg;
+    ds->d[ds->n].name = name;
+    ds->n++;
+}
+static int pk_declared(const pk_decls * ds, const char * pkg, const char * name) { for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static cx_sv * pk_imports(pk_st * st, const char * file) {
+    for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) return &st->ilist[i];
+    if (st->nif == st->cif) {
+        st->cif = st->cif ? st->cif * 2 : 8;
+        st->ifile = (const char **) ct_grow((void *) st->ifile, (size_t) st->cif * sizeof *st->ifile);
+        st->ilist = (cx_sv *) ct_grow(st->ilist, (size_t) st->cif * sizeof *st->ilist);
+    }
+    st->ifile[st->nif] = file;
+    memset(&st->ilist[st->nif], 0, sizeof st->ilist[st->nif]);
+    return &st->ilist[st->nif++];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pk_map(const pk_st * st, const char * file, const char * name) {
+    if (!*name || name[0] == '&') return NULL;
+    if (*file && pk_declared(&st->decls, file, name)) return cx_cat(file, "__", name);
+    for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) for (int k = 0; k < st->ilist[i].n; k++) if (pk_declared(&st->decls, st->ilist[i].v[k], name))
+        return cx_cat(st->ilist[i].v[k], "__", name);
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pk_walk(pk_st * st, const char * file, tree_t * n, const cx_sv * shadow) {
+    if (!n || n->t == TT_LOCAL || n->t == TT_STATIC_DECL) return;
+    if (n->t == TT_VAR && n->v.sval) {
+        const char * nm = n->v.sval;
+        const char * q = strstr(nm, "::");
+        if (q && q > nm) {
+            char * m = cx_cat("", "", nm);
+            size_t k = (size_t)(q - nm);
+            memcpy(m, nm, k);
+            m[k] = '_';
+            m[k + 1] = '_';
+            memmove(m + k + 2, q + 2, strlen(q + 2) + 1);
+            n->v.sval = m;
+            n->slen = (int) strlen(m);
+            return;
+        }
+        if (q || cx_has(shadow, nm)) return;
+        const char * m = pk_map(st, file, nm);
+        if (m) { n->v.sval = (char *) m; n->slen = (int) strlen(m); }
+        return;
+    }
+    for (int i = 0; i < n->n; i++) { if (n->t == TT_FIELD && i == 1) continue; pk_walk(st, file, n->c[i], shadow); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pk_proc(pk_st * st, const char * file, tree_t * pd, const cx_sv * base, int rename_self) {
+    if (!pd || pd->t != TT_PROC_DECL || pd->n < 3) return;
+    cx_sv sh = { 0 };
+    if (base) for (int i = 0; i < base->n; i++) cx_push(&sh, base->v[i]);
+    for (int i = 0; i < pd->c[1]->n; i++) cx_push(&sh, pd->c[1]->c[i]->v.sval);
+    cx_locals(pd->c[2], &sh);
+    pk_walk(st, file, pd->c[2], &sh);
+    if (rename_self && *file && pd->v.sval) { char * m = cx_cat(file, "__", pd->v.sval); pd->v.sval = m; if (pd->c[0]) { pd->c[0]->v.sval = m; pd->c[0]->slen = (int) strlen(m); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_apply_packages(tree_t * prog) {
+    pk_st st;
+    memset(&st, 0, sizeof st);
+    const char * mainpkg = "";
+    int any = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        const tree_t * d = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (d && (d->t == TT_MODULE_DECL || d->t == TT_USE_DECL)) any = 1;
+        if (d && d->t == TT_MODULE_DECL && !stmt_attr_find(s, ":pkg") && !stmt_attr_find(s, ":file") && d->v.sval) mainpkg = d->v.sval;
+    }
+    if (!any) return;
+    for (int i = 0; i < prog->n; i++) {
+        tree_t * s = prog->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        const tree_t * d = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!d) continue;
+        const char * f = pk_pkg_of(s, mainpkg);
+        if (d->t == TT_USE_DECL) { cx_sv * il = pk_imports(&st, f); for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) cx_push_new(il, d->c[k]->v.sval); continue; }
+        if (!*f) continue;
+        if (d->t == TT_PROC_DECL || d->t == TT_RECORD || d->t == TT_CLASS_DECL) {
+            if (d->v.sval) pk_decl_add(&st.decls, f, d->v.sval);
+        } else if (d->t == TT_GLOBAL) for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) pk_decl_add(&st.decls, f, d->c[k]->v.sval);
+    }
+    for (int i = 0; i < prog->n; i++) {
+        tree_t * s = prog->c[i];
+        if (!s || s->t != TT_STMT) continue;
+        tree_t * d = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!d) continue;
+        const char * f = pk_pkg_of(s, mainpkg);
+        if (d->t == TT_PROC_DECL) pk_proc(&st, f, d, NULL, 1);
+        else if (d->t == TT_RECORD) {
+            if (*f && d->v.sval) d->v.sval = cx_cat(f, "__", d->v.sval);
+        } else if (d->t == TT_GLOBAL) {
+            for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval && *f) { d->c[k]->v.sval = cx_cat(f, "__", d->c[k]->v.sval); d->c[k]->slen = (int) strlen(d->c[k]->v.sval); }
+        } else if (d->t == TT_CLASS_DECL) {
+            cx_sv fl = { 0 };
+            for (int k = 0; k < d->c[1]->n; k++) cx_push(&fl, d->c[1]->c[k]->v.sval);
+            for (int k = 0; k < d->c[0]->n; k++) { tree_t * sv = d->c[0]->c[k]; const char * m = pk_map(&st, f, sv->v.sval); if (m) { sv->v.sval = (char *) m; sv->slen = (int) strlen(m); } }
+            for (int k = 2; k < d->n; k++) pk_proc(&st, f, d->c[k], &fl, 0);
+            if (*f && d->v.sval) d->v.sval = cx_cat(f, "__", d->v.sval);
+        }
+    }
+    int w = 0;
+    for (int i = 0; i < prog->n; i++) {
+        tree_t * s = prog->c[i];
+        const tree_t * d = (s && s->t == TT_STMT) ? stmt_attr_expr(stmt_attr_find(s, ":subj")) : NULL;
+        if (d && (d->t == TT_MODULE_DECL || d->t == TT_USE_DECL)) continue;
+        prog->c[w++] = prog->c[i];
+    }
+    prog->n = w;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_expand_classes(tree_t * prog) {
     if (!prog) return;
+    icn_apply_packages(prog);
     cx_st st;
     memset(&st, 0, sizeof st);
     for (int i = 0; i < prog->n; i++) {
