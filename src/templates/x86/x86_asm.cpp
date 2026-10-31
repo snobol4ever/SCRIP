@@ -1242,7 +1242,8 @@ void bb_emit_x86(const std::string & s) {
       while (i < n) { char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
         else if (tag == 'J') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; x86_rsp_jump(1, (uint64_t)id); }
-        else if (tag == 'D') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
+        else if (tag == 'D') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0;
+            S.unknown = 0;
             } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
         else if (tag == 'Q') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); }
