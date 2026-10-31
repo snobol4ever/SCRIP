@@ -4,8 +4,12 @@ RTX_FUNC(rt_call_bid_sn4)
     RTX_GATE(misc, .Lcb_c)
     mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
     mov     rax, qword ptr [rax + G_RT_OFF_ERROR]
-    add     rax, rax
+    test    rax, rax
+    jz      .Lcb_noerr
+    btc     rax, 63
+    shr     rax, 25
     jnz     .Lcb_c
+.Lcb_noerr:
     mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
     cmp     qword ptr [rax + G_RT_OFF_KW_ERRLIMIT], 0
     jne     .Lcb_c
