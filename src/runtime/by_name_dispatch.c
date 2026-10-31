@@ -21465,6 +21465,43 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_is_list(DESCR_t v) { return rt_lv_is_list(v, (DESCR_t **)0, (int *)0); }
+static int bn_uni_list_insert(DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t ld = args[0];
+    DESCR_t *a = 0;
+    int n = 0;
+    if (!rt_lv_is_list(ld, &a, &n)) return 0;
+    long p = nargs > 1 ? to_int(args[1]) : 0;
+    if (p <= 0) p = (long) n + 1 + p;
+    if (p < 1 || p > (long) n + 1) { *out = FAILDESCR; return 1; }
+    DESCR_t pa[2] = { ld, nargs > 2 ? args[2] : NULVCL };
+    DESCR_t ignore;
+    bn_icn_put(pa, 2, &ignore);
+    if (!rt_lv_is_list(ld, &a, &n)) return 0;
+    if (p <= (long) n - 1) { memmove(&a[p], &a[p - 1], (size_t)(n - p) * sizeof(DESCR_t)); a[p - 1] = pa[1]; }
+    *out = ld;
+    return 1;
+}
+static int bn_uni_list_delete(DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t ld = args[0];
+    DESCR_t *a = 0;
+    int n = 0;
+    if (!rt_lv_is_list(ld, &a, &n)) return 0;
+    long p = nargs > 1 ? to_int(args[1]) : 0;
+    if (p <= 0) p = (long) n + 1 + p;
+    if (a && p >= 1 && p <= (long) n) { memmove(&a[p - 1], &a[p], (size_t)(n - p) * sizeof(DESCR_t)); rt_lv_set_size(ld, n - 1); }
+    *out = ld;
+    return 1;
+}
+static int bn_uni_list_reverse(DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t *a = 0;
+    int n = 0;
+    (void) nargs;
+    if (!rt_lv_is_list(args[0], &a, &n)) return 0;
+    DESCR_t *r = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n; i++) r[i] = a[n - 1 - i];
+    *out = rt_make_list(r, n);
+    return 1;
+}
 static int icn_scan_tail_gate(DESCR_t *args, int nargs, int subj, DESCR_t *out) {
     if (nargs > subj && !IS_FAIL_fn(args[subj]) && args[subj].v != DT_SNUL && !icn_cvt_chars_ok(args[subj])) return icn_argtype_raise(103, args[subj], out);
     for (int i = subj + 1; i < subj + 3 && i < nargs; i++) if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_int_ok(args[i])) return icn_argtype_raise(101, args[i], out);
@@ -21526,7 +21563,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         case BID_trim:
         case BID_reverse:
         case BID_repl:
-        return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        return (icn_cvt_chars_ok(args[0]) || (bid == BID_reverse && icn_arg_is_list(args[0]))) ? 0 : icn_argtype_raise(103, args[0], out);
         case BID_detab:
         case BID_entab:
         if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
@@ -21581,7 +21618,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         return icn_cvt_int_ok(args[0]) ? 0 : icn_argtype_raise(101, args[0], out);
         case BID_insert:
         case BID_member:
-        return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
+        return (args[0].v == DT_T || (bid == BID_insert && icn_arg_is_list(args[0]))) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_get:
         case BID_pop:
         case BID_pull:
@@ -21592,7 +21629,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         if (nargs >= 1 && !(icn_arg_is_list(args[0]) || args[0].v == DT_T || (IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type))) return icn_argtype_raise(115, args[0], out);
         return 0;
         case BID_delete:
-        return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
+        return (args[0].v == DT_T || IS_STR_fn(args[0]) || icn_arg_is_list(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key:
         return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
         case BID_read:
@@ -23314,6 +23351,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5531:
     ;
+    if ((_bid == BID_reverse) && nargs >= 1 && icn_arg_is_list(args[0])) return bn_uni_list_reverse(args, nargs, out);
     if ((_bid == BID_reverse) && nargs >= 1) {
         const char *s=VARVAL_fn(args[0]);
         if(!s)s="";
@@ -23953,6 +23991,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6115:
     ;
+    if ((_bid == BID_insert) && nargs >= 1 && icn_arg_is_list(args[0])) return bn_uni_list_insert(args, nargs, out);
     if ((_bid == BID_insert) && nargs >= 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
@@ -23964,6 +24003,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6124:
     ;
+    if ((_bid == BID_delete) && nargs >= 1 && icn_arg_is_list(args[0])) return bn_uni_list_delete(args, nargs, out);
     if ((_bid == BID_delete) && nargs >= 1) {
         DESCR_t td = args[0];
         if (nargs == 1 && IS_STR_fn(td)) { const char *path = VARVAL_fn(td); if (!path || !path[0] || unlink(path) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
