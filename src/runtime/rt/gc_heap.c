@@ -2921,7 +2921,7 @@ typedef struct {
     const gc_site_ent_t *te;
     const gc_site_blk_t *tb;
     const char *tr, *tbase;
-    long t_frames, t_masked, t_agree, t_search_only, t_so_unmasked, t_mask_only, t_mask_scalar, t_outside, t_nosite, t_hdr, t_blob, t_tail, t_said, t_so_rule[10];
+    long t_frames, t_masked, t_agree, t_search_only, t_so_unmasked, t_mask_only, t_mask_scalar, t_outside, t_m12, t_over, t_nosite, t_hdr, t_blob, t_tail, t_said, t_so_rule[10];
 } gc_sw_t;
 _Static_assert(__builtin_offsetof(gc_sw_t, lo) == 0 && __builtin_offsetof(gc_sw_t, hi) == 8 && __builtin_offsetof(gc_sw_t, p) == 16 && __builtin_offsetof(gc_sw_t, prevbase) == 24 &&
     __builtin_offsetof(gc_sw_t, lastname) == 32 && __builtin_offsetof(gc_sw_t, roottop) == 40 && __builtin_offsetof(gc_sw_t, n) == 48 && __builtin_offsetof(gc_sw_t, run) == 56 &&
@@ -3042,7 +3042,12 @@ static long gc_told_search(const char *lo, const char *hi, uint8_t *acc) {
     for (const char *p = lo; p + 16 <= hi; ) { if (gc_cell_ok((const DESCR_t *)p)) { n++; if (acc) acc[(p - lo) >> 6] |= (uint8_t)(1u << (((p - lo) >> 3) & 7)); p += 16; } else p += 8; }
     return n;
 }
+static long gc_told_nw(const gc_site_ent_t *e, const gc_site_blk_t *b) {
+    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return e->mask ? (long)*(const uint64_t *)((const char *)b->tab + e->mask) : 0;
+    return ((GC_SITE_RULE(e) == 0 || GC_SITE_RULE(e) == 4) && e->depth > 0) ? (long)e->depth / 8 : 0;
+}
 static int gc_told_bit(const gc_site_ent_t *e, const gc_site_blk_t *b, long j) {
+    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return (int)((((const uint64_t *)((const char *)b->tab + e->mask))[1 + (j >> 6)] >> (j & 63)) & 1u);
     if (e->depth <= 512) return j < 64 ? (int)((e->mask >> j) & 1u) : 0;
     return (int)((((const uint64_t *)((const char *)b->tab + e->mask))[j >> 6] >> (j & 63)) & 1u);
 }
@@ -3054,8 +3059,9 @@ static void gc_told_said(gc_sw_t *s, const char *what, const gc_chf_t *f, const 
 static void gc_told_window(gc_sw_t *s, const gc_chf_t *f, const char *lo, const char *hi) {
     const gc_site_ent_t *e = s->te;
     const char *r = s->tr;
-    int masked = GC_SITE_RULE(e) == 0 || GC_SITE_RULE(e) == 4;
-    long nw = (masked && e->depth > 0) ? (long)e->depth / 8 : 0, nb = hi > lo ? (hi - lo) >> 3 : 0;
+    long nw = gc_told_nw(e, s->tb), nb = hi > lo ? (hi - lo) >> 3 : 0;
+    int masked = GC_SITE_RULE(e) == 0 || GC_SITE_RULE(e) == 4 || nw > 0;
+    if ((GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) && nw > 0) { s->t_m12++; if (nw * 8 > (long)(s->tbase - r)) s->t_over++; }
     uint8_t acc[nb < 32768 ? (nb >> 3) + 1 : 1];
     if (hi - lo < 16) { s->t_frames++; if (masked) s->t_masked++; for (long j = 0; j < nw; j++) if (gc_told_bit(e, s->tb, j)) s->t_outside++; return; }
     if (nb >= 32768) return;
@@ -3093,6 +3099,7 @@ static void gc_told_summary(gc_sw_t *s) {
         fprintf(stderr,
         "[GC-TOLD] SUMMARY frames=%ld masked=%ld agree=%ld search_only=%ld so_unmasked=%ld mask_only=%ld mask_scalar=%ld outside=%ld nosite_cells=%ld hdr_cells=%ld blob_cells=%ld tail_cells=%ld\n",
         s->t_frames, s->t_masked, s->t_agree, s->t_search_only, s->t_so_unmasked, s->t_mask_only, s->t_mask_scalar, s->t_outside, s->t_nosite, s->t_hdr, s->t_blob, s->t_tail);
+    if (s->t_m12) fprintf(stderr, "[GC-TOLD] RULE12-MASKS windows=%ld declared_past_base=%ld\n", s->t_m12, s->t_over);
     if (s->t_search_only)
         fprintf(stderr, "[GC-TOLD] SO-RULES r0=%ld r1=%ld r2=%ld r3=%ld r4=%ld r5=%ld r6=%ld r7=%ld r8=%ld r9=%ld\n", s->t_so_rule[0], s->t_so_rule[1], s->t_so_rule[2], s->t_so_rule[3],
         s->t_so_rule[4], s->t_so_rule[5], s->t_so_rule[6], s->t_so_rule[7], s->t_so_rule[8], s->t_so_rule[9]);

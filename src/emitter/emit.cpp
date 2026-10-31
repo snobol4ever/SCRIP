@@ -2768,8 +2768,9 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth;
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
-    e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0;
-    if ((rule == 0 || rule == 4) && g_emit.op_wk_off >= 0 && g_emit.op_wk_pool) {
+    e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0; e->dk = -1;
+    if (rule == 1 || rule == 2) e->dk = g_emit.op_zrun + g_emit.op_zxb + adj + g_emit.op_vdj_live;
+    if ((rule == 0 || rule == 4 || rule == 1 || rule == 2) && g_emit.op_wk_off >= 0 && g_emit.op_wk_pool) {
         int nw = (g_emit.op_wk_n + 63) / 64;
         e->wk_off = (int32_t)g_emitter.g_gc_sites_wk.len; e->wk_n = g_emit.op_wk_n; e->wk_e = g_emit.op_wk_e; e->wk_pre = g_emit.op_wk_pre;
         for (int q = 0; q < nw; q++) CV_PUSH(g_emitter.g_gc_sites_wk, uint64_t) = g_emit.op_wk_pool[g_emit.op_wk_off + q]; }
@@ -2780,7 +2781,7 @@ extern "C++" int emit_gc_site_raw(int kind, int rule, int depth) {
     if (!g_emitter.g_gc_sites_armed) return -1;
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = 0; e->fcb = 0; e->fcbase = 0;
         e->demit = depth;
-        e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node; e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0;
+        e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node; e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0; e->dk = -1;
     return (int)g_emitter.g_gc_sites_v.len - 1;
 }
 static int emit_gc_match_reaches(const IR_t * b, const IR_t * nd) {
@@ -2819,6 +2820,7 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
     gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, idx);
     if (pc) e->pc = (uint64_t)(uintptr_t)pc;
     else e->pc = ++g_emitter.g_gc_site_play_seq;
+    if (e->kind == X86_SITE_MATCH_ENTER || e->kind == X86_SITE_MATCH_LEAVE) e->dk = -1;
     if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
         if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; g_emitter.g_gc_match_out.nd = e->nd; } g_emitter.g_gc_match_n++;
             e->depth = ed; e->mn = ek + 1; return; }
@@ -2837,6 +2839,7 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
         e->kind = (uint16_t)((e->kind & 255) | ((d / 8) << 8));
     }
     if (e->rule == 0) { e->depth += delta; if (aligned) e->rule = 4; if (unknown) e->rule = 5; }
+    else if (e->rule == 1 || e->rule == 2) e->dk = (aligned || unknown || e->dk < 0) ? -1 : e->dk + delta;
     if (g_emitter.g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5) &&
         (ir_is_matcher(e->nd ? (int)e->nd->op : 0) || emit_gc_match_reaches(g_emitter.g_gc_match_out.nd, e->nd))) {
         const gc_match_lvl_t & o = g_emitter.g_gc_match_out;
@@ -2865,14 +2868,33 @@ extern "C" int emit_gc_sites_names_n(void) { return g_emitter.g_gc_sites_names_n
 extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_emitter.g_gc_sites_names_n) ? CV_AT(g_emitter.g_gc_sites_names_v, char *, k) : "?"; }
 static int emit_gc_site_mask(const gc_site_t * e, std::vector<uint64_t> & out) {
     out.clear();
-    if (e->wk_off < 0 || (e->rule != 0 && e->rule != 4)) return 0;
-    int D = e->depth, delta = D - e->wk_pre - e->wk_e;
+    if (e->wk_off < 0) return 0;
+    int D = (e->rule == 0 || e->rule == 4) ? e->depth : ((e->rule == 1 || e->rule == 2) ? e->dk : -1);
+    if (D < 0 && e->rule != 0 && e->rule != 4) return 0;
+    int delta = D - e->wk_pre - e->wk_e;
     if (D <= 0 || (D & 7) || delta < 0 || (delta & 7) || (e->wk_pre & 7)) return -1;
     int nb = D / 8, sh = delta / 8;
     out.assign((size_t)((nb + 63) / 64), 0u);
     for (int j = 0; j < e->wk_n && j + sh < nb; j++)
         if ((CV_AT(g_emitter.g_gc_sites_wk, uint64_t, e->wk_off + j / 64) >> (j % 64)) & 1ull) out[(size_t)(j + sh) / 64] |= 1ull << ((j + sh) % 64);
     return 1;
+}
+static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint64_t> & pool, std::unordered_map<std::string, uint64_t> & shared, std::vector<uint64_t> & mk) {
+    if (((e->rule == 1 || e->rule == 2) && (e->kind & 255) != 1) || emit_gc_site_mask(e, mk) <= 0) return 0;
+    if (e->rule == 0 || e->rule == 4) {
+        if (e->depth <= 512) return mk[0];
+        uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
+        pool.insert(pool.end(), mk.begin(), mk.end());
+        return t;
+    }
+    mk.insert(mk.begin(), (uint64_t)(e->dk / 8));
+    std::string key((const char *)mk.data(), mk.size() * sizeof(uint64_t));
+    std::unordered_map<std::string, uint64_t>::const_iterator it = shared.find(key);
+    if (it != shared.end()) return it->second;
+    uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
+    pool.insert(pool.end(), mk.begin(), mk.end());
+    shared.emplace(key, t);
+    return t;
 }
 static void emit_gc_sites_data(const char * fam, int frameless) {
      int n = (int)g_emitter.g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", g_emitter.emit_gc_sites_data_seq++);
@@ -2889,13 +2911,13 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         for (int i = 0; i < n; i++) ord[i] = i;
         std::stable_sort(ord, ord + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).pc < CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).pc; });
         std::vector<uint64_t> pool, mk;
+        std::unordered_map<std::string, uint64_t> shared;
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
-            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = 0;
-            if (emit_gc_site_mask(e, mk) > 0) { if (gc_sites_report_on())
-                fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d arrival=%d pre=%d words=%zu mask0=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i, e->nd ? bb_op_name(e->nd->op) : "?",
-                (int)e->rule, (int)e->depth, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[0]);
-                if (e->depth <= 512) third = mk[0]; else { third = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size(); pool.insert(pool.end(), mk.begin(), mk.end());
-                } }
+            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = emit_gc_site_third(e, n, pool, shared, mk);
+            if (third && gc_sites_report_on())
+                fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d known=%d arrival=%d pre=%d words=%zu mask0=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i,
+                    e->nd ? bb_op_name(e->nd->op) : "?",
+                (int)e->rule, (int)e->depth, (int)e->dk, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[mk.size() > 1 && (e->rule == 1 || e->rule == 2) ? 1 : 0]);
             t = " .quad " + emit_gc_site_label(i) + (g_emit.gc_code_lbl.name ? std::string("-") + g_emit.gc_code_lbl.name : std::string()) + "\n .quad "
                 + std::to_string((unsigned long long)w) + "\n .quad " + std::to_string((unsigned long long)third) + "\n"; emit_text_n(t.data(), t.size()); }
         for (size_t q = 0; q < pool.size(); q++) { t = " .quad " + std::to_string((unsigned long long)pool[q]) + "\n"; emit_text_n(t.data(), t.size()); }
@@ -2910,10 +2932,9 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
                 y = ((const gc_site_t *)b)->pc;
             return (x > y) - (x < y); });
         std::vector<uint64_t> pool, mk;
+        std::unordered_map<std::string, uint64_t> shared;
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32),
-            third = 0;
-            if (emit_gc_site_mask(e, mk) > 0) { if (e->depth <= 512) third = mk[0]; else { third = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size(); pool.insert(pool.end(), mk.begin(), mk.end());
-                } }
+            third = emit_gc_site_third(e, n, pool, shared, mk);
             bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); bb_emit_u64(third); }
         for (size_t q = 0; q < pool.size(); q++) bb_emit_u64(pool[q]);
     }

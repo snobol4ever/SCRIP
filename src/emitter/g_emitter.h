@@ -45,7 +45,7 @@ typedef struct {
     const char * bk;
     int mn;
     const IR_t * nd;
-    int32_t wk_off, wk_n, wk_e, wk_pre;
+    int32_t wk_off, wk_n, wk_e, wk_pre, dk;
 } gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 struct zeta_plan_t;
