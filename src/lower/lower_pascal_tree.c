@@ -3745,6 +3745,11 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
 static tree_t *mk_ident(const char *name) {
     if (pas_pf_is_formal(name) && pas_pf_lookup(name)->sig[0] == 'F') return pas_pf_callthrough(name, NULL);
     if (name && !strcmp(name, "result") && !pas_is_declared_local_here(name)) { const char *cf = pas_curfunc_name(); if (cf) return leaf_s(TT_VAR, cf); }
+    if (name && pas_curfunc_name()) {
+        const char *cf = pas_curfunc_name();
+        size_t nl = strlen(name);
+        if (!strncmp(cf, name, nl) && cf[nl] == '$' && cf[nl + 1] && cf[nl + 1 + strspn(cf + nl + 1, "0123456789")] == 0 && !pas_is_declared_local_here(name)) return leaf_s(TT_VAR, cf);
+    }
     if (name && g_lower.pas.sem.pas_dialect_fpc && !g_lower.pas.sem.pas_fname_is_call && pas_curfunc_name()) {
         const char *cf = pas_curfunc_name(), *sep = strstr(cf, "__pc_") == cf ? strrchr(cf, '_') : NULL;
         if (!strcmp(name, cf)) return leaf_s(TT_VAR, name);

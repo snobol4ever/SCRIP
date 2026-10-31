@@ -65,6 +65,7 @@ type
   EInvalidPointer = class(EHeapMemoryError);
   EOutOfMemory = class(EHeapMemoryError);
 function IntToStr(n: integer): string;
+function IntToStr(n: qword): string;
 function StrToInt(s: string): integer;
 function UpperCase(s: string): string;
 function LowerCase(s: string): string;
@@ -187,6 +188,16 @@ begin
     n := n div 10
   until n = 0;
   if neg then r := '-' + r;
+  IntToStr := r
+end;
+function IntToStr(n: qword): string;
+var r: string;
+begin
+  setlength(r, 0);
+  repeat
+    r := chr(ord('0') + n mod 10) + r;
+    n := n div 10
+  until n = 0;
   IntToStr := r
 end;
 function StrToInt(s: string): integer;
