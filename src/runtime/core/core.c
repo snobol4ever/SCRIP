@@ -1789,26 +1789,39 @@ _Static_assert(sizeof(long) == 8,
     "its string, a -- ends them and is consumed, and the first token that is not one -- a program's own option included, textcvt's `-d -f` and datmerge's `-min` in the IPL -- is the program's first "
     "argument, never refused: a compiled program's argv is the program's; it used to skip every leading dash token, known or not, while the program still saw them all, and HOST(0) found -u only in t"
     "he first position");
-static int cmdline_switch_walk(long *win_kb, long *cap_kb, long *stk, long *mxl, char *ub, int ubsz, int *has_u, int *bad, int report) {
+static const char *cmdline_snap_tok(const char *blk, long bn, int want, int *tl) {
+    long st = 0;
+    int idx = 0;
+    for (long q = 0; q < bn; q++) { if (blk[q]) continue; if (idx == want) { *tl = (int)(q - st); return blk + st; } idx++; st = q + 1; }
+    if (idx == want && bn > st) { *tl = (int)(bn - st); return blk + st; }
+    return (const char *)0;
+}
+static long cmdline_snap_read(char *blk, long cap) {
+    int c = open("/proc/self/cmdline", O_RDONLY);
+    long n = 0, r;
+    if (c < 0) return -1;
+    while (n < cap - 1 && (r = (long)read(c, blk + n, (size_t)(cap - 1 - n))) > 0) n += r;
+    close(c);
+    blk[n] = 0;
+    return n;
+}
+static int cmdline_switch_walk_in(const char *blk, long bn, long *win_kb, long *cap_kb, long *stk, long *mxl, char *ub, int ubsz, int *has_u, int *bad) {
     int i = 1;
     *bad = 0;
     for (;;) {
-        int tl = host_cmdline_len(i);
-        if (tl < 0) return i;
-        char tok[tl + 1];
-        if (host_cmdline_arg(i, tok, (int)sizeof(tok)) != i) return i;
+        int tl = 0;
+        const char *tok = cmdline_snap_tok(blk, bn, i, &tl);
+        if (!tok) return i;
         if (tok[0] != '-' || tok[1] == '\0') return i;
         if (tok[1] == '-' && tok[2] == '\0') return i + 1;
         if (!(tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm' || tok[1] == 'u')) return i;
         {
             char sw = tok[1];
             const char *val = tok + 2;
-            int at = i;
-            int nl = *val ? 0 : host_cmdline_len(i + 1);
-            char nx[nl > 0 ? nl + 1 : 1];
-            if (*val == '\0') { if (host_cmdline_arg(i + 1, nx, (int)sizeof(nx)) != i + 1) return at; val = nx; }
+            int at = i, took = 0;
+            if (*val == '\0') { val = cmdline_snap_tok(blk, bn, i + 1, &tl); if (!val) return at; took = 1; }
             if (sw != 'u' && _sw_mem_arg(val) < 0) return at;
-            if (val == nx) i++;
+            if (took) i++;
             if (sw == 'u') { if (ub && ubsz > 0) snprintf(ub, (size_t)ubsz, "%s", val); if (has_u) *has_u = (int)strlen(val) + 1; i++; continue; }
             {
                 long v = _sw_mem_arg(val);
@@ -1816,6 +1829,16 @@ static int cmdline_switch_walk(long *win_kb, long *cap_kb, long *stk, long *mxl,
             }
         }
         i++;
+    }
+}
+static int cmdline_switch_walk(long *win_kb, long *cap_kb, long *stk, long *mxl, char *ub, int ubsz, int *has_u, int *bad, int report) {
+    *bad = 0;
+    for (long cap = 1024;; cap *= 2) {
+        char blk[cap];
+        long n = cmdline_snap_read(blk, cap);
+        if (n < 0) return 1;
+        if (n >= cap - 1) continue;
+        return cmdline_switch_walk_in(blk, n, win_kb, cap_kb, stk, mxl, ub, ubsz, has_u, bad);
     }
 }
 int rt_cmdline_prog_first(void) { int bad = 0; return cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, (char *)0, 0, (int *)0, &bad, 0); }
