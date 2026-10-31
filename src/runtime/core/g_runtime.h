@@ -39,6 +39,7 @@ typedef struct {
     g_pl_eng_t pl_eng;
     g_pasrnd_t pasrnd;
     g_atag_t atag;
+    g_pasio_t pasio;
 } g_runtime_t;
 #define GRT_AT(m) ((long)offsetof(g_runtime_t, abi.m))
 #ifdef __cplusplus

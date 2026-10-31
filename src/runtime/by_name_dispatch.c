@@ -17860,7 +17860,7 @@ DESCR_t pas_row_set(DESCR_t *args, int nargs) {
     return args[5];
 }
 static int pas_io_errno_code(int e) { return e == ENOENT ? 2 : e == ENOTDIR ? 3 : e == EMFILE ? 4 : (e == EACCES || e == EPERM || e == EISDIR || e == EROFS) ? 5 : 5; }
-static int pas_io_fail(int e) { if (!g_runtime.pas.pas_ioflow) return 0; g_runtime.pas.pas_inoutres = pas_io_errno_code(e); return 1; }
+static int pas_io_fail(int e) { if (!g_runtime.pasio.ioflow) return 0; g_runtime.pasio.inoutres = pas_io_errno_code(e); return 1; }
 static const char *pas_io_message(long code) {
     switch (code) {
         case 2:
@@ -18480,10 +18480,10 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_pdx && nargs == 4) { *out = pas_pdx(args, nargs); return 1; }
     L_pbi_914:
     ;
-    if (id == PBI_ioflow && nargs == 1) { g_runtime.pas.pas_ioflow = 1; *out = INTVAL(0); return 1; }
+    if (id == PBI_ioflow && nargs == 1) { g_runtime.pasio.ioflow = 1; *out = INTVAL(0); return 1; }
     L_pbi_915:
     ;
-    if (id == PBI_ioresult && nargs == 1) { *out = INTVAL(g_runtime.pas.pas_inoutres); g_runtime.pas.pas_inoutres = 0; return 1; }
+    if (id == PBI_ioresult && nargs == 1) { *out = INTVAL(g_runtime.pasio.inoutres); g_runtime.pasio.inoutres = 0; return 1; }
     L_pbi_916:
     ;
     if (id == PBI_ioerrmsg && nargs == 1) { *out = STRVAL(rt_heap_strdup_c(pas_io_message(IS_INT_fn(args[0]) ? args[0].i : 0))); return 1; }
@@ -18936,7 +18936,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_fclose && nargs == 1) {
         extern FILE *fh_get(int);
         extern void fh_free(int);
-        if (g_runtime.pas.pas_ioflow && (!IS_FH_fn(args[0]) || !fh_get((int)args[0].i))) g_runtime.pas.pas_inoutres = 103;
+        if (g_runtime.pasio.ioflow && (!IS_FH_fn(args[0]) || !fh_get((int)args[0].i))) g_runtime.pasio.inoutres = 103;
         if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
         *out = NULVCL;
         return 1;
@@ -19393,7 +19393,7 @@ RT_ENTRY_DECL(rt_call_pas_bi, leaf, 0);
 DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
     DESCR_t out = FAILDESCR;
     const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
-    if (g_runtime.pas.pas_ioflow && g_runtime.pas.pas_inoutres &&
+    if (g_runtime.pasio.ioflow && g_runtime.pasio.inoutres &&
         (idx == PBI_write || idx == PBI_writeln || idx == PBI_read_i || idx == PBI_read_i_f || idx == PBI_read_c || idx == PBI_read_c_f || idx == PBI_read_s || idx == PBI_read_s_f ||
         idx == PBI_readln || idx == PBI_readln_f)) return NULVCL;
     if (nargs == 1) {

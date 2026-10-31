@@ -46,7 +46,10 @@ type
   EArgumentException = class(Exception);
   EArgumentOutOfRangeException = class(EArgumentException);
   EArgumentNilException = class(EArgumentException);
-  EInOutError = class(Exception);
+  EInOutError = class(Exception)
+  public
+    ErrorCode: Integer;
+  end;
   EExternal = class(Exception);
   EIntError = class(EExternal);
   EDivByZero = class(EIntError);
