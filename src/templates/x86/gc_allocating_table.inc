@@ -842,6 +842,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "lt", GC_RET_OTHER },
     { "make_kw_cset", GC_RET_DESCR },
     { "mk_call", GC_RET_OTHER },
+    { "mk_call_raw", GC_RET_OTHER },
     { "mk_ident", GC_RET_OTHER },
     { "mkc_node", GC_RET_OTHER },
     { "mkcap", GC_RET_OTHER },

@@ -17821,6 +17821,38 @@ DESCR_t pas_row_set(DESCR_t *args, int nargs) {
     }
     return args[5];
 }
+static int pas_io_errno_code(int e) { return e == ENOENT ? 2 : e == ENOTDIR ? 3 : e == EMFILE ? 4 : (e == EACCES || e == EPERM || e == EISDIR || e == EROFS) ? 5 : 5; }
+static int pas_io_fail(int e) { if (!g_runtime.pas.pas_ioflow) return 0; g_runtime.pas.pas_inoutres = pas_io_errno_code(e); return 1; }
+static const char *pas_io_message(long code) {
+    switch (code) {
+        case 2:
+        return "File not found";
+        case 3:
+        return "Path not found";
+        case 4:
+        return "Too many open files";
+        case 5:
+        return "Access denied";
+        case 6:
+        return "Invalid file handle";
+        case 100:
+        return "Disk read error";
+        case 101:
+        return "Disk write error";
+        case 102:
+        return "File not assigned";
+        case 103:
+        return "File not open";
+        case 104:
+        return "File not open for input";
+        case 105:
+        return "File not open for output";
+        case 106:
+        return "Invalid numeric format";
+        default:
+        return "I/O error";
+    }
+}
 DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
     (void) nargs;
     if (args[0].v != DT_PCELL || args[1].v != DT_PCELL) return INTVAL(0);
@@ -18013,6 +18045,14 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_911;
         case PBI_row_get:
         goto L_pbi_912;
+        case PBI_ioflow:
+        goto L_pbi_914;
+        case PBI_ioresult:
+        goto L_pbi_915;
+        case PBI_ioerrmsg:
+        goto L_pbi_916;
+        case PBI_ioexit:
+        goto L_pbi_917;
         case PBI_row_set:
         goto L_pbi_913;
         case PBI_pchar_of:
@@ -18400,6 +18440,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_911:
     ;
     if (id == PBI_pdx && nargs == 4) { *out = pas_pdx(args, nargs); return 1; }
+    L_pbi_914:
+    ;
+    if (id == PBI_ioflow && nargs == 1) { g_runtime.pas.pas_ioflow = 1; *out = INTVAL(0); return 1; }
+    L_pbi_915:
+    ;
+    if (id == PBI_ioresult && nargs == 1) { *out = INTVAL(g_runtime.pas.pas_inoutres); g_runtime.pas.pas_inoutres = 0; return 1; }
+    L_pbi_916:
+    ;
+    if (id == PBI_ioerrmsg && nargs == 1) { *out = STRVAL(rt_heap_strdup_c(pas_io_message(IS_INT_fn(args[0]) ? args[0].i : 0))); return 1; }
+    L_pbi_917:
+    ;
+    if (id == PBI_ioexit && nargs == 1) { long c = IS_INT_fn(args[0]) ? (long) args[0].i : 0; fflush(NULL); fprintf(stderr, "Runtime error %ld at $0\n", c); exit((int) c); }
     L_pbi_912:
     ;
     if (id == PBI_row_get && nargs == 5) { *out = pas_row_get(args, nargs); return 1; }
@@ -18789,6 +18841,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
         FILE *fp;
         if (nm && nm[0]) { fp = fopen(nm, "w+"); } else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+") : (FILE *)0; }
+        if (!fp && pas_io_fail(errno)) { *out = STRVAL(rt_heap_strdup_c(nm ? nm : "")); return 1; }
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
@@ -18806,6 +18859,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "a+");
+        if (!fp && pas_io_fail(errno)) { *out = STRVAL(rt_heap_strdup_c(nm)); return 1; }
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
@@ -18831,6 +18885,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r");
+        if (!fp && pas_io_fail(errno)) { *out = IS_FH_fn(args[0]) ? args[0] : STRVAL(rt_heap_strdup_c(nm)); return 1; }
         if (!fp) { fflush(stdout); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
         int idx = fh_alloc(fp);
         if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
@@ -18843,6 +18898,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_fclose && nargs == 1) {
         extern FILE *fh_get(int);
         extern void fh_free(int);
+        if (g_runtime.pas.pas_ioflow && (!IS_FH_fn(args[0]) || !fh_get((int)args[0].i))) g_runtime.pas.pas_inoutres = 103;
         if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
         *out = NULVCL;
         return 1;
@@ -19299,6 +19355,9 @@ RT_ENTRY_DECL(rt_call_pas_bi, leaf, 0);
 DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
     DESCR_t out = FAILDESCR;
     const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
+    if (g_runtime.pas.pas_ioflow && g_runtime.pas.pas_inoutres &&
+        (idx == PBI_write || idx == PBI_writeln || idx == PBI_read_i || idx == PBI_read_i_f || idx == PBI_read_c || idx == PBI_read_c_f || idx == PBI_read_s || idx == PBI_read_s_f ||
+        idx == PBI_readln || idx == PBI_readln_f)) return NULVCL;
     if (nargs == 1) {
         if (idx == PBI_resundef) return rt_pas_resundef(args, nargs);
         if (idx == PBI_sin) return rt_pas_sin(args, nargs);

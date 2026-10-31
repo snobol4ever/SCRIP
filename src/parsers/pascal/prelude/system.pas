@@ -9,10 +9,17 @@ function BsfQWord(qv: int64): integer;
 function BsfDWord(qv: int64): integer;
 function PopCnt(qv: int64): integer;
 function IOResult: integer;
+procedure __sh_iocheck;
 implementation
 function IOResult: integer;
 begin
-  IOResult := 0
+  IOResult := __pas_ioresult(0)
+end;
+procedure __sh_iocheck;
+var c: integer;
+begin
+  c := __pas_ioresult(0);
+  if c <> 0 then __pas_ioexit(c)
 end;
 function StrLen(const sv: string): integer;
 begin

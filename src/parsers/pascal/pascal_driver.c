@@ -106,11 +106,24 @@ static int pas_names_system(const tree_t *t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_ioflow_in(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_TRY) return 1;
+    if (t->t == TT_VAR && t->v.sval && !strcasecmp(t->v.sval, "ioresult")) return 1;
+    if (t->t == TT_ATTR && t->v.sval && !strcmp(t->v.sval, ":pragma") && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "iocheck 0")) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_ioflow_in(t->c[i])) return 1;
+    return 0;
+}
+static int pas_forest_has(const tree_t *forest, const char *name) {
+    for (int i = 0; forest && i < forest->n; i++) { const tree_t *u = forest->c[i]; if (u && u->n > 0 && u->c[0] && u->c[0]->v.sval && !strcasecmp(u->c[0]->v.sval, name)) return 1; }
+    return 0;
+}
 static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
     const tree_t *block = NULL;
     for (int i = 0; prog && i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_BLOCK) block = prog->c[i];
     const tree_t *uses = pas_uses_of(block);
-    int sys = pas_names_system(block);
+    int ioflow = pas_ioflow_in(prog);
+    int sys = pas_names_system(block) || ioflow;
     if (!uses && !sys) return prog;
     const char *slash = strrchr(filename, '/');
     size_t dl = slash ? (size_t)(slash - filename) : 1;
@@ -126,6 +139,12 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
         sn->v.sval = ct_strdup("system");
         ast_push(su, sn);
         if (!pas_units_visit(dir, filename, su, forest, visiting)) return NULL;
+    }
+    if (ioflow && pas_forest_has(forest, "sysutils")) {
+        tree_t *iu = ast_node_new(TT_VLIST), *in = ast_node_new(TT_VAR);
+        in->v.sval = ct_strdup("ioerr");
+        ast_push(iu, in);
+        if (!pas_units_visit(dir, filename, iu, forest, visiting)) return NULL;
     }
     ast_push(prog, forest);
     return prog;
