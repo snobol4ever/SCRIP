@@ -6131,6 +6131,7 @@ static pval E_program_in(const tree_t *n) {
     while (bi > 0 && n->c[bi] && n->c[bi]->t == TT_ATTR) bi--;
     int hasf = bi > 1 && n->c[1] && n->c[1]->t == TT_VLIST;
     if (IS(n, TT_PROGRAM)) {
+        { PasDef *ent = pas_scope_push(&g_lower.pas.sem.pas_scope.defs, &g_lower.pas.sem.pas_scope.n, &g_lower.pas.sem.pas_scope.cap, "main"); ent->rid = 1; ent->depth = -1; }
         v[2].str = (n->c[0] && n->c[0]->t == TT_BLOCK) ? "program" : tok_s(n->c[0]);
         v[3] = E_file_id_list_opt(hasf ? n->c[1] : NULL);
         v[5] = E_block((tok_events(n), n->c[bi]));
