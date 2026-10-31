@@ -1144,6 +1144,18 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_assign(args->items[0], mk_set_bin(name[0] == 'i' ? "__pas_setuni" : "__pas_setdif", pas_tree_clone(args->items[0]), mk_set_ctor(el)));
     }
     if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "move") && args && args->count >= 6 && args->items[0] && args->items[2] &&
+        args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t != TT_VAR && pas_is_stringexpr(args->items[0]->c[0]) && args->items[2]->t == TT_IDX &&
+        args->items[2]->n == 2 && args->items[2]->c[0] && args->items[2]->c[0]->t == TT_VAR && pas_is_stringexpr(args->items[2]->c[0])) {
+        tree_t *f = ast_node_new(TT_FNC);
+        ast_push(f, leaf_s(TT_VAR, "__pas_strmove"));
+        ast_push(f, leaf_s(TT_VAR, args->items[2]->c[0]->v.sval));
+        ast_push(f, args->items[2]->c[1]);
+        ast_push(f, args->items[0]->c[0]);
+        ast_push(f, args->items[0]->c[1]);
+        ast_push(f, args->items[4]);
+        return mk_assign(leaf_s(TT_VAR, args->items[2]->c[0]->v.sval), f);
+    }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "move") && args && args->count >= 6 && args->items[0] && args->items[2] &&
         args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR && args->items[2]->t == TT_IDX && args->items[2]->n == 2 &&
         args->items[2]->c[0] && args->items[2]->c[0]->t == TT_VAR) {
         const char *sa = args->items[0]->c[0]->v.sval, *da = args->items[2]->c[0]->v.sval;
