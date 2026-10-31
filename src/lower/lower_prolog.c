@@ -4952,6 +4952,8 @@ static tree_t * pl_attv_clause(const tree_t * cl, const tree_t * mod, int lift) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_attv_on(void) { return g_stage2.pl_attv_armed || pl_attv_rt_armed(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_attv_dir(tree_t * g) { return pl_attv_on() ? pl_attv_goal(g) : g; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap) {
     int trivial = 1, n = 0;
     for (int i = 0; i < ar && trivial; i++) {
@@ -6283,14 +6285,14 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             const tree_t *gt = subj->c[0];
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
                 int iv_scope0 = dvc;
-                if (subj->n == 1) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) gt, dvn, &dvc); continue; }
+                if (subj->n == 1) { init_goals[ninit++] = pl_dir_catch_wrap(pl_attv_dir((tree_t *) gt), dvn, &dvc); continue; }
                 pl_dir_number_vars((tree_t *) gt, dvn, &dvc, iv_scope0);
                 if (subj->c[1] && (subj->c[1]->t == TT_QLIT || subj->c[1]->t == TT_NAME) && subj->c[1]->v.sval && !strcmp(subj->c[1]->v.sval, "main")) {
                     nmain = 0;
-                    main_goals[nmain++] = pl_cc_fnc2(";", pl_cc_fnc2("->", (tree_t *) gt, (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("halt", pl_cc_ilit(1)));
+                    main_goals[nmain++] = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_attv_dir((tree_t *) gt), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("halt", pl_cc_ilit(1)));
                     continue;
                 }
-                init_goals[ninit++] = gt;
+                init_goals[ninit++] = pl_attv_dir((tree_t *) gt);
                 continue;
             }
         }
@@ -6316,7 +6318,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                 if (subj->c[0] && (subj->c[0]->t == TT_QLIT || subj->c[0]->t == TT_NAME) && subj->c[0]->v.sval && !strcmp(subj->c[0]->v.sval, "$dialect")) early_goals[nearly++] =
                     pl_dir_catch_wrap(dirgoal, dvn, &dvc);
             }
-            dir_goals[ndir++] = pl_dir_catch_wrap(dirgoal, dvn, &dvc);
+            dir_goals[ndir++] = pl_dir_catch_wrap(pl_attv_dir(dirgoal), dvn, &dvc);
             continue;
         }
     }
