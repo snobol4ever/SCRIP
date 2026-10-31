@@ -1502,13 +1502,19 @@ void gc_cells_resolve(void) {
         }
     }
 }
+#if RT_DIAG
+void __attribute__((noreturn)) rt_gc_pcell_fault(const char *word, const rt_hblk_t *h) {
+    fprintf(stderr, "[GC-PCELL] a Pascal pointer base %p lies outside the block %p it was found in (payload %p, size %u): no block holds this base\n", (const void *)word, (const void *)h,
+        (const void *)(h + 1), (unsigned)h->size);
+    abort();
+}
+#endif
 void gc_visit_one(DESCR_t *d) {
     if (!d) return;
     switch ((int)d->v) {
         case DT_S:
         case DT_SNUL:
         case DT_X:
-        case DT_PCELL:
         {
             rt_hblk_t *h = gc_blk_of(d->s);
             if (!h) return;
@@ -2119,7 +2125,7 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     g_runtime.gc.gc_spine_recn++;
 }
 #endif
-static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_RAW) || v == DT_PLATOM; }
+static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_RAW) || v == DT_PLATOM || v == DT_PCELL; }
 #if RT_DIAG
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h) {
     if (!gc_maps_on()) return;

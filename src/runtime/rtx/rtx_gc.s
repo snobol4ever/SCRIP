@@ -205,6 +205,7 @@
 .endm
 #define MK_A 7
 #define MK_T 8
+#define MK_PCELL 9
 #define HB_AGGP 207
 #define HB_AGGT 208
 #define HB_AGGB 211
@@ -465,6 +466,8 @@ RTX_ENTRY(rt_gc_walk_words_a)
     je      .Lmk_t
     cmp     eax, MK_SLOW
     je      .Lmk_slow
+    cmp     eax, MK_PCELL
+    je      .Lmk_pcell
     jmp     .Lmk_loop
 .Lmk_e:
     mov     eax, dword ptr [rsi + 4]
@@ -494,6 +497,31 @@ RTX_ENTRY(rt_gc_walk_words_a)
     MK_MARK_BLK
     MK_SLOT rsi+8
     jmp     .Lmk_loop
+.Lmk_pcell:
+    mov     r10, qword ptr [rsi + 8]
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lmk_loop
+#if RT_DIAG
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jb      .Lmk_pcell_bad
+    mov     edx, dword ptr [rax + 8]
+    add     rdx, rax
+    cmp     r10, rdx
+    jae     .Lmk_pcell_bad
+#endif
+    MK_INTERIOR
+    MK_MARK_BLK
+    MK_SLOT rsi+8
+    jmp     .Lmk_loop
+#if RT_DIAG
+.Lmk_pcell_bad:
+    RTX_SUB_RSP(8)
+    mov     rdi, r10
+    mov     rsi, rax
+    RTX_CALL(rt_gc_pcell_fault)
+#endif
 .Lmk_data:
     cmp     dword ptr [rsi + 4], DATA_ELEMS_SLEN
     jne     .Lmk_dinst
@@ -1365,7 +1393,7 @@ RTX_ENDF(rt_gc_mark_run)
 .org .Lmk_class + DT_EXTL
 .byte MK_PLAIN
 .org .Lmk_class + DT_PCELL
-.byte MK_PLAIN_I
+.byte MK_PCELL
 .org .Lmk_class + 256
 .p2align 6
 .Lmk_known:
@@ -1416,6 +1444,8 @@ RTX_ENDF(rt_gc_mark_run)
 .org .Lmk_known + 152
 .byte 1
 .org .Lmk_known + 176
+.byte 1
+.org .Lmk_known + DT_PCELL
 .byte 1
 .org .Lmk_known + 256
 .text
