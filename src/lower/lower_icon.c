@@ -3462,7 +3462,9 @@ static void icn_display_homes_every_local(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void icn_expand_classes(tree_t * prog);
 stage2_t *lower_icon_stage2(const tree_t *prog) {
+    icn_expand_classes((tree_t *) prog);
     icn_collect_reassigned_procs(prog);
     int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);

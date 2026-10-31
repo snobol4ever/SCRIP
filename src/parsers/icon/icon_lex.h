@@ -117,6 +117,15 @@ typedef enum {
     TK_COMMA,
     TK_SEMICOL,
     TK_COLON,
+    TK_COLONCOLON,
+    TK_CLASS,
+    TK_METHOD,
+    TK_PACKAGE,
+    TK_IMPORT,
+    TK_INITIALLY,
+    TK_ABSTRACT,
+    TK_THREAD,
+    TK_CRITICAL,
     TK_COUNT
 } IcnTkKind;
 typedef union {
@@ -145,11 +154,13 @@ typedef struct {
     char        errmsg[256];
     int         had_error;
     int         pp_fatals;
+    int         unicon;
 } IcnLexer;
 void icn_pp_set_source_path(const char *path);
 void icn_pp_source_base(char *out, size_t n);
 int  icn_pp_echo(const char *path);
 void icn_lex_init(IcnLexer *lex, const char *src);
+int  icn_source_is_unicon(const char *src);
 IcnToken icn_lex_next(IcnLexer *lex);
 IcnToken icn_lex_peek(IcnLexer *lex);
 const char *icn_tk_name(IcnTkKind kind);

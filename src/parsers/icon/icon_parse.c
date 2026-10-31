@@ -72,7 +72,7 @@ static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_begins_nexpr(IcnTkKind k) {
     switch (k) {
-    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT:
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON:
     case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
     case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
     case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
@@ -122,8 +122,21 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         return e_leaf_sval(TT_CSET, t.val.sval.data, (int)t.val.sval.len);
     }
+    if (t.kind == TK_COLONCOLON) {
+        advance(p);
+        if (p->cur.kind != TK_IDENT) { parser_error(p, "expected a name after ::"); return NULL; }
+        char qn[fmt_len("::%s", p->cur.val.sval.data)]; snprintf(qn, sizeof(qn), "::%s", p->cur.val.sval.data);
+        advance(p);
+        tree_t *ev = e_leaf_sval(TT_VAR, qn, -1); ev->line = t.line; return ev;
+    }
     if (t.kind == TK_IDENT) {
         advance(p);
+        if (check(p, TK_COLONCOLON) && p->peek.kind == TK_IDENT) {
+            advance(p);
+            char qn[fmt_len("%s::%s", t.val.sval.data, p->cur.val.sval.data)]; snprintf(qn, sizeof(qn), "%s::%s", t.val.sval.data, p->cur.val.sval.data);
+            advance(p);
+            tree_t *ev = e_leaf_sval(TT_VAR, qn, -1); ev->line = t.line; return ev;
+        }
         tree_t *ev = e_leaf_sval(TT_VAR, t.val.sval.data, (int)t.val.sval.len); ev->line = t.line; return ev;
     }
     if (t.kind == TK_AND) {
@@ -282,8 +295,11 @@ static tree_t *parse_postfix(IcnParser *p) {
             n = call;
         } else if (check(p, TK_DOT)) {
             advance(p);
-            if (p->cur.kind != TK_IDENT) { parser_error(p, "expected field name"); break; }
-            IcnToken fname = p->cur; advance(p);
+            int word = p->lex->unicon && p->cur.kind >= TK_CLASS && p->cur.kind <= TK_CRITICAL;
+            if (p->cur.kind != TK_IDENT && !word) { parser_error(p, "expected field name"); break; }
+            IcnToken fname = p->cur;
+            if (word) { fname.val.sval.data = (char *) icn_tk_name(fname.kind); fname.val.sval.len = strlen(fname.val.sval.data); }
+            advance(p);
             tree_t *fe = ast_node_new(TT_FIELD);
             push_child(fe, n);
             push_child(fe, e_leaf_sval(TT_VAR, fname.val.sval.data, (int)fname.val.sval.len));
@@ -877,8 +893,8 @@ static tree_t *parse_record(IcnParser *p) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *parse_proc(IcnParser *p) {
-    expect(p, TK_PROCEDURE, "procedure");
+static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
+    expect(p, kw, kw == TK_METHOD ? "method" : "procedure");
     if (p->cur.kind != TK_IDENT) { parser_error(p, "expected procedure name"); return NULL; }
     IcnToken name_tok = p->cur; advance(p);
     tree_t **params = NULL; int nparams = 0, pcap = 0; int is_variadic = 0;
@@ -895,7 +911,7 @@ static tree_t *parse_proc(IcnParser *p) {
     expect(p, TK_RPAREN, "procedure params");
     match(p, TK_SEMICOL);
     tree_t **stmts = NULL; int nstmts = 0, scap = 0;
-    while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
+    while (has_body && !check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
         int sline = p->cur.line;
         tree_t *s = parse_stmt(p);
         if (s && s->line <= 0) s->line = sline;
@@ -905,7 +921,7 @@ static tree_t *parse_proc(IcnParser *p) {
         }
     }
     int end_line = p->cur.line;
-    expect(p, TK_END, "end of procedure");
+    if (has_body) expect(p, TK_END, "end of procedure");
     const char *procname = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);
     tree_t *vlist = ast_node_new(TT_VLIST);
     vlist->v.ival = is_variadic;
@@ -917,9 +933,74 @@ static tree_t *parse_proc(IcnParser *p) {
     proc->slen = end_line;
     ast_push(proc, e_leaf_sval(TT_VAR, procname, -1));
     ast_push(proc, vlist);
-    ast_push(proc, body);
+    if (has_body) ast_push(proc, body);
     ct_drop(params); ct_drop(stmts);
     return proc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_proc(IcnParser *p) { return parse_proc_kw(p, TK_PROCEDURE, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_name_list(IcnParser *p, const char *what) {
+    tree_t *vl = ast_node_new(TT_VLIST);
+    expect(p, TK_LPAREN, what);
+    while (!check(p, TK_RPAREN) && !check(p, TK_EOF) && !p->had_error) {
+        if (p->cur.kind != TK_IDENT) { parser_error(p, "expected a name"); break; }
+        push_child(vl, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
+        advance(p);
+        if (!match(p, TK_COMMA)) break;
+    }
+    expect(p, TK_RPAREN, what);
+    return vl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_initially(IcnParser *p) {
+    expect(p, TK_INITIALLY, "initially");
+    int sline = p->cur.line;
+    tree_t *params = check(p, TK_LPAREN) ? parse_name_list(p, "initially params") : ast_node_new(TT_VLIST);
+    match(p, TK_SEMICOL);
+    tree_t *body = ast_node_new(TT_PROGRAM);
+    while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
+        int l = p->cur.line; tree_t *s = parse_stmt(p);
+        if (s && s->line <= 0) s->line = l;
+        if (s) ast_push(body, s);
+    }
+    tree_t *proc = ast_node_new(TT_PROC_DECL);
+    proc->v.sval = intern_n("initially", 9);
+    proc->slen = p->cur.line; proc->line = sline;
+    ast_push(proc, e_leaf_sval(TT_VAR, "initially", -1));
+    ast_push(proc, params);
+    ast_push(proc, body);
+    return proc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_class(IcnParser *p) {
+    int cline = p->cur.line;
+    expect(p, TK_CLASS, "class");
+    if (p->cur.kind != TK_IDENT) { parser_error(p, "expected class name"); return NULL; }
+    IcnToken name_tok = p->cur; advance(p);
+    tree_t *supers = ast_node_new(TT_VLIST);
+    while (match(p, TK_COLON)) {
+        if (p->cur.kind != TK_IDENT) { parser_error(p, "expected superclass name"); return NULL; }
+        push_child(supers, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
+        advance(p);
+    }
+    tree_t *fields = parse_name_list(p, "class fields");
+    match(p, TK_SEMICOL);
+    tree_t *cls = ast_node_new(TT_CLASS_DECL);
+    cls->v.sval = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);
+    cls->line = cline;
+    ast_push(cls, supers);
+    ast_push(cls, fields);
+    while (!check(p, TK_END) && !check(p, TK_INITIALLY) && !check(p, TK_EOF) && !p->had_error) {
+        if (check(p, TK_METHOD)) { tree_t * m = parse_proc_kw(p, TK_METHOD, 1); if (m) ast_push(cls, m); }
+        else if (check(p, TK_ABSTRACT)) { advance(p); tree_t * m = parse_proc_kw(p, TK_METHOD, 0); if (m) ast_push(cls, m); }
+        else { parser_error(p, "class body: expected method, abstract method, initially or end"); break; }
+        match(p, TK_SEMICOL);
+    }
+    if (check(p, TK_INITIALLY)) { tree_t * ini = parse_initially(p); if (ini) ast_push(cls, ini); }
+    expect(p, TK_END, "end of class");
+    match(p, TK_SEMICOL);
+    return cls;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_parse_init(IcnParser *p, IcnLexer *lex) {
@@ -937,6 +1018,21 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
             top = parse_proc(p);
         } else if (check(p, TK_RECORD)) {
             top = parse_record(p);
+        } else if (check(p, TK_CLASS)) {
+            top = parse_class(p);
+        } else if (check(p, TK_PACKAGE) || check(p, TK_IMPORT)) {
+            int is_pkg = check(p, TK_PACKAGE);
+            advance(p);
+            top = ast_node_new(is_pkg ? TT_MODULE_DECL : TT_USE_DECL);
+            while (!check(p, TK_SEMICOL) && !check(p, TK_EOF) && !p->had_error) {
+                if (p->cur.kind == TK_IDENT || p->cur.kind == TK_STRING) {
+                    push_child(top, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
+                    advance(p);
+                } else { parser_error(p, is_pkg ? "expected a package name" : "expected a package name to import"); break; }
+                if (is_pkg || !match(p, TK_COMMA)) break;
+            }
+            if (top->n > 0 && top->c[0]) top->v.sval = top->c[0]->v.sval;
+            match(p, TK_SEMICOL);
         } else if (check(p, TK_GLOBAL)) {
             advance(p);
             top = ast_node_new(TT_GLOBAL);
@@ -964,7 +1060,7 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
             }
             match(p, TK_SEMICOL);
         } else {
-            parser_error(p, "expected 'procedure', 'record', 'global', 'link', or 'invocable'");
+            parser_error(p, p->lex->unicon ? "expected 'procedure', 'record', 'class', 'package', 'import', 'global', 'link', or 'invocable'" : "expected 'procedure', 'record', 'global', 'link', or 'invocable'");
             break;
         }
         if (top) {

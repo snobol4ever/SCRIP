@@ -1818,6 +1818,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_call_forms.c \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
+    $(SRC)/lower/lower_icon_class.c \
     $(SRC)/lower/lower_snobol4.c \
     $(SRC)/lower/lower_snocone.c \
     $(SRC)/lower/lower_prolog.c \

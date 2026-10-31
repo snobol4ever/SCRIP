@@ -96,10 +96,25 @@ static const KwEntry keywords[] = {
     {NULL,         TK_EOF}
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IcnTkKind lookup_keyword(const char *word) {
+static const KwEntry unicon_keywords[] = {
+    {"class",      TK_CLASS},
+    {"method",     TK_METHOD},
+    {"package",    TK_PACKAGE},
+    {"import",     TK_IMPORT},
+    {"initially",  TK_INITIALLY},
+    {"abstract",   TK_ABSTRACT},
+    {"thread",     TK_THREAD},
+    {"critical",   TK_CRITICAL},
+    {NULL,         TK_EOF}
+};
+static IcnTkKind lookup_keyword(const char *word, int unicon) {
     for (int i = 0; keywords[i].word; i++)
         if (strcmp(keywords[i].word, word) == 0)
             return keywords[i].kind;
+    if (unicon)
+        for (int i = 0; unicon_keywords[i].word; i++)
+            if (strcmp(unicon_keywords[i].word, word) == 0)
+                return unicon_keywords[i].kind;
     return TK_IDENT;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -301,7 +316,7 @@ static IcnToken scan_ident(IcnLexer *lx) {
     while (isalnum((unsigned char)lex_cur(lx)) || lex_cur(lx) == '_')
         buf_push(&buf, &len, &cap, lex_advance(lx));
     if (!buf) buf = ct_strdup("");
-    IcnTkKind kind = lookup_keyword(buf);
+    IcnTkKind kind = lookup_keyword(buf, lx->unicon);
     IcnToken t = make_tok(kind, line, col);
     if (kind == TK_IDENT) {
         t.val.sval.data = buf;
@@ -532,6 +547,7 @@ static IcnToken lex_one(IcnLexer *lx) {
                 if (lex_cur(lx) == ':') { lex_advance(lx); return make_tok(TK_SWAP, line, col); }
                 return make_tok(TK_ASSIGN, line, col);
             }
+            if (lx->unicon && lex_cur(lx) == ':') { lex_advance(lx); return make_tok(TK_COLONCOLON, line, col); }
             return make_tok(TK_COLON, line, col);
         case '&':
             if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
@@ -1110,6 +1126,31 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_COMMA:     return ",";
         case TK_SEMICOL:   return ";";
         case TK_COLON:     return ":";
+        case TK_COLONCOLON: return "::";
+        case TK_CLASS:     return "class";
+        case TK_METHOD:    return "method";
+        case TK_PACKAGE:   return "package";
+        case TK_IMPORT:    return "import";
+        case TK_INITIALLY: return "initially";
+        case TK_ABSTRACT:  return "abstract";
+        case TK_THREAD:    return "thread";
+        case TK_CRITICAL:  return "critical";
         default:           return "???";
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int icn_source_is_unicon(const char *src) {
+    IcnLexer lx; icn_lex_init(&lx, src); int found = 0, last_line = 0; IcnToken a = icn_lex_next(&lx), b = icn_lex_next(&lx);
+    while (!found && a.kind != TK_EOF) {
+        int first = a.line != last_line; last_line = a.line;
+        if (a.kind == TK_IDENT && a.val.sval.data) {
+            const char * w = a.val.sval.data;
+            if (!strcmp(w, "thread") || !strcmp(w, "critical") || !strcmp(w, "abstract")) found = 1;
+            else if (first && !strcmp(w, "class") && b.kind == TK_IDENT && b.line == a.line) found = 1;
+            else if (first && !strcmp(w, "import") && b.kind == TK_IDENT && b.line == a.line) found = 1;
+            else if (first && !strcmp(w, "package") && (b.kind == TK_IDENT || b.kind == TK_STRING) && b.line == a.line) found = 1;
+        }
+        a = b; b = icn_lex_next(&lx);
+    }
+    return found;
 }
