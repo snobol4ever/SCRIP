@@ -1,43 +1,14 @@
 #ifndef SNOBOL4_H
 #define SNOBOL4_H
 #include <stdint.h>
-#include "g_runtime.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "descr.h"
-#include "../rt/rt_diag.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
-int kw_cset_len(const char *ptr);
-const char *kw_cset_empty(void);
-static inline __attribute__((always_inline)) size_t descr_slen(DESCR_t d) {
-    if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); } return (size_t)d.slen; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_cstr_materialize(DESCR_t d);
-static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
-    if (d.v != DT_S || !d.s || !d.slen || d.slen == 0xFFFFFFFFu) return d.s ? d.s : "";
-    return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
-}
-#define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
-#define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })
-#define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
-#define INTVAL(i_) ((DESCR_t){ .v = DT_I, .i = (i_) })
-#define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })
-#define CSETVAL(s_) ((DESCR_t){ .v = DT_S, .slen = 0xFFFFFFFFu, .s = (s_) })
-#define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
-static inline __attribute__((always_inline)) DESCR_t NAME_AS_STR_fn(DESCR_t d) { return (d.v == DT_N && d.slen == 0 && d.s && !IS_KWNAME_fn(d)) ? STRVAL(d.s) : d; }
-#define NAMEVAL(s_) ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
-static inline __attribute__((always_inline)) int IS_STR_fn(DESCR_t v) { return v.v == DT_S || v.v == DT_SNUL; }
-static inline __attribute__((always_inline)) int IS_INT_fn(DESCR_t v) { return v.v == DT_I; }
-static inline __attribute__((always_inline)) int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
-static inline __attribute__((always_inline)) int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
-static inline __attribute__((always_inline)) int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
+#include "ir/descr.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 char *VARVAL_fn(DESCR_t v);
 int lex_cmp_pair(DESCR_t a, DESCR_t b);
 void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
@@ -61,153 +32,17 @@ static inline __attribute__((always_inline)) int rt_plain_int_str(const char *s)
 }
 int is_numeric_like(DESCR_t d);
 int64_t to_int(DESCR_t v);
-int64_t core_icn_to_int_d(DESCR_t d);
-int core_icn_int_operand_ok_d(DESCR_t d);
-int core_icn_num_operand_ok_d(DESCR_t d, int code);
 double to_real(DESCR_t v);
 char *STRCONCAT_fn(const char *a, const char *b);
 DESCR_t CONCAT_fn(DESCR_t a, DESCR_t b);
 char *STRDUP_fn(const char *s);
 int64_t size(const char *s);
 const char *datatype(DESCR_t v);
-typedef struct _TREEBLK_t { char *tag; DESCR_t val; int n; int cap; struct _TREEBLK_t **c; } TREEBLK_t;
-TREEBLK_t *expr_new(const char *tag, DESCR_t val);
-TREEBLK_t *tree_new0(const char *tag);
-void tree_append(TREEBLK_t *x, TREEBLK_t *y);
-void tree_prepend(TREEBLK_t *x, TREEBLK_t *y);
-void tree_insert(TREEBLK_t *x, TREEBLK_t *y, int place);
-TREEBLK_t *tree_remove(TREEBLK_t *x, int place);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char *t(TREEBLK_t *x) { return x ? x->tag : ""; }
-static inline DESCR_t v(TREEBLK_t *x) { return x ? x->val : NULVCL; }
-static inline int n(TREEBLK_t *x) { return x ? x->n : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline TREEBLK_t *c_i(TREEBLK_t *x, int i) { if (!x || i < 1 || i > x->n) return NULL; return x->c[i-1]; }
-typedef struct _ARBLK_t { int lo, hi; int ndim; int lo2, hi2; int proto_bare; const char *proto; DESCR_t *data; long id; long dumpno; } ARBLK_t;
-long rt_sno_dumpno_next(void);
-void rt_sno_dumpno_undo(void);
-long rt_agg_serial_list(void);
-long rt_agg_serial_table(void);
-long rt_agg_serial_set(void);
-ARBLK_t *array_new(int lo, int hi);
-ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2);
-DESCR_t array_get(ARBLK_t *a, int i);
-void array_set(ARBLK_t *a, int i, DESCR_t v);
-DESCR_t array_get2(ARBLK_t *a, int i, int j);
-void array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
-typedef struct _TBBLK_tEntry { DESCR_t key_descr; DESCR_t val; unsigned long long hkey; } TBPAIR_t;
-typedef struct _TBBUCK_t { unsigned len, cap; TBPAIR_t ent[]; } TBBUCK_t;
-#define TABLE_BUCKETS 256
-typedef struct _TBBLK_t {
-    TBBUCK_t **buckets;
-    unsigned nbuck;
-    int size;
-    int init, inc;
-    int is_set;
-    DESCR_t dflt;
-    long id;
-    DESCR_t *ord;
-    unsigned ord_len, ord_cap;
-    unsigned long icn_mask;
-    long dumpno;
-    int64_t gen_idx, gen_pos;
-    unsigned ord_dead;
-    DESCR_t *icn_ord;
-    unsigned icn_ord_len, icn_ord_cap, icn_stamp_len, icn_stamp_dead;
-    unsigned long icn_stamp_mask, icn_stamp_size;
-    unsigned long gen_mask, gen_lseg, gen_lslot, gen_lhn;
-    unsigned gen_lseq;
-    int gen_have;
-    int null_one;
-} TBBLK_t;
-#define TBL_FOREACH(t_, e_) for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != \
-    (TBPAIR_t *)0; _ts++)
-TBBLK_t *table_new(void);
-TBBLK_t *set_new(void);
-TBBLK_t *table_new_args(int init, int inc);
-DESCR_t agg_prototype(DESCR_t v);
-int tbl_key_equal(DESCR_t a, DESCR_t b);
-long tbl_key_serial(DESCR_t k);
-TBPAIR_t *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
-int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out);
-TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
-DESCR_t table_get_d(TBBLK_t *tbl, DESCR_t k);
-DESCR_t table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
-int table_has_d(TBBLK_t *tbl, DESCR_t k);
-int table_delete_d(TBBLK_t *tbl, DESCR_t k);
-void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
-void table_copy_in_order(TBBLK_t *dst, TBBLK_t *src);
-TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y);
-TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y);
-TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y);
-typedef struct _DATINST_tType { char *name; int nfields; char **fields; struct _DATINST_tType *next; long serial_next; } DATBLK_t;
-typedef struct _DATINST_t { DATBLK_t *type; DESCR_t *fields; long id; long dumpno; } DATINST_t;
-void DEFDAT_fn(const char *spec);
-DESCR_t DATCON_fn(const char *type_name, ...);
-DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field);
-void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
-void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
-DESCR_t NV_GET_fn(const char *name);
-DESCR_t NV_SET_fn(const char *name, DESCR_t val);
-void NV_CLEAR_fn(const char **except, int nexcept);
-typedef struct { const char *name; DESCR_t val; } NvPair;
-int nv_snapshot(NvPair **out);
-void nv_restore(const NvPair *pairs, int n);
-DESCR_t INDR_GET_fn(const char *name);
-void INDR_SET_fn(const char *name, DESCR_t val);
-DESCR_t NAME_fn(const char *varname);
-int ASGNIC_fn(const char *kw_name, DESCR_t val);
-void NAME_pop(void);
-void NAME_commit(void);
 void PUSH_fn(DESCR_t v);
 DESCR_t POP_fn(void);
 DESCR_t TOP_fn(void);
 int STACK_DEPTH_fn(void);
-typedef DESCR_t (*FNCPTR_t)(DESCR_t *args, int nargs);
-typedef struct _VarEntry {
-    char *name;
-    uint32_t nlen;
-    int has_nul;
-    unsigned long serial;
-    int std_detached;
-    DESCR_t val;
-    DESCR_t *cell;
-    int is_gva;
-    int is_const;
-    int touched;
-    int is_io;
-    struct _VarEntry *next;
-} NV_t;
-typedef struct _FNCBLK_t {
-    char *name;
-    char *spec;
-    char *entry_label;
-    FNCPTR_t fn;
-    int nparams;
-    char **params;
-    int nlocals;
-    char **locals;
-    int min_args;
-    int max_args;
-    int max_set;
-    struct _FNCBLK_t *next;
-} FNCBLK_t;
-typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 typedef struct { FILE *fp; char *varname; int is_output; int is_popen; char *buf; size_t cap; long rlen; int unit; char *prebind; } io_chan_t;
-void DEFINE_fn(const char *spec, FNCPTR_t fn);
-void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
-void register_fn_alias(const char *newname, const char *oldname);
-int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out);
-DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs);
-int FNCEX_fn(const char *name);
-int FUNC_NPARAMS_fn(const char *fname);
-int FUNC_NLOCALS_fn(const char *fname);
-const char *FUNC_PARAM_fn(const char *fname, int i);
-const char *FUNC_LOCAL_fn(const char *fname, int i);
-const char *FUNC_ENTRY_fn(const char *fname);
-int FUNC_IS_ENTRY_LABEL(const char *label);
-#define FRETURN 4
-#define NRETURN 5
 DESCR_t SIZE_fn(DESCR_t s);
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n);
 DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to);
@@ -240,124 +75,9 @@ void output_val(DESCR_t v);
 DESCR_t input_read(void);
 DESCR_t terminal_read(void);
 void output_str(const char *s);
-void comm_stno(int n);
-void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno);
-void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook);
-int comm_var_active(void);
-const char * stmt_src_get_file(void);
-void mon_emit_label_bin(int64_t stno);
-void sno_trace_value(const char *name, DESCR_t val);
-void sno_trace_call(const char *fname);
-void sno_trace_return(const char *fname, DESCR_t retval);
-void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval);
-void comm_call(const char *fname);
-void comm_return(const char *fname, DESCR_t retval);
-int trace_is_active(const char *name);
-void rt_trace_stmt(long line);
-void rt_trace_call(const char *name, DESCR_t *args, int nargs);
-void rt_trace_return(const char *name, DESCR_t retval);
-void rt_trace_value(const char *name, DESCR_t val);
-void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
-#if RT_DIAG
-#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && \
-    g_runtime.abi.trace == 0)
-#else
-#define rt_trace_layer_idle() (1)
-#endif
-typedef enum { TRK_VALUE = 0, TRK_ACCESS, TRK_LABEL, TRK_KEYWORD, TRK_FUNCTION, TRK_CALL, TRK_RETURN, TRK_SUSPEND, TRK_RESUME } trace_kind_t;
-void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
-void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h);
-void rt_trace_resume_hook(const char *pname, void *h);
-void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno);
-void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno);
-typedef struct { DESCR_t args[3]; DESCR_t saved_trace; DESCR_t saved_ftrace; DESCR_t val; DESCR_t hook; } trace_pend_t;
-void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island);
-void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend, long long rstno);
-void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend);
-void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend);
-DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend);
-long rt_value_trace_open(const char *name, trace_pend_t *pend);
-void rt_trace_pend_run(trace_pend_t *pend);
-void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend);
-void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend);
-void rt_trace_label_hook_p(const char *name, trace_pend_t *pend);
-void rt_trace_pend_close(trace_pend_t *pend);
-void rt_pl_port_trace_cb(const char *name, long port);
-void rt_call_pend_close(trace_pend_t *pend);
-long rt_tweak_open(DESCR_t *out, const char *cname, trace_pend_t *pend);
-DESCR_t NV_GET_open(const char *name, trace_pend_t *pend);
-DESCR_t *NV_CELL_PLAIN_fn(const char *name);
-DESCR_t *NV_CELL_FAST_n(const char *s, size_t n);
-void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend);
-void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno);
-void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno);
-void rt_trace_all_set(int on);
 int rt_proc_is_defined(const char *name);
-void rt_trace_call_hook(const char *fname);
-void rt_trace_fail_hook(const char *fname);
-void rt_trace_call_hook_f(const char *fname, int np, void *base);
-typedef struct icn_bi_rec { const char *name; DESCR_t *args; int nargs; int level; struct icn_bi_rec *prev; DESCR_t callee; } icn_bi_rec_t;
-void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b);
-void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
-int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
-void core_icn_op_ctx_clear(void);
-const char *core_icn_binop_sym(int bcode);
-void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs);
-void core_icn_bi_pop(icn_bi_rec_t *r);
-void *core_icn_bi_mark(void);
-void core_icn_bi_reset(void *mark);
-void core_icn_traceback(void);
-void core_icn_display_image(FILE *fp, DESCR_t v);
-int core_icn_act_np(int lv);
-DESCR_t *core_icn_act_arg(int lv, int k);
-int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
-void rt_trace_return_hook(const char *fname, DESCR_t retval);
-void rt_trace_gen_fail_hook(const char *fname, void *h);
-#include <setjmp.h>
-void core_runtime_error(int code, const char *msg);
-void core_runtime_error_soft(int code, const char *msg);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_is_terminal(int code) {
-    switch (code) { case 20: case 21: case 22: case 23: case 26: case 27: case 29: case 30: case 31: case 38: case 39: case 242: return 1; default: return 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: case 332: return 0; default: return 1; } }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 25: case 35: return 1; default: return 0; } }
 extern const char alphabet[257];
 void core_lib_init(void);
-DESCR_t pat_lit(const char *s);
-DESCR_t pat_span(const char *chars);
-DESCR_t pat_break_(const char *chars);
-DESCR_t pat_breakx (const char *chars);
-DESCR_t pat_any_cs(const char *chars);
-DESCR_t pat_notany(const char *chars);
-DESCR_t pat_len(int64_t n);
-DESCR_t pat_pos(int64_t n);
-DESCR_t pat_rpos(int64_t n);
-DESCR_t pat_tab(int64_t n);
-DESCR_t pat_rtab(int64_t n);
-DESCR_t pat_arb(void);
-DESCR_t pat_arbno(DESCR_t inner);
-DESCR_t pat_rem(void);
-DESCR_t pat_fence(void);
-DESCR_t pat_fence_p(DESCR_t inner);
-DESCR_t pat_fail(void);
-DESCR_t pat_abort(void);
-DESCR_t pat_succeed(void);
-DESCR_t pat_bal(void);
-DESCR_t pat_epsilon(void);
-DESCR_t pat_cat(DESCR_t left, DESCR_t right);
-DESCR_t pat_alt(DESCR_t left, DESCR_t right);
-DESCR_t pat_ref(const char *name);
-DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var);
-DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
-DESCR_t pat_assign_callcap(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs);
-DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names);
-DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names);
-DESCR_t var_as_pattern(DESCR_t v);
-DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
@@ -366,21 +86,8 @@ DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 DESCR_t rt_deref(DESCR_t d);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t rt_cset_compl(DESCR_t a);
-DESCR_t *NV_PTR_fn(const char *name);
-DESCR_t *NV_PTR_n(const char *s, size_t n);
-const char *NV_nul_key(const char *s, size_t n);
-int NV_name_needs_key(const char *s, size_t n);
-__attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name);
-int NV_bind_gva(const char *name, DESCR_t *cell);
-int NV_EXISTS_fn(const char *name);
-DESCR_t NV_KW_GET_fn(const char *name);
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);
-int NV_CONST_ASSIGNED_fn(const char *name);
-DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
-const char *NV_name_from_ptr(const DESCR_t *ptr);
 int rt_name_textless(DESCR_t v);
 int rt_str_arg_bad(DESCR_t d);
-DESCR_t *array_ptr(ARBLK_t *a, int i);
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
@@ -402,11 +109,8 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type);
 static inline DESCR_t opsyn2(DESCR_t a, DESCR_t b) { return opsyn(a, b, NULVCL); }
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col);
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col);
-void core_set_label_exists_hook(int (*fn)(const char *));
-const char *setexit_label_get(char *buf, size_t bufsz);
-void sno_setexit_fire_on_end(void);
-void sno_setexit_resume(const char *which);
-#define TABLE_VAL(tbl_) ((DESCR_t){ .v = DT_T, .tbl = (tbl_) })
-#define ARRAY_VAL(a_) ((DESCR_t){ .v = DT_A, .arr = (a_) })
-#endif
 void indirect_goto(const char *varname);
+#ifdef __cplusplus
+}
+#endif
+#endif

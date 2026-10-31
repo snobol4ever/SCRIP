@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 }
 #include "templates/x86/x86_ops.h"

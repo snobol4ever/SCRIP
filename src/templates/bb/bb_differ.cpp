@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 int descr_identical(DESCR_t a, DESCR_t b);
 }
 #include "templates/x86/x86_ops.h"

@@ -1,4 +1,3 @@
-#include "rt_pl_trail.h"
 #include <string.h>
 #include "ct_arena.h"
 #include "ct_vec.h"
@@ -9,6 +8,7 @@
 #include "ast.h"
 #include "g_lower.h"
 #include "call_forms.h"
+#include "runtime/rt/pl_trail_layout.h"
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);

@@ -19,6 +19,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include "runtime/core/g_runtime_entry.h"
 #include <ctype.h>
 g_lower_t g_lower = G_LOWER_INIT;
 extern int junction_is(DESCR_t v);

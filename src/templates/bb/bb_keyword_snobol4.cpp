@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 DESCR_t rt_keyword_read_snobol4(const char *sval);
 int rt_kw_index(const char *kw);
 DESCR_t rt_kw_read_idx(int64_t idx);

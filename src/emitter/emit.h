@@ -6,7 +6,6 @@
 extern "C" {
 #endif
 #define TEXT_MODE_INVOCATION 0
-#include "rt/rt_arena.h"
 #include "bb_pool.h"
 #include "IR.h"
 #include "ct_vec.h"
@@ -177,7 +176,6 @@ void bb_restore_state(IR_graph_t * cfg, bb_node_state_t * snap);
 extern "C" {
 #endif
 #include "bb_pool.h"
-#include "core.h"
 #include "bb_box.h"
 #include "IR.h"
 #include <stdio.h>
@@ -744,7 +742,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "core.h"
 void emit_sm_halt ();
 void emit_sm_push_lit_i (int64_t val);
 void emit_sm_push_lit_s (const char * str_lbl, uint64_t str_ptr, int len);

@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
 }
 #include "templates/x86/x86_ops.h"

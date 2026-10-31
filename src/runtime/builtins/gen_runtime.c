@@ -1,3 +1,4 @@
+#include "runtime/core/core.h"
 #include "gen_runtime.h"
 #include "g_runtime.h"
 #include "ct_arena.h"

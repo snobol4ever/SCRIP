@@ -1,7 +1,6 @@
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
 #include "ast.h"
-#include "g_runtime.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "bb_box.h"
 #include "gen.h"

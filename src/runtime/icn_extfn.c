@@ -1,11 +1,12 @@
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
-#include "core.h"
 #include "coerce.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include "ir/descr.h"
+#include "runtime/core/core_error.h"
 /*====================================================================================================================================================================================================*/
 typedef long icnx_word_t;
 typedef struct { icnx_word_t dword, vword; } icnx_descr_t;

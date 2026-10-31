@@ -1,8 +1,8 @@
 #include <alloca.h>
-#include "rt/rt_arena.h"
-#include "g_runtime.h"
-#include "driver_private.h"
 #include "bb_box.h"
+#include "ir/IR.h"
+#include "ir/stage2.h"
+#include <stdio.h>
 void rt_proc_set_generator(const char *, int);
 void rt_proc_set_jmpentry(const char *, int);
 void rt_proc_set_pinned(const char *, int);

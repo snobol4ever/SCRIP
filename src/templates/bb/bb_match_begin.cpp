@@ -4,6 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
+#include "runtime/core/g_runtime.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);

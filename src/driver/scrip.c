@@ -1,4 +1,3 @@
-#include "rt/rt_arena.h"
 #include "g_runtime.h"
 #include "g_runtime_abi.inc"
 #define GRT_S2(x) #x

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "core.h"
 int rt_jct_relop(DESCR_t, DESCR_t, int);
 int c_rt_jct_relop(DESCR_t, DESCR_t, int);

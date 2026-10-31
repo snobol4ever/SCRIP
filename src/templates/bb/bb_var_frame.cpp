@@ -5,7 +5,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr_tags.h"
 int stage2_owner_varslot(const char * proc, const char * var);
 const char * stage2_owner_l3_ancestor(const char * proc);
 }

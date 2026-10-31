@@ -1,6 +1,8 @@
 #include "core.h"
 #include "builtins/gen_runtime.h"
 #include <string.h>
+#include "runtime/core/table.h"
+#include "runtime/core/g_runtime_entry.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_descr_identical(DESCR_t a, DESCR_t b);
 static int vcell_same(const VCELL_t *x, const VCELL_t *y) {

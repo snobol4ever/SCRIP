@@ -1,6 +1,5 @@
 #ifdef __cplusplus
 #include <unordered_map>
-#include "g_runtime.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 extern "C" int prolog_atom_intern_lit(const char *);

@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n);
 }

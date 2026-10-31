@@ -1,7 +1,6 @@
 #include "rt/rt.h"
 #include "g_runtime.h"
 #include "dtp.h"
-#include "core.h"
 #include "IR.h"
 #include "bb_pool.h"
 #include "rt/prolog_atom.h"

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "descr.h"
+#include "ir/descr.h"
 #ifndef NULVCL
 # define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
 #endif

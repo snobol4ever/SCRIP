@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 void rt_icn_cset_register(const char *ptr, int len);
 int prolog_atom_intern_lit(const char *s);
 const char * bb_ab_sym_name(const char * nm);

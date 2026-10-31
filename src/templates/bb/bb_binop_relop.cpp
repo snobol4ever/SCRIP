@@ -2,7 +2,7 @@
 #include <stdint.h>
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 #include "../runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out);

@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "core.h"
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t rt_pas_resundef(DESCR_t *, int);

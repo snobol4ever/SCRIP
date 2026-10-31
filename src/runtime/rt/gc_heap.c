@@ -17,6 +17,9 @@
 #include "rt_slab.h"
 #include "rt_arena.h"
 #include "gc_heap.h"
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/table.h"
 #define GC_HEAP_MB 1
 #define GC_HEAP_KB 1024
 #define GC_RESERVE_FLOOR_MB 512
@@ -39,7 +42,7 @@ _Static_assert(GC_FREE_PCT == 15,
     "mark 87 ms) where SPITBOL collected zero times. The line now leaves one sixteenth of the free window as burst room between polls (the allocator never collects, so a burst past the line is commi"
     "tted, never refused), and a collection that leaves less than GC_FREE_PCT percent of the committed window free grows it at once (rt_gcheap_grow(0): the larger of the committed size and -i, up to"
     " the hard cap) instead of collecting again one sixteenth later");
-#include "descr.h"
+#include "ir/descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
 #include "rt_pl_trail.h"

@@ -10,6 +10,7 @@ extern "C" {
 #include "bb_templates.h"
 #include "pin_va.h"
 #include "rt.h"
+#include "runtime/core/trace.h"
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);

@@ -11,6 +11,10 @@
 #include "templates/x86/x86_zverify.h"
 #include "ir/pin_va.h"
 #include "../planner/planner.h"
+#include "runtime/core/comm_var.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/core/trace.h"
+#include "runtime/rt/pl_trail_layout.h"
 g_emitter_t g_emitter;
 const char * bb_src_of(const IR_t * nd);
 int bb_line_of(const IR_t * nd);
@@ -5050,7 +5054,6 @@ void emit_diag_arbno_arm(const char * arm) { if (emit_knob_if_one("SCRIP_ARBNO_D
 long emit_lit_d(const char * s, long k) { uint32_t w; memcpy(&w, s + k, 4); return (long)(int32_t)w; }
 uint64_t emit_double_bits(double d) { uint64_t b = 0; memcpy(&b, &d, 8); return b; }
 const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }
-#include "rt/rt_pl_trail.h"
 static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_head spells the trail entry size as a literal");
 static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");
 static_assert(X86_PL_TR_WAKE_OFF == PL_TR_WAKE_OFF && X86_PL_TR_RESIDUE_OFF == PL_TR_RESIDUE_OFF, "x86_pl_tr_tidy spells the wake and residue words as literals");

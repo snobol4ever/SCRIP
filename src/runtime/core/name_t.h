@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef NAME_T_H
 #define NAME_T_H
-#include "descr.h"
+#include "ir/descr.h"
 typedef enum { NM_VAR = 0, NM_PTR = 1, NM_IDX = 2, NM_CALL = 3 } NameKind_t;
 typedef struct NAME_s {
     NameKind_t kind;

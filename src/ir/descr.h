@@ -2,56 +2,7 @@
 #define DESCR_H
 #include <stdint.h>
 #include <stddef.h>
-#define DT_NUMERIC_BIT 0x01
-#define DT_CHARS_BIT 0x02
-#define DT_REAL_BIT 0x04
-#define DT_NOTSTR_MASK 0xFFFFFFFDu
-#define DT_DATA_STRIDE 8
-#define RTX_NOT_HANDLED 0xFF
-#define RTX_NOT_HANDLED_INT 0xFFFFFFFE
-#define RTX_NOT_HANDLED_PTR 0xFFFFFFFFFFFFFFFF
-typedef enum {
-    DT_SNUL = 0x00, DT_S = 0x02, DT_I = 0x03, DT_R = 0x05, DT_P = 0x08, DT_A = 0x10, DT_T = 0x18, DT_C = 0x20, DT_N = 0x28, DT_K = 0x30, DT_E = 0x38, DT_FH = 0x40, DT_PLVAR = 0x48, DT_PLREF = 0x50,
-        DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_CPLX = 0xA8, DT_PLATOM = 0xB0, DT_EXTL = 0xB8,
-        DT_PCELL = 0xC0,
-} DTYPE_t;
-#ifdef __cplusplus
-#define DESCR_SASSERT(c, m) static_assert(c, m)
-#else
-#define DESCR_SASSERT(c, m) _Static_assert(c, m)
-#endif
-DESCR_SASSERT(DT_SNUL == 0, "DT_SNUL must stay 0: bulk memset init mints null strings for free");
-DESCR_SASSERT((DT_I & DT_NUMERIC_BIT) && (DT_R & DT_NUMERIC_BIT), "NUMERIC is bit0");
-DESCR_SASSERT(!(DT_S & DT_NUMERIC_BIT) && !(DT_SNUL & DT_NUMERIC_BIT), "strings never read numeric");
-DESCR_SASSERT(!(DT_I & DT_REAL_BIT) && (DT_R & DT_REAL_BIT), "REAL is bit2");
-DESCR_SASSERT(((DT_I & DT_R) != DT_I) && ((DT_I & DT_R) & DT_NUMERIC_BIT), "DT_I must NOT be a subset of DT_R (or BOTH INT dies) yet must share NUMERIC (or BOTH NUMERIC dies)");
-DESCR_SASSERT(((DT_SNUL | DT_S) & (DT_NOTSTR_MASK & 0xFF)) == 0,
-    "SNUL|S must vanish under the 8-bit string mask -- every .S string-family test reads only the tag byte, never the 32-bit word (that word's bits 8-31 carry the DESCR provenance stamp, see ARCH-SN"
-    "OBOL4-RTX.md sec9)");
-DESCR_SASSERT((DT_I & (DT_NOTSTR_MASK & 0xFF)) && (DT_R & (DT_NOTSTR_MASK & 0xFF)), "numerics must NOT read as string under the 8-bit mask");
-DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF)), "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
-DESCR_SASSERT(!(DT_BOOL & DT_NUMERIC_BIT) && (DT_BOOL & (DT_NOTSTR_MASK & 0xFF)),
-    "DT_BOOL must read as neither numeric nor string under the 8-bit mask (ceo CEO-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
-DESCR_SASSERT(!(DT_ORDER & DT_NUMERIC_BIT) && (DT_ORDER & (DT_NOTSTR_MASK & 0xFF)),
-    "DT_ORDER must read as neither numeric nor string under the 8-bit mask, same shape as DT_BOOL above: a Raku Order renders Less/Same/More, and only a Raku-own arm may coerce it to -1/0/1");
-DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT), "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
-DESCR_SASSERT((RTX_NOT_HANDLED & 7) == 7 && (DT_DATA_STRIDE & 7) == 0 && (DT_DATA & 7) == 0,
-    "RTX_NOT_HANDLED is the byte a verdict-road leaf returns in al and never the low byte of a tag: every tag's low three bits read 0, 2, 3 or 5");
-DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
-DESCR_SASSERT(DT_RAW > DT_ORDER,
-    "DT_RAW is the value-never-a-pointer stack-cell code of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65; its twin, the frame-marker tag, went with the marker scan at STEP B): every code a"
-    "bove DT_ORDER is a cell the collector never visits a" "s a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason"
-    );
-DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)), "DT_RAW reads as neither numeric nor string under the 8-bit mask, like DT_FAIL");
-DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
-DESCR_SASSERT(DT_PLATOM > DT_CPLX && DT_PLATOM < 0x100 && !(DT_PLATOM & DT_NUMERIC_BIT) && (DT_PLATOM & (DT_NOTSTR_MASK & 0xFF)),
-    "DT_PLATOM is the Prolog atom, {v, slen 0, i = atom id} (ARCH-PROLOG-BB-REWRITE.md section 3, rung R1): it replaced the builder form that wore DT_A, "
-    "the SNOBOL4/Icon ARRAY tag, with an integer payload -- the collector's DT_A arm read atom id 0x8e as an ARBLK pointer (row prolog-an-atom-wears-the-array-tag). "
-    "It is safe under the collector because gc_type_says_ref is an explicit switch whose default returns 0, NOT because it sits above DT_ORDER (DT_CPLX sits above "
-    "DT_ORDER and is a ref); IS_DATA_TAG_fn's v < DT_RAW bound excludes it; and it reads neither numeric nor string under the 8-bit mask, like DT_FAIL");
-DESCR_SASSERT(DT_PCELL > DT_EXTL && DT_PCELL < 0x100 && !(DT_PCELL & DT_NUMERIC_BIT) && (DT_PCELL & (DT_NOTSTR_MASK & 0xFF)) && (DT_PCELL & 7) == 0,
-    "DT_PCELL is the Pascal pointer to a cell, {v, slen = element index (signed 32), ptr = the address of the cell holding element 0} (ARCH-PASCAL-REDESIGN.md R5 amended (1)): it is neither numeric "
-    "nor string, " "sits above DT_ORDER so the v >= DT_DATA tests exclude it by their v < DT_RAW bound, and the collector visits it as the DT_S interior-pointer arm (MK_PLAIN_I)");
+#include "ir/descr_tags.h"
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
@@ -81,7 +32,6 @@ static inline __attribute__((always_inline)) void descr_set_src_node(DESCR_t *d,
     d->src_node1 = (uint8_t)(id >> 8);
     d->src_node2 = (uint8_t)(id >> 16);
 }
-typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
 #define FAILDESCR ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
 #define ICN_FIELD_PLAIN 0x10000
@@ -152,4 +102,34 @@ static inline __attribute__((always_inline)) int IS_PROCVAL_EXTERNAL_fn(DESCR_t 
 static inline __attribute__((always_inline)) int IS_PROCVAL_fn(DESCR_t v) { return v.v == DT_E && (v.slen == PROCVAL_SLEN || v.slen == PROCVAL_BUILTIN_SLEN || v.slen == PROCVAL_EXTERNAL_SLEN); }
 static inline __attribute__((always_inline)) int IS_PROCVAL_BUILTIN_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_BUILTIN_SLEN; }
 #define PROCVAL_BUILTIN(name_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_BUILTIN_SLEN, .s = (char *)(name_) })
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
+int kw_cset_len(const char *ptr);
+const char *kw_cset_empty(void);
+static inline __attribute__((always_inline)) size_t descr_slen(DESCR_t d) {
+    if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); } return (size_t)d.slen; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_cstr_materialize(DESCR_t d);
+static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
+    if (d.v != DT_S || !d.s || !d.slen || d.slen == 0xFFFFFFFFu) return d.s ? d.s : "";
+    return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
+}
+#define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
+#define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })
+#define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
+#define INTVAL(i_) ((DESCR_t){ .v = DT_I, .i = (i_) })
+#define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })
+#define CSETVAL(s_) ((DESCR_t){ .v = DT_S, .slen = 0xFFFFFFFFu, .s = (s_) })
+#define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
+static inline __attribute__((always_inline)) DESCR_t NAME_AS_STR_fn(DESCR_t d) { return (d.v == DT_N && d.slen == 0 && d.s && !IS_KWNAME_fn(d)) ? STRVAL(d.s) : d; }
+#define NAMEVAL(s_) ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
+static inline __attribute__((always_inline)) int IS_STR_fn(DESCR_t v) { return v.v == DT_S || v.v == DT_SNUL; }
+static inline __attribute__((always_inline)) int IS_INT_fn(DESCR_t v) { return v.v == DT_I; }
+static inline __attribute__((always_inline)) int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
+static inline __attribute__((always_inline)) int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
+static inline __attribute__((always_inline)) int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
 #endif

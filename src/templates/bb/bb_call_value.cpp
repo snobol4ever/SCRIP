@@ -7,7 +7,7 @@
 extern "C" {
 #include "bb_template_common.h"
 extern struct gv_s g_call_args;
-#include "descr.h"
+#include "ir/descr.h"
 #include <string.h>
 extern DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n);
 extern DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot);

@@ -4,7 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "ast.h"
-#include "descr.h"
+#include "ir/descr.h"
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);
 struct DESCR_t rt_num_neg_strict(struct DESCR_t a);

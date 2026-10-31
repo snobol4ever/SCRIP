@@ -17,7 +17,7 @@
 #include "gc_heap.h"
 #include "core.h"
 #include "rt_list_view.h"
-#include "descr.h"
+#include "ir/descr.h"
 #include "sil_macros.h"
 #include "bb_pool.h"
 #include "bb_box.h"
@@ -30,6 +30,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "runtime/core/core_error.h"
+#include "runtime/core/trace.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/nv.h"
+#include "runtime/pattern_match.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "runtime/core/table.h"
 extern const char *Σ;
 extern int Σlen;
 #if RT_DIAG

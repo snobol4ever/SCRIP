@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stddef.h>
-#include "descr.h"
+#include "ir/descr.h"
 extern void *rt_wsb_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

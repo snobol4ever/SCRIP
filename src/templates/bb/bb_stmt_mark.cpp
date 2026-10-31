@@ -4,6 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "runtime/core/trace.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"

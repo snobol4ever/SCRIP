@@ -2,7 +2,6 @@
 #ifndef RTCC_H
 #define RTCC_H
 #include <stdint.h>
-#include "g_runtime.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

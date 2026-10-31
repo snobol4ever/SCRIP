@@ -3,8 +3,8 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
+#include "runtime/rt/pl_trail_layout.h"
 }
-#include "rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"

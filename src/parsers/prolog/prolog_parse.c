@@ -11,6 +11,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include "runtime/core/g_runtime.h"
 extern void *rt_wsb_alloc(size_t);
 typedef struct {
     int active;

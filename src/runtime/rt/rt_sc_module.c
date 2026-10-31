@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/resource.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "core.h"
 #include "ast.h"
 #include "pin_va.h"

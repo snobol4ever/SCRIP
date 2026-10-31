@@ -1,7 +1,6 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SYNC_MONITOR_H
 #define SYNC_MONITOR_H
-#include "core.h"
 #include "runtime/builtins/gen_runtime.h"
 typedef struct {
     NvPair *nv_pairs;

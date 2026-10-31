@@ -20,6 +20,9 @@
 #include <setjmp.h>
 #include "../../parsers/prolog/pl_cell.h"
 #include "../ir/dtp.h"
+#include "runtime/core/table.h"
+#include "runtime/core/nv.h"
+#include "runtime/pattern_match.h"
 extern const char *Σ;
 extern int Δ;
 extern int Ω;

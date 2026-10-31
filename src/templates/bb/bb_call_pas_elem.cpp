@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr_tags.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"

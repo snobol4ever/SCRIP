@@ -1,12 +1,13 @@
 #include <stdio.h>
 #ifndef PL_CELL_H
 #define PL_CELL_H
-#include "rt/rt_arena.h"
-#include "rt/rt_pl_trail.h"
-#include "descr.h"
+#include "ir/descr.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "runtime/core/table.h"
+#include "runtime/rt/pl_trail_layout.h"
+#include "runtime/rt/rt_pl_trail.h"
 typedef DESCR_t pl_cell_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int      pl_tag(const pl_cell_t *c)     { return (int)c->v; }

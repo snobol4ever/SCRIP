@@ -5,7 +5,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "descr.h"
+#include "ir/descr.h"
 DESCR_t rt_pl_ax_cold(DESCR_t *, int, const char *);
 DESCR_t rt_pl_cmp_cold(DESCR_t *, int, const char *);
 DESCR_t rt_pl_is_cold(DESCR_t *, int);

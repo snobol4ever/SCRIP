@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "runtime/core/datatype.h"
 typedef __int128 i128;
 typedef unsigned long long u64;
 #define RK_RAT_NAME "\x01" "Rat"

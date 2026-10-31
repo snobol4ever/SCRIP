@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "runtime/core/datatype.h"
 extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
 extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
 extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "descr_tags.inc"
 int rt_is_truthy(DESCR_t v);
 DESCR_t rt_faildescr(void);

@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "descr.h"
-#include "core.h"
+#include "ir/descr.h"
 #define BB_DEFINE_NAMES 1
 #include "ast.h"
 #include "ct_arena.h"
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
 extern DESCR_t array_get(ARBLK_t *a, int i);
 extern int rt_sc_module_linked(const char *lang);
 extern char *rt_gc_program_top_get(void);

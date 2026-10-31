@@ -4,6 +4,10 @@
 #include "ct_arena.h"
 #include "core.h"
 #include <string.h>
+#include "runtime/core/array.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/table.h"
+#include "runtime/pattern_match.h"
 #define IS_FAIL_fn(v) IS_FAIL_fn(v)
 #define get(v) (v)
 #define set(v, x) ((v) = (x))

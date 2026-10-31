@@ -4,7 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
 extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);
 extern DESCR_t rt_pl_fresh_var_ref(uint64_t);

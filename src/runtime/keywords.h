@@ -2,8 +2,7 @@
 #ifndef KEYWORDS_H
 #define KEYWORDS_H
 #include <limits.h>
-#include "g_runtime.h"
-#include "../ir/descr.h"
+#include "ir/descr.h"
 #define G_ERROR_EVAL_STAGE LONG_MIN
 #define G_ERROR_EVAL_LEVELS (1L << 24)
 #define G_ERROR_EVAL_AT(l) (G_ERROR_EVAL_STAGE + ((long)(l) & (G_ERROR_EVAL_LEVELS - 1)))

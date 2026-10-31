@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "../rt/gc_heap.h"
+#include "ir/descr.h"
 const char *real_str(double r, char *buf, int bufsz);
 const char *icon_real_str(double r, char *buf, int bufsz);
 int64_t to_int(DESCR_t v);

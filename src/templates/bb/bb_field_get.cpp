@@ -2,7 +2,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t icn_field_get(const char *fname, DESCR_t obj);
 extern DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1);
 extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);

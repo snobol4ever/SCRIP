@@ -5,6 +5,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
+#include "runtime/core/trace.h"
 }
 extern "C" long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 extern "C" long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);

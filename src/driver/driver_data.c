@@ -2,6 +2,9 @@
 #include "rt/gc_heap.h"
 #include "driver_private.h"
 #include "ct_arena.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/array.h"
+#include "runtime/core/core_error.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_print(DESCR_t *args, int nargs) { if (nargs == 0) { output_str(""); return NULVCL; } for (int i = 0; i < nargs; i++) output_val(args[i]); return NULVCL; }
 static cv_t dat_types_v;

@@ -4,7 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 DESCR_t rt_keyword_read(const char *sval);
 DESCR_t rt_keyword_gen(const char *sval, long idx);
 DESCR_t rt_keyword_var(const char *name);

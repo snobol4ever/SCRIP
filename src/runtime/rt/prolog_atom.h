@@ -3,7 +3,6 @@
 #define PL_ATOM_H
 #include <stddef.h>
 #include <limits.h>
-#include "g_runtime.h"
 void prolog_atom_init(void);
 int prolog_atom_intern(const char *name);
 int prolog_atom_intern_n(const char *s, size_t n);

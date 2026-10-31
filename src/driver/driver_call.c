@@ -2,6 +2,9 @@
 #include "g_runtime.h"
 #include "rtx_try.h"
 #include "driver_private.h"
+#include "runtime/core/comm_var.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/nv.h"
 cv_t init_tab_v;
 int init_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

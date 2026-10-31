@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "g_runtime.h"
-#include "core.h"
 #include "rt/rt.h"
 #include "ct_arena.h"
 #include "rt_pl_trail.h"
+#include "runtime/core/datatype.h"
 extern void rt_proc_drop_frame_h(void **);
 extern int rt_genp_valid(void *);
 extern void rt_pl_tr_free_arena(const char *, void *);

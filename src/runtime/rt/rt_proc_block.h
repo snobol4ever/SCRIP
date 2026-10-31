@@ -1,7 +1,7 @@
 #ifndef RT_PROC_BLOCK_H
 #define RT_PROC_BLOCK_H
 #include <stdint.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "bb_box.h"
 typedef struct rt_proc_s {
     const char *name;

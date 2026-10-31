@@ -1,6 +1,6 @@
 #ifndef RTX_TRY_H
 #define RTX_TRY_H
-#include "descr.h"
+#include "ir/descr.h"
 #include "g_runtime.h"
 #include "gc_heap.h"
 #ifdef __cplusplus

@@ -5,6 +5,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "dtp.h"
+#include "runtime/core/trace.h"
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
 extern rt_call_next_t rt_call_callee_try_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r, DESCR_t * out);

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "core.h"
 #include "gc_heap.h"
 DESCR_t rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);

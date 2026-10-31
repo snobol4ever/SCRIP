@@ -12,6 +12,7 @@
 #include "templates/x86/x86_rtcc.h"
 #include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zverify.h"
+#include "runtime/core/g_runtime.h"
 extern "C" { void rt_pl_tr_refuse(const char *); }
 std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();

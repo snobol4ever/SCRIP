@@ -4,7 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 int is_global(const char * name);
 struct DESCR_t * NV_PTR_fn(const char * name);
 struct DESCR_t rt_rev_swap_fwd(long lkind, struct DESCR_t *lp, long rkind, struct DESCR_t *rp, struct DESCR_t *save, int64_t *spill);

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "rt_pl_trail.h"
+#include "runtime/core/g_runtime.h"
 #include "rt_slab.h"
 extern void rt_gc_root_range_add_topword(const char *lo);
 extern void rt_gcheap_cap_road(void);
@@ -85,3 +86,58 @@ void rt_pl_tr_freeze(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; if (e->cell) *e->cell = e->old; } } return tr; }
+char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
+void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
+void **pl_tr_wslot_slot(const char *base) { return (void **)((char *)base + PL_TR_WSLOT_OFF); }
+uint64_t *pl_tr_ocheck_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_OCHECK_OFF); }
+char **pl_tr_cleanup_slot(const char *base) { return (char **)((char *)base + PL_TR_CLEANUP_OFF); }
+uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_PROBE_B_OFF); }
+uint64_t *pl_tr_wake_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_WAKE_OFF); }
+uint64_t *pl_tr_residue_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_RESIDUE_OFF); }
+char **pl_tr_floor_slot(const char *base) { return (char **)((char *)base + PL_TR_FLOOR_OFF); }
+int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && (c->src_node0 & 1); }
+uint64_t pl_var_word0(const DESCR_t *c) { uint64_t w; __builtin_memcpy(&w, c, 8); return w; }
+uint64_t pl_var_serial(const DESCR_t *c) { return (int)c->v == DT_PLVAR ? pl_var_word0(c) >> PL_SERIAL_SHIFT : 0; }
+uint64_t pl_serial_draw(const pl_tr_ctx_t *cx) {
+    uint64_t *k;
+    if (!cx || !cx->r14) return (uint64_t)DT_PLVAR;
+    k = (uint64_t *)(uintptr_t)(cx->r14 - PL_SERIAL_OFF);
+    { uint64_t w = *k; if ((w & 255) != (uint64_t)DT_PLVAR) return (uint64_t)DT_PLVAR; *k = w + PL_SERIAL_STEP; return w; }
+}
+void pl_var_make(DESCR_t *c, const pl_tr_ctx_t *cx, int attv) { uint64_t w = pl_serial_draw(cx) | (attv ? PL_VAR_ATTV : 0); __builtin_memcpy(c, &w, 8); c->p = (void *)c; }
+void pl_var_move(DESCR_t *j, const DESCR_t *old, const pl_tr_ctx_t *cx) {
+    if ((int)old->v != DT_PLVAR) { pl_var_make(j, cx, 0); return; }
+    { uint64_t w = pl_var_word0(old) & ~(uint64_t)PL_VAR_ATTV; __builtin_memcpy(j, &w, 8); j->p = (void *)j; }
+}
+uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
+uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }
+void pl_tr_frame_hi_set(char *b, const void *hi) { *(uintptr_t *)(b + PL_TR_FRAME_HI_OFF) = ((uintptr_t)hi << 8) | DT_RAW; }
+int pl_tr_needs_log(const pl_tr_ctx_t *cx, const DESCR_t *cell, const char *floor_) {
+    if (!cx || !cx->b) return 0;
+    if ((const char *)cell <= floor_) return 1;
+    return (uintptr_t)cell >= pl_tr_frame_hi(cx->b);
+}
+const char *pl_tr_hb_of(const pl_tr_ctx_t *cx) {
+    const char *mark = *(const char * const *)cx->b;
+    if (mark < pl_tr_base_of(cx->tr) + PL_TR_HEADER_BYTES + PL_TR_ENTRY_BYTES || mark > cx->tr) return 0;
+    { const pl_tr_entry_t *e = (const pl_tr_entry_t *)(mark - PL_TR_ENTRY_BYTES); return e->cell ? 0 : (const char *)(uintptr_t)e->pad; }
+}
+int pl_tr_needs_log_bind(const pl_tr_ctx_t *cx, const DESCR_t *cell, const char *floor_) {
+    if (!cx || !cx->b) return 0;
+    if ((const char *)cell > floor_) return (uintptr_t)cell >= pl_tr_frame_hi(cx->b);
+    { const char *hb = pl_tr_hb_of(cx); return !hb || (const char *)cell < hb || (const char *)cell >= *(char * const *)(const void *)&g_runtime.abi.hp_fr; }
+}
+void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
+    if (((uintptr_t)cx->tr & (PL_TR_ARENA_BYTES - 1)) >= PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES) rt_pl_tr_refuse(cx->tr);
+    { pl_tr_entry_t *e = (pl_tr_entry_t *)cx->tr; e->cell = cell; e->pad = 0; e->old = *cell; cx->tr += PL_TR_ENTRY_BYTES; *(char **)pl_tr_base_of(cx->tr) = cx->tr; }
+}
+int pl_tr_residue_on(const pl_tr_ctx_t *cx) { return cx && cx->tr && *pl_tr_residue_slot(pl_tr_base_of(cx->tr)) != 0; }
+void pl_tr_push_residue(pl_tr_ctx_t *cx, DESCR_t *cell) { pl_tr_push(cx, cell); ((pl_tr_entry_t *)(cx->tr - PL_TR_ENTRY_BYTES))->pad = PL_TR_PAD_RESIDUE; }
+void pl_tr_push_keep(pl_tr_ctx_t *cx, DESCR_t *cell) { pl_tr_push(cx, cell); ((pl_tr_entry_t *)(cx->tr - PL_TR_ENTRY_BYTES))->pad = PL_TR_PAD_KEEP; }
+void pl_tr_push_attv(pl_tr_ctx_t *cx, DESCR_t *cell) {
+    char *base = pl_tr_base_of(cx->tr);
+    uint64_t off = (uint64_t)(cx->tr - base);
+    uint64_t *w = pl_tr_wake_slot(base);
+    if (!*w || *w > off) *w = off;
+    pl_tr_push(cx, cell);
+}

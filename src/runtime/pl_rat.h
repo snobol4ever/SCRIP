@@ -1,7 +1,7 @@
 #ifndef PL_RAT_H
 #define PL_RAT_H
 #include <stdio.h>
-#include "descr.h"
+#include "ir/descr.h"
 enum { PLQ_ZDIV = 1, PLQ_UNDEF = 2, PLQ_TYPE_INT = 3, PLQ_TYPE_RAT = 4 };
 int pl_rat_is(DESCR_t a);
 int pl_rat_exact(DESCR_t a);

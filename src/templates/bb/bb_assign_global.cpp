@@ -5,7 +5,8 @@
 #include "bb_templates.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
+#include "runtime/core/comm_var.h"
 extern int g_gva_active;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 const char * stmt_src_get_file(void);

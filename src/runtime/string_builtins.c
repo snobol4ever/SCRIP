@@ -1,4 +1,5 @@
 #include "core.h"
+#include "runtime/core/core_error.h"
 #include "sil_macros.h"
 #include "utf8.h"
 #include "rt/gc_heap.h"

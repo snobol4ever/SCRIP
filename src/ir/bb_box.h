@@ -4,7 +4,7 @@
 #include "ct_arena.h"
 #include <string.h>
 #include <stdbool.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "name_t.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t descr_match_span(const char * σ, int δ) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)δ; d.s = (char *)σ; return d; }

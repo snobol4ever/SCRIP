@@ -1,6 +1,6 @@
 #ifndef G_RUNTIME_BN_H
 #define G_RUNTIME_BN_H
-#include "descr.h"
+#include "ir/descr.h"
 #include "ct_vec.h"
 #define RT_TWEAK_IC_N 64
 #define RT_CTOR_IC_N 256

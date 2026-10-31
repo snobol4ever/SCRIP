@@ -1,3 +1,5 @@
+#include "runtime/core/core_error.h"
+#include "runtime/core/icn_builtins.h"
 #include "rt/rt_arena.h"
 #include "g_runtime.h"
 #include "rtx_try.h"

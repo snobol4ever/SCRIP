@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <math.h>
 #include "core/core_errjmp.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/table.h"
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
     ; abort(); } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

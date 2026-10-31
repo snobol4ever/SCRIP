@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes);
 }
 #include "templates/x86/x86_ops.h"

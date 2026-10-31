@@ -6,6 +6,10 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "runtime/core/array.h"
+#include "runtime/core/table.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/datatype.h"
 static unsigned _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -2,9 +2,9 @@
 #ifndef GC_HEAP_H
 #define GC_HEAP_H
 #include <stdint.h>
-#include "g_runtime.h"
 #include <stddef.h>
 #include "rt_diag.h"
+#include "runtime/core/g_runtime.h"
 #define HB_ZCOL 200
 #define HB_FILL 202
 #define HB_ZBLK 204

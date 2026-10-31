@@ -2,7 +2,7 @@
 #ifndef RT_COEXPR_H
 #define RT_COEXPR_H
 #include <pthread.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include <semaphore.h>
 #include <setjmp.h>
 #include <stdint.h>

@@ -1,7 +1,7 @@
 #ifndef RT_LIST_VIEW_H
 #define RT_LIST_VIEW_H
-#include "core.h"
 #include <string.h>
+#include "runtime/core/datatype.h"
 int pm_lf_type_is(DATBLK_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t *rt_lv_nil_elems(void) { static DESCR_t nil[1]; return nil; }

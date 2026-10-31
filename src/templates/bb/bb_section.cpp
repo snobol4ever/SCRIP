@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 extern DESCR_t subscript_get2_strict(DESCR_t, DESCR_t, DESCR_t);
 extern DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);

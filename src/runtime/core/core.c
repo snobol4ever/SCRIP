@@ -19,6 +19,17 @@
 #include "../builtins/gen.h"
 #include "../../ir/ab_abi.h"
 #include "../../ir/stno_map.h"
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/table.h"
+#include "runtime/core/trace.h"
+#include "runtime/core/tree_blk.h"
+#include "runtime/core/comm_var.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/setexit.h"
+#include "runtime/pattern_match.h"
 int core_icn_error(int code, DESCR_t val);
 int rt_str_to_real(const char *s, double *out);
 int rt_gtn_real(const char *s, long n, double *out);

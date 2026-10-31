@@ -1,3 +1,4 @@
+#include "runtime/core/core.h"
 #include <glob.h>
 #include <sys/utsname.h>
 #include "g_runtime.h"
@@ -8,6 +9,14 @@
 #include "rk_opname.h"
 #include "ct_arena.h"
 #include "rt/rt_diag.h"
+#include "runtime/core/array.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/table.h"
+#include "runtime/core/trace.h"
+#include "runtime/core/tree_blk.h"
 #define ICN_ARITY_UNKNOWN (-99)
 int icn_builtin_arity(const char *name);
 extern int rt_icn_cset_member_n(const char *, long, int);

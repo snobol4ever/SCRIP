@@ -4,7 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);

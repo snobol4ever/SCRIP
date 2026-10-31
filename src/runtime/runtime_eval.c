@@ -14,6 +14,9 @@
 #include "../parsers/snobol4/scrip_cc.h"
 #include "IR.h"
 #include "pin_va.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/setexit.h"
 _Static_assert(RT_DCAP_TOP == 0x70000000UL,
     "rt_chain_enter/rt_chain_enter_v seed r12 from the absolute slot 0x70000000 written literally in their asm, exactly as rt_outer_call and main's prologue do; if pin_va.h moves the pin the trampol"
     "ines read a DEAD page and hand generated code a zero pend top");

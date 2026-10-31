@@ -12,6 +12,9 @@
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
+#include "runtime/core/core_error.h"
+#include "runtime/core/trace.h"
+#include "runtime/core/nv.h"
 const char *cset_canonical(const char *cs, int len);
 void fh_ensure_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

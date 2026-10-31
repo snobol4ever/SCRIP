@@ -25,6 +25,10 @@
 #include "prolog_db_blocks.h"
 #include "rt/rt_pl_trail.h"
 #include "rt/pl_rational.h"
+#include "runtime/core/table.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/pl_trail_layout.h"
+#include "runtime/rt/rt_pl_trail.h"
 void rt_pl_ball_report(void *ball);
 #define PL_CELL_ALLOC(n) (rt_ws_alloc_descr((size_t)(n) / sizeof(pl_cell_t)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

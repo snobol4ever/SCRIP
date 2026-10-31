@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include "core.h"
 #include "sil_macros.h"
+#include "runtime/core/nv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t VARVAL_d_fn(DESCR_t d) {
     if (d.v == DT_FAIL) return FAILDESCR;

@@ -1,4 +1,3 @@
-#include "rt/rt_arena.h"
 #include "g_runtime.h"
 #include "ct_arena.h"
 #include "ct_vec.h"

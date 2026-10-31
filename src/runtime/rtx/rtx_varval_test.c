@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include "descr.h"
+#include "ir/descr.h"
 char *VARVAL_fn(DESCR_t v);
 char *c_VARVAL_fn(DESCR_t v);
 static int fails = 0, n = 0;

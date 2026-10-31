@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 void rt_pl_tr_refuse(const char *);
 int rt_pl_unify_const_cold(const DESCR_t *, int64_t, int);
 }

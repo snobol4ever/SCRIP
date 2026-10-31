@@ -6,6 +6,11 @@
 #include "rt_proc_block.h"
 #include "../prolog_db_blocks.h"
 #include "gc_slot_table.h"
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/table.h"
+#include "runtime/core/trace.h"
 _Static_assert(sizeof(DESCR_t) == 16, "HB_DVEC is an array of DESCR_t cells, stride 16");
 _Static_assert(sizeof(ARBLK_t) == 56 && offsetof(ARBLK_t, proto) == 24 && offsetof(ARBLK_t, data) == 32,
     "HB_ARR holds one ARBLK_t: the pointer members are proto and data; a new member means this row is re-read");

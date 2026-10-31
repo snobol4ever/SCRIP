@@ -17,6 +17,7 @@
 #include "templates/x86/x86_rtcc.h"
 #include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zverify.h"
+#include "runtime/core/g_runtime.h"
 extern "C" { extern uint64_t g_rtccb[32]; }
 extern "C" { long *rt_anchor_ptr(void); }
 extern "C" void rt_bomb(const char * msg);

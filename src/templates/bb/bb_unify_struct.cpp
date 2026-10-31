@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr_tags.h"
 void rt_pl_tr_refuse(const char *);
 int prolog_functor_arity(int);
 #include "rt/gc_heap.h"

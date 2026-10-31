@@ -4,7 +4,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 struct DESCR_t rt_keyword_random_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_error_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_trace_set(struct DESCR_t v);

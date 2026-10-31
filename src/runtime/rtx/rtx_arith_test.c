@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <float.h>
-#include "descr.h"
+#include "ir/descr.h"
 DESCR_t rt_add(DESCR_t, DESCR_t);
 DESCR_t rt_sub(DESCR_t, DESCR_t);
 DESCR_t rt_mul(DESCR_t, DESCR_t);

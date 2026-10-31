@@ -1,3 +1,4 @@
+#include "runtime/core/core.h"
 #include <string>
 #include "g_runtime.h"
 #include <vector>

@@ -1,7 +1,6 @@
 #ifndef DRIVER_PRIVATE_H
 #define DRIVER_PRIVATE_H
 #include <stdio.h>
-#include "g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -17,9 +16,10 @@
 #include "lower/lower_rebus.h"
 #include "runtime/builtins/gen.h"
 #include "parsers/icon/icon_lex.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/nv.h"
 extern void ir_print_node (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
-#include "core.h"
 #include "sil_macros.h"
 #include "runtime_shim.h"
 #include "ir/SM.h"

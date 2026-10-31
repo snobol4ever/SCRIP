@@ -1,3 +1,4 @@
+#include "runtime/core/trace.h"
 #include <unordered_set>
 #include "g_runtime.h"
 #include <string>

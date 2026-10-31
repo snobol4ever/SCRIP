@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "descr.h"
+#include "ir/descr.h"
 #include "core.h"
 DESCR_t rt_sno_name_dl(DESCR_t *, int);
 DESCR_t c_rt_sno_name_dl(DESCR_t *, int);

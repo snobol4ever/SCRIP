@@ -2,7 +2,7 @@
 #include <stdint.h>
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb);
 }
 #include "templates/x86/x86_ops.h"

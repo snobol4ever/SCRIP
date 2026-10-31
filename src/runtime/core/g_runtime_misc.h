@@ -1,7 +1,7 @@
 #ifndef G_RUNTIME_MISC_H
 #define G_RUNTIME_MISC_H
 #include <stdint.h>
-#include "descr.h"
+#include "ir/descr.h"
 typedef struct {
     const void *d;
     DESCR_t *base;

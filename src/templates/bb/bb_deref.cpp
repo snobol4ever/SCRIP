@@ -3,7 +3,7 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
 extern DESCR_t rt_deref(DESCR_t d);
 }
 #include "templates/x86/x86_ops.h"

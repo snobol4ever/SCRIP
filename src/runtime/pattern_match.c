@@ -20,6 +20,15 @@
 #include "rt/rt_arena.h"
 #include "rt/rt_protected.h"
 #include "snobol4_system_fns.h"
+#include "runtime/core/array.h"
+#include "runtime/core/core_error.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/table.h"
+#include "runtime/core/trace.h"
+#include "runtime/core/comm_var.h"
+#include "runtime/core/nv.h"
+#include "runtime/pattern_match.h"
 int core_icn_error(int code, DESCR_t val);
 void rt_bomb(const char *msg);
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \

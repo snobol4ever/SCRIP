@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <float.h>
 #include <math.h>
-#include "descr.h"
+#include "ir/descr.h"
 int descr_identical(DESCR_t, DESCR_t);
 int c_descr_identical(DESCR_t, DESCR_t);
 static int fails = 0, n = 0, handled = 0, declined = 0;

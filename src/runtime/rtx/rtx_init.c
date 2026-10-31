@@ -1,4 +1,4 @@
-#include "descr.h"
+#include "ir/descr.h"
 #include "g_runtime.h"
 #include "core.h"
 #include "gc_heap.h"
@@ -9,6 +9,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/table.h"
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_table;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_alloc;

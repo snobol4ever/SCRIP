@@ -7,7 +7,8 @@
 #include "bb_templates.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
+#include "ir/descr.h"
+#include "runtime/core/trace.h"
 extern int g_gva_active;
 DESCR_t NV_GET_fn(const char * name);
 }
