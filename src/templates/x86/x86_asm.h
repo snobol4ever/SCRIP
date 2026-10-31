@@ -2838,13 +2838,14 @@ inline void x86_text_rsp_notes_strip(std::string & r) {
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_pre_t before = x86_rsp_prepass_open(); x86_text_sites_scan(r, false);
         x86_rsp_prepass_commit(before); } x86_text_sites_scan(r, true); x86_text_rsp_notes_strip(r); emit_text_n(r.data(), r.size()); } return; }
+    int hi_internal = -1;
     { x86_rsp_pre_t before = x86_rsp_prepass_open(); x86_rsp_st_t & S = x86_rsp_S(); size_t i = 0, n = s.size();
       while (i < n) { char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
-        else if (tag == 'J') { int id = x86_rec_id(s, i); x86_rsp_jump(1, (uint64_t)id); }
-        else if (tag == 'D') { int id = x86_rec_id(s, i); if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
+        else if (tag == 'J') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; x86_rsp_jump(1, (uint64_t)id); }
+        else if (tag == 'D') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
             } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
-        else if (tag == 'Q') { i += 2; }
+        else if (tag == 'Q') { int id = x86_rec_id(s, i); if (id - X86_INTERNAL_BASE > hi_internal) hi_internal = id - X86_INTERNAL_BASE; }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); }
         else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v);
@@ -2861,7 +2862,7 @@ inline void bb_emit_x86(const std::string & s) {
         else break; }
       x86_rsp_prepass_commit(before); }
     bb_label_t internal[X86_INTERNAL_MAX]; char inm[X86_INTERNAL_MAX][8];
-    for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
+    for (int k = 0; k <= hi_internal && k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
     size_t i = 0, n = s.size(); x86_rsp_st_t & RS = x86_rsp_S();
     while (i < n) {
         char tag = s[i++];
