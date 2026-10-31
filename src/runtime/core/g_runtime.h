@@ -13,7 +13,6 @@
 #include "g_runtime_kw.h"
 #include "g_runtime_coexpr.h"
 #include "g_runtime_pas.h"
-#include "g_runtime_tap.h"
 #include "g_runtime_bn.h"
 #include "g_runtime_gc.h"
 #include "g_runtime_abi.h"
@@ -34,7 +33,6 @@ typedef struct {
     g_kw_t kw;
     g_coexpr_t coexpr;
     g_pas_t pas;
-    g_tap_t tap;
     g_bn_t bn;
     g_gc_t gc;
     g_misc_t misc;

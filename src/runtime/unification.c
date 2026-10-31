@@ -342,9 +342,6 @@ static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted) {
             case '\v':
             fputs("\\v", fp);
             break;
-            case '\0':
-            fputs("\\0\\", fp);
-            break;
             default:
             if (c < 0x20 || c == 0x7f) fprintf(fp, "\\x%x\\", (unsigned)c);
             else fputc(c, fp);
@@ -531,10 +528,11 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_put_float(plc_vmap *m, pl_cell_t *d) {
     int prec = m->fprec;
-    char spec = m->fspec, fmt[16], buf[512];
+    char spec = m->fspec, fmt[16];
     if (prec < 0) { plc_wt_num(m->fp, d); return; }
     if (prec == 0) prec = 17;
     snprintf(fmt, sizeof fmt, "%%.%d%c", prec, spec ? spec : 'g');
+    char buf[snprintf((char *)0, 0, fmt, d->r) + 3];
     snprintf(buf, sizeof buf, fmt, d->r);
     if (!spec || spec == 'g') {
         char *e = strchr(buf, 'e');
@@ -545,12 +543,12 @@ static void plc_put_float(plc_vmap *m, pl_cell_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_put_int(plc_vmap *m, long v) {
     FILE *fp = m->fp;
-    unsigned long u;
+    unsigned long u, b = (unsigned long)m->ibase;
     char buf[72];
     int n = 0;
     if (m->ibase < 2) { fprintf(fp, "%ld", v); return; }
     u = v < 0 ? 0UL - (unsigned long)v : (unsigned long)v;
-    do { int dg = (int)(u % (unsigned long)m->ibase); buf[n++] = (char)(dg < 10 ? '0' + dg : 'a' + dg - 10); u /= (unsigned long)m->ibase; } while (u);
+    do { int dg = (int)(u % b); buf[n++] = (char)(dg < 10 ? '0' + dg : 'a' + dg - 10); u /= b; } while (u);
     if (v < 0) fputc('-', fp);
     if (m->ipfx) { if (m->inamed) fputs(m->ibase == 16 ? "0x" : "0o", fp); else fprintf(fp, "%d'", m->ibase); }
     while (n) fputc(buf[--n], fp);
@@ -1121,7 +1119,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.space_args = 0;
     m.next_arg = 0;
     int portable = 0, quoted = 0, ignore_ops = 0, numbervars = 0, prio = rt_pl_dialect_xsb() ? 1000 : 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"),
-        nolists = 0, nobraces = 0;
+        nolists = 0, nobraces = 0, keeplists = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -1141,6 +1139,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
             } else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
             else if (on && (!strcmp(on, "no_lists") || !strcmp(on, "dotlists"))) nolists = plc_opt_is_true(o);
             else if (on && !strcmp(on, "brace_terms")) nobraces = !plc_opt_is_true(o);
+            else if (on && !strcmp(on, "$lists")) keeplists = plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
             else if (on && !strcmp(on, "portable") && rt_pl_dialect_xsb()) portable = plc_opt_is_true(o);
             else if (on && !strcmp(on, "float_precision") && rt_pl_dialect_xsb()) {
@@ -1194,6 +1193,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     }
     if (ignore_ops && rt_pl_dialect_swi()) ignore_ops = 1 | (nolists ? 0 : 2) | (nobraces ? 0 : 4);
     if (rt_pl_dialect_xsb()) { if (portable) ignore_ops = 1 | 2 | 4; m.xstr = ignore_ops != 1; m.xopf = 1; }
+    if (ignore_ops == 1 && keeplists) ignore_ops = 1 | 2;
     pl_cell_t *tt = pl_deref((pl_cell_t *)term_cell);
     int br = 0, p1 = 0, p2 = 0, lm, rm;
     if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }
@@ -2374,86 +2374,177 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell, (pl_tr_ctx_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_ct_print(const char *cs) {
-    int adv, cp = rt_pl_u8_get(cs, &adv), ok;
+static int pl_ct_latin(int c) {
+    static const char sy_hi[] = "\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAB\xAC\xAE\xAF\xB0\xB1\xB4\xB6\xB7\xB8\xBB\xBF\xD7\xF7";
+    if (c == '_' || (c >= 'A' && c <= 'Z') || (c >= 0xC0 && c <= 0xDE && c != 0xD7)) return 'U';
+    if ((c >= 'a' && c <= 'z') || c == 0xAA || c == 0xB5 || c == 0xBA || (c >= 0xDF && c <= 0xFF && c != 0xF7)) return 'L';
+    if (c >= '0' && c <= '9') return 'D';
+    if (c > 0 && c < 0x80 && strchr("#$&*+-./:<=>?@\\^~", c)) return 'S';
+    if (c >= 0x80 && c <= 0xFF && memchr(sy_hi, c, sizeof sy_hi - 1)) return 'S';
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_mark(int c) {
+    static const int mk[][2] = { { 0x300, 0x36F }, { 0x483, 0x489 }, { 0x591, 0x5BD }, { 0x5BF, 0x5BF }, { 0x5C1, 0x5C2 }, { 0x5C4, 0x5C5 }, { 0x5C7, 0x5C7 }, { 0x610, 0x61A }, { 0x64B, 0x65F },
+        { 0x670, 0x670 }, { 0x6D6, 0x6DC }, { 0x6DF, 0x6E4 }, { 0x6E7, 0x6E8 }, { 0x6EA, 0x6ED }, { 0x1AB0, 0x1AFF }, { 0x1DC0, 0x1DFF }, { 0x20D0, 0x20F0 }, { 0xFE20, 0xFE2F } };
+    for (size_t k = 0; k < sizeof mk / sizeof *mk; k++) if (c >= mk[k][0] && c <= mk[k][1]) return (c >= 0x488 && c <= 0x489) || (c >= 0x20DD && c <= 0x20E0) || (c >= 0x20E2 && c <= 0x20E4) ? 2 : 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_class0(const char *ty, int cp, locale_t l) {
+    extern int prolog_u_nd_zero(unsigned);
+    wint_t w = (wint_t)cp;
+    int lt = cp <= 0xFF ? pl_ct_latin(cp) : 0;
+    if (!strcmp(ty, "alnum")) return iswalnum_l(w, l) != 0;
+    if (!strcmp(ty, "alpha")) return iswalpha_l(w, l) != 0;
+    if (!strcmp(ty, "csym")) return iswalnum_l(w, l) || cp == '_';
+    if (!strcmp(ty, "csymf")) return iswalpha_l(w, l) || cp == '_';
+    if (!strcmp(ty, "prolog_var_start")) return cp <= 0xFF ? lt == 'U' : iswupper_l(w, l) != 0;
+    if (!strcmp(ty, "prolog_atom_start")) return cp <= 0xFF ? lt == 'L' : (iswalpha_l(w, l) && !iswupper_l(w, l));
+    if (!strcmp(ty, "prolog_identifier_continue")) return cp <= 0xFF ? (lt == 'U' || lt == 'L' || lt == 'D') : (iswalnum_l(w, l) || pl_ct_mark(cp) == 1);
+    if (!strcmp(ty, "decimal")) return cp <= 0xFF ? lt == 'D' : prolog_u_nd_zero((unsigned)cp) >= 0;
+    if (!strcmp(ty, "prolog_symbol")) return cp <= 0xFF ? lt == 'S' : (iswpunct_l(w, l) && !pl_ct_mark(cp));
+    if (!strcmp(ty, "ascii")) return cp < 0x80;
+    if (!strcmp(ty, "white")) return cp == ' ' || cp == '\t';
+    if (!strcmp(ty, "cntrl")) return iswcntrl_l(w, l) != 0;
+    if (!strcmp(ty, "digit")) return iswdigit_l(w, l) != 0;
+    if (!strcmp(ty, "print")) return iswprint_l(w, l) != 0;
+    if (!strcmp(ty, "graph")) return iswgraph_l(w, l) != 0;
+    if (!strcmp(ty, "lower")) return iswlower_l(w, l) != 0;
+    if (!strcmp(ty, "upper")) return iswupper_l(w, l) != 0;
+    if (!strcmp(ty, "punct")) return iswpunct_l(w, l) != 0;
+    if (!strcmp(ty, "space")) return iswspace_l(w, l) != 0;
+    if (!strcmp(ty, "end_of_file")) return 0;
+    if (!strcmp(ty, "end_of_line")) return cp >= 10 && cp <= 13;
+    if (!strcmp(ty, "newline")) return cp == 10;
+    if (!strcmp(ty, "period")) return cp && strchr(".?!", (char)cp) != (char *)0;
+    if (!strcmp(ty, "quote")) return cp && strchr("'`\"", (char)cp) != (char *)0;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_class1(const char *ty, int cp, int rev, int *chr, locale_t l) {
+    extern int prolog_u_nd_zero(unsigned);
+    wint_t w = (wint_t)cp;
+    *chr = 1;
+    if (!strcmp(ty, "lower")) return rev ? (iswupper_l(w, l) ? (int)towlower_l(w, l) : -1) : (iswlower_l(w, l) ? (int)towupper_l(w, l) : -1);
+    if (!strcmp(ty, "upper")) return rev ? (iswlower_l(w, l) ? (int)towupper_l(w, l) : -1) : (iswupper_l(w, l) ? (int)towlower_l(w, l) : -1);
+    if (!strcmp(ty, "to_lower")) return rev ? (int)towlower_l(w, l) : (int)towupper_l(w, l);
+    if (!strcmp(ty, "to_upper")) return rev ? (int)towupper_l(w, l) : (int)towlower_l(w, l);
+    if (!strcmp(ty, "paren")) {
+        static const char op[] = "({[", cl[] = ")}]";
+        const char *f = cp > 0 && cp < 0x80 ? strchr(rev ? cl : op, cp) : (const char *)0;
+        return f ? (int)(unsigned char)(rev ? op : cl)[f - (rev ? cl : op)] : -1;
+    }
+    *chr = 0;
+    if (!strcmp(ty, "digit")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : -1);
+    if (!strcmp(ty, "xdigit")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : cp >= 'a' && cp <= 'f' ? cp - 'a' + 10 : cp >= 'A' && cp <= 'F' ? cp - 'A' + 10 : -1);
+    if (!strcmp(ty, "decimal")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : cp > 0xFF && prolog_u_nd_zero((unsigned)cp) >= 0 ? cp - prolog_u_nd_zero((unsigned)cp) : -1);
+    if (!strcmp(ty, "code")) return rev ? -2 : cp;
+    return -3;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_code(pl_cell_t *c, int *as_char) {
+    char b[16];
+    const char *s;
+    int adv, cp;
+    if ((int)c->v == DT_I) { *as_char = 0; return (c->i >= 0 && c->i <= 0x10FFFF) ? (int)c->i : -2; }
+    *as_char = 1;
+    s = plc_fmt_is_atom(c) ? plc_atom_op_text(c, b, sizeof b) : (const char *)0;
+    if (!s || !s[0]) return -2;
+    cp = rt_pl_u8_get(s, &adv);
+    return (cp >= 0 && !s[adv]) ? cp : -2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t pl_ct_out(int v, int chr, int as_char) { char b[8]; if (!chr || !as_char) return pl_make_int((int64_t)v); b[rt_pl_u8_put(b, v)] = 0; return plc_make_atom_cell(b); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_scan(pl_cell_t *tc, pl_cell_t *td, pl_tr_ctx_t *cx) {
+    pl_cell_t *a = (pl_cell_t *)pl_compound_heap(td), *t = pl_deref(&a[0]), *h = pl_deref(&a[1]), *arg = (pl_cell_t *)0;
+    const char *hs = plc_fmt_is_atom(h) ? plc_atom_text(h) : (const char *)0, *ty;
+    int code_mode = hs && !strcmp(hs, "code"), ia = 1, ac = -2, c, hit = -1, bind = 0, br = 0, bchr = 0;
     locale_t l;
-    if (cp < 0x80) return cp >= 32 && cp != 127;
+    if ((int)tc->v != DT_I || tc->i < 0) return 0;
+    if ((int)t->v == DT_PLREF && pl_arity(t) == 1) {
+        ty = prolog_atom_name(plc_functor(t));
+        arg = &((pl_cell_t *)pl_compound_heap(t))[0];
+        if (!pl_cell_unbound(pl_deref(arg))) ac = pl_ct_code(pl_deref(arg), &ia);
+    } else if ((int)t->v == DT_PLATOM) ty = prolog_atom_name(pl_atom_id(t));
+    else return 0;
+    if (!ty) return 0;
     l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
-    if (!l) return cp >= 0xA0;
-    ok = iswprint_l((wint_t)cp, l) != 0;
+    if (!l) return 0;
+    for (c = (int)tc->i; c <= 0x10FFFF && hit < 0; c++) {
+        int chr, r, k;
+        if (!arg) { k = pl_ct_class0(ty, c, l); if (k < 0) break; if (k) hit = c; continue; }
+        r = pl_ct_class1(ty, c, 0, &chr, l);
+        if (r == -3) break;
+        if (r < 0) continue;
+        if (ac == -2) { hit = c; bind = 1; br = r; bchr = chr; continue; }
+        if (ac == r || (chr && ac >= 0 && pl_ct_class1(ty, ac, 1, &k, l) == c)) hit = c;
+    }
     freelocale(l);
-    return ok;
+    if (hit < 0 || !plc_unify_into_cell_cx(&a[2], pl_make_int((int64_t)hit), cx)) return 0;
+    return !bind || plc_unify_into_cell_cx(arg, pl_ct_out(br, bchr, !code_mode), cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_char_type_ball(void *char_cell, void *type_cell) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    pl_cell_t *tc = pl_deref((pl_cell_t *)char_cell), *td = pl_deref((pl_cell_t *)type_cell);
+    const char *ty;
+    int as_char, chr, known;
+    locale_t l;
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 3 && !strcmp(prolog_atom_name(plc_functor(td)), "$ct_from")) return (void *)0;
+    if (pl_cell_unbound(td)) return (void *)0;
+    ty = (int)td->v == DT_PLATOM ? prolog_atom_name(pl_atom_id(td)) : ((int)td->v == DT_PLREF && pl_arity(td) == 1) ? prolog_atom_name(plc_functor(td)) : (const char *)0;
+    l = ty ? newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0) : (locale_t)0;
+    known = l && ((int)td->v == DT_PLATOM ? pl_ct_class0(ty, 'a', l) >= 0 : pl_ct_class1(ty, 'a', 0, &chr, l) != -3);
+    if (l) freelocale(l);
+    if (!known) return rt_pl_ball_kind2("type_error", "char_type", *td);
+    if (!pl_cell_unbound(tc) && pl_ct_code(tc, &as_char) < 0 && !((int)tc->v == DT_I && tc->i == -1)) return rt_pl_ball_kind2("type_error", "character", *tc);
+    return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx) {
-    pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
+    pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0, *td, *inner;
+    const char *ty;
+    int as_char = 1, cp, r, chr, ok;
+    locale_t l;
     if (!tc || !type_cell) return 0;
-    char b0[256];
-    int cn = ((int)tc->v == DT_I && tc->i >= 0 && tc->i <= 0x10FFFF) ? rt_pl_u8_put(b0, (int)tc->i) : 0;
-    if ((int)tc->v == DT_I) b0[cn] = 0;
-    const char *cs = (int)tc->v == DT_I ? b0 : plc_atom_op_text(tc, b0, sizeof b0);
-    if (!cs || !cs[0]) return 0;
-    unsigned char ch = (unsigned char)cs[0];
-    pl_cell_t *td = pl_deref((pl_cell_t *)type_cell);
-    if ((int)td->v == DT_PLREF && pl_arity(td) >= 1) {
-        const char *ty = prolog_atom_name(plc_functor(td));
-        pl_cell_t *inner = val_cell ? (pl_cell_t *)val_cell : &((pl_cell_t *)pl_compound_heap(td))[0];
-        pl_cell_t out;
-        if (!ty) { return 0; }
-        if (!strcmp(ty, "digit")) {
-            if (!isdigit(ch)) { return 0; }
-            out = pl_make_int((int64_t)(ch - '0'));
-        } else if (!strcmp(ty, "xdigit")) {
-            if (!isxdigit(ch)) { return 0; }
-            out = pl_make_int((int64_t)(isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10));
-        } else if (!strcmp(ty, "to_lower")) {
-            char c2[2] = { (char)toupper(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "to_upper")) {
-            char c2[2] = { (char)tolower(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "upper")) {
-            if (!isupper(ch)) { return 0; }
-            char c2[2] = { (char)tolower(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "lower")) {
-            if (!islower(ch)) { return 0; }
-            char c2[2] = { (char)toupper(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "code")) {
-            out = pl_make_int((int64_t)ch);
-        } else {
-            return 0;
+    td = pl_deref((pl_cell_t *)type_cell);
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 3 && !strcmp(prolog_atom_name(plc_functor(td)), "$ct_from")) return pl_ct_scan(tc, td, cx);
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 1) {
+        ty = prolog_atom_name(plc_functor(td));
+        inner = val_cell ? (pl_cell_t *)val_cell : &((pl_cell_t *)pl_compound_heap(td))[0];
+        if (!ty) return 0;
+        l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
+        if (!l) return 0;
+        if (pl_cell_unbound(tc)) {
+            int ia = 1, ac = pl_cell_unbound(pl_deref(inner)) ? -2 : pl_ct_code(pl_deref(inner), &ia);
+            r = ac >= 0 ? pl_ct_class1(ty, ac, 1, &chr, l) : -1;
+            freelocale(l);
+            return r >= 0 && plc_unify_into_cell_cx(tc, pl_ct_out(r, 1, ia), cx);
         }
-        if (ty[0] == 't' && !pl_cell_unbound(pl_deref(inner))) {
-            char b1[8];
-            const char *vs = plc_atom_op_text(pl_deref(inner), b1, sizeof b1);
-            if (vs && (unsigned char)vs[0] == ch && !vs[1]) return 1;
+        cp = pl_ct_code(tc, &as_char);
+        r = cp >= 0 ? pl_ct_class1(ty, cp, 0, &chr, l) : -1;
+        if (r < 0) { freelocale(l); return 0; }
+        if (!pl_cell_unbound(pl_deref(inner)) && chr) {
+            int ia = 1, ac = pl_ct_code(pl_deref(inner), &ia), rv;
+            if (ac == r) { freelocale(l); return 1; }
+            rv = ac >= 0 ? pl_ct_class1(ty, ac, 1, &chr, l) : -1;
+            freelocale(l);
+            return rv >= 0 && rv == cp;
         }
-        if (!plc_unify_into_cell_cx(inner, out, cx)) { return 0; }
-        return 1;
+        freelocale(l);
+        return plc_unify_into_cell_cx(inner, pl_ct_out(r, chr, as_char), cx) ? 1 : 0;
     }
-    if ((int)td->v != DT_PLATOM && (int)td->v != DT_S) { return 0; }
-    const char *ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
-    if (!ty) { return 0; }
-    int ok = 0;
-    if (!strcmp(ty, "alpha")) ok = isalpha(ch);
-    else if (!strcmp(ty, "alnum")) ok = isalnum(ch);
-    else if (!strcmp(ty, "digit")) ok = isdigit(ch);
-    else if (!strcmp(ty, "space") || !strcmp(ty, "white")) ok = isspace(ch);
-    else if (!strcmp(ty, "upper")) ok = isupper(ch);
-    else if (!strcmp(ty, "lower")) ok = islower(ch);
-    else if (!strcmp(ty, "punct")) ok = ispunct(ch);
-    else if (!strcmp(ty, "graph")) ok = isgraph(ch);
-    else if (!strcmp(ty, "print")) ok = pl_ct_print(cs);
-    else if (!strcmp(ty, "csym")) ok = (isalnum(ch) || ch == '_');
-    else if (!strcmp(ty, "csymf")) ok = (isalpha(ch) || ch == '_');
-    else if (!strcmp(ty, "end_of_line")) ok = (ch == '\n' || ch == '\r');
-    else if (!strcmp(ty, "newline")) ok = (ch == '\n');
-    else if (!strcmp(ty, "ascii")) ok = (ch < 128);
-    else { return 0; }
-    if (!ok) { return 0; }
-    return 1;
+    if ((int)td->v != DT_PLATOM && (int)td->v != DT_S) return 0;
+    ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
+    cp = ty ? pl_ct_code(tc, &as_char) : -2;
+    if (cp < 0) return 0;
+    l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
+    if (!l) return 0;
+    ok = pl_ct_class0(ty, cp, l);
+    freelocale(l);
+    return ok > 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell, pl_tr_ctx_t *cx) {
@@ -3704,15 +3795,14 @@ void *rt_pl_ball_set_xsb_arith_msg(void *ball, const char *msg, const char *goal
     return ball;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_writeq_text(DESCR_t d, char *buf, size_t cap, int ignore_ops) {
+const char *rt_pl_writeq_text(DESCR_t d, int ignore_ops, size_t *len) {
     extern FILE *fh_memsink_open(char **, size_t *);
     char *bp = (char *)0;
     size_t bn = 0;
     FILE *ms = fh_memsink_open(&bp, &bn);
     plc_vmap m;
-    if (!cap) return;
-    buf[0] = 0;
-    if (!ms) return;
+    *len = 0;
+    if (!ms) return "";
     plc_atoms_ready();
     m.n = 0;
     m.vnc = 0;
@@ -3735,7 +3825,9 @@ void rt_pl_writeq_text(DESCR_t d, char *buf, size_t cap, int ignore_ops) {
     if (ignore_ops) plc_wt((pl_cell_t *)&d, 1, 1, 1, -1, 0, 1200, &m);
     else plc_writeq((pl_cell_t *)&d, &m);
     fclose(ms);
-    if (bp) { size_t n = bn < cap - 1 ? bn : cap - 1; memcpy(buf, bp, n); buf[n] = 0; }
+    if (!bp) return "";
+    *len = bn;
+    return bp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit) {
@@ -4123,43 +4215,91 @@ static void pl_ix_note(pl_db_t *db, int i, int prepend) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_first, leaf, 0);
+static pl_cell_t * pl_db_target_head(const pl_db_t *db, void *target) {
+    pl_cell_t *tg = target ? pl_deref((pl_cell_t *)target) : (pl_cell_t *)0, *s0;
+    if (!tg || db->n < 1) return (pl_cell_t *)0;
+    s0 = pl_deref((pl_cell_t *)&db->s[0].cl);
+    if ((int)s0->v != DT_PLREF || !s0->p) return (pl_cell_t *)0;
+    if ((int)tg->v == DT_PLREF && tg->p && tg->slen == s0->slen) tg = pl_deref(&((pl_cell_t *)tg->p)[0]);
+    return ((int)tg->v == DT_PLREF && tg->p) ? tg : (pl_cell_t *)0;
+}
+static int pl_db_cand_rejects(const pl_db_t *db, int i, uint32_t fid, const int *bj, const pl_cell_t *bv, int nb) {
+    pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl), *sh;
+    if ((int)pair->v != DT_PLREF || !pair->p) return 0;
+    sh = pl_deref(&((pl_cell_t *)pair->p)[0]);
+    if ((int)sh->v != DT_PLREF || sh->slen != fid || !sh->p) return 0;
+    for (int q = 0; q < nb; q++) {
+        pl_cell_t *a = pl_deref(&((pl_cell_t *)sh->p)[bj[q]]);
+        int at = (int)a->v;
+        if ((at == DT_I || at == DT_PLATOM) && (at != (int)bv[q].v || a->i != bv[q].i)) return 1;
+    }
+    return 0;
+}
+static int pl_db_target_bound(const pl_cell_t *th, int *bj, pl_cell_t *bv) {
+    int nb = 0;
+    for (int j = 0, n = th ? plc_fid_arity(th->slen) : 0; j < n; j++) {
+        pl_cell_t *t = pl_deref(&((pl_cell_t *)th->p)[j]);
+        if ((int)t->v == DT_I || (int)t->v == DT_PLATOM) { bj[nb] = j; bv[nb] = *t; nb++; }
+    }
+    return nb;
+}
+static int pl_db_cand_step(const pl_db_t *db, int i, int64_t k) {
+    pl_ix_t *x = (pl_ix_t *)db->ix;
+    if (!x || !k) return db->s[i].next_idx;
+    if (i < x->cap && pl_ix_slot_key(db, i) == k) return pl_ix_kn(x)[i];
+    for (int j = db->s[i].next_idx; j >= 0; j = db->s[j].next_idx) if (pl_ix_slot_key(db, j) == k) return j;
+    return -1;
+}
 int rt_pl_db_cand_first(void *db_v, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_ix_t *x;
     pl_ix_ent_t *e;
-    int64_t k;
+    pl_cell_t *th;
+    int64_t k = 0;
+    int j;
     if (!db) return -1;
     x = (pl_ix_t *)db->ix;
-    if (!x) return db->head_idx;
-    k = pl_ix_target_key(db, target);
-    if (!k) return db->head_idx;
-    e = pl_ix_find(x, k);
-    return e ? e->first : -1;
+    if (x) k = pl_ix_target_key(db, target);
+    if (!x || !k) j = db->head_idx;
+    else { e = pl_ix_find(x, k); j = e ? e->first : -1; }
+    th = pl_db_target_head(db, target);
+    {
+        int na = th ? plc_fid_arity(th->slen) : 0, bj[na > 0 ? na : 1], nb;
+        pl_cell_t bv[na > 0 ? na : 1];
+        nb = pl_db_target_bound(th, bj, bv);
+        while (j >= 0 && nb && pl_db_cand_rejects(db, j, th->slen, bj, bv, nb)) j = pl_db_cand_step(db, j, k);
+    }
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_next, leaf, 0);
 int rt_pl_db_cand_next(void *db_v, int i, void *target) {
     pl_db_t *db = (pl_db_t *)db_v;
-    pl_ix_t *x;
+    pl_cell_t *th;
     int64_t k;
+    int j;
     if (!db || i < 0 || i >= db->n) return -1;
-    x = (pl_ix_t *)db->ix;
-    if (!x) return db->s[i].next_idx;
-    k = pl_ix_target_key(db, target);
-    if (!k) return db->s[i].next_idx;
-    if (i < x->cap && pl_ix_slot_key(db, i) == k) return pl_ix_kn(x)[i];
-    for (int j = db->s[i].next_idx; j >= 0; j = db->s[j].next_idx) if (pl_ix_slot_key(db, j) == k) return j;
-    return -1;
+    k = db->ix ? pl_ix_target_key(db, target) : 0;
+    th = pl_db_target_head(db, target);
+    {
+        int na = th ? plc_fid_arity(th->slen) : 0, bj[na > 0 ? na : 1], nb;
+        pl_cell_t bv[na > 0 ? na : 1];
+        nb = pl_db_target_bound(th, bj, bv);
+        for (j = pl_db_cand_step(db, i, k); j >= 0 && nb && pl_db_cand_rejects(db, j, th->slen, bj, bv, nb); j = pl_db_cand_step(db, j, k)) ;
+    }
+    return j;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_last, leaf, 0);
 int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n) return 1;
-    for (int j = rt_pl_db_cand_next(db_v, i, target); j >= 0; j = rt_pl_db_cand_next(db_v, j, target)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
+    int64_t k = db->ix ? pl_ix_target_key(db, target) : 0;
+    for (int j = pl_db_cand_step(db, i, k); j >= 0; j = pl_db_cand_step(db, j, k)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_ground(const pl_cell_t *c);
 int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_cell_t *pair, *sh, *th, *sa, *ta;
@@ -4170,6 +4310,7 @@ int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     th = pl_deref((pl_cell_t *)target);
     if ((int)th->v == DT_PLREF && th->p && th->slen == pair->slen) th = pl_deref(&((pl_cell_t *)th->p)[0]);
     if ((int)sh->v != DT_PLREF || (int)th->v != DT_PLREF || th->slen != sh->slen || !sh->p || !th->p) return 0;
+    if (!pl_db_ground(sh)) { pl_cell_t w = plc_copy_cx(sh, 0, cx); return plc_unify_cells_cx(th, &w, cx) ? 1 : 0; }
     sa = (pl_cell_t *)sh->p;
     ta = (pl_cell_t *)th->p;
     for (int j = 0, n = plc_fid_arity(sh->slen); j < n; j++) {
@@ -4180,6 +4321,7 @@ int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_kmod_get(void *root, int64_t k);
 void * rt_pl_db_get(void *root, int64_t k) {
     if (!root || k < 0) return (void *)0;
     {
@@ -4207,6 +4349,7 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->data_on = 0;
             d->data_off = 0;
             d->entry_idx = -1;
+            d->mod = pl_db_kmod_get(root, k);
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -4377,6 +4520,94 @@ static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key) {
     for (int i = 0; i < r->n; i++) if (!strcmp(r->e[i].key, key)) return &r->e[i];
     return (pl_db_key_t *)0;
 }
+typedef struct { int atom; int pad; int64_t size; int64_t limit; } pl_db_mod_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_mod_find(pl_db_reg_t *r, int atom, int create) {
+    extern void *ct_grow(void *, size_t);
+    extern int prolog_atom_intern(const char *);
+    pl_db_mod_t *m;
+    if (!r) return -1;
+    if (r->nmods == 0) {
+        r->mods = ct_grow((void *)r->mods, 8 * sizeof(pl_db_mod_t));
+        r->modcap = 8;
+        m = (pl_db_mod_t *)r->mods;
+        memset(m, 0, 8 * sizeof(pl_db_mod_t));
+        m[0].atom = prolog_atom_intern("user");
+        r->nmods = 1;
+    }
+    m = (pl_db_mod_t *)r->mods;
+    for (int i = 0; i < r->nmods; i++) if (m[i].atom == atom) return i;
+    if (!create) return -1;
+    if (r->nmods == r->modcap) {
+        r->mods = ct_grow((void *)r->mods, (size_t)r->modcap * 2 * sizeof(pl_db_mod_t));
+        memset((pl_db_mod_t *)r->mods + r->modcap, 0, (size_t)r->modcap * sizeof(pl_db_mod_t));
+        r->modcap *= 2;
+        m = (pl_db_mod_t *)r->mods;
+    }
+    m[r->nmods].atom = atom;
+    m[r->nmods].size = 0;
+    m[r->nmods].limit = 0;
+    return r->nmods++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_mod_of_key(pl_db_reg_t *r, const char *key, int create) {
+    extern int prolog_atom_intern_n(const char *, size_t);
+    extern int prolog_atom_intern(const char *);
+    size_t n = 0;
+    while (key[n] && key[n] != ':') {
+        unsigned char c = (unsigned char)key[n];
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '$')) return pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+        n++;
+    }
+    if (!key[n] || n == 0) return pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+    return pl_db_mod_find(r, prolog_atom_intern_n(key, n), create);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_kmod_set(pl_db_reg_t *r, int k, int mod) {
+    extern void *ct_grow(void *, size_t);
+    if (!r || k < 0 || mod < 0) return;
+    if (k >= r->kmcap) {
+        int nc = r->kmcap > 0 ? r->kmcap : 64;
+        while (nc <= k) nc *= 2;
+        r->kmod = (int *)ct_grow((void *)r->kmod, (size_t)nc * sizeof(int));
+        memset(r->kmod + r->kmcap, 0, (size_t)(nc - r->kmcap) * sizeof(int));
+        r->kmcap = nc;
+    }
+    r->kmod[k] = mod;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_kmod_get(void *root, int64_t k) { pl_db_reg_t *r = pl_db_registry(root, 0); return (r && r->kmod && k >= 0 && k < r->kmcap) ? r->kmod[k] : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_shape_cells(const pl_cell_t *t) {
+    int64_t c = 0;
+    for (;;) {
+        t = pl_deref((pl_cell_t *)t);
+        c++;
+        if ((int)t->v != DT_PLREF || !t->p) return c;
+        { int ar = plc_fid_arity(t->slen); const pl_cell_t *a = (const pl_cell_t *)t->p; if (ar <= 0) return c; for (int i = 0; i + 1 < ar; i++) c += pl_db_shape_cells(&a[i]); t = &a[ar - 1]; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_clause_bytes(const pl_cell_t *cl) { return (int64_t)sizeof(pl_db_slot_t) + 16 * pl_db_shape_cells(cl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t pl_db_term_bytes(const pl_cell_t *term) {
+    extern int prolog_atom_intern(const char *);
+    const pl_cell_t *t = pl_deref((pl_cell_t *)term);
+    if ((int)t->v == DT_PLREF && plc_fid_arity(t->slen) == 2 && plc_functor((pl_cell_t *)t) == prolog_atom_intern(":-")) return pl_db_clause_bytes(t);
+    return (int64_t)sizeof(pl_db_slot_t) + 16 * (pl_db_shape_cells(t) + 1 + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_db_mod_t * pl_db_mod_at(void *root, int idx) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    if (!r) return (pl_db_mod_t *)0;
+    if (r->nmods == 0) pl_db_mod_find(r, prolog_atom_intern("user"), 1);
+    if (idx < 0 || idx >= r->nmods) idx = 0;
+    return (pl_db_mod_t *)r->mods + idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_mod_charge(void *root, pl_db_t *db, int64_t d) { pl_db_mod_t *m = pl_db_mod_at(root, db->mod); if (m) m->size += d; }
+static void pl_db_note_live(void *root, pl_db_t *db, int i) { pl_db_mod_charge(root, db, pl_db_clause_bytes(&db->s[i].cl)); }
 static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
     if (!r || !key) return (pl_db_key_t *)0;
     if (r->n >= r->cap) {
@@ -4401,6 +4632,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
         e->line = 0;
         e->mf = 0;
         e->lib = 0;
+        { int mi = pl_db_mod_of_key(r, key, 1); if (mi >= 0) ((pl_db_mod_t *)r->mods)[mi].size += (int64_t)sizeof(pl_db_key_t) + (int64_t)strlen(key) + 1; }
         pl_db_hix_index(r);
         return &r->e[r->n - 1];
     }
@@ -4733,6 +4965,7 @@ int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity) {
         if (!e) e = pl_db_reg_add(r, key);
         if (!e || !pl_db_cell_addr(root, k, 1)) return 0;
         e->k = (int)k;
+        pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
         if ((int)k + 1 > r->next_cell) r->next_cell = (int)k + 1;
         return 1;
     }
@@ -4752,6 +4985,7 @@ int rt_pl_db_cell_for(void *root, const char *name, int arity) {
         if (!e) e = pl_db_reg_add(r, key);
         if (!e || !pl_db_cell_addr(root, r->next_cell, 1)) return -1;
         e->k = r->next_cell++;
+        pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
         return e->k;
     }
 }
@@ -4926,6 +5160,8 @@ const char *rt_pl_db_key_file(void *root, const char *key) {
     return (e && e->stat && e->file >= 0 && pl_db_key_current(root, e)) ? prolog_atom_name(e->file) : (const char *)0;
 }
 int rt_pl_db_key_kind(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); if (!e || !pl_db_key_current(root, e)) return 0; return e->stat ? 1 : 2; }
+static pl_db_t * pl_db_cell_peek(void *root, int k);
+static void pl_db_dynamize(void *root, pl_db_t *db);
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind) {
     if (!root || !name) return 0;
     PL_DB_KEY_VLA(key, name, arity);
@@ -4936,6 +5172,7 @@ int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind) {
         if (!e) return 0;
         if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 7) { if (e->k < 0 && !e->db) e->lib = 1; } else if (kind == 3) e->stat = 1;
         else e->decl = 1;
+        if (kind == 2) { pl_db_t *d = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db; if (d && d->whole) pl_db_dynamize(root, d); }
         return 1;
     }
 }
@@ -4949,6 +5186,50 @@ static int pl_db_key_current(void *root, pl_db_key_t *e) {
     if (db) return db->killed ? 0 : 1;
     return e->decl ? 1 : 0;
 }
+int rt_pl_db_mod_get(void *root, const char *module, int which, int64_t *out) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    int mi;
+    pl_db_mod_t *m;
+    if (!r || !module) return 0;
+    pl_db_mod_at(root, 0);
+    mi = pl_db_mod_find(r, prolog_atom_intern(module), 0);
+    if (mi < 0) return 0;
+    m = (pl_db_mod_t *)r->mods + mi;
+    *out = which ? m->limit : m->size;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_mod_set_limit(void *root, const char *module, int64_t n) {
+    extern int prolog_atom_intern(const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 1);
+    int mi;
+    pl_db_mod_t *m;
+    if (!r || !module) return 1;
+    pl_db_mod_at(root, 0);
+    mi = pl_db_mod_find(r, prolog_atom_intern(module), 1);
+    m = (pl_db_mod_t *)r->mods + mi;
+    if (n != 0 && n < m->size) return 1;
+    m->limit = n;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_db_space_ball(void *root, const char *key, void *clause_term) {
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    pl_db_mod_t *m;
+    int mi;
+    int64_t need;
+    if (!r || !key || !clause_term || r->nmods == 0) return (void *)0;
+    mi = pl_db_mod_of_key(r, key, 0);
+    if (mi < 0) return (void *)0;
+    m = (pl_db_mod_t *)r->mods + mi;
+    if (!m->limit) return (void *)0;
+    need = pl_db_term_bytes((const pl_cell_t *)clause_term);
+    if (!pl_db_reg_find(r, key)) need += (int64_t)sizeof(pl_db_key_t) + (int64_t)strlen(key) + 1;
+    return (m->size + need > m->limit) ? rt_pl_ball_kind1("resource_error", "program_space") : (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cp_count(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0; if (!r) return 0; for (int i = 0; i < r->n; i++) if (pl_db_key_current(root, &r->e[i])) c++; return c; }
 const char * rt_pl_db_cp_nth(void *root, int64_t i, int *arity) {
     pl_db_reg_t *r = pl_db_registry(root, 0);
@@ -4965,6 +5246,7 @@ void * rt_pl_db_get_by_key(void *root, const char *key, int create) {
     if (!e) e = pl_db_reg_add(r, key);
     if (!e) return (void *)0;
     e->k = r->next_cell++;
+    pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
     return rt_pl_db_get(root, e->k);
 }
 int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar) {
@@ -5065,12 +5347,17 @@ static const char *pl_db_head_name(void *pair_cell, int *ar) {
 int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar) { const char *nm = pl_db_head_name(pair_cell, ar); if (!nm) return 0; snprintf(out, n, "%s/%d", nm, *ar); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int recompile, int tx);
+static void pl_db_dynamize(void *root, pl_db_t *db);
 static void pl_db_reclaim(pl_db_t *db);
 static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot);
-int rt_pl_db_assert(void *root, void *db_v, void *clause_term, int prepend) { return pl_db_store(root, db_v, clause_term, prepend, 1, 1); }
+int rt_pl_db_assert(void *root, void *db_v, void *clause_term, int prepend) {
+    if (db_v && ((pl_db_t *)db_v)->whole) pl_db_dynamize(root, (pl_db_t *)db_v);
+    return pl_db_store(root, db_v, clause_term, prepend, 1, 1);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_assert_ref(void *root, void *db_v, void *clause_term, int prepend) {
     pl_db_t *db = (pl_db_t *)db_v;
+    if (db && db->whole) pl_db_dynamize(root, db);
     if (!pl_db_store(root, db_v, clause_term, prepend, 1, 1)) return 0;
     return db->s[db->n - 1].ref;
 }
@@ -5100,13 +5387,26 @@ static int pl_db_ground(const pl_cell_t *c) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_no_attv(const pl_cell_t *c) {
+    pl_cell_t *d = pl_deref((pl_cell_t *)c);
+    for (;;) {
+        int n;
+        if (pl_attv_is(d)) return 0;
+        if ((int)d->v != DT_PLREF || !d->p) return 1;
+        n = plc_fid_arity(d->slen);
+        if (n < 1) return 1;
+        for (int j = 0; j < n - 1; j++) if (!pl_db_no_attv(&((pl_cell_t *)d->p)[j])) return 0;
+        d = pl_deref(&((pl_cell_t *)d->p)[n - 1]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_data_fact(const pl_db_t *db, int i) {
     pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl), *body, *head;
     if ((int)pair->v != DT_PLREF || !pair->p) return 0;
     body = pl_deref(&((pl_cell_t *)pair->p)[1]);
     head = pl_deref(&((pl_cell_t *)pair->p)[0]);
     if ((int)body->v != DT_PLATOM || (int)body->i != g_runtime.atoms.atom_true || (int)head->v != DT_PLREF || plc_fid_arity(head->slen) < 1) return 0;
-    return pl_db_ground(head);
+    return pl_db_no_attv(head);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_define_data(void *root, const char *nm, int arity, const char *skey) {
@@ -5179,6 +5479,83 @@ static void pl_db_place(void *root, pl_db_t *db, int i) {
     if (leaving) pl_db_install_first(root, db);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_dynamize(void *root, pl_db_t *db) {
+    int w = db->whole;
+    if (!w) return;
+    db->whole = 0;
+    if (w == 1 || w == 3) { for (int j = db->head_idx; j >= 0; j = db->s[j].next_idx) if (!db->s[j].erased) pl_db_place(root, db, j); return; }
+    if (db->data_on) return;
+    db->data_off = 1;
+    pl_db_install_first(root, db);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_materialize(void *root, pl_db_t *db) {
+    extern void * rt_pl_clause_tree(void *);
+    extern void * pl_runtime_clause_tree(void *);
+    extern void * rt_pl_choice_new(const char *);
+    extern void rt_pl_choice_add(void *, void *);
+    extern void * pl_runtime_define_static(const char *, const char *, const void *, int, void *);
+    int ar = 0, first = -1, facts = 1;
+    const char *nm;
+    if (db->whole != 1 && db->whole != 3) return db->whole == 2;
+    for (int j = db->head_idx; j >= 0; j = db->s[j].next_idx) if (!db->s[j].erased) { if (first < 0) first = j; if (!pl_db_data_fact(db, j)) facts = 0; }
+    if (first < 0) return 0;
+    nm = pl_db_head_name((void *)&db->s[first].cl, &ar);
+    if (!nm) { pl_db_dynamize(root, db); return 0; }
+    if (facts) { db->data_off = 0; db->data_on = 0; if (pl_db_data_enter(root, db, first)) { db->data_on = 1; db->whole = 2; return 1; } }
+    {
+        PL_DB_KEY_VLA(key, nm, ar);
+        char wkey[fmt_len("%s@whole", key)];
+        void *ch;
+        snprintf(wkey, sizeof wkey, "%s@whole", key);
+        ch = rt_pl_choice_new(wkey);
+        for (int j = db->head_idx; j >= 0; j = db->s[j].next_idx) {
+            void *raw, *cl;
+            if (db->s[j].erased) continue;
+            raw = rt_pl_clause_tree((void *)&db->s[j].cl);
+            cl = raw ? pl_runtime_clause_tree(raw) : (void *)0;
+            if (!cl) { pl_db_dynamize(root, db); return 0; }
+            rt_pl_choice_add(ch, cl);
+        }
+        if (pl_runtime_define_static(key, wkey, ch, ar, root)) { db->data_on = 0; db->data_off = 1; db->whole = 2; return 1; }
+        pl_db_dynamize(root, db);
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_consult(void *root, void *db_v, void *clause_term, int declared, int pend) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db) return 0;
+    if (db->whole == 2) pl_db_dynamize(root, db);
+    if (db->whole == 0 && (declared || db->n > 0 || db->data_on || db->data_off)) return pl_db_store(root, db_v, clause_term, 0, 1, 1);
+    if (!pl_db_store(root, db_v, clause_term, 0, 0, 0)) return 0;
+    if (!db->whole) db->whole = pend;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_materialize_key(void *root, const char *key) {
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    pl_db_key_t *e = r ? pl_db_reg_find(r, key) : (pl_db_key_t *)0;
+    pl_db_t *db;
+    if (!e) return 0;
+    db = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db;
+    return (db && (db->whole == 1 || db->whole == 3)) ? pl_db_materialize(root, db) : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_materialize_all(void *root, int which) {
+    extern void pl_runtime_register_key(const char *, int);
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    int n = 0;
+    if (!r) return 0;
+    for (int i = 0; i < r->n; i++) {
+        pl_db_t *db = (r->e[i].k >= 0) ? pl_db_cell_peek(root, r->e[i].k) : r->e[i].db;
+        const char *sl = strrchr(r->e[i].key, '/');
+        if (db && db->whole == which && sl) pl_runtime_register_key(r->e[i].key, atoi(sl + 1));
+    }
+    for (int i = 0; i < r->n; i++) { pl_db_t *db = (r->e[i].k >= 0) ? pl_db_cell_peek(root, r->e[i].k) : r->e[i].db; if (db && db->whole == which && pl_db_materialize(root, db)) n++; }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_slot_ensure, leaf, 0);
 int rt_pl_db_slot_ensure(void *root, void *db_v, int i) {
     pl_db_t *db = (pl_db_t *)db_v;
@@ -5204,6 +5581,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
         pl_cell_t *t = pl_deref((pl_cell_t *)clause_term);
         pl_cell_t kids[2];
         pl_cell_t pair;
+        { pl_db_mod_t *pm = pl_db_mod_at(root, db->mod); if (pm && pm->limit && pm->size + pl_db_term_bytes(t) > pm->limit) return 0; }
         if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) {
             pl_cell_t *aa = (pl_cell_t *)t->p;
             kids[0] = aa[0];
@@ -5235,6 +5613,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
                 db->tail_idx = i;
             }
             db->n++;
+            pl_db_note_live(root, db, i);
             pl_ix_note(db, i, prepend);
             if (tx) pl_db_tx_note(root, db, 0, i);
             if (recompile) pl_db_place(root, db, i);
@@ -5407,7 +5786,13 @@ static void pl_db_reclaim(pl_db_t *db) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_db_note_erase(pl_db_t *db, int i, int gen) { db->s[i].erased = gen; db->erased_n++; db->recl_since++; if (i < db->recl_lo) db->recl_lo = i; }
+static void pl_db_note_erase(void *root, pl_db_t *db, int i, int gen) {
+    db->s[i].erased = gen;
+    db->erased_n++;
+    db->recl_since++;
+    if (i < db->recl_lo) db->recl_lo = i;
+    pl_db_mod_charge(root, db, -pl_db_clause_bytes(&db->s[i].cl));
+}
 static pl_cell_t * pl_db_tx_log(void *root) {
     extern int prolog_atom_intern(const char *);
     pl_db_reg_t *r = pl_db_registry(root, 0);
@@ -5440,7 +5825,7 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
         if (kind == 1) db->tx_pins++;
     }
 }
-static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(db, i, gen); pl_db_tx_note(root, db, 1, i); }
+static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(root, db, i, gen); pl_db_tx_note(root, db, 1, i); }
 int rt_pl_mod_ext(void *root, void *mc, void *gc, void *ec, void *out, pl_tr_ctx_t *cx) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);
@@ -5477,8 +5862,8 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
             if (db && i >= 0 && i < db->n) {
                 if (k->i == 1) {
                     if (db->tx_pins > 0) db->tx_pins--;
-                    if (op == 0 && db->s[i].erased) { db->s[i].erased = 0; if (db->erased_n > 0) db->erased_n--; }
-                } else if (op == 0 && !db->s[i].erased) pl_db_note_erase(db, i, db->next_ref++);
+                    if (op == 0 && db->s[i].erased) { db->s[i].erased = 0; if (db->erased_n > 0) db->erased_n--; pl_db_note_live(root, db, i); }
+                } else if (op == 0 && !db->s[i].erased) pl_db_note_erase(root, db, i, db->next_ref++);
             }
         }
         l = pl_deref(&cons[1]);
@@ -5488,6 +5873,7 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_erase(void *root, void *db_v, int i) {
     pl_db_t *db = (pl_db_t *)db_v;
+    if (db && db->whole) pl_db_dynamize(root, db);
     if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
     pl_db_erase_slot(root, db, i, db->next_ref++);
     pl_db_reclaim_report(db);
@@ -5581,6 +5967,7 @@ int rt_pl_db_abolish(void *root, void *db_v) {
     int ar = 0;
     int hi = -1;
     if (!db) return 0;
+    if (db->whole) pl_db_dynamize(root, db);
     for (int i = 0; i < db->n && hi < 0; i++) if (pl_db_head_name((void *)&db->s[i].cl, &ar)) hi = i;
     { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) pl_db_erase_slot(root, db, i, st); }
     pl_db_reclaim_report(db);
@@ -5597,6 +5984,7 @@ int rt_pl_db_match_erase(void *root, void *db_v, void *goal_term) {
     int ar = 0;
     int key_i = -1;
     if (!db || !goal_term) return 0;
+    if (db->whole) pl_db_dynamize(root, db);
     int64_t kk = db->ix ? pl_ix_head_key(db, goal_term) : 0;
     pl_ix_ent_t *ke = kk ? pl_ix_find((pl_ix_t *)db->ix, kk) : (pl_ix_ent_t *)0;
     for (int i = kk ? (ke ? ke->first : -1) : 0; kk ? i >= 0 : i < db->n; i = pl_ix_step(db, kk, i)) {

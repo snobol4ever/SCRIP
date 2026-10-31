@@ -367,7 +367,7 @@ int planner_read_distance(const IR_graph_t * cg, IR_t ** nodes, int n, const int
             xh += 64 + planner_act_extra(nodes[zm]);
         }
     int fok = 0, fd = zd_fam_delta(i, k, &fok);
-    return zout[i] - zout[k] + xh + ((xb && xb[i] != INT_MIN && xb[k] != INT_MIN) ? xb[i] - xb[k] : fd);
+    return zout[i] - zout[k] + zd_rel_g(cg, nodes[k]) + xh + ((xb && xb[i] != INT_MIN && xb[k] != INT_MIN) ? xb[i] - xb[k] : fd);
 }
 int planner_rec_home_g(const IR_graph_t * cg, const IR_t * nd) {
     zeta_plan_t * r = g_planner.g_zd_rec_p;

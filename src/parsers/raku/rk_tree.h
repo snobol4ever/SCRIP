@@ -45,7 +45,7 @@ struct RkDecl {
     tree_t *sig;
     RkTrait *tr; int ntr;
 };
-typedef struct { int k; int from, to; const char *txt; int form, mod, hyper; RkList *inner; RkList *args; } RkPf;
+typedef struct { int k; int from, to; const char *txt; int form, mod, hyper; RkList *inner; RkList *args; tree_t *qname; } RkPf;
 typedef struct { int pos; RkList *last; int cnt; int end; } RkClosure;
 RkB     *rkb_new(const char *src, int len);
 RkList  *rkb_list_new(void);

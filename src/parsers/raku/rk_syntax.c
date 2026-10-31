@@ -7,6 +7,7 @@
 #include "rk_syntax.h"
 #include "rk_core_names.h"
 #include "rk_tree.h"
+#include "raku_setting.inc"
 #include "../snobol4/scrip_cc.h"
 /*====================================================================================================================================================================================================*/
 enum { AS_LEFT = 1, AS_RIGHT, AS_NON, AS_LIST, AS_UNARY };
@@ -2664,10 +2665,12 @@ static int r_methodop(RkP *p, int pos) {
     int q = -1;
     int c = cp_at(p, pos);
     RkList *ma = NULL; int mform = 0;
+    tree_t *qname = NULL;
     if (c == '$' || c == '@' || c == '&') q = r_variable(p, pos);
     else if (c == '\'' || c == '"' || c == 0x2018 || c == 0x201C || c == 0xFF62) {
         if (p->qsigil && c == '"') { int t = pos + 1; while (t < p->n && p->s[t] != '"' && !is_space_cp(cp_at(p, t))) t += cp_len(p, t); if (t >= p->n || p->s[t] != '"') return -1; }
         q = r_quote(p, pos);
+        if (q >= 0 && p->build) qname = p->tm.t;
         if (q >= 0 && !(ch(p, q) == '(' || at_lit(p, q, ".(") || ch(p, q) == '\\')) panic_at(p, q,
             "Quoted method name requires parenthesized arguments. If you meant to concatenate two strings, use '~'.");
     }
@@ -2682,7 +2685,7 @@ static int r_methodop(RkP *p, int pos) {
     else if (ch(p, q) == ':' && (is_space_cp(cp_at(p, q + 1)) || ch(p, q + 1) == '{') && !p->qsigil) { q = r_arglist(p, q + 1); ma = takelst(p); mform = 2; }
     else if (p->qsigil && ch(p, q) != '.') return -1;
     u = r_unsp(p, q); if (u >= 0) q = u;
-    if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'M'; p->pf.from = pos; p->pf.to = q; p->pf.txt = ct_strndup0(p->s + pos, name_end - pos); p->pf.args = ma; p->pf.form = mform; }
+    if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'M'; p->pf.from = pos; p->pf.to = q; p->pf.txt = ct_strndup0(p->s + pos, name_end - pos); p->pf.args = ma; p->pf.form = mform; p->pf.qname = qname; }
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4841,12 +4844,40 @@ static void add_use_lib(RkP *p, int from, int to) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int import_module_src(RkP *p, const char *src, int got, const char *path) {
+    RkP *m = (RkP *) ct_alloc(sizeof(RkP));
+    memset(m, 0, sizeof *m);
+    m->load_depth = p->load_depth + 1;
+    for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
+    if (rk_check_into(m, src, got, path, m) != 0) return 0;
+    if (p->build) rk_build_module(p, src, got, path);
+    for (int i = 0; i < m->nexports; i++) add_name_n(p, m->exports[i], (int) strlen(m->exports[i]));
+    for (int i = 0; i < m->nnames; i++) if (m->names[i].depth <= 1 && m->names[i].name[0] == '&' && !strcmp(m->names[i].name, "&EXPORT")) p->myst_off = 1;
+    for (int i = 0; i < m->nnames; i++) {
+        const char *nm = m->names[i].name;
+        if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20]) { RK_GROW(p->decls, p->ndecls, p->cdecls, char *); p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20)); }
+        if (m->names[i].depth == 0) { add_name_n(p, nm, (int) strlen(nm)); p->names[p->nnames - 1].value = m->names[i].value; }
+    }
+    for (int i = 0; i < m->nuops; i++) if (m->uops[i].depth >= 1000 || m->uops[i].depth <= 1) {
+        RkUserOp u = m->uops[i];
+        add_user_op(p, u.cat, u.sym, u.len, u.prec);
+        p->uops[p->nuops - 1].assoc = u.assoc; p->uops[p->nuops - 1].flags = u.flags;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int import_module(RkP *p, const char *name) {
     if (p->load_depth >= 4) return 0;
     char *rel = (char *) ct_alloc(strlen(name) + 1); int k = 0;
     for (int i = 0; name[i]; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
     rel[k] = 0;
     static const char *const exts[] = { ".rakumod", ".pm6", ".pm" };
+    for (int i = 0; RK_SETTING_MODULES[i].name; i++) if (!strcmp(RK_SETTING_MODULES[i].name, name)) {
+        size_t pl = strlen(name) + 20;
+        char *path = (char *) ct_alloc(pl);
+        snprintf(path, pl, "<setting>/%s.rakumod", rel);
+        return import_module_src(p, RK_SETTING_MODULES[i].src, (int) strlen(RK_SETTING_MODULES[i].src), path);
+    }
     for (int l = p->nlibs - 1; l >= 0; l--) {
         for (int x = 0; x < 6; x++) {
             const char *ext = exts[x % 3], *sub = x < 3 ? "" : "lib/";
@@ -4857,25 +4888,7 @@ static int import_module(RkP *p, const char *name) {
             fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
             char *src = (char *) ct_alloc((size_t) n + 1);
             size_t got = fread(src, 1, (size_t) n, f); fclose(f); src[got] = 0;
-            RkP *m = (RkP *) ct_alloc(sizeof(RkP));
-            memset(m, 0, sizeof *m);
-            m->load_depth = p->load_depth + 1;
-            for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
-            if (rk_check_into(m, src, (int) got, path, m) != 0) return 0;
-            if (p->build) rk_build_module(p, src, (int) got, path);
-            for (int i = 0; i < m->nexports; i++) add_name_n(p, m->exports[i], (int) strlen(m->exports[i]));
-            for (int i = 0; i < m->nnames; i++) if (m->names[i].depth <= 1 && m->names[i].name[0] == '&' && !strcmp(m->names[i].name, "&EXPORT")) p->myst_off = 1;
-            for (int i = 0; i < m->nnames; i++) {
-                const char *nm = m->names[i].name;
-                if (!strncmp(nm, "EXPORTHOW::DECLARE::", 20) && nm[20]) { RK_GROW(p->decls, p->ndecls, p->cdecls, char *); p->decls[p->ndecls++] = ct_strndup0(nm + 20, (int) strlen(nm + 20)); }
-                if (m->names[i].depth == 0) { add_name_n(p, nm, (int) strlen(nm)); p->names[p->nnames - 1].value = m->names[i].value; }
-            }
-            for (int i = 0; i < m->nuops; i++) if (m->uops[i].depth >= 1000 || m->uops[i].depth <= 1) {
-                RkUserOp u = m->uops[i];
-                add_user_op(p, u.cat, u.sym, u.len, u.prec);
-                p->uops[p->nuops - 1].assoc = u.assoc; p->uops[p->nuops - 1].flags = u.flags;
-            }
-            return 1;
+            return import_module_src(p, src, (int) got, path);
         }
     }
     return 0;
@@ -4918,10 +4931,6 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     int is_pragma = !strncmp(name, "MONKEY-", 7);
     for (int i = 0; pragmas[i]; i++) if (!strcmp(name, pragmas[i])) is_pragma = 1;
     if (!strcmp(what, "use") && !strcmp(name, "lib")) add_use_lib(p, ws(p, args_from), e);
-    else if (!strcmp(what, "use") && !strcmp(name, "Test")) {
-        for (size_t i = 0; i < sizeof rk_test_routines / sizeof *rk_test_routines; i++)
-            if (strncmp(rk_pool + rk_test_routines[i], "trait_mod:", 10)) add_routine_name(p, rk_pool + rk_test_routines[i], (int) strlen(rk_pool + rk_test_routines[i]));
-    }
     else if (!strcmp(what, "use") && !is_pragma) { if (!import_module(p, name)) p->myst_off = 1; }
     if (p->build) p->tv = rkb_use(p->B, p->s + q, name_part_len(p, q, m), uargs);
     return ws(p, e);
@@ -5102,8 +5111,10 @@ static int r_comp_unit(RkP *p) {
     if (p->nhere) panic_at(p, p->n, "Ending delimiter %s not found", p->here[0].delim);
     while (p->npkgs) package_close(p);
     resolve_mysteries(p, 0);
-    if (!p->myst_off && p->nmyst) {
-        RkMyst m = p->myst[0];
+    int setting = !strncmp(p->file, "<setting>/", 10);
+    for (int i = 0; !p->myst_off && i < p->nmyst; i++) {
+        RkMyst m = p->myst[i];
+        if (setting && m.len > 5 && !strncmp(p->s + m.pos, "__rk_", 5)) continue;
         panic_at(p, m.pos, "Undeclared %s: %.*s used at line %d", (p->s[m.pos] >= 'a' || p->s[m.pos] == '&') ? "routine" : "name", m.len, p->s + m.pos, line_of(p, m.pos));
     }
     return 0;
@@ -5213,7 +5224,7 @@ static void rk_mod_begins(tree_t *t, tree_t ***v, int *n, int *c) {
         tree_t *d = rk_mod_subj(t->c[i]);
         if (!d) continue;
         if (d->t == TT_MODULE_DECL) { rk_mod_begins(d, v, n, c); continue; }
-        if (d->t == TT_FNC && d->v.sval && !strcmp(d->v.sval, "__rk_phaser_BEGIN")) { RK_GROW(*v, *n, *c, tree_t *); (*v)[(*n)++] = t->c[i]; }
+        if (d->t == TT_FNC && d->v.sval && (!strcmp(d->v.sval, "__rk_phaser_BEGIN") || !strcmp(d->v.sval, "__rk_phaser_END"))) { RK_GROW(*v, *n, *c, tree_t *); (*v)[(*n)++] = t->c[i]; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

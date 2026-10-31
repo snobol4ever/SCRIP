@@ -1479,6 +1479,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
     IR_t * unmk = build(cx, IR_UNMARK, NULL, ig);
     ir_operand_push(unmk, mark);
+    IR_LIT(unmk).ival = 4;
     tree_t * ct = ast_node_new(TT_FNC);
     ct->v.sval = (char *) "$catch_handle";
     ast_push(ct, (tree_t *) C);
@@ -1597,31 +1598,32 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     { "read_term_from_codes", 3, "$read_term_from_codes" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_term", 2, "$write_term" }, { "write_term", 3, "$write_term_s" },
     { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" }, { "display", 1, "$display" }, { "display", 2, "$display_s" }, { "unify_with_occurs_check", 2, "$unify_oc" },
     { "$aggregate_reduce", 3, "$aggregate_reduce" }, { "$wot_open", 3, "$wot_open" }, { "$wot_capture", 4, "$wot_capture" }, { "$wot_discard", 3, "$wot_discard" }, { "$set_prolog_flag_declare", 2,
-    "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
-    { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" }, { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2,
-    "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" }, { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" }, { "$pl_declared", 2, "$pl_declared" },
-    { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$heap_guard", 2, "$heap_guard" }, { "$cutcall", 2, "$cutcall" }, { "$shc",
-    1, "$shc" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" },
-    { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2,
-    "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" },
-    { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$put_edin", 1, "$put_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2, "$current_prolog_flag" },
-    { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$co_start", 4, "$co_start" }, { "$co_resume", 5, "$co_resume" },
-    { "$co_yield", 2, "$co_yield" }, { "$co_unwound", 2, "$co_unwound" }, { "$co_finish", 2, "$co_finish" }, { "$co_mark", 0, "$co_mark" }, { "$co_b0", 0, "$co_b0" }, { "$co_inside", 0,
-    "$co_inside" }, { "$engine_new", 4, "$engine_new" }, { "$engine_next", 2, "$engine_next" }, { "$engine_yield", 1, "$engine_yield" }, { "$engine_destroy", 1, "$engine_destroy" }, { "$engine_self",
-    1, "$engine_self" }, { "$engine_id", 2, "$engine_id" }, { "$engine_list", 1, "$engine_list" }, { "$engine_reaped", 1, "$engine_reaped" }, { "$engine_stats", 4, "$engine_stats" }, { "$gc_now", 0,
-    "$gc_now" }, { "$trie_new", 1, "$trie_new" }, { "$trie_alive", 1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3,
-    "$trie_lookup" }, { "$trie_delete", 3, "$trie_delete" }, { "$trie_entries", 2, "$trie_entries" }, { "$trie_entry_key", 3, "$trie_entry_key" }, { "$trie_count", 2, "$trie_count" },
-    { "$trie_meta_set", 3, "$trie_meta_set" }, { "$trie_meta_get", 3, "$trie_meta_get" }, { "$tbl_vt", 1, "$tbl_vt" }, { "$tbh_close", 0, "$tbh_close" }, { "$tbl_park", 1, "$tbl_park" }, { "$tbl_sl",
-    3, "$tbl_sl" }, { "$tbl_resume_all", 1, "$tbl_resume_all" }, { "$tbh_leading", 0, "$tbh_leading" }, { "$tbh_get", 2, "$tbh_get" }, { "$tbh_own", 2, "$tbh_own" }, { "$tbh_set", 2, "$tbh_set" },
-    { "$tbh_bset", 2, "$tbh_bset" }, { "$tbl_dlget", 1, "$tbl_dlget" }, { "$tbl_dlset", 1, "$tbl_dlset" }, { "$tx_db", 2, "$tx_db" }, { "$mod_ext", 4, "$mod_ext" }, { "$pl_cp_nth", 3, "$pl_cp_nth" },
-    { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1,
-    "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" },
-    { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3,
-    "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close",
-    2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2,
-    "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1,
-    "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort",
-    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "$put_token", 2,
+    "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_consult_t", 1, "$db_consult_t" },
+    { "$db_consult_done", 1, "$db_consult_done" }, { "$db_asserta_t", 1, "$db_asserta_t" }, { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once",
+    3, "$db_seed_once" }, { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" }, { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3,
+    "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3,
+    "$pl_op_check" }, { "$heap_guard", 2, "$heap_guard" }, { "$cutcall", 2, "$cutcall" }, { "$shc", 1, "$shc" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2,
+    "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" },
+    { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" },
+    { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$put_edin", 1,
+    "$put_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count",
+    1, "$pl_cp_count" }, { "$mod_get", 3, "$mod_get" }, { "$mod_set", 3, "$mod_set" }, { "$co_start", 4, "$co_start" }, { "$co_resume", 5, "$co_resume" }, { "$co_yield", 2, "$co_yield" },
+    { "$co_unwound", 2, "$co_unwound" }, { "$co_finish", 2, "$co_finish" }, { "$co_mark", 0, "$co_mark" }, { "$co_b0", 0, "$co_b0" }, { "$co_inside", 0, "$co_inside" }, { "$engine_new", 4,
+    "$engine_new" }, { "$engine_next", 2, "$engine_next" }, { "$engine_yield", 1, "$engine_yield" }, { "$engine_destroy", 1, "$engine_destroy" }, { "$engine_self", 1, "$engine_self" }, { "$engine_id",
+    2, "$engine_id" }, { "$engine_list", 1, "$engine_list" }, { "$engine_reaped", 1, "$engine_reaped" }, { "$engine_stats", 4, "$engine_stats" }, { "$gc_now", 0, "$gc_now" }, { "$trie_new", 1,
+    "$trie_new" }, { "$trie_alive", 1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3, "$trie_lookup" }, { "$trie_delete", 3,
+    "$trie_delete" }, { "$trie_entries", 2, "$trie_entries" }, { "$trie_entry_key", 3, "$trie_entry_key" }, { "$trie_count", 2, "$trie_count" }, { "$trie_meta_set", 3, "$trie_meta_set" },
+    { "$trie_meta_get", 3, "$trie_meta_get" }, { "$tbl_vt", 1, "$tbl_vt" }, { "$tbh_close", 0, "$tbh_close" }, { "$tbl_park", 1, "$tbl_park" }, { "$tbl_sl", 3, "$tbl_sl" }, { "$tbl_resume_all", 1,
+    "$tbl_resume_all" }, { "$tbh_leading", 0, "$tbh_leading" }, { "$tbh_get", 2, "$tbh_get" }, { "$tbh_own", 2, "$tbh_own" }, { "$tbh_set", 2, "$tbh_set" }, { "$tbh_bset", 2, "$tbh_bset" },
+    { "$tbl_dlget", 1, "$tbl_dlget" }, { "$tbl_dlset", 1, "$tbl_dlset" }, { "$tx_db", 2, "$tx_db" }, { "$mod_ext", 4, "$mod_ext" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1,
+    "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output",
+    0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" }, { "write_canonical", 2,
+    "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read",
+    2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" },
+    { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" },
+    { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" },
+    { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort", 1,
+    "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "$put_token", 2,
     "$put_token" }, { "$sha_hash", 3, "$sha_hash" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2,
     "$gnu_last_read_start" }, { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory",
     1, "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "$compound0", 3, "$compound0" },
@@ -2266,6 +2268,7 @@ static IR_t * pl_meta_call_dyn(lcx_t * cx, const tree_t * g, const tree_t * cons
 static int pl_tree_has_var(const tree_t * t) { if (!t) return 0; if (t->t == TT_VAR) return 1; for (int i = 0; i < t->n; i++) if (pl_tree_has_var(t->c[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_CALL_STATIC (1 << 30)
+static int pl_phrase_rt_checked(void) { extern int rt_proc_is_registered(const char *); return g_stage2.rt_lowering && rt_proc_is_registered(pl_pi_name("$phrase_rt", 3)); }
 static int pl_callee_static(lcx_t * cx, const char * nm, int ar, const char * key, int db_live, int defined) {
     if (g_stage2.rt_lowering || db_live || pl_decl_dyn_is(nm, ar)) return 0;
     if (defined) return 1;
@@ -2563,7 +2566,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term();
                     extra = xs;
                     nextra = 2;
-                    if (!pl_phrase_plain_nt(t->c[0])) return goal(cx, pl_cc_fnc3("$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out);
+                    int chk = pl_phrase_rt_checked() || g_stage2.pl_apply_macros;
+                    if (chk || !pl_phrase_plain_nt(t->c[0]))
+                        return goal(cx, pl_cc_fnc3(chk ? "$phrase_rt" : "$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out);
                 } else {
                     extra = (const tree_t * const *) &t->c[1];
                     nextra = t->n - 1;
@@ -3583,17 +3588,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "char_type") && t->n == 2 && !pl_user_defines(nm, 2)) {
                 tree_t * ch = (tree_t *) t->c[0];
-                tree_t * code = pl_cc_freshvar();
                 tree_t * ty = (tree_t *) t->c[1];
-                tree_t * gen =
-                    pl_cc_fnc2(",", pl_between_own(pl_cc_fnc3("between", pl_cc_ilit(0), pl_cc_ilit(1114111), code)),
-                    pl_cc_fnc2(",", pl_cc_fnc2("$char_type_d", code, ty), pl_cc_fnc2("char_code", ch, code)));
-                tree_t * u = pl_cc_freshvar();
-                tree_t * l = pl_cc_freshvar();
-                tree_t * casel = pl_cc_fnc2(",", pl_cc_fnc2("=", ty, pl_cc_fnc1("to_lower", u)), pl_cc_fnc1("nonvar", u));
-                tree_t * caseu = pl_cc_fnc2(",", pl_cc_fnc2("=", ty, pl_cc_fnc1("to_upper", l)), pl_cc_fnc1("nonvar", l));
-                gen = pl_cc_ite(casel, pl_cc_fnc2("downcase_atom", u, ch), pl_cc_ite(caseu, pl_cc_fnc2("upcase_atom", l, ch), gen));
-                return goal(cx, pl_cc_ite(pl_cc_fnc2(",", pl_cc_fnc1("var", ch), pl_cc_fnc1("nonvar", ty)), gen, pl_cc_fnc2("$char_type_d", ch, ty)), γnext, ωfail, entry_out);
+                tree_t * bound = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", ch), pl_cc_fnc1("nonvar", ty));
+                return goal(cx, pl_cc_ite(bound, pl_cc_fnc2("$char_type_d", ch, ty), pl_cc_fnc3("$ctype", ch, ty, (tree_t *) pl_atom_goal("char"))), γnext, ωfail, entry_out);
             }
             {
                 const char * ls = pl_det_leaf_sym(nm, t->n);
@@ -4165,6 +4162,28 @@ int pl_runtime_install_packet_entry(const char * key, int arity, const char * he
     rt_proc_set_fn(key, (bb_box_fn) fn);
     bb_ab_seal_entry_cells(key, fn, 1);
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void pl_runtime_register_key(const char * key, int arity) {
+    extern int rt_proc_is_registered(const char *);
+    extern void rt_proc_register(const char *, const char **, int);
+    extern void rt_proc_set_generator(const char *, int);
+    extern void rt_proc_set_jmpentry(const char *, int);
+    extern void rt_proc_set_dyn_scope(const char *, int);
+    extern void rt_proc_set_pinned(const char *, int);
+    if (!key || rt_proc_is_registered(key)) return;
+    rt_proc_register(ct_strdup(key), (const char **) 0, arity);
+    rt_proc_set_generator(key, 1);
+    rt_proc_set_jmpentry(key, 1);
+    rt_proc_set_dyn_scope(key, 0);
+    rt_proc_set_pinned(key, 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * pl_runtime_define_static(const char * key, const char * wkey, const tree_t * choice, int arity, void * rt_root) {
+    void * fn;
+    pl_runtime_register_key(key, arity);
+    fn = pl_runtime_define_pred_x(ct_strdup(wkey), choice, arity, NULL, -1, -1, (int *)0, rt_root);
+    return (fn && pl_runtime_install_packet_entry(key, arity, wkey)) ? fn : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_mkc_functor_is(const IR_t * f, const char * nm) {

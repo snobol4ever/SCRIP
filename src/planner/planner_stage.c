@@ -36,6 +36,7 @@ void planner_graph_facts(IR_graph_t * g) {
     g->pf.retains = planner_graph_retains(g);
     g->pf.frame_bytes = zls_g_frame_bytes(g);
     g->pf.fp_total = zls_g_fp_total(g);
+    g->pf.flat_gen_rbp = g->pf.frame_bytes + (g->nparams + g->nlocals) * 16;
     g->pf.zframe = (g->zframe_graph && !g->cell_frame) ? 1 : 0;
     {
         extern int zls_g_generator(const IR_graph_t *);

@@ -12,6 +12,7 @@ int icn_builtin_arity(const char *name);
 extern int rt_icn_cset_member_n(const char *, long, int);
 #include <unistd.h>
 #include <sys/stat.h>
+#include <utime.h>
 #include <setjmp.h>
 #include <math.h>
 #include "snobol4_system_fns.h"
@@ -419,7 +420,6 @@ int rt_builtin_is_known(const char *name) {
     if (!name) return 0;
     if (rt_proc_is_registered(name)) return 0;
     if (builtin_is_generator(name)) return 0;
-    if (!strncmp(name, "__rk_test_", 10)) return 1;
     static const char known[][24] = { "write", "writes", "stop", "integer", "real", "string", "numeric", "char", "chr", "ord", "cset", "type", "image", "proc", "args", "copy", "abs", "sqrt", "sin",
         "cos", "tan", "exp", "log", "asin", "acos", "atan", "dtor", "rtod", "max", "min", "trim", "reverse", "repl", "map", "left", "center", "right", "detab", "entab", "read", "reads", "sprintf",
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
@@ -1088,14 +1088,6 @@ static const char *rk_cstr(DESCR_t v) {
     if (v.v == DT_DATA && rk_io_is(v)) return rk_io_pathstr(v);
     if (IS_INT_fn(v) || v.v == DT_BOOL || v.v == DT_ORDER) { char *b = rt_wsb_alloc(32); return to_cstring(v, b, 32); }
     const char *s = to_cstring(v, NULL, 0);
-    return s ? s : "";
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_tap_str(DESCR_t v) {
-    extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
-    if (v.v == DT_DATA && IS_DATA_INST_fn(v)) return rk_obj_stringify(v, 0);
-    if (rk_typeobj_name(v)) return "";
-    const char *s = rk_cstr(v);
     return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5273,6 +5265,7 @@ static int pl_goal_key_live(char *key, size_t cap, void *root) {
     size_t kl;
     int ar;
     if (rt_proc_is_registered(key)) return 1;
+    { extern int rt_pl_db_materialize_key(void *, const char *); if (rt_pl_db_materialize_key(root, key) && rt_proc_is_registered(key)) return 1; }
     snprintf(wkey, sizeof wkey, "$mc:%s", key);
     if (!rt_proc_is_registered(wkey)) {
         sl = strrchr(key, '/');
@@ -5686,131 +5679,6 @@ static void pl_iso_evaluable(DESCR_t v) {
     rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_tap_truthy(DESCR_t v) { return rk_is_truthy(v); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
-    size_t o = 0;
-    if (!desc) { out[0] = '\0'; return; }
-    for (size_t i = 0; desc[i] && o + 4 < cap; i++) {
-        if (desc[i] == '#') { out[o++] = ' '; out[o++] = '\\'; out[o++] = '#'; } else if (desc[i] == '\n') { out[o++] = '\n'; out[o++] = '#'; out[o++] = ' '; } else out[o++] = desc[i];
-    }
-    out[o] = '\0';
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_diag_to(const char *msg, int force_err) {
-    FILE *o = (!force_err && g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto) ? stdout : stderr;
-    fprintf(o, "# %s\n", msg ? msg : "");
-    fflush(o);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_diag(const char *msg) { rk_tap_diag_to(msg, 0); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tap_exit(void) {
-    int code = 0;
-    char b[160];
-    if (!g_runtime.tap.tap_no_plan && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
-        if (!g_runtime.tap.tap_done_run) {
-            snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
-            rk_tap_diag(b);
-        }
-        code = 255;
-    }
-    if (g_runtime.tap.tap_failed > 0) {
-        if (!g_runtime.tap.tap_done_run) {
-            snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
-            rk_tap_diag(b);
-        }
-        code = g_runtime.tap.tap_failed > 254 ? 254 : (int) g_runtime.tap.tap_failed;
-    }
-    if (code) { fflush(stdout); fflush(stderr); _exit(code); }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
-    char esc[3 * strlen(desc ? desc : "") + 5];
-    int in_todo;
-    if (g_runtime.tap.tap_run++ == 0) atexit(rk_tap_exit);
-    in_todo = (g_runtime.tap.tap_todo_reason[0] != '\0' && g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto);
-    if (!cond && !(g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto)) g_runtime.tap.tap_failed++;
-    rk_tap_desc_escape(desc ? desc : "", esc, sizeof esc);
-    char line[fmt_len("%sok %ld - %s%s%s", cond ? "" : "not ", g_runtime.tap.tap_run, prefix ? prefix : "", esc, in_todo ? g_runtime.tap.tap_todo_reason : "")];
-    snprintf(line, sizeof line, "%sok %ld - %s%s%s", cond ? "" : "not ", g_runtime.tap.tap_run, prefix ? prefix : "", esc, in_todo ? g_runtime.tap.tap_todo_reason : "");
-    puts(line);
-    fflush(stdout);
-    return cond;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_subtest_open(const char *nm) {
-    DESCR_t st[10];
-    if (nm && *nm) printf("# Subtest: %s\n", nm);
-    else printf("# Subtest\n");
-    fflush(stdout);
-    st[0] = STRVAL(rt_heap_strdup_c(nm ? nm : ""));
-    st[1] = INTVAL(g_runtime.tap.tap_planned);
-    st[2] = INTVAL(g_runtime.tap.tap_run);
-    st[3] = INTVAL(g_runtime.tap.tap_failed);
-    st[4] = INTVAL(g_runtime.tap.tap_todo_upto);
-    st[5] = INTVAL(g_runtime.tap.tap_no_plan);
-    st[6] = INTVAL(g_runtime.tap.tap_done_run);
-    st[7] = STRVAL(rt_heap_strdup_c(g_runtime.tap.tap_todo_reason ? g_runtime.tap.tap_todo_reason : ""));
-    g_runtime.tap.tap_planned = 0;
-    g_runtime.tap.tap_run = 0;
-    g_runtime.tap.tap_failed = 0;
-    g_runtime.tap.tap_no_plan = 1;
-    g_runtime.tap.tap_todo_upto = 0;
-    g_runtime.tap.tap_todo_reason = "";
-    g_runtime.tap.tap_done_run = 0;
-    int saved = dup(fileno(stdout)), cfd = -1;
-    FILE *cap = tmpfile();
-    if (cap) { cfd = dup(fileno(cap)); fclose(cap); }
-    if (saved < 0 || cfd < 0) { if (saved >= 0) close(saved); if (cfd >= 0) close(cfd); saved = cfd = -1; }
-    if (saved >= 0) dup2(cfd, fileno(stdout));
-    st[8] = INTVAL(saved);
-    st[9] = INTVAL(cfd);
-    return rk_mk_arr(st, 10);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_subtest_close(DESCR_t stv) {
-    rk_av_t sa = rk_av(stv);
-    if (sa.n != 10) return 0;
-    const char *n0 = rk_cstr(sa.el[0]), *r0 = rk_cstr(sa.el[7]);
-    char nm[strlen(n0) + 1], reason[strlen(r0) + 1];
-    strcpy(nm, n0);
-    strcpy(reason, r0);
-    int saved = (int) sa.el[8].i, cfd = (int) sa.el[9].i;
-    if (g_runtime.tap.tap_no_plan) printf("1..%ld\n", g_runtime.tap.tap_run);
-    fflush(stdout);
-    if (saved >= 0 && cfd >= 0) {
-        dup2(saved, fileno(stdout));
-        close(saved);
-        lseek(cfd, 0, SEEK_SET);
-        FILE *cap = fdopen(cfd, "r");
-        if (cap) {
-            long lmax = 0, lcur = 0;
-            int lc;
-            while ((lc = getc(cap)) != EOF) { lcur++; if (lc == '\n') { if (lcur > lmax) lmax = lcur; lcur = 0; } }
-            if (lcur > lmax) lmax = lcur;
-            rewind(cap);
-            char ln[lmax + 2];
-            while (fgets(ln, (int)sizeof ln, cap)) printf("    %s", ln);
-            fflush(stdout);
-            fclose(cap);
-        } else close(cfd);
-    }
-    long i_run = g_runtime.tap.tap_run, i_failed = g_runtime.tap.tap_failed, i_planned = g_runtime.tap.tap_planned;
-    int i_noplan = g_runtime.tap.tap_no_plan;
-    g_runtime.tap.tap_planned = sa.el[1].i;
-    g_runtime.tap.tap_run = sa.el[2].i;
-    g_runtime.tap.tap_failed = sa.el[3].i;
-    g_runtime.tap.tap_todo_upto = sa.el[4].i;
-    g_runtime.tap.tap_no_plan = (int) sa.el[5].i;
-    g_runtime.tap.tap_done_run = (int) sa.el[6].i;
-    g_runtime.tap.tap_todo_reason = reason[0] ? rt_heap_strdup_c(reason) : "";
-    int okv = (i_failed == 0) && (i_run > 0) && (i_noplan || i_planned == i_run);
-    rk_tap_proclaim(okv, nm, "");
-    return okv;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spec_need(const char *p) {
     int n = 2;
     while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { n++; p++; }
@@ -6147,27 +6015,24 @@ static const char *pl_xsb_arith_name(const char *sfx, int ar) {
 static void pl_xsb_arith_ctx(void **ball, const char *sfx, int ar, DESCR_t *kids, DESCR_t *ev, int k, const char *nm, const DESCR_t *whole) {
     extern int rt_pl_ball_xsb_arith_kind(void *);
     extern void *rt_pl_ball_set_xsb_arith_msg(void *, const char *, const char *);
-    extern void rt_pl_writeq_text(DESCR_t, char *, size_t, int);
+    extern const char *rt_pl_writeq_text(DESCR_t, int, size_t *);
     extern DESCR_t rt_pl_deref_val(DESCR_t);
-    char a0[1024], a1[1024], msg[2400];
-    const char *op;
+    const char *op, *s0 = "", *s1 = "", *f;
+    size_t n0 = 0, n1 = 0;
     DESCR_t o0, o1;
     int kind, neg1 = ar == 1 && sfx && !strcmp(sfx, "neg");
     if (!ball || !*ball || !kids || !pl_xsb_dialect() || !(kind = rt_pl_ball_xsb_arith_kind(*ball))) return;
     if (whole) {
         if (!nm || (ar != 1 && ar != 2) || !pl_xsb_arith_name(sfx, ar)) return;
-        {
-            int sym = !(nm[0] >= 'a' && nm[0] <= 'z');
-            rt_pl_writeq_text(rt_pl_deref_val(kids[0]), a1, sizeof a1, 1);
-            if (ar == 2) {
-                char t[1024];
-                rt_pl_writeq_text(rt_pl_deref_val(kids[1]), t, sizeof t, 1);
-                snprintf(a0, sizeof a0, sym ? "'%s'(%s,%s)" : "%s(%s,%s)", nm, a1, t);
-            } else snprintf(a0, sizeof a0, sym ? "'%s'(%s)" : "%s(%s)", nm, a1);
-        }
-        if (ar == 1) snprintf(msg, sizeof msg, " In evaluable function (Goal: %s)", nm);
-        else if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s)", nm, a0);
-        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s)", nm, a0);
+        int sym = !(nm[0] >= 'a' && nm[0] <= 'z');
+        s0 = rt_pl_writeq_text(rt_pl_deref_val(kids[0]), 1, &n0);
+        if (ar == 2) s1 = rt_pl_writeq_text(rt_pl_deref_val(kids[1]), 1, &n1);
+        f = ar == 2 ? (sym ? "'%s'(%.*s,%.*s)" : "%s(%.*s,%.*s)") : (sym ? "'%s'(%.*s)" : "%s(%.*s)");
+        char a0[snprintf((char *)0, 0, f, nm, (int)n0, s0, (int)n1, s1) + 1];
+        snprintf(a0, sizeof a0, f, nm, (int)n0, s0, (int)n1, s1);
+        f = ar == 1 ? " In evaluable function (Goal: %s)" : kind == 1 ? " Uninstantiated argument of evaluable function %s/2 (Goal: %s)" : " Wrong type in evaluable function %s/2 (Goal: %s)";
+        char msg[snprintf((char *)0, 0, f, nm, a0) + 1];
+        snprintf(msg, sizeof msg, f, nm, a0);
         *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, a0);
         return;
     }
@@ -6175,17 +6040,21 @@ static void pl_xsb_arith_ctx(void **ball, const char *sfx, int ar, DESCR_t *kids
     if (!op) return;
     o0 = 0 < k ? ev[0] : rt_pl_deref_val(kids[0]);
     o1 = ar == 2 ? (1 < k ? ev[1] : rt_pl_deref_val(kids[1])) : o0;
-    a0[0] = a1[0] = 0;
     if (ar == 1 && !neg1) {
-        rt_pl_writeq_text(o0, a0, sizeof a0, 0);
-        snprintf(msg, sizeof msg, " In evaluable function (Goal: %s(%s))", op, a0);
-    } else {
-        if (neg1) { snprintf(a0, sizeof a0, "0"); rt_pl_writeq_text(o0, a1, sizeof a1, 0); } else { rt_pl_writeq_text(o0, a0, sizeof a0, 0); rt_pl_writeq_text(o1, a1, sizeof a1, 0); }
-        if (kind == 1) snprintf(msg, sizeof msg, " Uninstantiated argument of evaluable function %s/2 (Goal: %s(%s,%s))", op, op, a0, a1);
-        else if (kind == 2) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2: (Goal: %s(%s,%s))", op, op, a0, a1);
-        else if (o0.v != DT_I && o0.v != DT_BIG) snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2  (Goal: %s(%s,%s))", op, op, a0, a1);
-        else snprintf(msg, sizeof msg, " Wrong type in evaluable function %s/2 (Goal: %s(%s,%s)", op, op, a0, a1);
+        s0 = rt_pl_writeq_text(o0, 0, &n0);
+        f = " In evaluable function (Goal: %s(%.*s))";
+        char msg[snprintf((char *)0, 0, f, op, (int)n0, s0) + 1];
+        snprintf(msg, sizeof msg, f, op, (int)n0, s0);
+        *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, (const char *)0);
+        return;
     }
+    if (neg1) { s0 = "0"; n0 = 1; s1 = rt_pl_writeq_text(o0, 0, &n1); } else { s0 = rt_pl_writeq_text(o0, 0, &n0); s1 = rt_pl_writeq_text(o1, 0, &n1); }
+    if (kind == 1) f = " Uninstantiated argument of evaluable function %s/2 (Goal: %s(%.*s,%.*s))";
+    else if (kind == 2) f = " Wrong type in evaluable function %s/2: (Goal: %s(%.*s,%.*s))";
+    else if (o0.v != DT_I && o0.v != DT_BIG) f = " Wrong type in evaluable function %s/2  (Goal: %s(%.*s,%.*s))";
+    else f = " Wrong type in evaluable function %s/2 (Goal: %s(%.*s,%.*s)";
+    char msg[snprintf((char *)0, 0, f, op, op, (int)n0, s0, (int)n1, s1) + 1];
+    snprintf(msg, sizeof msg, f, op, op, (int)n0, s0, (int)n1, s1);
     *ball = rt_pl_ball_set_xsb_arith_msg(*ball, msg, (const char *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8363,9 +8232,28 @@ static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
     }
     return (void *)0;
 }
-PL_CX_LEAF_HEAD(sort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
+static DESCR_t pl_sort_cycle_cells(DESCR_t orig) {
+    extern int rt_pl_dialect_swi(void);
+    DESCR_t cur = rt_pl_deref_val(orig), acc = pl_nil();
+    long n = 0;
+    int cyc;
+    if (!rt_pl_dialect_swi()) return orig;
+    (void)pl_spine_end(cur, &n, &cyc);
+    if (!cyc) return orig;
+    for (long i = 0; i < n; i++) { acc = pl_cons(((DESCR_t *)cur.p)[0], acc); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); }
+    return acc;
+}
+PL_CX_LEAF_HEAD(sort, 2)
+    { DESCR_t a2[2] = { pl_sort_cycle_cells(args[0]), args[1] }; void *b = pl_sort_args_ball(a2, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &a2[0], &args[1], cx); }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(char_type, 2)
+    {
+        extern void *rt_pl_char_type_ball(void *, void *);
+        void *b = rt_pl_char_type_ball(&args[0], &args[1]);
+        if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx);
+    }
+PL_CX_LEAF_TAIL
 typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
 static DESCR_t pl_mk_string_dup(const char *s, size_t n) { char *b = (char *)rt_wsb_alloc(n + 1); memcpy(b, s, n); b[n] = 0; return rt_pl_make_string_cell(b); }
 static int pl_sa_isnum(DESCR_t d) { return d.v == DT_I || d.v == DT_BIG || d.v == DT_R; }
@@ -9102,13 +8990,14 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
         {
             extern int rt_pl_double_quotes_mode(void);
             const char *b = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : "";
+            size_t bl = (t->n > 0 && t->c[0] && t->c[0]->v.sval && t->c[0]->slen > 0) ? (size_t)t->c[0]->slen : strlen(b);
             int m = rt_pl_double_quotes_mode();
-            if (m == 3) return rt_pl_make_string_cell(b);
-            if (m == 0) return pl_mk_atom_dup(b, strlen(b));
+            if (m == 3) return rt_pl_make_string_cell_n(b, bl);
+            if (m == 0) return pl_mk_atom_dup(b, bl);
             {
                 extern int rt_pl_u8_get(const char *s, int *adv);
                 DESCR_t acc = pl_nil();
-                for (size_t i = strlen(b); i > 0;) {
+                for (size_t i = bl; i > 0;) {
                     size_t p = i - 1;
                     int a, cp;
                     while (p > 0 && i - p < 4 && ((unsigned char)b[p] & 0xC0) == 0x80) p--;
@@ -9795,7 +9684,7 @@ static int pl_var_name_ok(const char *n) {
     return 1;
 }
 static const char *const pl_write_bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode",
-    "space_args", 0 };
+    "space_args", "$lists", 0 };
 static int pl_write_opt_bare_ok(const char *on) { for (int i = 0; on && pl_write_bools[i]; i++) if (!strcmp(on, pl_write_bools[i])) return 1; return 0; }
 static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     const char *as;
@@ -10098,7 +9987,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero",
     0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } },
     { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
-    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { 0, "", 0, { 0 } } };
+    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false", 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
 static const pl_dia_flag_t pl_dia_flags[] = { { "xsb", "max_integer", "9223372036854775807" }, { "xsb", "min_integer", "-9223372036854775807" }, { "xsb", "bounded", "true" }, { "gnu", "max_integer",
@@ -10154,9 +10043,8 @@ void rt_pl_flags_gc_roots(void) {
 _Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
     sizeof(pl_flag_t) == 104, "rt_gc_flags_roots_run (rtx_gc.s) walks the Prolog flags at these offsets, 104 bytes apart");
 void bnd_text_gc_roots(void) {
-    static const char *const *const words[3] = { (const char *const *)&g_runtime.bn.pl_edin_out_name, (const char *const *)&g_runtime.bn.pl_edin_in_name,
-        (const char *const *)&g_runtime.tap.tap_todo_reason };
-    rt_gc_run_loc_list(words, 3);
+    static const char *const *const words[2] = { (const char *const *)&g_runtime.bn.pl_edin_out_name, (const char *const *)&g_runtime.bn.pl_edin_in_name };
+    rt_gc_run_loc_list(words, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }
@@ -10231,15 +10119,18 @@ static int pl_flag_type_of(const pl_flag_t *fl) {
     if (*d == '-') d++;
     return *d && strspn(d, "0123456789") == strlen(d) ? PLF_INT : PLF_ATOM;
 }
-static const char *pl_flag_coerce(int type, DESCR_t v, char *buf, size_t n, const char **text) {
+static const char *pl_flag_coerce(int type, DESCR_t v, const char **text) {
+    extern void *rt_wsb_alloc(size_t);
     const char *s;
+    char *buf;
     *text = (const char *)0;
     if (type == PLF_TERM) return (const char *)0;
     if (type == PLF_BOOL) return v.v == (DTYPE_t)DT_PLATOM && (s = pl_atom_str(v)) && pl_flag_bool_text(s, text) ? (const char *)0 : "bool";
     if (type == PLF_ATOM) { *text = v.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(v) : (const char *)0; return *text ? (const char *)0 : "atom"; }
-    if (type == PLF_INT) { if (v.v != DT_I) return "integer"; snprintf(buf, n, "%lld", (long long)v.i); *text = buf; return (const char *)0; }
+    if (type == PLF_INT) { if (v.v != DT_I) return "integer"; buf = (char *)rt_wsb_alloc(32); snprintf(buf, 32, "%lld", (long long)v.i); *text = buf; return (const char *)0; }
     if (v.v != DT_R && v.v != DT_I) return "float";
-    snprintf(buf, n, "%.17g", v.v == DT_R ? v.r : (double)v.i);
+    buf = (char *)rt_wsb_alloc(40);
+    snprintf(buf, 40, "%.17g", v.v == DT_R ? v.r : (double)v.i);
     *text = buf;
     return (const char *)0;
 }
@@ -10247,8 +10138,7 @@ static int pl_flag_store(pl_flag_t *fl, void *cell, DESCR_t v, int type, int nor
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern pl_cell_t rt_pl_cell_snapshot(void *);
     extern char *rt_heap_strdup_c(const char *);
-    char buf[64];
-    const char *text, *bad = pl_flag_coerce(type, v, buf, sizeof buf, &text);
+    const char *text, *bad = pl_flag_coerce(type, v, &text);
     if (bad) { cx->ball = rt_pl_ball_kind2("type_error", bad, v); return 0; }
     if (type == PLF_TERM) {
         fl->term = rt_pl_cell_snapshot(cell);
@@ -10438,21 +10328,20 @@ PL_CX_LEAF_HEAD(create_prolog_flag, 4)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
-        char fb[128], tb[32], ab[32], cb[64];
         const char *fn, *tn, *an, *text;
         DESCR_t f = rt_pl_deref_val(args[0]), v = rt_pl_deref_val(args[1]);
         pl_flag_t *fl;
         int type;
         ok = 0;
         if (pl_val_unbound(f) || pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
-        else if (f.v != (DTYPE_t)DT_PLATOM || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-        else if (!pl_cell_text(args[2], tb, sizeof tb, &tn) || !pl_cell_text(args[3], ab, sizeof ab, &an)) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag_type", rt_pl_deref_val(args[2]));
+        else if (f.v != (DTYPE_t)DT_PLATOM || !pl_cell_text(args[0], (char *)0, 0, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if (!pl_cell_text(args[2], (char *)0, 0, &tn) || !pl_cell_text(args[3], (char *)0, 0, &an)) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag_type", rt_pl_deref_val(args[2]));
         else {
             int declared = strcmp(tn, "none") != 0;
             const char *bad;
             type = !strcmp(tn, "boolean") ? PLF_BOOL : !strcmp(tn, "atom") ? PLF_ATOM : !strcmp(tn, "integer") ? PLF_INT : !strcmp(tn, "float") ? PLF_FLOAT : !strcmp(tn, "term") ? PLF_TERM :
                 pl_flag_value_type(v);
-            if ((bad = pl_flag_coerce(type, v, cb, sizeof cb, &text))) cx->ball = rt_pl_ball_kind2("type_error", bad, v);
+            if ((bad = pl_flag_coerce(type, v, &text))) cx->ball = rt_pl_ball_kind2("type_error", bad, v);
             else if (!(fl = pl_flag_find_or_create(fn))) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
             else if (pl_flag_store(fl, &args[1], v, type, declared, cx)) { fl->user = 1; fl->mod = strcmp(an, "read") != 0; ok = 1; }
         }
@@ -10463,13 +10352,12 @@ PL_CX_LEAF_HEAD(flag_meta, 3)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
-        char fb[128];
         const char *fn, *dv;
         DESCR_t f = rt_pl_deref_val(args[0]);
         pl_flag_t *fl;
         ok = 0;
         if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
-        else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], (char *)0, 0, &fn)) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
         else if ((dv = pl_dia_flag(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(dv[0] == 't' || dv[0] == 'f' ? "boolean" : "integer"), cx) && plw_unify_vals(args[2], pl_mk_atom("read"), cx);
         else if ((fl = pl_flag_find(fn))) ok = plw_unify_vals(args[1], pl_mk_atom(pl_flag_type_name[pl_flag_type_of(fl)]), cx) && plw_unify_vals(args[2], pl_mk_atom(fl->mod ? "write" : "read"), cx);
     }
@@ -11713,6 +11601,48 @@ PL_CX_LEAF_HEAD(compound0, 3)
         else if (op && !strcmp(op, "arity") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], INTVAL((long long)plc_fid_arity(t.slen)), cx);
     }
 PL_CX_LEAF_TAIL
+static DESCR_t pl_fx_err(void) {
+    int e = errno;
+    DESCR_t a[2] = { pl_mk_atom(e == ENOENT ? "enoent" : (e == EACCES || e == EPERM) ? "eperm" : "other"), pl_mk_atom(strerror(e)) };
+    return pl_gnu_fn("e", 2, a);
+}
+static void pl_fx_canon(char *p) {
+    size_t n = strlen(p), ns = 0, w = 0;
+    int ab = p[0] == '/';
+    char *sg[n + 1];
+    char o[n + 2];
+    for (char *q = p; *q;) {
+        while (*q == '/') q++;
+        if (!*q) break;
+        char *t = q;
+        while (*q && *q != '/') q++;
+        if (*q) *q++ = 0;
+        if (!strcmp(t, ".")) continue;
+        if (!strcmp(t, "..") && ns > 0 && strcmp(sg[ns - 1], "..")) { ns--; continue; }
+        if (!strcmp(t, "..") && ab && ns == 0) continue;
+        sg[ns++] = t;
+    }
+    if (ab) o[w++] = '/';
+    for (size_t i = 0; i < ns; i++) { size_t l = strlen(sg[i]); if (i) o[w++] = '/'; memcpy(o + w, sg[i], l); w += l; }
+    if (!w) o[w++] = '.';
+    o[w] = 0;
+    memcpy(p, o, w + 1);
+}
+static DESCR_t pl_fx_target(const char *link, int n) {
+    struct stat ls;
+    if (lstat(link, &ls) != 0 || !S_ISLNK(ls.st_mode)) return pl_mk_atom(link);
+    if (n <= 0) return FAILDESCR;
+    size_t cn = (size_t)ls.st_size + 1, ln = strlen(link);
+    char c[cn + 1];
+    ssize_t k = readlink(link, c, cn);
+    if (k < 0 || (size_t)k >= cn) return FAILDESCR;
+    c[k] = 0;
+    char nx[ln + (size_t)k + 2];
+    if (c[0] == '/') memcpy(nx, c, (size_t)k + 1);
+    else { const char *sl = strrchr(link, '/'); size_t d = sl ? (size_t)(sl - link) : 0; memcpy(nx, link, d); if (sl) nx[d++] = '/'; memcpy(nx + d, c, (size_t)k + 1); }
+    pl_fx_canon(nx);
+    return pl_fx_target(nx, n - 1);
+}
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -11741,6 +11671,35 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 else if (!strcmp(op, "st_size")) ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_size), cx);
                 else if (!strcmp(op, "st_mtime")) ok = plw_unify_vals(args[2], REALVAL((double)sb.st_mtim.tv_sec + (double)sb.st_mtim.tv_nsec / 1e9), cx);
                 else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
+            }
+        } else if (!strcmp(op, "st_times") || !strcmp(op, "st_mode")) {
+            const char *p = pl_atom_str(a);
+            struct stat sb;
+            if (p && stat(p, &sb) != 0) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
+            else if (p && op[3] == 'm') ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_mode), cx);
+            else if (p) { DESCR_t t3[3] = { REALVAL((double)sb.st_atime), REALVAL((double)sb.st_mtime), REALVAL((double)sb.st_ctime) }; ok = plw_unify_vals(args[2], pl_gnu_fn("t", 3, t3), cx); }
+        } else if (!strcmp(op, "utime") || !strcmp(op, "symlink") || !strcmp(op, "hardlink") || !strcmp(op, "chmod")) {
+            DESCR_t x = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[0]) : FAILDESCR;
+            DESCR_t y = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[1]) : FAILDESCR;
+            const char *xp = pl_atom_str(x), *yp = pl_atom_str(y);
+            int r = -2;
+            if (op[0] == 'u' && xp && y.v == (DTYPE_t)DT_PLREF && plc_fid_arity(y.slen) == 2) {
+                DESCR_t ta = rt_pl_deref_val(((DESCR_t *)y.p)[0]), tm = rt_pl_deref_val(((DESCR_t *)y.p)[1]);
+                if (ta.v == DT_I && tm.v == DT_I) { struct utimbuf ub = { (time_t)ta.i, (time_t)tm.i }; r = utime(xp, &ub); }
+            } else if (op[0] == 's' && xp && yp) r = symlink(xp, yp);
+            else if (op[0] == 'h' && xp && yp) r = link(xp, yp);
+            else if (op[0] == 'c' && xp && y.v == DT_I) r = chmod(xp, (mode_t)(y.i & 07777));
+            if (r == 0) ok = plw_unify_vals(args[2], pl_mk_atom("ok"), cx);
+            else if (r == -1) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
+        } else if (!strcmp(op, "read_link")) {
+            const char *p = pl_atom_str(a);
+            struct stat ls;
+            if (p && lstat(p, &ls) == 0 && S_ISLNK(ls.st_mode)) {
+                size_t cn = (size_t)ls.st_size + 1;
+                char c[cn + 1];
+                ssize_t k = readlink(p, c, cn);
+                DESCR_t t = (k >= 0 && (size_t)k < cn) ? pl_fx_target(p, 20) : FAILDESCR;
+                if (!IS_FAIL_fn(t)) { c[k] = 0; DESCR_t lt[2] = { pl_mk_atom(c), t }; ok = plw_unify_vals(args[2], pl_gnu_fn("l", 2, lt), cx); }
             }
         } else if (!strncmp(op, "fseek", 5) || !strcmp(op, "ftruncate")) {
             extern FILE *fh_get(int);
@@ -11817,7 +11776,23 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else if (waitpid((pid_t)a.i, &ws, 0) != (pid_t)a.i) ok = pl_gnu_os_fail(cx);
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
-        else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
+        else if (!strcmp(op, "unbind_template")) {
+            ok = 1;
+            for (int i = 0; a.v == (DTYPE_t)DT_PLREF && i < plc_fid_arity(a.slen); i++) {
+                pl_cell_t *c = &((pl_cell_t *)a.p)[i];
+                for (;;) {
+                    if ((int)c->v == DT_PLVAR && c->p != (void *)c) c = (pl_cell_t *)c->p;
+                    else if (c->v == DT_N && c->slen == 1 && c->p) c = (pl_cell_t *)c->p;
+                    else if (c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) c = ((VCELL_t *)c->p)->cellp;
+                    else break;
+                }
+                if (!pl_cell_unbound(c)) pl_var_make(c, cx, 0);
+            }
+        } else if (!strcmp(op, "get_time")) {
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            ok = plw_unify_vals(args[2], REALVAL((double)ts.tv_sec + (double)ts.tv_nsec / 1e9), cx);
+        } else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
         else if (!strncmp(op, "sk_", 3)) ok = pl_gs_sock(op + 3, a, args[2], cx);
         else if (!strncmp(op, "ts_", 3)) ok = pl_gs_ts(op + 3, a, args[2], cx);
         else if (!strcmp(op, "compl")) ok = pl_atom_str(a) && plw_unify_vals(args[2], pl_gs_compl(pl_atom_str(a)), cx);
@@ -12460,12 +12435,41 @@ PL_CX_LEAF_HEAD(format3, 3)
         }
     }
 PL_CX_LEAF_TAIL
+static int pl_text_nul_quoted(const char *s, size_t n, const char **out) {
+    char *o = (char *)rt_wsb_alloc(3 * n + 1);
+    size_t k = 0;
+    char q = 0;
+    for (size_t i = 0; i < n; i++) {
+        char c = s[i];
+        if (!c) { if (!q && !(i >= 2 && s[i - 1] == '\'' && s[i - 2] == '0')) return 0; memcpy(o + k, "\\0\\", 3); k += 3; continue; }
+        o[k++] = c;
+        if (q) {
+            if (c == '\\' && i + 1 < n && s[i + 1]) o[k++] = s[++i];
+            else if (c == q) q = 0;
+        } else if (c == '%') {
+            while (i + 1 < n && s[i + 1] && s[i + 1] != '\n') o[k++] = s[++i];
+        } else if (c == '/' && i + 1 < n && s[i + 1] == '*') {
+            size_t j = ++i;
+            o[k++] = s[i];
+            while (i + 1 < n && s[i + 1] && !(s[i + 1] == '/' && s[i] == '*' && i > j)) o[k++] = s[++i];
+        } else if (c == '"' || c == '`' || (c == '\'' && !(i >= 1 && s[i - 1] == '0' && (i < 2 || !(isalnum((unsigned char)s[i - 2]) || s[i - 2] == '_'))))) q = c;
+    }
+    o[k] = 0;
+    *out = o;
+    return 1;
+}
 static int pl_term_text_leaf(DESCR_t *args, int as_str, pl_tr_ctx_t *cx) {
     char b[65536];
     const char *txt;
+    size_t tl = 0;
     DESCR_t t;
     pl_vtab_t vt;
-    if (pl_cell_text(args[1], b, sizeof b, &txt)) {
+    if (pl_cell_text_n(args[1], b, sizeof b, &txt, &tl)) {
+        if (tl > strlen(txt) && !pl_text_nul_quoted(txt, tl, &txt)) {
+            extern void *rt_pl_ball_kind1(const char *, const char *);
+            cx->ball = rt_pl_ball_kind1("syntax_error", "illegal_character");
+            return 0;
+        }
         if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", PL_SYNERR(vt)); return 0; }
         return plw_unify_vals(args[0], t, cx);
     }
@@ -15071,363 +15075,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_mkcplx_i")) { (void) args; (void) nargs; extern DESCR_t rt_cplx_make(double, double); *out = rt_cplx_make(0.0, 1.0); return 1; }
     if (!strcmp(fn, "__rk_exit") && nargs == 1) { long code = IS_INT_fn(args[0]) ? args[0].i : 0; exit((int) code); }
     if (!strcmp(fn, "__rk_arr_at") && nargs == 2) { rk_arr_at_impl(args, out); return 1; }
-    if (!strncmp(fn, "__rk_test_", 10)) {
-        const char *op = fn + 10;
-        char sb1[512];
-        char sb2[512];
-        char msg[1024];
-        if (!strcmp(op, "plan")) {
-            if (nargs > 0 && rk_is_pair(args[0]) && !strcmp(rk_av_text(rk_av(args[0]), 0), "skip-all")) { printf("1..0 # Skipped: %s\n", rk_av_text(rk_av(args[0]), 1)); fflush(stdout); exit(0); }
-            long n = nargs > 0 ? (long) rk_int_arg(args[0], 0) : 0;
-            g_runtime.tap.tap_planned = n;
-            g_runtime.tap.tap_no_plan = 0;
-            atexit(rk_tap_exit);
-            printf("1..%ld\n", n);
-            fflush(stdout);
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(op, "ok")) {
-            int c = (nargs > 0) ? rk_tap_truthy(args[0]) : 0;
-            const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : "";
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "nok")) {
-            int c = (nargs > 0) ? !rk_tap_truthy(args[0]) : 1;
-            const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : "";
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "is")) {
-            const char *g = (nargs > 0) ? rk_tap_str(args[0]) : "";
-            const char *e = (nargs > 1) ? rk_tap_str(args[1]) : "";
-            int c = !strcmp(g, e);
-            char gd[fmt_len("%s", g)];
-            char ed[fmt_len("%s", e)];
-            snprintf(gd, sizeof gd, "%s", g);
-            snprintf(ed, sizeof ed, "%s", e);
-            const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : "";
-            rk_tap_proclaim(c, d, "");
-            if (!c) {
-                char b[fmt_len("expected: '%s'", ed)];
-                snprintf(b, sizeof b, "expected: '%s'", ed);
-                rk_tap_diag(b);
-                char b2[fmt_len("     got: '%s'", gd)];
-                snprintf(b2, sizeof b2, "     got: '%s'", gd);
-                rk_tap_diag(b2);
-            }
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "isnt")) {
-            const char *g = (nargs > 0) ? rk_tap_str(args[0]) : "";
-            const char *e = (nargs > 1) ? rk_tap_str(args[1]) : "";
-            int c = strcmp(g, e) != 0;
-            const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : "";
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
-        if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
-        if (!strcmp(op, "is_approx")) {
-            DESCR_t G = (nargs > 0) ? args[0] : NULVCL, E = (nargs > 1) ? args[1] : NULVCL;
-            double g = IS_REAL_fn(G) ? G.r : IS_INT_fn(G) ? (double)G.i : G.v == DT_DATA ? rk_rat_num(G) : strtod(to_cstring(G, sb1, sizeof sb1), NULL);
-            double e = IS_REAL_fn(E) ? E.r : IS_INT_fn(E) ? (double)E.i : E.v == DT_DATA ? rk_rat_num(E) : strtod(to_cstring(E, sb2, sizeof sb2), NULL);
-            int tol3 = nargs > 2 && (IS_REAL_fn(args[2]) || rk_int_or_rat(args[2]));
-            double abs_tol = tol3 ? (IS_REAL_fn(args[2]) ? args[2].r : IS_INT_fn(args[2]) ? (double)args[2].i : rk_rat_num(args[2])) : (fabs(e) < 1e-6 ? 1e-5 : -1.0),
-                rel_tol = (!tol3 && fabs(e) >= 1e-6) ? 1e-6 : -1.0;
-            const char *d = (nargs > (tol3 ? 3 : 2)) ? to_cstring(args[tol3 ? 3 : 2], msg, sizeof msg) : "";
-            double ad = fabs(g - e), mx = fmax(fabs(g), fabs(e)), rd = mx != 0.0 ? ad / mx : 0.0;
-            int aok = abs_tol < 0 || ad <= abs_tol, rok = rel_tol < 0 || rd <= rel_tol, c = aok && rok;
-            rk_tap_proclaim(c, d, "");
-            if (!c) {
-                char b[512];
-                snprintf(b, sizeof b, "    expected approximately: %.17g", e);
-                rk_tap_diag(b);
-                snprintf(b, sizeof b, "                       got: %.17g", g);
-                rk_tap_diag(b);
-                if (!aok) { snprintf(b, sizeof b, "maximum absolute tolerance: %g", abs_tol); rk_tap_diag(b); snprintf(b, sizeof b, "actual absolute difference: %.17g", ad); rk_tap_diag(b); }
-                if (!rok) { snprintf(b, sizeof b, "maximum relative tolerance: %g", rel_tol); rk_tap_diag(b); snprintf(b, sizeof b, "actual relative difference: %.17g", rd); rk_tap_diag(b); }
-            }
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "cmp_ok")) {
-            const char *cop = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : "";
-            const char *d = (nargs > 3) ? to_cstring(args[3], msg, sizeof msg) : "";
-            int c = 0, known = 1;
-            DESCR_t A = (nargs > 0) ? args[0] : NULVCL, B = (nargs > 2) ? args[2] : NULVCL;
-            int anum = IS_INT_fn(A) || IS_REAL_fn(A), bnum = IS_INT_fn(B) || IS_REAL_fn(B);
-            if (anum && bnum) {
-                double x = IS_REAL_fn(A) ? A.r : (double)A.i, y = IS_REAL_fn(B) ? B.r : (double)B.i;
-                if (!strcmp(cop, "==")) c = (x == y);
-                else if (!strcmp(cop, "!=")) c = (x != y);
-                else if (!strcmp(cop, "<")) c = (x < y);
-                else if (!strcmp(cop, "<=")) c = (x <= y);
-                else if (!strcmp(cop, ">")) c = (x > y);
-                else if (!strcmp(cop, ">=")) c = (x >= y);
-                else known = 0;
-            }
-            if (known && !(anum && bnum)) {
-                char xb[512], yb[512];
-                const char *x = to_cstring(A, xb, sizeof xb), *y = to_cstring(B, yb, sizeof yb);
-                if (!strcmp(cop, "eq") || !strcmp(cop, "==")) c = !strcmp(x, y);
-                else if (!strcmp(cop, "ne") || !strcmp(cop, "!=")) c = strcmp(x, y) != 0;
-                else if (!strcmp(cop, "lt") || !strcmp(cop, "<")) c = strcmp(x, y) < 0;
-                else if (!strcmp(cop, "le") || !strcmp(cop, "<=")) c = strcmp(x, y) <= 0;
-                else if (!strcmp(cop, "gt") || !strcmp(cop, ">")) c = strcmp(x, y) > 0;
-                else if (!strcmp(cop, "ge") || !strcmp(cop, ">=")) c = strcmp(x, y) >= 0;
-                else known = 0;
-            }
-            if (!known) {
-                rk_tap_proclaim(0, d, "");
-                char b[fmt_len("cmp-ok: comparator '%s' is not implemented -- reported as a FAILURE, never a pass", cop)];
-                snprintf(b, sizeof b, "cmp-ok: comparator '%s' is not implemented -- reported as a FAILURE, never a pass", cop);
-                rk_tap_diag(b);
-                *out = INTVAL(0);
-                return 1;
-            }
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "is_deeply") && nargs >= 2) {
-            DESCR_t g = args[0], e = args[1];
-            int c;
-            int gn = IS_INT_fn(g) || IS_REAL_fn(g) || g.v == DT_BIG, en = IS_INT_fn(e) || IS_REAL_fn(e) || e.v == DT_BIG;
-            if (gn || en) c = gn && en &&
-                ((IS_INT_fn(g) && IS_INT_fn(e) && g.i == e.i) || (IS_REAL_fn(g) && IS_REAL_fn(e) && g.r == e.r) ||
-                (g.v == DT_BIG && e.v == DT_BIG && !strcmp(to_cstring(g, sb1, sizeof sb1), to_cstring(e, sb2, sizeof sb2))));
-            else if (g.v == DT_BOOL || e.v == DT_BOOL || g.v == DT_ORDER || e.v == DT_ORDER) c = g.v == e.v && g.i == e.i;
-            else if (rk_typeobj_name(g) || rk_typeobj_name(e)) c = rk_typeobj_name(g) && rk_typeobj_name(e) && !strcmp(rk_typeobj_name(g), rk_typeobj_name(e));
-            else if (g.v == DT_SNUL || e.v == DT_SNUL) c = g.v == e.v;
-            else if (g.v == DT_A || e.v == DT_A) {
-                rk_av_t x = rk_av(g), y = rk_av(e);
-                c = x.n == y.n;
-                for (int i = 0; c && i < x.n; i++) c = !strcmp(rk_av_text(x, i), rk_av_text(y, i));
-            } else {
-                const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2);
-                c = !strcmp(x ? x : "", y ? y : "");
-            }
-            const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
-            rk_tap_proclaim(c, d, "");
-            if (!c) {
-                const char *ex = rk_cstr(e), *go = rk_cstr(g);
-                size_t l = strlen(ex) + strlen(go) + 16;
-                char *b = rt_wsb_alloc(l);
-                snprintf(b, l, "expected: %s", ex);
-                rk_tap_diag(b);
-                snprintf(b, l, "     got: %s", go);
-                rk_tap_diag(b);
-            }
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "isa_ok") && nargs >= 2) {
-            const char *want = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : args[1].v == DT_SNUL ? "Nil" : to_cstring(args[1], sb2, sizeof sb2);
-            int c = rk_type_isa(rk_value_type(args[0]), want);
-            const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : NULL;
-            if (!d) { size_t l = strlen(want ? want : "") + 24; char *dd = rt_wsb_alloc(l); snprintf(dd, l, "The object is-a '%s'", want ? want : ""); d = dd; }
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "is_eqv") && nargs >= 2) {
-            DESCR_t ea[2] = { args[0], args[1] }, t;
-            int c = script_try_call_builtin_by_name("__rk_eqv", ea, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
-            const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
-            rk_tap_proclaim(c, d, "");
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "is_run") && nargs >= 2) {
-            const char *code = rk_cstr(args[0]), *input = "";
-            DESCR_t exp = NULVCL, argl = rk_mk_arr(NULL, 0);
-            const char *name = "";
-            int have_exp = 0;
-            for (int i = 1; i < nargs; i++) {
-                if (args[i].v == DT_T && args[i].tbl && !have_exp) {
-                    exp = args[i];
-                    have_exp = 1;
-                } else if (rk_is_pair(args[i])) {
-                    rk_av_t p = rk_av(args[i]);
-                    if (!strcmp(rk_cstr(p.el[0]), "args") && p.n > 1) argl = p.el[1];
-                } else if (!have_exp) input = rk_cstr(args[i]);
-                else name = rk_cstr(args[i]);
-            }
-            char cb[strlen(code) + 1];
-            strcpy(cb, code);
-            char ib[strlen(input) + 1];
-            strcpy(ib, input);
-            char nb[strlen(name) + 1];
-            strcpy(nb, name);
-            DESCR_t gout, gerr;
-            int st = rk_run_child(cb, ib, argl, &gout, &gerr);
-            int c = 1, tested = 0;
-            size_t wl = strlen(rk_cstr(gout)) + strlen(rk_cstr(gerr)) + 256;
-            char why[wl];
-            why[0] = '\0';
-            const char *keys[3] = { "status", "out", "err" };
-            DESCR_t got[3] = { INTVAL(st), gout, gerr };
-            int has[3] = { 0, 0, 0 };
-            DESCR_t want[3];
-            for (int k = 0; k < 3; k++) {
-                int found = 0;
-                DESCR_t v = have_exp && exp.tbl ? table_get_found_d(exp.tbl, rk_key_tmp(STRVAL((char *) keys[k])), &found) : NULVCL;
-                has[k] = found;
-                want[k] = v;
-            }
-            if (!has[0] && (!has[2] || (IS_STR_fn(want[2]) && !*rk_cstr(want[2])))) { has[0] = 1; want[0] = INTVAL(0); }
-            for (int k = 0; k < 3; k++) if (has[k]) {
-                tested++;
-                DESCR_t sm[2] = { got[k], want[k] }, t;
-                int good = script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
-                if (!good) { c = 0; size_t o = strlen(why); snprintf(why + o, wl - o, "%sgot %s: '%.*s'", o ? "\n" : "", keys[k], (int) ((wl - o) / 3), rk_cstr(got[k])); }
-            }
-            if (!tested) { rk_tap_proclaim(1, "nothing tested", "# SKIP"); *out = INTVAL(1); return 1; }
-            rk_tap_proclaim(c, nb, "");
-            if (!c && why[0]) rk_tap_diag(why);
-            *out = INTVAL(c);
-            return 1;
-        }
-        if (!strcmp(op, "fails_like") && nargs >= 3) {
-            const char *w1 = rk_typeobj_name(args[2]) ? rk_typeobj_name(args[2]) : VARVAL_fn(args[2]);
-            DESCR_t a2[nargs + 1];
-            int n2 = 0, hd = 0;
-            a2[n2++] = rk_failure_is(args[0]) ? FIELD_GET_fn(args[0], "exception") : NULVCL;
-            for (int i = 2; i < nargs; i++) { if (i > 2 && !rk_is_pair(args[i])) hd = 1; a2[n2++] = args[i]; }
-            if (!hd) a2[n2++] = STRVAL(rt_heap_fmt("did we fails-like %s?", w1 ? w1 : "Exception"));
-            if (rk_failure_is(args[0])) { rk_failure_handle(args[0]); return script_try_call_builtin_by_name("__rk_test_throws_like", a2, n2, out); }
-            const char *d1 = to_cstring(a2[n2 - 1], msg, sizeof msg);
-            rk_tap_proclaim(0, d1, "");
-            rk_tap_diag(rk_exc_is(args[1]) ? "expected code to fail but it threw an exception instead" : "code did not return a Failure");
-            *out = INTVAL(0);
-            return 1;
-        }
-        if (!strcmp(op, "throws_like") && nargs >= 2) {
-            DESCR_t ex = args[0];
-            const char *w0 = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : VARVAL_fn(args[1]);
-            if (!w0) w0 = "Exception";
-            char want[strlen(w0) + 1];
-            strcpy(want, w0);
-            const char *d0 = NULL;
-            for (int i = 2; i < nargs; i++) if (!rk_is_pair(args[i]) && !d0) d0 = to_cstring(args[i], msg, sizeof msg);
-            char desc[(d0 ? strlen(d0) : 0) + strlen(want) + 40];
-            if (d0) strcpy(desc, d0);
-            else sprintf(desc, "did we throws-like %s?", want);
-            char why[2 * strlen(want) + 700];
-            why[0] = '\0';
-            int c = 1;
-            if (!rk_exc_is(ex)) {
-                c = 0;
-                strcpy(why, "code did not die");
-            } else if (!rk_exc_isa(ex, want)) {
-                c = 0;
-                snprintf(why, sizeof why, "expected a %s but got a %.200s", want, ex.u->type->name);
-            } else for (int i = 2; i < nargs && c; i++) if (rk_is_pair(args[i])) {
-                rk_av_t p = rk_av(args[i]);
-                const char *k0 = rk_cstr(p.el[0]);
-                char key[strlen(k0) + 1];
-                strcpy(key, k0);
-                DESCR_t ma[2] = { ex, STRVAL(key) }, got, t, wantv = p.n > 1 ? p.el[1] : NULVCL;
-                int pre = rk_is_tlgot(wantv);
-                if (pre) { rk_av_t g = rk_av(wantv); got = rk_av_elem(g, 1); wantv = rk_av_elem(g, 0); }
-                if ((!pre && !script_try_call_builtin_by_name("meth_call", ma, 2, &got)) || IS_FAIL_fn(got)) {
-                    c = 0;
-                    snprintf(why, sizeof why, "the exception has no attribute '%.200s'", key);
-                    break;
-                }
-                const char *g0 = rk_cstr(got);
-                char gs[strlen(g0) + 1];
-                strcpy(gs, g0);
-                DESCR_t sm[2] = { got, wantv };
-                if (!(script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t))) {
-                    c = 0;
-                    snprintf(why, sizeof why, "%.200s: got '%.200s' which does not match", key, gs);
-                }
-            }
-            rk_tap_proclaim(c, desc, "");
-            if (!c && why[0]) rk_tap_diag(why);
-            *out = INTVAL(c);
-            return 1;
-        }
-        {
-            static const struct {
-                const char *nm;
-                int di;
-            } rk_unimpl[] = { { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 },
-                { (const char *)0, 0 } };
-            for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
-                const char *d = (nargs > rk_unimpl[i].di) ? to_cstring(args[rk_unimpl[i].di], msg, sizeof msg) : "";
-                rk_tap_proclaim(0, d, "");
-                char b[256];
-                snprintf(b, sizeof b, "%s is PARSED BUT NOT IMPLEMENTED -- reported as a FAILURE so it can never be a false green", op);
-                rk_tap_diag(b);
-                *out = INTVAL(0);
-                return 1;
-            }
-        }
-        if (!strcmp(op, "subtest_open")) { *out = rk_subtest_open(nargs > 0 ? to_cstring(args[0], sb1, sizeof sb1) : ""); return 1; }
-        if (!strcmp(op, "subtest_close") && nargs == 1) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(args[0]) }; return 1; }
-        if (!strcmp(op, "subtest")) {
-            const char *nm = "";
-            DESCR_t blk;
-            int haveblk = 0;
-            int havenm = 0;
-            memset(&blk, 0, sizeof blk);
-            for (int i = 0; i < nargs; i++) { if (rk_is_code(args[i])) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
-            if (!haveblk) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
-            rk_cbh_t H = { g_rk_cbh_cur, { blk, rk_subtest_open(nm) } };
-            g_rk_cbh_cur = &H;
-            (void) rk_call_block(H.d[0], 0);
-            g_rk_cbh_cur = H.prev;
-            *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(H.d[1]) };
-            return 1;
-        }
-        if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag_to(d, 1); *out = NULVCL; return 1; }
-        if (!strcmp(op, "todo")) {
-            const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
-            long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
-            g_runtime.tap.tap_todo_upto = g_runtime.tap.tap_run + n;
-            g_runtime.tap.tap_todo_reason = rt_heap_fmt(" # TODO %s", r);
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(op, "skip")) {
-            const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
-            long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
-            for (long i = 0; i < n; i++) rk_tap_proclaim(1, r, "# SKIP ");
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(op, "skip_rest")) {
-            const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "<unknown>";
-            if (g_runtime.tap.tap_no_plan) { rk_tap_diag("A plan is required in order to use skip-rest"); *out = NULVCL; return 1; }
-            for (long i = g_runtime.tap.tap_run; i < g_runtime.tap.tap_planned; ) { rk_tap_proclaim(1, r, "# SKIP "); i = g_runtime.tap.tap_run; }
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(op, "done")) {
-            g_runtime.tap.tap_done_run = 1;
-            if (g_runtime.tap.tap_no_plan) { g_runtime.tap.tap_planned = g_runtime.tap.tap_run; printf("1..%ld\n", g_runtime.tap.tap_planned); fflush(stdout); }
-            if ((g_runtime.tap.tap_planned || g_runtime.tap.tap_run) && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
-                snprintf(msg, sizeof msg, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
-                rk_tap_diag(msg);
-            }
-            if (g_runtime.tap.tap_failed) {
-                snprintf(msg, sizeof msg, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
-                rk_tap_diag(msg);
-            }
-            *out = NULVCL;
-            return 1;
-        }
-        *out = NULVCL;
-        return 1;
-    }
     if ((!strcmp(fn, "wall_us") || !strcmp(fn, "wall_ms")) && nargs == 0) {
         struct timespec _ts;
         clock_gettime(CLOCK_MONOTONIC, &_ts);
@@ -25481,6 +25128,8 @@ extern int rt_pl_db_live_count(void *);
 DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_seed(void *, void *, void *);
+static int bnd_db_key_need(void *cell);
+extern int rt_pl_db_term_key(void *, char *, size_t, int *);
 DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
@@ -25492,6 +25141,13 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
         DESCR_t iv = rt_pl_deref_val(args[1]);
         if (!db || iv.v != DT_I) return FAILDESCR;
         if (rt_pl_db_count(db) > (int)iv.i) return pl_ok();
+        {
+            extern int rt_pl_db_consult(void *, void *, void *, int, int);
+            extern int rt_pl_db_key_is_declared(void *, const char *);
+            char key[bnd_db_key_need((void *)&args[2])];
+            int ar = 0;
+            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3) ? pl_ok() : FAILDESCR;
+        }
         return rt_pl_db_seed(root, db, (void *)&args[2]) ? pl_ok() : FAILDESCR;
     }
 }
@@ -25614,6 +25270,42 @@ static int pl_anum_is_compound(DESCR_t d);
 extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
 extern int rt_pl_db_cp_count(void *);
 extern const char *rt_pl_db_cp_nth(void *, int64_t, int *);
+DESCR_t rt_pl_dop_mod_get_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern int rt_pl_db_mod_get(void *, const char *, int, int64_t *);
+    int64_t v = 0;
+    int ok;
+    int limit;
+    const char *m;
+    const char *w;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    m = pl_atom_str(rt_pl_deref_val(args[0]));
+    w = pl_atom_str(rt_pl_deref_val(args[1]));
+    if (!m || !w) return FAILDESCR;
+    limit = w[0] == 'l';
+    if (!rt_pl_db_mod_get(root, m, limit, &v) || (limit && v == 0)) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    ok = plw_unify_vals(args[2], INTVAL((long long)v), cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_mod_set_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern int rt_pl_db_mod_set_limit(void *, const char *, int64_t);
+    DESCR_t n;
+    const char *m;
+    int r;
+    int ok;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    m = pl_atom_str(rt_pl_deref_val(args[0]));
+    n = rt_pl_deref_val(args[1]);
+    if (!m || n.v != DT_I) return FAILDESCR;
+    r = rt_pl_db_mod_set_limit(root, m, (int64_t)n.i);
+    rt_pl_tr_gc_sync(cx->tr);
+    ok = plw_unify_vals(args[2], INTVAL((long long)r), cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
 DESCR_t rt_pl_dop_pl_cp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     int ok;
     if (nargs != 1) return FAILDESCR;
@@ -25956,6 +25648,7 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             }
             char key[bnd_db_key_need((void *)&args[0])];
             if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return (void *)0;
+            if (!strcmp(op, "assert")) { extern void *rt_pl_db_space_ball(void *, const char *, void *); void *sb = rt_pl_db_space_ball(root, key, (void *)&args[0]); if (sb) return sb; }
             { char *sl = strrchr(key, '/'); if (sl) *sl = 0; return pl_db_static_ball(root, op, key, ar); }
         }
     }
@@ -26099,6 +25792,28 @@ static DESCR_t pl_db_add_t(DESCR_t *args, int nargs, void *root, int prepend) {
 }
 DESCR_t rt_pl_dop_db_assertz_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 0); }
 DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_consult_t_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_consult(void *, void *, void *, int, int);
+    extern int rt_pl_db_key_is_declared(void *, const char *);
+    char key[bnd_db_key_need((void *)&args[0])];
+    int ar = 0;
+    void *db;
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return FAILDESCR;
+    db = rt_pl_db_get_by_key(root, key, 1);
+    if (!db) return FAILDESCR;
+    return rt_pl_db_consult(root, db, (void *)&args[0], rt_pl_db_key_is_declared(root, key), 1) ? pl_ok() : FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_consult_done_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_materialize_all(void *, int);
+    DESCR_t w = nargs == 1 ? rt_pl_deref_val(args[0]) : FAILDESCR;
+    if (w.v != DT_I) return FAILDESCR;
+    rt_pl_db_materialize_all(root, (int)w.i);
+    return pl_ok();
+}
 DESCR_t rt_pl_dop_db_erase_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();

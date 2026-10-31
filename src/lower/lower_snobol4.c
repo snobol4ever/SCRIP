@@ -3565,9 +3565,11 @@ static IR_t * sx_assign_body(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         extern tree_t * ast_stmt_new(tree_e kind);
         const tree_t * head = sno_seq_head(L);
         tree_t * rest = NULL;
-        const tree_t * spine[64];
         int ns = 0;
-        for (const tree_t * q = L; q != head && ns < 64; q = q->c[0]) spine[ns++] = q->c[1];
+        for (const tree_t * q = L; q != head; q = q->c[0]) ns++;
+        const tree_t * spine[ns];
+        ns = 0;
+        for (const tree_t * q = L; q != head; q = q->c[0]) spine[ns++] = q->c[1];
         for (int k = ns - 1; k >= 0; k--) { if (!rest) { rest = (tree_t *) spine[k]; continue; } tree_t * sq = ast_stmt_new(TT_SEQ); ast_push(sq, rest); ast_push(sq, (tree_t *) spine[k]); rest = sq; }
         tree_t * sc0 = ast_stmt_new(TT_SCAN);
         ast_push(sc0, (tree_t *) head);

@@ -83,6 +83,7 @@ typedef struct stage2_t {
     int pl_attv_armed;
     int depth_counted;
     int rk_infix_armed;
+    int pl_apply_macros;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
 typedef struct { const tree_t *prog; lower_entry_fn fn; } lower_seg_t;

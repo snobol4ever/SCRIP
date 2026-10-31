@@ -60,5 +60,6 @@ const char *pty_enum_names(const tree_t *low);
 int pty_field_slot(const tree_t *low, const char *name);
 int pty_string_within(const tree_t *low, long long n);
 long long pty_sizeof_low(const tree_t *low);
+long long pty_sizeof_name(const char *name);
 void lower_pascal_dump_types_on(void);
 #endif

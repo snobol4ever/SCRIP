@@ -1017,6 +1017,11 @@ static tree_t *dcg_make_unify(TreeScope *ts, tree_t *a, tree_t *b) {
     return mk_raw(prolog_atom_intern("="), args, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *dcg_pass_unify(TreeScope *ts, tree_t *s_in, tree_t *s_out) {
+    extern int rt_pl_dialect_swi(void);
+    return (g_stage2.pl_dialect == PL_DIALECT_SWI || rt_pl_dialect_swi()) ? dcg_make_unify(ts, s_out, s_in) : dcg_make_unify(ts, s_in, s_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_out) {
     if (nt && (nt->t == TT_FNC || nt->t == TT_QLIT)) {
         int new_arity = nt->n + 2;
@@ -1064,7 +1069,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         tree_t **tmp = (tree_t **)rt_wsb_alloc((size_t)(n+1) * sizeof(tree_t *));
         int nn = dcg_flatten_conj(body->c[0], tmp, 0);
         for (int i = 0; i < nn; i++) buf[idx++] = tmp[i];
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if ((body->t == TT_QLIT || body->t == TT_FNC) && body->v.sval && (strcmp(body->v.sval, "[]") == 0 || strcmp(body->v.sval, "{}") == 0) && body->n == 0) {
@@ -1122,7 +1127,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         for (int i = ng - 2; i >= 0; i--) { tree_t *cg[2] = { buf_g[i], conj_g }; conj_g = mk_raw(prolog_atom_intern(","), cg, 2); }
         tree_t *nargs[1] = { conj_g };
         buf[idx++] = mk_raw(prolog_atom_intern("\\+"), nargs, 1);
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if (body->t == TT_VAR) {
@@ -1132,7 +1137,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
     }
     if (body->t == TT_CUT) {
         buf[idx++] = body;
-        buf[idx++] = dcg_make_unify(ts, s_in, s_out);
+        buf[idx++] = dcg_pass_unify(ts, s_in, s_out);
         return idx;
     }
     if (body->t == TT_QLIT && body->v.sval && strcmp(body->v.sval, "true") == 0) {
@@ -1672,12 +1677,12 @@ static const char * const PL_PRELUDE_SRC =
     "string_code(I,_,_):-I<0,!,throw(error(domain_error(not_less_than_zero,I),string_code/3)).\n"
     "string_code(I,S,C):-I>0,string_codes(S,Cs),nth1(I,Cs,C0),!,C=C0.\n"
     "'$sc_enum'([X|Xs],N,I,C):-(I=N,C=X;N1 is N+1,'$sc_enum'(Xs,N1,I,C)).\n"
-    "foreach(Gen,Goal):-term_variables(Gen,GV),term_variables(Goal,OV),'$fe_vars'(OV,GV,1,SV),'$fe_vars'(OV,GV,0,FV),Templ=..[v|SV],findall(Templ,Gen,L),'$fe_prove'(L,Templ,FV,Goal).\n"
+    "foreach(Gen,Goal):-term_variables(Gen,GV),term_variables(Goal,OV),'$fe_vars'(OV,GV,1,SV),Templ=..[v|SV],findall(Templ,Gen,L),'$fe_prove'(L,Templ,Goal).\n"
     "'$fe_vars'([],_,_,[]).\n"
     "'$fe_vars'([V|Vs],GV,In,R):-('$fe_memq'(V,GV)->M=1;M=0),(M==In->R=[V|R1];R=R1),'$fe_vars'(Vs,GV,In,R1).\n"
     "'$fe_memq'(V,[W|Ws]):-(V==W->true;'$fe_memq'(V,Ws)).\n"
-    "'$fe_prove'([],_,_,_).\n"
-    "'$fe_prove'([H|T],Templ,FV,Goal):-copy_term(Templ/FV/Goal,H/FV/G1),call(G1),'$fe_prove'(T,Templ,FV,Goal).\n"
+    "'$fe_prove'([],_,_).\n"
+    "'$fe_prove'([H|T],Templ,Goal):-Templ=H,call(Goal),'$gnu_os'(unbind_template,Templ,_),'$fe_prove'(T,Templ,Goal).\n"
     "split_string(S,Sep,Pad,Subs):-string_codes(S,Cs0),string_codes(Sep,SC),string_codes(Pad,PC),'$ss_strip'(Cs0,PC,Cs),'$ss_fields'(Cs,SC,PC,Subs).\n"
     "'$ss_fields'(Cs,SC,PC,[S|Ss]):-'$ss_take'(Cs,SC,F,R),'$ss_strip'(F,PC,F1),string_codes(S,F1),(R=[]->Ss=[];R=[_|R1],'$ss_lstrip'(R1,PC,R2),'$ss_fields'(R2,SC,PC,Ss)).\n"
     "'$ss_take'([],_,[],[]).\n"
@@ -1812,6 +1817,26 @@ static const char * const PL_PRELUDE_SRC =
     "var_property(V,fresh(F)):-'$vp_get'(S),(S\\=='$none','$vp_memq'(V,S)->F=false;F=true).\n"
     "'$expand_bodies'(C,C).\n"
     "expand_goal(G,G):-var(G),!,'$vp_saw'(G).\n"
+    "expand_goal(G,X):-nonvar(G),current_prolog_flag('$apply_macros',true),'$am_phrase'(G,X0),!,X=X0.\n"
+    "'$am_phrase'(phrase(NT,Xs),G):-!,'$am_dcg'(NT,Xs,[],G).\n"
+    "'$am_phrase'(phrase(NT,Xs0,Xs),G):-!,'$am_dcg'(NT,Xs0,Xs,G).\n"
+    "'$am_phrase'(call_dcg(NT,Xs0,Xs),G):-'$am_dcg'(NT,Xs0,Xs,G).\n"
+    "'$am_dcg'(NT,_,_,_):-var(NT),!,fail.\n"
+    "'$am_dcg'(NT,Xs0,Xs,Xs0=DL):-'$am_terminal'(NT,DL,Xs),!.\n"
+    "'$am_dcg'(M:Q0,Xs0,Xs,M:Q):-!,'$am_dcg'(Q0,Xs0,Xs,Q).\n"
+    "'$am_dcg'(NT,_,_,_):-'$am_ctl'(NT),!,fail.\n"
+    "'$am_dcg'(NT,Xs0,Xs,G):-compound(NT),!,NT=..L0,append(L0,[Xs0,Xs],L),G=..L.\n"
+    "'$am_dcg'(NT,Xs0,Xs,G):-atom(NT),G=..[NT,Xs0,Xs].\n"
+    "'$am_terminal'([],DL,T):-!,DL=T.\n"
+    "'$am_terminal'(S,DL,T):-string(S),!,string_codes(S,L),append(L,T,DL).\n"
+    "'$am_terminal'(L,DL,T):-is_list(L),append(L,T,DL).\n"
+    "'$am_ctl'(!).\n"
+    "'$am_ctl'({_}).\n"
+    "'$am_ctl'((_,_)).\n"
+    "'$am_ctl'((_;_)).\n"
+    "'$am_ctl'((_->_)).\n"
+    "'$am_ctl'((_*->_)).\n"
+    "'$am_ctl'([_|_]).\n"
     "expand_goal(G,X):-current_predicate(goal_expansion/2),call(goal_expansion(G,G1)),G1\\==G,!,expand_goal(G1,X0),('$expand_wrap'(G,X0)->X=(X0,true);X=X0).\n"
     "'$expand_wrap'(G,R):-R=(_->_),G\\=(_->_).\n"
     "'$expand_wrap'(G,R):-R=(_*->_),G\\=(_*->_).\n"
@@ -2001,7 +2026,7 @@ static const char * const PL_PRELUDE_SRC =
     "min_list([H|T],M):-'$min_list_'(T,H,M).\n"
     "'$min_list_'([],M,M).\n"
     "'$min_list_'([H|T],A,M):-(H<A->A1=H;A1=A),'$min_list_'(T,A1,M).\n"
-    "sort(K,O,L,S):-'$sort4_kp'(K,P),'$sort4_oc'(O),'$sort4_list'(L,L),'$sort4_keyed'(L,P,Ps),'$sort4_ord'(O,D,U),'$sort4_dir'(D,Ps,Q),'$sort4_out'(U,Q,S0),S=S0.\n"
+    "sort(K,O,L,S):-'$sort4_kp'(K,P),'$sort4_oc'(O),'$sort4_ord'(O,D,U),'$sort4_list'(L,U,L1),'$sort4_keyed'(L1,P,Ps),'$sort4_dir'(D,Ps,Q),'$sort4_out'(U,Q,S0),S=S0.\n"
     "'$sort4_kp'(K,_):-var(K),!,throw(error(instantiation_error,sort/4)).\n"
     "'$sort4_kp'(0,0):-!.\n"
     "'$sort4_kp'(K,_):-integer(K),K<0,!,throw(error(domain_error(not_less_than_one,K),sort/4)).\n"
@@ -2020,10 +2045,14 @@ static const char * const PL_PRELUDE_SRC =
     "'$sort4_oc'(O):- \\+atom(O),!,throw(error(type_error(atom,O),sort/4)).\n"
     "'$sort4_oc'(O):- \\+'$sort4_ord'(O,_,_),!,throw(error(domain_error(order,O),sort/4)).\n"
     "'$sort4_oc'(_).\n"
-    "'$sort4_list'(L,_):-var(L),!,throw(error(instantiation_error,sort/4)).\n"
-    "'$sort4_list'([],_):-!.\n"
-    "'$sort4_list'([_|T],L0):-!,'$sort4_list'(T,L0).\n"
-    "'$sort4_list'(_,L0):-throw(error(type_error(list,L0),sort/4)).\n"
+    "'$sort4_list'(L,_,_):-var(L),!,throw(error(instantiation_error,sort/4)).\n"
+    "'$sort4_list'(L,U,L1):-'$skip_list'(N,L,T),'$sort4_tail'(T,N,U,L,L1).\n"
+    "'$sort4_tail'([],_,_,L,L):-!.\n"
+    "'$sort4_tail'(T,_,_,_,_):-var(T),!,throw(error(instantiation_error,sort/4)).\n"
+    "'$sort4_tail'([_|_],N,u,L,L1):-!,'$sort4_take'(N,L,L1).\n"
+    "'$sort4_tail'(_,_,_,L,_):-throw(error(type_error(list,L),sort/4)).\n"
+    "'$sort4_take'(0,_,[]):-!.\n"
+    "'$sort4_take'(N,[E|T],[E|R]):-N1 is N-1,'$sort4_take'(N1,T,R).\n"
     "'$sort4_ord'('@<',a,u).\n"
     "'$sort4_ord'('@=<',a,d).\n"
     "'$sort4_ord'('@>',d,u).\n"
@@ -2175,7 +2204,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$'.\n"
     "'$'(G):- $G.\n"
     "style_check(_).\n"
+    "set_module(M:program_space(N)):-!,'$mod_space'(M,N).\n"
+    "set_module(program_space(N)):-!,'$mod_space'(user,N).\n"
     "set_module(_).\n"
+    "'$mod_space'(M,N):-(integer(N)->true;throw(error(type_error(integer,N),context(system:set_module/1,_)))),(N>=0->true;throw(error(domain_error(not_less_than_zero,N),context(system:set_module/1,_)))),'$mod_set'(M,N,R),(R==0->true;throw(error(permission_error(limit,program_space,M),context(system:set_module/1,_)))).\n"
+    "module_property(M,program_size(S)):-'$mod_get'(M,size,S).\n"
+    "module_property(M,program_space(S)):-'$mod_get'(M,limit,S).\n"
     "'$clausable'(_).\n"
     "recorda(K,T):-recorda(K,T,_).\n"
     "recordz(K,T):-recordz(K,T,_).\n"
@@ -2265,6 +2299,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$phrase'(G,_,_):-var(G),!,throw(error(instantiation_error,_)).\n"
     "'$phrase'(G,S0,S):- current_prolog_flag('$dialect',gnu),!,'$gnu_dcg_body'(G,f,S1,S2,[],t,Goal),S0=S1,S=S2,call(Goal).\n"
     "'$phrase'(G,S0,S):-'$dcg_body'(G,S0,S,Goal),call(Goal).\n"
+    "'$phrase_input'(V):-var(V),!.\n"
+    "'$phrase_input'([_|_]):-!.\n"
+    "'$phrase_input'([]):-!.\n"
+    "'$phrase_input'(D):-throw(error(type_error(list,D),_)).\n"
+    "'$phrase_rt'(G,S0,S):-(current_prolog_flag('$dialect',swi)->'$phrase_input'(S0),'$phrase_input'(S);true),'$phrase'(G,S0,S).\n"
     "'$dcg_body'(V,S0,S,phrase(V,S0,S)):-var(V),!.\n"
     "'$dcg_body'([],S0,S,S0=S):-!.\n"
     "'$dcg_body'([H|T],S0,S,S0=L):-!,'$dcg_list'([H|T],S,L).\n"
@@ -2275,23 +2314,75 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'((A;B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
     "'$dcg_body'('|'(A,B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
     "'$dcg_body'((C->T),S0,S,(GC->GT)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT).\n"
-    "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
-    "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"
+    "'$dcg_body'(\\+A,S0,S,(\\+GA,U)):-!,'$dcg_body'(A,S0,_,GA),'$dcg_pass'(S0,S,U).\n"
+    "'$dcg_body'({}(G),S0,S,(G,U)):-!,'$dcg_pass'(S0,S,U).\n"
     "'$dcg_body'({},S0,S,S0=S):-!.\n"
-    "'$dcg_body'(!,S0,S,(!,S0=S)):-!.\n"
+    "'$dcg_body'(!,S0,S,(!,U)):-!,'$dcg_pass'(S0,S,U).\n"
+    "'$dcg_pass'(S0,S,S=S0):-current_prolog_flag('$dialect',swi),!.\n"
+    "'$dcg_pass'(S0,S,S0=S).\n"
     "'$dcg_body'(NT,_,_,_):- \\+callable(NT),!,throw(error(type_error(callable,NT),_)).\n"
     "'$dcg_body'(NT,S0,S,G):-NT=..L0,'$dcg_list'(L0,[S0,S],L1),G=..L1.\n"
     "'$dcg_list'([],S,S).\n"
     "'$dcg_list'([H|T],S,[H|R]):-'$dcg_list'(T,S,R).\n"
-    "code_type(C,T):-integer(C),!,C>=0,char_code(Ch,C),'$code_type'(Ch,T).\n"
-    "code_type(C,to_lower(U)):-var(C),integer(U),!,char_code(A,U),downcase_atom(A,B),char_code(B,C).\n"
-    "code_type(C,to_upper(L)):-var(C),integer(L),!,char_code(A,L),upcase_atom(A,B),char_code(B,C).\n"
-    "code_type(C,T):-(var(C),nonvar(T)->between(0,1114111,C),'$code_type'(C,T);char_type(C,T)).\n"
-    "'$code_type'(Ch,to_lower(X)):-!,(integer(X)->char_code(Y,X);true),char_type(Ch,to_lower(Y)),char_code(Y,X).\n"
-    "'$code_type'(Ch,to_upper(X)):-!,(integer(X)->char_code(Y,X);true),char_type(Ch,to_upper(Y)),char_code(Y,X).\n"
-    "'$code_type'(Ch,upper(X)):-!,char_type(Ch,upper(Y)),char_code(Y,X).\n"
-    "'$code_type'(Ch,lower(X)):-!,char_type(Ch,lower(Y)),char_code(Y,X).\n"
-    "'$code_type'(Ch,T):-char_type(Ch,T).\n"
+    "code_type(C,T):-'$ctype'(C,T,code).\n"
+    "'$ctype'(C,T,_):-var(C),var(T),!,throw(error(instantiation_error,_)).\n"
+    "'$ctype'(C,T,_):-(C==end_of_file;C== -1),!,T=end_of_file.\n"
+    "'$ctype'(C,T,H):-var(T),!,'$ct_in'(C,H,X),'$ct_cls'(T),'$ct_test'(X,T,H).\n"
+    "'$ctype'(C,T,H):-'$ct_known'(T),(nonvar(C)->'$ct_in'(C,H,X),'$ct_test'(X,T,H);'$ct_hasrev'(T)->'$ct_rev'(T,H,C);'$ct_scan'(0,T,H,C)).\n"
+    "'$ct_scan'(X0,T,H,C):-copy_term(T,T1),'$char_type_d'(X0,'$ct_from'(T1,H,X)),(T=T1,'$ct_out'(X,H,C);X1 is X+1,'$ct_scan'(X1,T,H,C)).\n"
+    "'$ct_in'(C,code,X):-integer(C),!,X=C.\n"
+    "'$ct_in'(C,_,X):-atom(C),atom_length(C,1),!,char_code(C,X).\n"
+    "'$ct_in'(C,_,_):-throw(error(type_error(character,C),_)).\n"
+    "'$ct_test'(X,T,char):-char_code(A,X),'$char_type_d'(A,T).\n"
+    "'$ct_test'(X,T,code):-'$char_type_d'(X,T).\n"
+    "'$ct_out'(X,char,C):-char_code(C,X).\n"
+    "'$ct_out'(X,code,X).\n"
+    "'$ct_known'(T):-'$ct_cls'(T0),functor(T0,N,A),functor(T,N,A),!.\n"
+    "'$ct_known'(T):-throw(error(type_error(char_type,T),_)).\n"
+    "'$ct_hasrev'(T):-compound(T),arg(1,T,A),nonvar(A),functor(T,F,1),'$ct_rf'(F).\n"
+    "'$ct_rev'(digit(W),H,C):-!,integer(W),W>=0,W=<9,X is W+48,'$ct_out'(X,H,C).\n"
+    "'$ct_rev'(xdigit(W),H,C):-!,integer(W),W>=0,W=<15,(W<10->X is W+48;X is W+87),'$ct_out'(X,H,C).\n"
+    "'$ct_rev'(T,H,C):-'$char_type_d'(V,T),(H==char->(integer(V)->char_code(C,V);C=V);(atom(V)->char_code(V,C);C=V)).\n"
+    "'$ct_rf'(lower).\n"
+    "'$ct_rf'(upper).\n"
+    "'$ct_rf'(to_lower).\n"
+    "'$ct_rf'(to_upper).\n"
+    "'$ct_rf'(paren).\n"
+    "'$ct_rf'(digit).\n"
+    "'$ct_rf'(xdigit).\n"
+    "'$ct_cls'(alnum).\n"
+    "'$ct_cls'(alpha).\n"
+    "'$ct_cls'(csym).\n"
+    "'$ct_cls'(csymf).\n"
+    "'$ct_cls'(prolog_var_start).\n"
+    "'$ct_cls'(prolog_atom_start).\n"
+    "'$ct_cls'(prolog_identifier_continue).\n"
+    "'$ct_cls'(decimal).\n"
+    "'$ct_cls'(decimal(_)).\n"
+    "'$ct_cls'(prolog_symbol).\n"
+    "'$ct_cls'(csymf).\n"
+    "'$ct_cls'(ascii).\n"
+    "'$ct_cls'(white).\n"
+    "'$ct_cls'(cntrl).\n"
+    "'$ct_cls'(digit).\n"
+    "'$ct_cls'(print).\n"
+    "'$ct_cls'(graph).\n"
+    "'$ct_cls'(lower).\n"
+    "'$ct_cls'(upper).\n"
+    "'$ct_cls'(punct).\n"
+    "'$ct_cls'(space).\n"
+    "'$ct_cls'(end_of_file).\n"
+    "'$ct_cls'(end_of_line).\n"
+    "'$ct_cls'(newline).\n"
+    "'$ct_cls'(period).\n"
+    "'$ct_cls'(quote).\n"
+    "'$ct_cls'(lower(_)).\n"
+    "'$ct_cls'(upper(_)).\n"
+    "'$ct_cls'(to_lower(_)).\n"
+    "'$ct_cls'(to_upper(_)).\n"
+    "'$ct_cls'(paren(_)).\n"
+    "'$ct_cls'(digit(_)).\n"
+    "'$ct_cls'(xdigit(_)).\n"
     "select(X,[X|T],T).\n"
     "select(X,[H|T],[H|R]):-select(X,T,R).\n"
     "nth(_,_,_):-current_prolog_flag('$dialect',swi),!,throw(error(existence_error(procedure,nth/3),nth/3)).\n"
@@ -2963,13 +3054,13 @@ static const char * const PL_PRELUDE_SRC =
     "'$gnu_pl_file'(F,P):-member(X,['.pl','.pro','.prolog']),atom_concat(F,X,P),file_exists(P),!.\n"
     "'$gnu_pl_file'(F,P):-atom_concat(F,'.pl',P).\n"
     "'$gnu_base'(Cs,Bs):-(append(_,[47|R],Cs)->'$gnu_base'(R,Bs);Bs=Cs).\n"
-    "'$gnu_consult_loop'(S,P,Sn,Is):-read_term(S,T,[]),(T==end_of_file->Is=[];expand_term(T,X),'$gnu_consult_terms'(X,P,Sn,Sn1,Is,R),'$gnu_consult_loop'(S,P,Sn1,R)).\n"
+    "'$gnu_consult_loop'(S,P,Sn,Is):-read_term(S,T,[]),(T==end_of_file->'$db_consult_done'(1),Is=[];expand_term(T,X),'$gnu_consult_terms'(X,P,Sn,Sn1,Is,R),'$gnu_consult_loop'(S,P,Sn1,R)).\n"
     "'$gnu_consult_terms'(X,P,Sn0,Sn,Is,R):-var(X),!,'$gnu_consult_term'(X,P,Sn0,Sn,Is,R).\n"
     "'$gnu_consult_terms'([],_,Sn,Sn,R,R):-!.\n"
     "'$gnu_consult_terms'([T|Ts],P,Sn0,Sn,Is,R):-!,'$gnu_consult_term'(T,P,Sn0,Sn1,Is,R1),'$gnu_consult_terms'(Ts,P,Sn1,Sn,R1,R).\n"
     "'$gnu_consult_terms'(T,P,Sn0,Sn,Is,R):-'$gnu_consult_term'(T,P,Sn0,Sn,Is,R).\n"
     "'$gnu_consult_term'(T,_,Sn,Sn,Is,R):-nonvar(T),T=(:-_),!,'$consult_term'(T,Is,R).\n"
-    "'$gnu_consult_term'(C,P,Sn0,Sn,R,R):-('$gnu_clause_pi'(C,N,A)->(memberchk(N/A,Sn0)->Sn=Sn0;Sn=[N/A|Sn0],'$gnu_redefine'(N,A,P));Sn=Sn0),assertz(C).\n"
+    "'$gnu_consult_term'(C,P,Sn0,Sn,R,R):-('$gnu_clause_pi'(C,N,A)->(memberchk(N/A,Sn0)->Sn=Sn0;Sn=[N/A|Sn0],'$gnu_redefine'(N,A,P));Sn=Sn0),'$db_t_guard'(C,assertz),'$db_consult_t'(C).\n"
     "'$gnu_clause_pi'(C,N,A):-nonvar(C),(C=(H:-_)->true;H=C),callable(H),functor(H,N,A).\n"
     "'$gnu_redefine'(N,A,P):-functor(H,N,A),catch(retractall(H),_,true),'$gnu_pfile_seq'(K),catch(retractall('$gnu_pfile'(N,A,_,_)),_,true),assertz('$gnu_pfile'(N,A,P,K)).\n"
     "'$gnu_pfile_seq'(K):-findall(x,catch('$gnu_pfile'(_,_,_,_),error(existence_error(_,_),_),fail),L),length(L,K).\n"
@@ -3036,7 +3127,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_path'(F,P):-atom(F),atom_concat(F,'.prolog',P),file_exists(P),!.\n"
     "'$consult_path'(F,P):-atom(F),atom_concat(F,'.plt',P),file_exists(P),!.\n"
     "'$consult_path'(F,_):-throw(error(existence_error(source_sink,F),consult/1)).\n"
-    "'$consult_loop'(S,Is):-read_term(S,T,[]),(T==end_of_file->Is=[];expand_term(T,X),'$consult_terms'(X,Is,R),'$consult_loop'(S,R)).\n"
+    "'$consult_loop'(S,Is):-read_term(S,T,[]),(T==end_of_file->'$db_consult_done'(1),Is=[];expand_term(T,X),'$consult_terms'(X,Is,R),'$consult_loop'(S,R)).\n"
     "'$consult_terms'(X,Is,R):-var(X),!,'$consult_term'(X,Is,R).\n"
     "'$consult_terms'([],R,R):-!.\n"
     "'$consult_terms'([T|Ts],Is,R):-!,'$consult_term'(T,Is,R1),'$consult_terms'(Ts,R1,R).\n"
@@ -3047,7 +3138,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_term'((:-D),R,R):-!,'$consult_goal'(D).\n"
     "'$consult_term'((?-D),R,R):-!,'$consult_goal'(D).\n"
     "'$consult_term'((H-->B),R,R):-!,dcg_translate_rule((H-->B),C),assertz(C).\n"
-    "'$consult_term'(C,R,R):-assertz(C).\n"
+    "'$consult_term'(C,R,R):-'$db_t_guard'(C,assertz),'$db_consult_t'(C).\n"
     "'$consult_inits'([]).\n"
     "'$consult_inits'([G|Gs]):-'$consult_goal'(G),'$consult_inits'(Gs).\n"
     "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n"
@@ -3115,7 +3206,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lf_install'(Ts,M,A):-'$xsb_mod_name'(A,N),(memberchk((:-immutable),Ts)->I=true;I=false),catch(retractall('$xsb_mod'(N,_)),_,true),assertz('$xsb_mod'(N,I)),fail.\n"
     "'$lf_install'(Ts,M,A):-'$set_source_module'(O,M),(catch('$lf_install1'(Ts,M,A),E,('$set_source_module'(O),throw(E)))->'$set_source_module'(O);'$set_source_module'(O),fail).\n"
     "'$xsb_mod_name'(A,N):-file_base_name(A,B),(sub_atom(B,L,_,0,'.P')->sub_atom(B,0,L,_,N);sub_atom(B,L,_,0,'.pl')->sub_atom(B,0,L,_,N);N=B).\n"
-    "'$lf_install1'(Ts,M,A):-catch(dynamic('$tbl_dkind'/2),_,true),'$lfx_scan'(Ts,Ks0,[],Tb0,[]),sort(Ks0,Ks),sort(Tb0,Tb),'$lfx_srcs'(Ks,M,A),'$lfx_wraps'(Tb,M,Ks),'$lfx_dk'(Ts,M),'$lfx_terms'(Ts,M,Ks,Tb,A,Is),'$consult_inits'(Is).\n"
+    "'$lf_install1'(Ts,M,A):-catch(dynamic('$tbl_dkind'/2),_,true),'$lfx_scan'(Ts,Ks0,[],Tb0,[]),sort(Ks0,Ks),sort(Tb0,Tb),'$lfx_srcs'(Ks,M,A),'$lfx_wraps'(Tb,M,Ks),'$lfx_dk'(Ts,M),'$lfx_terms'(Ts,M,Ks,Tb,A,Is),'$db_consult_done'(1),'$consult_inits'(Is).\n"
     "'$lfx_scan'([],Ks,Ks,Tb,Tb).\n"
     "'$lfx_scan'([T|Ts],Ks,K0,Tb,T0):-'$lfx_scan1'(T,Ks,K1,Tb,T1),'$lfx_scan'(Ts,K1,K0,T1,T0).\n"
     "'$lfx_scan1'(T,Ks,Ks,Tb,Tb):-var(T),!.\n"
@@ -3207,7 +3298,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_term'((:-D),M,Ks,_,A,I,I):-!,'$lfx_dir'(D,M,Ks,A).\n"
     "'$lfx_term'((?-D),M,Ks,_,A,I,I):-!,'$lfx_dir'(D,M,Ks,A).\n"
     "'$lfx_term'((H-->B),M,Ks,Tb,A,I,I0):-!,dcg_translate_rule((H-->B),C),'$lfx_term'(C,M,Ks,Tb,A,I,I0).\n"
-    "'$lfx_term'(C,M,Ks,Tb,_,I,I):-'$lfx_clause'(C,M,Ks,Tb,C2),catch(assertz(C2),E,(format(user_error,'Warning: load raised: ~q~n',[E]))).\n"
+    "'$lfx_term'(C,M,Ks,Tb,_,I,I):-'$lfx_clause'(C,M,Ks,Tb,C2),catch(('$db_t_guard'(C2,assertz),'$db_consult_t'(C2)),E,(format(user_error,'Warning: load raised: ~q~n',[E]))).\n"
     "'$lfx_dir'(D,_,_,_):-var(D),!.\n"
     "'$lfx_dir'(table(_),_,_,_):-!.\n"
     "'$lfx_dir'(op(_,_,_),_,_,_):-!.\n"
@@ -3670,6 +3761,7 @@ static void pl_tree_collect_dcg_pk(const tree_t *b, pl_pk_set_t *h) {
 static void pl_tree_collect_pk(const tree_t *t, pl_pk_set_t *h) {
     if (!t) return;
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_pk_set_add(h, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0);
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "$dot")) pl_pk_set_add(h, "$dict_eval", 10, 3);
     if (pl_dcg_ctrl(t, 2, "-->")) pl_tree_collect_dcg_pk(t->c[1], h);
     if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_tree_collect_dcg_pk(t->c[0], h);
     for (int i = 0; i < t->n; i++) pl_tree_collect_pk(t->c[i], h);
@@ -3718,6 +3810,7 @@ static void pl_tree_collect_reach(const tree_t *t, pl_reach_t *r) {
         pl_reach_add(r, t->c[0]->v.sval, (int)strlen(t->c[0]->v.sval), (int)t->c[1]->v.ival + (t->v.sval[1] ? 2 : 0), 0);
         return;
     }
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "$dot")) pl_reach_add(r, "$dict_eval", 10, 3, 0);
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_reach_add(r, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0, 1);
     if (pl_dcg_ctrl(t, 2, "-->")) pl_dcg_collect_reach(t->c[1], r);
     if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_dcg_collect_reach(t->c[0], r);
@@ -3760,19 +3853,31 @@ static void pl_ri_put(pl_ri_t *ri, uint32_t *nr, int *hd, uint32_t hc, const cha
     c->next = hd[h];
     hd[h] = (int)(*nr)++;
 }
-static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
-    uint32_t udc, int imported) {
-    if (lib->import_only && !imported) return 0;
-    for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
-        int n = (int)strlen(e->nm);
-        uint32_t hn = pl_pk_hname(e->nm, n);
-        if (native_only && !strcmp(e->nm, native_only)) continue;
-        if (!pl_pk_has_h(rk, rkc, e->nm, n, hn, e->ar) && !(e->ar && pl_pk_has_h(rk, rkc, e->nm, n, hn, 0) && (imported || !pl_lib_quiet(lib, e->nm, 0)))) continue;
-        if (ud && pl_pk_has_h(ud, udc, e->nm, n, hn, e->ar)) continue;
-        if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
-        if (!(bk ? pl_pk_has_h(bk, bkc, e->nm, n, hn, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
+static int pl_lib_ex_cmp(const pl_prelude_lib_ex_t *e, const char *s, int n) {
+    int c = memcmp(e->nm, s, (size_t)(e->n < n ? e->n : n));
+    return c ? c : (e->n > n) - (e->n < n);
+}
+static void pl_libs_named(const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud, uint32_t udc,
+    const char *imp, char *named) {
+    int nex = (int)(sizeof PL_PRELUDE_LIB_EXPORT_INDEX / sizeof PL_PRELUDE_LIB_EXPORT_INDEX[0]);
+    for (uint32_t k = 0; k < rkc; k++) {
+        const pl_pk_t *r = &rk[k];
+        int lo = 0, hi = nex;
+        if (!r->s) continue;
+        while (lo < hi) { int m = (lo + hi) / 2; if (pl_lib_ex_cmp(&PL_PRELUDE_LIB_EXPORT_INDEX[m], r->s, r->n) < 0) lo = m + 1; else hi = m; }
+        for (int x = lo; x < nex && !pl_lib_ex_cmp(&PL_PRELUDE_LIB_EXPORT_INDEX[x], r->s, r->n); x++) {
+            const pl_prelude_lib_ex_t *e = &PL_PRELUDE_LIB_EXPORT_INDEX[x];
+            const pl_prelude_lib_t *lib = &PL_PRELUDE_LIBS[e->lib];
+            if (named[e->lib]) continue;
+            if (e->ar != r->ar && !(r->ar == 0 && e->ar && (imp[e->lib] || !pl_lib_quiet(lib, e->nm, 0)))) continue;
+            if (lib->import_only && !imp[e->lib]) continue;
+            if (native_only && !strcmp(e->nm, native_only)) continue;
+            if (ud && pl_pk_has(ud, udc, e->nm, e->ar)) continue;
+            if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
+            if (bk ? pl_pk_has(bk, bkc, e->nm, e->ar) : (pl_prelude_key_has(e->nm, e->ar) && pl_base_defines(base, base_last, e->nm, e->ar))) continue;
+            named[e->lib] = 1;
+        }
     }
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
@@ -3892,6 +3997,7 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     }
     if (mp) ct_drop(mp);
 }
+static int pl_tree_has_fn(const tree_t *t, const char *fn);
 static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
@@ -3916,7 +4022,10 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         }
     }
     for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
+    char named[nlibs + 1];
+    memset(named, 0, sizeof named);
+    pl_libs_named(rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp, named);
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (named[i] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi, xsb)) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
     uint32_t bkc = pl_pk_cap(nb);
@@ -3946,7 +4055,9 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (!pl_clause_is_meta_spec(cl)) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi, xsb) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
+            memset(named, 0, sizeof named);
+            pl_libs_named(lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp, named);
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && named[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi, xsb)) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
             ct_drop(lh.t);
         }
     }
@@ -4062,12 +4173,13 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
-        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) { pl_cv_add(referenced, "$phrase"); pl_cv_add(referenced, "$phrase_rt"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) pl_cv_add(referenced, "$pl_pp_pcheck");
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
+        for (PlClause *cl = lp[i]->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(referenced, "$dict_eval"); break; }
         if ((imp[i] || called[i]) && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
         PlClause *nextc = NULL, *ph = NULL, *pt = NULL;
         int ji = 0;
@@ -4156,6 +4268,11 @@ static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const tree_t *g = pl_clause_is_directive(cl) ? cl->tr->c[1] : (const tree_t *)0;
         size_t nl;
+        if (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "import") && g->n == 1 && g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->n == 2 && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "from") &&
+            g->c[0]->c[1] && (g->c[0]->c[1]->t == TT_QLIT || g->c[0]->c[1]->t == TT_NAME) && g->c[0]->c[1]->v.sval && (!strcmp(g->c[0]->c[1]->v.sval, "clpr") || !strcmp(g->c[0]->c[1]->v.sval, "clpq"))) {
+            pl_cv_add(imported, g->c[0]->c[1]->v.sval);
+            continue;
+        }
         if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "use_module") || (g->n != 1 && g->n != 2) || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval) continue;
         if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !(nl = pl_lib_path_name(g->c[0]->c[0], (char *)0))) continue;
         char nm[nl + 1];
@@ -4291,11 +4408,12 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
     }
-    if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
+    if (pl_cv_has(&referenced, "char_type")) pl_cv_add(&referenced, "$ctype");
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
     pl_cv_add(&referenced, "$arg_swi");
     pl_cv_add(&referenced, "$conj_nocut");

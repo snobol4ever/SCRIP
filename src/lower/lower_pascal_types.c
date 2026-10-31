@@ -1407,4 +1407,5 @@ static long long pt_size(const pty_t *t) {
     return e > 0 ? (t->ix[0]->hi - t->ix[0]->lo + 1) * e : -1;
 }
 long long pty_sizeof_low(const tree_t *low) { return pt_size(pty_of_low(low)); }
+long long pty_sizeof_name(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t ? pt_size(t) : -1; }
 void lower_pascal_dump_types_on(void) { g_lower.pas.dump_types = 1; }

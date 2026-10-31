@@ -253,11 +253,52 @@ static void pb_expand_bagof(tree_t *t) {
     pb_expand_goal(fa->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pb_am_extend(const tree_t *nt, tree_t *xs0, tree_t *xs) {
+    static const char * const ctl[] = { ",", ";", "->", "*->", "{}", "!", 0 };
+    tree_t *r;
+    if (!nt || nt->t == TT_CUT || !nt->v.sval) return (tree_t *)0;
+    if (nt->t != TT_FNC && nt->t != TT_QLIT && nt->t != TT_NAME) return (tree_t *)0;
+    for (int i = 0; ctl[i]; i++) if (!strcmp(nt->v.sval, ctl[i])) return (tree_t *)0;
+    r = ast_node_new(TT_FNC);
+    r->v.sval = nt->v.sval;
+    r->line = nt->line;
+    if (nt->t == TT_FNC && !strcmp(nt->v.sval, ":") && nt->n == 2) {
+        tree_t *in = pb_am_extend(nt->c[1], xs0, xs);
+        if (!in) return (tree_t *)0;
+        ast_push(r, nt->c[0]);
+        ast_push(r, in);
+        return r;
+    }
+    if (nt->t == TT_FNC) for (int i = 0; i < nt->n; i++) ast_push(r, nt->c[i]);
+    ast_push(r, xs0);
+    ast_push(r, xs);
+    return r;
+}
+static void pb_expand_phrase(tree_t *t) {
+    tree_t *nt = t->c[0], *xs0 = t->c[1], *xs = (t->n == 3) ? t->c[2] : ast_node_new(TT_MAKELIST), *r = (tree_t *)0;
+    if (!nt || nt->t == TT_VAR) return;
+    if (nt->t == TT_MAKELIST && !nt->v.ival) {
+        tree_t *l = ast_node_new(TT_MAKELIST);
+        for (int i = 0; i < nt->n; i++) ast_push(l, nt->c[i]);
+        if (nt->n) { ast_push(l, xs); l->v.ival = 1; }
+        r = pb_fnc2("=", xs0, nt->n ? l : xs);
+    } else if (nt->t == TT_DQLIT && nt->n > 0 && nt->c[0] && nt->c[0]->v.sval) {
+        const char *b = nt->c[0]->v.sval;
+        size_t n = nt->c[0]->slen > 0 ? (size_t)nt->c[0]->slen : strlen(b);
+        tree_t *l = ast_node_new(TT_MAKELIST);
+        for (size_t i = 0; i < n;) { int cp; tree_t *e = ast_node_new(TT_ILIT); i += (size_t)u8_decode((const unsigned char *)b + i, &cp); e->v.ival = (long long)cp; ast_push(l, e); }
+        if (l->n) { ast_push(l, xs); l->v.ival = 1; }
+        r = pb_fnc2("=", xs0, l->n ? l : xs);
+    } else if (nt->t == TT_MAKELIST) return;
+    else r = pb_am_extend(nt, xs0, xs);
+    if (r) *t = *r;
+}
 static void pb_expand_goal(tree_t *t) {
     while (t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "->")) && t->n == 2) { pb_expand_goal(t->c[0]); t = t->c[1]; }
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval) {
         const char *f = t->v.sval;
+        if (g_stage2.pl_apply_macros && !g_stage2.rt_lowering && ((!strcmp(f, "phrase") && (t->n == 2 || t->n == 3)) || (!strcmp(f, "call_dcg") && t->n == 3))) { pb_expand_phrase(t); return; }
         if ((!strcmp(f, "bagof") || !strcmp(f, "setof")) && t->n == 3) { pb_expand_bagof(t); return; }
         if ((!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "call")) && t->n >= 1) { pb_expand_goal(t->c[0]); return; }
         if ((!strcmp(f, "findall") || !strcmp(f, "aggregate_all")) && t->n == 3) { pb_expand_goal(t->c[1]); return; }
@@ -271,6 +312,36 @@ static void pb_expand_goal(tree_t *t) {
     if (t->t == TT_PROGRAM || t->t == TT_IF) for (int i = 0; i < t->n; i++) pb_expand_goal(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pb_var_names(const tree_t *t, cv_t *out) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && strcmp(t->v.sval, "_")) {
+        for (uint32_t i = 0; i < out->len; i++) if (!strcmp(CV_AT(*out, const char *, i), t->v.sval)) return;
+        CV_PUSH(*out, const char *) = t->v.sval;
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pb_var_names(t->c[i], out);
+}
+static int pb_has_var(const tree_t *t, const char *nm) {
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, nm)) return 1;
+    for (int i = 0; i < t->n; i++) if (pb_has_var(t->c[i], nm)) return 1;
+    return 0;
+}
+static tree_t *pb_shared_tuple(const tree_t *opts, const tree_t *body) {
+    cv_t names = {0};
+    tree_t *vt = ast_node_new(TT_FNC);
+    vt->v.sval = ct_strdup("v");
+    pb_var_names(opts, &names);
+    for (uint32_t i = 0; i < names.len; i++) {
+        const char *nm = CV_AT(names, const char *, i);
+        tree_t *vv;
+        if (!pb_has_var(body, nm)) continue;
+        vv = ast_node_new(TT_VAR);
+        vv->v.sval = ct_strdup(nm);
+        ast_push(vt, vv);
+    }
+    return vt;
+}
 static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite, TRSlotMap *smp) {
     TRSlotMap sm = *smp; sm.e.len = 0; sm.next = 0; sm.hs = NULL; sm.hn = 0; sm.hfill = 0;
     if (!skip_rewrite && tr->n > 1) pb_expand_goal(tr->c[1]);
@@ -494,6 +565,11 @@ static int pl_dialect_marker(const tree_t *tr) {
     const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
     return g && g->t == TT_FNC && g->v.sval && ((!strcmp(g->v.sval, "module") && g->n == 2) || (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)));
 }
+static int pl_apply_macros_marker(const tree_t *tr) {
+    const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
+    const tree_t *lib = (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)) ? g->c[0] : (const tree_t *)0;
+    return lib && lib->t == TT_FNC && lib->v.sval && !strcmp(lib->v.sval, "library") && lib->n == 1 && lib->c[0] && (lib->c[0]->t == TT_QLIT || lib->c[0]->t == TT_NAME) && lib->c[0]->v.sval && !strcmp(lib->c[0]->v.sval, "apply_macros");
+}
 static int pl_tree_has_dict(const tree_t *t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "$dict_lit") || !strcmp(t->v.sval, "$dot"))) return 1;
@@ -557,9 +633,10 @@ static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char
 void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect = PL_DIALECT_GNU; }
 void prolog_select_dialect_xsb(void) { g_stage2.pl_dialect = PL_DIALECT_XSB; }
 static void pl_dq_lower_program(PlProgram *pl_prog) {
-    int marker = 0, xsb = 0, line0 = 0, set = 0;
+    int marker = 0, xsb = 0, line0 = 0, set = 0, am = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         if (cl->lineno && !line0) line0 = cl->lineno;
+        if (cl->lineno && pl_apply_macros_marker(cl->tr)) am = 1;
         if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
         if (cl->lineno && pl_xsb_marker(cl->tr)) xsb = 1;
     }
@@ -571,6 +648,14 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         pl_prog->nclauses++;
         if (g_stage2.pl_dialect != PL_DIALECT_GNU) g_stage2.pl_dialect = PL_DIALECT_XSB;
         marker = 0;
+    }
+    if (am) {
+        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$apply_macros", "true");
+        d->next = pl_prog->head;
+        pl_prog->head = d;
+        if (!pl_prog->tail) pl_prog->tail = d;
+        pl_prog->nclauses++;
+        g_stage2.pl_apply_macros = 1;
     }
     for (int k = 0; k < 2; k++) {
         if (!marker || g_stage2.pl_dialect == PL_DIALECT_SWI || (k == 0 && g_stage2.pl_dq_mode)) continue;
@@ -1487,6 +1572,29 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                         }
                         tree_t *suite_tr = ast_node_new(TT_QLIT);
                         suite_tr->v.sval = ct_strdup(plunit_suite[clause_idx]);
+                        if (g_stage2.pl_apply_macros) {
+                            tree_t *shared = pb_shared_tuple(opts_src, body_tr), *shared_c = pb_shared_tuple(opts_src, body_tr), *bh = ast_node_new(TT_FNC), *call = ast_node_new(TT_FNC), *bcl = ast_node_new(TT_CLAUSE), *bs = ast_node_new(TT_QLIT), *bl = ast_node_new(TT_ILIT);
+                            PredKey bk = { prolog_atom_intern("$plunit_body"), 3 };
+                            int bfound;
+                            bs->v.sval = ct_strdup(plunit_suite[clause_idx]);
+                            bl->v.ival = cl->lineno;
+                            bh->v.sval = ct_strdup("$plunit_body");
+                            expr_add_child(bh, bs);
+                            expr_add_child(bh, bl);
+                            expr_add_child(bh, shared);
+                            expr_add_child(bcl, bh);
+                            expr_add_child(bcl, body_tr);
+                            bfound = pl_pred_slot_f(&keys, &choices, &files, bk, cl->file ? cl->file : pl_prog->filename);
+                            {
+                                tree_t *bec = lower_clause_from_tree(bcl, bk, 0, &csm);
+                                bec->line = cl->lineno;
+                                expr_add_child(CV_AT(choices, tree_t *, bfound), bec);
+                            }
+                            call->v.sval = ct_strdup("$plunit_body");
+                            { tree_t *cs = ast_node_new(TT_QLIT), *cn = ast_node_new(TT_ILIT); cs->v.sval = ct_strdup(plunit_suite[clause_idx]); cn->v.ival = cl->lineno; expr_add_child(call, cs); expr_add_child(call, cn); }
+                            expr_add_child(call, shared_c);
+                            body_tr = call;
+                        }
                         tree_t *pj_head = ast_node_new(TT_FNC);
                         pj_head->v.sval = ct_strdup("pj_test");
                         expr_add_child(pj_head, suite_tr);

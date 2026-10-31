@@ -934,7 +934,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_stmt_dyn = g_emitter.g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_emitter.g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0;
         } else if (nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_emitter.g_arbk16_stmt = 0; }
     g_emit.op_zcp_src = -1; g_emit.op_zcp_dst = -1; g_emit.op_xrec = 0;
-    g_emit.op_zres = 0; g_emit.op_zpriv = 0; g_emit.op_in_beta = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0;
+    g_emit.op_zres = 0; g_emit.op_zrel = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0;
         g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
         g_emit.op_zcut = -1;
         emit_ops_reserve(nd ? nd->n_operands + 1 : 0);
@@ -984,7 +984,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = _zn->sticky; g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0; g_emit.op_zdef = g_emitter.g_zd_def;
         g_emit.op_zcut = g_emitter.g_zd_cutd;
     if (g_emit.op_zres && !zrow_under(g_emit.op_zrow)) g_emit.op_zdepth = g_emitter.g_zd_abs;
-    if (g_emit.op_zres) { g_emit.op_zpriv = _zn->priv; g_emit.op_zdepth += g_emit.op_zpriv; g_emit.op_zabs += g_emit.op_zpriv; }
+    if (g_emit.op_zres) g_emit.op_zrel = _zn->rel;
     emit_set_sink(out);
     g_emit.sid = 0;
     g_emit.nid = bb_node_id(nd);
@@ -3304,7 +3304,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-        int frame_total = kt2 + (np + nl) * 16;
+        int frame_total = g_emit_cfg ? g_emit_cfg->pf.flat_gen_rbp : kt2 + (np + nl) * 16;
         g_emit.flat_carve_total = frame_total; g_emit.flat_gen_rbp = frame_total;
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
@@ -4275,7 +4275,7 @@ static void emit_chain_prepare(IR_t * entry) {
     g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
     { zop_audit_graph_close(); g_emit.zop_seen = 0; }
-    g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0; g_emit.op_zpriv = 0; g_emit.op_in_beta = 0;
+    g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0; g_emit.op_zrel = 0;
     g_emit.flat_all_zd = 0;
     g_emit.flat_deep_arrival = emit_graph_has_deep_arrival(g_emit_cfg);
     { int _rc_own = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
@@ -4659,7 +4659,8 @@ DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
 DESCR_t rt_pl_dop_cpu_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
-DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
+DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_consult_t(DESCR_t *, int);
+    DESCR_t rt_pl_dop_db_consult_done(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
     int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_r(DESCR_t *,
         int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *,
             int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
@@ -4670,7 +4671,7 @@ DESCR_t rt_pl_dop_engine_self(DESCR_t *, int); DESCR_t rt_pl_dop_engine_id(DESCR
     DESCR_t rt_pl_dop_engine_stats(DESCR_t *, int); DESCR_t rt_pl_dop_gc_now(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_db_data_unify(DESCR_t *, int); DESCR_t rt_pl_dop_dl_push(DESCR_t *, int);
     DESCR_t rt_pl_dop_dl_reached(DESCR_t *, int); DESCR_t rt_pl_dop_dl_false(DESCR_t *, int); DESCR_t rt_pl_dop_dl_reset(DESCR_t *, int); DESCR_t rt_pl_dop_dl_tick(DESCR_t *, int);
-    DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int);
+    DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_mod_get(DESCR_t *, int); DESCR_t rt_pl_dop_mod_set(DESCR_t *, int);
     DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
@@ -4829,12 +4830,14 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$engine_self", 1, "rt_pl_dop_engine_self", rt_pl_dop_engine_self }, { "$engine_id", 2, "rt_pl_dop_engine_id", rt_pl_dop_engine_id },
         { "$engine_list", 1, "rt_pl_dop_engine_list", rt_pl_dop_engine_list }, { "$engine_reaped", 1, "rt_pl_dop_engine_reaped", rt_pl_dop_engine_reaped },
         { "$engine_stats", 4, "rt_pl_dop_engine_stats", rt_pl_dop_engine_stats }, { "$gc_now", 0, "rt_pl_dop_gc_now", rt_pl_dop_gc_now },
-        { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
+        { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$mod_get", 3, "rt_pl_dop_mod_get", rt_pl_dop_mod_get },
+            { "$mod_set", 3, "rt_pl_dop_mod_set", rt_pl_dop_mod_set }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
             rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
                 2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",
                     rt_pl_dop_pl_cp_guard },
         { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 1, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1,
             "rt_pl_dop_db_asserta_t", rt_pl_dop_db_asserta_t },
+        { "$db_consult_t", 1, "rt_pl_dop_db_consult_t", rt_pl_dop_db_consult_t }, { "$db_consult_done", 1, "rt_pl_dop_db_consult_done", rt_pl_dop_db_consult_done },
         { "$db_erase_t", 2, "rt_pl_dop_db_erase_t", rt_pl_dop_db_erase_t }, { "$db_abolish_t", 1, "rt_pl_dop_db_abolish_t", rt_pl_dop_db_abolish_t }, { "$db_retractall_t", 1,
             "rt_pl_dop_db_retractall_t", rt_pl_dop_db_retractall_t }, { "$db_asserta_r", 2, "rt_pl_dop_db_asserta_r", rt_pl_dop_db_asserta_r }, { "$db_assertz_r", 2, "rt_pl_dop_db_assertz_r",
                 rt_pl_dop_db_assertz_r }, { "$db_erase_ref", 1, "rt_pl_dop_db_erase_ref", rt_pl_dop_db_erase_ref }, { "$db_n_r", 2, "rt_pl_dop_db_n_r", rt_pl_dop_db_n_r }, { "$db_at_r", 3,
