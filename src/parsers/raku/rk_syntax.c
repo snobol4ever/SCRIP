@@ -64,7 +64,7 @@ typedef struct RkP {
     tree_t *cur_list; int bk; int next_bk; int xb_bk;
     RkList *stmt_list; RkList *last_list; int last_nstmts; int last_real_semi;
     RkList *blk_last; int blk_n; tree_t *blk_list; tree_t *pb_sig;
-    RkClosure *qc; int nqc; int cqc;
+    RkClosure *qc; int nqc; int cqc; int qs, qe;
     tree_t *sig; RkTrait *tr; int ntr; RkTrait tr1; int has_tr1;
     RkDecl *dcl; const char *init_op;
     RkList *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
@@ -1207,6 +1207,7 @@ static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
         RkHere *h = &p->here[p->nhere++];
         h->delim = ct_strndup0(p->s + d0, dl); h->dlen = dl; h->lang = *L; h->lang.start = 0; h->lang.stop = 0; h->lang.stop2 = 0; h->lang.nrep = 1;
     }
+    p->qs = s; p->qe = stop_at;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3222,13 +3223,13 @@ static int simple_quote(RkP *p, int pos, int open, int stop, int stop2, int qq, 
 static int r_quote_raw(RkP *p, int pos);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quote(RkP *p, int pos) {
-    RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc;
-    p->qc = NULL; p->nqc = 0; p->cqc = 0;
+    RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc, sqs = p->qs, sqe = p->qe;
+    p->qc = NULL; p->nqc = 0; p->cqc = 0; p->qs = -1; p->qe = -1;
     int nh = p->nhere;
     int e = r_quote_raw(p, pos);
     if (e >= 0 && p->build && p->nhere > nh) { rkb_heredoc_stub(p->B, &p->tm, pos, e); p->here[p->nhere - 1].node = p->tm.t; }
-    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc);
-    p->qc = sq; p->nqc = sn; p->cqc = sc;
+    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc, p->qs, p->qe);
+    p->qc = sq; p->nqc = sn; p->cqc = sc; p->qs = sqs; p->qe = sqe;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
