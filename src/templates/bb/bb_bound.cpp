@@ -47,6 +47,7 @@ std::string bb_bound() {
          + x86("jne", L(1))
          + x86("note", "pl_choice_restore inline (D1): the bounded goal exits leaving no choice of its own, so the bound's header is no choice: B returns to the choice banked at the bound")
          + x86("mov", "r13", FRQ(_.op_off + 16))
+         + x86_pl_tr_tidy(400)
          + x86("def", L(1))
                + x86_gamma() + x86_beta_trampoline()
              : (_.op_ival & 2)
