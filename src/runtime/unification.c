@@ -2374,86 +2374,177 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell, (pl_tr_ctx_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_ct_print(const char *cs) {
-    int adv, cp = rt_pl_u8_get(cs, &adv), ok;
+static int pl_ct_latin(int c) {
+    static const char sy_hi[] = "\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAB\xAC\xAE\xAF\xB0\xB1\xB4\xB6\xB7\xB8\xBB\xBF\xD7\xF7";
+    if (c == '_' || (c >= 'A' && c <= 'Z') || (c >= 0xC0 && c <= 0xDE && c != 0xD7)) return 'U';
+    if ((c >= 'a' && c <= 'z') || c == 0xAA || c == 0xB5 || c == 0xBA || (c >= 0xDF && c <= 0xFF && c != 0xF7)) return 'L';
+    if (c >= '0' && c <= '9') return 'D';
+    if (c > 0 && c < 0x80 && strchr("#$&*+-./:<=>?@\\^~", c)) return 'S';
+    if (c >= 0x80 && c <= 0xFF && memchr(sy_hi, c, sizeof sy_hi - 1)) return 'S';
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_mark(int c) {
+    static const int mk[][2] = { { 0x300, 0x36F }, { 0x483, 0x489 }, { 0x591, 0x5BD }, { 0x5BF, 0x5BF }, { 0x5C1, 0x5C2 }, { 0x5C4, 0x5C5 }, { 0x5C7, 0x5C7 }, { 0x610, 0x61A }, { 0x64B, 0x65F },
+        { 0x670, 0x670 }, { 0x6D6, 0x6DC }, { 0x6DF, 0x6E4 }, { 0x6E7, 0x6E8 }, { 0x6EA, 0x6ED }, { 0x1AB0, 0x1AFF }, { 0x1DC0, 0x1DFF }, { 0x20D0, 0x20F0 }, { 0xFE20, 0xFE2F } };
+    for (size_t k = 0; k < sizeof mk / sizeof *mk; k++) if (c >= mk[k][0] && c <= mk[k][1]) return (c >= 0x488 && c <= 0x489) || (c >= 0x20DD && c <= 0x20E0) || (c >= 0x20E2 && c <= 0x20E4) ? 2 : 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_class0(const char *ty, int cp, locale_t l) {
+    extern int prolog_u_nd_zero(unsigned);
+    wint_t w = (wint_t)cp;
+    int lt = cp <= 0xFF ? pl_ct_latin(cp) : 0;
+    if (!strcmp(ty, "alnum")) return iswalnum_l(w, l) != 0;
+    if (!strcmp(ty, "alpha")) return iswalpha_l(w, l) != 0;
+    if (!strcmp(ty, "csym")) return iswalnum_l(w, l) || cp == '_';
+    if (!strcmp(ty, "csymf")) return iswalpha_l(w, l) || cp == '_';
+    if (!strcmp(ty, "prolog_var_start")) return cp <= 0xFF ? lt == 'U' : iswupper_l(w, l) != 0;
+    if (!strcmp(ty, "prolog_atom_start")) return cp <= 0xFF ? lt == 'L' : (iswalpha_l(w, l) && !iswupper_l(w, l));
+    if (!strcmp(ty, "prolog_identifier_continue")) return cp <= 0xFF ? (lt == 'U' || lt == 'L' || lt == 'D') : (iswalnum_l(w, l) || pl_ct_mark(cp) == 1);
+    if (!strcmp(ty, "decimal")) return cp <= 0xFF ? lt == 'D' : prolog_u_nd_zero((unsigned)cp) >= 0;
+    if (!strcmp(ty, "prolog_symbol")) return cp <= 0xFF ? lt == 'S' : (iswpunct_l(w, l) && !pl_ct_mark(cp));
+    if (!strcmp(ty, "ascii")) return cp < 0x80;
+    if (!strcmp(ty, "white")) return cp == ' ' || cp == '\t';
+    if (!strcmp(ty, "cntrl")) return iswcntrl_l(w, l) != 0;
+    if (!strcmp(ty, "digit")) return iswdigit_l(w, l) != 0;
+    if (!strcmp(ty, "print")) return iswprint_l(w, l) != 0;
+    if (!strcmp(ty, "graph")) return iswgraph_l(w, l) != 0;
+    if (!strcmp(ty, "lower")) return iswlower_l(w, l) != 0;
+    if (!strcmp(ty, "upper")) return iswupper_l(w, l) != 0;
+    if (!strcmp(ty, "punct")) return iswpunct_l(w, l) != 0;
+    if (!strcmp(ty, "space")) return iswspace_l(w, l) != 0;
+    if (!strcmp(ty, "end_of_file")) return 0;
+    if (!strcmp(ty, "end_of_line")) return cp >= 10 && cp <= 13;
+    if (!strcmp(ty, "newline")) return cp == 10;
+    if (!strcmp(ty, "period")) return cp && strchr(".?!", (char)cp) != (char *)0;
+    if (!strcmp(ty, "quote")) return cp && strchr("'`\"", (char)cp) != (char *)0;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_class1(const char *ty, int cp, int rev, int *chr, locale_t l) {
+    extern int prolog_u_nd_zero(unsigned);
+    wint_t w = (wint_t)cp;
+    *chr = 1;
+    if (!strcmp(ty, "lower")) return rev ? (iswupper_l(w, l) ? (int)towlower_l(w, l) : -1) : (iswlower_l(w, l) ? (int)towupper_l(w, l) : -1);
+    if (!strcmp(ty, "upper")) return rev ? (iswlower_l(w, l) ? (int)towupper_l(w, l) : -1) : (iswupper_l(w, l) ? (int)towlower_l(w, l) : -1);
+    if (!strcmp(ty, "to_lower")) return rev ? (int)towlower_l(w, l) : (int)towupper_l(w, l);
+    if (!strcmp(ty, "to_upper")) return rev ? (int)towupper_l(w, l) : (int)towlower_l(w, l);
+    if (!strcmp(ty, "paren")) {
+        static const char op[] = "({[", cl[] = ")}]";
+        const char *f = cp > 0 && cp < 0x80 ? strchr(rev ? cl : op, cp) : (const char *)0;
+        return f ? (int)(unsigned char)(rev ? op : cl)[f - (rev ? cl : op)] : -1;
+    }
+    *chr = 0;
+    if (!strcmp(ty, "digit")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : -1);
+    if (!strcmp(ty, "xdigit")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : cp >= 'a' && cp <= 'f' ? cp - 'a' + 10 : cp >= 'A' && cp <= 'F' ? cp - 'A' + 10 : -1);
+    if (!strcmp(ty, "decimal")) return rev ? -2 : (cp >= '0' && cp <= '9' ? cp - '0' : cp > 0xFF && prolog_u_nd_zero((unsigned)cp) >= 0 ? cp - prolog_u_nd_zero((unsigned)cp) : -1);
+    if (!strcmp(ty, "code")) return rev ? -2 : cp;
+    return -3;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_code(pl_cell_t *c, int *as_char) {
+    char b[16];
+    const char *s;
+    int adv, cp;
+    if ((int)c->v == DT_I) { *as_char = 0; return (c->i >= 0 && c->i <= 0x10FFFF) ? (int)c->i : -2; }
+    *as_char = 1;
+    s = plc_fmt_is_atom(c) ? plc_atom_op_text(c, b, sizeof b) : (const char *)0;
+    if (!s || !s[0]) return -2;
+    cp = rt_pl_u8_get(s, &adv);
+    return (cp >= 0 && !s[adv]) ? cp : -2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t pl_ct_out(int v, int chr, int as_char) { char b[8]; if (!chr || !as_char) return pl_make_int((int64_t)v); b[rt_pl_u8_put(b, v)] = 0; return plc_make_atom_cell(b); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_scan(pl_cell_t *tc, pl_cell_t *td, pl_tr_ctx_t *cx) {
+    pl_cell_t *a = (pl_cell_t *)pl_compound_heap(td), *t = pl_deref(&a[0]), *h = pl_deref(&a[1]), *arg = (pl_cell_t *)0;
+    const char *hs = plc_fmt_is_atom(h) ? plc_atom_text(h) : (const char *)0, *ty;
+    int code_mode = hs && !strcmp(hs, "code"), ia = 1, ac = -2, c, hit = -1, bind = 0, br = 0, bchr = 0;
     locale_t l;
-    if (cp < 0x80) return cp >= 32 && cp != 127;
+    if ((int)tc->v != DT_I || tc->i < 0) return 0;
+    if ((int)t->v == DT_PLREF && pl_arity(t) == 1) {
+        ty = prolog_atom_name(plc_functor(t));
+        arg = &((pl_cell_t *)pl_compound_heap(t))[0];
+        if (!pl_cell_unbound(pl_deref(arg))) ac = pl_ct_code(pl_deref(arg), &ia);
+    } else if ((int)t->v == DT_PLATOM) ty = prolog_atom_name(pl_atom_id(t));
+    else return 0;
+    if (!ty) return 0;
     l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
-    if (!l) return cp >= 0xA0;
-    ok = iswprint_l((wint_t)cp, l) != 0;
+    if (!l) return 0;
+    for (c = (int)tc->i; c <= 0x10FFFF && hit < 0; c++) {
+        int chr, r, k;
+        if (!arg) { k = pl_ct_class0(ty, c, l); if (k < 0) break; if (k) hit = c; continue; }
+        r = pl_ct_class1(ty, c, 0, &chr, l);
+        if (r == -3) break;
+        if (r < 0) continue;
+        if (ac == -2) { hit = c; bind = 1; br = r; bchr = chr; continue; }
+        if (ac == r || (chr && ac >= 0 && pl_ct_class1(ty, ac, 1, &k, l) == c)) hit = c;
+    }
     freelocale(l);
-    return ok;
+    if (hit < 0 || !plc_unify_into_cell_cx(&a[2], pl_make_int((int64_t)hit), cx)) return 0;
+    return !bind || plc_unify_into_cell_cx(arg, pl_ct_out(br, bchr, !code_mode), cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_char_type_ball(void *char_cell, void *type_cell) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    pl_cell_t *tc = pl_deref((pl_cell_t *)char_cell), *td = pl_deref((pl_cell_t *)type_cell);
+    const char *ty;
+    int as_char, chr, known;
+    locale_t l;
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 3 && !strcmp(prolog_atom_name(plc_functor(td)), "$ct_from")) return (void *)0;
+    if (pl_cell_unbound(td)) return (void *)0;
+    ty = (int)td->v == DT_PLATOM ? prolog_atom_name(pl_atom_id(td)) : ((int)td->v == DT_PLREF && pl_arity(td) == 1) ? prolog_atom_name(plc_functor(td)) : (const char *)0;
+    l = ty ? newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0) : (locale_t)0;
+    known = l && ((int)td->v == DT_PLATOM ? pl_ct_class0(ty, 'a', l) >= 0 : pl_ct_class1(ty, 'a', 0, &chr, l) != -3);
+    if (l) freelocale(l);
+    if (!known) return rt_pl_ball_kind2("type_error", "char_type", *td);
+    if (!pl_cell_unbound(tc) && pl_ct_code(tc, &as_char) < 0 && !((int)tc->v == DT_I && tc->i == -1)) return rt_pl_ball_kind2("type_error", "character", *tc);
+    return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx) {
-    pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
+    pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0, *td, *inner;
+    const char *ty;
+    int as_char = 1, cp, r, chr, ok;
+    locale_t l;
     if (!tc || !type_cell) return 0;
-    char b0[256];
-    int cn = ((int)tc->v == DT_I && tc->i >= 0 && tc->i <= 0x10FFFF) ? rt_pl_u8_put(b0, (int)tc->i) : 0;
-    if ((int)tc->v == DT_I) b0[cn] = 0;
-    const char *cs = (int)tc->v == DT_I ? b0 : plc_atom_op_text(tc, b0, sizeof b0);
-    if (!cs || !cs[0]) return 0;
-    unsigned char ch = (unsigned char)cs[0];
-    pl_cell_t *td = pl_deref((pl_cell_t *)type_cell);
-    if ((int)td->v == DT_PLREF && pl_arity(td) >= 1) {
-        const char *ty = prolog_atom_name(plc_functor(td));
-        pl_cell_t *inner = val_cell ? (pl_cell_t *)val_cell : &((pl_cell_t *)pl_compound_heap(td))[0];
-        pl_cell_t out;
-        if (!ty) { return 0; }
-        if (!strcmp(ty, "digit")) {
-            if (!isdigit(ch)) { return 0; }
-            out = pl_make_int((int64_t)(ch - '0'));
-        } else if (!strcmp(ty, "xdigit")) {
-            if (!isxdigit(ch)) { return 0; }
-            out = pl_make_int((int64_t)(isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10));
-        } else if (!strcmp(ty, "to_lower")) {
-            char c2[2] = { (char)toupper(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "to_upper")) {
-            char c2[2] = { (char)tolower(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "upper")) {
-            if (!isupper(ch)) { return 0; }
-            char c2[2] = { (char)tolower(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "lower")) {
-            if (!islower(ch)) { return 0; }
-            char c2[2] = { (char)toupper(ch), 0 };
-            out = plc_make_atom_cell(c2);
-        } else if (!strcmp(ty, "code")) {
-            out = pl_make_int((int64_t)ch);
-        } else {
-            return 0;
+    td = pl_deref((pl_cell_t *)type_cell);
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 3 && !strcmp(prolog_atom_name(plc_functor(td)), "$ct_from")) return pl_ct_scan(tc, td, cx);
+    if ((int)td->v == DT_PLREF && pl_arity(td) == 1) {
+        ty = prolog_atom_name(plc_functor(td));
+        inner = val_cell ? (pl_cell_t *)val_cell : &((pl_cell_t *)pl_compound_heap(td))[0];
+        if (!ty) return 0;
+        l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
+        if (!l) return 0;
+        if (pl_cell_unbound(tc)) {
+            int ia = 1, ac = pl_cell_unbound(pl_deref(inner)) ? -2 : pl_ct_code(pl_deref(inner), &ia);
+            r = ac >= 0 ? pl_ct_class1(ty, ac, 1, &chr, l) : -1;
+            freelocale(l);
+            return r >= 0 && plc_unify_into_cell_cx(tc, pl_ct_out(r, 1, ia), cx);
         }
-        if (ty[0] == 't' && !pl_cell_unbound(pl_deref(inner))) {
-            char b1[8];
-            const char *vs = plc_atom_op_text(pl_deref(inner), b1, sizeof b1);
-            if (vs && (unsigned char)vs[0] == ch && !vs[1]) return 1;
+        cp = pl_ct_code(tc, &as_char);
+        r = cp >= 0 ? pl_ct_class1(ty, cp, 0, &chr, l) : -1;
+        if (r < 0) { freelocale(l); return 0; }
+        if (!pl_cell_unbound(pl_deref(inner)) && chr) {
+            int ia = 1, ac = pl_ct_code(pl_deref(inner), &ia), rv;
+            if (ac == r) { freelocale(l); return 1; }
+            rv = ac >= 0 ? pl_ct_class1(ty, ac, 1, &chr, l) : -1;
+            freelocale(l);
+            return rv >= 0 && rv == cp;
         }
-        if (!plc_unify_into_cell_cx(inner, out, cx)) { return 0; }
-        return 1;
+        freelocale(l);
+        return plc_unify_into_cell_cx(inner, pl_ct_out(r, chr, as_char), cx) ? 1 : 0;
     }
-    if ((int)td->v != DT_PLATOM && (int)td->v != DT_S) { return 0; }
-    const char *ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
-    if (!ty) { return 0; }
-    int ok = 0;
-    if (!strcmp(ty, "alpha")) ok = isalpha(ch);
-    else if (!strcmp(ty, "alnum")) ok = isalnum(ch);
-    else if (!strcmp(ty, "digit")) ok = isdigit(ch);
-    else if (!strcmp(ty, "space") || !strcmp(ty, "white")) ok = isspace(ch);
-    else if (!strcmp(ty, "upper")) ok = isupper(ch);
-    else if (!strcmp(ty, "lower")) ok = islower(ch);
-    else if (!strcmp(ty, "punct")) ok = ispunct(ch);
-    else if (!strcmp(ty, "graph")) ok = isgraph(ch);
-    else if (!strcmp(ty, "print")) ok = pl_ct_print(cs);
-    else if (!strcmp(ty, "csym")) ok = (isalnum(ch) || ch == '_');
-    else if (!strcmp(ty, "csymf")) ok = (isalpha(ch) || ch == '_');
-    else if (!strcmp(ty, "end_of_line")) ok = (ch == '\n' || ch == '\r');
-    else if (!strcmp(ty, "newline")) ok = (ch == '\n');
-    else if (!strcmp(ty, "ascii")) ok = (ch < 128);
-    else { return 0; }
-    if (!ok) { return 0; }
-    return 1;
+    if ((int)td->v != DT_PLATOM && (int)td->v != DT_S) return 0;
+    ty = ((int)td->v == DT_S) ? (td->s ? td->s : "") : prolog_atom_name(pl_atom_id(td));
+    cp = ty ? pl_ct_code(tc, &as_char) : -2;
+    if (cp < 0) return 0;
+    l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
+    if (!l) return 0;
+    ok = pl_ct_class0(ty, cp, l);
+    freelocale(l);
+    return ok > 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell, pl_tr_ctx_t *cx) {

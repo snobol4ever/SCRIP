@@ -8247,7 +8247,13 @@ PL_CX_LEAF_HEAD(sort, 2)
     { DESCR_t a2[2] = { pl_sort_cycle_cells(args[0]), args[1] }; void *b = pl_sort_args_ball(a2, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &a2[0], &args[1], cx); }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(char_type, 2)
+    {
+        extern void *rt_pl_char_type_ball(void *, void *);
+        void *b = rt_pl_char_type_ball(&args[0], &args[1]);
+        if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx);
+    }
+PL_CX_LEAF_TAIL
 typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
 static DESCR_t pl_mk_string_dup(const char *s, size_t n) { char *b = (char *)rt_wsb_alloc(n + 1); memcpy(b, s, n); b[n] = 0; return rt_pl_make_string_cell(b); }
 static int pl_sa_isnum(DESCR_t d) { return d.v == DT_I || d.v == DT_BIG || d.v == DT_R; }
