@@ -1246,6 +1246,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_sa_plan", GC_RET_VOID },
     { "pl_sa_text", GC_RET_OTHER },
     { "pl_sched_pick", GC_RET_OTHER },
+    { "pl_sched_resumed", GC_RET_OTHER },
     { "pl_sink_build", GC_RET_DESCR },
     { "pl_sort_args_ball", GC_RET_OTHER },
     { "pl_sort_list_ball", GC_RET_OTHER },
