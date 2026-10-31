@@ -4574,7 +4574,7 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
         if (!pn || !*pn) { extern void core_runtime_error(int, const char *); core_runtime_error(60, "apply first arg is not natural variable name"); return none; }
         {
             int na = nargs - 1;
-            rt_call_args_need(na);
+            if ((uint64_t)(na > 8 ? na : 8) > g_call_args.cap) rt_call_args_need(na);
             for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
 #if RT_DIAG
             rt_c2bb_hit("apply.open", pn);

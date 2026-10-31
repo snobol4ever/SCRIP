@@ -1256,10 +1256,9 @@ static void **rt_alpha_cell_of(rt_proc_t *p, const char *name) {
     return (void **)bb_ab_cell_at(p->alpha_slot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_dyn_alpha_live(void) { static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; } return live; }
 static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback) {
-    static int live = -1;
-    if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
-    if (!live || !name) return fallback;
+    if (!rt_dyn_alpha_live() || !name) return fallback;
     if (!p) { extern void *rt_dyn_alpha_fn(const char *, void *); return rt_dyn_alpha_fn(name, fallback); }
     { void **cell = rt_alpha_cell_of(p, name); return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
 }
@@ -1371,6 +1370,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_land_γ(DESCR_t frame0, long word) {
     extern DESCR_t rt_proc_call_epilogue_idx_γ(long);
+    if (RT_WORD_HOW(word) == 2 && !rt_g_ret_by_name) { rt_g_want_name = 0; return frame0; }
     {
         long how = RT_WORD_HOW(word);
         long idx = word >> 40;
@@ -1446,9 +1446,18 @@ int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq) {
     }
 }
 rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) {
+    extern void *bb_ab_cell_at(int);
     rt_proc_t *p = rt_proc_find(name);
     *registered = p ? 1 : 0;
-    return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 };
+    if (!p) return (rt_call_next_t){ 0, 0 };
+    if (p->dyn_scope && !p->thunk && p->alpha_slot >= 0 && rt_dyn_alpha_live()) {
+        void **cell = (void **)bb_ab_cell_at(p->alpha_slot);
+        void *afn = cell ? *cell : (void *)0;
+        if (afn && afn != (void *)(uintptr_t)rt_ab_undef_fn_stub && afn != (void *)(uintptr_t)rt_ab_undef_sig_stub) return (rt_call_next_t){
+            (long)(uintptr_t)afn, 2L | (1L << 6) | ((long)(unsigned)(nargs > 0 ? nargs : 0) << 8) | ((long)(p - g_runtime.abi.rt_gen_procs) << 40)
+        };
+    }
+    return rt_call_open_by_name_p(p, name, nargs);
 }
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_runtime.abi.error == 0 && !rt_eval_stage_is_var(name)) g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel); }
@@ -1511,9 +1520,7 @@ rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback) {
-    static int live = -1;
-    if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
-    if (!live || !name) return fallback;
+    if (!rt_dyn_alpha_live() || !name) return fallback;
     {
         extern void *bb_ab_fn_cell_ptr(const char *);
         size_t nl = strlen(name);
@@ -2206,8 +2213,7 @@ static rt_proc_t * rt_proc_find(const char *name) {
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
     if (g_runtime.rt.proc_idx_key[h] == name) {
         int ci = g_runtime.rt.proc_idx_slot[h];
-        if (ci < g_runtime.rt.rt_gen_proc_count && (g_runtime.abi.rt_gen_procs[ci].name == name || (g_runtime.abi.rt_gen_procs[ci].name && strcmp(g_runtime.abi.rt_gen_procs[ci].name, name) == 0)))
-            return &g_runtime.abi.rt_gen_procs[ci];
+        if (ci < g_runtime.rt.rt_gen_proc_count) { rt_proc_t *e = g_runtime.abi.rt_gen_procs + ci; const char *en = e->name; if (en == name || (en && strcmp(en, name) == 0)) return e; }
     }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_runtime.rt.proc_idx_key[h] = name; g_runtime.rt.proc_idx_slot[h] = i; return &g_runtime.abi.rt_gen_procs[i]; } }
     return (rt_proc_t *)0;
