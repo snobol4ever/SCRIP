@@ -813,9 +813,16 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (args->items[0] && args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR) {
             long long z = pas_elem_size(args->items[0]->c[0]->v.sval);
             if (z > 0) return ilit(z);
+            const pty_t *at = pty_name_type(args->items[0]->c[0]->v.sval);
+            if (at && at->k == PTK_ARRAY && at->base && at->base->name && pas_sizeof_lookup(at->base->name, &z) && z > 0) return ilit(z);
         }
         tree_t *a = args->items[0];
-        if (a && a->t == TT_VAR && a->v.sval) { long long sz; if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz); }
+        if (a && a->t == TT_VAR && a->v.sval) {
+            long long sz;
+            if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
+            const pty_t *vt = pty_name_type(a->v.sval);
+            if (vt && vt->name && strcmp(vt->name, a->v.sval) && pas_sizeof_lookup(vt->name, &sz) && sz > 0) return ilit(sz);
+        }
     }
     if (name && !strcmp(name, "stringcodepage") && args && args->count >= 1) return ilit(g_lower.pas.sem.pas_codepage);
     if (name && !strcmp(name, "ismanagedtype") && args && args->count >= 1) {
@@ -857,6 +864,25 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return e;
     }
     if (name && !strcmp(name, "addr") && args && args->count >= 1) return pas_addr_of_proc(args->items[0]);
+    if (name && args && args->count >= 5 && !strncmp(name, "fill", 4) && strchr("bwdq", name[4]) && !strcmp(name + 5, name[4] == 'b' ? "yte" : name[4] == 'w' ? "ord" : "word") && !pas_is_func(name) &&
+        !pas_is_proc(name)) {
+        long long w = name[4] == 'b' ? 1 : name[4] == 'w' ? 2 : name[4] == 'd' ? 4 : 8;
+        tree_t *c = args->items[2];
+        args->items[2] = (c && c->t == TT_ILIT) ? ilit(c->v.ival * w) : bin(TT_MUL, c, ilit(w));
+        name = "fillchar";
+    }
+    if (name && !strcmp(name, "fillchar") && args && args->count >= 5 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval && args->items[2] && args->items[2]->t == TT_ILIT) {
+        long long _lz = -1;
+        const pty_t *_lt = pty_name_type(args->items[0]->v.sval);
+        long long _tz = pty_sizeof_name(args->items[0]->v.sval);
+        if (_tz < 0 && _lt && _lt->name && !pas_sizeof_lookup(_lt->name, &_tz)) _tz = -1;
+        if (!pas_sizeof_lookup(args->items[0]->v.sval, &_lz) && _tz > 0 && _tz == args->items[2]->v.ival) {
+            tree_t *z = ast_node_new(TT_FNC);
+            ast_push(z, leaf_s(TT_VAR, "sizeof"));
+            ast_push(z, leaf_s(TT_VAR, args->items[0]->v.sval));
+            args->items[2] = z;
+        }
+    }
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0];
         tree_t *val = args->items[4];
@@ -877,8 +903,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 ast_push(f, val);
                 return mk_assign(leaf_s(TT_VAR, an), f);
             }
-            if (pas_array_isdyn(an) || pas_array_high_get(an, &ah)) {
+            const pty_t *at = pty_name_type(an);
+            if (pas_array_isdyn(an) || pas_array_high_get(an, &ah) || (at && at->k == PTK_ARRAY && at->nix <= 1)) {
                 esz = pas_elem_size(an);
+                if (esz <= 0 && at && at->k == PTK_ARRAY && at->base && at->base->name && !pas_sizeof_lookup(at->base->name, &esz)) esz = 0;
                 tree_t *f = ast_node_new(TT_FNC);
                 ast_push(f, leaf_s(TT_VAR, "__pas_fill_from"));
                 ast_push(f, leaf_s(TT_VAR, an));
