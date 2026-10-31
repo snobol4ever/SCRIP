@@ -5200,6 +5200,8 @@ void * rt_pl_db_space_ball(void *root, const char *key, void *clause_term) {
     return (m->size + need > m->limit) ? rt_pl_ball_kind1("resource_error", "program_space") : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_space_limited(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); if (!r) return 0; for (int i = 0; i < r->nmods; i++) if (((pl_db_mod_t *)r->mods)[i].limit) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cp_count(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0; if (!r) return 0; for (int i = 0; i < r->n; i++) if (pl_db_key_current(root, &r->e[i])) c++; return c; }
 const char * rt_pl_db_cp_nth(void *root, int64_t i, int *arity) {
     pl_db_reg_t *r = pl_db_registry(root, 0);
@@ -5219,6 +5221,97 @@ void * rt_pl_db_get_by_key(void *root, const char *key, int create) {
     pl_db_kmod_set(r, e->k, pl_db_mod_of_key(r, e->key, 1));
     return rt_pl_db_get(root, e->k);
 }
+static pl_cell_t *pl_db_cell_strip(pl_cell_t *t, const char **mod, int *found) {
+    extern const char *prolog_atom_name(int);
+    extern int prolog_atom_intern(const char *);
+    pl_cell_t *slow = pl_deref(t);
+    int step = 0;
+    *mod = (const char *)0;
+    *found = 0;
+    t = slow;
+    while ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":")) {
+        pl_cell_t *m = pl_deref(&((pl_cell_t *)t->p)[0]);
+        const char *nm;
+        if ((int)m->v != DT_PLATOM) break;
+        nm = prolog_atom_name((int)m->i);
+        *mod = (nm && strcmp(nm, "user")) ? nm : (const char *)0;
+        *found = 1;
+        t = pl_deref(&((pl_cell_t *)t->p)[1]);
+        if (step++ & 1) { slow = pl_deref(&((pl_cell_t *)slow->p)[1]); if (slow == t) return (pl_cell_t *)0; }
+    }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_mangle_head(pl_cell_t *h, const char *mod, pl_cell_t *out) {
+    extern const char *prolog_atom_name(int);
+    extern int prolog_atom_intern(const char *);
+    const char *nm;
+    int ar;
+    if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); ar = pl_arity(h); } else if ((int)h->v == DT_PLATOM) { nm = prolog_atom_name((int)h->i); ar = 0; } else return 0;
+    if (!nm) return 0;
+    {
+        char qn[strlen(mod) + strlen(nm) + 2];
+        int fid;
+        snprintf(qn, sizeof qn, "%s:%s", mod, nm);
+        fid = prolog_atom_intern(qn);
+        if (ar == 0) { *out = pl_make_atom(fid); return 1; }
+        {
+            pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC((size_t)ar * sizeof(pl_cell_t));
+            for (int i = 0; i < ar; i++) blk[i] = pl_make_ref(&((pl_cell_t *)h->p)[i], 0);
+            *out = pl_make_compound(fid, ar, blk);
+        }
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_callable_head(const pl_cell_t *h) { return (int)h->v == DT_PLREF || (int)h->v == DT_PLATOM; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_db_unqual_term(void *slot) {
+    extern int prolog_atom_intern(const char *);
+    pl_cell_t *a = (pl_cell_t *)slot;
+    pl_cell_t *in, *h, *body = (pl_cell_t *)0;
+    const char *mod, *mod2;
+    int found, found2, clause;
+    in = pl_db_cell_strip(a, &mod, &found);
+    if (!in) return;
+    clause = (int)in->v == DT_PLREF && pl_arity(in) == 2 && plc_functor(in) == prolog_atom_intern(":-");
+    h = clause ? pl_deref(&((pl_cell_t *)in->p)[0]) : in;
+    if (clause) { h = pl_db_cell_strip(h, &mod2, &found2); if (!h) return; body = &((pl_cell_t *)in->p)[1]; if (found2) { mod = mod2; found = 1; } }
+    if (!found || !pl_db_callable_head(h)) return;
+    {
+        pl_cell_t nh = *h;
+        if (mod && !pl_db_mangle_head(h, mod, &nh)) return;
+        if (!clause) { *a = nh; return; }
+        { pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); blk[0] = nh; blk[1] = pl_make_ref(body, 0); *a = pl_make_compound(prolog_atom_intern(":-"), 2, blk); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_db_unqual_pi(void *slot) {
+    extern const char *prolog_atom_name(int);
+    extern int prolog_atom_intern(const char *);
+    pl_cell_t *a = (pl_cell_t *)slot;
+    pl_cell_t *in, *nm, *ar;
+    const char *mod, *mod2;
+    int found, found2, fid;
+    in = pl_db_cell_strip(a, &mod, &found);
+    if (!in || (int)in->v != DT_PLREF || pl_arity(in) != 2 || plc_functor(in) != prolog_atom_intern("/")) return;
+    nm = pl_db_cell_strip(&((pl_cell_t *)in->p)[0], &mod2, &found2);
+    ar = &((pl_cell_t *)in->p)[1];
+    if (!nm || (int)nm->v != DT_PLATOM) return;
+    if (found2) { mod = mod2; found = 1; }
+    if (!found) return;
+    {
+        const char *base = prolog_atom_name((int)nm->i);
+        pl_cell_t *blk;
+        if (!base) return;
+        if (mod) { char qn[strlen(mod) + strlen(base) + 2]; snprintf(qn, sizeof qn, "%s:%s", mod, base); fid = prolog_atom_intern(qn); } else fid = (int)nm->i;
+        blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+        blk[0] = pl_make_atom(fid);
+        blk[1] = pl_make_ref(ar, 0);
+        *a = pl_make_compound(prolog_atom_intern("/"), 2, blk);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);

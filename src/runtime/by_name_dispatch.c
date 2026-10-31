@@ -25452,7 +25452,8 @@ static int pl_cell_is_clref(DESCR_t t) {
     return t.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern("$clref");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t pl_db_unqual(DESCR_t t0, void *root);
+extern void rt_pl_db_unqual_term(void *);
+extern void rt_pl_db_unqual_pi(void *);
 void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);
@@ -25471,8 +25472,11 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
     if (!pl_cell_text(args[1], ob, sizeof ob, &op) || !op) op = "assert";
     opname = op;
     if (!strcmp(op, "asserta") || !strcmp(op, "assertz")) op = "assert";
-    DESCR_t ua[2] = { !strcmp(op, "assert") ? pl_db_unqual(args[0], root) : args[0], args[1] };
+    DESCR_t ua[2] = { args[0], args[1] };
     args = ua;
+    if (!strcmp(op, "abolish")) {
+        if (!pl_xsb_dialect()) rt_pl_db_unqual_pi((void *)&args[0]);
+    } else if (!strcmp(op, "assert") || !strcmp(op, "assert_cyc") || !strcmp(op, "retract") || !strcmp(op, "retractall")) rt_pl_db_unqual_term((void *)&args[0]);
     {
         DESCR_t t = rt_pl_deref_val(args[0]);
         if (!strcmp(op, "clref_out")) return pl_iso_unbound(t) ? (void *)0 : rt_pl_ball_culprit1("uninstantiation_error", t);
@@ -25482,7 +25486,12 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             return (void *)0;
         }
         if ((!strcmp(op, "assert") || !strcmp(op, "assert_cyc")) && !rt_pl_acyclic_cell((void *)&args[0])) return rt_pl_ball_kind1("representation_error", "cyclic_term");
-        if (!strcmp(op, "assert_cyc")) return (void *)0;
+        if (!strcmp(op, "assert_cyc")) {
+            extern int rt_pl_db_space_limited(void *);
+            extern void *rt_pl_db_space_ball(void *, const char *, void *);
+            if (!rt_pl_db_space_limited(root)) return (void *)0;
+            { char key[bnd_db_key_need((void *)&args[0])]; if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return (void *)0; return rt_pl_db_space_ball(root, key, (void *)&args[0]); }
+        }
         if (pl_iso_unbound(t)) return rt_pl_ball_instantiation();
         if (!strcmp(op, "abolish")) {
             DESCR_t n, a;
@@ -25538,49 +25547,6 @@ static void *pl_db_of_clref(DESCR_t r, void *root, int *ref_out) {
     if (!ks || n.v != DT_I) return (void *)0;
     if (ref_out) *ref_out = (int)n.i;
     return rt_pl_db_get_by_key(root, ks, 0);
-}
-static int pl_db_is_colon(DESCR_t t) { return t.v == (DTYPE_t)DT_PLREF && t.p && plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern(":"); }
-static DESCR_t pl_db_mq_head(DESCR_t h, const char *m, void *root) {
-    extern void *rt_pl_db_get_by_key(void *, const char *, int);
-    extern void *rt_pl_compound_cell(const char *, int, void *);
-    const char *f = (const char *)0;
-    int n = 0;
-    if (h.v == (DTYPE_t)DT_PLATOM) f = prolog_atom_name((int)h.i);
-    else if (h.v == (DTYPE_t)DT_PLREF && h.p) { f = prolog_atom_name(plc_fid_name(h.slen)); n = plc_fid_arity(h.slen); }
-    if (!f || !m || !strcmp(m, "user")) return h;
-    {
-        char qf[strlen(m) + strlen(f) + 2], key[strlen(m) + strlen(f) + 24];
-        snprintf(qf, sizeof qf, "%s:%s", m, f);
-        snprintf(key, sizeof key, "%s/%d", qf, n);
-        if (!rt_pl_db_get_by_key(root, key, 0)) return h;
-        if (n == 0) return pl_mk_atom(qf);
-        { DESCR_t *c = (DESCR_t *)rt_pl_compound_cell(qf, n, h.p); return c ? *c : h; }
-    }
-}
-static DESCR_t pl_db_unqual(DESCR_t t0, void *root) {
-    extern void *rt_pl_compound_cell(const char *, int, void *);
-    DESCR_t t = rt_pl_deref_val(t0), h, kids[2];
-    const char *m = (const char *)0;
-    while (pl_db_is_colon(t)) {
-        DESCR_t mv = rt_pl_deref_val(((DESCR_t *)t.p)[0]);
-        if (mv.v != (DTYPE_t)DT_PLATOM) return t0;
-        m = prolog_atom_name((int)mv.i);
-        t = rt_pl_deref_val(((DESCR_t *)t.p)[1]);
-    }
-    if (t.v == (DTYPE_t)DT_PLREF && t.p && plc_fid_arity(t.slen) == 2 && plc_fid_name(t.slen) == prolog_atom_intern(":-")) {
-        h = rt_pl_deref_val(((DESCR_t *)t.p)[0]);
-        while (pl_db_is_colon(h)) {
-            DESCR_t mv = rt_pl_deref_val(((DESCR_t *)h.p)[0]);
-            if (mv.v != (DTYPE_t)DT_PLATOM) return t0;
-            m = prolog_atom_name((int)mv.i);
-            h = rt_pl_deref_val(((DESCR_t *)h.p)[1]);
-        }
-        if (!m) return t0;
-        kids[0] = pl_db_mq_head(h, m, root);
-        kids[1] = ((DESCR_t *)t.p)[1];
-        { DESCR_t *c = (DESCR_t *)rt_pl_compound_cell(":-", 2, (void *)kids); return c ? *c : t0; }
-    }
-    return m ? pl_db_mq_head(t, m, root) : t0;
 }
 static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root, int prepend) {
     extern void *rt_pl_compound_cell(const char *, int, void *);
@@ -25704,8 +25670,9 @@ static void *pl_db_of_term(DESCR_t *t, void *root, int create) {
 static DESCR_t pl_db_add_t(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
-    DESCR_t ua[1] = { pl_db_unqual(args[0], root) };
+    DESCR_t ua[1] = { args[0] };
     args = ua;
+    rt_pl_db_unqual_term((void *)&args[0]);
     { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return FAILDESCR; return rt_pl_db_assert(root, db, (void *)&args[0], prepend) ? pl_ok() : FAILDESCR; }
 }
 DESCR_t rt_pl_dop_db_assertz_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 0); }
@@ -25741,6 +25708,7 @@ DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
     extern int prolog_atom_intern(const char *);
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
+    if (!pl_xsb_dialect()) rt_pl_db_unqual_pi((void *)&args[0]);
     {
         DESCR_t t = rt_pl_deref_val(args[0]);
         if (pl_xsb_dialect() && !(t.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t.slen) == 2 && (plc_fid_name(t.slen) == prolog_atom_intern("/") || plc_fid_name(t.slen) == prolog_atom_intern(":"))) &&
@@ -25769,6 +25737,7 @@ DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
 DESCR_t rt_pl_dop_db_retractall_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
+    rt_pl_db_unqual_term((void *)&args[0]);
     { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return pl_ok(); rt_pl_db_match_erase(root, db, (void *)&args[0]); return pl_ok(); }
 }
 void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
@@ -25897,7 +25866,7 @@ DESCR_t rt_pl_dop_pl_declared_c(DESCR_t *args, int nargs, void *root) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_dynamic_one(DESCR_t s, void *root) {
+static int pl_dynamic_one(DESCR_t s, void *root, const char *mod) {
     extern int prolog_atom_intern(const char *);
     extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
     s = rt_pl_deref_val(s);
@@ -25905,15 +25874,31 @@ static int pl_dynamic_one(DESCR_t s, void *root) {
     if (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern("/")) {
         DESCR_t n = rt_pl_deref_val(((DESCR_t *)s.p)[0]);
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)s.p)[1]);
-        const char *nm = pl_atom_str(n);
+        const char *nm;
+        if (n.v == (DTYPE_t)DT_PLREF && plc_fid_arity(n.slen) == 2 && plc_fid_name(n.slen) == prolog_atom_intern(":")) {
+            const char *m = pl_atom_str(rt_pl_deref_val(((DESCR_t *)n.p)[0]));
+            n = rt_pl_deref_val(((DESCR_t *)n.p)[1]);
+            if (m) mod = strcmp(m, "user") ? m : (const char *)0;
+        }
+        nm = pl_atom_str(n);
         if (!nm || a.v != DT_I || (long long)a.i < 0) return 0;
+        if (mod) { char qn[strlen(mod) + strlen(nm) + 2]; snprintf(qn, sizeof qn, "%s:%s", mod, nm); return rt_pl_db_decl(root, qn, a.i, 2); }
         return rt_pl_db_decl(root, nm, a.i, 2);
     }
-    if (pl_is_cons(s) || (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern(","))) return pl_dynamic_one(((DESCR_t *)s.p)[0], root) &&
-        pl_dynamic_one(((DESCR_t *)s.p)[1], root);
+    if (pl_is_cons(s) || (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern(","))) return pl_dynamic_one(((DESCR_t *)s.p)[0], root, mod) &&
+        pl_dynamic_one(((DESCR_t *)s.p)[1], root, mod);
+    if (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern(":")) {
+        const char *m = pl_atom_str(rt_pl_deref_val(((DESCR_t *)s.p)[0]));
+        if (!m) return 0;
+        return pl_dynamic_one(((DESCR_t *)s.p)[1], root, strcmp(m, "user") ? m : (const char *)0);
+    }
     return 0;
 }
-DESCR_t rt_pl_dop_pl_dynamic_c(DESCR_t *args, int nargs, void *root) { if (nargs != 1) return FAILDESCR; pl_atoms_ready(); return pl_dynamic_one(args[0], root) ? pl_ok() : FAILDESCR; }
+DESCR_t rt_pl_dop_pl_dynamic_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    return pl_dynamic_one(args[0], root, (const char *)0) ? pl_ok() : FAILDESCR;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_between_guard_c(DESCR_t *args, int nargs) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);

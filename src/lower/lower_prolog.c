@@ -1898,6 +1898,47 @@ static const char * pl_head_key(const tree_t * a, int * ar_out) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_db_mq_term(const char * mod, tree_t * t) {
+    while (t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && t->c[1]) {
+        mod = strcmp(t->c[0]->v.sval, "user") ? t->c[0]->v.sval : (const char *) 0;
+        t = t->c[1];
+    }
+    if (!t) return NULL;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2) return NULL;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":-") && t->n == 2) {
+        tree_t * h = pl_db_mq_term(mod, t->c[0]);
+        tree_t * r;
+        if (!h) return NULL;
+        r = ast_node_new(TT_FNC);
+        r->v = t->v;
+        r->line = t->line;
+        ast_push(r, h);
+        ast_push(r, t->c[1]);
+        return r;
+    }
+    if (!mod) return t;
+    if (t->t == TT_FNC && t->v.sval) {
+        char qn[fmt_len("%s:%s", mod, t->v.sval)];
+        tree_t * r = ast_node_new(TT_FNC);
+        snprintf(qn, sizeof qn, "%s:%s", mod, t->v.sval);
+        r->v = t->v;
+        r->v.sval = ct_strdup(qn);
+        r->line = t->line;
+        for (int i = 0; i < t->n; i++) ast_push(r, t->c[i]);
+        return r;
+    }
+    if ((t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) {
+        char qn[fmt_len("%s:%s", mod, t->v.sval)];
+        tree_t * r = ast_node_new(t->t);
+        snprintf(qn, sizeof qn, "%s:%s", mod, t->v.sval);
+        r->v = t->v;
+        r->v.sval = ct_strdup(qn);
+        r->line = t->line;
+        return r;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_clause_unqual_head(tree_t * c) {
     tree_t * h = (c && c->t == TT_FNC && c->v.sval && !strcmp(c->v.sval, ":-") && c->n == 2) ? c->c[0] : NULL;
     if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[0]->t != TT_VAR && h->c[1]) c->c[0] = h->c[1];
@@ -3113,17 +3154,25 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * g2 = ast_node_new(TT_FNC);
                 g2->v = t->v;
                 g2->line = t->line;
-                if (t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR) {
+                int mq_swi = g_stage2.pl_dialect == PL_DIALECT_SWI;
+                if (mq_swi && strcmp(nm, "abolish")) { tree_t * mt = pl_db_mq_term((const char *) 0, t->c[0]); if (mt) { ast_push(g2, mt); return goal(cx, g2, γnext, ωfail, entry_out); } }
+                int mq_user = (t->c[0]->c[0]->t == TT_QLIT || t->c[0]->c[0]->t == TT_NAME) && t->c[0]->c[0]->v.sval && !strcmp(t->c[0]->c[0]->v.sval, "user");
+                if (t->c[0]->c[0] && (t->c[0]->c[0]->t == TT_VAR || (mq_swi && !mq_user))) {
                     tree_t * q = pl_cc_freshvar();
                     tree_t * q2 = ast_node_new(TT_VAR);
                     q2->v.ival = q->v.ival;
                     ast_push(g2, q2);
-                    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc3("$mod_head", t->c[0]->c[0], t->c[0]->c[1], q), g2), γnext, ωfail, entry_out);
+                    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc3(!mq_swi ? "$mod_head" : !strcmp(nm, "abolish") ? "$mq_db_pi" : "$mq_db_head", t->c[0]->c[0], t->c[0]->c[1], q), g2), γnext, ωfail,
+                        entry_out);
                 }
                 ast_push(g2, t->c[0]->c[1]);
                 return goal(cx, g2, γnext, ωfail, entry_out);
             }
-            if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && (t->n == 1 || t->n == 2)) pl_clause_unqual_head(t->c[0]);
+            if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && (t->n == 1 || t->n == 2)) {
+                tree_t * mt = (g_stage2.pl_dialect == PL_DIALECT_SWI && t->n == 1) ? pl_db_mq_term((const char *) 0, t->c[0]) : NULL;
+                if (mt && mt != t->c[0]) *t->c[0] = *mt;
+                pl_clause_unqual_head(t->c[0]);
+            }
             if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
                 int ar = 0;
                 const char * pn;

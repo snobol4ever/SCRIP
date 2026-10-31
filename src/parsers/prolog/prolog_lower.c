@@ -458,26 +458,43 @@ static tree_t *tr_dup(const tree_t *e) {
 extern void pl_dyn_mark(const char *name, int arity);
 extern int  pl_dyn_is_marked(const char *name, int arity);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pld_mark_spec(tree_t *spec) {
+static void pld_mark_one(const char *mod, const char *nm, int ar) {
+    if (!nm) return;
+    if (mod) { char q[strlen(mod) + strlen(nm) + 2]; snprintf(q, sizeof q, "%s:%s", mod, nm); pl_dyn_mark(ct_strdup(q), ar); }
+    else pl_dyn_mark(ct_strdup(nm), ar);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pld_unqual(tree_t *t, const char **mod) {
+    while (t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && t->c[1]) {
+        *mod = (g_stage2.pl_dialect == PL_DIALECT_SWI && strcmp(t->c[0]->v.sval, "user")) ? t->c[0]->v.sval : (const char *)0;
+        t = t->c[1];
+    }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pld_mark_spec(tree_t *spec, const char *mod) {
     if (!spec) return;
+    spec = pld_unqual(spec, &mod);
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && spec->c[1]) {
-        tree_t *nm = spec->c[0], *ar = spec->c[1];
-        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(ct_strdup(nm->v.sval), (int)ar->v.ival);
+        const char *m = mod;
+        tree_t *nm = pld_unqual(spec->c[0], &m), *ar = spec->c[1];
+        if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pld_mark_one(m, nm->v.sval, (int)ar->v.ival);
         return;
     }
-    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i]); return; }
-    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pld_mark_spec(spec->c[0]); return; }
-    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pld_mark_spec(spec->c[1]); return; }
-    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0]); pld_mark_spec(spec->c[1]); }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i], mod); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pld_mark_spec(spec->c[0], mod); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0], mod); pld_mark_spec(spec->c[1], mod); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pld_mark_clause_arg(tree_t *arg) {
+    const char *mod = (const char *)0;
+    tree_t *h;
     if (!arg) return;
-    tree_t *h = arg;
-    if (arg->t == TT_FNC && arg->v.sval && !strcmp(arg->v.sval, ":-") && arg->n == 2) h = arg->c[0];
+    h = pld_unqual(arg, &mod);
+    if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":-") && h->n == 2) h = pld_unqual(h->c[0], &mod);
     if (!h) return;
-    if (h->t == TT_FNC && h->v.sval) pl_dyn_mark(ct_strdup(h->v.sval), h->n);
-    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pl_dyn_mark(ct_strdup(h->v.sval), 0);
+    if (h->t == TT_FNC && h->v.sval) pld_mark_one(mod, h->v.sval, h->n);
+    else if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) pld_mark_one(mod, h->v.sval, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pld_mark_scan(tree_t *t, int mark_assertz) {
@@ -486,8 +503,8 @@ static void pld_mark_scan(tree_t *t, int mark_assertz) {
         const char *fn = t->v.sval;
         if (mark_assertz && (!strcmp(fn,"assertz")||!strcmp(fn,"asserta")||!strcmp(fn,"assert")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
         else if ((!strcmp(fn,"retract")||!strcmp(fn,"retractall")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
-        else if (!strcmp(fn,"abolish") && t->n == 1) pld_mark_spec(t->c[0]);
-        else if (!strcmp(fn,"dynamic") && (t->n == 1 || t->n == 2)) pld_mark_spec(t->c[0]);
+        else if (!strcmp(fn,"abolish") && t->n == 1) pld_mark_spec(t->c[0], (const char *)0);
+        else if (!strcmp(fn,"dynamic") && (t->n == 1 || t->n == 2)) pld_mark_spec(t->c[0], (const char *)0);
     }
     for (int i = 0; i < t->n; i++) pld_mark_scan(t->c[i], mark_assertz);
 }

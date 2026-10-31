@@ -2119,8 +2119,16 @@ static const char * const PL_PRELUDE_SRC =
     "'$cp_mq1'(Pre,N,A):-current_predicate(N/A),\\+sub_atom(N,_,_,_,':'),atom_concat(Pre,N,QN),\\+current_predicate(QN/A).\n"
     "'$mod_head'(M,T,QT):-atom(M),M\\==user,nonvar(T),(T=(H:-B)->'$mod_q1'(M,H,QH),QT=(QH:-B);'$mod_q1'(M,T,QT)),!.\n"
     "'$mod_head'(_,T,T).\n"
+    "'$mq_db_head'(M,T,QT):-atom(M),M\\==user,nonvar(T),!,(T=(H:-B)->'$mq_db_h1'(M,H,QH),QT=(QH:-B);'$mq_db_h1'(M,T,QT)).\n"
+    "'$mq_db_head'(_,T,T).\n"
+    "'$mq_db_h1'(_,H,H):-var(H),!.\n"
+    "'$mq_db_h1'(_,M2:H2,QH):-atom(M2),!,'$mq_db_head'(M2,H2,QH).\n"
+    "'$mq_db_h1'(M,H,QH):-callable(H),!,H=..[F|As],atom_concat(M,':',P),atom_concat(P,F,QF),QH=..[QF|As].\n"
+    "'$mq_db_h1'(_,H,H).\n"
+    "'$mq_db_pi'(M,PI,QPI):-atom(M),M\\==user,nonvar(PI),PI=N/A,atom(N),!,atom_concat(M,':',P),atom_concat(P,N,QN),QPI=QN/A.\n"
+    "'$mq_db_pi'(_,PI,PI).\n"
     "'$mod_call'(M,G):-'$mod_ccl'(M,G,G1),'$mod_qb'(M,G1,Q),!,'$mod_callq'(M,Q).\n"
-    "'$mod_callq'(M,Q):-atom(M),M\\==user,callable(Q),Q\\=_:_,current_prolog_flag('$dialect',swi),!,functor(Q,N,A),catch(call(Q),error(existence_error(procedure,N/A),_),throw(error(existence_error(procedure,M:N/A),M:N/A))).\n"
+    "'$mod_callq'(M,Q):-atom(M),M\\==user,callable(Q),Q\\=_:_,current_prolog_flag('$dialect',swi),!,functor(Q,N,A),'$mod_head'(M,Q,Q2),catch(call(Q2),error(existence_error(procedure,N/A),_),throw(error(existence_error(procedure,M:N/A),M:N/A))).\n"
     "'$mod_callq'(_,Q):-call(Q).\n"
     "'$mod_ccl'(M,G,G1):-atom(M),M\\==user,compound(G),functor(G,clause,N),(N=:=2;N=:=3),arg(1,G,H),\\+ (nonvar(H),H=_:_),!,G=..[clause,H|Rs],G1=..[clause,M:H|Rs].\n"
     "'$mod_ccl'(_,G,G).\n"
@@ -4540,7 +4548,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (armed) pl_cv_add(&referenced, "$wakeup");
         for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
     }
-    if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); }
+    if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); pl_cv_add(&referenced, "$mq_db_head"); pl_cv_add(&referenced, "$mq_db_pi"); }
     {
         extern int prolog_program_swi_dot(const PlClause *);
         int dot = prolog_program_swi_dot(prog->head);
