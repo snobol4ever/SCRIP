@@ -72,7 +72,7 @@ static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_begins_nexpr(IcnTkKind k) {
     switch (k) {
-    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON:
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PSETCUR:
     case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
     case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
     case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
@@ -121,6 +121,14 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_CSET) {
         advance(p);
         return e_leaf_sval(TT_CSET, t.val.sval.data, (int)t.val.sval.len);
+    }
+    if (t.kind == TK_PUNEVAL) {
+        advance(p);
+        IcnLexer sub; icn_lex_init(&sub, t.val.sval.data ? t.val.sval.data : ""); sub.unicon = p->lex->unicon;
+        IcnParser sp; icn_parse_init(&sp, &sub);
+        tree_t * inner = parse_expr(&sp);
+        if (sp.had_error || !inner) { parser_error(p, "expected an expression between backquotes"); return NULL; }
+        tree_t * df = ast_node_new(TT_DEFER); push_child(df, inner); df->line = t.line; return df;
     }
     if (t.kind == TK_COLONCOLON) {
         advance(p);
@@ -331,6 +339,7 @@ static tree_t *parse_limit(IcnParser *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_unary(IcnParser *p) {
+    if (check(p, TK_PSETCUR)) { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_CAPT_CURSOR, parse_unary(p)); }
     int line = p->cur.line; (void)line;
     if (check(p, TK_MINUS))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_MNS,        parse_unary(p)); }
     if (check(p, TK_PLUS))      { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_PLS,        parse_unary(p)); }
@@ -391,6 +400,8 @@ static tree_t *parse_add(IcnParser *p) {
         tree_e k;
         if      (check(p, TK_PLUS))  k = TT_ADD;
         else if (check(p, TK_MINUS)) k = TT_SUB;
+        else if (check(p, TK_PASSNM)) k = TT_CAPT_COND_ASGN;
+        else if (check(p, TK_PIMD))   k = TT_CAPT_IMMED_ASGN;
         else break;
         int ol = p->cur.line;
         advance(p);
@@ -487,7 +498,8 @@ static tree_t *parse_and(IcnParser *p) {
 static tree_t *parse_to(IcnParser *p) {
     tree_t *n = parse_alt(p);
     if (!n) return NULL;
-    while (check(p, TK_TO)) {
+    while (check(p, TK_TO) || check(p, TK_POR)) {
+        if (check(p, TK_POR)) { int ol = p->cur.line; advance(p); n = e_binary_at(ol, TT_ALT, n, parse_alt(p)); continue; }
         advance(p);
         tree_t *limit = parse_alt(p);
         if (check(p, TK_BY)) {
@@ -506,6 +518,7 @@ static tree_t *parse_to(IcnParser *p) {
 static tree_t *parse_alt(IcnParser *p) {
     tree_t *n = parse_rel(p);
     if (!n) return NULL;
+    if (check(p, TK_PAND)) { int ol = p->cur.line; advance(p); return e_binary_at(ol, TT_PAND, n, parse_alt(p)); }
     if (!check(p, TK_BAR)) return n;
     tree_t *alt = ast_node_new(TT_ALTERNATE);
     push_child(alt, n);
@@ -526,13 +539,20 @@ static int is_augop(IcnTkKind k) {
            k==TK_AUGSLT   || k==TK_AUGSLE  || k==TK_AUGSGT || k==TK_AUGSGE || k==TK_AUGSNE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *parse_activate(IcnParser *p) {
+static tree_t *parse_pmatch(IcnParser *p) {
     tree_t *n = parse_to(p);
+    if (!n) return NULL;
+    while (check(p, TK_PMATCH)) { int ol = p->cur.line; advance(p); n = e_binary_at(ol, TT_PMATCH, n, parse_to(p)); }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *parse_activate(IcnParser *p) {
+    tree_t *n = parse_pmatch(p);
     if (!n) return NULL;
     while (check(p, TK_AT)) {
         int atline = p->cur.line;
         advance(p);
-        n = e_binary(TT_ACTIVATE, n, parse_to(p));
+        n = e_binary(TT_ACTIVATE, n, parse_pmatch(p));
         if (n) n->line = atline;
     }
     return n;

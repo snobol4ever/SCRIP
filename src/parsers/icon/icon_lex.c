@@ -357,6 +357,7 @@ static IcnToken lex_one(IcnLexer *lx) {
             }
             return make_tok(TK_PLUS, line, col);
         case '-':
+            if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_PASSNM, line, col); }
             if (lex_cur(lx) == '-') {
                 lex_advance(lx);
                 if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
@@ -476,6 +477,7 @@ static IcnToken lex_one(IcnLexer *lx) {
             }
             return make_tok(TK_GT, line, col);
         case '=':
+            if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_PIMD, line, col); }
             if (lex_cur(lx) == '=') {
                 lex_advance(lx);
                 if (lex_cur(lx) == '=') {
@@ -550,14 +552,26 @@ static IcnToken lex_one(IcnLexer *lx) {
             if (lx->unicon && lex_cur(lx) == ':') { lex_advance(lx); return make_tok(TK_COLONCOLON, line, col); }
             return make_tok(TK_COLON, line, col);
         case '&':
+            if (lex_cur(lx) == '&') { lex_advance(lx); return make_tok(TK_PAND, line, col); }
             if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
                 lex_advance(lx); lex_advance(lx);
                 return make_tok(TK_AUGAND, line, col);
             }
             return make_tok(TK_AND, line, col);
+        case '`':
+            {
+                char * bb = NULL; int bl = 0, bc = 0;
+                while (lex_cur(lx) && lex_cur(lx) != '`') buf_push(&bb, &bl, &bc, lex_advance(lx));
+                if (lex_cur(lx) != '`') { lx->had_error = 1; snprintf(lx->errmsg, sizeof lx->errmsg, "line %d: unterminated ` expression", line); return make_tok(TK_ERROR, line, col); }
+                lex_advance(lx);
+                if (!bb) bb = ct_strdup("");
+                IcnToken bt = make_tok(TK_PUNEVAL, line, col); bt.val.sval.data = bb; bt.val.sval.len = (size_t) bl; return bt;
+            }
+            break;
         case '\\': return make_tok(TK_BACKSLASH, line, col);
         case '!': return make_tok(TK_BANG, line, col);
         case '?':
+            if (lex_cur(lx) == '?') { lex_advance(lx); return make_tok(TK_PMATCH, line, col); }
             if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
                 lex_advance(lx); lex_advance(lx);
                 return make_tok(TK_AUGSCAN, line, col);
@@ -570,6 +584,8 @@ static IcnToken lex_one(IcnLexer *lx) {
             }
             return make_tok(TK_AT, line, col);
         case '.':
+            if (lex_cur(lx) == '|') { lex_advance(lx); return make_tok(TK_POR, line, col); }
+            if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_PSETCUR, line, col); }
             if (isdigit((unsigned char)lex_cur(lx))) {
                 lx->pos--; lx->col--;
                 return scan_number(lx);
@@ -1135,6 +1151,13 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_ABSTRACT:  return "abstract";
         case TK_THREAD:    return "thread";
         case TK_CRITICAL:  return "critical";
+        case TK_PMATCH:    return "??";
+        case TK_POR:       return ".|";
+        case TK_PAND:      return "&&";
+        case TK_PASSNM:    return "->";
+        case TK_PIMD:      return "=>";
+        case TK_PSETCUR:   return ".>";
+        case TK_PUNEVAL:   return "`";
         default:           return "???";
     }
 }

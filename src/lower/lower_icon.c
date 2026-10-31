@@ -1211,6 +1211,15 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         return lc_key(cx, t, t->v.sval, γ, ω, res);
         case TT_NUL:
         { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
+        case TT_PMATCH:
+        case TT_PAND:
+        case TT_CAPT_COND_ASGN:
+        case TT_CAPT_IMMED_ASGN:
+        case TT_CAPT_CURSOR:
+        case TT_DEFER:
+        case TT_ALT:
+        fprintf(stderr, "icon: line %d: a Unicon pattern operator is parsed but not lowered yet (ARCH-UNICON step 4b: the pattern type on the SNOBOL4 boxes)\n", t->line);
+        exit(1);
         case TT_FIELD:
         {
             IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);

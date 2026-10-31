@@ -126,6 +126,13 @@ typedef enum {
     TK_ABSTRACT,
     TK_THREAD,
     TK_CRITICAL,
+    TK_PMATCH,
+    TK_POR,
+    TK_PAND,
+    TK_PASSNM,
+    TK_PIMD,
+    TK_PSETCUR,
+    TK_PUNEVAL,
     TK_COUNT
 } IcnTkKind;
 typedef union {
