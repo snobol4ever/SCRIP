@@ -2924,6 +2924,20 @@ int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell) {
     return unified && !bound_spec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_ord_cmp(int by_key, pl_cell_t **e, int a, int b) { return by_key ? rt_pl_cell_compare((pl_cell_t *)e[a]->p, (pl_cell_t *)e[b]->p) : rt_pl_cell_compare(e[a], e[b]); }
+static int *plc_merge_order(int by_key, pl_cell_t **e, int n, int *ord, int *tmp) {
+    for (int i = 0; i < n; i++) ord[i] = i;
+    for (int w = 1; w < n; w *= 2) {
+        for (int lo = 0; lo < n; lo += 2 * w) {
+            int mid = lo + w < n ? lo + w : n, hi = lo + 2 * w < n ? lo + 2 * w : n, a = lo, b = mid, k = lo;
+            while (a < mid && b < hi) tmp[k++] = plc_ord_cmp(by_key, e, ord[a], ord[b]) <= 0 ? ord[a++] : ord[b++];
+            while (a < mid) tmp[k++] = ord[a++];
+            while (b < hi) tmp[k++] = ord[b++];
+        }
+        { int *t = ord; ord = tmp; tmp = t; }
+    }
+    return ord;
+}
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_t *cx) {
     int dot_id = prolog_atom_intern(".");
     long nl = plc_list_cells(list_cell, dot_id);
@@ -2936,15 +2950,15 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
         elems[n++] = &aa[0];
         cur = pl_deref(&aa[1]);
     }
-    for (int i = 1; i < n; i++) { pl_cell_t *key = elems[i]; int j = i - 1; while (j >= 0 && rt_pl_cell_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; } elems[j + 1] = key; }
+    int ordb[n + 1], tmpb[n + 1];
+    int *ord = plc_merge_order(0, elems, n, ordb, tmpb);
     int m = 0;
-    int out_idx[n + 1];
-    for (int i = 0; i < n; i++) { if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue; out_idx[m++] = i; }
+    for (int i = 0; i < n; i++) { if (!do_msort && m > 0 && rt_pl_cell_compare(elems[ord[m - 1]], elems[ord[i]]) == 0) continue; ord[m++] = ord[i]; }
     pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
     pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
-        blk[0] = pl_make_ref(elems[out_idx[i]], (int)elems[out_idx[i]]->slen);
+        blk[0] = pl_make_ref(elems[ord[i]], (int)elems[ord[i]]->slen);
         blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
@@ -3024,18 +3038,13 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *elems[plc_list_len(list_cell, dot_id) + 1];
     int n = plc_pairs_extract(list_cell, elems, dot_id, dash_id);
     if (n < 0) return 0;
-    for (int i = 1; i < n; i++) {
-        pl_cell_t *key = elems[i];
-        pl_cell_t *kkey = (pl_cell_t *)key->p;
-        int j = i - 1;
-        while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, kkey) > 0) { elems[j + 1] = elems[j]; j--; }
-        elems[j + 1] = key;
-    }
+    int ordb[n + 1], tmpb[n + 1];
+    int *ord = plc_merge_order(1, elems, n, ordb, tmpb);
     pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
     pl_cell_t result = nil;
     for (int i = n - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
-        blk[0] = pl_make_ref(elems[i], (int)elems[i]->slen);
+        blk[0] = pl_make_ref(elems[ord[i]], (int)elems[ord[i]]->slen);
         blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
