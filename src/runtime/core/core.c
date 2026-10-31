@@ -2810,133 +2810,6 @@ void core_lib_init(void) {
     }
     { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
 #endif
-    extern void register_fn_lit(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
-    extern DESCR_t sno_stmt_error_fn(DESCR_t *, int);
-    register_fn_lit("SNO$STERR", sno_stmt_error_fn, 0, 0);
-    register_fn_lit("GT", _GT_, 2, 2);
-    register_fn_lit("LT", _LT_, 2, 2);
-    register_fn_lit("GE", _GE_, 2, 2);
-    register_fn_lit("LE", _LE_, 2, 2);
-    register_fn_lit("EQ", _EQ_, 2, 2);
-    register_fn_lit("NE", _NE_, 2, 2);
-    register_fn_lit("add", _b_add, 2, 2);
-    register_fn_lit("sub", _b_sub, 2, 2);
-    register_fn_lit("mul", _b_mul, 2, 2);
-    register_fn_lit("DIVIDE_fn",_b_div, 2, 2);
-    register_fn_lit("POWER_fn", _b_pow, 2, 2);
-    register_fn_lit("neg", _b_neg, 1, 1);
-    register_fn_lit("__num_pos", _b_pos, 1, 1);
-    register_fn_lit("PLS", _b_pos, 1, 1);
-    register_fn_lit("INTEGER", _INTEGER_, 1, 1);
-    register_fn_lit("SIZE", _SIZE_, 1, 1);
-    register_fn_lit("IDENT", _IDENT_, 0, 2);
-    register_fn_lit("DIFFER", _DIFFER_, 0, 2);
-    register_fn_lit("VDIFFER", _VDIFFER_, 0, 2);
-    register_fn_lit("NUMERIC", _NUMERIC_, 1, 1);
-    register_fn_lit("NAME", _NAME_, 1, 1);
-    register_fn_lit("LGT", _LGT_, 2, 2);
-    register_fn_lit("LLT", _LLT_, 2, 2);
-    register_fn_lit("LGE", _LGE_, 2, 2);
-    register_fn_lit("LLE", _LLE_, 2, 2);
-    register_fn_lit("LEQ", _LEQ_, 2, 2);
-    register_fn_lit("LNE", _LNE_, 2, 2);
-    register_fn_lit("HOST", _HOST_, 1, 5);
-    { extern DESCR_t _MATCHAT_(DESCR_t *, int); register_fn_lit("MATCHAT", _MATCHAT_, 0, 0); }
-    register_fn_lit("ENDFILE", _ENDFILE_, 1, 1);
-    register_fn_lit("BACKSPACE", _BACKSPACE_, 1, 1);
-    register_fn_lit("DETACH", _DETACH_, 1, 1);
-    register_fn_lit("EJECT", _EJECT_, 1, 1);
-    register_fn_lit("REWIND", _REWIND_, 1, 1);
-    register_fn_lit("SET", _SET_, 1, 3);
-    register_fn_lit("APPLY", _APPLY_, 1, -1);
-    register_fn_lit("LPAD", _LPAD_, 2, 3);
-    register_fn_lit("RPAD", _RPAD_, 2, 3);
-    register_fn_lit("CHAR", _CHAR_, 1, 1);
-    register_fn_lit("ORD", _ORD_, 1, 1);
-    register_fn_lit("DUPL", _DUPL_, 2, 2);
-    register_fn_lit("REPLACE", _REPLACE_, 3, 3);
-    register_fn_lit("REMDR", _REMDR_, 2, 2);
-    register_fn_lit("ATAN", _ATAN_, 1, 1);
-    register_fn_lit("CHOP", _CHOP_, 1, 1);
-    register_fn_lit("COS", _COS_, 1, 1);
-    register_fn_lit("EXP", _EXP_, 1, 1);
-    register_fn_lit("LN", _LN_, 1, 1);
-    register_fn_lit("SIN", _SIN_, 1, 1);
-    register_fn_lit("SQRT", _SQRT_, 1, 1);
-    register_fn_lit("TAN", _TAN_, 1, 1);
-    register_fn_lit("TRIM", _TRIM_, 1, 1);
-    register_fn_lit("SUBSTR", _SUBSTR_, 2, 3);
-    register_fn_lit("REVERSE", _REVERSE_, 1, 1);
-    register_fn_lit("DATATYPE", _DATATYPE_, 1, 1);
-    register_fn_lit("DATA", _DATA_, 1, 1);
-    register_fn_lit("ARRAY", _ARRAY_, 1, 2);
-    register_fn_lit("TABLE", _TABLE_, 0, 3);
-    register_fn_lit("CONVERT", _CONVERT_, 2, 2);
-    register_fn_lit("PROTOTYPE", _PROTOTYPE_, 1, 1);
-    register_fn_lit("ITEM", _ITEM_, 2, -1);
-    register_fn_lit("VALUE", _VALUE_, 1, 1);
-    register_fn_lit("COPY", _COPY_, 1, 1);
-    register_fn_lit("EVAL", _EVAL_, 1, 1);
-    register_fn_lit("CODE", _CODE_, 1, 1);
-    register_fn_lit("LABELCODE", _LABELCODE_, 1, 1);
-    register_fn_lit("DEFINE", _DEFINE_, 1, 2);
-    register_fn_lit("FIELD", _FIELD_, 2, 2);
-    register_fn_lit("OPSYN", _OPSYN_, 2, 3);
-    register_fn_lit("ARG", _ARG_, 2, 2);
-    register_fn_lit("LOCAL", _LOCAL_, 2, 2);
-    register_fn_lit("SORT", _SORT_, 1, 2);
-    register_fn_lit("INPUT", _INPUT_, 1, 4);
-    register_fn_lit("OUTPUT", _OUTPUT_, 1, 4);
-    register_fn_lit("n", _b_tree_n, 1, 1);
-    register_fn_lit("t", _b_tree_t, 1, 1);
-    register_fn_lit("v", _b_tree_v, 1, 1);
-    register_fn_lit("c", _b_tree_c, 1, 1);
-    register_fn_lit("DATE", _DATE_, 0, 1);
-    register_fn_lit("TIME", _TIME_, 0, 0);
-    register_fn_lit("DUMP", _DUMP_, 0, 1);
-    register_fn_lit("TRACE", _TRACE_, 1, 4);
-    register_fn_lit("STOPTR", _STOPTR_, 1, 2);
-    register_fn_lit("LOAD", _b_LOAD_stub, 1, 2);
-    register_fn_lit("UNLOAD", _UNLOAD_, 1, 1);
-    register_fn_lit("MON_OPEN", _b_MON_OPEN, 3, 3);
-    register_fn_lit("MON_PUT_S_VALUE", _b_MON_PUT_S_VALUE, 2, 2);
-    register_fn_lit("MON_PUT_I_VALUE", _b_MON_PUT_I_VALUE, 2, 2);
-    register_fn_lit("MON_PUT_R_VALUE", _b_MON_PUT_R_VALUE, 2, 2);
-    register_fn_lit("MON_PUT_O_VALUE", _b_MON_PUT_O_VALUE, 2, 2);
-    register_fn_lit("MON_PUT_S_RETURN",_b_MON_PUT_S_RETURN, 2, 2);
-    register_fn_lit("MON_PUT_I_RETURN",_b_MON_PUT_I_RETURN, 2, 2);
-    register_fn_lit("MON_PUT_R_RETURN",_b_MON_PUT_R_RETURN, 2, 2);
-    register_fn_lit("MON_PUT_O_RETURN",_b_MON_PUT_O_RETURN, 2, 2);
-    register_fn_lit("MON_PUT_CALL", _b_MON_PUT_CALL, 1, 1);
-    register_fn_lit("MON_CLOSE", _b_MON_CLOSE, 0, 0);
-    register_fn_lit("DATE", _DATE_, 0, 1);
-    register_fn_lit("TIME", _TIME_, 0, 0);
-    register_fn_lit("RSORT", _RSORT_, 1, 2);
-    register_fn_lit("CLEAR", _CLEAR_, 0, 1);
-    register_fn_lit("SETEXIT", _SETEXIT_, 0, 1);
-    register_fn_lit("FUNCTION", _FUNCTION_, 1, 1);
-    register_fn_lit("LABEL", _LABEL_, 1, 1);
-    register_fn_lit("COLLECT", _COLLECT_, 0, 1);
-    register_fn_lit("SPAN", _PAT_SPAN_, 1, 1);
-    register_fn_lit("BREAK", _PAT_BREAK_, 1, 1);
-    register_fn_lit("BREAKX", _PAT_BREAKX_, 1, 1);
-    register_fn_lit("ANY", _PAT_ANY_, 1, 1);
-    register_fn_lit("NOTANY", _PAT_NOTANY_, 1, 1);
-    register_fn_lit("LEN", _PAT_LEN_, 1, 1);
-    register_fn_lit("POS", _PAT_POS_, 1, 1);
-    register_fn_lit("RPOS", _PAT_RPOS_, 1, 1);
-    register_fn_lit("TAB", _PAT_TAB_, 1, 1);
-    register_fn_lit("RTAB", _PAT_RTAB_, 1, 1);
-    register_fn_lit("ARB", _PAT_ARB_, 0, 0);
-    register_fn_lit("REM", _PAT_REM_, 0, 0);
-    register_fn_lit("FAIL", _PAT_FAIL_, 0, 0);
-    register_fn_lit("ABORT", _PAT_ABORT_, 0, 0);
-    register_fn_lit("SUCCEED", _PAT_SUCCEED_, 0, 0);
-    register_fn_lit("BAL", _PAT_BAL_, 0, 0);
-    register_fn_lit("ARBNO", _PAT_ARBNO_, 1, 1);
-    register_fn_lit("FENCE", _PAT_FENCE_, 0, 1);
-    register_fn_lit("ALT", _PAT_ALT_, 2, 2);
-    register_fn_lit("CONCAT", _PAT_CONCAT_, 2, 2);
     NV_SET_fn("ARB", pat_arb());
     NV_SET_fn("BAL", pat_bal());
     NV_SET_fn("FENCE", pat_fence());
@@ -2949,10 +2822,6 @@ void core_lib_init(void) {
     g_runtime.core.monitor_ready = 1;
 #endif
     DEFDAT_fn("tree(t,v,n,c)");
-    register_fn_lit("c", _b_tree_c, 1, 1);
-    register_fn_lit("t", _b_tree_t, 1, 1);
-    register_fn_lit("v", _b_tree_v, 1, 1);
-    register_fn_lit("n", _b_tree_n, 1, 1);
     g_runtime.abi.protected_pat_vars_armed = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4487,6 +4356,38 @@ static void _func_count_one(void) { if (++_func_bw[1] > _func_nbuckets) _func_re
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
 static FNCBLK_t *_func_head_at(unsigned h) { return g_runtime.core.func_bslab ? _func_buckets[h] : (FNCBLK_t *)0; }
+extern DESCR_t sno_stmt_error_fn(DESCR_t *, int);
+extern DESCR_t _MATCHAT_(DESCR_t *, int);
+#include "core_fn_table.inc"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const FNCBLK_t *_func_static_find(const char *name, unsigned hr) {
+    for (unsigned sl = hr & (CORE_FN_HASHSZ - 1); g_core_fn_slot[sl]; sl = (sl + 1) & (CORE_FN_HASHSZ - 1)) {
+        unsigned k = g_core_fn_slot[sl] - 1u;
+        if (g_core_fn_hash[k] == hr && strcmp(g_core_fn[k].name, name) == 0) return &g_core_fn[k];
+    }
+    return (const FNCBLK_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const FNCBLK_t *_func_find(const char *name) {
+    unsigned hr = _func_hash_raw(name);
+    for (FNCBLK_t *e = _func_head_at(hr & (_func_nbuckets - 1)); e; e = e->next) if (strcmp(e->name, name) == 0) return e;
+    return _func_static_find(name, hr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FNCBLK_t *_func_own(const char *name) {
+    unsigned hr = _func_hash_raw(name);
+    _func_init();
+    unsigned h = hr & (_func_nbuckets - 1);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return e;
+    const FNCBLK_t *st = _func_static_find(name, hr);
+    if (!st) return (FNCBLK_t *)0;
+    FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
+    *fe = *st;
+    fe->next = _func_buckets[h];
+    _func_buckets[h] = fe;
+    _func_count_one();
+    return fe;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
@@ -4553,15 +4454,14 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_fn_set_arity(const char *name, int min_args, int max_args) {
     if (!name || !*name) return;
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args > 0 ? min_args : 0; e->max_args = max_args; e->max_set = max_args >= 0; return; }
+    FNCBLK_t *e = _func_own(name);
+    if (e) { e->min_args = min_args > 0 ? min_args : 0; e->max_args = max_args; e->max_set = max_args >= 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_fn_arity_norm(const char *name, int nargs) {
     if (!name || !*name) return nargs;
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) return !e->fn ? nargs : e->min_args > nargs ? e->min_args : (e->max_set && nargs > e->max_args) ? e->max_args :
-        nargs;
+    const FNCBLK_t *e = _func_find(name);
+    if (e) return !e->fn ? nargs : e->min_args > nargs ? e->min_args : (e->max_set && nargs > e->max_args) ? e->max_args : nargs;
     return nargs;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4787,14 +4687,14 @@ DESCR_t rt_sno_cnv_num(DESCR_t v, int want) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *core_define_entry_label(const char *name) {
     if (!name || !*name) return (const char *)0;
-    { unsigned h = _func_hash(name); for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) return e->entry_label ? e->entry_label : e->name; }
+    { const FNCBLK_t *e = _func_find(name); if (e) return e->entry_label ? e->entry_label : e->name; }
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!name || !*name) return 0;
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) { if (!e->fn) return 0; *out = e->fn(args, nargs); return 1; }
+    const FNCBLK_t *e = _func_find(name);
+    if (e) { if (!e->fn) return 0; *out = e->fn(args, nargs); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4812,6 +4712,7 @@ int UNLOAD_fn(const char *name) {
         rt_proc_unregister(name);
         return 1;
     }
+    if (_func_static_find(name, _func_hash_raw(name))) return 0;
     rt_proc_unregister(name);
     return 1;
 }
@@ -4822,9 +4723,8 @@ void register_fn_alias(const char *newname, const char *oldname) {
     char *on = rt_heap_strdup_c(oldname);
     newname = nn;
     oldname = on;
-    FNCBLK_t *old_entry = NULL;
-    unsigned ho = _func_hash(oldname);
-    for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) { if (strcmp(e->name, oldname) == 0) { old_entry = e; break; } }
+    const FNCBLK_t *old_entry = NULL;
+    old_entry = _func_find(oldname);
     FNCBLK_t *fe = rt_gcheap_alloc(HB_FNCB, sizeof(FNCBLK_t));
     fe->name = rt_heap_strdup_c(newname);
     if (old_entry) {
@@ -4900,9 +4800,9 @@ static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, D
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *rq) {
     if (!name) return NULVCL;
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
-        if (strcmp(e->name, name) == 0) {
+    {
+        const FNCBLK_t *e = _func_find(name);
+        if (e) {
             {
                 extern int rt_dat_field_of_any_live(const char *);
                 extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
@@ -4939,7 +4839,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int core_fn_is_c(const char *name) { if (!name) return 0; for (FNCBLK_t *e = _func_head_at(_func_hash(name)); e; e = e->next) if (strcmp(e->name, name) == 0) return e->fn != NULL; return 0; }
+int core_fn_is_c(const char *name) { if (!name) return 0; const FNCBLK_t *e = _func_find(name); return e ? e->fn != NULL : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn_rq(const char *name, DESCR_t *args, int nargs, long *rq) {
     long sv_stno = g_runtime.abi.stno, sv_line = g_runtime.abi.line;
@@ -4961,10 +4861,7 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
     const char *fname = VARVAL_fn(a[0]);
     if (!fname) return FAILDESCR;
     int64_t idx = to_int(a[1]);
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
-        if (strcmp(e->name, fname) == 0) { if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR; return NAMEVAL(rt_heap_strdup_c(e->params[idx - 1])); }
-    }
+    { const FNCBLK_t *e = _func_find(fname); if (e) { if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR; return NAMEVAL(rt_heap_strdup_c(e->params[idx - 1])); } }
     {
         extern int rt_proc_nformals(const char *);
         extern const char *rt_proc_pname(const char *, int);
@@ -4979,10 +4876,7 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     const char *fname = VARVAL_fn(a[0]);
     if (!fname) return FAILDESCR;
     int64_t idx = to_int(a[1]);
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
-        if (strcmp(e->name, fname) == 0) { if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR; return NAMEVAL(rt_heap_strdup_c(e->locals[idx - 1])); }
-    }
+    { const FNCBLK_t *e = _func_find(fname); if (e) { if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR; return NAMEVAL(rt_heap_strdup_c(e->locals[idx - 1])); } }
     {
         extern int rt_proc_nparams(const char *);
         extern int rt_proc_nformals(const char *);
@@ -5041,53 +4935,19 @@ static DESCR_t _FIELD_(DESCR_t *a, int n) {
     return STRVAL(rt_heap_strdup_c(fld));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int FNCEX_fn(const char *name) {
-    if (!name) return 0;
-    unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) return 1;
-    { extern int rt_proc_name_exists(const char *); return rt_proc_name_exists(name); }
-}
+int FNCEX_fn(const char *name) { if (!name) return 0; if (_func_find(name)) return 1; { extern int rt_proc_name_exists(const char *); return rt_proc_name_exists(name); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int FUNC_NPARAMS_fn(const char *fname) {
-    if (!fname) return 0;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return e->nparams;
-    return 0;
-}
+int FUNC_NPARAMS_fn(const char *fname) { if (!fname) return 0; const FNCBLK_t *e = _func_find(fname); return e ? e->nparams : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int FUNC_NLOCALS_fn(const char *fname) {
-    if (!fname) return 0;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return e->nlocals;
-    return 0;
-}
+int FUNC_NLOCALS_fn(const char *fname) { if (!fname) return 0; const FNCBLK_t *e = _func_find(fname); return e ? e->nlocals : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *FUNC_PARAM_fn(const char *fname, int i) {
-    if (!fname) return NULL;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return (i >= 0 && i < e->nparams) ? e->params[i] : NULL;
-    return NULL;
-}
+const char *FUNC_PARAM_fn(const char *fname, int i) { if (!fname) return NULL; const FNCBLK_t *e = _func_find(fname); return e && (i >= 0 && i < e->nparams) ? e->params[i] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *FUNC_LOCAL_fn(const char *fname, int i) {
-    if (!fname) return NULL;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return (i >= 0 && i < e->nlocals) ? e->locals[i] : NULL;
-    return NULL;
-}
+const char *FUNC_LOCAL_fn(const char *fname, int i) { if (!fname) return NULL; const FNCBLK_t *e = _func_find(fname); return e && (i >= 0 && i < e->nlocals) ? e->locals[i] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_fn_entry_label_set(const char *fname, const char *entry) {
-    if (!fname || !entry) return;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) { e->entry_label = rt_heap_strdup_c(entry); return; }
-}
+void core_fn_entry_label_set(const char *fname, const char *entry) { if (!fname || !entry) return; FNCBLK_t *e = _func_own(fname); if (e) e->entry_label = rt_heap_strdup_c(entry); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *FUNC_ENTRY_fn(const char *fname) {
-    if (!fname) return NULL;
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return e->entry_label ? e->entry_label : e->name;
-    return NULL;
-}
+const char *FUNC_ENTRY_fn(const char *fname) { if (!fname) return NULL; const FNCBLK_t *e = _func_find(fname); return e ? (e->entry_label ? e->entry_label : e->name) : NULL; }
 static void _input_fp_release(void) {
     if (g_runtime.core.input_fp && g_runtime.core.input_fp != stdin) {
         int owned = 0;
