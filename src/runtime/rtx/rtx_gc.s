@@ -522,6 +522,8 @@ RTX_ENTRY(rt_gc_walk_words_a)
     mov     rdi, r10
     mov     rsi, rax
     RTX_CALL(rt_gc_pcell_fault)
+    ud2
+    RTX_CFA(56)
 #endif
 .Lmk_data:
     cmp     dword ptr [rsi + 4], DATA_ELEMS_SLEN
