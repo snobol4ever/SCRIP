@@ -9,8 +9,10 @@
     atom, I integer, f float, n number, r range (Start-Length), S string, t term.  The syntax: literals; . ; [...] and [^...] with
     ranges and the class escapes; \d \D \w \W \s \S \b \B; \n \t \r \f \v \e \0 and \xHH / \x{H...}; any other escaped character is
     itself; ^ $ (\A \z \Z); groups ( ), (?: ), (?<name> ) and (?P<name> ), a name's suffix _A _I _F _N _R _S _T giving that group's
-    capture type; alternation |; quantifiers * + ? {n} {n,} {n,m}, each greedy, lazy (?) or possessive (+, matched as greedy).  A
-    construct outside the subset (back references, look-around, atomic groups, \p{...}) raises existence_error(re_syntax, Text).
+    capture type; alternation |; quantifiers * + ? {n} {n,} {n,m}, each greedy, lazy (?) or possessive (+, matched as greedy); back
+    references \1 to \9, which match the text their group captured on the path being tried (a group not yet set fails the reference,
+    as in PCRE) and honour the i flag.  A construct outside the subset (look-around, atomic groups, \p{...}) raises
+    existence_error(re_syntax, Text).  re_compile/3 prepares a pattern once; the other predicates accept what it returns.
 
     THE MATCH.  Leftmost, and among the matches at one start the first in PCRE's backtracking order (alternatives left to right,
     greedy repeats longest first).  Positions count characters.  A match is a dict re_match{0: Whole, 1: G1, ..., Name: Gn} -- an
@@ -22,7 +24,8 @@
     shape ((?<num>\d+)/r read as Start-Length).
 */
 :- module(pcre, [ re_match/2, re_match/3, re_matchsub/3, re_matchsub/4, re_foldl/6, re_split/3, re_split/4, re_replace/4,
-                  re_replace/5 ]).
+                  re_replace/5, re_compile/3 ]).
+re_compile(Re, '$re_compiled'(R), Opts) :- '$re_prep'(Re, Opts, R).
 re_match(Re, S) :- re_match(Re, S, []).
 re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.
 re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).
@@ -61,7 +64,8 @@ re_replace(Re, With, S, Out, Opts) :-
 '$re_subst'([0'$, D|Ws], M, Out) :- D >= 0'0, D =< 0'9, !, I is D - 0'0, '$re_group_codes'(M, I, G), '$re_subst'(Ws, M, R), append(G, R, Out).
 '$re_subst'([C|Ws], M, [C|R]) :- '$re_subst'(Ws, M, R).
 '$re_group_codes'(m(_, C0, Caps, _), I, G) :- ( I =:= 0 -> C = C0 ; memberchk(I-C, Caps) -> true ; C = c(0, 0, []) ), C = c(S, E, Cs), N is E - S, '$re_take'(N, Cs, G).
-/* ---- the prepared pattern: re(Ast, NGroups, Flags, Names, DefaultType) ---- */
+/* ---- the prepared pattern: re(Ast, NGroups, Flags, Names, DefaultType); re_compile/3 wraps it as '$re_compiled'(Prepared) ---- */
+'$re_prep'(Re, _, R) :- nonvar(Re), Re = '$re_compiled'(R0), !, R = R0.
 '$re_prep'(Re, Opts, re(Ast, NG, Fl, Names, T)) :-
     ( nonvar(Re), Re = Pat/F -> atom_codes(F, FCs), '$re_flags'(FCs, Fl0, T0) ; Pat = Re, Fl0 = [], T0 = s ),
     '$re_opts'(Opts, Fl0, Fl, T0, T), '$re_codes'(Pat, PCs),
@@ -150,7 +154,8 @@ re_replace(Re, With, S, Out, Opts) :-
 '$re_esc'(0'z, Cs, Cs, eos) :- !.
 '$re_esc'(0'Z, Cs, Cs, eol_z) :- !.
 '$re_esc'(C, Cs0, Cs, chr(X)) :- '$re_esc_code'(C, Cs0, Cs, X), !.
-'$re_esc'(C, _, _, _) :- ( C >= 0'1, C =< 0'9 ; memberchk(C, [0'p, 0'P, 0'k, 0'g, 0'G, 0'K, 0'R, 0'X, 0'h, 0'H, 0'N, 0'C]) ), !, fail.
+'$re_esc'(C, Cs, Cs, bref(N)) :- C >= 0'1, C =< 0'9, !, N is C - 0'0.
+'$re_esc'(C, _, _, _) :- memberchk(C, [0'p, 0'P, 0'k, 0'g, 0'G, 0'K, 0'R, 0'X, 0'h, 0'H, 0'N, 0'C]), !, fail.
 '$re_esc'(C, Cs, Cs, chr(C)).
 '$re_esc_code'(0'n, Cs, Cs, 10).
 '$re_esc_code'(0't, Cs, Cs, 9).
@@ -192,6 +197,7 @@ re_replace(Re, With, S, Out, Opts) :-
 '$re_m'(ncls(K), _, [Y|Cs], P0, Cs, P, C, C) :- \+ '$re_kind'(K, Y), P is P0 + 1.
 '$re_m'(class(Neg, Is), env(Fl, _), [Y|Cs], P0, Cs, P, C, C) :- ( '$re_in'(Is, Fl, Y) -> Neg == false ; Neg == true ), P is P0 + 1.
 '$re_m'(group(I, A), Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C1), '$re_setcap'(C1, I, c(P0, P, Cs0), C).
+'$re_m'(bref(N), env(Fl, _), Cs0, P0, Cs, P, C, C) :- memberchk(N-c(S, E, GCs), C), L is E - S, '$re_take'(L, GCs, Ts), '$re_bref'(Ts, Fl, Cs0, Cs), P is P0 + L.
 '$re_m'(rep(A, Min, Max, M), Env, Cs0, P0, Cs, P, C0, C) :- '$re_rep'(Min, Max, M, A, Env, Cs0, P0, Cs, P, C0, C).
 '$re_m'(bol, env(Fl, W), Cs, P, Cs, P, C, C) :- ( P =:= 0 -> true ; memberchk(m, Fl), P1 is P - 1, '$re_nth0'(P1, W, 10) ).
 '$re_m'(eol, env(Fl, _), Cs, P, Cs, P, C, C) :- ( Cs == [] -> true ; Cs == [10] -> true ; memberchk(m, Fl), Cs = [10|_] ).
@@ -200,6 +206,8 @@ re_replace(Re, With, S, Out, Opts) :-
 '$re_m'(eol_z, _, Cs, P, Cs, P, C, C) :- ( Cs == [] ; Cs == [10] ), !.
 '$re_m'(wordb, env(_, W), Cs, P, Cs, P, C, C) :- '$re_atb'(W, P, Cs).
 '$re_m'(nwordb, env(_, W), Cs, P, Cs, P, C, C) :- \+ '$re_atb'(W, P, Cs).
+'$re_bref'([], _, Cs, Cs).
+'$re_bref'([X|Xs], Fl, [Y|Ys], Cs) :- ( X =:= Y -> true ; memberchk(i, Fl), '$re_lower'(X, L), '$re_lower'(Y, L) ), '$re_bref'(Xs, Fl, Ys, Cs).
 '$re_seqm'([], _, Cs, P, Cs, P, C, C).
 '$re_seqm'([I|Is], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(I, Env, Cs0, P0, Cs1, P1, C0, C1), '$re_seqm'(Is, Env, Cs1, P1, Cs, P, C1, C).
 '$re_altm'([A|_], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C).

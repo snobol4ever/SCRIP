@@ -29083,6 +29083,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
     { "re_split", 4 },
     { "re_replace", 4 },
     { "re_replace", 5 },
+    { "re_compile", 3 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
@@ -29099,6 +29100,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_55_METAS[] = {
     { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_55_SRC[] =
+    "re_compile(Re, '$re_compiled'(R), Opts) :- '$re_prep'(Re, Opts, R).\n"
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -29137,6 +29139,7 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$re_subst'([0'$, D|Ws], M, Out) :- D >= 0'0, D =< 0'9, !, I is D - 0'0, '$re_group_codes'(M, I, G), '$re_subst'(Ws, M, R), append(G, R, Out).\n"
     "'$re_subst'([C|Ws], M, [C|R]) :- '$re_subst'(Ws, M, R).\n"
     "'$re_group_codes'(m(_, C0, Caps, _), I, G) :- ( I =:= 0 -> C = C0 ; memberchk(I-C, Caps) -> true ; C = c(0, 0, []) ), C = c(S, E, Cs), N is E - S, '$re_take'(N, Cs, G).\n"
+    "'$re_prep'(Re, _, R) :- nonvar(Re), Re = '$re_compiled'(R0), !, R = R0.\n"
     "'$re_prep'(Re, Opts, re(Ast, NG, Fl, Names, T)) :-\n"
     "    ( nonvar(Re), Re = Pat/F -> atom_codes(F, FCs), '$re_flags'(FCs, Fl0, T0) ; Pat = Re, Fl0 = [], T0 = s ),\n"
     "    '$re_opts'(Opts, Fl0, Fl, T0, T), '$re_codes'(Pat, PCs),\n"
@@ -29224,7 +29227,8 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$re_esc'(0'z, Cs, Cs, eos) :- !.\n"
     "'$re_esc'(0'Z, Cs, Cs, eol_z) :- !.\n"
     "'$re_esc'(C, Cs0, Cs, chr(X)) :- '$re_esc_code'(C, Cs0, Cs, X), !.\n"
-    "'$re_esc'(C, _, _, _) :- ( C >= 0'1, C =< 0'9 ; memberchk(C, [0'p, 0'P, 0'k, 0'g, 0'G, 0'K, 0'R, 0'X, 0'h, 0'H, 0'N, 0'C]) ), !, fail.\n"
+    "'$re_esc'(C, Cs, Cs, bref(N)) :- C >= 0'1, C =< 0'9, !, N is C - 0'0.\n"
+    "'$re_esc'(C, _, _, _) :- memberchk(C, [0'p, 0'P, 0'k, 0'g, 0'G, 0'K, 0'R, 0'X, 0'h, 0'H, 0'N, 0'C]), !, fail.\n"
     "'$re_esc'(C, Cs, Cs, chr(C)).\n"
     "'$re_esc_code'(0'n, Cs, Cs, 10).\n"
     "'$re_esc_code'(0't, Cs, Cs, 9).\n"
@@ -29265,6 +29269,7 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$re_m'(ncls(K), _, [Y|Cs], P0, Cs, P, C, C) :- \\+ '$re_kind'(K, Y), P is P0 + 1.\n"
     "'$re_m'(class(Neg, Is), env(Fl, _), [Y|Cs], P0, Cs, P, C, C) :- ( '$re_in'(Is, Fl, Y) -> Neg == false ; Neg == true ), P is P0 + 1.\n"
     "'$re_m'(group(I, A), Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C1), '$re_setcap'(C1, I, c(P0, P, Cs0), C).\n"
+    "'$re_m'(bref(N), env(Fl, _), Cs0, P0, Cs, P, C, C) :- memberchk(N-c(S, E, GCs), C), L is E - S, '$re_take'(L, GCs, Ts), '$re_bref'(Ts, Fl, Cs0, Cs), P is P0 + L.\n"
     "'$re_m'(rep(A, Min, Max, M), Env, Cs0, P0, Cs, P, C0, C) :- '$re_rep'(Min, Max, M, A, Env, Cs0, P0, Cs, P, C0, C).\n"
     "'$re_m'(bol, env(Fl, W), Cs, P, Cs, P, C, C) :- ( P =:= 0 -> true ; memberchk(m, Fl), P1 is P - 1, '$re_nth0'(P1, W, 10) ).\n"
     "'$re_m'(eol, env(Fl, _), Cs, P, Cs, P, C, C) :- ( Cs == [] -> true ; Cs == [10] -> true ; memberchk(m, Fl), Cs = [10|_] ).\n"
@@ -29273,6 +29278,8 @@ static const char PL_PRELUDE_LIB_55_SRC[] =
     "'$re_m'(eol_z, _, Cs, P, Cs, P, C, C) :- ( Cs == [] ; Cs == [10] ), !.\n"
     "'$re_m'(wordb, env(_, W), Cs, P, Cs, P, C, C) :- '$re_atb'(W, P, Cs).\n"
     "'$re_m'(nwordb, env(_, W), Cs, P, Cs, P, C, C) :- \\+ '$re_atb'(W, P, Cs).\n"
+    "'$re_bref'([], _, Cs, Cs).\n"
+    "'$re_bref'([X|Xs], Fl, [Y|Ys], Cs) :- ( X =:= Y -> true ; memberchk(i, Fl), '$re_lower'(X, L), '$re_lower'(Y, L) ), '$re_bref'(Xs, Fl, Ys, Cs).\n"
     "'$re_seqm'([], _, Cs, P, Cs, P, C, C).\n"
     "'$re_seqm'([I|Is], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(I, Env, Cs0, P0, Cs1, P1, C0, C1), '$re_seqm'(Is, Env, Cs1, P1, Cs, P, C1, C).\n"
     "'$re_altm'([A|_], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C).\n"
@@ -36768,6 +36775,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "rb_visit", 8, 2, 61 },
     { "rcbl_status", 11, 6, 7 },
     { "rcbl_status", 11, 6, 8 },
+    { "re_compile", 10, 3, 55 },
     { "re_foldl", 8, 6, 55 },
     { "re_match", 8, 2, 55 },
     { "re_match", 8, 3, 55 },
