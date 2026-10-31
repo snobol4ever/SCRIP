@@ -1193,6 +1193,22 @@ static int ty_rec_layout(const pty_t *r, long long *size_out, long long *align_o
 }
 int pty_rec_layout(const pty_t *r, long long *sz, long long *al) { return ty_rec_layout(r, sz, al, 0); }
 int pty_rec_fld_sa(const pty_t *r, int idx, long long *sz, long long *al) { return ty_rec_fld_sa(r, idx, sz, al, 0); }
+const pty_t *pty_formal_type(const char *name, int idx) {
+    struct pty_state *s = pt_st();
+    const tree_t *ps = NULL;
+    if (!s || !s->ecur || !name || idx < 0) return NULL;
+    for (pscope_t *c = s->ecur; c && !ps; c = c->up) for (psym_t *p = c->s; p && !ps; p = p->next) if (p->k == 'f' && p->rt && p->name && !strcmp(p->name, name)) for (int i = 1; i < p->rt->n; i++)
+        if (PT_IS(p->rt->c[i], TT_PARAMS)) ps = p->rt->c[i];
+    for (int i = 0, k = 0; ps && i < ps->n; i++) {
+        const tree_t *d = ps->c[i];
+        if (!PT_IS(d, TT_DECL) || !d->v.sval || d->n < 1) continue;
+        int m = PT_IS(d->c[0], TT_VLIST) ? d->c[0]->n : 1;
+        if (!strcmp(d->v.sval, "procedure") || !strcmp(d->v.sval, "function")) m = 1;
+        else if (idx < k + m) return d->n >= 2 ? pt_type(s, d->c[1]) : NULL;
+        k += m;
+    }
+    return NULL;
+}
 int pty_int_typename(const char *name) { struct pty_state *s = pt_st(); if (!s || !name) return 0; const pty_t *t = pt_named(s, name); return t && t->k == PTK_INT; }
 const pty_t *pty_type_by_name(const char *name) {
     struct pty_state *s = pt_st();

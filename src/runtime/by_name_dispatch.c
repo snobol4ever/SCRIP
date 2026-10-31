@@ -17758,6 +17758,39 @@ DESCR_t pas_ptr_eq(DESCR_t *args, int nargs) {
     if (IS_INT_fn(args[0]) && IS_INT_fn(args[1])) return INTVAL(args[0].i == args[1].i ? 1 : 0);
     return INTVAL(args[0].v == args[1].v && args[0].i == args[1].i ? 1 : 0);
 }
+DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v != DT_PCELL || args[1].v != DT_PCELL) return INTVAL(0);
+    return INTVAL((long long)((intptr_t) pas_ptr_word(args[0]) - (intptr_t) pas_ptr_word(args[1])) / 16);
+}
+DESCR_t pas_pchar_of(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v == DT_PCELL || IS_INT_fn(args[0])) return args[0];
+    if (args[0].v == DT_A && args[0].arr) return pas_pcell((void *) ((ARBLK_t *) args[0].arr)->data, 0);
+    const char *c = VARVAL_fn(args[0]);
+    size_t n = c ? pas_slen(args[0], c) : 0;
+    DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr(n + 1);
+    for (size_t k = 0; k < n; k++) d[k] = INTVAL((unsigned char) c[k]);
+    d[n] = INTVAL(0);
+    return pas_pcell((void *) d, 0);
+}
+DESCR_t pas_pstrlen(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v != DT_PCELL || !args[0].ptr) return INTVAL(0);
+    DESCR_t *c = (DESCR_t *) args[0].ptr + (int32_t) args[0].slen;
+    long n = 0;
+    while (pas_ch_of(c[n]) != 0 && !(c[n].v == DT_S && c[n].slen == 0)) n++;
+    return INTVAL(n);
+}
+DESCR_t pas_pstr(DESCR_t *args, int nargs) {
+    if (args[0].v != DT_PCELL) return IS_INT_fn(args[0]) ? STRVAL(rt_wsb_alloc(1)) : args[0];
+    long n = pas_pstrlen(args, nargs).i;
+    DESCR_t *c = (DESCR_t *) args[0].ptr + (int32_t) args[0].slen;
+    char *o = rt_wsb_alloc((size_t) n + 1);
+    for (long k = 0; k < n; k++) o[k] = (char) pas_ch_of(c[k]);
+    o[n] = '\0';
+    return BSTRVAL(o, n);
+}
 DESCR_t pas_field_set(DESCR_t *args, int nargs) {
     DESCR_t *hc = pas_heap_ref(args[0], "__pas_field_set");
     long idx = rk_ival(args[1]);
@@ -17911,6 +17944,14 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_905;
         case PBI_ptr_eq:
         goto L_pbi_906;
+        case PBI_ptr_diff:
+        goto L_pbi_907;
+        case PBI_pchar_of:
+        goto L_pbi_908;
+        case PBI_pstrlen:
+        goto L_pbi_909;
+        case PBI_pstr:
+        goto L_pbi_910;
         case PBI_strf:
         goto L_pbi_182;
         case PBI_dynlen:
@@ -18287,6 +18328,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_906:
     ;
     if (id == PBI_ptr_eq && nargs == 2) { *out = pas_ptr_eq(args, nargs); return 1; }
+    L_pbi_907:
+    ;
+    if (id == PBI_ptr_diff && nargs == 2) { *out = pas_ptr_diff(args, nargs); return 1; }
+    L_pbi_908:
+    ;
+    if (id == PBI_pchar_of && nargs == 1) { *out = pas_pchar_of(args, nargs); return 1; }
+    L_pbi_909:
+    ;
+    if (id == PBI_pstrlen && nargs == 1) { *out = pas_pstrlen(args, nargs); return 1; }
+    L_pbi_910:
+    ;
+    if (id == PBI_pstr && nargs == 1) { *out = pas_pstr(args, nargs); return 1; }
     L_pbi_902:
     ;
     if ((id == PBI_valcode || id == PBI_valval) && nargs == 2) {
