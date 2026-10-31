@@ -27,6 +27,7 @@
 #define RTX_JMP(fn) jmp qword ptr [rip + fn@GOTPCREL]
 #define RTX_GATE_DEF(fam) .data; .align 1; .globl rtx_gate_##fam; .hidden rtx_gate_##fam; .type rtx_gate_##fam,@object; .size rtx_gate_##fam,1; rtx_gate_##fam: .byte 0; .text
 #define RTX_GATE(fam, stub) cmp byte ptr [rip + rtx_gate_##fam], 0; je stub
+#define RTX_SWITCH_RSP(base, off) mov rsp, qword ptr [base + off]; .cfi_def_cfa rsp, 8
 #define RTX_CALL_ALIGN(k) RTX_PUSH(rsp); RTX_PUSH(qword ptr [rsp]); and rsp, -16; RTX_CFA_DYN(8, k)
 #define RTX_CALL_UNALIGN(k) mov rsp, [rsp + 8]; .cfi_def_cfa rsp, k
 #endif
