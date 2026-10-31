@@ -1,23 +1,23 @@
-typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;
-typedef struct { int pri; const char *type; const char *nm; } pl_prelude_lib_op_t;
-typedef struct { const char *nm; int ar; const char *spec; } pl_prelude_lib_meta_t;
-typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const pl_prelude_lib_op_t *ops; const pl_prelude_lib_pi_t *shadows; const pl_prelude_lib_pi_t *quiet; const char *src; const pl_prelude_lib_meta_t *metas; const char *const *loads; int import_only; } pl_prelude_lib_t;
+typedef struct { char nm[33]; int ar; } pl_prelude_lib_pi_t;
+typedef struct { int pri; char type[4]; char nm[33]; } pl_prelude_lib_op_t;
+typedef struct { char nm[33]; int ar; char spec[32]; } pl_prelude_lib_meta_t;
+typedef struct { char lib[19]; const pl_prelude_lib_pi_t *exports; const pl_prelude_lib_op_t *ops; const pl_prelude_lib_pi_t *shadows; const pl_prelude_lib_pi_t *quiet; const char *src; const pl_prelude_lib_meta_t *metas; const char *const *loads; int import_only; } pl_prelude_lib_t;
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_0_EXPORTS[] = {
     { "aggregate", 3 },
     { "aggregate", 4 },
     { "aggregate_all", 3 },
     { "aggregate_all", 4 },
     { "free_variables", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_0_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_0_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_0_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_0_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_0_METAS[] = {
@@ -26,7 +26,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_0_METAS[] = {
     { "aggregate_all", 3, "aggregate_all(?,0,-)" },
     { "aggregate_all", 4, "aggregate_all(?,?,0,-)" },
     { "foreach", 2, "foreach(0,0)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_0_SRC[] =
     ":- '$meta_spec'((\n"
@@ -377,20 +377,20 @@ static const char PL_PRELUDE_LIB_0_SRC[] =
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_1_EXPORTS[] = {
     { "ansi_format", 3 },
     { "ansi_format", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_1_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_1_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_1_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_1_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_1_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_1_SRC[] =
     "ansi_format(Attr, Format, Args) :- ansi_format(current_output, Attr, Format, Args).\n"
@@ -489,16 +489,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_2_EXPORTS[] = {
     { "scanl", 5 },
     { "scanl", 6 },
     { "scanl", 7 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_2_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_2_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_2_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_2_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_2_METAS[] = {
@@ -519,7 +519,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_2_METAS[] = {
     { "scanl", 5, "scanl(4,+,+,+,-)" },
     { "scanl", 6, "scanl(5,+,+,+,+,-)" },
     { "scanl", 7, "scanl(6,+,+,+,+,+,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_2_SRC[] =
     ":- '$meta_spec'((\n"
@@ -690,22 +690,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_3_EXPORTS[] = {
     { "del_assoc", 4 },
     { "del_min_assoc", 4 },
     { "del_max_assoc", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_3_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_3_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_3_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_3_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_3_METAS[] = {
     { "map_assoc", 2, "map_assoc(1,?)" },
     { "map_assoc", 3, "map_assoc(2,?,?)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_3_SRC[] =
     ":- '$meta_spec'((\n"
@@ -1010,10 +1010,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_EXPORTS[] = {
     { "thread_at_exit", 1 },
     { "read_history", 6 },
     { "$sig_atomic", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_QUIET[] = {
     { "$apropos_match", 0 },
@@ -1066,10 +1066,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_QUIET[] = {
     { "trie_insert_new", 0 },
     { "unlock_predicate", 0 },
     { "write_ln", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_4_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_4_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_4_METAS[] = {
@@ -1083,7 +1083,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_4_METAS[] = {
     { "setup_and_call_cleanup", 4, "setup_and_call_cleanup(0,0,?,0)" },
     { "sublist", 3, "sublist(1,+,?)" },
     { "thread_at_exit", 1, "thread_at_exit(0)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_4_SRC[] =
     ":- '$meta_spec'((\n"
@@ -1272,20 +1272,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
     { "bb_inf", 3 },
     { "bb_inf", 4 },
     { "vertex_value", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_5_LOADS[] = { "bv_q", "nf_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_5_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_5_SRC[] =
     "bb_inf(Is,Term,Inf) :-\n"
@@ -1386,20 +1386,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "bb_inf", 3 },
     { "bb_inf", 5 },
     { "vertex_value", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_6_LOADS[] = { "bv_r", "nf_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_6_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_6_SRC[] =
     "bb_inf(Is,Term,Inf) :-\n"
@@ -1549,20 +1549,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
     { "solve_=<", 1 },
     { "solve_=\\=", 1 },
     { "log_deref", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_7_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_7_LOADS[] = { "bb_q", "clpqr_class", "ineq_q", "nf_q", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_7_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_7_SRC[] =
     "deref(Lin,Lind) :-\n"
@@ -2598,20 +2598,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "solve_=<", 1 },
     { "solve_=\\=", 1 },
     { "log_deref", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_8_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_8_LOADS[] = { "bb_r", "clpqr_class", "ineq_r", "nf_r", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_8_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_8_SRC[] =
     "deref(Lin,Lind) :-\n"
@@ -3625,13 +3625,13 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "\t[Sum =\\= I1].\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "$chr_attach", 5 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
     { 1180, "xfx", "==>" },
@@ -3649,11 +3649,11 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
     { 1150, "fx", "chr_declaration" },
     { 1130, "xfx", "--->" },
     { 1150, "fx", "?" },
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_9_LOADS[] = { "chr_runtime", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_9_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_9_SRC[] =
     "'$chr_attach'(M, I, K, Vs, S) :- '$chr_attach_'(Vs, M, I, K, S).\n"
@@ -3859,21 +3859,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "chr_trace", 0 },
     { "chr_notrace", 0 },
     { "chr_leash", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_10_LOADS[] = { "hprolog", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_10_METAS[] = {
     { "current_chr_constraint", 1, "current_chr_constraint(:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_10_SRC[] =
     ":- '$meta_spec'((\n"
@@ -4484,22 +4484,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "sat_count", 2 },
     { "weighted_maximum", 3 },
     { "random_labeling", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
     { 300, "fy", "~" },
     { 500, "yfx", "#" },
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_11_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_11_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_11_SRC[] =
     ":- create_prolog_flag(clpb_monotonic, false, []).\n"
@@ -5577,10 +5577,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "fdset_union", 3 },
     { "fdset_union", 2 },
     { "fdset_complement", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
     { "#/\\", 0 },
@@ -5648,7 +5648,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
     { "transpose", 0 },
     { "tuples_in", 0 },
     { "zcompare", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
     { 760, "yfx", "#<==>" },
@@ -5668,11 +5668,11 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
     { 700, "xfx", "ins" },
     { 700, "xfx", "in_set" },
     { 450, "xfx", ".." },
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_12_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_12_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_12_SRC[] =
     ":- create_prolog_flag(clpfd_propagation, default, []).\n"
@@ -16055,20 +16055,20 @@ static const char PL_PRELUDE_LIB_12_SRC[] =
     "                                           1))\n"
     "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_13_LOADS[] = { "bb_q", "bv_q", "clpqr_class", "clpqr_dump", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", "clpqr_redund", "fourmotz_q", "ineq_q", "itf_q", "nf_q", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_13_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_13_SRC[] =
     "portray_message(warning,import(_,_,clpq,private)).\n"
@@ -16110,20 +16110,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "class_get_clp", 2 },
     { "class_get_prio", 2 },
     { "class_put_prio", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_14_LOADS[] = { "clpqr_ordering", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_14_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_14_SRC[] =
     "clpqr_class:attr_unify_hook(class(CLP,La,Lat,ABasis,PrioA),Y) :-\n"
@@ -16181,21 +16181,21 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "dump", 3 },
     { "projecting_assert", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_15_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_15_METAS[] = {
     { "projecting_assert", 1, "projecting_assert(:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_15_SRC[] =
     "dump([],[],[]) :- !.\n"
@@ -16306,21 +16306,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "geler", 3 },
     { "project_nonlin", 3 },
     { "collect_nonlin", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_16_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_16_METAS[] = {
     { "geler", 3, "geler(+,?,0)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_16_SRC[] =
     ":- '$meta_spec'((\n"
@@ -16420,20 +16420,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "dump_linear", 3 },
     { "dump_nonzero", 3 },
     { "clp_type", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_17_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_17_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_17_SRC[] =
     "clp_type(Var,Type) :-\n"
@@ -16507,20 +16507,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "combine", 3 },
     { "ordering", 1 },
     { "arrangement", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_18_LOADS[] = { "clpqr_class", "clpqr_itf", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_18_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_18_SRC[] =
     "ordering(X) :-\n"
@@ -16624,20 +16624,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "drop_dep_one", 1 },
     { "make_target_indep", 2 },
     { "project_attributes", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_19_LOADS[] = { "clpqr_class", "clpqr_geler", "clpqr_ordering", "clpqr_redund", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_19_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_19_SRC[] =
     "project_attributes(TargetVars,Cvas) :-\n"
@@ -16796,20 +16796,20 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "redundancy_vars", 1 },
     { "systems", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_20_LOADS[] = { "clpqr_class", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_20_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_20_SRC[] =
     "systems([],Si,Si).\n"
@@ -16984,20 +16984,20 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "'$clpqr_redund_red_t_L'.\n"
     "'$clpqr_redund_red_t_U'.\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_21_LOADS[] = { "bb_r", "bv_r", "clpqr_class", "clpqr_dump", "clpqr_geler", "clpqr_itf", "clpqr_ordering", "clpqr_project", "clpqr_redund", "fourmotz_r", "ineq_r", "itf_r", "nf_r", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_21_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_21_SRC[] =
     "portray_message(warning,import(_,_,clpr,private)).\n"
@@ -17039,20 +17039,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "csv_write_file", 2 },
     { "csv_write_file", 3 },
     { "csv_write_stream", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_22_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_22_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_22_SRC[] =
     "'$csv_default_csv_options'(csv_options(44, false, false, true, preserve, row, _, true, _)).\n"
@@ -17614,20 +17614,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "to_lower", 2 },
     { "to_upper", 2 },
     { "upper_lower", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_23_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_23_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_23_SRC[] =
     "is_alnum(C)   :- code_type(C, alnum).\n"
@@ -17687,20 +17687,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "parse_time", 3 },
     { "day_of_the_week", 2 },
     { "day_of_the_year", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_24_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_24_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_24_SRC[] =
     "date_time_value(year,            date(Y,_,_,_,_,_,_,_,_), Y).\n"
@@ -17904,10 +17904,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "eos", 2 },
     { "remainder", 3 },
     { "atom", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { "alpha_to_lower", 0 },
@@ -17933,14 +17933,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { "xdigit", 0 },
     { "xdigits", 0 },
     { "xinteger", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_25_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_25_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_25_SRC[] =
     "string_without(End, Codes) -->\n"
@@ -18128,20 +18128,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "b_set_dict", 3 },
     { "nb_set_dict", 3 },
     { "$dict_eval", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_26_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_26_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_26_SRC[] =
     "'$dict_need'(D) :- is_dict(D), !.\n"
@@ -18224,20 +18224,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "engine_self", 1 },
     { "current_engine", 1 },
     { "is_engine", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_27_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_27_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_27_SRC[] =
     "engine_create(Templ, Goal, E) :-\n"
@@ -18481,20 +18481,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "must_be", 2 },
     { "is_of_type", 2 },
     { "current_type", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_28_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_28_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_28_SRC[] =
     "type_error(ValidType, Culprit) :-\n"
@@ -18686,20 +18686,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "copy_directory", 2 },
     { "delete_directory_and_contents", 1 },
     { "delete_directory_contents", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_29_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_29_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_29_SRC[] =
     "relative_file_name(Path, RelTo, RelPath) :-\n"
@@ -19020,20 +19020,20 @@ static const char PL_PRELUDE_LIB_29_SRC[] =
     "    B is B1\\/B2.\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "fm_elim", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_30_LOADS[] = { "bv_q", "clpqr_class", "clpqr_project", "clpqr_redund", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_30_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_30_SRC[] =
     "fm_elim(Vs,Target,Pivots) :-\n"
@@ -19278,20 +19278,20 @@ static const char PL_PRELUDE_LIB_30_SRC[] =
     "\t).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "fm_elim", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_31_LOADS[] = { "bv_r", "clpqr_class", "clpqr_project", "clpqr_redund", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_31_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_31_SRC[] =
     "fm_elim(Vs,Target,Pivots) :-\n"
@@ -19538,20 +19538,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "reset_gensym", 0 },
     { "reset_gensym", 1 },
     { "gensym", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_32_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_32_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_32_SRC[] =
     "gensym(Base, Atom) :-\n"
@@ -19748,10 +19748,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "sr_write_error", 4 },
     { "sr_write_error", 6 },
     { "sr_error_from_exception", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { "add_linedit_completion", 0 },
@@ -19897,14 +19897,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { "writeq_to_atom", 0 },
     { "writeq_to_chars", 0 },
     { "writeq_to_codes", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_33_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_33_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_33_SRC[] =
     "write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).\n"
@@ -20580,7 +20580,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "#\\/", 2 },
     { "#\\", 1 },
     { "#==>", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { "#/\\", 2 },
@@ -20594,7 +20594,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { "#\\/", 2 },
     { "#\\=", 2 },
     { "fd_dom", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { "#/\\", 2 },
@@ -20608,7 +20608,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { "#\\/", 2 },
     { "#\\=", 2 },
     { "fd_dom", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 700, "xfx", "#=#" },
@@ -20623,11 +20623,11 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 730, "xfy", "##" },
     { 730, "yfx", "#\\\\/" },
     { 720, "yfx", "#\\/\\" },
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_34_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_34_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_34_SRC[] =
     "'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).\n"
@@ -20794,20 +20794,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "ht_gen", 3 },
     { "ht_pairs", 2 },
     { "ht_keys", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_35_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_35_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_35_SRC[] =
     "ht_new(ht(0,0,[](_))).\n"
@@ -21018,20 +21018,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "min_of_heap", 3 },
     { "min_of_heap", 5 },
     { "singleton_heap", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_36_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_36_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_36_SRC[] =
     "add_to_heap(heap(Q0,M),P,X,heap(Q1,N)) :-\n"
@@ -21137,21 +21137,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "get_ds", 3 },
     { "put_ds", 4 },
     { "time", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_37_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_37_METAS[] = {
     { "time", 3, "time(0,-,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_37_SRC[] =
     ":- '$meta_spec'((\n"
@@ -21275,20 +21275,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "ineq_one_n_p_0", 1 },
     { "ineq_one_s_n_0", 1 },
     { "ineq_one_s_p_0", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_38_LOADS[] = { "bv_q", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_38_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_38_SRC[] =
     "ineq([],I,_,Strictness) :- '$ineq_q_ineq_ground'(Strictness,I).\n"
@@ -22253,20 +22253,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "ineq_one_n_p_0", 1 },
     { "ineq_one_s_n_0", 1 },
     { "ineq_one_s_p_0", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_39_LOADS[] = { "bv_r", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_39_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_39_SRC[] =
     "ineq([],I,_,Strictness) :- '$ineq_r_ineq_ground'(Strictness,I).\n"
@@ -23332,20 +23332,20 @@ static const char PL_PRELUDE_LIB_39_SRC[] =
     "\tsolve(Eq).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "do_checks", 8 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_40_LOADS[] = { "bv_q", "clpqr_class", "nf_q", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_40_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_40_SRC[] =
     "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
@@ -23449,20 +23449,20 @@ static const char PL_PRELUDE_LIB_40_SRC[] =
     "'$itf_q_verify_lin'(_,_,_,_).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "do_checks", 8 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_41_LOADS[] = { "bv_r", "clpqr_class", "nf_r", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_41_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_41_SRC[] =
     "do_checks(Y,Ty,St,Li,Or,Cl,No,Later) :-\n"
@@ -23582,20 +23582,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "json_write_dict", 2 },
     { "json_write_dict", 3 },
     { "atom_json_dict", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_42_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_42_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_42_SRC[] =
     ":- dynamic 'json_write_hook'/4, 'json_dict_pairs'/2.\n"
@@ -24435,16 +24435,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "lazy_message_queue", 4 },
     { "lazy_engine_next", 4 },
     { "lazy_list_iterator", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_43_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_43_METAS[] = {
@@ -24452,7 +24452,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_43_METAS[] = {
     { "lazy_findall", 4, "lazy_findall(+,?,0,-)" },
     { "lazy_list", 2, "lazy_list(2,-)" },
     { "lazy_list", 3, "lazy_list(3,+,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_43_SRC[] =
     ":- '$meta_spec'(( lazy_list(2, -), lazy_list(3, +, -), lazy_findall(?, 0, -), lazy_findall(+, ?, 0, -))).\n"
@@ -24689,26 +24689,26 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
     { "portray_clause", 1 },
     { "portray_clause", 2 },
     { "portray_clause", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
     { "portray_clause", 1 },
     { "portray_clause", 2 },
     { "portray_clause", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_44_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_44_METAS[] = {
     { "listing", 1, "listing(:)" },
     { "listing", 2, "listing(:,+)" },
     { "portray_clause", 3, "portray_clause(+,+,:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_44_SRC[] =
     ":- '$meta_spec'((\n"
@@ -25591,22 +25591,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "union", 3 },
     { "subset", 2 },
     { "subtract", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_45_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_45_METAS[] = {
     { "max_member", 3, "max_member(2,-,+)" },
     { "min_member", 3, "min_member(2,-,+)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_45_SRC[] =
     ":- '$meta_spec'((\n"
@@ -25909,23 +25909,23 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "argv_usage", 1 },
     { "cli_parse_debug_options", 2 },
     { "cli_enable_development_system", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_46_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_46_METAS[] = {
     { "argv_options", 3, "argv_options(:,-,-)" },
     { "argv_options", 4, "argv_options(:,-,-,+)" },
     { "argv_usage", 1, "argv_usage(:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_46_SRC[] =
     ":- '$meta_spec'((\n"
@@ -26506,20 +26506,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_EXPORTS[] = {
     { "$mctx_clause", 4 },
     { "$mctx_clause", 5 },
     { "$mctx_call", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_47_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_47_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_47_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_47_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_47_SRC[] =
     "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
@@ -26567,20 +26567,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_EXPORTS[] = {
     { "gen_nb_set", 2 },
     { "size_nb_set", 2 },
     { "nb_set_to_list", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_48_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_48_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_48_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_48_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_48_SRC[] =
     "'$nb_set_initial_size'(32).\n"
@@ -26653,21 +26653,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_EXPORTS[] = {
     { "nf_constant", 2 },
     { "wait_linear", 3 },
     { "nf2term", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_49_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_49_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_49_LOADS[] = { "bv_q", "clpqr_geler", "ineq_q", "store_q", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_49_METAS[] = {
     { "wait_linear", 3, "wait_linear(?,?,0)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_49_SRC[] =
     ":- '$meta_spec'(( wait_linear(?, ?, 0))).\n"
@@ -27381,21 +27381,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_EXPORTS[] = {
     { "nf_constant", 2 },
     { "wait_linear", 3 },
     { "nf2term", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_50_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_50_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_50_LOADS[] = { "bv_r", "clpqr_geler", "ineq_r", "store_r", 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_50_METAS[] = {
     { "wait_linear", 3, "wait_linear(?,?,:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_50_SRC[] =
     "{Rel} :-\n"
@@ -28155,21 +28155,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_EXPORTS[] = {
     { "merge_options", 3 },
     { "meta_options", 3 },
     { "dict_options", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_51_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_51_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_51_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_51_METAS[] = {
     { "meta_options", 3, "meta_options(1,:,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_51_SRC[] =
     ":- '$meta_spec'((\n"
@@ -28353,20 +28353,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_EXPORTS[] = {
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_52_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_52_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_52_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_52_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_52_SRC[] =
     ":- dynamic 'parse_type'/3.\n"
@@ -28770,20 +28770,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_EXPORTS[] = {
     { "ord_symdiff", 3 },
     { "ord_seteq", 2 },
     { "ord_intersection", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_53_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_53_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_53_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_53_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_53_SRC[] =
     "is_ordset(Term) :-\n"
@@ -29011,21 +29011,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_EXPORTS[] = {
     { "group_pairs_by_key", 2 },
     { "transpose_pairs", 2 },
     { "map_list_to_pairs", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_54_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_54_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_54_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_54_METAS[] = {
     { "map_list_to_pairs", 3, "map_list_to_pairs(2,+,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_54_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
@@ -29083,20 +29083,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_EXPORTS[] = {
     { "re_split", 4 },
     { "re_replace", 4 },
     { "re_replace", 5 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_55_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_55_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_55_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_55_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_55_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
@@ -29329,20 +29329,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_EXPORTS[] = {
     { "run_tests", 0 },
     { "run_tests", 1 },
     { "set_test_options", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_56_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_56_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_56_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_56_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_56_SRC[] =
     ":- dynamic pj_test/4.\n"
@@ -29503,20 +29503,20 @@ static const char PL_PRELUDE_LIB_56_SRC[] =
     "pj_rev([H|T], A, R) :- pj_rev(T, [H|A], R).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_EXPORTS[] = {
     { "valid_term_position", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_57_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_57_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_57_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_57_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_57_SRC[] =
     "valid_term_position(Term, TermPos) :-\n"
@@ -29607,23 +29607,23 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_EXPORTS[] = {
     { "syntax_error", 3 },
     { "lazy_list_location", 3 },
     { "lazy_list_character_count", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_58_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_58_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_58_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_58_METAS[] = {
     { "phrase_from_file", 2, "phrase_from_file(//,+)" },
     { "phrase_from_file", 3, "phrase_from_file(//,+,+)" },
     { "phrase_from_stream", 2, "phrase_from_stream(//,+)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_58_SRC[] =
     ":- '$meta_spec'((\n"
@@ -29747,22 +29747,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_EXPORTS[] = {
     { "midstring", 6 },
     { "raise_exception", 1 },
     { "on_exception", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_59_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_59_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_59_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_59_METAS[] = {
     { "compile", 1, "compile(:)" },
     { "on_exception", 3, "on_exception(+,0,0)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_59_SRC[] =
     "unix(system(Command)) :-\n"
@@ -29895,20 +29895,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_EXPORTS[] = {
     { "random_permutation", 2 },
     { "random_numlist", 4 },
     { "random", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_60_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_60_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_60_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_60_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_60_SRC[] =
     "'$random_check_gmp' :-\n"
@@ -30109,16 +30109,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_EXPORTS[] = {
     { "is_rbtree", 1 },
     { "rb_size", 2 },
     { "rb_in", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_61_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_61_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_61_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_61_METAS[] = {
@@ -30127,7 +30127,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_61_METAS[] = {
     { "rb_map", 2, "rb_map(?,1)" },
     { "rb_map", 3, "rb_map(+,2,-)" },
     { "rb_partial_map", 4, "rb_partial_map(+,+,2,-)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_61_SRC[] =
     ":- '$meta_spec'((\n"
@@ -30755,20 +30755,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_EXPORTS[] = {
     { "read_line_to_string", 2 },
     { "read_file_to_string", 3 },
     { "read_file_to_terms", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_62_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_62_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_62_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_62_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_62_SRC[] =
     "'$readutil_link_foreign' :-\n"
@@ -30884,23 +30884,23 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_63_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_63_OPS[] = {
     { 1150, "fx", "record" },
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_63_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_63_METAS[] = {
     { "current_record", 2, "current_record(?,:)" },
     { "current_record_predicate", 2, "current_record_predicate(?,:)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_63_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
@@ -31212,20 +31212,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
     { "shadow_price", 3 },
     { "transportation", 4 },
     { "variable_value", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_64_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_64_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_64_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_64_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
@@ -32178,16 +32178,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
     { "call_nth", 2 },
     { "order_by", 2 },
     { "group_by", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
@@ -32200,7 +32200,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
     { "order_by", 2, "order_by(+,0)" },
     { "reduced", 1, "reduced(0)" },
     { "reduced", 3, "reduced(?,0,+)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_65_SRC[] =
     ":- '$meta_spec'((\n"
@@ -32385,20 +32385,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "nf2sum", 3 },
     { "nf_coeff_of", 3 },
     { "renormalize", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_66_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_66_SRC[] =
     "normalize_scalar(S,[S,0]).\n"
@@ -32610,20 +32610,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "nf2sum", 3 },
     { "nf_coeff_of", 3 },
     { "renormalize", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_67_SRC[] =
     "normalize_scalar(S,[S,0.0]).\n"
@@ -32852,22 +32852,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "indent_lines", 4 },
     { "interpolate_string", 4 },
     { "string_lines", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
     { "indent_lines", 4, "indent_lines(1,+,+,-)" },
     { "interpolate_string", 4, "interpolate_string(:,-,+,+)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_68_SRC[] =
     ":- '$meta_spec'((\n"
@@ -33112,20 +33112,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "copy_stream_data", 3 },
     { "get_time", 1 },
     { "expand_file_name", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_69_SRC[] =
     "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
@@ -33461,21 +33461,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "transaction", 1 },
     { "transaction_updates", 1 },
     { "snapshot", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
     { "undefined", 0 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_70_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
@@ -33949,16 +33949,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "same_functor", 2 },
     { "same_functor", 3 },
     { "same_functor", 4 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
@@ -33967,7 +33967,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { "mapargs", 3, "mapargs(2,?,?)" },
     { "mapsubterms", 3, "mapsubterms(2,?,?)" },
     { "mapsubterms_var", 3, "mapsubterms_var(2,?,?)" },
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_71_SRC[] =
     ":- '$meta_spec'((\n"
@@ -34203,20 +34203,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "vertices_edges_to_ugraph", 3 },
     { "ugraph_union", 3 },
     { "connect_ugraph", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_72_SRC[] =
     "vertices([], []) :- !.\n"
@@ -34494,20 +34494,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "uri_encoded", 3 },
     { "uri_file_name", 2 },
     { "uri_iri", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_73_SRC[] =
     "uri_components(U, C) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_split'(Cs, S, A, P, Q, F), C = uri_components(S, A, P, Q, F).\n"
@@ -34721,21 +34721,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "max_var_number", 3 },
     { "varnumbers", 3 },
     { "varnumbers_names", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { "numbervars", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_74_SRC[] =
     "numbervars(Term) :-\n"
@@ -34838,20 +34838,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_75_SRC[] =
     "writef(Format) :-\n"
@@ -35011,20 +35011,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "str_cat", 3 },
     { "gc_strings", 0 },
     { "set_xsb_param", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_76_SRC[] =
     "import(_).\n"
@@ -35118,24 +35118,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "install_verify_attribute_handler", 4 },
     { "install_verify_attribute_handler", 5 },
     { "attv_unify", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_77_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
@@ -35263,20 +35263,20 @@ static const char PL_PRELUDE_LIB_77_SRC[] =
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
     { "ord_setproduct", 3 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_78_SRC[] =
     "ord_setproduct([], _, []).\n"
@@ -35319,20 +35319,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "$xt_tv1", 2 },
     { "$xt_ntp", 1 },
     { "$tbl $xt_ntp", 1 },
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_QUIET[] = {
-    { 0, 0 }
+    { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_79_OPS[] = {
-    { 0, 0, 0 }
+    { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_79_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_79_METAS[] = {
-    { 0, 0, 0 }
+    { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_79_SRC[] =
     "gc_tables(0).\n"
@@ -35484,9 +35484,9 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "xsb_dialect", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
     { "xsb_ordsets", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
     { "xsb_tables", PL_PRELUDE_LIB_79_EXPORTS, PL_PRELUDE_LIB_79_OPS, PL_PRELUDE_LIB_79_SHADOWS, PL_PRELUDE_LIB_79_QUIET, PL_PRELUDE_LIB_79_SRC, PL_PRELUDE_LIB_79_METAS, PL_PRELUDE_LIB_79_LOADS, 0 },
-    { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+    { "", 0, 0, 0, 0, 0, 0, 0, 0 }
 };
-typedef struct { const char *nm; int n; int ar; int lib; } pl_prelude_lib_ex_t;
+typedef struct { char nm[33]; int n; int ar; int lib; } pl_prelude_lib_ex_t;
 static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "##", 2, 2, 34 },
     { "#/\\", 3, 2, 12 },

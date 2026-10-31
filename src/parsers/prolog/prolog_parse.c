@@ -289,9 +289,9 @@ static void register_op_one(int prec, const char *type, tree_t *namenode, int sw
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "prolog_prelude_libs.inc"
 static void register_lib_ops(const char *lib) {
-    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib[0]; i++) {
         if (strcmp(PL_PRELUDE_LIBS[i].lib, lib)) continue;
-        for (const pl_prelude_lib_op_t *o = PL_PRELUDE_LIBS[i].ops; o && o->nm; o++) {
+        for (const pl_prelude_lib_op_t *o = PL_PRELUDE_LIBS[i].ops; o && o->nm[0]; o++) {
             Assoc assoc; Fixity fix;
             if (o->pri < 0 || o->pri > 1200 || prolog_op_permission(o->nm, o->pri, o->type)) continue;
             if (op_type_classify(o->type, &assoc, &fix)) user_op_add(o->nm, o->pri, assoc, fix);
@@ -1222,7 +1222,7 @@ int pl_prelude_lib_spec_known(const tree_t *l) {
     if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "/") && l->n == 2 && l->c[0] && l->c[0]->t == TT_QLIT && l->c[1] && l->c[1]->t == TT_QLIT) { a = l->c[0]->v.sval; b = l->c[1]->v.sval; }
     if (!a) return -1;
     size_t na = strlen(a);
-    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib[0]; i++) {
         const char *e = PL_PRELUDE_LIBS[i].lib;
         if (b ? !strncmp(e, a, na) && e[na] == '_' && !strcmp(e + na + 1, b) : !strcmp(e, a)) return 1;
     }
@@ -3708,9 +3708,9 @@ static void pl_prelude_keys_seed(PlProgram *pre) {
         const char *cn; int car;
         if (pl_clause_key(cl, &cn, &car) && cn) pl_prelude_key_add(cn, car);
     }
-    for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+    for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
         if (strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
-        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm; e++) pl_prelude_key_add(e->nm, e->ar);
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm[0]; e++) pl_prelude_key_add(e->nm, e->ar);
     }
 }
 static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
@@ -3780,7 +3780,7 @@ static void pl_pk_fill_cv(pl_pk_t *t, uint32_t cap, const cv_t *v) {
     }
 }
 static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
-    for (const pl_prelude_lib_pi_t *q = lib->quiet; q && q->nm; q++) if (q->ar == ar && !strcmp(q->nm, nm)) return 1;
+    for (const pl_prelude_lib_pi_t *q = lib->quiet; q && q->nm[0]; q++) if (q->ar == ar && !strcmp(q->nm, nm)) return 1;
     return 0;
 }
 typedef struct { const char *s; int n; int ar; int part; } pl_rq_t;
@@ -3934,7 +3934,7 @@ static const char *pl_lib_public_of(const char *cn) {
     if (!c || !c[1]) return (const char *)0;
     size_t a = (size_t)(c - cn);
     if (a == 6 && !strncmp(cn, "system", 6)) return c + 1;
-    for (int k = 0; PL_PRELUDE_LIBS[k].lib; k++) if (strlen(PL_PRELUDE_LIBS[k].lib) == a && !strncmp(cn, PL_PRELUDE_LIBS[k].lib, a)) return c + 1;
+    for (int k = 0; PL_PRELUDE_LIBS[k].lib[0]; k++) if (strlen(PL_PRELUDE_LIBS[k].lib) == a && !strncmp(cn, PL_PRELUDE_LIBS[k].lib, a)) return c + 1;
     return (const char *)0;
 }
 static void pl_lib_rename_goals(tree_t *g, int dcg, const cv_t *ek, const cv_t *ev) {
@@ -3977,8 +3977,8 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     size_t len = 0, at;
     PlProgram *mp;
     if (prolog_dialect_gnu_selected()) return;
-    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
-        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) {
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib[0]; i++) {
+        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm[0]; m++) {
             if (!pl_cv_has(referenced, m->nm)) continue;
             len += strlen(m->spec) + 2;
             if (strchr(m->spec, ':')) pl_cv_add(referenced, "$mq_arg");
@@ -3987,8 +3987,8 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     if (!len) return;
     char buf[len + 32];
     at = (size_t)snprintf(buf, sizeof buf, ":- '$meta_spec'((");
-    for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
-        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm; m++) {
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib[0]; i++) {
+        for (const pl_prelude_lib_meta_t *m = PL_PRELUDE_LIBS[i].metas; m && m->nm[0]; m++) {
             if (pl_cv_has(referenced, m->nm)) at += (size_t)snprintf(buf + at, sizeof buf - at, "%s%s", at > 17 ? ", " : "", m->spec);
         }
     }
@@ -4008,7 +4008,7 @@ static int pl_tree_has_fn(const tree_t *t, const char *fn);
 static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
-    while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
+    while (PL_PRELUDE_LIBS[nlibs].lib[0]) nlibs++;
     PlProgram *lp[nlibs + 1];
     char seen[nlibs + 1], imp[nlibs + 1], vis[nlibs + 1];
     PlClause *base_last = pre->tail;
@@ -4072,7 +4072,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (!lp[i]) continue;
         for (int j = 0; j < nlibs; j++) {
             if (!lp[j] || j == i) continue;
-            for (const pl_prelude_lib_pi_t *sh = PL_PRELUDE_LIBS[j].shadows; sh && sh->nm; sh++) {
+            for (const pl_prelude_lib_pi_t *sh = PL_PRELUDE_LIBS[j].shadows; sh && sh->nm[0]; sh++) {
                 PlClause *prev = NULL, *nx = NULL;
                 for (PlClause *cl = lp[i]->head; cl; cl = nx) {
                     const char *cn; int car;
@@ -4134,7 +4134,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         for (PlClause *cl = uprog ? uprog->head : (PlClause *)0; cl; cl = cl->next) pl_clause_collect_refs(cl, &r);
         r.user = 0;
         for (int i = 0; i < nlibs && r.ug.t; i++) {
-            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[i].exports; lp[i] && e->nm && !called[i]; e++) if (pl_pk_has(r.ug.t, r.ug.cap, e->nm, e->ar)) called[i] = 1;
+            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[i].exports; lp[i] && e->nm[0] && !called[i]; e++) if (pl_pk_has(r.ug.t, r.ug.cap, e->nm, e->ar)) called[i] = 1;
         }
         for (uint32_t q = 0; referenced && q < referenced->len; q++) {
             const char *e = CV_AT(*referenced, char *, q);
@@ -4172,7 +4172,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             const char *nm;
             int ar, ex = 0;
             if (!mk[j][jj] || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_pk_has(bk, bkc, nm, ar)) continue;
-            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[j].exports; e->nm && !ex; e++) if (e->ar == ar && !strcmp(e->nm, nm)) ex = 1;
+            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[j].exports; e->nm[0] && !ex; e++) if (e->ar == ar && !strcmp(e->nm, nm)) ex = 1;
             if (!ex || pl_lib_export_of(&lek, &lev, nm, ar) >= 0) continue;
             CV_PUSH(lek, char *) = pl_pred_key(nm, ar);
             CV_PUSH(lev, void *) = (void *)(intptr_t)j;
@@ -4505,13 +4505,13 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&refkeys, pl_pred_key("abolish_table_call", 2));
         pl_cv_add(&referenced, "order_by");
         pl_cv_add(&refkeys, pl_pred_key("order_by", 2));
-        for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+        for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply") && strcmp(PL_PRELUDE_LIBS[li].lib, "ordsets")) continue;
-            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
+            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm[0]; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
         }
-        if (pl_program_is_xsb(prog)) for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+        if (pl_program_is_xsb(prog)) for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_builtins") && strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_dialect") && strcmp(PL_PRELUDE_LIBS[li].lib, "xsb_ordsets")) continue;
-            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
+            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm[0]; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
         }
     }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
@@ -4690,9 +4690,9 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_lib_exports(const char *nm, int ar) {
     if (!nm || ar < 0 || nm[0] == '$') return 0;
-    for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+    for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
         if (!strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
-        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm; e++) if (e->ar == ar && !strcmp(e->nm, nm)) return 1;
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm[0]; e++) if (e->ar == ar && !strcmp(e->nm, nm)) return 1;
     }
     return 0;
 }
