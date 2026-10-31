@@ -4208,6 +4208,7 @@ int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_ground(const pl_cell_t *c);
 int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     pl_db_t *db = (pl_db_t *)db_v;
     pl_cell_t *pair, *sh, *th, *sa, *ta;
@@ -4218,6 +4219,7 @@ int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
     th = pl_deref((pl_cell_t *)target);
     if ((int)th->v == DT_PLREF && th->p && th->slen == pair->slen) th = pl_deref(&((pl_cell_t *)th->p)[0]);
     if ((int)sh->v != DT_PLREF || (int)th->v != DT_PLREF || th->slen != sh->slen || !sh->p || !th->p) return 0;
+    if (!pl_db_ground(sh)) { pl_cell_t w = plc_copy_cx(sh, 0, cx); return plc_unify_cells_cx(th, &w, cx) ? 1 : 0; }
     sa = (pl_cell_t *)sh->p;
     ta = (pl_cell_t *)th->p;
     for (int j = 0, n = plc_fid_arity(sh->slen); j < n; j++) {
@@ -5264,13 +5266,26 @@ static int pl_db_ground(const pl_cell_t *c) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_no_attv(const pl_cell_t *c) {
+    pl_cell_t *d = pl_deref((pl_cell_t *)c);
+    for (;;) {
+        int n;
+        if (pl_attv_is(d)) return 0;
+        if ((int)d->v != DT_PLREF || !d->p) return 1;
+        n = plc_fid_arity(d->slen);
+        if (n < 1) return 1;
+        for (int j = 0; j < n - 1; j++) if (!pl_db_no_attv(&((pl_cell_t *)d->p)[j])) return 0;
+        d = pl_deref(&((pl_cell_t *)d->p)[n - 1]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_data_fact(const pl_db_t *db, int i) {
     pl_cell_t *pair = pl_deref((pl_cell_t *)&db->s[i].cl), *body, *head;
     if ((int)pair->v != DT_PLREF || !pair->p) return 0;
     body = pl_deref(&((pl_cell_t *)pair->p)[1]);
     head = pl_deref(&((pl_cell_t *)pair->p)[0]);
     if ((int)body->v != DT_PLATOM || (int)body->i != g_runtime.atoms.atom_true || (int)head->v != DT_PLREF || plc_fid_arity(head->slen) < 1) return 0;
-    return pl_db_ground(head);
+    return pl_db_no_attv(head);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_define_data(void *root, const char *nm, int arity, const char *skey) {
