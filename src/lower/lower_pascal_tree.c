@@ -440,6 +440,9 @@ static tree_t *pas_addr_of_proc(tree_t *e);
 static tree_t *pas_addr_of(tree_t *e);
 static int pas_ptr_typed(const tree_t *low);
 static int pas_pchar_typed(const tree_t *low);
+static int pas_row_designator(const tree_t *e, long long *d2);
+static tree_t *mk_row_call(const char *fn, const tree_t *e, const long long *d2, tree_t *row);
+static int pas_array_rows(const char *name, long long *rb);
 static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clause);
 static int pas_proc_param_is_real(const char *name, int idx);
 static int pas_proc_param_is_string(const char *name, int idx);
@@ -1366,6 +1369,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             for (int i = 0; i < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 int _pidx = i / 2;
+                {
+                    long long _rd[4];
+                    if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx) && pas_row_designator(val, _rd)) val = mk_row_call("__pas_row_get", val, _rd, NULL);
+                }
                 if (g_lower.pas.sem.pas_ptrcell && val && (pas_is_proc(name) || pas_is_func(name))) {
                     const pty_t *_ft = pty_formal_type(name, _pidx), *_at = pty_of_low(val);
                     int _cl = val->t == TT_FNC && val->n == 2 && val->c[0] && val->c[0]->v.sval && !strcmp(val->c[0]->v.sval, "__pas_chrlit") && val->c[1] && val->c[1]->t == TT_ILIT;
@@ -1920,6 +1927,13 @@ static int pas_array_is_param(const char *name) {
 static long long pas_array_ncols(const char *name) {
     const pty_t *t = name ? pty_name_type(name) : NULL;
     return t && t->k == PTK_ARRAY && !t->dyn && !t->open && t->ix && t->ix[0] && t->ix[1] ? t->ix[1]->hi + 1 : -1;
+}
+static int pas_array_rows(const char *name, long long *rb) {
+    const pty_t *t = name ? pty_name_type(name) : NULL;
+    if (!t || t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 2 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 0;
+    rb[0] = t->ix[0]->lo;
+    rb[1] = t->ix[0]->hi;
+    return 1;
 }
 static long long pas_array_low(const char *name) {
     const pty_t *t = name ? pty_name_type(name) : NULL;
@@ -2727,6 +2741,27 @@ static int pas_is_nafield(const tree_t *e) { return pas_field_arr_t(e, 0); }
 static long long pas_nafield_lo_get(const tree_t *e) { return pas_fld_lo(e); }
 static void pas_flat_mark_add(tree_t *e) { if (e) pnl_push(&g_lower.pas.sem.pas_flat_marks, e); }
 static int pas_flat_marked(const tree_t *e) { for (int i = 0; i < g_lower.pas.sem.pas_flat_marks.count; i++) if (g_lower.pas.sem.pas_flat_marks.items[i] == e) return 1; return 0; }
+static int pas_row_designator(const tree_t *e, long long *d2) {
+    if (!e || e->t != TT_IDX || e->n != 2 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval || pas_flat_marked(e)) return 0;
+    const pty_t *t = pty_name_type(e->c[0]->v.sval);
+    if (!t || t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 2 || !t->ix || !t->ix[0] || !t->ix[1] || !t->ix[0]->bounded || !t->ix[1]->bounded || !t->base || t->base->k == PTK_CHAR) return 0;
+    d2[0] = t->ix[0]->lo;
+    d2[1] = t->ix[0]->hi;
+    d2[2] = t->ix[1]->lo;
+    d2[3] = t->ix[1]->hi;
+    return 1;
+}
+static tree_t *mk_row_call(const char *fn, const tree_t *e, const long long *d2, tree_t *row) {
+    tree_t *f = ast_node_new(TT_FNC);
+    ast_push(f, leaf_s(TT_VAR, fn));
+    ast_push(f, pas_tree_clone(e->c[0]));
+    ast_push(f, pas_tree_clone(e->c[1]));
+    ast_push(f, ilit(d2[3] + 1));
+    ast_push(f, ilit(d2[2]));
+    ast_push(f, ilit(d2[3]));
+    if (row) ast_push(f, row);
+    return f;
+}
 static int pas_ca_is_read(const tree_t *e) { return e && e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_ca_unpack"); }
 static void pas_strarr_add2(const char *name, long long lo) {
     if (name) {
@@ -3594,6 +3629,7 @@ static long long pas_wrap_mask_of_type(const char *t) {
     return 0;
 }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    { long long _rd[4]; if (pas_row_designator(rhs, _rd)) rhs = mk_row_call("__pas_row_get", rhs, _rd, NULL); if (pas_row_designator(sel, _rd)) return mk_row_call("__pas_row_set", sel, _rd, rhs); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_ILIT && !pas_array_isdyn(sel->v.sval)) {
         long long _wm = pas_wrap_mask_of_type(pas_scalarvartype_get(sel->v.sval));
         if (_wm) rhs = mk_fnc2("iand", rhs, ilit(_wm));
@@ -5705,7 +5741,11 @@ static pval E_for_statement(const tree_t *n) {
                 pre = bin(TT_ASSIGN, leaf_s(TT_VAR, cv), coll);
                 base = leaf_s(TT_VAR, cv);
             }
-            if (coll->t == TT_VAR && coll->v.sval && pas_array_high_get(coll->v.sval, &ah)) {
+            long long _rb[4];
+            if (coll->t == TT_VAR && coll->v.sval && pas_array_ncols(coll->v.sval) > 0 && pas_array_rows(coll->v.sval, _rb)) {
+                lo = ilit(_rb[0]);
+                hi = ilit(_rb[1]);
+            } else if (coll->t == TT_VAR && coll->v.sval && pas_array_high_get(coll->v.sval, &ah)) {
                 lo = ilit(pas_array_nonparam_low(coll->v.sval));
                 hi = ilit(ah);
             } else if (pas_is_dynexpr(coll) || (pty_of_low(coll) && pty_of_low(coll)->k == PTK_ARRAY && pty_of_low(coll)->dyn)) {

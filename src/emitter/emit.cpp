@@ -4677,6 +4677,7 @@ DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t 
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
 DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int); DESCR_t pas_arr_make(DESCR_t *, int); DESCR_t pas_ptr_diff(DESCR_t *, int); DESCR_t pas_pdx(DESCR_t *, int);
+    DESCR_t pas_row_get(DESCR_t *, int); DESCR_t pas_row_set(DESCR_t *, int);
     DESCR_t pas_pchar_of(DESCR_t *, int);
     DESCR_t pas_pstrlen(DESCR_t *, int); DESCR_t pas_pstr(DESCR_t *, int); DESCR_t pas_addr(DESCR_t *, int); DESCR_t pas_addr_var(DESCR_t *, int);
     DESCR_t pas_ptr_inc(DESCR_t *, int); DESCR_t pas_ptr_eq(DESCR_t *, int); DESCR_t pas_deref(DESCR_t *, int); DESCR_t pas_deref_set(DESCR_t *, int);
@@ -4965,7 +4966,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "arr_make", 1, "pas_arr_make", pas_arr_make }, { "arr_make", 2, "pas_arr_make", pas_arr_make },
         { "__pas_deref", 1, "pas_deref", pas_deref }, { "__pas_deref_set", 2, "pas_deref_set", pas_deref_set }, { "__pas_field_set", 3, "pas_field_set", pas_field_set },
         { "__pas_alloc_rec", 1, "pas_alloc_rec", pas_alloc_rec }, { "__pas_dispose", 1, "pas_dispose", pas_dispose },
-        { "__pas_ptr_diff", 2, "pas_ptr_diff", pas_ptr_diff }, { "__pas_pdx", 4, "pas_pdx", pas_pdx }, { "__pas_pchar_of", 1, "pas_pchar_of", pas_pchar_of }, { "__pas_pstrlen", 1, "pas_pstrlen",
+        { "__pas_ptr_diff", 2, "pas_ptr_diff", pas_ptr_diff }, { "__pas_pdx", 4, "pas_pdx", pas_pdx }, { "__pas_row_get", 5, "pas_row_get", pas_row_get }, { "__pas_row_set", 6, "pas_row_set",
+            pas_row_set }, { "__pas_pchar_of", 1, "pas_pchar_of", pas_pchar_of }, { "__pas_pstrlen", 1, "pas_pstrlen",
             pas_pstrlen }, { "__pas_pstr", 1, "pas_pstr",
             pas_pstr }, { "__pas_addr", 2, "pas_addr", pas_addr }, { "__pas_addr_var", 1, "pas_addr_var", pas_addr_var }, { "__pas_ptr_inc", 2, "pas_ptr_inc", pas_ptr_inc }, { "__pas_ptr_eq", 2,
             "pas_ptr_eq",

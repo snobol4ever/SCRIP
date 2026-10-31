@@ -17791,6 +17791,36 @@ DESCR_t pas_pdx(DESCR_t *args, int nargs) {
     if (args[0].v != DT_PCELL) pas_file_err("6.5.4", "an element is indexed through a pointer that holds no cell kind", "__pas_pdx");
     return pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + (i - lo), "__pas_pdx");
 }
+DESCR_t pas_row_get(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    if (args[0].v != DT_A || !args[0].arr) pas_file_err("6.5.3.2", "a row is taken of a value that is no array", "__pas_row_get");
+    ARBLK_t *a = (ARBLK_t *) args[0].arr;
+    long long i = rk_ival(args[1]), nc = rk_ival(args[2]), l2 = rk_ival(args[3]), h2 = rk_ival(args[4]);
+    DESCR_t mk[2] = { INTVAL(l2), INTVAL(h2) };
+    DESCR_t row = pas_arr_make(mk, 2);
+    ARBLK_t *b = (ARBLK_t *) row.arr;
+    for (long long k = l2; k <= h2; k++) {
+        long long at = i * nc + k - a->lo;
+        if (at < 0 || at > (long long) a->hi - a->lo) pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_get");
+        b->data[k - l2] = pas_agg_copy(a->data[at]);
+    }
+    return row;
+}
+DESCR_t pas_row_set(DESCR_t *args, int nargs) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    (void) nargs;
+    if (args[0].v != DT_A || !args[0].arr || args[5].v != DT_A || !args[5].arr) pas_file_err("6.5.3.2", "a row is assigned between values that are no arrays", "__pas_row_set");
+    ARBLK_t *a = (ARBLK_t *) args[0].arr, *r = (ARBLK_t *) args[5].arr;
+    long long i = rk_ival(args[1]), nc = rk_ival(args[2]), l2 = rk_ival(args[3]), h2 = rk_ival(args[4]);
+    for (long long k = l2; k <= h2; k++) {
+        long long at = i * nc + k - a->lo, from = k - l2;
+        if (at < 0 || at > (long long) a->hi - a->lo || from > (long long) r->hi - r->lo)
+            pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_set");
+        a->data[at] = pas_agg_copy(r->data[from]);
+    }
+    return args[5];
+}
 DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
     (void) nargs;
     if (args[0].v != DT_PCELL || args[1].v != DT_PCELL) return INTVAL(0);
@@ -17981,6 +18011,10 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         goto L_pbi_907;
         case PBI_pdx:
         goto L_pbi_911;
+        case PBI_row_get:
+        goto L_pbi_912;
+        case PBI_row_set:
+        goto L_pbi_913;
         case PBI_pchar_of:
         goto L_pbi_908;
         case PBI_pstrlen:
@@ -18366,6 +18400,12 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_911:
     ;
     if (id == PBI_pdx && nargs == 4) { *out = pas_pdx(args, nargs); return 1; }
+    L_pbi_912:
+    ;
+    if (id == PBI_row_get && nargs == 5) { *out = pas_row_get(args, nargs); return 1; }
+    L_pbi_913:
+    ;
+    if (id == PBI_row_set && nargs == 6) { *out = pas_row_set(args, nargs); return 1; }
     L_pbi_907:
     ;
     if (id == PBI_ptr_diff && nargs == 2) { *out = pas_ptr_diff(args, nargs); return 1; }
