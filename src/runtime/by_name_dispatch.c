@@ -7237,7 +7237,7 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SP_NPROP 14
+#define PL_SP_NPROP 15
 void pas_file_err(const char *clause, const char *what, const char *proc) {
     fflush(stdout);
     fprintf(stderr, "scrip: pascal runtime error: ISO 7185 %s: %s", clause ? clause : "", what ? what : "");
@@ -7351,6 +7351,13 @@ static int pl_sp_xprop(int i, int j, DESCR_t *out) {
 static DESCR_t pl_gnu_fn(const char *f, int ar, const DESCR_t *a);
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
+    if (pidx == 14) {
+        FILE *tf = g_fh[i].fp;
+        int fd = tf && !g_fh[i].sink ? fileno(tf) : -1, t = g_fh[i].tty ? g_fh[i].tty == 't' : (fd >= 0 && isatty(fd));
+        if (pl_gnu_dialect()) return 0;
+        *out = pl_mk_cmp1("tty", pl_mk_atom(t ? "true" : "false"));
+        return 1;
+    }
     if (pidx == 13) {
         char b = g_fh[i].buf ? g_fh[i].buf : i == 2 ? 'n' : i < 3 ? 'l' : 'b';
         if (!pl_gnu_dialect()) return 0;
@@ -7729,7 +7736,9 @@ PL_CX_LEAF_HEAD(set_stream, 2)
             if (ok) fh_set_encoding(idx, strcmp(en, "UTF-8") ? en : (const char *)0);
         } else if (!strcmp(on, "line_position")) {
             if (a.v != DT_I) { cx->ball = rt_pl_ball_kind2("type_error", "integer", a); goto done; }
+            { extern int fh_query_position(int, long *, long *, long *); long qc, ql, qp; (void)fh_query_position(idx, &qc, &ql, &qp); }
             g_fh[idx].pos_lpos = (long)a.i;
+            g_fh[idx].gpos_lpos = (long)a.i;
             ok = 1;
         } else if (!strcmp(on, "file_name")) {
             extern char *rt_heap_strdup_c(const char *);
@@ -7745,6 +7754,7 @@ PL_CX_LEAF_HEAD(set_stream, 2)
         } else if (!strcmp(on, "close_on_abort") || !strcmp(on, "close_on_exec") || !strcmp(on, "tty") || !strcmp(on, "record_position")) {
             ok = pl_set_stream_bool(as);
             if (!ok) cx->ball = rt_pl_ball_kind2("type_error", "bool", a);
+            else if (!strcmp(on, "tty")) g_fh[idx].tty = as[0] == 't' ? 't' : 'f';
         } else if (!strcmp(on, "newline")) {
             ok = as && (!strcmp(as, "posix") || !strcmp(as, "dos") || !strcmp(as, "detect"));
             if (!ok) cx->ball = rt_pl_ball_kind2("domain_error", "newline", a);
@@ -9988,7 +9998,8 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero",
     0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } },
     { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
-    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false", 0 } }, { 0, "", 0, { 0 } } };
+    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false", 0 } }, { "color_term", "false", 1, { "true", "false",
+    0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
 static const pl_dia_flag_t pl_dia_flags[] = { { "xsb", "max_integer", "9223372036854775807" }, { "xsb", "min_integer", "-9223372036854775807" }, { "xsb", "bounded", "true" }, { "gnu", "max_integer",
@@ -12369,7 +12380,8 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2)
             nm = pl_atom_str(p);
             if (!nm && p.v == (DTYPE_t)DT_PLREF) nm = prolog_atom_name(plc_fid_name(p.slen));
             for (i = 0; nm && pn[i]; i++) if (!strcmp(nm, pn[i])) break;
-            if ((!nm || !pn[i]) && !(nm && (!strcmp(nm, "mirror") || !strcmp(nm, "buffering")) && pl_gnu_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
+            if ((!nm || !pn[i]) && !(nm && (!strcmp(nm, "mirror") || !strcmp(nm, "buffering")) && pl_gnu_dialect()) && !(nm && !strcmp(nm, "tty") && !pl_gnu_dialect())) cx->ball =
+                rt_pl_ball_kind2("domain_error", "stream_property", p);
         }
         if (cx->ball) ok = 0;
     }

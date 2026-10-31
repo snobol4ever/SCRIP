@@ -1981,7 +1981,6 @@ static const char * const PL_PRELUDE_SRC =
     "'$gsc_rest'(_):-get_code(user_input,C),'$gsc_rest'(C).\n"
     "'$gsc_eof'(4).\n"
     "'$gsc_eof'(26).\n"
-    "ansi_format(_,F,A):-format(F,A).\n"
     "functor(T,N,A,Ty):-nonvar(T),!,'$f4_kind'(T,N,A,K),'$f4_accept'(Ty,K).\n"
     "functor(T,N,A,Ty):-'$f4_build'(T,N,A,Ty).\n"
     "'$f4_kind'(T,N,A,compound):-compound(T),!,compound_name_arity(T,N,A).\n"

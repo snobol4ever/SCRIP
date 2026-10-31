@@ -70,6 +70,7 @@ typedef struct {
     char tsk;
     char buf;
     char cnt;
+    char tty;
     long pos_pre;
     long in_fold;
     long in_fill;

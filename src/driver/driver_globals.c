@@ -297,6 +297,7 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->tsk=0;
     s->buf=0;
     s->cnt=0;
+    s->tty=0;
     s->pos_pre=0;
     s->gpos_chars=0;
     s->gpos_lines=0;
