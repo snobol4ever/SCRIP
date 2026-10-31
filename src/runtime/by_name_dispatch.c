@@ -17731,10 +17731,20 @@ DESCR_t pas_dispose(DESCR_t *args, int nargs) {
 DESCR_t pas_deref(DESCR_t *args, int nargs) { (void) nargs; return *pas_heap_ref(args[0], "__pas_deref"); }
 DESCR_t pas_deref_set(DESCR_t *args, int nargs) { (void) nargs; *pas_heap_ref(args[0], "__pas_deref_set") = args[1]; return args[1]; }
 static DESCR_t pas_pcell(void *base, long idx) { return (DESCR_t){ .v = DT_PCELL, .slen = (uint32_t)(int32_t) idx, .ptr = base }; }
+static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    if (idx < INT32_MIN || idx > INT32_MAX) pas_file_err("6.5.4", "pointer arithmetic leaves the range of the element index", fn);
+    return pas_pcell(base, (long) idx);
+}
 DESCR_t pas_addr(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
-    if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; return pas_pcell((void *) b->data, rk_ival(args[1]) - b->lo); }
+    if (args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        if (b->hi < b->lo || !b->data) return INTVAL(0);
+        return pas_pcell_at((void *) b->data, rk_ival(args[1]) - b->lo, "__pas_addr");
+    }
+    if (IS_INT_fn(args[0]) && args[0].i == 0) return INTVAL(0);
     pas_file_err("6.5.4", "the address of an element is taken of a value that is no array or record variable", "__pas_addr");
     return FAILDESCR;
 }
@@ -17749,7 +17759,7 @@ DESCR_t pas_ptr_inc(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
     if (args[0].v != DT_PCELL || !args[0].ptr) pas_file_err("6.5.4", "pointer arithmetic on a pointer that denotes no cell", "__pas_ptr_inc");
-    return pas_pcell(args[0].ptr, (long) (int32_t) args[0].slen + rk_ival(args[1]));
+    return pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + rk_ival(args[1]), "__pas_ptr_inc");
 }
 static uintptr_t pas_ptr_word(DESCR_t p) { return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t)(int32_t) p.slen; }
 DESCR_t pas_ptr_eq(DESCR_t *args, int nargs) {

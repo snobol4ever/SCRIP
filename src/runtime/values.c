@@ -40,6 +40,7 @@ int c_descr_identical(DESCR_t a, DESCR_t b) {
     if (a.v == DT_EXTL) return a.p == b.p;
     if (a.v == DT_T) return a.tbl == b.tbl;
     if (a.v == DT_DATA) return a.slen == b.slen && a.ptr == b.ptr;
+    if (a.v == DT_PCELL) return a.slen == b.slen && a.ptr == b.ptr;
     if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b)) { extern int rt_procval_same(DESCR_t, DESCR_t); return rt_procval_same(a, b); }
     return memcmp(&a, &b, sizeof(DESCR_t)) == 0;
 }
