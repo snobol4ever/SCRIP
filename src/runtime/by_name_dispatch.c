@@ -20506,6 +20506,20 @@ void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map)
 static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
     static struct { unsigned char v, n; char rm_from[63], rm_to[63], rm_map[256]; } g_rm[4];
     static int g_rm_off = -1;
+    if (g_rm_off == 0 && nargs == 3 && args[0].v == DT_S && args[1].v == DT_S && args[2].v == DT_S) {
+        const char *fsv = args[0].s, *ffv = args[1].s, *ftv = args[2].s;
+        uint32_t fsl = args[0].slen, ffl = args[1].slen;
+        if (fsv && ffv && ftv && fsl && fsl != 0xFFFFFFFFu && ffl && ffl == args[2].slen && ffl < 63u) {
+            unsigned fs = ((unsigned char)ffv[0] * 31u + ffl) & 3u;
+            if (g_rm[fs].v && g_rm[fs].n == ffl && !memcmp(g_rm[fs].rm_from, ffv, ffl) && !memcmp(g_rm[fs].rm_to, ftv, ffl)) {
+                char *fbuf = (char *)rt_gcheap_alloc(HB_WSC, (uint64_t)fsl + 1);
+                rt_translate_bytes(fbuf, fsv, fsl, g_rm[fs].rm_map);
+                fbuf[fsl] = 0;
+                *out = BSTRVAL(fbuf, fsl);
+                return 1;
+            }
+        }
+    }
     if (nargs != 3) return -1;
     if (rt_str_arg_bad(args[2])) { core_runtime_error(168, "replace third argument is not a string"); *out = FAILDESCR; return 1; }
     if (rt_str_arg_bad(args[1])) { core_runtime_error(169, "replace second argument is not a string"); *out = FAILDESCR; return 1; }
@@ -20517,10 +20531,10 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
     BN_PTRLEN(args[2], tv, tl, _plf);
     if (fl != tl || !fl) { core_runtime_error(171, "null or unequally long 2nd, 3rd args to replace"); *out = FAILDESCR; return 1; }
     if (rt_str_arg_bad(args[0])) { core_runtime_error(170, "replace first argument is not a string"); *out = FAILDESCR; return 1; }
-    if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
+    if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : repl_pl_off() ? 2 : 0; }
     char mloc[256];
     char *map = mloc;
-    if (!g_rm_off && fl < 63) {
+    if (g_rm_off != 1 && fl < 63) {
         unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
         if (g_rm[s].v && g_rm[s].n == (unsigned char)fl && !memcmp(g_rm[s].rm_from, fv, fl) && !memcmp(g_rm[s].rm_to, tv, fl)) map = g_rm[s].rm_map;
         else {

@@ -418,16 +418,47 @@ RTX_FUNC(VARVAL_fn)
 RTX_ENDF(VARVAL_fn)
 RTX_FUNC(rt_translate_bytes)
     RTX_GATE(str, .Ltrb_c)
-    test    rdx, rdx
-    je      .Ltrb_done
-.Ltrb_loop:
+    sub     rdi, rsi
+    sub     rdx, 8
+    jb      .Ltrb_rem
+.Ltrb_loop8:
     movzx   eax, byte ptr [rsi]
     movzx   eax, byte ptr [rcx + rax]
-    mov     [rdi], al
+    mov     byte ptr [rsi + rdi], al
+    movzx   eax, byte ptr [rsi + 1]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 1], al
+    movzx   eax, byte ptr [rsi + 2]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 2], al
+    movzx   eax, byte ptr [rsi + 3]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 3], al
+    movzx   eax, byte ptr [rsi + 4]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 4], al
+    movzx   eax, byte ptr [rsi + 5]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 5], al
+    movzx   eax, byte ptr [rsi + 6]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 6], al
+    movzx   eax, byte ptr [rsi + 7]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi + 7], al
+    add     rsi, 8
+    sub     rdx, 8
+    jae     .Ltrb_loop8
+.Ltrb_rem:
+    add     rdx, 8
+    je      .Ltrb_done
+.Ltrb_tail:
+    movzx   eax, byte ptr [rsi]
+    movzx   eax, byte ptr [rcx + rax]
+    mov     byte ptr [rsi + rdi], al
     inc     rsi
-    inc     rdi
     dec     rdx
-    jnz     .Ltrb_loop
+    jnz     .Ltrb_tail
 .Ltrb_done:
     ret
 .Ltrb_c:

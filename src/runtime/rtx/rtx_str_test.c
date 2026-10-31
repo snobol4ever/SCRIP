@@ -8,6 +8,8 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 long rt_sxt_match(const char *s);
+void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
+void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 typedef struct { int v; unsigned slen; long tok; unsigned long nbytes; char bytes[512]; } obs_t;
 static int fails = 0, n = 0, declined = 0;
 static DESCR_t box_str_concat_d(DESCR_t a, DESCR_t b) { DESCR_t r = str_concat_d(a, b); if (r.v != RTX_NOT_HANDLED) return r; declined++; return c_str_concat_d(a, b); }
@@ -153,6 +155,36 @@ int main(void) {
             n++;
             if (x.v != y.v || x.slen != y.slen || strcmp(x.s, y.s) != 0) { fails++; printf("  MISMATCH append-loop k=%d asm{%u \"%s\"} c{%u \"%s\"}\n", k, x.slen, x.s, y.slen, y.s); }
             acc = x;
+        }
+    }
+    {
+        static unsigned char maps[4][256], src[160], a[160], c[160];
+        for (int i = 0; i < 256; i++) {
+            maps[0][i] = (unsigned char)i;
+            maps[1][i] = (unsigned char)(i == 'a' || i == 'e' || i == 'i' || i == 'o' || i == 'u' ? '*' : i);
+            maps[2][i] = (unsigned char)(255 - i);
+            maps[3][i] = (unsigned char)((i * 167 + 13) & 255);
+        }
+        for (int i = 0; i < 160; i++) src[i] = (unsigned char)((i * 37 + 11) & 255);
+        for (int m = 0; m < 4; m++) {
+            for (int off = 0; off < 4; off++) {
+                for (size_t len = 0; len <= 70; len++) {
+                    memset(a, 0xA5, sizeof a);
+                    memset(c, 0xA5, sizeof c);
+                    rt_translate_bytes((char *)a + 8, (const char *)src + off, len, (const char *)maps[m]);
+                    c_rt_translate_bytes((char *)c + 8, (const char *)src + off, len, (const char *)maps[m]);
+                    n++;
+                    if (memcmp(a, c, sizeof a) != 0) { fails++; printf("  MISMATCH translate map=%d off=%d len=%zu\n", m, off, len); }
+                }
+            }
+            for (size_t len = 0; len <= 70; len++) {
+                memcpy(a, src, sizeof a);
+                memcpy(c, src, sizeof c);
+                rt_translate_bytes((char *)a + 3, (const char *)a + 3, len, (const char *)maps[m]);
+                c_rt_translate_bytes((char *)c + 3, (const char *)c + 3, len, (const char *)maps[m]);
+                n++;
+                if (memcmp(a, c, sizeof a) != 0) { fails++; printf("  MISMATCH translate in place map=%d len=%zu\n", m, len); }
+            }
         }
     }
     printf("RTX-3 STR: %d cases, %d mismatches, %d declined to the twin\n", n, fails, declined);
