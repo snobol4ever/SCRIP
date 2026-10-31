@@ -4708,7 +4708,8 @@ static void pas_sem_walk(const tree_t *root, int k, const tree_t *node, const ch
         const char *cv = node->c[0]->v.sval;
         const tree_t *b = pas_sem_proc_at(root, k);
         int lvl = pas_sem_level(b);
-        if (lvl >= 1 && !pas_sem_vlist_has(pas_sem_locals(b), cv) && !pas_sem_vlist_has(pas_sem_params(b), cv)) {
+        int iso = g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive;
+        if (lvl >= 1 && !pas_sem_vlist_has(pas_sem_locals(b), cv) && (iso || !pas_sem_vlist_has(pas_sem_params(b), cv))) {
             fprintf(stderr,
                 "pascal: ISO 7185 6.8.3.9 violation in %s line %d: for-statement control-variable '%s' is not declared in the"
                 " variable-declaration-part of the block closest-containing the for-statement\n", fname, node->line, cv);
