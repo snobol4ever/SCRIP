@@ -3,7 +3,9 @@
 extern "C" {
 #include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_conjunction() {
     return IF(_.op_sa >= 0 && _.op_off >= 0 && _.op_sa != _.op_off,

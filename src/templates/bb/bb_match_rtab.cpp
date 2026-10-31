@@ -4,7 +4,8 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_rtab() {
     return IF(_.op_sval != NULL,

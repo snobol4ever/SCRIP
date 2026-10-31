@@ -9,7 +9,12 @@ ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);
 extern "C" long *rt_anchor_ptr(void);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
+#include "runtime/rtx/rtcc.h"
 #define subjc() (_.op_subj_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_begin() {

@@ -8,8 +8,6 @@ extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" int emit_zrow_sprec(const IR_t * nd);
 extern "C" {
 #include "bb_template_common.h"
-#include "stage2.h"
-#include "ab_abi.h"
 #include "bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
@@ -75,7 +73,18 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs);
 void rt_trace_call_hook_f(const char *fname, int np, void *base);
 int zls_g_block_args(const IR_graph_t * g);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 extern "C++" long bcps_parse_rsp(const char * t);
 extern "C++" int bcps_arg_slot(IR_t * call, int i);
 extern "C++" int bcps_result_slot();

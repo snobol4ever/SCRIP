@@ -1,13 +1,14 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t rt_random_var(DESCR_t base);
 extern DESCR_t rt_random_var_strict(DESCR_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_random() {
     return (_.op_off < 0 || _.op_a_slot < 0) ? x86_alpha() + x86_bomb("bb_random: needs own slot + base operand slot")

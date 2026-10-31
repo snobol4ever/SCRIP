@@ -10,7 +10,10 @@ struct DESCR_t rt_keyword_error_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_trace_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_dump_set(struct DESCR_t v);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define KA_OFFBAD() (!(_.op_off >= 0))
 #define KA_SLOTBAD() (_.op_a_slot < 0)

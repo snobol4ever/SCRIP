@@ -3,9 +3,9 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_assign() {
     return IF(!(_.op_sb >= 0 && _.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0), x86_bomb("bb_rev_assign: x<-v needs varslot + rhs slot + save slot + own slot"))

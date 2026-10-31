@@ -9,7 +9,12 @@ extern "C" void *rt_match_value_get_pat_fn (DESCR_t *pval);
 extern "C" void *rt_match_value_get_pat_dtp(DESCR_t *pval);
 extern "C" long rt_match_value_open (DESCR_t *pval, void *rec);
 extern "C" void *dtp_fn_of(void *headv);
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_value() {
     return x86("comment", "IR_MATCH_VALUE (operand[0] pattern value, no manufactured name)")

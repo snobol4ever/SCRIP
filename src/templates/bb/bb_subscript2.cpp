@@ -8,7 +8,10 @@ extern "C" {
 extern DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 extern DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SUB2_LV() (_.op_sval && !strcmp(_.op_sval, "nd2-lv"))
 #define SUB2_FN() (SUB2_LV() ? (uint64_t)(uintptr_t)(void *)c_rt_subscript_var2_lv : (uint64_t)(uintptr_t)(void *)c_rt_subscript_var2)

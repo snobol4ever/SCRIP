@@ -6,7 +6,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);

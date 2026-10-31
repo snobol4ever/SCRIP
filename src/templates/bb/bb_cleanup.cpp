@@ -5,7 +5,10 @@ extern "C" {
 #include "bb_template_common.h"
 }
 #include "rt/rt_pl_trail.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static_assert(PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40, "bb_cleanup reads the trail header's cleanup cell at +32 and the probe's B word at +40");
 #define CL_REC(k) FRQ(_.op_off + (k))

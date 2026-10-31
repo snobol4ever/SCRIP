@@ -1,10 +1,7 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "SM.h"
-#include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
@@ -12,7 +9,11 @@ int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_armed.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_relop() {
     return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)

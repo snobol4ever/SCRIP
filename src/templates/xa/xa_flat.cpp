@@ -5,7 +5,14 @@
 #include <cstdio>
 #include "emit.h"
 #include "gc_frame_map.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 extern "C++" int zf_display_level(void);
 extern "C++" int zf_pas_nest_graph(void);
 extern "C++" int zf_display_mem_off(int dl);
@@ -16,7 +23,6 @@ extern "C++" const char * xa_icn_trace_intern(const char * s);
 extern "C++" int xa_flat_graph_holds_a_frame_retry(void);
 #include "pin_va.h"
 extern "C" {
-#include "xa_template_common.h"
 }
 #include "../bb/bb_templates.h"
 #include "../bb/bb_pl_cell.h"

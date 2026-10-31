@@ -1,12 +1,13 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_swap_var() {
         return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) ? x86_alpha() + x86_bomb("bb_swap_var: needs own slot + two variable operand slots") :

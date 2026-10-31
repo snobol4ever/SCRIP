@@ -12,7 +12,10 @@ extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, void *rec);
 extern "C" rt_dcap_next_t rt_dcap_land_ω(void *rec);
 extern "C" rt_dcap_next_t rt_dcap_resume(void *rec);
 #define DCF_RECORD_BYTES 224L
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string flush_pump() {
     return x86("note", "cas_mark")

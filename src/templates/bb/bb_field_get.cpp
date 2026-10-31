@@ -9,7 +9,11 @@ extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);
 extern DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj);
 extern DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 #define RO_SEAL_STR(n, s) \
     (x86(".quad_ro", L(n), LS(n), (s)) \
    + x86("label", LS(n)) \

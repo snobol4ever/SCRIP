@@ -11,7 +11,17 @@ extern "C" {
 extern int g_gva_active;
 DESCR_t NV_GET_fn(const char * name);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
+#include "ir/pin_va.h"
+#include "runtime/rtx/rtcc.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
 static inline int vg_patv_slot(const char * sv) { return bb_patv_slot_of(sv); }

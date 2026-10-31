@@ -16,7 +16,12 @@ extern "C" rt_dcap_next_t rt_dcap_resume(void *rec);
 #define MEND_XO 128L
 #define MEND_RB 160L
 extern "C" long zvo_owner_dout(int cur_head);
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
+#include "runtime/rtx/rtcc.h"
 #define rfc() (_.op_fc_disp >= 0)
 #define MEND_ROW() (_.op_zrel >= MEND_ROW_BYTES)
 #define MEND_X(o) (MEND_ROW() ? MEND_XO + (o) : (long)(o))

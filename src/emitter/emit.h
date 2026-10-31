@@ -870,5 +870,25 @@ void emit_write_file_s(const char * path, const std::string & s);
 int emit_knob_unless_zero(const char * name);
 int emit_knob_nonzero(const char * name);
 int emit_knob_if_one(const char * name);
+extern "C" int emit_rtx_entry_is(const char * sym);
+extern "C" unsigned emit_rtx_clob_mask(const char * sym);
+extern "C" void * emit_rtx_twin(const char * sym, const char ** cname, int * kind);
+extern "C" const char * emit_rtx_twin_sym(const char * sym);
+extern "C" void * emit_rtx_twin_addr(const char * sym, void * addr);
+extern "C" int g_emit_module_pic;
+extern "C++" int emit_gc_site_new(int kind, int adj);
+extern "C++" int emit_gc_site_rsp_based(void);
+extern "C++" int emit_gc_site_raw(int kind, int rule, int depth);
+extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int aligned, int unknown);
+extern "C++" std::string emit_gc_site_label(int idx);
+extern "C" int emit_zrow_zchk(const IR_t * nd);
+extern "C" int emit_zrow_xabs(const IR_t * nd);
+extern "C" int emit_graph_has_suspend(IR_graph_t * g);
+extern "C" int emit_port_exit_label_promotes(const char * label);
+extern "C" void emit_zsm_frame_addr(const IR_graph_t * g, const IR_t * nd, int off, int cls, int rsp_form);
+extern "C" int emit_zrow_release(int below, int kind, const int ** offs);
+extern "C" int emit_diag_regs_suppress(void);
+extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, long owner);
+extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link);
 #endif
 #endif

@@ -6,7 +6,11 @@ extern "C" {
 #include "descr.h"
 int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string coerce_string_fast(void) {
     return x86("mov", "rax", RDQ("rdi", 0))

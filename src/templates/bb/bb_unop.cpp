@@ -14,7 +14,10 @@ struct DESCR_t rt_num_pos_sno(struct DESCR_t a);
 struct DESCR_t rt_cset_compl(struct DESCR_t a);
 struct DESCR_t rt_deref(struct DESCR_t d);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {

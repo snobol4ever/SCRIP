@@ -5,7 +5,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_dispatch_chain(N, base, lo) emit_for((int)(lo), (int)(N), [&](int i) { return IF(XA_PAIR((int)(base) + i).rsp != 0, \
                                                                          x86("cmp", "eax", i) \

@@ -8,7 +8,10 @@ void rt_pl_tr_refuse(const char *);
 int rt_pl_unify_const_cold(const DESCR_t *, int64_t, int);
 }
 #include "rt/rt_pl_trail.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
 static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES && X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES && X86_PL_TR_HEADER_BYTES == PL_TR_HEADER_BYTES &&
     X86_PL_TR_FLOOR_OFF == PL_TR_FLOOR_OFF && X86_PL_TR_WAKE_OFF == PL_TR_WAKE_OFF,
               "the trail push and the choice mark spell the entry size, the arena mask and the header size as literals");

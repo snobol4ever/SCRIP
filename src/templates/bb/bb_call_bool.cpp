@@ -3,11 +3,13 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "../runtime/rt/rt.h"
-#include "../runtime/builtins/gen.h"
 int bb_slot_get(IR_t *nd);
 int rk_is_truthy(DESCR_t v);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_bool_relop() {
     return x86_alpha()

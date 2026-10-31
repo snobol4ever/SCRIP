@@ -5,7 +5,8 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_zrow_gcell(const IR_t * nd);
 static std::string gate_arm_cell() {

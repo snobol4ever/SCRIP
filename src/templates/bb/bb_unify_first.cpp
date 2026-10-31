@@ -5,8 +5,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 }
-#include "rt/rt_pl_trail.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
 static_assert(offsetof(VCELL_t, cellp) == 0, "the deref follows a DT_N slen 2 name through the VCELL's first word");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "bb_pl_cell.h"

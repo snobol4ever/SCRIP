@@ -14,7 +14,11 @@ extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx)
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string avs_base_deref() {
     return x86("comment", "a base that is a variable reference (DT_N, one cell) is looked through for the table fast path; the slow road keeps the reference (CEO-1641)")

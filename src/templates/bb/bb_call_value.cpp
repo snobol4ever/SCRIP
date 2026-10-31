@@ -27,8 +27,14 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 }
-#include "rt/rt_pl_trail.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_zeta.h"
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_is_apply() (_.op_sval && strcmp(_.op_sval, "apply") == 0 && _.op_arg_slot_n == 1)

@@ -1,11 +1,13 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string scanalt_dispatch_chain(long N, int base, int lo) {
     return lo >= N

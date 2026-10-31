@@ -9,7 +9,11 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define IT_IS(k) (_.op_sval && std::string(_.op_sval) == k)
 #define IT_ZD() (_.op_zres && _.op_sb >= 0)

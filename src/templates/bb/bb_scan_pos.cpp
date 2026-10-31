@@ -6,7 +6,9 @@ extern "C" {
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_pos() {
     x86_begin();

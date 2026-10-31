@@ -1,10 +1,13 @@
 #include <string>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string ma_line1() {
     return x86("comment", "IR_MATCH_ARB")

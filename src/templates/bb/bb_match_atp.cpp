@@ -1,6 +1,5 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 }
@@ -11,7 +10,10 @@ extern "C" rt_dcap_next_t rt_at_cursor_open(const char *varname, int cur_delta, 
 extern "C" long rt_at_cursor_land_γ(DESCR_t frame0, long word, void *rec);
 extern "C" long rt_at_cursor_land_ω(long word, void *rec);
 #define ATCO_RECORD_BYTES 144L
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 #include "bb_templates.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_atp() {

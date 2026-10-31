@@ -10,7 +10,11 @@ extern DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { ARBLK_LO = 0, ARBLK_HI = 4, ARBLK_NDIM = 8, ARBLK_DATA = 32 };
 #define LVCK_CONLY() (_.op_sval && !strcmp(_.op_sval, "lv-check-container-only"))

@@ -3,7 +3,8 @@
 extern "C" {
 #include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_abort() {
     return x86("comment", "IR_MATCH_ABORT")

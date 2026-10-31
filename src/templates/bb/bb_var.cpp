@@ -2,9 +2,10 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var() {
     x86_begin();

@@ -1,11 +1,10 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
 #define CAP_FROM() RDD("rbp", _.op_off + 8 + 8 * (int)_.op_ival)
 #define CAP_TO() RDD("rbp", _.op_off + 12 + 8 * (int)_.op_ival)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

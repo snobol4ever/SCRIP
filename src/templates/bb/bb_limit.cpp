@@ -3,10 +3,13 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lim_count() { return _.op_sb >= 0 ? _.op_sb : _.op_off + 16; }
 static int lim_flag() { return _.op_sb >= 0 ? _.op_sb + 8 : _.op_off + 24; }

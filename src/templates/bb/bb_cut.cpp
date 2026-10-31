@@ -4,7 +4,10 @@
 extern "C" {
 #include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cut_barrier() {
     return IF(x86_resumable_frame() && !_.op_ival,

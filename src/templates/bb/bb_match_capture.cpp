@@ -20,7 +20,16 @@ extern "C" int gva_name_hidden(const char *name);
 extern "C" int g_gva_active;
 extern "C" void * bb_dstar_rec_addr(const char * star);
 extern "C" const char * bb_ab_sym_name(const char * nm);
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
+#include "ir/pin_va.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define havehome() (_.op_zres || _.op_off >= 0)
 #define cap_name_plain() (_.op_sval && _.op_sval[0] && _.op_sval[0] != '*')

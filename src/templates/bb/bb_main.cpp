@@ -1,10 +1,10 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 #include "bb_templates.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_main_entry_bridge() {

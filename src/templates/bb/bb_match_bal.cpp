@@ -1,10 +1,9 @@
 #include <string>
-#include "emit.h"
 extern "C" {
-#include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_bal() {
     x86_begin();

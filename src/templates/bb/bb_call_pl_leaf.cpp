@@ -20,7 +20,11 @@ DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 #include "rt/gc_heap.h"
 }
 #include "rt/rt_pl_trail.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 #include "bb_pl_cell.h"
 #include "bb_pl_leaf_kinds.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

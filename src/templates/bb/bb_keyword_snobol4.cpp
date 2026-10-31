@@ -9,7 +9,12 @@ int rt_kw_index(const char *kw);
 DESCR_t rt_kw_read_idx(int64_t idx);
 const char *rt_kw_direct_sym(int idx, int *soff, const void **base);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
 #define RO_SEAL_Q(n, v) \
     (x86("def", L(n)) \
    + x86(".quad", (uint64_t)(v)))

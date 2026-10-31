@@ -1,8 +1,6 @@
 #include <string>
 #include "emit.h"
-#include "x86_asm.h"
 extern "C" {
-#include "xa_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_epilogue_str(void) { return std::string(); }

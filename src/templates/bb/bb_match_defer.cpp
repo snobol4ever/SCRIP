@@ -21,7 +21,16 @@ extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, 
 extern "C" void *dtp_fn_of(void *headv);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int g_gva_active;
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "ir/pin_va.h"
+#include "runtime/rtx/rtcc.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define defer_inline() emit_knob_unless_zero("SCRIP_DEFER_INLINE")

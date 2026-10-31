@@ -5,14 +5,17 @@ extern "C" {
 extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "bb_template_common.h"
 #include "descr.h"
-#include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark() {
     return IF(x86_resumable_frame() && _.op_to_trailed,

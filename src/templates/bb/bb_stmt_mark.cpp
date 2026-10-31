@@ -5,7 +5,11 @@
 extern "C" {
 #include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 #include "bb_templates.h"
 #define RO_SEAL_STR(n, s) \
     (x86(".quad_ro", L(n), LS(n), (s)) \

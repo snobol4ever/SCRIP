@@ -10,7 +10,16 @@ extern int g_gva_active;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 DESCR_t NV_GET_fn(const char * name);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
+#include "templates/x86/x86_jump.h"
+#include "ir/pin_va.h"
+#include "runtime/rtx/rtcc.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RAG_BAD() (!(_.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0))
 #define RAG_KW() ((_.op_sval && !strcmp(_.op_sval, "&pos")) || (_.op_sval && !strcmp(_.op_sval, "&subject")))

@@ -8,7 +8,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
 extern std::string bb_call_bool_relop();
 extern std::string bb_call_bool_slot();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

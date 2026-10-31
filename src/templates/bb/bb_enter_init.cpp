@@ -3,9 +3,9 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_enter_init() {
     x86_begin();

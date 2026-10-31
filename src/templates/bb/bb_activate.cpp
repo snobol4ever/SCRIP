@@ -3,10 +3,13 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 #include "../runtime/rt/rt_coexpr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_activate() {
     x86_begin();

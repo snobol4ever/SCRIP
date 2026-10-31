@@ -3,13 +3,13 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "SM.h"
-#include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bxr_ok() { return _.op_off >= 0 && _.op_ival == BINOP_XREP && _.op_sa >= 0 && _.op_sb >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

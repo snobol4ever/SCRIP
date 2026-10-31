@@ -15,7 +15,11 @@ int rt_pl_db_cand_first(void * db, void * target);
 int rt_pl_db_cand_next(void * db, int i, void * target);
 int rt_pl_db_cand_last(void * db, int i, void * target, int g);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark();
 std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok);

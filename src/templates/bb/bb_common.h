@@ -50,6 +50,5 @@ extern int rt_succ(int k0, long i0, const char *s0, int k1, long i1, const char 
 extern int rt_plus(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int rt_throw_term(void *ball_term);
 }
-#include "x86_asm.h"
 std::string emit_build_compound_term(const IR_t *nd);
 int bb_op_floaty(const char *fn);

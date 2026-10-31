@@ -2,9 +2,9 @@
 #include "g_runtime.h"
 #include <cstdint>
 #include "emit.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_rtcc.h"
 extern "C" {
-#include "xa_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string icn_landing_line_restore(void) {

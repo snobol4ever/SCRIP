@@ -3,6 +3,12 @@
 #include "stage2.h"
 #include "g_runtime.h"
 #include "rt/rt_pl_trail.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
 #define PL_SERIAL_DRAW(w) (x86("note", "creation serial: the next unbound cell's tag word is the root record's standing cell 255, which then advances by 512") \
                     + x86("mov", (w), RDQ("r14", -PL_SERIAL_OFF)) \
                     + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP))

@@ -11,7 +11,10 @@ extern DESCR_t subscript_get2_ext_strict(DESCR_t, DESCR_t, DESCR_t);
 extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 extern DESCR_t rt_section_var_strict(DESCR_t, DESCR_t, DESCR_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SEC_ARGS() \
     (IF(_.op_zres, \

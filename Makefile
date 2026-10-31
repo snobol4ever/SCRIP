@@ -1664,6 +1664,15 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/emitter/emit_call_probe.cpp \
     $(SRC)/templates/x86/x86_arg_roles.cpp \
+    $(SRC)/templates/x86/x86_asm.cpp \
+    $(SRC)/templates/x86/x86_call.cpp \
+    $(SRC)/templates/x86/x86_frame.cpp \
+    $(SRC)/templates/x86/x86_gc.cpp \
+    $(SRC)/templates/x86/x86_icn.cpp \
+    $(SRC)/templates/x86/x86_jump.cpp \
+    $(SRC)/templates/x86/x86_rsp_tracker.cpp \
+    $(SRC)/templates/x86/x86_rtcc.cpp \
+    $(SRC)/templates/x86/x86_zeta.cpp \
     $(SRC)/templates/bb/bb_glue_flat.cpp \
     $(SRC)/templates/bb/bb_main.cpp \
     $(SRC)/templates/bb/bb_match_lambda.cpp \

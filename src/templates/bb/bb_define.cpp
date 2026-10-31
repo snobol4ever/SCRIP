@@ -8,7 +8,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "ab_abi.h"
 #include "pin_va.h"
 #include "rt.h"
 extern int rt_g_want_name;
@@ -35,7 +34,16 @@ char *ct_strdup(const char *);
 void rt_shim_nv_in(const char *, DESCR_t *, const long *, const char *); DESCR_t rt_shim_nv_gamma(const char *, DESCR_t *); void rt_shim_nv_omega(const char *, DESCR_t *);
 }
 extern "C" { int xa_flat_class_c_pred(void); }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_rtcc.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm);
 extern "C" const char * bb_ab_thunk_stem_or(const char * nm);
@@ -212,12 +220,10 @@ static std::string bb_define_bind() {
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-#include "ab_abi.h"
 #include "pin_va.h"
 int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int rt_proc_nformals(const char *);
 }
-#include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define S9(f) emit_shim9(32 + 16L * xt4, F4, (f))
 static std::string bd_adopt() {

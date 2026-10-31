@@ -3,15 +3,16 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "SM.h"
-#include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b); DESCR_t sno_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 #include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

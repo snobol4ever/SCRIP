@@ -30,7 +30,7 @@ int gva_trace_demoted(void);
 void rt_ab_undef_fn_stub(void);
 void rt_ab_undef_sig_stub(void);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
 extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; { int i = bb_proc_find(fname); if (i >= 0) { int bi = g_stage2.proc_table[i].bb_idx;
     return (bi >= 0 && bi < g_stage2.bbp.count
         && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } } return 0; }

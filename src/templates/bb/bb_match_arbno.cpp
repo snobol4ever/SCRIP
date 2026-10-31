@@ -8,7 +8,8 @@ extern "C" {
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 extern "C" int sn4_arbno_seal_omega(void);
 extern "C" int sn4_arbno_tailbeta(void);
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define kkN() (_.op_arbno_body_kk)
 #define ARB_BODYBETA() (sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1))

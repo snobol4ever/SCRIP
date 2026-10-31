@@ -1,11 +1,11 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_rtcc.h"
 extern "C" void rk_box_match_build(const char *subj, long span, const long *cells, const char *names);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_rkland() {

@@ -10,7 +10,17 @@ extern int g_gva_active;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 const char * stmt_src_get_file(void);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
+#include "ir/pin_va.h"
+#include "runtime/rtx/rtcc.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }

@@ -3,8 +3,6 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "SM.h"
-#include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
@@ -42,7 +40,12 @@ DESCR_t rt_pow_sno(DESCR_t, DESCR_t);
 DESCR_t rt_powreal_sno(DESCR_t, DESCR_t);
 DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_armed.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 #include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

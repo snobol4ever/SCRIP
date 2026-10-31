@@ -17,7 +17,13 @@ extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs, void * rec);
 extern rt_eval_next_t rt_eval_open_raise(DESCR_t * args, int nargs, void * rec);
 extern DESCR_t rt_eval_land(long word);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_armed.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_rtcc.h"
 #define BGTE_EVAL_REC 112
 #define BGTE_VERDICT_EVAL 3
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,

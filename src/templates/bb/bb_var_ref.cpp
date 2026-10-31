@@ -9,7 +9,16 @@ extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
 extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);
 extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
+#include "ir/pin_va.h"
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" { int stage2_owner_varslot(const char * proc, const char * var); const char * stage2_owner_l3_ancestor(const char * proc); }

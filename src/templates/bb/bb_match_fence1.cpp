@@ -5,7 +5,8 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_act_arm() {
     return x86("comment", "IR_MATCH_FENCE1 (ACT: the record in the match frame, the planner's word for an indefinite body)")

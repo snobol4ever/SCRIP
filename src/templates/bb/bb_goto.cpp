@@ -1,9 +1,8 @@
 #include <string>
-#include "emit.h"
 extern "C" {
-#include "bb_template_common.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_goto() {
     return x86_alpha() + x86_pair_loop();

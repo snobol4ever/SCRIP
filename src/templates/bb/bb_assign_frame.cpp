@@ -5,9 +5,9 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define AF_PD() (_.op_sval && !strcmp(_.op_sval, "__pas_display"))
 std::string bb_assign_frame() {

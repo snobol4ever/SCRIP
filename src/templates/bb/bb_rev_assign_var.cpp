@@ -1,6 +1,5 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
@@ -8,7 +7,9 @@ extern DESCR_t rt_deref(DESCR_t d);
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_assign_var() {
     return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) ? x86_alpha() + x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot")

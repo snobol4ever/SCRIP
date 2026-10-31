@@ -1,9 +1,8 @@
 #include <string>
 #include <cstdio>
 #include "emit.h"
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
 extern "C" {
-#include "xa_template_common.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_bb_ptr_slot_text(void) {

@@ -9,7 +9,10 @@ typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_find() {
     x86_begin();

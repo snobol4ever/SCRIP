@@ -7,7 +7,10 @@ extern "C" {
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_var() {
     return IF(_.op_zres,

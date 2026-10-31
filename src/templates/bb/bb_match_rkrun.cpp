@@ -5,7 +5,9 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rtcc.h"
 extern "C" long rk_box_step(const char *subj, long delta, long end, const char *blob);
 extern "C" long rk_box_back(const char *subj, long delta, const char *blob, long floor_delta);
 #define RUN_MIN() ((long)(_.op_ival & 0xFFFF))

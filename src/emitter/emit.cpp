@@ -1,4 +1,14 @@
 #include "emit_head.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_zeta.h"
+#include "ir/pin_va.h"
 #include "../planner/planner.h"
 g_emitter_t g_emitter;
 const char * bb_src_of(const IR_t * nd);

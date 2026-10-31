@@ -3,9 +3,11 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "descr.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string gate_dispatch_chain(int n) {
     return FOR(0, n, [&](int i) { return (i < g_emit.xa_bb_emit_pair_n && XA_PAIR(i).rsp != 0)

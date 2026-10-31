@@ -3,8 +3,6 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "SM.h"
-#include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
@@ -12,7 +10,12 @@ int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_armed.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 #define BRV_NUM() (_.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
 #define BRV_STR() (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE)
 #define BRV_EQV() (_.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV)

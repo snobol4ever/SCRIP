@@ -9,7 +9,11 @@ int prolog_atom_intern_lit(const char *s);
 const char * bb_ab_sym_name(const char * nm);
 #include "dtp.h"
 }
-#include "x86_asm.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define blsc_bits(d) emit_double_bits(d)
 #define lit_tag_imm(base_tag) (!sn4_descr_stamp() ? (base_tag) : ((base_tag) \
