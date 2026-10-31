@@ -106,6 +106,8 @@ int gva_collect_reserve(void);
 int gva_collect_reserve_n(int n);
 void gva_collect_reset(void) {
     g_lower.opt.gva_n = 0;
+    g_lower.opt.gva_hx_n = 0;
+    g_lower.opt.gva_lo = 0;
     if (g_lower.opt.gva_hx_cap) memset(g_lower.opt.gva_hx, 0, (size_t)g_lower.opt.gva_hx_cap * sizeof(gva_hx_t));
     { extern long rt_sc_gva_reserve(void); long r = rt_sc_gva_reserve(); if (r > 0) (void)gva_collect_reserve_n((int)r); }
 }
@@ -133,12 +135,14 @@ int gva_collect_var(const char *name) {
     }
     g_lower.opt.gva_names[g_lower.opt.gva_n] = name;
     g_lower.opt.gva_n++;
-    if ((uint64_t)g_lower.opt.gva_n * 2 > (uint64_t)g_lower.opt.gva_hx_cap) {
-        uint32_t c = g_lower.opt.gva_hx_cap ? g_lower.opt.gva_hx_cap * 2 : 1024;
-        while ((uint64_t)c < (uint64_t)g_lower.opt.gva_n * 2 + 2) c *= 2;
+    if (!g_lower.opt.gva_hx_n) g_lower.opt.gva_lo = g_lower.opt.gva_n - 1;
+    g_lower.opt.gva_hx_n++;
+    if ((uint64_t)g_lower.opt.gva_hx_n * 2 > (uint64_t)g_lower.opt.gva_hx_cap) {
+        uint32_t c = g_lower.opt.gva_hx_cap ? g_lower.opt.gva_hx_cap * 2 : 256;
+        while ((uint64_t)c < (uint64_t)g_lower.opt.gva_hx_n * 2 + 2) c *= 2;
         g_lower.opt.gva_hx = (gva_hx_t *)ct_zalloc(c, sizeof(gva_hx_t));
         g_lower.opt.gva_hx_cap = c;
-        for (int i = 0; i < g_lower.opt.gva_n; i++) if (g_lower.opt.gva_names[i]) gva_hx_put(g_lower.opt.gva_names[i], i);
+        for (int i = g_lower.opt.gva_lo; i < g_lower.opt.gva_n; i++) if (g_lower.opt.gva_names[i]) gva_hx_put(g_lower.opt.gva_names[i], i);
     } else gva_hx_put(name, g_lower.opt.gva_n - 1);
     return g_lower.opt.gva_n - 1;
 }

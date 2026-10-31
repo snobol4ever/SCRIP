@@ -131,6 +131,8 @@ typedef struct {
     int gva_max;
     gva_hx_t * gva_hx;
     uint32_t gva_hx_cap;
+    int gva_hx_n;
+    int gva_lo;
     const char ** gva_io_refused;
     int gva_io_refused_n;
     int gva_io_refused_max;
