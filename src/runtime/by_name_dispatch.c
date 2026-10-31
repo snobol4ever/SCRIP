@@ -19,7 +19,7 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include "snobol4_system_fns.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
-#include "rk_case_table.h"
+#include "rk_case_table.inc"
 int core_icn_error(int code, DESCR_t val);
 void rt_pl_iso_throw_existence_key(const char *key);
 extern int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);

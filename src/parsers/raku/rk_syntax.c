@@ -5,7 +5,7 @@
 #include <setjmp.h>
 #include "ct_arena.h"
 #include "rk_syntax.h"
-#include "rk_core_names.h"
+#include "rk_core_names.inc"
 #include "rk_tree.h"
 #include "raku_setting.inc"
 #include "../snobol4/scrip_cc.h"

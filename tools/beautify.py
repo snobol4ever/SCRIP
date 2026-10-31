@@ -32,7 +32,6 @@ SKIP_RE = [
     re.compile(r'\.tab\.[ch]$'),
     re.compile(r'\.lex\.[ch]$'),
     re.compile(r'^lex\.'),
-    re.compile(r'unicode_alpha_ranges\.h$'),
 ]
 
 def should_skip(path):
