@@ -401,6 +401,7 @@ int rk_rat_method(const char *m, DESCR_t self, DESCR_t *arg, DESCR_t *out) {
     if (!rq_get(self, &n, &d, &fat) || !rq_kind(self)) return 0;
     if (!strcmp(m, "numerator")) { *out = n; return 1; }
     if (!strcmp(m, "denominator")) { *out = d; return 1; }
+    if (!strcmp(m, "isNaN")) { *out = (DESCR_t){ .v = DT_BOOL, .i = bi_zero(d) && bi_zero(n) }; return 1; }
     if (bi_zero(d) && (!strcmp(m, "Int") || !strcmp(m, "truncate") || !strcmp(m, "floor") || !strcmp(m, "ceiling") || !strcmp(m, "round") || !strcmp(m, "succ") || !strcmp(m, "pred"))) {
         char msg[strlen(m) + 56];
         snprintf(msg, sizeof msg, "Attempt to divide by zero when calling .%s on Rational", m);
@@ -515,6 +516,7 @@ int rk_rat_int_method(const char *m, DESCR_t self, DESCR_t *out) {
     if (!bi_is(self)) return 0;
     if (!strcmp(m, "numerator")) { *out = self; return 1; }
     if (!strcmp(m, "denominator")) { *out = INTVAL(1); return 1; }
+    if (!strcmp(m, "isNaN")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
     if (!strcmp(m, "Rat")) { *out = rq_new(self, INTVAL(1), 0); return 1; }
     if (!strcmp(m, "FatRat")) { *out = rq_new(self, INTVAL(1), 1); return 1; }
     return 0;

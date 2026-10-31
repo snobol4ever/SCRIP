@@ -3454,7 +3454,10 @@ static int r_term_name(RkP *p, int pos) {
             int t = ws(p, e + 1);
             int tn = -1;
             jmp_buf save; memcpy(save, p->jb, sizeof save);
-            if (!setjmp(p->jb)) tn = r_typename(p, t); else tn = -1;
+            if (!setjmp(p->jb)) {
+                int ie = r_longname(p, t);
+                tn = ie - t == 3 && (!memcmp(p->s + t, "Inf", 3) || !memcmp(p->s + t, "NaN", 3)) ? -1 : r_typename(p, t);
+            } else tn = -1;
             memcpy(p->jb, save, sizeof save);
             int t2 = ws(p, tn >= 0 ? tn : t);
             if (ch(p, t2) == ')') e = t2 + 1;

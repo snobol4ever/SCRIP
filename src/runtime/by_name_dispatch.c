@@ -3760,7 +3760,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "cosec") && nmargs == 0) { *out = REALVAL(1.0 / sin(to_real(recv))); return 1; }
     if (!strcmp(meth, "cotan") && nmargs == 0) { *out = REALVAL(1.0 / tan(to_real(recv))); return 1; }
     if (!strcmp(meth, "atan2") && nmargs <= 1) { *out = REALVAL(atan2(to_real(recv), nmargs ? to_real(margs[0]) : 1.0)); return 1; }
-    if (!strcmp(meth, "sign") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { double d = to_real(recv); *out = INTVAL(d < 0 ? -1 : d > 0 ? 1 : 0); return 1; }
+    if (!strcmp(meth, "sign") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { double d = to_real(recv); *out = isnan(d) ? recv : INTVAL(d < 0 ? -1 : d > 0 ? 1 : 0); return 1; }
+    if (!strcmp(meth, "isNaN") && nmargs == 0 && IS_REAL_fn(recv)) { *out = (DESCR_t){ .v = DT_BOOL, .i = isnan(recv.r) }; return 1; }
     if (!strcmp(meth, "Num") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = REALVAL(to_real(recv)); return 1; }
     if (!strcmp(meth, "is-prime") && nmargs == 0 && IS_INT_fn(recv)) {
         long long v = recv.i;
@@ -15141,6 +15142,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!strcmp(fn, "__rk_cmp3")) numeric = 1;
         else if (!strcmp(fn, "__rk_leg")) numeric = 0;
         else numeric = rk_order_both_numeric(a, b);
+        if (!strcmp(fn, "__rk_cmp3") && ((IS_REAL_fn(a) && isnan(a.r)) || (IS_REAL_fn(b) && isnan(b.r)))) { *out = NULVCL; return 1; }
         long long r = numeric ? rk_order_cmp_num(a, b) : rk_order_cmp_str(a, b);
         *out = (DESCR_t){ .v = DT_ORDER, .i = r };
         return 1;
@@ -15480,7 +15482,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         long long t;
         int an = IS_INT_fn(a) || IS_REAL_fn(a), bn = IS_INT_fn(b) || IS_REAL_fn(b);
         if (an != bn) t = 0;
-        else if (an) t = IS_INT_fn(a) && IS_INT_fn(b) ? a.i == b.i : IS_REAL_fn(a) && IS_REAL_fn(b) ? a.r == b.r : 0;
+        else if (an) t = IS_INT_fn(a) && IS_INT_fn(b) ? a.i == b.i : IS_REAL_fn(a) && IS_REAL_fn(b) ? (isnan(a.r) && isnan(b.r)) || (a.r == b.r && signbit(a.r) == signbit(b.r)) : 0;
         else if (a.v == DT_BOOL || b.v == DT_BOOL) t = a.v == b.v && a.i == b.i;
         else if (a.v == DT_A || b.v == DT_A) {
             rk_av_t x = rk_av(a), y = rk_av(b);
@@ -16028,7 +16030,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         }
         if (args[1].v == DT_BOOL) hit = args[1].i != 0;
         else if (rk_rat_cmp(args[0], args[1], &sm_c)) hit = sm_c == 0;
-        else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]);
+        else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]) || (isnan(to_real(args[0])) && isnan(to_real(args[1])));
         else { char s1[64], s2[64]; const char *x = to_cstring(args[0], s1, sizeof s1), *y = to_cstring(args[1], s2, sizeof s2); hit = !strcmp(x ? x : "", y ? y : ""); }
         *out = (DESCR_t){ .v = DT_BOOL, .i = hit };
         return 1;
