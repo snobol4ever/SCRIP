@@ -671,6 +671,7 @@ static int rk_io_is(DESCR_t d);
 static void rk_exc_init(void);
 static void rk_exc_throw(DESCR_t ex);
 static int rk_failure_is(DESCR_t d);
+static DESCR_t rk_failure_new(DESCR_t ex);
 static void rk_failure_handle(DESCR_t d);
 static DESCR_t rk_exc_from_msg(const char *msg);
 static int rk_qh_is(DESCR_t d);
@@ -3350,7 +3351,7 @@ static int rk_rat_dispatch(const char *meth, DESCR_t *recv, const DESCR_t *margs
             if (!strcmp(meth, "fmt") && nmargs <= 1) {
                 DESCR_t fa[2] = { nmargs ? margs[0] : STRVAL("%s"), *recv };
                 extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-                return script_try_call_builtin_by_name("sprintf", fa, 2, out);
+                return script_try_call_builtin_by_name("__rk_sprintf_d", fa, 2, out);
             }
             if (rk_rat_method(meth, *recv, nmargs ? &arg0 : NULL, out)) return 1;
             long long iv;
@@ -3575,7 +3576,18 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL(rt_heap_strdup_c(recv.v == DT_SNUL ? "Nil" : s));
         return 1;
     }
-    if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
+    if (!strcmp(meth, "Int")) {
+        if (IS_INT_fn(recv)) { *out = recv; return 1; }
+        if (IS_REAL_fn(recv) && !isfinite(recv.r)) {
+            char *cm = rt_heap_fmt("Cannot convert %s to Int", isnan(recv.r) ? "NaN" : recv.r < 0 ? "-Inf" : "Inf");
+            rk_exc_init();
+            *out = rk_failure_new(DATCON_fn("X::Numeric::CannotConvert", STRVAL(cm)));
+            return 1;
+        }
+        if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; }
+        *out = INTVAL((long)atoll(s));
+        return 1;
+    }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
     if (!strcmp(meth, "starts-with") && nmargs >= 1) {
         char nb[128];
@@ -3719,6 +3731,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         }
         return 1;
     }
+    if ((!strcmp(meth, "floor") || !strcmp(meth, "ceiling") || !strcmp(meth, "round") || !strcmp(meth, "truncate")) && IS_REAL_fn(recv) && !isfinite(recv.r)) { *out = recv; return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) {
@@ -3823,7 +3836,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
         if (recv.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(recv.i ? "Bool::True" : "Bool::False")); return 1; }
-        if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+        if (IS_INT_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
         *out = STRVAL((char *) rk_raku_scalar(recv));
         return 1;
     }
@@ -4001,7 +4014,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "join")) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "fmt")) {
-        extern void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen);
         char fb[256];
         const char *fmt = (nmargs >= 1) ? to_cstring(margs[0], fb, sizeof fb) : "%s";
         if (!fmt) fmt = "%s";
@@ -4010,7 +4022,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         fa[1] = recv;
         char *r = NULL;
         size_t rl = 0;
-        rk_sprintf_core(fmt, fa, 2, 1, &r, &rl);
+        rk_rsprintf_legacy(fmt, fa, 2, 1, &r, &rl);
         *out = BSTRVAL(r, rl);
         return 1;
     }
@@ -4853,6 +4865,7 @@ DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz) {
+    if (r == 0.0 && signbit(r)) { snprintf(buf, (size_t)bufsz, "-0"); return buf; }
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
     if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "NaN"); return buf; }
     if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-Inf" : "Inf"); return buf; }
@@ -14210,6 +14223,8 @@ static void rk_exc_init(void) {
     class_inherit("X::TypeCheck::Argument", "X::TypeCheck");
     record_register("X::Cannot::Empty(message)");
     class_inherit("X::Cannot::Empty", "Exception");
+    record_register("X::Numeric::CannotConvert(message)");
+    class_inherit("X::Numeric::CannotConvert", "Exception");
     record_register("X::TypeCheck::Assignment(message,got,expected,symbol)");
     class_inherit("X::TypeCheck::Assignment", "X::TypeCheck");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
@@ -20101,7 +20116,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
         return 0;
     }
     {
-        const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs);
+        const char *a = IS_REAL_fn(lhs) ? rk_cstr(lhs) : VARVAL_fn(lhs), *b = IS_REAL_fn(rhs) ? rk_cstr(rhs) : VARVAL_fn(rhs);
         if (!a) a="";
         if (!b) b="";
         size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);

@@ -784,13 +784,13 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
             if (b.v == DT_BIG) {
                 extern int rt_big_is_odd(DESCR_t);
                 double _rb = pow(fabs(ld), rd);
-                if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+                if (!isfinite(_rb) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
                 if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb;
                 return REALVAL(_rb);
             }
             {
                 double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd);
-                if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+                if (!isfinite(_rp) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
                 return REALVAL(_rp);
             }
         }
@@ -798,7 +798,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
         if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd);
         if (anyf) {
             double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd);
-            if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+            if (!isfinite(_rq) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
             return REALVAL(_rq);
         }
         return rt_ipow_promote_descr(li, ri);

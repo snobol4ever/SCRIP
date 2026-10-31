@@ -1514,7 +1514,7 @@ static tree_t *rkb_smartmatch_term_raw(RkB *b, tree_t *l, RkTerm *x) {
             return m;
         }
     }
-    if ((x->kind == TK_NAME || (x->kind == TK_CALL && x->t && x->t->t == TT_VAR)) && !x->npost && !x->npre) {
+    if ((x->kind == TK_NAME || (x->kind == TK_CALL && x->t && x->t->t == TT_VAR)) && !x->npost && !x->npre && !(x->name && (!strcmp(x->name, "Inf") || !strcmp(x->name, "NaN")))) {
         tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, l); ast_push(mc, leaf_sval(TT_QLIT, "does")); ast_push(mc, leaf_sval(TT_QLIT, x->name)); return mc;
     }
     return NULL;
