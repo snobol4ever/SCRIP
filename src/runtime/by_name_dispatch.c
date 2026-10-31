@@ -9268,7 +9268,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     vt->ncm = 0;
     if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
     text = (char *)rt_wsb_alloc(L + 20);
-    { const char *why; if (pl_text_is_unbalanced(txt, &why)) { if (why && rt_pl_dialect_swi()) vt->err = why; return 0; } }
+    { extern int rt_pl_dialect_swi(void); const char *why; if (pl_text_is_unbalanced(txt, &why)) { if (why && rt_pl_dialect_swi()) vt->err = why; return 0; } }
     memcpy(text, "'$rd'((", 7);
     memcpy(text + 7, txt, L);
     e = 7 + L;

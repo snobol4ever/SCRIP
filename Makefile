@@ -53,6 +53,16 @@ ifeq ($(S4E_NO_CCACHE)$(wildcard /usr/lib/ccache/gcc),/usr/lib/ccache/gcc)
 export PATH := /usr/lib/ccache:$(PATH)
 export CCACHE_BASEDIR := /home
 export CCACHE_NOHASHDIR := true
+# ⛔⭐ A CACHE HIT TAKES NO COMPILE SLOT (ceo CEO-2085). MEASURED 2026-10-31 11:08-14:33 CDT by progress/SLOT_WAITS.tsv: 9,728 compiles waited
+# for one of the 8 slots, about 17 s each, 45 compiler-hours in 3.4 h, while ccache answered 81 percent of calls from the cache: the slot wrapper
+# sat IN FRONT of ccache, so a hit that costs milliseconds queued behind real compiles. ccache's prefix_command runs only when ccache itself
+# invokes the compiler (a miss, a link, an uncacheable call), so the slot moves there: proved on one object with the only slot held, a hit
+# through the prefix returns in 0.03 s, the same hit through the old wrapper blocks until its 20 s timeout, and a link still waits for the slot.
+ifneq ($(CC_SLOT),)
+export CCACHE_PREFIX := $(abspath $(ROOT)/../harness/scripts/util_cc_slot.sh)
+CC      := gcc
+CXX     := g++
+endif
 endif
 DBGMAP  := -fdebug-prefix-map=$(ROOT)=.
 WARN    := -w

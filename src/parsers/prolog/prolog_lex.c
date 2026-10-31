@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <ctype.h>
 #include <math.h>
 #define PEEK(n)  ((unsigned char)p[(n)])
 #define ADV(n)   (p += (n))
