@@ -4038,7 +4038,10 @@ int rt_name_textless(DESCR_t v) {
     for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == (DESCR_t *)v.ptr || (e->is_gva && e->cell == (DESCR_t *)v.ptr)) return 0;
     return 1;
 }
-int rt_str_arg_bad(DESCR_t d) { return d.v == DT_P || d.v == DT_A || d.v == DT_T || d.v == DT_C || d.v == DT_E || d.v == DT_X || IS_DATA_INST_fn(d) || rt_name_textless(d); }
+int rt_str_arg_bad(DESCR_t d) {
+    if (d.v == DT_S || d.v == DT_SNUL || d.v == DT_I || d.v == DT_R) return 0;
+    return d.v == DT_P || d.v == DT_A || d.v == DT_T || d.v == DT_C || d.v == DT_E || d.v == DT_X || IS_DATA_INST_fn(d) || rt_name_textless(d);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
