@@ -24842,8 +24842,9 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
     }
     {
         char *now = (char *)(uintptr_t)s->r12, *xg = b->orig_lo + b->len, *rsp_r = (char *)(uintptr_t)(s->entry_rsp + 8);
-        char *hi = xg < rsp_r ? xg : rsp_r, *lo_t = now > b->tbase ? now : b->tbase, *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
-        b->clen = hi > b->orig_lo ? (uint64_t)(hi - b->orig_lo) : 0;
+        char *hi = xg, *lo_t = now > b->tbase ? now : b->tbase, *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
+        if (rsp_r < xg) { fprintf(stderr, "FATAL rt_pl_pseg_next: the resumer's rsp %p lies inside the segment it restores (carve top %p)\n", (void *)rsp_r, (void *)xg); * (volatile char *) NULL; }
+        b->clen = b->len;
         for (char *p = now; p < b->tbase; p += PL_TR_ENTRY_BYTES) memset(p, 0, PL_TR_ENTRY_BYTES);
         for (uint64_t i = 0; i < b->tn; i++) {
             char *src = pl_pseg_trail(b) + i * 64, *dst = b->tbase + i * PL_TR_ENTRY_BYTES;
@@ -24882,9 +24883,9 @@ static pl_pseg_t * pl_sched_resumed(pl_psched_t *s) {
         if (!sl) break;
         for (int neg = 0; neg < 2; neg++)
             for (DESCR_t cur = rt_pl_deref_val(neg ? sl->ncons : sl->pcons); cur.v == (DTYPE_t)DT_PLREF && plc_fid_arity(cur.slen) == 2; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
-                pl_pseg_t *b = pl_pseg_of(rt_pl_deref_val(((DESCR_t *)cur.p)[0]));
-                if (b && b->sched == (void *)s) return b;
-            }
+            pl_pseg_t *b = pl_pseg_of(rt_pl_deref_val(((DESCR_t *)cur.p)[0]));
+            if (b && b->sched == (void *)s) return b;
+        }
         if (x == s->leader) break;
         x = sl->next;
     }
@@ -24941,6 +24942,13 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
             b->sched = (pl_psched_t *)0;
             b->link = (void *)0;
             b->hdr = (uint64_t)(uintptr_t)h;
+            {
+                char *hp = *(char * const *)(const void *)&g_runtime.abi.hp_fr;
+                for (char *p = pl_tr_base_of(top) + PL_TR_HEADER_BYTES; p + PL_TR_ENTRY_BYTES <= top; p += PL_TR_ENTRY_BYTES) {
+                    pl_tr_entry_t *e = (pl_tr_entry_t *)p;
+                    if (!e->cell && e->pad && (char *)(uintptr_t)e->pad < hp) e->pad = (uint64_t)(uintptr_t)hp;
+                }
+            }
             memcpy(pl_pseg_bytes(b), orig_lo, len);
             for (uint64_t i = 0; i < tn; i++) {
                 char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 64;
@@ -25022,13 +25030,7 @@ DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
             case 6:
             {
                 int n = 0, nn = 0;
-                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
-                    pl_trie_sl_t *xs = rt_pl_trie_sl(root, x);
-                    if (!xs) break;
-                    nn++;
-                    if (x == t) break;
-                    x = xs->next;
-                }
+                for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) { pl_trie_sl_t *xs = rt_pl_trie_sl(root, x); if (!xs) break; nn++; if (x == t) break; x = xs->next; }
                 DESCR_t ids[nn > 0 ? nn : 1];
                 for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0 && n < nn; ) {
                     pl_trie_sl_t *xs = rt_pl_trie_sl(root, x);
