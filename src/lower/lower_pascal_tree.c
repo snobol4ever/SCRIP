@@ -723,6 +723,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (!strcmp(name, "str") && args && args->count >= 4) {
             tree_t *v = args->items[0], *w = args->items[1], *p = ilit(-1), *dst = args->items[args->count - 2];
             if (w && w->t == TT_ILIT && w->v.ival == -3 && args->count >= 6) { w = args->items[2]; p = args->items[3]; }
+            if (w && w->t == TT_ILIT && w->v.ival < 0 && w->v.ival != -3 && pas_is_qword(v) && v->t != TT_ILIT) return mk_assign(dst, mk_fnc1("__pas_ustr", v));
             tree_t *f = ast_node_new(TT_FNC);
             ast_push(f, leaf_s(TT_VAR, "__pas_strf"));
             ast_push(f, v);
@@ -743,6 +744,19 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && (!strcmp(name, "shl") || !strcmp(name, "shr") || !strcmp(name, "xor")) && args && args->count >= 3 && !pas_is_func(name) && !pas_is_proc(name)) {
         tree_t *x = args->items[0], *y = args->items[2];
         if (!strcmp(name, "xor")) return (pas_is_boolexpr(x) && pas_is_boolexpr(y)) ? bin(TT_NE, x, y) : mk_fnc2("ixor", x, y);
+        if (!strcmp(name, "shr") && pas_is_qword(x) && x->t != TT_ILIT && y && y->t == TT_ILIT) {
+            long long c = y->v.ival & 63;
+            return c == 0 ? x : mk_fnc2("__pas_udiv", x, ilit(c == 63 ? INT64_MIN : (1LL << c)));
+        }
+        if (!strcmp(name, "shr") && pas_is_qword(x) && x->t != TT_ILIT) {
+            tree_t *n1 = ast_node_new(TT_MNS), *n2 = ast_node_new(TT_MNS);
+            ast_push(n1, mk_fnc2("iand", y, ilit(63)));
+            ast_push(n2, mk_fnc2("iand", pas_tree_clone(y), ilit(63)));
+            tree_t *keep = ast_node_new(TT_FNC);
+            ast_push(keep, leaf_s(TT_VAR, "icom"));
+            ast_push(keep, mk_fnc2("ishift", mk_fnc2("ishift", ilit(INT64_MIN), n2), ilit(1)));
+            return mk_fnc2("iand", mk_fnc2("ishift", x, n1), keep);
+        }
         if (!strcmp(name, "shr")) { tree_t *ng = ast_node_new(TT_MNS); ast_push(ng, y); y = ng; }
         return mk_fnc2("ishift", x, y);
     }
@@ -1315,7 +1329,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5);
                 } else if (pas_is_currencyexpr(val)) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6);
-                } else if (pas_is_qword(val) && val->t == TT_VAR) {
+                } else if (pas_is_qword(val) && val->t != TT_ILIT) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(g_lower.pas.sem.pas_seen_mode_directive ? -8 : -7);
                     else _uw = 1;
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) {
@@ -2809,6 +2823,8 @@ static tree_t *mk_set_bin(const char *fn, tree_t *a, tree_t *b);
 static int pas_is_strvar(tree_t *e) { return e && e->t == TT_VAR && e->v.sval && pas_var_string_kind(e->v.sval) > 0; }
 static tree_t *pas_rel(tree_e tt, tree_t *a, tree_t *b) {
     if ((pas_is_stringexpr(a) && pas_is_charexpr(b)) || (pas_is_charexpr(a) && pas_is_stringexpr(b))) return bin(tt, mk_set_bin("__pas_strcmp", pas_concat_operand(a), pas_concat_operand(b)), ilit(0));
+    if ((tt == TT_LT || tt == TT_LE || tt == TT_GT || tt == TT_GE) && ((pas_is_qword(a) && a->t != TT_ILIT) || (pas_is_qword(b) && b->t != TT_ILIT)))
+        return bin(tt, mk_fnc2("ixor", a, ilit(INT64_MIN)), mk_fnc2("ixor", b, ilit(INT64_MIN)));
     int lex = pas_is_strval(a) || pas_is_strval(b) || pas_is_strvar(a) || pas_is_strvar(b);
     if (lex || pas_is_strtyped(a) || pas_is_strtyped(b)) { a = pas_alpha_wrap(a); b = pas_alpha_wrap(b); }
     return lex ? bin(tt, mk_set_bin("__pas_strcmp", a, b), ilit(0)) : bin(tt, a, b);
@@ -3043,6 +3059,7 @@ static int pas_unsigned_sum(tree_t *e, int *nv) {
 static int pas_is_qword(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_ILIT) return e->v.ival < 0;
+    { const pty_t *ty = pty_of_low(e); if (ty && ty->k == PTK_INT && ty->uns) return 1; }
     if (e->t != TT_VAR || !e->v.sval) return 0;
     const char *tn = pas_scalarvartype_get(e->v.sval);
     for (int g = 0; tn && g < 8; g++) { if (pas_is_u64_typename(tn)) return 1; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; }
