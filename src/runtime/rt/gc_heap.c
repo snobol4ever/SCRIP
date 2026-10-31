@@ -328,19 +328,24 @@ static inline uint64_t gc_rank(const char *p) {
 static inline char *gc_dest(const rt_hblk_t *h) __attribute__((always_inline));
 static inline char *gc_dest(const rt_hblk_t *h) { return g_runtime.gc.hp_arena + gc_rank((const char *)h); }
 int rt_gc_blk_marked(const rt_hblk_t *h) { return gc_blk_marked(h); }
+static long gc_box_kb(void) {
+    long pages = sysconf(_SC_PHYS_PAGES), sz = sysconf(_SC_PAGESIZE), rep = (long)((((uint64_t)UINT32_MAX + 1u) << 3) >> 10);
+    long box = (pages > 0 && sz > 0) ? (long)(((uint64_t)pages * (uint64_t)sz) >> 10) : rep;
+    return box < rep ? box : rep;
+}
 static void rt_gcheap_init(void) {
     gc_knobs_hoist();
     long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
     { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
-    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) { mb = v; kb = v * 1024L; } } }
+    { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
     {
         const char *e = getenv("SCRIP_HEAP_KB");
         if (e && *e) {
             long v = atol(e);
-            if (v < (long)GC_HEAP_KB_FLOOR || v > 4096L * 1024L) {
+            if (v < (long)GC_HEAP_KB_FLOOR || v > gc_box_kb()) {
                 fprintf(stderr,
-                    "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB and is REFUSED -- the window is not silently clamped, because a run that grades at a size it was not asked for is a false reading ("
-                    "ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, 4096L * 1024L);
+                    "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB (this box's memory, at most the page map's 32 GB) and is REFUSED -- the window is not silently clamped, because a run that grades "
+                    "at a size it was not asked for is a false reading (ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, gc_box_kb());
                 abort();
             }
             kb = v;
@@ -362,8 +367,9 @@ static void rt_gcheap_init(void) {
         }
     }
     if (g_runtime.gc.hp_sw_win_kb > 0) {
-        if (g_runtime.gc.hp_sw_win_kb < (long)GC_HEAP_KB_FLOOR || g_runtime.gc.hp_sw_win_kb > 4096L * 1024L) {
-            fprintf(stderr, "[ZHP] -i%ldk is outside %d..%ld KB and is REFUSED (the initial heap window is not silently clamped)\n", g_runtime.gc.hp_sw_win_kb, GC_HEAP_KB_FLOOR, 4096L * 1024L);
+        if (g_runtime.gc.hp_sw_win_kb < (long)GC_HEAP_KB_FLOOR || g_runtime.gc.hp_sw_win_kb > gc_box_kb()) {
+            fprintf(stderr, "[ZHP] -i%ldk is outside %d..%ld KB (this box's memory, at most the page map's 32 GB) and is REFUSED (the initial heap window is not silently clamped)\n",
+                g_runtime.gc.hp_sw_win_kb, GC_HEAP_KB_FLOOR, gc_box_kb());
             abort();
         }
         kb = g_runtime.gc.hp_sw_win_kb;
