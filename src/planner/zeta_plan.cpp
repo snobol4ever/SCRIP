@@ -1585,7 +1585,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                 {
                 if (!gin) zgpop[i] = (planner_resumable_frame(cg) && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
                     (zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) + (int)kc);
-                if (gin) zgpop[i] += RG;
+                if (gin && nodes[i]->op != IR_MATCH_END && nodes[i]->op != IR_MATCH_REPLACE) zgpop[i] += RG;
                 if (nodes[i]->op == IR_BOUND && !zd_pl_bspine(cg, nodes[i]) && (planner_resumable_frame(cg) || (cg && cg->spine_cells))) zwpop[i] = -K;
                 else if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);

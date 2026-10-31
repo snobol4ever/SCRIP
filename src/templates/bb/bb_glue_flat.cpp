@@ -323,14 +323,14 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_sh
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PEND_TRACE_ID(base, in_shim, n) ((base) + ((in_shim) ? (n) : (n) + 10))
-std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim, long off) {
+std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim, long off, int reg) {
     return IF(in_shim, x86_rsp_mark_push())
          + x86("mov", "rcx", RDQ("rsp", off))
          + x86("test", "rcx", "rcx")
          + x86_jcc_id("jz", PEND_TRACE_ID(base, in_shim, 10))
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("mov32", "esi", 3L)
-         + bb_glue_apply_try_enter(base, PEND_TRACE_ID(base, in_shim, 11), PEND_TRACE_ID(base, in_shim, 12), in_shim)
+         + bb_glue_apply_try_enter(base, PEND_TRACE_ID(base, in_shim, 11), PEND_TRACE_ID(base, in_shim, 12), in_shim, reg)
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
          + x86_rt_gc_poll()

@@ -2150,14 +2150,17 @@ inline std::string x86_frame_unsink() {
     return x86("mov", "rsp", "qword ptr [rsp + 0]");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_enter() {
-    return x86("sub", "rsp", 32L)
-         + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
-         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
+inline long x86_xfer_base(long at) { return at < 0 ? 0 : at; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_xfer_enter(long at = -1) {
+    return (at < 0 ? x86("sub", "rsp", 32L) : std::string())
+         + x86_rsp_store32_imm(x86_xfer_base(at) + 16, (long)DT_I) + x86_rsp_store32_imm(x86_xfer_base(at) + 20, 0L) + x86_rsp_store64(x86_xfer_base(at) + 24, "r14")
+         + x86_rsp_store32_imm(x86_xfer_base(at) + 0, (long)DT_S) + x86_rsp_store32(x86_xfer_base(at) + 4, "r15d") + x86_rsp_store64(x86_xfer_base(at) + 8, "r13");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_leave() {
-    return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24) + x86("add", "rsp", 32L);
+inline std::string x86_xfer_leave(long at = -1) {
+    return x86_rsp_load64("r13", x86_xfer_base(at) + 8) + x86_rsp_load32("r15d", x86_xfer_base(at) + 4) + x86_rsp_load64("r14", x86_xfer_base(at) + 24)
+         + (at < 0 ? x86("add", "rsp", 32L) : std::string());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_alpha_carve(long K) { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
