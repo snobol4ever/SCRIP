@@ -1951,7 +1951,7 @@ static int pas_array_is_param(const char *name) {
 }
 static long long pas_array_ncols(const char *name) {
     const pty_t *t = name ? pty_name_type(name) : NULL;
-    return t && t->k == PTK_ARRAY && !t->dyn && !t->open && t->ix && t->ix[0] && t->ix[1] ? t->ix[1]->hi + 1 : -1;
+    return t && t->k == PTK_ARRAY && !t->dyn && !t->open && t->ix && t->ix[0] && t->ix[1] ? t->ix[1]->hi - t->ix[1]->lo + 1 : -1;
 }
 static int pas_array_rows(const char *name, long long *rb) {
     const pty_t *t = name ? pty_name_type(name) : NULL;
@@ -2766,9 +2766,11 @@ static int pas_is_nafield(const tree_t *e) { return pas_field_arr_t(e, 0); }
 static long long pas_nafield_lo_get(const tree_t *e) { return pas_fld_lo(e); }
 static void pas_flat_mark_add(tree_t *e) { if (e) pnl_push(&g_lower.pas.sem.pas_flat_marks, e); }
 static int pas_flat_marked(const tree_t *e) { for (int i = 0; i < g_lower.pas.sem.pas_flat_marks.count; i++) if (g_lower.pas.sem.pas_flat_marks.items[i] == e) return 1; return 0; }
+static int pas_is_deref_call(const tree_t *x) { return x && x->t == TT_FNC && x->n == 2 && x->c[0] && x->c[0]->v.sval && !strcmp(x->c[0]->v.sval, "__pas_deref"); }
 static int pas_row_designator(const tree_t *e, long long *d2) {
-    if (!e || e->t != TT_IDX || e->n != 2 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval || pas_flat_marked(e)) return 0;
-    const pty_t *t = pty_name_type(e->c[0]->v.sval);
+    if (!e || e->t != TT_IDX || e->n != 2 || !e->c[0] || pas_flat_marked(e)) return 0;
+    if (!(e->c[0]->t == TT_VAR ? e->c[0]->v.sval != NULL : pas_is_deref_call(e->c[0]))) return 0;
+    const pty_t *t = e->c[0]->t == TT_VAR ? pty_name_type(e->c[0]->v.sval) : pty_of_low(e->c[0]);
     if (!t || t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 2 || !t->ix || !t->ix[0] || !t->ix[1] || !t->ix[0]->bounded || !t->ix[1]->bounded || !t->base || t->base->k == PTK_CHAR) return 0;
     d2[0] = t->ix[0]->lo;
     d2[1] = t->ix[0]->hi;
@@ -2776,12 +2778,32 @@ static int pas_row_designator(const tree_t *e, long long *d2) {
     d2[3] = t->ix[1]->hi;
     return 1;
 }
+static void pas_dense_lows(const char *name, long long *rlo, long long *clo) {
+    const pty_t *t = name ? pty_name_type(name) : NULL;
+    *rlo = 0;
+    *clo = 0;
+    if (t && t->k == PTK_ARRAY && !t->dyn && !t->open && t->nix == 2 && t->ix && t->ix[0] && t->ix[1] && t->ix[0]->bounded && t->ix[1]->bounded) { *rlo = t->ix[0]->lo; *clo = t->ix[1]->lo; }
+}
+static tree_t *pas_dense_sub(tree_t *i, long long lo) { return lo ? bin(TT_SUB, i, ilit(lo)) : i; }
+static int pas_dense_type(const pty_t *t, long long *rl, long long *cl, long long *nc) {
+    if (!t || t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 2 || !t->ix || !t->ix[0] || !t->ix[1] || !t->ix[0]->bounded || !t->ix[1]->bounded || !t->base || t->base->k == PTK_CHAR) return 0;
+    *rl = t->ix[0]->lo;
+    *cl = t->ix[1]->lo;
+    *nc = t->ix[1]->hi - t->ix[1]->lo + 1;
+    return 1;
+}
+static int pas_dense_src(const tree_t *b) { long long rl, cl, nc; return IS(b, TT_DEREF) && pas_dense_type(pty_of_src(b), &rl, &cl, &nc); }
+static tree_t *pas_dense_flat(tree_t *r, tree_t *c, const pty_t *t) {
+    long long rl, cl, nc;
+    pas_dense_type(t, &rl, &cl, &nc);
+    return bin(TT_ADD, bin(TT_MUL, pas_dense_sub(r, rl), ilit(nc)), pas_dense_sub(c, cl));
+}
 static tree_t *mk_row_call(const char *fn, const tree_t *e, const long long *d2, tree_t *row) {
     tree_t *f = ast_node_new(TT_FNC);
     ast_push(f, leaf_s(TT_VAR, fn));
     ast_push(f, pas_tree_clone(e->c[0]));
-    ast_push(f, pas_tree_clone(e->c[1]));
-    ast_push(f, ilit(d2[3] + 1));
+    ast_push(f, pas_dense_sub(pas_tree_clone(e->c[1]), d2[0]));
+    ast_push(f, ilit(d2[3] - d2[2] + 1));
     ast_push(f, ilit(d2[2]));
     ast_push(f, ilit(d2[3]));
     if (row) ast_push(f, row);
@@ -6484,7 +6506,7 @@ static pval E_selector_raw(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
-    if (IS(n, TT_IDX) && n->n >= 3 && !(n->n == 3 && IS(n->c[0], TT_VAR) && pas_array_ncols(tok_s(n->c[0])) > 0)) {
+    if (IS(n, TT_IDX) && n->n >= 3 && !(n->n == 3 && IS(n->c[0], TT_VAR) && pas_array_ncols(tok_s(n->c[0])) > 0) && !(n->n == 3 && pas_dense_src(n->c[0]))) {
         tree_t *inner = ast_node_new(TT_IDX);
         ast_push(inner, n->c[0]);
         ast_push(inner, n->c[1]);
@@ -6527,7 +6549,9 @@ static pval E_selector_raw(const tree_t *n) {
             if (v[3].list && v[3].list->count == 2 && v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval) {
                 long long _nc = pas_array_ncols(v[1].node->v.sval);
                 if (_nc > 0) {
-                    tree_t *flat = bin(TT_ADD, bin(TT_MUL, v[3].list->items[0], ilit(_nc)), v[3].list->items[1]);
+                    long long _rl, _cl;
+                    pas_dense_lows(v[1].node->v.sval, &_rl, &_cl);
+                    tree_t *flat = bin(TT_ADD, bin(TT_MUL, pas_dense_sub(v[3].list->items[0], _rl), ilit(_nc)), pas_dense_sub(v[3].list->items[1], _cl));
                     e = ast_node_new(TT_IDX);
                     ast_push(e, v[1].node);
                     ast_push(e, flat);
@@ -6535,11 +6559,26 @@ static pval E_selector_raw(const tree_t *n) {
                     pas_flat_mark_add(e);
                 }
             }
+            if (!e && v[3].list && v[3].list->count == 2 && v[1].node && pas_dense_src(n->c[0])) {
+                e = ast_node_new(TT_IDX);
+                ast_push(e, v[1].node);
+                ast_push(e, pas_dense_flat(v[3].list->items[0], v[3].list->items[1], pty_of_src(n->c[0])));
+                pas_flat_mark_add(e);
+            }
+            if (!e && v[3].list && v[3].list->count == 1 && v[1].node && v[1].node->t == TT_IDX && v[1].node->n == 2 && IS(n->c[0], TT_IDX) && n->c[0]->n == 2 && pas_dense_src(n->c[0]->c[0]) &&
+                pas_is_deref_call(v[1].node->c[0]) && !pas_flat_marked(v[1].node)) {
+                e = ast_node_new(TT_IDX);
+                ast_push(e, v[1].node->c[0]);
+                ast_push(e, pas_dense_flat(v[1].node->c[1], v[3].list->items[0], pty_of_src(n->c[0]->c[0])));
+                pas_flat_mark_add(e);
+            }
             if (!e && v[3].list && v[3].list->count == 1 && v[1].node && v[1].node->t == TT_IDX && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->t == TT_VAR && v[1].node->c[0]->v.sval &&
                 !pas_is_nafield(v[1].node) && !pas_flat_marked(v[1].node)) {
                 long long _nc2 = pas_array_ncols(v[1].node->c[0]->v.sval);
                 if (_nc2 > 0) {
-                    tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, v[1].node->c[1], ilit(_nc2)), v[3].list->items[0]);
+                    long long _rl2, _cl2;
+                    pas_dense_lows(v[1].node->c[0]->v.sval, &_rl2, &_cl2);
+                    tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, pas_dense_sub(v[1].node->c[1], _rl2), ilit(_nc2)), pas_dense_sub(v[3].list->items[0], _cl2));
                     e = ast_node_new(TT_IDX);
                     ast_push(e, v[1].node->c[0]);
                     ast_push(e, flat2);
@@ -6951,6 +6990,19 @@ static pval E_type(const tree_t *n) {
             g_lower.pas.sem.pas_pend_row_kind = _rkind;
             g_lower.pas.sem.pas_pend_dyn = 0;
             if (_rhi >= _rlo) { g_lower.pas.sem.pas_pend_ischar = 0; g_lower.pas.sem.pas_pend_arr_ischar = 0; g_lower.pas.sem.pas_pend_arr_wrap = 0; g_lower.pas.sem.pas_pend_isbool = 0; }
+            const pty_t *_ft = pty_of_src(n);
+            if (_ft && _ft->fold) {
+                long long _r0 = _ft->ix[0]->lo, _r1 = _ft->ix[0]->hi, _c0 = _ft->ix[1]->lo, _c1 = _ft->ix[1]->hi;
+                g_lower.pas.sem.pas_pend_arr_ncols = _c1 - _c0 + 1;
+                g_lower.pas.sem.pas_pend_dim2.rlo = _r0;
+                g_lower.pas.sem.pas_pend_dim2.rhi = _r1;
+                g_lower.pas.sem.pas_pend_dim2.clo = _c0;
+                g_lower.pas.sem.pas_pend_dim2.chi = _c1;
+                g_lower.pas.sem.pas_pend_row_lo = 0;
+                g_lower.pas.sem.pas_pend_row_hi = -1;
+                g_lower.pas.sem.pas_pend_row_kind = 0;
+                out.ival = (_r1 - _r0 + 1) * (_c1 - _c0 + 1) - 1;
+            }
         }
         return out;
     }
@@ -6967,7 +7019,7 @@ static pval E_type(const tree_t *n) {
             g_lower.pas.sem.pas_pend_ptrtarget = NULL;
             long long r = v[4].ival;
             long long c = v[6].ival;
-            g_lower.pas.sem.pas_pend_arr_ncols = c + 1;
+            g_lower.pas.sem.pas_pend_arr_ncols = c - _clo + 1;
             g_lower.pas.sem.pas_pend_dim2.rlo = _rlo;
             g_lower.pas.sem.pas_pend_dim2.rhi = r;
             g_lower.pas.sem.pas_pend_dim2.clo = _clo;
@@ -6975,7 +7027,7 @@ static pval E_type(const tree_t *n) {
             g_lower.pas.sem.pas_pend_arr_ischar = _eic;
             g_lower.pas.sem.pas_pend_isarr = 1;
             g_lower.pas.sem.pas_pend_dyn = 0;
-            out.ival = (r + 1) * (c + 1) - 1;
+            out.ival = (r - _rlo + 1) * (c - _clo + 1) - 1;
         }
         return out;
     }

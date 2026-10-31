@@ -7,7 +7,7 @@ struct pty {
     pty_kind k;
     const char *name;
     long long lo, hi;
-    int bounded, uns, dyn, open, packed, strmax, nix, nf, cf, isfunc, wbool;
+    int bounded, uns, dyn, open, packed, strmax, nix, nf, cf, isfunc, wbool, fold;
     pty_t *base;
     pty_t **ix;
     pty_field_t *f;

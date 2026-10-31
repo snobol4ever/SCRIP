@@ -288,6 +288,19 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
         } else if (PT_IS(c, TT_FIELDS) || PT_IS(c, TT_VLIST)) pt_rec_fields(s, r, c);
     }
 }
+static void pt_fold_rows(pty_t *t) {
+    pty_t *b = t->base;
+    if (t->dyn || t->open || t->nix != 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded || !b || b->k != PTK_ARRAY || b->dyn || b->open || b->nix != 1 || !b->ix || !b->ix[0] || !b->ix[0]->bounded ||
+        !b->base) return;
+    if (b->base->k != PTK_INT && b->base->k != PTK_REAL && b->base->k != PTK_ENUM) return;
+    pty_t **ix = (pty_t **)ct_zalloc(2, sizeof *ix);
+    ix[0] = t->ix[0];
+    ix[1] = b->ix[0];
+    t->ix = ix;
+    t->nix = 2;
+    t->base = b->base;
+    t->fold = 1;
+}
 static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
     if (!n) return NULL;
     int off = (n->n > 0 && PT_IS(n->c[0], TT_KEYWORD)) ? 1 : 0;
@@ -351,6 +364,8 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             if (ni <= 0) t->dyn = 1;
             else { t->nix = ni; t->ix = (pty_t **)ct_zalloc((size_t)ni, sizeof *t->ix); for (int i = 0; i < ni; i++) t->ix[i] = pt_type(s, n->c[off + i]); }
             t->base = n->n > off ? pt_type(s, n->c[n->n - 1]) : NULL;
+            pt_fold_rows(t);
+            pt_map_put(&s->src, n, t, s->line);
             return t;
         }
         case TT_RECORD:

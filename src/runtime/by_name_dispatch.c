@@ -17889,7 +17889,7 @@ DESCR_t pas_row_get(DESCR_t *args, int nargs) {
     DESCR_t row = pas_arr_make(mk, 2);
     ARBLK_t *b = (ARBLK_t *) row.arr;
     for (long long k = l2; k <= h2; k++) {
-        long long at = i * nc + k - a->lo;
+        long long at = i * nc + (k - l2) - a->lo;
         if (at < 0 || at > (long long) a->hi - a->lo) pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_get");
         b->data[k - l2] = pas_agg_copy(a->data[at]);
     }
@@ -17902,7 +17902,7 @@ DESCR_t pas_row_set(DESCR_t *args, int nargs) {
     ARBLK_t *a = (ARBLK_t *) args[0].arr, *r = (ARBLK_t *) args[5].arr;
     long long i = rk_ival(args[1]), nc = rk_ival(args[2]), l2 = rk_ival(args[3]), h2 = rk_ival(args[4]);
     for (long long k = l2; k <= h2; k++) {
-        long long at = i * nc + k - a->lo, from = k - l2;
+        long long at = i * nc + (k - l2) - a->lo, from = k - l2;
         if (at < 0 || at > (long long) a->hi - a->lo || from > (long long) r->hi - r->lo)
             pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_set");
         a->data[at] = pas_agg_copy(r->data[from]);
