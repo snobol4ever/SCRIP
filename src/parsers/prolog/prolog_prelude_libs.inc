@@ -33800,7 +33800,9 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
 static const char PL_PRELUDE_LIB_72_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,T1),'$tbl_sl_read'(T1,G).\n"
-    "'$tbl_sl_get'(none,VT,G,I,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_run'(T).\n"
+    "'$tbl_sl_get'(none,VT,G,I,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),catch('$tbl_sl_run'(T),E,('$tbl_sl_abandon'(T),throw(E))).\n"
+    "'$tbl_sl_abandon'(T):- \\+ catch('$trie_meta_get'(T,0,incomplete),_,fail),!.\n"
+    "'$tbl_sl_abandon'(T):-'$tbl_sl'(6,T,Ts),'$tbl_vt'(VT),forall(member(X,Ts),('$trie_meta_get'(X,1,d(G,_,_,_,_,_))->ignore('$trie_delete'(VT,G,_));true)).\n"
     "'$tbl_sl_get'(T,_,_,_,T).\n"
     "'$tbl_sl_run'(T):-('$tbl_sl_gen0'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T).\n"
     "'$tbl_sl_gen0'(T):-'$tbl_sl_gen'(T),fail.\n"
