@@ -3649,6 +3649,14 @@ static void pl_cv_add(cv_t *v, const char *s) { if (!pl_cv_has(v, s)) CV_PUSH(*v
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pl_pred_key(const char *nm, int ar) { size_t l = strlen(nm) + 16; char *k = (char *)ct_alloc(l); snprintf(k, l, "%s/%d", nm, ar); return k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pl_lib_private_name(int lib, const char *nm);
+static void pl_tree_seed_sysmod(const tree_t *t, cv_t *names) {
+    extern int prolog_xsb_sysmod(const char *);
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT) && prolog_xsb_sysmod(t->c[0]->v.sval) && t->c[1] &&
+        (t->c[1]->t == TT_FNC || t->c[1]->t == TT_QLIT || t->c[1]->t == TT_NAME) && t->c[1]->v.sval && !strchr(t->c[1]->v.sval, ':')) pl_cv_add(names, pl_lib_private_name(-2, t->c[1]->v.sval));
+    for (int i = 0; i < t->n; i++) pl_tree_seed_sysmod(t->c[i], names);
+}
 static void pl_tree_collect_calls(const tree_t *t, cv_t *names) {
     if (!t) return;
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_cv_add(names, t->v.sval);
@@ -4431,13 +4439,14 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     int hooked_dyn = pl_incremental_dynamics(prog, 0);
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
+    int xsb_prog = pl_program_is_xsb(prog);
     for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) pl_cv_add(&user_defined, CV_AT(g_stage2.pl_user_keys_files, char *, i));
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
         if (pl_clause_is_directive(cl) && cl->tr->c[1] && cl->tr->c[1]->t == TT_FNC && cl->tr->c[1]->v.sval && (!strcmp(cl->tr->c[1]->v.sval, "dynamic") || !strcmp(cl->tr->c[1]->v.sval, "discontiguous")))
             pl_tree_collect_declared(cl->tr->c[1], &user_defined);
-        if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
+        if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); if (xsb_prog) pl_tree_seed_sysmod(cl->tr, &referenced); }
         if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
         if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");

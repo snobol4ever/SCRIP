@@ -604,6 +604,7 @@ int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
 int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
 int prolog_dialect_xsb_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_XSB; }
+int prolog_xsb_sysmod(const char *m) { return m && (!strcmp(m, "basics") || !strcmp(m, "lists") || !strcmp(m, "standard") || !strcmp(m, "machine")); }
 static int pl_tree_has_dot2(const tree_t *t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, ".")) return 1;

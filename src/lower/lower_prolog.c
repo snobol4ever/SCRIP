@@ -1826,6 +1826,7 @@ static int pl_iso_builtin(const char * nm, int ar) {
     for (int i = 0; iso[i].nm; i++) if (iso[i].ar == ar && !strcmp(iso[i].nm, nm)) return 1;
     return 0;
 }
+static int pl_xsb_sysmod(const char * m) { extern int prolog_xsb_sysmod(const char *); return prolog_xsb_sysmod(m); }
 static int pl_xsb_library_replaces(const char * nm, int ar) { return g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(nm, "term_to_atom") && pl_file_defines(nm, ar); }
 static int pl_swi_user_redefines(const char * nm, int ar) {
     return (g_stage2.pl_dialect == PL_DIALECT_SWI || g_stage2.pl_dialect == PL_DIALECT_XSB) && nm[0] != '$' && !pl_iso_builtin(nm, ar) &&
@@ -2420,6 +2421,10 @@ static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extr
     if (!g) return NULL;
     if (nextra <= 0) return pl_tree_is_callable(g) ? g : NULL;
     if (g->t != TT_FNC && g->t != TT_NAME && g->t != TT_QLIT) return NULL;
+    if (g_stage2.pl_dialect == PL_DIALECT_XSB && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, ":") && g->n == 2 && g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME)) {
+        const tree_t * in = pl_meta_goal(g->c[1], extra, nextra);
+        return in ? pl_cc_fnc2(":", (tree_t *) g->c[0], (tree_t *) in) : NULL;
+    }
     tree_t * e = ast_node_new(TT_FNC);
     e->v.sval = g->v.sval;
     e->line = g->line;
@@ -2547,6 +2552,14 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (qh) ig = ig->n == 2 ? pl_cc_fnc2("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1]) :
                         pl_cc_fnc3("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1], (tree_t *) ig->c[2]);
                     if (qh) cx->umod = sv;
+                    if (!strcmp(nm, "$xsb_q") && g_stage2.pl_dialect == PL_DIALECT_XSB && pl_xsb_sysmod(t->c[0]->v.sval) && ig->t == TT_FNC && ig->v.sval && ig->n >= 1 &&
+                        !strchr(ig->v.sval, ':') && pl_user_file_defines(ig->v.sval, ig->n)) {
+                        char pn[fmt_len("system:%s", ig->v.sval)];
+                        tree_t * pg = pl_tree_copy(ig);
+                        snprintf(pn, sizeof pn, "system:%s", ig->v.sval);
+                        pg->v.sval = ct_strdup(pn);
+                        ig = pl_cc_ite(pl_cc_fnc1("current_predicate", pl_cc_pi_ar(pg->v.sval, ig->n)), pg, (tree_t *) ig);
+                    }
                     qr = goal(cx, ig, γnext, ωfail, entry_out);
                 }
                 cx->umod = sv;
