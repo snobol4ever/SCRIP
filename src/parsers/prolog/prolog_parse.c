@@ -2263,7 +2263,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$rec_ref'(R):-nonvar(R),R='$record'(_).\n"
     "'$rec_erase'('$record'(I)):-retract('$rec'(_,I,_)),!.\n"
     "'$mq_arg'(M,A,Q):-(nonvar(A),A=_:_->'$mq_spine'(A,A,0),'$mq_inner'(A,Q);Q=M:A).\n"
-    "'$mq_inner'(M:T,Q):-(nonvar(T),T=M2:_,atom(M2)->'$mq_inner'(T,Q);Q=M:T).\n"
+    "'$mq_inner'(M:T,Q):-(atom(M),nonvar(T),T=_:_->'$mq_inner'(T,Q);Q=M:T).\n"
     "'$mq_spine'(T,O,D):-nonvar(T),T=M:T1,atom(M),!,D1 is D+1,(D1=:=64->(acyclic_term(O)->true;throw(error(type_error(acyclic_term,O),_)));true),'$mq_spine'(T1,O,D1).\n"
     "'$mq_spine'(_,_,_).\n"
     "print_message(K,T):-nonvar(T),'$pm_lines'(T,L),'$pm_hook'(K,T,L),!.\n"
