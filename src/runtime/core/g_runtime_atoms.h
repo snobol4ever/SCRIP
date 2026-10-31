@@ -30,4 +30,5 @@ typedef struct {
     int opcols_cap;
     int opcols_ready;
 } g_atoms_t;
+typedef struct { int *mods; int *ht; int ht_size; int used; } g_atag_t;
 #endif

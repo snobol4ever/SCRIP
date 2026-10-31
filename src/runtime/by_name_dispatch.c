@@ -11724,6 +11724,20 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 if (op[1] == 't') ok = fflush(fp) == 0 && ftruncate(fileno(fp), (off_t)b.i) == 0 && fseek(fp, (long)b.i, SEEK_SET) == 0;
                 else ok = fseek(fp, (long)b.i, op[5] == '1' ? SEEK_CUR : op[5] == '2' ? SEEK_END : SEEK_SET) == 0;
             }
+        } else if (!strcmp(op, "atom_tag")) {
+            extern int prolog_atom_intern_mod(int, int);
+            if ((int)a.v == DT_PLREF && plc_fid_arity(a.slen) == 2) {
+                DESCR_t m = rt_pl_deref_val(((DESCR_t *)a.p)[0]), n = rt_pl_deref_val(((DESCR_t *)a.p)[1]), r = {0};
+                if (m.v == (DTYPE_t)DT_PLATOM && n.v == (DTYPE_t)DT_PLATOM) { r.v = (DTYPE_t)DT_PLATOM; r.i = prolog_atom_intern_mod((int)m.i, (int)n.i); ok = plw_unify_vals(args[2], r, cx); }
+            }
+        } else if (!strcmp(op, "atom_mod")) {
+            extern int prolog_atom_module(int);
+            if (a.v == (DTYPE_t)DT_PLATOM) {
+                int k = prolog_atom_module((int)a.i);
+                DESCR_t r = {0};
+                if (k >= 0) { r.v = (DTYPE_t)DT_PLATOM; r.i = k; } else r = pl_mk_atom("usermod");
+                ok = plw_unify_vals(args[2], r, cx);
+            }
         } else if (!strcmp(op, "cwd")) {
             DESCR_t cwa = pl_os_cwd_atom();
             if (!IS_FAIL_fn(cwa)) ok = plw_unify_vals(args[2], cwa, cx);

@@ -35275,6 +35275,7 @@ static const char PL_PRELUDE_LIB_77_SRC[] =
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
+    { "term_new_mod", 3 },
     { "index", 2 },
     { "index", 3 },
     { "do_all", 1 },
@@ -35345,6 +35346,7 @@ static const char PL_PRELUDE_LIB_78_SRC[] =
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
     "'$xsb_ca_atomic'([X|Xs]) :- atomic(X), '$xsb_ca_atomic'(Xs).\n"
+    "term_new_mod(M, T, NT) :- '$xsb_f4_key'(M, K), ( compound(T) -> T =.. [N|As], '$xsb_f4_tag'(K, N, TN), NT =.. [TN|As] ; NT = T ).\n"
     ":- dynamic '$xsb_st'/2.\n"
     ":- dynamic '$xsb_kp'/3.\n"
     "gc_heap.\n"
@@ -37002,6 +37004,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "term_depth", 10, 2, 77 },
     { "term_factorized", 15, 3, 72 },
     { "term_hash", 9, 4, 33 },
+    { "term_new_mod", 12, 3, 78 },
     { "term_ref", 8, 2, 33 },
     { "term_size", 9, 2, 72 },
     { "term_size", 9, 2, 78 },

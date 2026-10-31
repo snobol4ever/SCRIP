@@ -78,22 +78,32 @@ static int atom_find(const char *s, size_t n, unsigned int *hp) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void atom_room(void) {
+    int old_cap;
+    if (g_runtime.atoms.atom_len < g_runtime.atoms.atom_cap) return;
+    old_cap = g_runtime.atoms.atom_cap;
+    g_runtime.atoms.atom_cap *= 2;
+    {
+        char **grown = (char **)rt_wsb_alloc((size_t)g_runtime.atoms.atom_cap * sizeof(char *));
+        memcpy(grown, g_runtime.atoms.atom_names, (size_t)old_cap * sizeof(char *));
+        g_runtime.atoms.atom_names = grown;
+    }
+    memset(g_runtime.atoms.atom_names + old_cap, 0, (g_runtime.atoms.atom_cap - old_cap) * sizeof(char *));
+    if (g_runtime.atag.mods) {
+        int *gm = (int *)rt_wsb_alloc((size_t)g_runtime.atoms.atom_cap * sizeof(int));
+        memcpy(gm, g_runtime.atag.mods, (size_t)old_cap * sizeof(int));
+        memset(gm + old_cap, 0, (size_t)(g_runtime.atoms.atom_cap - old_cap) * sizeof(int));
+        g_runtime.atag.mods = gm;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int atom_add(char *copy, size_t n, unsigned int h) {
     if (g_runtime.atoms.ht_used * 2 >= g_runtime.atoms.ht_size) {
         ht_grow(g_runtime.atoms.ht_size * 2);
         h = ht_hash(copy, n) & (g_runtime.atoms.ht_size - 1);
         while (g_runtime.atoms.ht[h].key) h = (h + 1) & (g_runtime.atoms.ht_size - 1);
     }
-    if (g_runtime.atoms.atom_len >= g_runtime.atoms.atom_cap) {
-        int old_cap = g_runtime.atoms.atom_cap;
-        g_runtime.atoms.atom_cap *= 2;
-        {
-            char **grown = (char **)rt_wsb_alloc((size_t)g_runtime.atoms.atom_cap * sizeof(char *));
-            memcpy(grown, g_runtime.atoms.atom_names, (size_t)old_cap * sizeof(char *));
-            g_runtime.atoms.atom_names = grown;
-        }
-        memset(g_runtime.atoms.atom_names + old_cap, 0, (g_runtime.atoms.atom_cap - old_cap) * sizeof(char *));
-    }
+    atom_room();
     { int id = g_runtime.atoms.atom_len++; g_runtime.atoms.atom_names[id] = copy; g_runtime.atoms.ht[h].key = copy; g_runtime.atoms.ht[h].id = id; g_runtime.atoms.ht_used++; return id; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -110,6 +120,56 @@ int prolog_atom_intern_n(const char *s, size_t n) {
     pool_seal(p, n, n);
     return atom_add(p, n, h);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned int tag_hash(int mod, int name) { unsigned int h = 2166136261u; h ^= (unsigned int)mod; h *= 16777619u; h ^= (unsigned int)name; h *= 16777619u; return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int tag_plain(int id) {
+    const char *nm;
+    if (id < 0 || id >= g_runtime.atoms.atom_len || !(nm = g_runtime.atoms.atom_names[id])) return id;
+    return prolog_atom_intern_n(nm, pool_len(nm));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void tag_grow(void) {
+    int old = g_runtime.atag.ht_size, ns = old ? old * 2 : 8;
+    int *nt = (int *)rt_wsb_alloc((size_t)ns * sizeof(int));
+    memset(nt, 0, (size_t)ns * sizeof(int));
+    for (int i = 0; i < old; i++) {
+        int id = g_runtime.atag.ht[i] - 1;
+        unsigned int h;
+        if (id < 0) continue;
+        h = tag_hash(g_runtime.atag.mods[id] - 1, tag_plain(id)) & (unsigned int)(ns - 1);
+        while (nt[h]) h = (h + 1) & (unsigned int)(ns - 1);
+        nt[h] = id + 1;
+    }
+    g_runtime.atag.ht = nt;
+    g_runtime.atag.ht_size = ns;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_intern_mod(int mod, int name) {
+    unsigned int h;
+    int plain = tag_plain(name), id;
+    if (mod < 0 || mod >= g_runtime.atoms.atom_len || plain < 0 || plain >= g_runtime.atoms.atom_len) return plain;
+    if (!g_runtime.atag.mods) {
+        g_runtime.atag.mods = (int *)rt_wsb_alloc((size_t)g_runtime.atoms.atom_cap * sizeof(int));
+        memset(g_runtime.atag.mods, 0, (size_t)g_runtime.atoms.atom_cap * sizeof(int));
+    }
+    if (g_runtime.atag.used * 2 >= g_runtime.atag.ht_size) tag_grow();
+    h = tag_hash(mod, plain) & (unsigned int)(g_runtime.atag.ht_size - 1);
+    while (g_runtime.atag.ht[h]) {
+        int t = g_runtime.atag.ht[h] - 1;
+        if (g_runtime.atag.mods[t] == mod + 1 && g_runtime.atoms.atom_names[t] == g_runtime.atoms.atom_names[plain]) return t;
+        h = (h + 1) & (unsigned int)(g_runtime.atag.ht_size - 1);
+    }
+    atom_room();
+    id = g_runtime.atoms.atom_len++;
+    g_runtime.atoms.atom_names[id] = g_runtime.atoms.atom_names[plain];
+    g_runtime.atag.mods[id] = mod + 1;
+    g_runtime.atag.ht[h] = id + 1;
+    g_runtime.atag.used++;
+    return id;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_module(int id) { return (g_runtime.atag.mods && id >= 0 && id < g_runtime.atoms.atom_len && g_runtime.atag.mods[id]) ? g_runtime.atag.mods[id] - 1 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *prolog_atom_carve(size_t n) { return pool_carve(n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -350,7 +410,7 @@ void prolog_atom_init(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_gc_roots(void) {
     extern void rt_gc_run_loc_list(const char *const *const *, long);
-    static const char *const *const words[5] = { (const char *const *)&g_runtime.atoms.ht, (const char *const *)&g_runtime.atoms.atom_names, (const char *const *)&g_runtime.atoms.fht,
-        (const char *const *)&g_runtime.atoms.functors, (const char *const *)&g_runtime.atoms.opcols };
-    rt_gc_run_loc_list(words, 5);
+    static const char *const *const words[7] = { (const char *const *)&g_runtime.atoms.ht, (const char *const *)&g_runtime.atoms.atom_names, (const char *const *)&g_runtime.atoms.fht,
+        (const char *const *)&g_runtime.atoms.functors, (const char *const *)&g_runtime.atoms.opcols, (const char *const *)&g_runtime.atag.mods, (const char *const *)&g_runtime.atag.ht };
+    rt_gc_run_loc_list(words, 7);
 }
