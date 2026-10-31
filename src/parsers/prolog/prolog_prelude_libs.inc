@@ -31199,19 +31199,16 @@ static const char PL_PRELUDE_LIB_63_SRC[] =
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_EXPORTS[] = {
-    { "assignment", 2 },
-    { "constraint", 3 },
-    { "constraint", 4 },
-    { "constraint_add", 4 },
-    { "gen_state", 1 },
-    { "gen_state_clpr", 1 },
-    { "gen_state_clpr", 2 },
-    { "maximize", 3 },
-    { "minimize", 3 },
-    { "objective", 2 },
-    { "shadow_price", 3 },
-    { "transportation", 4 },
-    { "variable_value", 3 },
+    { "setting", 4 },
+    { "setting", 2 },
+    { "set_setting", 2 },
+    { "set_setting_default", 2 },
+    { "restore_setting", 1 },
+    { "current_setting", 1 },
+    { "save_settings", 0 },
+    { "save_settings", 1 },
+    { "load_settings", 1 },
+    { "load_settings", 2 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_64_SHADOWS[] = {
@@ -31228,6 +31225,147 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_64_METAS[] = {
     { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_64_SRC[] =
+    ":- dynamic st_value/3, st_default/3, local_file/1, st_modified/0, '$set_decl'/5.\n"
+    "'$set_builtin'(body_indentation, listing, nonneg, 4, 'Indentation used goals in the body').\n"
+    "'$set_builtin'(tab_distance, listing, nonneg, 0, 'Distance between tab-stops.  0 uses only spaces').\n"
+    "'$set_builtin'(cut_on_same_line, listing, boolean, false, 'Place cuts (!) on the same line').\n"
+    "'$set_builtin'(line_width, listing, nonneg, 78, 'Width of a line.  0 is infinite').\n"
+    "'$set_builtin'(comment_ansi_attributes, listing, list, [fg(green)], 'ansi_format/3 attributes to print comments').\n"
+    "setting(QName, Type, Default, Comment) :-\n"
+    "    strip_module(QName, M, N),\n"
+    "    must_be(atom, N),\n"
+    "    ( '$set_find'(N, _, _, _, _) -> true ; assertz('$set_decl'(N, M, Type, Default, Comment)) ).\n"
+    "'$set_find'(N, M, T, D, C) :- '$set_decl'(N, M, T, D, C).\n"
+    "'$set_find'(N, M, T, D, C) :- '$set_builtin'(N, M, T, D, C).\n"
+    "setting(QName, Value) :-\n"
+    "    strip_module(QName, _, N),\n"
+    "    (   nonvar(N)\n"
+    "    ->  (   st_value(N, _, V0)\n"
+    "        ->  Value = V0\n"
+    "        ;   '$set_curr'(N, M, T, D)\n"
+    "        ->  '$set_eval'(D, M, T, Value)\n"
+    "        ;   throw(error(existence_error(setting, N), _))\n"
+    "        )\n"
+    "    ;   '$set_find'(N, _, _, _, _),\n"
+    "        setting(N, Value)\n"
+    "    ).\n"
+    "current_setting(QName) :- strip_module(QName, _, N), '$set_find'(N, _, _, _, _).\n"
+    "'$set_curr'(N, M, T, D) :- '$set_find'(N, M, T, D0, _), !, ( st_default(N, _, D1) -> D = D1 ; D = D0 ).\n"
+    "set_setting(QName, Value) :-\n"
+    "    strip_module(QName, _, N),\n"
+    "    must_be(atom, N),\n"
+    "    (   '$set_curr'(N, M, T, D0)\n"
+    "    ->  '$set_eval'(D0, M, T, D),\n"
+    "        (   Value == D\n"
+    "        ->  '$set_retract'(N)\n"
+    "        ;   st_value(N, _, V0), V0 == Value\n"
+    "        ->  true\n"
+    "        ;   must_be(T, Value),\n"
+    "            '$set_retract'(N),\n"
+    "            '$set_modified',\n"
+    "            assertz(st_value(N, M, Value))\n"
+    "        )\n"
+    "    ;   throw(error(existence_error(setting, N), _))\n"
+    "    ).\n"
+    "'$set_retract'(N) :- '$set_modified', retractall(st_value(N, _, _)).\n"
+    "'$set_modified' :- st_modified, !.\n"
+    "'$set_modified' :- assertz(st_modified).\n"
+    "restore_setting(QName) :- strip_module(QName, _, N), must_be(atom, N), ( st_value(N, _, _) -> '$set_retract'(N) ; true ).\n"
+    "set_setting_default(QName, Default) :-\n"
+    "    strip_module(QName, _, N),\n"
+    "    must_be(atom, N),\n"
+    "    (   '$set_find'(N, M, T, D0, _)\n"
+    "    ->  retractall(st_default(N, _, _)),\n"
+    "        '$set_retract'(N),\n"
+    "        ( Default == D0 -> true ; assertz(st_default(N, M, Default)) ),\n"
+    "        '$set_eval'(Default, M, T, V),\n"
+    "        set_setting(N, V)\n"
+    "    ;   throw(error(existence_error(setting, N), _))\n"
+    "    ).\n"
+    "'$set_eval'(D, _, _, V) :- var(D), !, V = D.\n"
+    "'$set_eval'(D, _, _, V) :- atomic(D), !, V = D.\n"
+    "'$set_eval'(env(Name), _, T, V) :- !, ( getenv(Name, Text) -> '$set_text'(T, Text, V) ; throw(error(existence_error(environment_variable, Name), _)) ).\n"
+    "'$set_eval'(env(Name, Def), _, T, V) :- !, ( getenv(Name, Text) -> '$set_text'(T, Text, V) ; V = Def ).\n"
+    "'$set_eval'(setting(Name), _, T, V) :- !, setting(Name, V), must_be(T, V).\n"
+    "'$set_eval'(E, _, T, V) :-\n"
+    "    '$set_numeric'(T, B),\n"
+    "    !,\n"
+    "    '$set_arith'(E, E1),\n"
+    "    V0 is E1,\n"
+    "    ( B == float -> V is float(V0) ; B == integer -> V is round(V0) ; V = V0 ).\n"
+    "'$set_eval'(A+B, M, atom, V) :- !, '$set_parts'(A+B, M, L, []), atomic_list_concat(L, V).\n"
+    "'$set_eval'(L, M, list(T), V) :- !, '$set_list'(L, M, T, V).\n"
+    "'$set_eval'(D, _, _, D).\n"
+    "'$set_list'([], _, _, []).\n"
+    "'$set_list'([H0|T0], M, T, [H|R]) :- '$set_eval'(H0, M, T, H), '$set_list'(T0, M, T, R).\n"
+    "'$set_parts'(A+B, M, L0, L) :- !, '$set_parts'(A, M, L0, L1), '$set_parts'(B, M, L1, L).\n"
+    "'$set_parts'(env(Name), _, [X|L], L) :- !, ( getenv(Name, X) -> true ; throw(error(existence_error(environment_variable, Name), _)) ).\n"
+    "'$set_parts'(env(Name, Def), _, [X|L], L) :- !, ( getenv(Name, X) -> true ; X = Def ).\n"
+    "'$set_parts'(setting(Name), _, [X|L], L) :- !, setting(Name, X).\n"
+    "'$set_parts'(A, _, [A|L], L).\n"
+    "'$set_arith'(E, E) :- var(E), !.\n"
+    "'$set_arith'(env(Name), V) :- !, ( getenv(Name, Text) -> '$set_text'(number, Text, V) ; throw(error(existence_error(environment_variable, Name), _)) ).\n"
+    "'$set_arith'(env(Name, Def), V) :- !, ( getenv(Name, Text) -> '$set_text'(number, Text, V) ; V = Def ).\n"
+    "'$set_arith'(E, R) :- compound(E), !, E =.. [F|As], '$set_arith_l'(As, Bs), R =.. [F|Bs].\n"
+    "'$set_arith'(E, E).\n"
+    "'$set_arith_l'([], []).\n"
+    "'$set_arith_l'([A|As], [B|Bs]) :- '$set_arith'(A, B), '$set_arith_l'(As, Bs).\n"
+    "'$set_numeric'(integer, integer).\n"
+    "'$set_numeric'(nonneg, integer).\n"
+    "'$set_numeric'(float, float).\n"
+    "'$set_numeric'(between(L, _), T) :- ( integer(L) -> T = integer ; T = float ).\n"
+    "'$set_text'(T, Text, V) :- '$set_numeric'(T, _), !, atom_number(Text, V).\n"
+    "'$set_text'(number, Text, V) :- !, atom_number(Text, V).\n"
+    "'$set_text'(atom, Text, V) :- !, atom_string(V, Text).\n"
+    "'$set_text'(_, Text, V) :- ( catch(term_to_atom(V0, Text), _, fail) -> V = V0 ; V = Text ).\n"
+    "save_settings :- ( local_file(F) -> save_settings(F) ; save_settings('settings.db') ).\n"
+    "save_settings(File) :-\n"
+    "    setup_call_cleanup(open(File, write, Out), '$set_save'(Out), close(Out)),\n"
+    "    retractall(st_modified).\n"
+    "'$set_save'(Out) :-\n"
+    "    format(Out, '/*  Saved settings~n~n    Do not edit this file manually~n*/~n~n', []),\n"
+    "    forall(st_value(N, M, V), format(Out, '~q.~n', [setting(M:N, V)])).\n"
+    "load_settings(File) :- load_settings(File, []).\n"
+    "load_settings(File, _) :-\n"
+    "    retractall(local_file(_)),\n"
+    "    assertz(local_file(File)),\n"
+    "    (   exists_file(File)\n"
+    "    ->  setup_call_cleanup(open(File, read, In), '$set_load'(In), close(In))\n"
+    "    ;   true\n"
+    "    ).\n"
+    "'$set_load'(In) :- read_term(In, T, []), ( T == end_of_file -> true ; '$set_load1'(T), '$set_load'(In) ).\n"
+    "'$set_load1'(setting(Q, V)) :- !, strip_module(Q, M, N), retractall(st_value(N, _, _)), assertz(st_value(N, M, V)).\n"
+    "'$set_load1'(_).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
+    { "assignment", 2 },
+    { "constraint", 3 },
+    { "constraint", 4 },
+    { "constraint_add", 4 },
+    { "gen_state", 1 },
+    { "gen_state_clpr", 1 },
+    { "gen_state_clpr", 2 },
+    { "maximize", 3 },
+    { "minimize", 3 },
+    { "objective", 2 },
+    { "shadow_price", 3 },
+    { "transportation", 4 },
+    { "variable_value", 3 },
+    { "", 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
+    { "", 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
+    { "", 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
+    { 0, "", "" }
+};
+static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
+    { "", 0, "" }
+};
+static const char PL_PRELUDE_LIB_65_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
     ":- endif.\n"
     "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
@@ -32168,7 +32306,7 @@ static const char PL_PRELUDE_LIB_64_SRC[] =
     "            print_message(warning, simplex(bounded))\n"
     "        ;   true\n"
     "        ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -32180,17 +32318,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_EXPORTS[] = {
     { "group_by", 4 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_65_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_65_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_65_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
+static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_66_METAS[] = {
     { "call_nth", 2, "call_nth(0,?)" },
     { "distinct", 1, "distinct(0)" },
     { "distinct", 2, "distinct(?,0)" },
@@ -32202,7 +32340,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_65_METAS[] = {
     { "reduced", 3, "reduced(?,0,+)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_65_SRC[] =
+static const char PL_PRELUDE_LIB_66_SRC[] =
     ":- '$meta_spec'((\n"
     "    distinct(0),\n"
     "    distinct(?, 0),\n"
@@ -32370,7 +32508,7 @@ static const char PL_PRELUDE_LIB_65_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -32387,20 +32525,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_EXPORTS[] = {
     { "renormalize", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_66_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_66_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_66_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_66_METAS[] = {
+static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_66_SRC[] =
+static const char PL_PRELUDE_LIB_67_SRC[] =
     "normalize_scalar(S,[S,0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -32595,7 +32733,7 @@ static const char PL_PRELUDE_LIB_66_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_q_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -32612,20 +32750,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
     { "renormalize", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
+static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_67_SRC[] =
+static const char PL_PRELUDE_LIB_68_SRC[] =
     "normalize_scalar(S,[S,0.0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -32846,7 +32984,7 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_r_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -32854,22 +32992,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "string_lines", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
+static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
     { "indent_lines", 4, "indent_lines(1,+,+,-)" },
     { "interpolate_string", 4, "interpolate_string(:,-,+,+)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_68_SRC[] =
+static const char PL_PRELUDE_LIB_69_SRC[] =
     ":- '$meta_spec'((\n"
     "    interpolate_string(:, -, +, +),\n"
     "    indent_lines(1, +, +, -))).\n"
@@ -33083,7 +33221,7 @@ static const char PL_PRELUDE_LIB_68_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "$clause", 4 },
     { "open_string", 2 },
     { "exists_file", 1 },
@@ -33114,20 +33252,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "expand_file_name", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
+static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_69_SRC[] =
+static const char PL_PRELUDE_LIB_70_SRC[] =
     "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$clause'(H, B, R, _) :- nonvar(R), !, ( clause(H0, B0, R) -> true ; nb_current('$tx_cur', tx(Rs)), '$swb_tx_erased'(Rs, R, (H0 :- B0)) ), B = B0, '$swb_unmangle'(H0, H).\n"
@@ -33291,7 +33429,7 @@ static const char PL_PRELUDE_LIB_69_SRC[] =
     "'$swb_efn_seg'(S, _, Wild, S, Wild).\n"
     "'$swb_efn_entry'(S, P, E) :- ( P == '' -> D = '.' ; D = P ), catch(directory_files(D, Es), error(_, _), fail), member(E, Es), '$swb_efn_visible'(S, E), wildcard_match(S, E).\n"
     "'$swb_efn_visible'(S, E) :- ( sub_atom(E, 0, 1, _, '.') -> sub_atom(S, 0, 1, _, '.') ; true ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -33463,21 +33601,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "snapshot", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
     { "undefined", 0 },
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
+static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_70_SRC[] =
+static const char PL_PRELUDE_LIB_71_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,T1),'$tbl_sl_read'(T1,G).\n"
     "'$tbl_sl_get'(none,VT,G,I,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_run'(T).\n"
@@ -33999,7 +34137,7 @@ static const char PL_PRELUDE_LIB_70_SRC[] =
     "'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.\n"
     "'$tbl_rsrun'([],_,_,_,[]).\n"
     "'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -34016,17 +34154,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "same_functor", 4 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
+static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
     { "foldsubterms", 4, "foldsubterms(3,+,+,-)" },
     { "foldsubterms", 5, "foldsubterms(4,+,?,+,-)" },
     { "mapargs", 3, "mapargs(2,?,?)" },
@@ -34034,7 +34172,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { "mapsubterms_var", 3, "mapsubterms_var(2,?,?)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_71_SRC[] =
+static const char PL_PRELUDE_LIB_72_SRC[] =
     ":- '$meta_spec'((\n"
     "    mapargs(2,?,?),\n"
     "    mapsubterms(2,?,?),\n"
@@ -34249,7 +34387,7 @@ static const char PL_PRELUDE_LIB_71_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "add_edges", 3 },
     { "add_vertices", 3 },
     { "complement", 2 },
@@ -34270,20 +34408,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "connect_ugraph", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
+static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_72_SRC[] =
+static const char PL_PRELUDE_LIB_73_SRC[] =
     "vertices([], []) :- !.\n"
     "vertices([Vertex-_|Graph], [Vertex|Vertices]) :-\n"
     "    vertices(Graph, Vertices).\n"
@@ -34541,7 +34679,7 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "    ord_union(Rs0, Nei, Rs1, D),\n"
     "    append(Ns, D, Nsi),\n"
     "    '$ugraphs_reachable'(Nsi, G, Rs1, RsF).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "uri_components", 2 },
     { "uri_data", 3 },
     { "uri_data", 4 },
@@ -34561,20 +34699,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "uri_iri", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_73_SRC[] =
+static const char PL_PRELUDE_LIB_74_SRC[] =
     "uri_components(U, C) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_split'(Cs, S, A, P, Q, F), C = uri_components(S, A, P, Q, F).\n"
     "uri_components(U, C) :- nonvar(C), C = uri_components(S, A, P, Q, F), !, '$uri_build'(S, A, P, Q, F, Cs), atom_codes(U, Cs).\n"
     "uri_components(_, _) :- throw(error(instantiation_error, context(uri:uri_components/2, _))).\n"
@@ -34780,7 +34918,7 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "'$uri_irienc'([], []).\n"
     "'$uri_irienc'([C|Cs], Es) :- C >= 128, !, '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_irienc'(Cs, Es1).\n"
     "'$uri_irienc'([C|Cs], [C|Es]) :- '$uri_irienc'(Cs, Es).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "numbervars", 1 },
     { "varnumbers", 2 },
     { "max_var_number", 3 },
@@ -34788,21 +34926,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "varnumbers_names", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { "numbervars", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "numbervars(Term) :-\n"
     "    numbervars(Term, 0, _).\n"
     "varnumbers(Term, Copy) :-\n"
@@ -34898,27 +35036,27 @@ static const char PL_PRELUDE_LIB_74_SRC[] =
     "    I2 is I + 1,\n"
     "    '$varnumbers_varnumbers_names_args'(I2, Arity, Term, Bindings1, Bindings, Copy).\n"
     "'$varnumbers_varnumbers_names_args'(_, _, _, Bindings, Bindings, _).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
+static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_75_SRC[] =
+static const char PL_PRELUDE_LIB_76_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -35053,7 +35191,7 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -35078,20 +35216,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "set_xsb_param", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
+static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_76_SRC[] =
+static const char PL_PRELUDE_LIB_77_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -35136,7 +35274,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
     { "index", 2 },
     { "index", 3 },
     { "do_all", 1 },
@@ -35185,24 +35323,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "attv_unify", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
+static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_77_SRC[] =
+static const char PL_PRELUDE_LIB_78_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
@@ -35326,29 +35464,29 @@ static const char PL_PRELUDE_LIB_77_SRC[] =
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_79_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
+static const char *const PL_PRELUDE_LIB_79_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_79_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_78_SRC[] =
+static const char PL_PRELUDE_LIB_79_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -35386,20 +35524,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "$tbl $xt_ntp", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_79_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_80_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_79_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_79_METAS[] = {
+static const char *const PL_PRELUDE_LIB_80_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_80_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_79_SRC[] =
+static const char PL_PRELUDE_LIB_80_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -35533,22 +35671,23 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "rbtrees", PL_PRELUDE_LIB_61_EXPORTS, PL_PRELUDE_LIB_61_OPS, PL_PRELUDE_LIB_61_SHADOWS, PL_PRELUDE_LIB_61_QUIET, PL_PRELUDE_LIB_61_SRC, PL_PRELUDE_LIB_61_METAS, PL_PRELUDE_LIB_61_LOADS, 0 },
     { "readutil", PL_PRELUDE_LIB_62_EXPORTS, PL_PRELUDE_LIB_62_OPS, PL_PRELUDE_LIB_62_SHADOWS, PL_PRELUDE_LIB_62_QUIET, PL_PRELUDE_LIB_62_SRC, PL_PRELUDE_LIB_62_METAS, PL_PRELUDE_LIB_62_LOADS, 0 },
     { "record", PL_PRELUDE_LIB_63_EXPORTS, PL_PRELUDE_LIB_63_OPS, PL_PRELUDE_LIB_63_SHADOWS, PL_PRELUDE_LIB_63_QUIET, PL_PRELUDE_LIB_63_SRC, PL_PRELUDE_LIB_63_METAS, PL_PRELUDE_LIB_63_LOADS, 0 },
-    { "simplex", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_METAS, PL_PRELUDE_LIB_64_LOADS, 0 },
-    { "solution_sequences", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_METAS, PL_PRELUDE_LIB_65_LOADS, 0 },
-    { "store_q", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_METAS, PL_PRELUDE_LIB_66_LOADS, 1 },
-    { "store_r", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 1 },
-    { "strings", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
-    { "swi_builtins", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
-    { "tabling", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
-    { "terms", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
-    { "ugraphs", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
-    { "uri", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "varnumbers", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
-    { "xsb_dialect", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_79_EXPORTS, PL_PRELUDE_LIB_79_OPS, PL_PRELUDE_LIB_79_SHADOWS, PL_PRELUDE_LIB_79_QUIET, PL_PRELUDE_LIB_79_SRC, PL_PRELUDE_LIB_79_METAS, PL_PRELUDE_LIB_79_LOADS, 0 },
+    { "settings", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_METAS, PL_PRELUDE_LIB_64_LOADS, 0 },
+    { "simplex", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_METAS, PL_PRELUDE_LIB_65_LOADS, 0 },
+    { "solution_sequences", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_METAS, PL_PRELUDE_LIB_66_LOADS, 0 },
+    { "store_q", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 1 },
+    { "store_r", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 1 },
+    { "strings", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
+    { "swi_builtins", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
+    { "tabling", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
+    { "terms", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 0 },
+    { "ugraphs", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
+    { "uri", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "varnumbers", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_79_EXPORTS, PL_PRELUDE_LIB_79_OPS, PL_PRELUDE_LIB_79_SHADOWS, PL_PRELUDE_LIB_79_QUIET, PL_PRELUDE_LIB_79_SRC, PL_PRELUDE_LIB_79_METAS, PL_PRELUDE_LIB_79_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_80_EXPORTS, PL_PRELUDE_LIB_80_OPS, PL_PRELUDE_LIB_80_SHADOWS, PL_PRELUDE_LIB_80_QUIET, PL_PRELUDE_LIB_80_SRC, PL_PRELUDE_LIB_80_METAS, PL_PRELUDE_LIB_80_LOADS, 0 },
     { "", 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 typedef struct { char nm[33]; int n; int ar; int lib; } pl_prelude_lib_ex_t;
@@ -35588,34 +35727,34 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "#\\=#", 4, 2, 34 },
     { "#\\==>", 5, 2, 34 },
     { "#\\\\/", 4, 2, 34 },
-    { "$amt_drop", 9, 3, 79 },
+    { "$amt_drop", 9, 3, 80 },
     { "$apropos_match", 14, 2, 4 },
     { "$arch", 5, 2, 4 },
     { "$argv", 5, 1, 4 },
-    { "$atp_goal", 9, 2, 79 },
-    { "$ats_close", 10, 3, 79 },
-    { "$ats_dep", 8, 4, 79 },
-    { "$ats_drop", 9, 2, 79 },
-    { "$ats_goal", 9, 2, 79 },
-    { "$ats_hits", 9, 2, 79 },
-    { "$ats_lit", 8, 2, 79 },
-    { "$ats_opts", 9, 1, 79 },
-    { "$ats_split", 10, 4, 79 },
-    { "$call_delays_m", 14, 3, 70 },
-    { "$call_residual_m", 16, 3, 70 },
+    { "$atp_goal", 9, 2, 80 },
+    { "$ats_close", 10, 3, 80 },
+    { "$ats_dep", 8, 4, 80 },
+    { "$ats_drop", 9, 2, 80 },
+    { "$ats_goal", 9, 2, 80 },
+    { "$ats_hits", 9, 2, 80 },
+    { "$ats_lit", 8, 2, 80 },
+    { "$ats_opts", 9, 1, 80 },
+    { "$ats_split", 10, 4, 80 },
+    { "$call_delays_m", 14, 3, 71 },
+    { "$call_residual_m", 16, 3, 71 },
     { "$chr_attach", 11, 5, 9 },
-    { "$clause", 7, 4, 69 },
+    { "$clause", 7, 4, 70 },
     { "$declare_module", 15, 3, 4 },
     { "$dict_eval", 10, 3, 26 },
-    { "$gr_idx", 7, 4, 70 },
-    { "$grd", 4, 3, 70 },
-    { "$grd_u", 6, 3, 70 },
+    { "$gr_idx", 7, 4, 71 },
+    { "$grd", 4, 3, 71 },
+    { "$grd_u", 6, 3, 71 },
     { "$home", 5, 1, 4 },
-    { "$idg_forced", 11, 1, 70 },
-    { "$idg_mono_affects_lazy", 22, 5, 70 },
-    { "$incr_drop", 10, 3, 70 },
-    { "$incr_guard", 11, 2, 70 },
-    { "$incr_inval", 11, 0, 70 },
+    { "$idg_forced", 11, 1, 71 },
+    { "$idg_mono_affects_lazy", 22, 5, 71 },
+    { "$incr_drop", 10, 3, 71 },
+    { "$incr_guard", 11, 2, 71 },
+    { "$incr_inval", 11, 0, 71 },
     { "$mctx_assert", 12, 3, 47 },
     { "$mctx_assert", 12, 4, 47 },
     { "$mctx_asserta", 13, 3, 47 },
@@ -35631,170 +35770,170 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$set_prompt", 11, 1, 4 },
     { "$sig_atomic", 11, 1, 4 },
     { "$strip_module", 13, 3, 4 },
-    { "$tbh_v", 6, 3, 70 },
-    { "$tbl $xt_ntp", 12, 1, 79 },
-    { "$tbl tabled_call", 16, 1, 70 },
-    { "$tbl undefined", 14, 0, 70 },
-    { "$tbl_abort", 10, 0, 70 },
-    { "$tbl_add", 8, 5, 70 },
-    { "$tbl_addk", 9, 5, 70 },
-    { "$tbl_alt", 8, 1, 70 },
-    { "$tbl_alt2", 9, 2, 70 },
-    { "$tbl_ans2", 9, 3, 70 },
-    { "$tbl_answer", 11, 2, 70 },
-    { "$tbl_answered", 13, 1, 70 },
-    { "$tbl_app", 8, 3, 70 },
-    { "$tbl_atrip", 10, 1, 70 },
-    { "$tbl_aval", 9, 4, 70 },
-    { "$tbl_call", 9, 2, 70 },
-    { "$tbl_chk", 8, 2, 70 },
-    { "$tbl_chk2", 9, 3, 70 },
-    { "$tbl_complete", 13, 1, 70 },
-    { "$tbl_conj", 9, 2, 70 },
-    { "$tbl_count", 10, 3, 70 },
-    { "$tbl_cycg", 9, 1, 70 },
-    { "$tbl_deeper", 11, 2, 70 },
-    { "$tbl_del", 8, 3, 70 },
-    { "$tbl_depn", 9, 1, 70 },
-    { "$tbl_dgoal", 10, 2, 70 },
-    { "$tbl_dl", 7, 1, 70 },
-    { "$tbl_dlpush", 11, 1, 70 },
-    { "$tbl_dmin", 9, 3, 70 },
-    { "$tbl_done", 9, 1, 70 },
-    { "$tbl_drop", 9, 2, 70 },
-    { "$tbl_drop_all", 13, 1, 70 },
-    { "$tbl_dup", 8, 1, 70 },
-    { "$tbl_eval", 9, 2, 70 },
-    { "$tbl_eval1", 10, 1, 70 },
-    { "$tbl_eval1n", 11, 1, 70 },
-    { "$tbl_fa", 7, 3, 70 },
-    { "$tbl_fin_all", 12, 1, 70 },
-    { "$tbl_final", 10, 1, 70 },
-    { "$tbl_final1", 11, 1, 70 },
-    { "$tbl_finvals", 12, 2, 70 },
-    { "$tbl_gdeeper", 12, 2, 70 },
-    { "$tbl_gshort", 11, 2, 70 },
-    { "$tbl_icall", 10, 2, 70 },
-    { "$tbl_idx", 8, 4, 70 },
-    { "$tbl_incrs", 10, 1, 70 },
-    { "$tbl_indep", 10, 2, 70 },
-    { "$tbl_inprog", 11, 1, 70 },
-    { "$tbl_isincr", 11, 1, 70 },
-    { "$tbl_lead", 9, 1, 70 },
-    { "$tbl_leading", 12, 0, 70 },
-    { "$tbl_local_variant_table", 24, 1, 70 },
-    { "$tbl_lookup", 11, 4, 70 },
-    { "$tbl_madd", 9, 6, 70 },
-    { "$tbl_manswer", 12, 4, 70 },
-    { "$tbl_mcall", 10, 3, 70 },
-    { "$tbl_mcheck", 11, 1, 70 },
-    { "$tbl_mclos", 10, 2, 70 },
-    { "$tbl_mcond", 10, 3, 70 },
-    { "$tbl_mindex", 11, 1, 70 },
-    { "$tbl_mput", 9, 6, 70 },
-    { "$tbl_msplit", 11, 7, 70 },
-    { "$tbl_mterm", 10, 2, 70 },
-    { "$tbl_mupd", 9, 4, 70 },
-    { "$tbl_mupd1", 10, 4, 70 },
-    { "$tbl_mupds", 10, 4, 70 },
-    { "$tbl_nest", 9, 4, 70 },
-    { "$tbl_noattv", 11, 1, 70 },
-    { "$tbl_ph", 7, 1, 70 },
-    { "$tbl_pos", 8, 2, 70 },
-    { "$tbl_qual", 9, 3, 70 },
-    { "$tbl_radd", 9, 5, 70 },
-    { "$tbl_raise", 10, 0, 70 },
-    { "$tbl_range", 10, 3, 70 },
-    { "$tbl_ratoms", 11, 2, 70 },
-    { "$tbl_rcls", 9, 4, 70 },
-    { "$tbl_renew", 10, 3, 70 },
-    { "$tbl_reset", 10, 1, 70 },
-    { "$tbl_resid", 10, 3, 70 },
-    { "$tbl_resq", 9, 2, 70 },
-    { "$tbl_restrain", 13, 2, 70 },
-    { "$tbl_rhas", 9, 2, 70 },
-    { "$tbl_rneg", 9, 2, 70 },
-    { "$tbl_round", 10, 3, 70 },
-    { "$tbl_rounds", 11, 0, 70 },
-    { "$tbl_rprog", 10, 4, 70 },
-    { "$tbl_rput", 9, 5, 70 },
-    { "$tbl_rs", 7, 1, 70 },
-    { "$tbl_rsa", 8, 2, 70 },
-    { "$tbl_rshare", 11, 3, 70 },
-    { "$tbl_rsk", 8, 6, 70 },
-    { "$tbl_run", 8, 5, 70 },
-    { "$tbl_runs", 9, 5, 70 },
-    { "$tbl_rval", 9, 2, 70 },
-    { "$tbl_same", 9, 2, 70 },
-    { "$tbl_scc", 8, 4, 70 },
-    { "$tbl_slice", 10, 2, 70 },
-    { "$tbl_snap", 9, 2, 70 },
-    { "$tbl_snapat", 11, 3, 70 },
-    { "$tbl_snapins", 12, 2, 70 },
-    { "$tbl_snapw", 10, 2, 70 },
-    { "$tbl_srounds", 12, 1, 70 },
-    { "$tbl_strip", 10, 3, 70 },
-    { "$tbl_table_status", 17, 4, 70 },
-    { "$tbl_trip", 9, 1, 70 },
-    { "$tbl_trip", 9, 2, 70 },
-    { "$tbl_ucons", 10, 2, 70 },
-    { "$tbl_unpair", 11, 2, 70 },
-    { "$tbl_unqe", 9, 2, 70 },
-    { "$tbl_unqem", 10, 3, 70 },
-    { "$tbl_unql", 9, 2, 70 },
-    { "$tbl_unqlm", 10, 3, 70 },
-    { "$tbl_unqual", 11, 3, 70 },
-    { "$tbl_upto", 9, 4, 70 },
-    { "$tbl_use", 8, 1, 70 },
-    { "$tbl_valid", 10, 4, 70 },
-    { "$tbl_vmap", 9, 2, 70 },
-    { "$tbl_w", 6, 2, 70 },
-    { "$tbl_wany", 9, 2, 70 },
-    { "$tbl_wdrop", 10, 1, 70 },
-    { "$tbl_wfsrun", 11, 0, 70 },
-    { "$tbl_wtin", 9, 2, 70 },
-    { "$tnot_i", 7, 3, 70 },
-    { "$tnot_impl", 10, 2, 70 },
-    { "$tnot_split", 11, 2, 70 },
-    { "$tnot_st", 8, 3, 70 },
-    { "$tnot_u", 7, 2, 70 },
+    { "$tbh_v", 6, 3, 71 },
+    { "$tbl $xt_ntp", 12, 1, 80 },
+    { "$tbl tabled_call", 16, 1, 71 },
+    { "$tbl undefined", 14, 0, 71 },
+    { "$tbl_abort", 10, 0, 71 },
+    { "$tbl_add", 8, 5, 71 },
+    { "$tbl_addk", 9, 5, 71 },
+    { "$tbl_alt", 8, 1, 71 },
+    { "$tbl_alt2", 9, 2, 71 },
+    { "$tbl_ans2", 9, 3, 71 },
+    { "$tbl_answer", 11, 2, 71 },
+    { "$tbl_answered", 13, 1, 71 },
+    { "$tbl_app", 8, 3, 71 },
+    { "$tbl_atrip", 10, 1, 71 },
+    { "$tbl_aval", 9, 4, 71 },
+    { "$tbl_call", 9, 2, 71 },
+    { "$tbl_chk", 8, 2, 71 },
+    { "$tbl_chk2", 9, 3, 71 },
+    { "$tbl_complete", 13, 1, 71 },
+    { "$tbl_conj", 9, 2, 71 },
+    { "$tbl_count", 10, 3, 71 },
+    { "$tbl_cycg", 9, 1, 71 },
+    { "$tbl_deeper", 11, 2, 71 },
+    { "$tbl_del", 8, 3, 71 },
+    { "$tbl_depn", 9, 1, 71 },
+    { "$tbl_dgoal", 10, 2, 71 },
+    { "$tbl_dl", 7, 1, 71 },
+    { "$tbl_dlpush", 11, 1, 71 },
+    { "$tbl_dmin", 9, 3, 71 },
+    { "$tbl_done", 9, 1, 71 },
+    { "$tbl_drop", 9, 2, 71 },
+    { "$tbl_drop_all", 13, 1, 71 },
+    { "$tbl_dup", 8, 1, 71 },
+    { "$tbl_eval", 9, 2, 71 },
+    { "$tbl_eval1", 10, 1, 71 },
+    { "$tbl_eval1n", 11, 1, 71 },
+    { "$tbl_fa", 7, 3, 71 },
+    { "$tbl_fin_all", 12, 1, 71 },
+    { "$tbl_final", 10, 1, 71 },
+    { "$tbl_final1", 11, 1, 71 },
+    { "$tbl_finvals", 12, 2, 71 },
+    { "$tbl_gdeeper", 12, 2, 71 },
+    { "$tbl_gshort", 11, 2, 71 },
+    { "$tbl_icall", 10, 2, 71 },
+    { "$tbl_idx", 8, 4, 71 },
+    { "$tbl_incrs", 10, 1, 71 },
+    { "$tbl_indep", 10, 2, 71 },
+    { "$tbl_inprog", 11, 1, 71 },
+    { "$tbl_isincr", 11, 1, 71 },
+    { "$tbl_lead", 9, 1, 71 },
+    { "$tbl_leading", 12, 0, 71 },
+    { "$tbl_local_variant_table", 24, 1, 71 },
+    { "$tbl_lookup", 11, 4, 71 },
+    { "$tbl_madd", 9, 6, 71 },
+    { "$tbl_manswer", 12, 4, 71 },
+    { "$tbl_mcall", 10, 3, 71 },
+    { "$tbl_mcheck", 11, 1, 71 },
+    { "$tbl_mclos", 10, 2, 71 },
+    { "$tbl_mcond", 10, 3, 71 },
+    { "$tbl_mindex", 11, 1, 71 },
+    { "$tbl_mput", 9, 6, 71 },
+    { "$tbl_msplit", 11, 7, 71 },
+    { "$tbl_mterm", 10, 2, 71 },
+    { "$tbl_mupd", 9, 4, 71 },
+    { "$tbl_mupd1", 10, 4, 71 },
+    { "$tbl_mupds", 10, 4, 71 },
+    { "$tbl_nest", 9, 4, 71 },
+    { "$tbl_noattv", 11, 1, 71 },
+    { "$tbl_ph", 7, 1, 71 },
+    { "$tbl_pos", 8, 2, 71 },
+    { "$tbl_qual", 9, 3, 71 },
+    { "$tbl_radd", 9, 5, 71 },
+    { "$tbl_raise", 10, 0, 71 },
+    { "$tbl_range", 10, 3, 71 },
+    { "$tbl_ratoms", 11, 2, 71 },
+    { "$tbl_rcls", 9, 4, 71 },
+    { "$tbl_renew", 10, 3, 71 },
+    { "$tbl_reset", 10, 1, 71 },
+    { "$tbl_resid", 10, 3, 71 },
+    { "$tbl_resq", 9, 2, 71 },
+    { "$tbl_restrain", 13, 2, 71 },
+    { "$tbl_rhas", 9, 2, 71 },
+    { "$tbl_rneg", 9, 2, 71 },
+    { "$tbl_round", 10, 3, 71 },
+    { "$tbl_rounds", 11, 0, 71 },
+    { "$tbl_rprog", 10, 4, 71 },
+    { "$tbl_rput", 9, 5, 71 },
+    { "$tbl_rs", 7, 1, 71 },
+    { "$tbl_rsa", 8, 2, 71 },
+    { "$tbl_rshare", 11, 3, 71 },
+    { "$tbl_rsk", 8, 6, 71 },
+    { "$tbl_run", 8, 5, 71 },
+    { "$tbl_runs", 9, 5, 71 },
+    { "$tbl_rval", 9, 2, 71 },
+    { "$tbl_same", 9, 2, 71 },
+    { "$tbl_scc", 8, 4, 71 },
+    { "$tbl_slice", 10, 2, 71 },
+    { "$tbl_snap", 9, 2, 71 },
+    { "$tbl_snapat", 11, 3, 71 },
+    { "$tbl_snapins", 12, 2, 71 },
+    { "$tbl_snapw", 10, 2, 71 },
+    { "$tbl_srounds", 12, 1, 71 },
+    { "$tbl_strip", 10, 3, 71 },
+    { "$tbl_table_status", 17, 4, 71 },
+    { "$tbl_trip", 9, 1, 71 },
+    { "$tbl_trip", 9, 2, 71 },
+    { "$tbl_ucons", 10, 2, 71 },
+    { "$tbl_unpair", 11, 2, 71 },
+    { "$tbl_unqe", 9, 2, 71 },
+    { "$tbl_unqem", 10, 3, 71 },
+    { "$tbl_unql", 9, 2, 71 },
+    { "$tbl_unqlm", 10, 3, 71 },
+    { "$tbl_unqual", 11, 3, 71 },
+    { "$tbl_upto", 9, 4, 71 },
+    { "$tbl_use", 8, 1, 71 },
+    { "$tbl_valid", 10, 4, 71 },
+    { "$tbl_vmap", 9, 2, 71 },
+    { "$tbl_w", 6, 2, 71 },
+    { "$tbl_wany", 9, 2, 71 },
+    { "$tbl_wdrop", 10, 1, 71 },
+    { "$tbl_wfsrun", 11, 0, 71 },
+    { "$tbl_wtin", 9, 2, 71 },
+    { "$tnot_i", 7, 3, 71 },
+    { "$tnot_impl", 10, 2, 71 },
+    { "$tnot_split", 11, 2, 71 },
+    { "$tnot_st", 8, 3, 71 },
+    { "$tnot_u", 7, 2, 71 },
     { "$version", 8, 1, 4 },
-    { "$xs_memv", 8, 2, 70 },
-    { "$xs_minus", 9, 3, 70 },
-    { "$xs_q", 5, 4, 70 },
-    { "$xt_ntp", 7, 1, 79 },
-    { "$xt_tv1", 7, 2, 79 },
+    { "$xs_memv", 8, 2, 71 },
+    { "$xs_minus", 9, 3, 71 },
+    { "$xs_q", 5, 4, 71 },
+    { "$xt_ntp", 7, 1, 80 },
+    { "$xt_tv1", 7, 2, 80 },
     { ":<", 2, 2, 26 },
     { ">:<", 3, 2, 26 },
     { "C", 1, 3, 4 },
-    { "abolish_all_tables", 18, 0, 70 },
-    { "abolish_module_tables", 21, 1, 79 },
-    { "abolish_nonincremental_tables", 29, 0, 79 },
-    { "abolish_nonincremental_tables", 29, 1, 79 },
-    { "abolish_table_call", 18, 1, 79 },
-    { "abolish_table_call", 18, 2, 79 },
-    { "abolish_table_info", 18, 0, 79 },
-    { "abolish_table_pred", 18, 1, 79 },
-    { "abolish_table_subgoal", 21, 1, 79 },
-    { "abolish_table_subgoal", 21, 2, 79 },
-    { "abolish_table_subgoals", 22, 1, 79 },
-    { "abolish_table_subgoals", 22, 2, 79 },
+    { "abolish_all_tables", 18, 0, 71 },
+    { "abolish_module_tables", 21, 1, 80 },
+    { "abolish_nonincremental_tables", 29, 0, 80 },
+    { "abolish_nonincremental_tables", 29, 1, 80 },
+    { "abolish_table_call", 18, 1, 80 },
+    { "abolish_table_call", 18, 2, 80 },
+    { "abolish_table_info", 18, 0, 80 },
+    { "abolish_table_pred", 18, 1, 80 },
+    { "abolish_table_subgoal", 21, 1, 80 },
+    { "abolish_table_subgoal", 21, 2, 80 },
+    { "abolish_table_subgoals", 22, 1, 80 },
+    { "abolish_table_subgoals", 22, 2, 80 },
     { "abs", 3, 2, 59 },
     { "acos", 4, 2, 59 },
-    { "add_edges", 9, 3, 72 },
-    { "add_linear_11", 13, 3, 66 },
+    { "add_edges", 9, 3, 73 },
     { "add_linear_11", 13, 3, 67 },
-    { "add_linear_f1", 13, 4, 66 },
+    { "add_linear_11", 13, 3, 68 },
     { "add_linear_f1", 13, 4, 67 },
-    { "add_linear_ff", 13, 5, 66 },
+    { "add_linear_f1", 13, 4, 68 },
     { "add_linear_ff", 13, 5, 67 },
+    { "add_linear_ff", 13, 5, 68 },
     { "add_linedit_completion", 22, 1, 33 },
     { "add_nb_set", 10, 2, 48 },
     { "add_nb_set", 10, 3, 48 },
     { "add_stream_alias", 16, 2, 33 },
     { "add_stream_mirror", 17, 2, 33 },
     { "add_to_heap", 11, 4, 36 },
-    { "add_vertices", 12, 3, 72 },
+    { "add_vertices", 12, 3, 73 },
     { "aggregate", 9, 3, 0 },
     { "aggregate", 9, 4, 0 },
     { "aggregate_all", 13, 3, 0 },
@@ -35814,10 +35953,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "argv_usage", 10, 1, 46 },
     { "arrangement", 11, 2, 18 },
     { "asin", 4, 2, 59 },
-    { "assertai", 8, 2, 77 },
-    { "asserti", 7, 2, 77 },
-    { "assertzi", 8, 2, 77 },
-    { "assignment", 10, 2, 64 },
+    { "assertai", 8, 2, 78 },
+    { "asserti", 7, 2, 78 },
+    { "assertzi", 8, 2, 78 },
+    { "assignment", 10, 2, 65 },
     { "assoc_to_keys", 13, 2, 3 },
     { "assoc_to_list", 13, 2, 3 },
     { "assoc_to_values", 15, 2, 3 },
@@ -35829,7 +35968,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "atom_json_dict", 14, 3, 42 },
     { "atom_json_term", 14, 3, 42 },
     { "atom_property", 13, 2, 33 },
-    { "attv_unify", 10, 2, 77 },
+    { "attv_unify", 10, 2, 78 },
     { "automaton", 9, 3, 12 },
     { "automaton", 9, 8, 12 },
     { "b_set_dict", 10, 3, 26 },
@@ -35850,10 +35989,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "blanks", 6, 2, 25 },
     { "blanks_to_nl", 12, 2, 25 },
     { "bounded_sublist", 15, 3, 37 },
-    { "call_delays", 11, 2, 70 },
+    { "call_delays", 11, 2, 71 },
     { "call_det", 8, 2, 33 },
-    { "call_nth", 8, 2, 65 },
-    { "call_residual_program", 21, 2, 70 },
+    { "call_nth", 8, 2, 66 },
+    { "call_residual_program", 21, 2, 71 },
     { "call_with_args", 14, 1, 33 },
     { "call_with_args", 14, 2, 33 },
     { "call_with_args", 14, 3, 33 },
@@ -35865,12 +36004,12 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "call_with_args", 14, 9, 33 },
     { "call_with_args", 14, 10, 33 },
     { "call_with_args", 14, 11, 33 },
-    { "call_with_depth_limit", 21, 3, 69 },
+    { "call_with_depth_limit", 21, 3, 70 },
     { "ceiling", 7, 2, 59 },
     { "chain", 5, 2, 12 },
     { "checklist", 9, 2, 4 },
     { "chmod", 5, 2, 29 },
-    { "chmod_", 6, 2, 69 },
+    { "chmod_", 6, 2, 70 },
     { "chr activate_constraint", 23, 3, 10 },
     { "chr all_suspensions", 19, 3, 10 },
     { "chr allocate_constraint", 23, 4, 10 },
@@ -35933,7 +36072,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "close_input_atom_stream", 23, 1, 33 },
     { "close_input_chars_stream", 24, 1, 33 },
     { "close_input_codes_stream", 24, 1, 33 },
-    { "close_open_tables", 17, 1, 79 },
+    { "close_open_tables", 17, 1, 80 },
     { "close_output_atom_stream", 24, 2, 33 },
     { "close_output_chars_stream", 25, 2, 33 },
     { "close_output_codes_stream", 25, 2, 33 },
@@ -35942,28 +36081,28 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "collect_nonlin", 14, 3, 16 },
     { "combine", 7, 3, 18 },
     { "compile", 7, 1, 59 },
-    { "compile", 7, 1, 77 },
-    { "compile", 7, 2, 77 },
-    { "compiler_options", 16, 1, 76 },
-    { "complement", 10, 2, 72 },
-    { "compose", 7, 3, 72 },
+    { "compile", 7, 1, 78 },
+    { "compile", 7, 2, 78 },
+    { "compiler_options", 16, 1, 77 },
+    { "complement", 10, 2, 73 },
+    { "compose", 7, 3, 73 },
     { "concat", 6, 3, 4 },
     { "concat_atom", 11, 2, 4 },
-    { "concat_atom", 11, 2, 77 },
+    { "concat_atom", 11, 2, 78 },
     { "concat_atom", 11, 3, 4 },
-    { "concat_atom", 11, 3, 77 },
-    { "connect_ugraph", 14, 3, 72 },
-    { "constraint", 10, 3, 64 },
-    { "constraint", 10, 4, 64 },
-    { "constraint_add", 14, 4, 64 },
+    { "concat_atom", 11, 3, 78 },
+    { "connect_ugraph", 14, 3, 73 },
+    { "constraint", 10, 3, 65 },
+    { "constraint", 10, 4, 65 },
+    { "constraint_add", 14, 4, 65 },
     { "convert_time", 12, 2, 4 },
     { "convert_time", 12, 8, 4 },
     { "convlist", 8, 3, 2 },
     { "copy_directory", 14, 2, 29 },
     { "copy_file", 9, 2, 29 },
     { "copy_file", 9, 2, 33 },
-    { "copy_stream_data", 16, 2, 69 },
-    { "copy_stream_data", 16, 3, 69 },
+    { "copy_stream_data", 16, 2, 70 },
+    { "copy_stream_data", 16, 3, 70 },
     { "cos", 3, 2, 59 },
     { "cpu_time", 8, 1, 33 },
     { "create_pipe", 11, 2, 33 },
@@ -35990,8 +36129,9 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "current_mutex", 13, 3, 4 },
     { "current_record", 14, 2, 63 },
     { "current_record_predicate", 24, 2, 63 },
+    { "current_setting", 15, 1, 64 },
     { "current_stream", 14, 1, 33 },
-    { "current_table", 13, 2, 70 },
+    { "current_table", 13, 2, 71 },
     { "current_thread", 14, 2, 4 },
     { "current_type", 12, 3, 28 },
     { "date", 4, 1, 59 },
@@ -36002,22 +36142,22 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "debugging", 9, 0, 33 },
     { "dec_step", 8, 2, 7 },
     { "dec_step", 8, 2, 8 },
-    { "dedent_lines", 12, 3, 68 },
+    { "dedent_lines", 12, 3, 69 },
     { "del_assoc", 9, 4, 3 },
     { "del_dict", 8, 4, 26 },
-    { "del_edges", 9, 3, 72 },
+    { "del_edges", 9, 3, 73 },
     { "del_max_assoc", 13, 4, 3 },
     { "del_min_assoc", 13, 4, 3 },
-    { "del_vertices", 12, 3, 72 },
+    { "del_vertices", 12, 3, 73 },
     { "delete", 6, 3, 45 },
     { "delete_directory", 16, 1, 33 },
     { "delete_directory_and_contents", 29, 1, 29 },
     { "delete_directory_contents", 25, 1, 29 },
-    { "delete_factor", 13, 4, 66 },
     { "delete_factor", 13, 4, 67 },
+    { "delete_factor", 13, 4, 68 },
     { "delete_from_heap", 16, 4, 36 },
-    { "delete_return", 13, 2, 79 },
-    { "delete_return", 13, 3, 79 },
+    { "delete_return", 13, 2, 80 },
+    { "delete_return", 13, 3, 80 },
     { "deref", 5, 2, 7 },
     { "deref", 5, 2, 8 },
     { "deref_var", 9, 2, 7 },
@@ -36043,13 +36183,13 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "display_to_codes", 16, 2, 33 },
     { "displayq", 8, 1, 4 },
     { "displayq", 8, 2, 4 },
-    { "distinct", 8, 1, 65 },
-    { "distinct", 8, 2, 65 },
-    { "do_all", 6, 1, 77 },
-    { "do_all", 6, 2, 77 },
+    { "distinct", 8, 1, 66 },
+    { "distinct", 8, 2, 66 },
+    { "do_all", 6, 1, 78 },
+    { "do_all", 6, 2, 78 },
     { "do_checks", 9, 8, 40 },
     { "do_checks", 9, 8, 41 },
-    { "document_export", 15, 1, 76 },
+    { "document_export", 15, 1, 77 },
     { "domain_error", 12, 2, 28 },
     { "drop", 4, 3, 37 },
     { "drop_dep", 8, 1, 19 },
@@ -36062,9 +36202,9 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "dump_nz", 7, 5, 8 },
     { "dump_var", 8, 6, 7 },
     { "dump_var", 8, 6, 8 },
-    { "dynamic_pred_has_clauses", 24, 2, 76 },
-    { "edb", 3, 1, 76 },
-    { "edges", 5, 2, 72 },
+    { "dynamic_pred_has_clauses", 24, 2, 77 },
+    { "edb", 3, 1, 77 },
+    { "edges", 5, 2, 73 },
     { "element", 7, 3, 12 },
     { "empty_assoc", 11, 1, 3 },
     { "empty_ds", 8, 1, 37 },
@@ -36083,29 +36223,29 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "engine_post", 11, 3, 27 },
     { "engine_self", 11, 1, 27 },
     { "engine_yield", 12, 1, 27 },
-    { "ensure_dync_loaded", 18, 1, 76 },
+    { "ensure_dync_loaded", 18, 1, 77 },
     { "entailed", 8, 1, 49 },
     { "entailed", 8, 1, 50 },
     { "eol", 3, 2, 25 },
     { "eos", 3, 2, 25 },
     { "eval_license", 12, 0, 4 },
-    { "excess_vars", 11, 4, 70 },
+    { "excess_vars", 11, 4, 71 },
     { "exclude", 7, 3, 2 },
     { "exec", 4, 4, 33 },
     { "exec", 4, 5, 33 },
     { "existence_error", 15, 2, 28 },
     { "existence_error", 15, 3, 28 },
-    { "exists_directory", 16, 1, 69 },
-    { "exists_file", 11, 1, 69 },
-    { "expand_file_name", 16, 2, 69 },
-    { "export", 6, 1, 76 },
+    { "exists_directory", 16, 1, 70 },
+    { "exists_file", 11, 1, 70 },
+    { "expand_file_name", 16, 2, 70 },
+    { "export", 6, 1, 77 },
     { "export_binding", 14, 1, 7 },
     { "export_binding", 14, 1, 8 },
     { "export_binding", 14, 2, 8 },
     { "export_list", 11, 2, 4 },
-    { "fast_read", 9, 2, 69 },
-    { "fast_term_serialized", 20, 2, 69 },
-    { "fast_write", 10, 2, 69 },
+    { "fast_read", 9, 2, 70 },
+    { "fast_term_serialized", 20, 2, 70 },
+    { "fast_write", 10, 2, 70 },
     { "fd_all_different", 16, 1, 34 },
     { "fd_at_least_one", 15, 1, 34 },
     { "fd_at_most_one", 14, 1, 34 },
@@ -36167,15 +36307,15 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "fdset_union", 11, 2, 12 },
     { "fdset_union", 11, 3, 12 },
     { "feature", 7, 2, 4 },
-    { "file_close", 10, 1, 76 },
-    { "file_flush", 10, 2, 77 },
-    { "file_mode_", 10, 2, 69 },
-    { "file_open", 9, 3, 76 },
+    { "file_close", 10, 1, 77 },
+    { "file_flush", 10, 2, 78 },
+    { "file_mode_", 10, 2, 70 },
+    { "file_open", 9, 3, 77 },
     { "file_permission", 15, 2, 33 },
-    { "file_read", 9, 3, 76 },
-    { "file_seek", 9, 4, 77 },
-    { "file_truncate", 13, 3, 77 },
-    { "file_write", 10, 2, 77 },
+    { "file_read", 9, 3, 77 },
+    { "file_seek", 9, 4, 78 },
+    { "file_truncate", 13, 3, 78 },
+    { "file_write", 10, 2, 78 },
     { "find_chr_constraint", 19, 1, 10 },
     { "find_linedit_completion", 23, 2, 33 },
     { "flatten", 7, 2, 45 },
@@ -36188,31 +36328,31 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "foldl", 5, 5, 2 },
     { "foldl", 5, 6, 2 },
     { "foldl", 5, 7, 2 },
-    { "foldsubterms", 12, 4, 71 },
-    { "foldsubterms", 12, 5, 71 },
+    { "foldsubterms", 12, 4, 72 },
+    { "foldsubterms", 12, 5, 72 },
     { "format_to_atom", 14, 3, 33 },
     { "format_to_chars", 15, 3, 33 },
     { "format_to_codes", 15, 3, 33 },
     { "free_variables", 14, 2, 4 },
     { "free_variables", 14, 4, 0 },
-    { "gc_dynamic", 10, 1, 77 },
-    { "gc_heap", 7, 0, 77 },
-    { "gc_strings", 10, 0, 76 },
-    { "gc_tables", 9, 1, 79 },
+    { "gc_dynamic", 10, 1, 78 },
+    { "gc_heap", 7, 0, 78 },
+    { "gc_strings", 10, 0, 77 },
+    { "gc_tables", 9, 1, 80 },
     { "geler", 5, 3, 16 },
     { "gen_assoc", 9, 3, 3 },
     { "gen_nb_set", 10, 2, 48 },
-    { "gen_state", 9, 1, 64 },
-    { "gen_state_clpr", 14, 1, 64 },
-    { "gen_state_clpr", 14, 2, 64 },
+    { "gen_state", 9, 1, 65 },
+    { "gen_state_clpr", 14, 1, 65 },
+    { "gen_state_clpr", 14, 2, 65 },
     { "genarg", 6, 3, 59 },
     { "generic_var", 11, 1, 33 },
     { "gensym", 6, 2, 32 },
     { "get_assoc", 9, 3, 3 },
     { "get_assoc", 9, 5, 3 },
-    { "get_call", 8, 3, 70 },
-    { "get_calls", 9, 3, 70 },
-    { "get_calls_for_table", 19, 2, 79 },
+    { "get_call", 8, 3, 71 },
+    { "get_calls", 9, 3, 71 },
+    { "get_calls_for_table", 19, 2, 80 },
     { "get_dict", 8, 3, 26 },
     { "get_dict", 8, 5, 26 },
     { "get_ds", 6, 3, 37 },
@@ -36225,18 +36365,18 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "get_or_add_class", 16, 2, 7 },
     { "get_or_add_class", 16, 2, 8 },
     { "get_print_stream", 16, 1, 33 },
-    { "get_residual", 12, 2, 70 },
-    { "get_returns", 11, 2, 70 },
-    { "get_returns", 11, 3, 70 },
-    { "get_returns_and_dls", 19, 3, 70 },
-    { "get_returns_and_tvs", 19, 3, 79 },
-    { "get_returns_for_call", 20, 2, 70 },
+    { "get_residual", 12, 2, 71 },
+    { "get_returns", 11, 2, 71 },
+    { "get_returns", 11, 3, 71 },
+    { "get_returns_and_dls", 19, 3, 71 },
+    { "get_returns_and_tvs", 19, 3, 80 },
+    { "get_returns_for_call", 20, 2, 71 },
     { "get_store", 9, 2, 37 },
-    { "get_time", 8, 1, 69 },
+    { "get_time", 8, 1, 70 },
     { "getrand", 7, 1, 60 },
     { "global_cardinality", 18, 2, 12 },
     { "global_cardinality", 18, 3, 12 },
-    { "group_by", 8, 4, 65 },
+    { "group_by", 8, 4, 66 },
     { "group_pairs_by_key", 18, 2, 54 },
     { "hash", 4, 1, 4 },
     { "hash_term", 9, 2, 4 },
@@ -36256,28 +36396,28 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "ht_put_new", 10, 3, 35 },
     { "ht_size", 7, 2, 35 },
     { "ht_update", 9, 4, 35 },
-    { "import", 6, 1, 76 },
     { "import", 6, 1, 77 },
+    { "import", 6, 1, 78 },
     { "in", 2, 2, 12 },
     { "in_set", 6, 2, 12 },
     { "inc_step", 8, 2, 7 },
     { "inc_step", 8, 2, 8 },
     { "include", 7, 3, 2 },
-    { "incr_assert", 11, 1, 70 },
-    { "incr_asserta", 12, 1, 70 },
-    { "incr_assertz", 12, 1, 70 },
-    { "incr_invalidate_call", 20, 1, 70 },
-    { "incr_invalidate_calls", 21, 1, 70 },
-    { "incr_retract", 12, 1, 70 },
-    { "incr_retractall", 15, 1, 70 },
-    { "indent_lines", 12, 3, 68 },
-    { "indent_lines", 12, 4, 68 },
-    { "indep", 5, 2, 66 },
+    { "incr_assert", 11, 1, 71 },
+    { "incr_asserta", 12, 1, 71 },
+    { "incr_assertz", 12, 1, 71 },
+    { "incr_invalidate_call", 20, 1, 71 },
+    { "incr_invalidate_calls", 21, 1, 71 },
+    { "incr_retract", 12, 1, 71 },
+    { "incr_retractall", 15, 1, 71 },
+    { "indent_lines", 12, 3, 69 },
+    { "indent_lines", 12, 4, 69 },
     { "indep", 5, 2, 67 },
+    { "indep", 5, 2, 68 },
     { "index", 5, 1, 4 },
-    { "index", 5, 1, 76 },
-    { "index", 5, 2, 77 },
-    { "index", 5, 3, 77 },
+    { "index", 5, 1, 77 },
+    { "index", 5, 2, 78 },
+    { "index", 5, 3, 78 },
     { "indomain", 8, 1, 12 },
     { "ineq", 4, 4, 38 },
     { "ineq", 4, 4, 39 },
@@ -36297,19 +36437,19 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "inf", 3, 4, 8 },
     { "init_store", 10, 2, 37 },
     { "ins", 3, 2, 12 },
-    { "install_verify_attribute_handler", 32, 4, 77 },
-    { "install_verify_attribute_handler", 32, 5, 77 },
+    { "install_verify_attribute_handler", 32, 4, 78 },
+    { "install_verify_attribute_handler", 32, 5, 78 },
     { "instantiation_error", 19, 1, 28 },
     { "integer", 7, 3, 25 },
-    { "interpolate_string", 18, 4, 68 },
+    { "interpolate_string", 18, 4, 69 },
     { "intersect_eq", 12, 3, 37 },
     { "intersection", 12, 3, 45 },
     { "intro_at", 8, 3, 7 },
     { "intro_at", 8, 3, 8 },
-    { "iri_normalized", 14, 2, 73 },
-    { "iri_normalized", 14, 3, 73 },
+    { "iri_normalized", 14, 2, 74 },
+    { "iri_normalized", 14, 3, 74 },
     { "is_absolute_file_name", 21, 1, 33 },
-    { "is_acyclic", 10, 1, 77 },
+    { "is_acyclic", 10, 1, 78 },
     { "is_alnum", 8, 1, 23 },
     { "is_alpha", 8, 1, 23 },
     { "is_ascii", 8, 1, 23 },
@@ -36342,8 +36482,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "is_space", 8, 1, 23 },
     { "is_upper", 8, 1, 23 },
     { "is_white", 8, 1, 23 },
-    { "isolate", 7, 3, 66 },
     { "isolate", 7, 3, 67 },
+    { "isolate", 7, 3, 68 },
     { "iterate_dec", 11, 2, 7 },
     { "iterate_dec", 11, 2, 8 },
     { "json_read", 9, 2, 42 },
@@ -36376,8 +36516,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "lb", 2, 3, 8 },
     { "leash", 5, 1, 33 },
     { "lex_chain", 9, 1, 12 },
-    { "limit", 5, 2, 65 },
-    { "link_file", 9, 3, 69 },
+    { "limit", 5, 2, 66 },
+    { "link_file", 9, 3, 70 },
     { "list_difference_eq", 18, 3, 37 },
     { "list_or_partial_list", 20, 1, 33 },
     { "list_to_assoc", 13, 2, 3 },
@@ -36389,8 +36529,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "listing", 7, 0, 44 },
     { "listing", 7, 1, 44 },
     { "listing", 7, 2, 44 },
-    { "load_dyn", 8, 1, 76 },
-    { "load_dync", 9, 1, 76 },
+    { "load_dyn", 8, 1, 77 },
+    { "load_dync", 9, 1, 77 },
+    { "load_settings", 13, 1, 64 },
+    { "load_settings", 13, 2, 64 },
     { "lock_predicate", 14, 2, 4 },
     { "log", 3, 2, 59 },
     { "log10", 5, 2, 59 },
@@ -36407,24 +36549,24 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "map_assoc", 9, 2, 3 },
     { "map_assoc", 9, 3, 3 },
     { "map_list_to_pairs", 17, 3, 54 },
-    { "mapargs", 7, 3, 71 },
+    { "mapargs", 7, 3, 72 },
     { "maplist", 7, 2, 2 },
     { "maplist", 7, 3, 2 },
     { "maplist", 7, 4, 2 },
     { "maplist", 7, 5, 2 },
-    { "maplist", 7, 6, 69 },
-    { "maplist", 7, 7, 69 },
-    { "mapsubterms", 11, 3, 71 },
-    { "mapsubterms_var", 15, 3, 71 },
+    { "maplist", 7, 6, 70 },
+    { "maplist", 7, 7, 70 },
+    { "mapsubterms", 11, 3, 72 },
+    { "mapsubterms_var", 15, 3, 72 },
     { "max_assoc", 9, 3, 3 },
     { "max_go_list", 11, 2, 37 },
     { "max_list", 8, 2, 45 },
     { "max_member", 10, 2, 45 },
     { "max_member", 10, 3, 45 },
-    { "max_var_number", 14, 3, 74 },
+    { "max_var_number", 14, 3, 75 },
     { "maximize", 8, 1, 7 },
     { "maximize", 8, 1, 8 },
-    { "maximize", 8, 3, 64 },
+    { "maximize", 8, 3, 65 },
     { "maybe", 5, 0, 60 },
     { "maybe", 5, 1, 60 },
     { "maybe", 5, 2, 60 },
@@ -36441,7 +36583,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "midstring", 9, 5, 59 },
     { "midstring", 9, 6, 59 },
     { "min_assoc", 9, 3, 3 },
-    { "min_ed_dis", 10, 3, 77 },
+    { "min_ed_dis", 10, 3, 78 },
     { "min_list", 8, 2, 45 },
     { "min_member", 10, 2, 45 },
     { "min_member", 10, 3, 45 },
@@ -36449,46 +36591,46 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "min_of_heap", 11, 5, 36 },
     { "minimize", 8, 1, 7 },
     { "minimize", 8, 1, 8 },
-    { "minimize", 8, 3, 64 },
+    { "minimize", 8, 3, 65 },
     { "mode", 4, 1, 59 },
-    { "mult_hom", 8, 3, 66 },
     { "mult_hom", 8, 3, 67 },
-    { "mult_linear_factor", 18, 3, 66 },
+    { "mult_hom", 8, 3, 68 },
     { "mult_linear_factor", 18, 3, 67 },
+    { "mult_linear_factor", 18, 3, 68 },
     { "must_be", 7, 2, 28 },
     { "name_query_vars", 15, 2, 33 },
     { "name_singleton_vars", 19, 1, 33 },
     { "nb_set_dict", 11, 3, 26 },
     { "nb_set_to_list", 14, 2, 48 },
-    { "neighbors", 9, 3, 72 },
-    { "neighbours", 10, 3, 72 },
+    { "neighbors", 9, 3, 73 },
+    { "neighbours", 10, 3, 73 },
     { "new_atom", 8, 1, 33 },
     { "new_atom", 8, 2, 33 },
     { "nextto", 6, 3, 45 },
     { "nf", 2, 2, 49 },
     { "nf", 2, 2, 50 },
-    { "nf2sum", 6, 3, 66 },
     { "nf2sum", 6, 3, 67 },
+    { "nf2sum", 6, 3, 68 },
     { "nf2term", 7, 2, 49 },
     { "nf2term", 7, 2, 50 },
-    { "nf_coeff_of", 11, 3, 66 },
     { "nf_coeff_of", 11, 3, 67 },
+    { "nf_coeff_of", 11, 3, 68 },
     { "nf_constant", 11, 2, 49 },
     { "nf_constant", 11, 2, 50 },
-    { "nf_rhs_x", 8, 4, 66 },
     { "nf_rhs_x", 8, 4, 67 },
-    { "nf_substitute", 13, 4, 66 },
+    { "nf_rhs_x", 8, 4, 68 },
     { "nf_substitute", 13, 4, 67 },
+    { "nf_substitute", 13, 4, 68 },
     { "no_style_check", 14, 1, 59 },
     { "non_fd_var", 10, 1, 33 },
     { "non_generic_var", 15, 1, 33 },
     { "nonblank", 8, 3, 25 },
     { "nonblanks", 9, 3, 25 },
-    { "normalize_scalar", 16, 2, 66 },
     { "normalize_scalar", 16, 2, 67 },
+    { "normalize_scalar", 16, 2, 68 },
     { "nospy", 5, 1, 33 },
     { "nospyall", 8, 0, 33 },
-    { "not_exists", 10, 1, 70 },
+    { "not_exists", 10, 1, 71 },
     { "notrace", 7, 0, 33 },
     { "nth0", 4, 3, 45 },
     { "nth0", 4, 4, 45 },
@@ -36496,11 +36638,11 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "nth1", 4, 4, 45 },
     { "number", 6, 3, 25 },
     { "number_atom", 11, 2, 33 },
-    { "number_digits", 13, 2, 77 },
-    { "numbervars", 10, 1, 74 },
+    { "number_digits", 13, 2, 78 },
+    { "numbervars", 10, 1, 75 },
     { "numlist", 7, 3, 45 },
-    { "objective", 9, 2, 64 },
-    { "offset", 6, 2, 65 },
+    { "objective", 9, 2, 65 },
+    { "offset", 6, 2, 66 },
     { "on_exception", 12, 3, 59 },
     { "open_input_atom_stream", 22, 2, 33 },
     { "open_input_chars_stream", 23, 2, 33 },
@@ -36508,7 +36650,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "open_output_atom_stream", 23, 1, 33 },
     { "open_output_chars_stream", 24, 1, 33 },
     { "open_output_codes_stream", 24, 1, 33 },
-    { "open_string", 11, 2, 69 },
+    { "open_string", 11, 2, 70 },
     { "opt_arguments", 13, 3, 52 },
     { "opt_help", 8, 2, 52 },
     { "opt_parse", 9, 4, 52 },
@@ -36530,14 +36672,14 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "ord_memberchk", 13, 2, 53 },
     { "ord_selectchk", 13, 3, 53 },
     { "ord_seteq", 9, 2, 53 },
-    { "ord_setproduct", 14, 3, 78 },
+    { "ord_setproduct", 14, 3, 79 },
     { "ord_subset", 10, 2, 53 },
     { "ord_subtract", 12, 3, 53 },
     { "ord_symdiff", 11, 3, 53 },
     { "ord_union", 9, 2, 53 },
     { "ord_union", 9, 3, 53 },
     { "ord_union", 9, 4, 53 },
-    { "order_by", 8, 2, 65 },
+    { "order_by", 8, 2, 66 },
     { "ordering", 8, 1, 18 },
     { "os_version", 10, 1, 33 },
     { "otherwise", 9, 0, 59 },
@@ -36567,7 +36709,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "portray_clause", 14, 3, 44 },
     { "pow", 3, 3, 59 },
     { "prefix", 6, 2, 45 },
-    { "print_file_contents", 19, 1, 77 },
+    { "print_file_contents", 19, 1, 78 },
     { "print_to_atom", 13, 2, 33 },
     { "print_to_chars", 14, 2, 33 },
     { "print_to_codes", 14, 2, 33 },
@@ -36575,7 +36717,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "project_nonlin", 14, 3, 16 },
     { "projecting_assert", 17, 1, 15 },
     { "prolog_flag", 11, 2, 59 },
-    { "prolog_to_os_filename", 21, 2, 69 },
+    { "prolog_to_os_filename", 21, 2, 70 },
     { "prolog_var_name", 15, 3, 25 },
     { "proper_length", 13, 2, 45 },
     { "proper_list", 11, 1, 4 },
@@ -36633,11 +36775,11 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "re_replace", 10, 5, 55 },
     { "re_split", 8, 3, 55 },
     { "re_split", 8, 4, 55 },
-    { "reachable", 9, 3, 72 },
+    { "reachable", 9, 3, 73 },
     { "read_atom", 9, 1, 33 },
     { "read_atom", 9, 2, 33 },
-    { "read_canonical", 14, 1, 76 },
-    { "read_canonical", 14, 2, 76 },
+    { "read_canonical", 14, 1, 77 },
+    { "read_canonical", 14, 2, 77 },
     { "read_clause", 11, 1, 4 },
     { "read_clause", 11, 2, 4 },
     { "read_file_to_codes", 18, 3, 62 },
@@ -36652,7 +36794,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "read_line_to_codes", 18, 2, 62 },
     { "read_line_to_codes", 18, 3, 62 },
     { "read_line_to_string", 19, 2, 62 },
-    { "read_link", 9, 3, 69 },
+    { "read_link", 9, 3, 70 },
     { "read_number", 11, 1, 33 },
     { "read_number", 11, 2, 33 },
     { "read_pending_input", 18, 3, 4 },
@@ -36666,40 +36808,43 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "read_variables", 14, 2, 4 },
     { "read_variables", 14, 3, 4 },
     { "real_time", 9, 1, 33 },
-    { "reclaim_space", 13, 1, 77 },
+    { "reclaim_space", 13, 1, 78 },
     { "reconsider", 10, 1, 7 },
     { "reconsider", 10, 1, 8 },
     { "record", 6, 1, 63 },
-    { "reduced", 7, 1, 65 },
-    { "reduced", 7, 3, 65 },
+    { "reduced", 7, 1, 66 },
+    { "reduced", 7, 3, 66 },
     { "redundancy_vars", 15, 1, 20 },
     { "relative_file_name", 18, 3, 29 },
     { "remainder", 9, 3, 25 },
     { "remove_stream_mirror", 20, 2, 33 },
     { "rename_file", 11, 2, 33 },
-    { "renormalize", 11, 2, 66 },
     { "renormalize", 11, 2, 67 },
+    { "renormalize", 11, 2, 68 },
     { "repair", 6, 2, 49 },
     { "repair", 6, 2, 50 },
     { "representation_error", 20, 1, 28 },
     { "reset_gensym", 12, 0, 32 },
     { "reset_gensym", 12, 1, 32 },
     { "resource_error", 14, 1, 28 },
-    { "retract_nr", 10, 1, 77 },
+    { "restore_setting", 15, 1, 64 },
+    { "retract_nr", 10, 1, 78 },
     { "reverse", 7, 2, 45 },
-    { "rm", 2, 1, 77 },
+    { "rm", 2, 1, 78 },
     { "round", 5, 2, 59 },
     { "run_tests", 9, 0, 56 },
     { "run_tests", 9, 1, 56 },
     { "same_class", 10, 2, 7 },
     { "same_class", 10, 2, 8 },
-    { "same_file", 9, 2, 69 },
-    { "same_functor", 12, 2, 71 },
-    { "same_functor", 12, 3, 71 },
-    { "same_functor", 12, 4, 71 },
+    { "same_file", 9, 2, 70 },
+    { "same_functor", 12, 2, 72 },
+    { "same_functor", 12, 3, 72 },
+    { "same_functor", 12, 4, 72 },
     { "same_length", 11, 2, 45 },
     { "sat", 3, 1, 11 },
     { "sat_count", 9, 2, 11 },
+    { "save_settings", 13, 0, 64 },
+    { "save_settings", 13, 1, 64 },
     { "scalar_product", 14, 4, 12 },
     { "scanl", 5, 4, 2 },
     { "scanl", 5, 5, 2 },
@@ -36715,40 +36860,44 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "selectchk", 9, 4, 45 },
     { "send_signal", 11, 2, 33 },
     { "serialized", 10, 2, 12 },
-    { "set_arg", 7, 3, 76 },
+    { "set_arg", 7, 3, 77 },
     { "set_base_module", 15, 1, 4 },
     { "set_bip_name", 12, 2, 33 },
     { "set_feature", 11, 2, 4 },
     { "set_linedit_prompt", 18, 1, 33 },
-    { "set_prolog_stack", 16, 2, 69 },
+    { "set_prolog_stack", 16, 2, 70 },
+    { "set_setting", 11, 2, 64 },
+    { "set_setting_default", 19, 2, 64 },
     { "set_stream_buffering", 20, 2, 33 },
     { "set_stream_eof_action", 21, 2, 33 },
     { "set_stream_line_column", 22, 3, 33 },
     { "set_stream_type", 15, 2, 33 },
     { "set_test_options", 16, 1, 56 },
-    { "set_time_file", 13, 3, 69 },
-    { "set_xsb_param", 13, 2, 76 },
+    { "set_time_file", 13, 3, 70 },
+    { "set_xsb_param", 13, 2, 77 },
     { "setarg", 6, 4, 33 },
-    { "setenv", 6, 2, 69 },
+    { "setenv", 6, 2, 70 },
     { "setrand", 7, 1, 60 },
+    { "setting", 7, 2, 64 },
+    { "setting", 7, 4, 64 },
     { "setup_and_call_cleanup", 22, 3, 4 },
     { "setup_and_call_cleanup", 22, 4, 4 },
     { "sformat", 7, 2, 4 },
     { "sformat", 7, 3, 4 },
-    { "shadow_price", 12, 3, 64 },
+    { "shadow_price", 12, 3, 65 },
     { "shell", 5, 1, 33 },
     { "shell", 5, 2, 33 },
     { "sign", 4, 2, 59 },
     { "simple", 6, 1, 59 },
     { "sin", 3, 2, 59 },
     { "singleton_heap", 14, 3, 36 },
-    { "size_file", 9, 2, 69 },
+    { "size_file", 9, 2, 70 },
     { "size_nb_set", 11, 2, 48 },
-    { "sk_not", 6, 1, 70 },
+    { "sk_not", 6, 1, 71 },
     { "skip_line", 9, 0, 59 },
     { "skip_line", 9, 1, 59 },
     { "sleep", 5, 1, 33 },
-    { "snapshot", 8, 1, 70 },
+    { "snapshot", 8, 1, 71 },
     { "socket", 6, 2, 33 },
     { "socket_accept", 13, 3, 33 },
     { "socket_accept", 13, 4, 33 },
@@ -36796,36 +36945,36 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "sr_write_message", 16, 4, 33 },
     { "sr_write_message", 16, 6, 33 },
     { "sr_write_message", 16, 8, 33 },
-    { "storage_delete_all", 18, 1, 77 },
-    { "storage_delete_fact", 19, 3, 77 },
-    { "storage_delete_fact_bt", 22, 3, 77 },
-    { "storage_delete_keypair", 22, 3, 77 },
-    { "storage_delete_keypair_bt", 25, 3, 77 },
-    { "storage_find_fact", 17, 2, 77 },
-    { "storage_find_keypair", 20, 3, 77 },
-    { "storage_insert_fact", 19, 3, 77 },
-    { "storage_insert_fact_bt", 22, 3, 77 },
-    { "storage_insert_keypair", 22, 4, 77 },
-    { "storage_insert_keypair_bt", 25, 4, 77 },
-    { "storage_reclaim_space", 21, 1, 77 },
-    { "str_cat", 7, 3, 76 },
+    { "storage_delete_all", 18, 1, 78 },
+    { "storage_delete_fact", 19, 3, 78 },
+    { "storage_delete_fact_bt", 22, 3, 78 },
+    { "storage_delete_keypair", 22, 3, 78 },
+    { "storage_delete_keypair_bt", 25, 3, 78 },
+    { "storage_find_fact", 17, 2, 78 },
+    { "storage_find_keypair", 20, 3, 78 },
+    { "storage_insert_fact", 19, 3, 78 },
+    { "storage_insert_fact_bt", 22, 3, 78 },
+    { "storage_insert_keypair", 22, 4, 78 },
+    { "storage_insert_keypair_bt", 25, 4, 78 },
+    { "storage_reclaim_space", 21, 1, 78 },
+    { "str_cat", 7, 3, 77 },
     { "stream_line_column", 18, 3, 33 },
     { "stream_position", 15, 2, 33 },
     { "stream_position", 15, 3, 59 },
     { "stream_to_lazy_list", 19, 2, 58 },
     { "string", 6, 3, 25 },
-    { "string_lines", 12, 2, 68 },
+    { "string_lines", 12, 2, 69 },
     { "string_to_atom", 14, 2, 4 },
     { "string_to_list", 14, 2, 4 },
     { "string_without", 14, 4, 25 },
-    { "subgoal_property", 16, 2, 70 },
+    { "subgoal_property", 16, 2, 71 },
     { "sublist", 7, 2, 37 },
     { "sublist", 7, 3, 4 },
     { "subset", 6, 2, 45 },
     { "substitute_eq", 13, 4, 37 },
     { "substring", 9, 4, 4 },
-    { "subsumes", 8, 2, 71 },
-    { "subsumes_chk", 12, 2, 71 },
+    { "subsumes", 8, 2, 72 },
+    { "subsumes_chk", 12, 2, 72 },
     { "subtract", 8, 3, 45 },
     { "sum", 3, 3, 12 },
     { "sum_list", 8, 2, 45 },
@@ -36834,8 +36983,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "sup", 3, 2, 8 },
     { "sup", 3, 4, 7 },
     { "sup", 3, 4, 8 },
-    { "swritef", 7, 2, 75 },
-    { "swritef", 7, 3, 75 },
+    { "swritef", 7, 2, 76 },
+    { "swritef", 7, 3, 76 },
     { "syntax_error", 12, 1, 28 },
     { "syntax_error", 12, 3, 58 },
     { "syntax_error_info", 17, 4, 33 },
@@ -36843,77 +36992,77 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "system", 6, 2, 33 },
     { "system_time", 11, 1, 33 },
     { "systems", 7, 3, 20 },
-    { "table_state", 11, 4, 79 },
-    { "tabled_call", 11, 1, 70 },
+    { "table_state", 11, 4, 80 },
+    { "tabled_call", 11, 1, 71 },
     { "take", 4, 3, 37 },
     { "tan", 3, 2, 59 },
     { "taut", 4, 2, 11 },
     { "temporary_file", 14, 3, 33 },
     { "temporary_name", 14, 2, 33 },
-    { "term_depth", 10, 2, 76 },
-    { "term_factorized", 15, 3, 71 },
+    { "term_depth", 10, 2, 77 },
+    { "term_factorized", 15, 3, 72 },
     { "term_hash", 9, 4, 33 },
     { "term_ref", 8, 2, 33 },
-    { "term_size", 9, 2, 71 },
-    { "term_size", 9, 2, 77 },
-    { "term_subsumer", 13, 3, 71 },
-    { "term_to_atom", 12, 2, 77 },
-    { "term_to_atom", 12, 3, 77 },
-    { "term_to_codes", 13, 2, 77 },
-    { "term_to_codes", 13, 3, 77 },
+    { "term_size", 9, 2, 72 },
+    { "term_size", 9, 2, 78 },
+    { "term_subsumer", 13, 3, 72 },
+    { "term_to_atom", 12, 2, 78 },
+    { "term_to_atom", 12, 3, 78 },
+    { "term_to_codes", 13, 2, 78 },
+    { "term_to_codes", 13, 3, 78 },
     { "term_variables", 14, 3, 33 },
-    { "text_to_string", 14, 2, 69 },
+    { "text_to_string", 14, 2, 70 },
     { "thread_at_exit", 14, 1, 4 },
-    { "thread_shared", 13, 1, 76 },
-    { "ti", 2, 1, 76 },
+    { "thread_shared", 13, 1, 77 },
+    { "ti", 2, 1, 77 },
     { "time", 4, 3, 37 },
-    { "time_file", 9, 2, 69 },
-    { "tnot", 4, 1, 70 },
+    { "time_file", 9, 2, 70 },
+    { "tnot", 4, 1, 71 },
     { "to_lower", 8, 2, 23 },
     { "to_upper", 8, 2, 23 },
-    { "top_sort", 8, 2, 72 },
-    { "top_sort", 8, 3, 72 },
-    { "transaction", 11, 1, 70 },
-    { "transaction_updates", 19, 1, 70 },
-    { "transitive_closure", 18, 2, 72 },
-    { "transportation", 14, 4, 64 },
+    { "top_sort", 8, 2, 73 },
+    { "top_sort", 8, 3, 73 },
+    { "transaction", 11, 1, 71 },
+    { "transaction_updates", 19, 1, 71 },
+    { "transitive_closure", 18, 2, 73 },
+    { "transportation", 14, 4, 65 },
     { "transpose", 9, 2, 12 },
     { "transpose_pairs", 15, 2, 54 },
-    { "transpose_ugraph", 16, 2, 72 },
+    { "transpose_ugraph", 16, 2, 73 },
     { "trie_insert_new", 15, 3, 4 },
-    { "truth_value", 11, 2, 79 },
+    { "truth_value", 11, 2, 80 },
     { "tuples_in", 9, 2, 12 },
     { "type_error", 10, 2, 28 },
     { "ub", 2, 3, 7 },
     { "ub", 2, 3, 8 },
-    { "ugraph_union", 12, 3, 72 },
+    { "ugraph_union", 12, 3, 73 },
     { "unconstrained", 13, 4, 7 },
     { "unconstrained", 13, 4, 8 },
-    { "undefined", 9, 0, 70 },
+    { "undefined", 9, 0, 71 },
     { "uninstantiation_error", 21, 1, 28 },
     { "union", 5, 3, 45 },
     { "unix", 4, 1, 59 },
     { "unlink", 6, 1, 33 },
     { "unlock_predicate", 16, 2, 4 },
-    { "unsetenv", 8, 1, 69 },
+    { "unsetenv", 8, 1, 70 },
     { "update_store", 12, 2, 37 },
     { "upper_lower", 11, 2, 23 },
-    { "uri_authority_components", 24, 2, 73 },
-    { "uri_authority_data", 18, 3, 73 },
-    { "uri_components", 14, 2, 73 },
-    { "uri_data", 8, 3, 73 },
-    { "uri_data", 8, 4, 73 },
-    { "uri_encoded", 11, 3, 73 },
-    { "uri_file_name", 13, 2, 73 },
-    { "uri_iri", 7, 2, 73 },
-    { "uri_is_global", 13, 1, 73 },
-    { "uri_normalized", 14, 2, 73 },
-    { "uri_normalized", 14, 3, 73 },
-    { "uri_normalized_iri", 18, 2, 73 },
-    { "uri_normalized_iri", 18, 3, 73 },
-    { "uri_query_components", 20, 2, 73 },
-    { "uri_resolve", 11, 3, 73 },
-    { "use_subsumptive_tabling", 23, 0, 70 },
+    { "uri_authority_components", 24, 2, 74 },
+    { "uri_authority_data", 18, 3, 74 },
+    { "uri_components", 14, 2, 74 },
+    { "uri_data", 8, 3, 74 },
+    { "uri_data", 8, 4, 74 },
+    { "uri_encoded", 11, 3, 74 },
+    { "uri_file_name", 13, 2, 74 },
+    { "uri_iri", 7, 2, 74 },
+    { "uri_is_global", 13, 1, 74 },
+    { "uri_normalized", 14, 2, 74 },
+    { "uri_normalized", 14, 3, 74 },
+    { "uri_normalized_iri", 18, 2, 74 },
+    { "uri_normalized_iri", 18, 3, 74 },
+    { "uri_query_components", 20, 2, 74 },
+    { "uri_resolve", 11, 3, 74 },
+    { "use_subsumptive_tabling", 23, 0, 71 },
     { "user_time", 9, 1, 33 },
     { "valid_term_position", 19, 2, 57 },
     { "var_intern", 10, 2, 7 },
@@ -36924,23 +37073,23 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "var_with_def_assign", 19, 2, 8 },
     { "var_with_def_intern", 19, 4, 7 },
     { "var_with_def_intern", 19, 4, 8 },
-    { "variable_value", 14, 3, 64 },
-    { "variant", 7, 2, 71 },
-    { "variant_get_residual", 20, 2, 79 },
-    { "varnumbers", 10, 2, 74 },
-    { "varnumbers", 10, 3, 74 },
-    { "varnumbers_names", 16, 3, 74 },
+    { "variable_value", 14, 3, 65 },
+    { "variant", 7, 2, 72 },
+    { "variant_get_residual", 20, 2, 80 },
+    { "varnumbers", 10, 2, 75 },
+    { "varnumbers", 10, 3, 75 },
+    { "varnumbers_names", 16, 3, 75 },
     { "vertex_value", 12, 2, 5 },
     { "vertex_value", 12, 2, 6 },
-    { "vertices", 8, 2, 72 },
-    { "vertices_edges_to_ugraph", 24, 3, 72 },
+    { "vertices", 8, 2, 73 },
+    { "vertices_edges_to_ugraph", 24, 3, 73 },
     { "wait", 4, 2, 33 },
     { "wait_linear", 11, 3, 49 },
     { "wait_linear", 11, 3, 50 },
     { "weighted_maximum", 16, 3, 11 },
     { "white", 5, 2, 25 },
     { "whites", 6, 2, 25 },
-    { "working_directory", 17, 2, 69 },
+    { "working_directory", 17, 2, 70 },
     { "write_canonical_to_atom", 23, 2, 33 },
     { "write_canonical_to_chars", 24, 2, 33 },
     { "write_canonical_to_codes", 24, 2, 33 },
@@ -36951,18 +37100,18 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "write_to_atom", 13, 2, 33 },
     { "write_to_chars", 14, 2, 33 },
     { "write_to_codes", 14, 2, 33 },
-    { "writef", 6, 1, 75 },
-    { "writef", 6, 2, 75 },
+    { "writef", 6, 1, 76 },
+    { "writef", 6, 2, 76 },
     { "writeq_to_atom", 14, 2, 33 },
     { "writeq_to_chars", 15, 2, 33 },
     { "writeq_to_codes", 15, 2, 33 },
     { "xdigit", 6, 3, 25 },
     { "xdigits", 7, 3, 25 },
     { "xinteger", 8, 3, 25 },
-    { "xsb_configuration", 17, 2, 77 },
-    { "xsb_error_get_message", 21, 2, 79 },
-    { "xsb_error_get_tag", 17, 2, 79 },
-    { "xwam_state", 10, 2, 70 },
+    { "xsb_configuration", 17, 2, 78 },
+    { "xsb_error_get_message", 21, 2, 80 },
+    { "xsb_error_get_tag", 17, 2, 80 },
+    { "xwam_state", 10, 2, 71 },
     { "zcompare", 8, 3, 12 },
     { "{}", 2, 1, 49 },
     { "{}", 2, 1, 50 },
