@@ -4041,6 +4041,27 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
 }
 static int pl_tree_has_fn(const tree_t *t, const char *fn);
 static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
+static size_t pl_lib_path_name(const tree_t *t, char *out);
+static int pl_clause_is_load_hook(const PlClause *cl) {
+    const char *nm; int ar;
+    return pl_clause_key((PlClause *)cl, &nm, &ar) && nm && ar == 2 && (!strcmp(nm, "goal_expansion") || !strcmp(nm, "term_expansion"));
+}
+static int pl_libs_hook_lines(PlProgram **lp, int nlibs, const PlProgram *uprog) {
+    int any = 0;
+    for (const PlClause *dc = uprog ? uprog->head : (const PlClause *)0; dc; dc = dc->next) {
+        const tree_t *g = pl_clause_is_directive((PlClause *)dc) ? dc->tr->c[1] : (const tree_t *)0;
+        size_t nl;
+        if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "use_module") || (g->n != 1 && g->n != 2) || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval || dc->lineno <= 0) continue;
+        if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !(nl = pl_lib_path_name(g->c[0]->c[0], (char *)0))) continue;
+        char nm[nl + 1];
+        pl_lib_path_name(g->c[0]->c[0], nm);
+        for (int j = 0; j < nlibs; j++) {
+            if (!lp[j] || strcmp(PL_PRELUDE_LIBS[j].lib, nm)) continue;
+            for (PlClause *cl = lp[j]->head; cl; cl = cl->next) if (cl->lineno >= 0 && pl_clause_is_load_hook(cl)) { cl->lineno = -dc->lineno; cl->file = dc->file; any = 1; }
+        }
+    }
+    return any;
+}
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib[0]) nlibs++;
@@ -4103,6 +4124,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             ct_drop(lh.t);
         }
     }
+    if (pl_libs_hook_lines(lp, nlibs, uprog)) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         for (int j = 0; j < nlibs; j++) {
@@ -4717,7 +4739,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     for (int i = 0; i < n; i++) {
         PlClause *cl = pc[i];
         int keep = (gid[i] >= 0 && wf[gid[i]]) || ((pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) && cl->dq_forced == 3 + 1);
-        if (keep) { cl->lineno = 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
+        if (keep) { cl->lineno = cl->lineno < 0 && pl_clause_is_load_hook(cl) ? -cl->lineno : 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);
     (void)pl_prelude_defines("", -1);

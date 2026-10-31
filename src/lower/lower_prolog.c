@@ -2552,8 +2552,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (qh) ig = ig->n == 2 ? pl_cc_fnc2("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1]) :
                         pl_cc_fnc3("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1], (tree_t *) ig->c[2]);
                     if (qh) cx->umod = sv;
-                    if (!strcmp(nm, "$xsb_q") && g_stage2.pl_dialect == PL_DIALECT_XSB && pl_xsb_sysmod(t->c[0]->v.sval) && ig->t == TT_FNC && ig->v.sval && ig->n >= 1 &&
-                        !strchr(ig->v.sval, ':') && pl_user_file_defines(ig->v.sval, ig->n)) {
+                    if (!strcmp(nm, "$xsb_q") && g_stage2.pl_dialect == PL_DIALECT_XSB && pl_xsb_sysmod(t->c[0]->v.sval) && ig->t == TT_FNC && ig->v.sval && ig->n >= 1 && !strchr(ig->v.sval, ':') &&
+                        pl_user_file_defines(ig->v.sval, ig->n)) {
                         char pn[fmt_len("system:%s", ig->v.sval)];
                         tree_t * pg = pl_tree_copy(ig);
                         snprintf(pn, sizeof pn, "system:%s", ig->v.sval);
@@ -4024,7 +4024,12 @@ static int pl_attv_rt_armed(void) {
     return g_stage2.pl_attv_armed;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_calls(const tree_t * t, const char * f, int n);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_subj(const tree_t * subj, int ar, int head_ok);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out, void * rt_root) {
+    if (choice && (choice->t == TT_CHOICE || choice->t == TT_CLAUSE) && pl_tree_calls(choice, "prolog_cut_to", 1)) choice = pl_cutto_subj(choice, arity, key && !strncmp(key, "$cc", 3));
     extern IR_graph_t * g_emit_cfg;
     extern int g_frame_active;
     extern int g_gen_proc_active;
@@ -4709,6 +4714,114 @@ static void pl_scc_clauses(tree_t * ch, tree_t ** work, int * nw, int cap, int c
         if (!cl || cl->t != TT_CLAUSE) continue;
         for (int i = (int) cl->v.dval; i < cl->n; i++) pl_scc_walk(cl->c[i], work, nw, cap, ccdef);
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_is(const tree_t * g, const char * f) { return g && g->t == TT_FNC && g->n == 1 && g->v.sval && !strcmp(g->v.sval, f); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_mark(const tree_t * g) { return pl_cutto_is(g, "prolog_current_choice") && g->c[0] && g->c[0]->t == TT_VAR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_conj_n(const tree_t * g) { return (g && g->t == TT_FNC && g->n == 2 && g->v.sval && !strcmp(g->v.sval, ",")) ? pl_cutto_conj_n(g->c[0]) + pl_cutto_conj_n(g->c[1]) : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_cutto_conj_fill(tree_t * g, tree_t ** out, int * k) {
+    if (g && g->t == TT_FNC && g->n == 2 && g->v.sval && !strcmp(g->v.sval, ",")) { pl_cutto_conj_fill(g->c[0], out, k); pl_cutto_conj_fill(g->c[1], out, k); return; }
+    out[(*k)++] = g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_conj_of(tree_t ** g, int n) {
+    if (n <= 0) return (tree_t *) pl_atom_goal("true");
+    tree_t * r = g[n - 1];
+    for (int i = n - 2; i >= 0; i--) r = pl_cc_fnc2(",", g[i], r);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_body_count(const tree_t * cl, int body0, int slot) { int n = 0; for (int i = body0; i < cl->n; i++) n += pl_var_count(cl->c[i], slot); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_goal(tree_t * g, const tree_t * cl, int body0);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_list(tree_t ** g, int n, const tree_t * cl, int body0) {
+    for (int i = 0; i < n; i++) {
+        int j = i + 1;
+        if (!pl_cutto_mark(g[i]) || pl_cutto_body_count(cl, body0, (int) g[i]->c[0]->v.ival) != 2) continue;
+        while (j < n && !(pl_cutto_is(g[j], "prolog_cut_to") && g[j]->c[0] && g[j]->c[0]->t == TT_VAR && g[j]->c[0]->v.ival == g[i]->c[0]->v.ival)) j++;
+        if (j >= n) continue;
+        tree_t * ite = ast_node_new(TT_IF);
+        ite->line = g[i]->line;
+        ast_push(ite, pl_cutto_conj_of(g + i + 1, j - i - 1));
+        ast_push(ite, (tree_t *) pl_atom_goal("true"));
+        ast_push(ite, (tree_t *) pl_atom_goal("fail"));
+        g[i] = ite;
+        for (int k = j + 1; k < n; k++) g[i + k - j] = g[k];
+        n -= j - i;
+    }
+    for (int i = 0; i < n; i++) g[i] = pl_cutto_goal(g[i], cl, body0);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutto_ctl(const tree_t * g, int i) {
+    static const char * const all1[] = { "\\+", "once", "ignore", "call", NULL }, * const all2[] = { ";", "->", "*->", "forall", NULL };
+    const char * f = g->v.sval;
+    if (g->t == TT_IF) return 1;
+    if (g->t != TT_FNC || !f) return 0;
+    for (int k = 0; g->n == 1 && all1[k]; k++) if (!strcmp(f, all1[k])) return 1;
+    for (int k = 0; g->n == 2 && all2[k]; k++) if (!strcmp(f, all2[k])) return 1;
+    if (((g->n == 3 || g->n == 4) && !strcmp(f, "findall")) || (g->n == 3 && !strcmp(f, "aggregate_all"))) return i == 1;
+    return g->n == 3 && !strcmp(f, "catch") && i != 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_goal(tree_t * g, const tree_t * cl, int body0) {
+    if (!g) return g;
+    if (pl_cutto_is(g, "prolog_cut_to")) return pl_cc_throw_ar(pl_cc_fnc1("system_error", pl_cc_fnc1("unsupported", pl_cc_pi_ar("prolog_cut_to", 1))), "prolog_cut_to", 1);
+    if (g->t == TT_FNC && g->n == 2 && g->v.sval && !strcmp(g->v.sval, ",")) {
+        int n = pl_cutto_conj_n(g), k = 0;
+        tree_t * gs[n];
+        pl_cutto_conj_fill(g, gs, &k);
+        n = pl_cutto_list(gs, n, cl, body0);
+        return pl_cutto_conj_of(gs, n);
+    }
+    for (int i = 0; i < g->n; i++) if (pl_cutto_ctl(g, i)) g->c[i] = pl_cutto_goal(g->c[i], cl, body0);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_clause(const tree_t * c, int ar, int head_ok) {
+    tree_t * cl = pl_tree_copy(c);
+    int n = cl->n - ar;
+    if (n <= 0) return cl;
+    tree_t * gs[n];
+    for (int i = 0; i < n; i++) gs[i] = cl->c[ar + i];
+    n = pl_cutto_list(gs, n, cl, head_ok ? ar : 0);
+    cl->n = ar;
+    for (int i = 0; i < n; i++) ast_push(cl, gs[i]);
+    return cl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutto_subj(const tree_t * subj, int ar, int head_ok) {
+    if (subj->t == TT_CLAUSE) return pl_cutto_clause(subj, ar, head_ok);
+    tree_t * rn = ast_node_new(TT_CHOICE);
+    rn->v = subj->v;
+    rn->line = subj->line;
+    for (int k = 0; k < subj->n; k++) ast_push(rn, pl_cutto_clause(subj->c[k], ar, head_ok));
+    return rn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_cutto_rewrite(const tree_t * prog) {
+    int any = 0;
+    for (int i = 0; i < prog->n && !any; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && pl_tree_calls(subj, "prolog_cut_to", 1)) any = 1;
+    }
+    if (!any) return prog;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * sl = subj && subj->v.sval ? strrchr(subj->v.sval, '/') : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE) || !sl || !pl_tree_calls(subj, "prolog_cut_to", 1)) { ast_push(np, (tree_t *) s); continue; }
+        ast_push(np, pl_table_stmt(s, pl_cutto_subj(subj, atoi(sl + 1), 0)));
+    }
+    return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_scc_rewrite(const tree_t * prog) {
@@ -6099,6 +6212,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_ssu_rewrite(prog);
     prog = pl_det_rewrite(prog);
     prog = pl_dict_rewrite(prog);
+    prog = pl_cutto_rewrite(prog);
     prog = pl_src_file_rewrite(prog);
     prog = pl_meta_rt_rewrite(prog);
     prog = pl_auto_table_rewrite(prog);

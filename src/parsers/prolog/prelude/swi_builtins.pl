@@ -9,7 +9,8 @@
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
 :- module(swi_builtins, [ '$clause'/4, open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
                           setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3,
-                          set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1, expand_file_name/2]).
+                          set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1, expand_file_name/2,
+                          current_arithmetic_function/1]).
 get_time(T) :- '$gnu_os'(get_time, 0, T).
 maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).
 '$clause'(H, B, R, _) :- nonvar(R), !, ( clause(H0, B0, R) -> true ; nb_current('$tx_cur', tx(Rs)), '$swb_tx_erased'(Rs, R, (H0 :- B0)) ), B = B0, '$swb_unmangle'(H0, H).
@@ -178,3 +179,19 @@ expand_file_name(Spec, Files) :-
 '$swb_efn_seg'(S, _, Wild, S, Wild).
 '$swb_efn_entry'(S, P, E) :- ( P == '' -> D = '.' ; D = P ), catch(directory_files(D, Es), error(_, _), fail), member(E, Es), '$swb_efn_visible'(S, E), wildcard_match(S, E).
 '$swb_efn_visible'(S, E) :- ( sub_atom(E, 0, 1, _, '.') -> sub_atom(S, 0, 1, _, '.') ; true ).
+
+current_arithmetic_function(F) :-
+    var(F),
+    !,
+    '$swb_evaluables'(L),
+    member(N/A, L),
+    functor(F, N, A).
+current_arithmetic_function(F) :-
+    callable(F),
+    !,
+    functor(F, N, A),
+    '$swb_evaluables'(L),
+    memberchk(N/A, L).
+current_arithmetic_function(F) :-
+    throw(error(type_error(callable, F), context(current_arithmetic_function/1, _))).
+'$swb_evaluables'([(*)/2,(**)/2,(+)/1,(+)/2,(-)/1,(-)/2,(/)/2,(//)/2,(/\)/2,(<<)/2,(>>)/2,(\)/1,(\/)/2,(^)/2,abs/1,acos/1,acosh/1,asin/1,asinh/1,atan/1,atan/2,atan2/2,atanh/1,ceil/1,ceiling/1,copysign/2,cos/1,cosh/1,cputime/0,denominator/1,(div)/2,e/0,epsilon/0,erf/1,erfc/1,eval/1,exp/1,float/1,float_fractional_part/1,float_integer_part/1,floor/1,gcd/2,getbit/2,inf/0,integer/1,lcm/2,lgamma/1,log/1,log10/1,lsb/1,max/2,min/2,(mod)/2,msb/1,nan/0,nexttoward/2,numerator/1,pi/0,popcount/1,powm/3,random/1,random_float/0,rational/1,rationalize/1,(rdiv)/2,(rem)/2,round/1,roundtoward/2,sign/1,sin/1,sinh/1,sqrt/1,tan/1,tanh/1,truncate/1,(xor)/2]).

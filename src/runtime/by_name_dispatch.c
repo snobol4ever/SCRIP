@@ -9993,14 +9993,14 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error",
     "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true",
     "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE",
-    "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "os_argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0,
-    { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on",
-    "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", "xsb", 0 } }, { "prefer_rationals", "false", 1, { "true", "false",
-    0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero",
-    0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1, PLF_GONE }, { "min_tagged_integer", "-72057594037927936", 0,
-    { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
-    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false", 0 } }, { "color_term", "false", 1, { "true", "false",
-    0 } }, { 0, "", 0, { 0 } } };
+    "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "os_argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "arch", "x86_64-linux", 0, { 0 } }, { "prolog_name", "SCRIP", 0,
+    { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } },
+    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", "xsb", 0 } },
+    { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1,
+    { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1, PLF_GONE },
+    { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1,
+    { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false",
+    0 } }, { "color_term", "false", 1, { "true", "false", 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
 static const pl_dia_flag_t pl_dia_flags[] = { { "xsb", "max_integer", "9223372036854775807" }, { "xsb", "min_integer", "-9223372036854775807" }, { "xsb", "bounded", "true" }, { "gnu", "max_integer",
@@ -26875,6 +26875,30 @@ static int pl_cutcall_walk(DESCR_t *c, char *sk, size_t *len, DESCR_t **leaves, 
             return 1;
         }
     }
+    if (!pl_cell_unbound(d) && (int)d->v == DT_PLREF && pl_arity((pl_cell_t *)d) == 1) {
+        const char *nm = prolog_atom_name(plc_functor((pl_cell_t *)d));
+        int mk = nm && !strcmp(nm, "prolog_current_choice") ? 'C' : nm && !strcmp(nm, "prolog_cut_to") ? 'T' : 0;
+        DESCR_t *a = mk ? (DESCR_t *)pl_deref((pl_cell_t *)&((DESCR_t *)d->p)[0]) : (DESCR_t *)0;
+        if (a && pl_cell_unbound(a)) {
+            int k = *nleaf;
+            for (int i = 0; leaves && i < *nleaf; i++) if (leaves[i] == a) { k = i; break; }
+            if (k == *nleaf) { if (leaves) leaves[k] = a; (*nleaf)++; }
+            if (mk == 'T') (*cuts)++;
+            if (sk) { sk[*len] = (char)mk; sk[*len + 1] = (char)('0' + k / 100); sk[*len + 2] = (char)('0' + k / 10 % 10); sk[*len + 3] = (char)('0' + k % 10); }
+            *len += 4;
+            if (out) {
+                int vl = snprintf(NULL, 0, "_L%d", k) + 1;
+                char vn[vl];
+                tree_t *v = ast_node_new(TT_VAR), *t = ast_node_new(TT_FNC);
+                snprintf(vn, (size_t)vl, "_L%d", k);
+                v->v.sval = pl_tree_name(vn);
+                t->v.sval = pl_tree_name(nm);
+                ast_push(t, v);
+                *out = t;
+            }
+            return 1;
+        }
+    }
     if (sk) sk[*len] = 'V';
     (*len)++;
     if (leaves) leaves[*nleaf] = d;
@@ -26933,7 +26957,8 @@ PL_CX_LEAF_HEAD(cutcall, 2)
                         tree_t *body = (tree_t *)0;
                         size_t l3 = 0;
                         int n3 = 0, c3 = 0;
-                        if (pl_cutcall_walk(&args[0], (char *)0, &l3, (DESCR_t **)0, &n3, &c3, 0, &body) && body) {
+                        DESCR_t *lv3[nleaf > 0 ? nleaf : 1];
+                        if (pl_cutcall_walk(&args[0], (char *)0, &l3, lv3, &n3, &c3, 0, &body) && body) {
                             tree_t *hd = ast_node_new(n ? TT_FNC : TT_QLIT), *raw = ast_node_new(TT_FNC), *cl;
                             void *ch;
                             hd->v.sval = pl_tree_name(nm);
