@@ -9,7 +9,7 @@
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
 :- module(swi_builtins, [ open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
                           setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3,
-                          set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1]).
+                          set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1, expand_file_name/2]).
 get_time(T) :- '$gnu_os'(get_time, 0, T).
 maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).
 '$swb_maplist'([], [], [], [], [], _).
@@ -115,3 +115,61 @@ copy_stream_data(I, O, N) :- ( var(N) -> throw(error(instantiation_error, contex
 '$swb_csdt'(I, O, N) :- get_char(I, C), ( C == end_of_file -> true ; put_char(O, C), N1 is N - 1, '$swb_csdt'(I, O, N1) ).
 '$swb_csdb'(_, _, 0) :- !.
 '$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).
+% expand_file_name/2 (hq_icon 2026-10-31, row prolog-swi-to-100-the-failing-cases-ceo-1930, files/test_glob): swipl 9.0.4's answers, measured on a scratch tree and graded by
+% test_gate_pl_swi_expand_file_name_answers_as_swipl.sh.  A name with no ? * [ { comes back as the one-element list it was (after $VAR and ~ expansion), existing or not; a name with one is
+% split at '/', each segment with a wildcard lists its directory (a leading '.' is matched only by a segment that starts with '.'; '.' and '..' are entries) and matches it with
+% wildcard_match/2, a literal segment after a wildcard must exist at the end, a trailing '/' is dropped, the whole strings are msort-ed, an unmatched [ or { raises syntax_error.
+expand_file_name(Spec, Files) :-
+    '$swb_efn_text'(Spec, A0), '$swb_efn_dollar'(A0, A1), '$swb_efn_tilde'(A1, A2),
+    (   '$swb_efn_meta'(A2)
+    ->  atomic_list_concat(Segs, '/', A2), '$swb_efn_check'(Segs),
+        findall(F, '$swb_efn_gen'(Segs, '', no, F), Found), msort(Found, Files)
+    ;   Files = [A2] ).
+'$swb_efn_err'(E) :- throw(error(E, context(system:expand_file_name/2, _))).
+'$swb_efn_text'(S, _) :- var(S), !, '$swb_efn_err'(instantiation_error).
+'$swb_efn_text'(S, A) :- atom(S), !, A = S.
+'$swb_efn_text'(S, A) :- string(S), !, atom_string(A, S).
+'$swb_efn_text'(S, A) :- number(S), !, number_codes(S, Cs), atom_codes(A, Cs).
+'$swb_efn_text'(S, A) :- is_list(S), catch(text_to_string(S, Str), error(_, _), fail), !, atom_string(A, Str).
+'$swb_efn_text'(S, _) :- '$swb_efn_err'(type_error(text, S)).
+'$swb_efn_namechar'(C) :- ( C >= 0'a, C =< 0'z -> true ; C >= 0'A, C =< 0'Z -> true ; C >= 0'0, C =< 0'9 -> true ; C =:= 0'_ ).
+'$swb_efn_dollar'(A0, A) :- sub_atom(A0, _, 1, _, '$'), !, atom_codes(A0, Cs0), '$swb_efn_dollar_'(Cs0, Cs), atom_codes(A, Cs).
+'$swb_efn_dollar'(A, A).
+'$swb_efn_dollar_'([], []).
+'$swb_efn_dollar_'([0'$, C|T], Out) :- '$swb_efn_namechar'(C), !, '$swb_efn_name'([C|T], NameCs, Rest), atom_codes(Name, NameCs),
+    (   getenv(Name, Val) -> atom_codes(Val, VCs) ; '$swb_efn_err'(existence_error(variable, Name)) ),
+    '$swb_efn_dollar_'(Rest, Out0), append(VCs, Out0, Out).
+'$swb_efn_dollar_'([C|T], [C|Out]) :- '$swb_efn_dollar_'(T, Out).
+'$swb_efn_name'([C|T], [C|Ns], Rest) :- '$swb_efn_namechar'(C), !, '$swb_efn_name'(T, Ns, Rest).
+'$swb_efn_name'(Rest, [], Rest).
+'$swb_efn_tilde'(A0, A) :- sub_atom(A0, 0, 1, _, '~'), !, atom_codes(A0, [_|Cs0]), '$swb_efn_upto_slash'(Cs0, UCs, Rest),
+    (   UCs == [] -> ( getenv('HOME', H) -> true ; H = '' ) ; atom_codes(U, UCs), '$swb_efn_home'(U, H) ),
+    atom_codes(H, HCs), append(HCs, Rest, Cs), atom_codes(A, Cs).
+'$swb_efn_tilde'(A, A).
+'$swb_efn_upto_slash'([C|T], [C|Us], Rest) :- C =\= 0'/, !, '$swb_efn_upto_slash'(T, Us, Rest).
+'$swb_efn_upto_slash'(Rest, [], Rest).
+'$swb_efn_home'(U, H) :- catch(setup_call_cleanup(open('/etc/passwd', read, S), '$swb_efn_pw'(S, U, H0), close(S)), error(_, _), fail), !, H = H0.
+'$swb_efn_home'(U, _) :- '$swb_efn_err'(existence_error(user, U)).
+'$swb_efn_pw'(S, U, H) :- read_line_to_codes(S, Cs), Cs \== end_of_file, atom_codes(L, Cs), atomic_list_concat(Fs, ':', L),
+    (   Fs = [U, _, _, _, _, H0|_] -> H = H0 ; '$swb_efn_pw'(S, U, H) ).
+'$swb_efn_meta'(A) :- sub_atom(A, _, 1, _, C), memberchk(C, ['*', '?', '[', '{']), !.
+'$swb_efn_check'([]).
+'$swb_efn_check'([S|T]) :- atom_codes(S, Cs), '$swb_efn_bal'(Cs, 0, no), '$swb_efn_check'(T).
+'$swb_efn_bal'([], 0, no) :- !.
+'$swb_efn_bal'([], _, yes) :- !, '$swb_efn_err'(syntax_error('Unmatched \'[\'')).
+'$swb_efn_bal'([], _, no) :- '$swb_efn_err'(syntax_error('Unmatched \'{\'')).
+'$swb_efn_bal'([0']|T], D, yes) :- !, '$swb_efn_bal'(T, D, no).
+'$swb_efn_bal'([_|T], D, yes) :- !, '$swb_efn_bal'(T, D, yes).
+'$swb_efn_bal'([0'[|T], D, no) :- !, '$swb_efn_bal'(T, D, yes).
+'$swb_efn_bal'([0'{|T], D, no) :- !, D1 is D + 1, '$swb_efn_bal'(T, D1, no).
+'$swb_efn_bal'([0'}|T], D, no) :- D > 0, !, D1 is D - 1, '$swb_efn_bal'(T, D1, no).
+'$swb_efn_bal'([_|T], D, no) :- '$swb_efn_bal'(T, D, no).
+'$swb_efn_gen'([S], P, Wild, F) :- !, '$swb_efn_last'(S, P, Wild, F).
+'$swb_efn_gen'([S|Rest], P, Wild, F) :- '$swb_efn_seg'(S, P, Wild, E, Wild1), atomic_list_concat([P, E, '/'], P1), '$swb_efn_gen'(Rest, P1, Wild1, F).
+'$swb_efn_last'(S, P, _, F) :- '$swb_efn_meta'(S), !, '$swb_efn_entry'(S, P, E), atom_concat(P, E, F).
+'$swb_efn_last'('', P, _, F) :- !, atom_concat(F, '/', P).
+'$swb_efn_last'(S, P, _, F) :- atom_concat(P, S, F), ( exists_file(F) -> true ; exists_directory(F) ).
+'$swb_efn_seg'(S, P, _, E, yes) :- '$swb_efn_meta'(S), !, '$swb_efn_entry'(S, P, E).
+'$swb_efn_seg'(S, _, Wild, S, Wild).
+'$swb_efn_entry'(S, P, E) :- ( P == '' -> D = '.' ; D = P ), catch(directory_files(D, Es), error(_, _), fail), member(E, Es), '$swb_efn_visible'(S, E), wildcard_match(S, E).
+'$swb_efn_visible'(S, E) :- ( sub_atom(E, 0, 1, _, '.') -> sub_atom(S, 0, 1, _, '.') ; true ).

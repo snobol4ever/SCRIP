@@ -33013,6 +33013,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "copy_stream_data", 2 },
     { "copy_stream_data", 3 },
     { "get_time", 1 },
+    { "expand_file_name", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
@@ -33132,7 +33133,61 @@ static const char PL_PRELUDE_LIB_68_SRC[] =
     "'$swb_csdt'(_, _, 0) :- !.\n"
     "'$swb_csdt'(I, O, N) :- get_char(I, C), ( C == end_of_file -> true ; put_char(O, C), N1 is N - 1, '$swb_csdt'(I, O, N1) ).\n"
     "'$swb_csdb'(_, _, 0) :- !.\n"
-    "'$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).\n";
+    "'$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).\n"
+    "expand_file_name(Spec, Files) :-\n"
+    "    '$swb_efn_text'(Spec, A0), '$swb_efn_dollar'(A0, A1), '$swb_efn_tilde'(A1, A2),\n"
+    "    (   '$swb_efn_meta'(A2)\n"
+    "    ->  atomic_list_concat(Segs, '/', A2), '$swb_efn_check'(Segs),\n"
+    "        findall(F, '$swb_efn_gen'(Segs, '', no, F), Found), msort(Found, Files)\n"
+    "    ;   Files = [A2] ).\n"
+    "'$swb_efn_err'(E) :- throw(error(E, context(system:expand_file_name/2, _))).\n"
+    "'$swb_efn_text'(S, _) :- var(S), !, '$swb_efn_err'(instantiation_error).\n"
+    "'$swb_efn_text'(S, A) :- atom(S), !, A = S.\n"
+    "'$swb_efn_text'(S, A) :- string(S), !, atom_string(A, S).\n"
+    "'$swb_efn_text'(S, A) :- number(S), !, number_codes(S, Cs), atom_codes(A, Cs).\n"
+    "'$swb_efn_text'(S, A) :- is_list(S), catch(text_to_string(S, Str), error(_, _), fail), !, atom_string(A, Str).\n"
+    "'$swb_efn_text'(S, _) :- '$swb_efn_err'(type_error(text, S)).\n"
+    "'$swb_efn_namechar'(C) :- ( C >= 0'a, C =< 0'z -> true ; C >= 0'A, C =< 0'Z -> true ; C >= 0'0, C =< 0'9 -> true ; C =:= 0'_ ).\n"
+    "'$swb_efn_dollar'(A0, A) :- sub_atom(A0, _, 1, _, '$'), !, atom_codes(A0, Cs0), '$swb_efn_dollar_'(Cs0, Cs), atom_codes(A, Cs).\n"
+    "'$swb_efn_dollar'(A, A).\n"
+    "'$swb_efn_dollar_'([], []).\n"
+    "'$swb_efn_dollar_'([0'$, C|T], Out) :- '$swb_efn_namechar'(C), !, '$swb_efn_name'([C|T], NameCs, Rest), atom_codes(Name, NameCs),\n"
+    "    (   getenv(Name, Val) -> atom_codes(Val, VCs) ; '$swb_efn_err'(existence_error(variable, Name)) ),\n"
+    "    '$swb_efn_dollar_'(Rest, Out0), append(VCs, Out0, Out).\n"
+    "'$swb_efn_dollar_'([C|T], [C|Out]) :- '$swb_efn_dollar_'(T, Out).\n"
+    "'$swb_efn_name'([C|T], [C|Ns], Rest) :- '$swb_efn_namechar'(C), !, '$swb_efn_name'(T, Ns, Rest).\n"
+    "'$swb_efn_name'(Rest, [], Rest).\n"
+    "'$swb_efn_tilde'(A0, A) :- sub_atom(A0, 0, 1, _, '~'), !, atom_codes(A0, [_|Cs0]), '$swb_efn_upto_slash'(Cs0, UCs, Rest),\n"
+    "    (   UCs == [] -> ( getenv('HOME', H) -> true ; H = '' ) ; atom_codes(U, UCs), '$swb_efn_home'(U, H) ),\n"
+    "    atom_codes(H, HCs), append(HCs, Rest, Cs), atom_codes(A, Cs).\n"
+    "'$swb_efn_tilde'(A, A).\n"
+    "'$swb_efn_upto_slash'([C|T], [C|Us], Rest) :- C =\\= 0'/, !, '$swb_efn_upto_slash'(T, Us, Rest).\n"
+    "'$swb_efn_upto_slash'(Rest, [], Rest).\n"
+    "'$swb_efn_home'(U, H) :- catch(setup_call_cleanup(open('/etc/passwd', read, S), '$swb_efn_pw'(S, U, H0), close(S)), error(_, _), fail), !, H = H0.\n"
+    "'$swb_efn_home'(U, _) :- '$swb_efn_err'(existence_error(user, U)).\n"
+    "'$swb_efn_pw'(S, U, H) :- read_line_to_codes(S, Cs), Cs \\== end_of_file, atom_codes(L, Cs), atomic_list_concat(Fs, ':', L),\n"
+    "    (   Fs = [U, _, _, _, _, H0|_] -> H = H0 ; '$swb_efn_pw'(S, U, H) ).\n"
+    "'$swb_efn_meta'(A) :- sub_atom(A, _, 1, _, C), memberchk(C, ['*', '?', '[', '{']), !.\n"
+    "'$swb_efn_check'([]).\n"
+    "'$swb_efn_check'([S|T]) :- atom_codes(S, Cs), '$swb_efn_bal'(Cs, 0, no), '$swb_efn_check'(T).\n"
+    "'$swb_efn_bal'([], 0, no) :- !.\n"
+    "'$swb_efn_bal'([], _, yes) :- !, '$swb_efn_err'(syntax_error('Unmatched \\'[\\'')).\n"
+    "'$swb_efn_bal'([], _, no) :- '$swb_efn_err'(syntax_error('Unmatched \\'{\\'')).\n"
+    "'$swb_efn_bal'([0']|T], D, yes) :- !, '$swb_efn_bal'(T, D, no).\n"
+    "'$swb_efn_bal'([_|T], D, yes) :- !, '$swb_efn_bal'(T, D, yes).\n"
+    "'$swb_efn_bal'([0'[|T], D, no) :- !, '$swb_efn_bal'(T, D, yes).\n"
+    "'$swb_efn_bal'([0'{|T], D, no) :- !, D1 is D + 1, '$swb_efn_bal'(T, D1, no).\n"
+    "'$swb_efn_bal'([0'}|T], D, no) :- D > 0, !, D1 is D - 1, '$swb_efn_bal'(T, D1, no).\n"
+    "'$swb_efn_bal'([_|T], D, no) :- '$swb_efn_bal'(T, D, no).\n"
+    "'$swb_efn_gen'([S], P, Wild, F) :- !, '$swb_efn_last'(S, P, Wild, F).\n"
+    "'$swb_efn_gen'([S|Rest], P, Wild, F) :- '$swb_efn_seg'(S, P, Wild, E, Wild1), atomic_list_concat([P, E, '/'], P1), '$swb_efn_gen'(Rest, P1, Wild1, F).\n"
+    "'$swb_efn_last'(S, P, _, F) :- '$swb_efn_meta'(S), !, '$swb_efn_entry'(S, P, E), atom_concat(P, E, F).\n"
+    "'$swb_efn_last'('', P, _, F) :- !, atom_concat(F, '/', P).\n"
+    "'$swb_efn_last'(S, P, _, F) :- atom_concat(P, S, F), ( exists_file(F) -> true ; exists_directory(F) ).\n"
+    "'$swb_efn_seg'(S, P, _, E, yes) :- '$swb_efn_meta'(S), !, '$swb_efn_entry'(S, P, E).\n"
+    "'$swb_efn_seg'(S, _, Wild, S, Wild).\n"
+    "'$swb_efn_entry'(S, P, E) :- ( P == '' -> D = '.' ; D = P ), catch(directory_files(D, Es), error(_, _), fail), member(E, Es), '$swb_efn_visible'(S, E), wildcard_match(S, E).\n"
+    "'$swb_efn_visible'(S, E) :- ( sub_atom(E, 0, 1, _, '.') -> sub_atom(S, 0, 1, _, '.') ; true ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
@@ -35863,6 +35918,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "existence_error", 15, 3, 27 },
     { "exists_directory", 16, 1, 68 },
     { "exists_file", 11, 1, 68 },
+    { "expand_file_name", 16, 2, 68 },
     { "export", 6, 1, 75 },
     { "export_binding", 14, 1, 6 },
     { "export_binding", 14, 1, 7 },
