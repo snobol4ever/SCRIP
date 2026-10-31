@@ -58,6 +58,8 @@ typedef struct {
     int pas_addr_int;
     int pas_ioquiet;
     int pas_ioflow;
+    int pas_iofull;
+    int pas_divchk;
     int pas_dialect_fpc;
     int pas_mode_iso;
     int pas_fname_is_call;

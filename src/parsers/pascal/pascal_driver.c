@@ -114,6 +114,24 @@ static int pas_ioflow_in(const tree_t *t) {
     for (int i = 0; i < t->n; i++) if (pas_ioflow_in(t->c[i])) return 1;
     return 0;
 }
+static int pas_pulls_sysutils(const char *name) {
+    static const char *const S[] = { "sysutils", "classes", "math", "strutils", "contnrs", "types", "dateutils", 0 };
+    for (int i = 0; name && S[i]; i++) if (!strcasecmp(name, S[i])) return 1;
+    return 0;
+}
+static int pas_uses_pull(const tree_t *uses) {
+    for (int i = 0; uses && i < uses->n; i++) if (uses->c[i] && pas_pulls_sysutils(uses->c[i]->v.sval)) return 1;
+    return 0;
+}
+static int pas_su_closure(const tree_t *uses, const tree_t *forest) {
+    if (pas_uses_pull(uses)) return 1;
+    for (int i = 0; forest && i < forest->n; i++) {
+        const tree_t *u = forest->c[i];
+        if (!u || u->n < 3 || !u->c[0] || pas_prelude_src(u->c[0]->v.sval)) continue;
+        if (pas_uses_pull(pas_uses_of(u->c[1])) || pas_uses_pull(pas_uses_of(u->c[2]))) return 1;
+    }
+    return 0;
+}
 static int pas_forest_has(const tree_t *forest, const char *name) {
     for (int i = 0; forest && i < forest->n; i++) { const tree_t *u = forest->c[i]; if (u && u->n > 0 && u->c[0] && u->c[0]->v.sval && !strcasecmp(u->c[0]->v.sval, name)) return 1; }
     return 0;
@@ -123,7 +141,7 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
     for (int i = 0; prog && i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_BLOCK) block = prog->c[i];
     const tree_t *uses = pas_uses_of(block);
     int ioflow = pas_ioflow_in(prog);
-    int sys = pas_names_system(block) || ioflow;
+    int sys = pas_names_system(block) || (ioflow && !pas_uses_pull(uses));
     if (!uses && !sys) return prog;
     const char *slash = strrchr(filename, '/');
     size_t dl = slash ? (size_t)(slash - filename) : 1;
@@ -140,7 +158,7 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
         ast_push(su, sn);
         if (!pas_units_visit(dir, filename, su, forest, visiting)) return NULL;
     }
-    if (ioflow && pas_forest_has(forest, "sysutils")) {
+    if (pas_su_closure(uses, forest)) {
         tree_t *iu = ast_node_new(TT_VLIST), *in = ast_node_new(TT_VAR);
         in->v.sval = ct_strdup("ioerr");
         ast_push(iu, in);
