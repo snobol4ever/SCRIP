@@ -4132,10 +4132,10 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
 extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden")));
 extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
 static uint32_t rtxe_hash(const char * s) { uint32_t h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
-#include "../templates/x86/rtx_clobber_table.inc"
+#include "../runtime/rt_entry_table.inc"
 extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
     if (!sym) return 0u;
-    for (int i = 0; i < RTX_CLOB_TAB_N; i++) if (rtx_clob_tab[i].sym[0] == sym[0] && strcmp(rtx_clob_tab[i].sym, sym) == 0) return rtx_clob_tab[i].mask;
+    for (int i = 0; i < RT_ENTRIES; i++) if (g_rt_entries[i].sym[0] == sym[0] && strcmp(g_rt_entries[i].sym, sym) == 0) return g_rt_entries[i].clobbers & ~(unsigned)RT_CLOB_STATED;
     return 0u;
 }
 struct rtx_ssr_t { const char * s; long n; };

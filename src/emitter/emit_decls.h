@@ -54,7 +54,6 @@ extern "C" int zls_g_block_base(const IR_graph_t *);
 extern "C" const char * zls_home_why_name(int w);
 extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden")));
 extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
-#include "../templates/x86/rtx_clobber_table.inc"
 struct rtx_ssr_t { const char * s; long n; };
 struct rt_dcap_next_t { long fn; long how; };
 #define RTX_TWIN(kind, ret, leaf, twin, args) extern "C" ret twin args;
