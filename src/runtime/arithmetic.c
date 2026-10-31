@@ -718,8 +718,8 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
         }
         return rt_big_arith_route(a, b, op);
     }
-    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
-    if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
+    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0 || (a.v == DT_S && a.s[0] == RK_TY))) a = INTVAL(0);
+    if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0 || (b.v == DT_S && b.s[0] == RK_TY))) b = INTVAL(0);
     if (strict == 2) {
         if (!sno_numeric_operand(a) || !sno_numeric_operand(b)) { rt_sno_operand_error(op, sno_numeric_operand(b)); return FAILDESCR; }
     } else if (!is_numeric_like(a) || !is_numeric_like(b)) return FAILDESCR;

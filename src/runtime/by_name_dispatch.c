@@ -5,6 +5,7 @@
 #include "rtx_try.h"
 #include "dtp.h"
 #include "by_name_dispatch.h"
+#include "rk_opname.h"
 #include "ct_arena.h"
 #include "rt/rt_diag.h"
 #define ICN_ARITY_UNKNOWN (-99)
@@ -452,7 +453,6 @@ int rt_builtin_is_known(const char *name) {
 }
 #define RK_RX '\x06'
 static const char *rk_rx_pat(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_RX) ? v.s + 1 : NULL; }
-#define RK_TY '\x07'
 static const char *rk_typeobj_name(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_TY) ? v.s + 1 : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *itos(long long v, char *buf, size_t cap) {
@@ -3821,7 +3821,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
     if (!strcmp(meth, "message") || !strcmp(meth, "payload")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
-        if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
+        if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
         if (recv.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(recv.i ? "Bool::True" : "Bool::False")); return 1; }
         if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
         *out = STRVAL((char *) rk_raku_scalar(recv));
@@ -12550,7 +12550,8 @@ static int rk_item(DESCR_t *r, int k, DESCR_t v) {
         r[k++] = rk_mk_arr(e, c);
         return k;
     }
-    return rk_spill_scalar(r, k, v);
+    r[k++] = v;
+    return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill(DESCR_t *r, int k, DESCR_t v) {
@@ -15246,7 +15247,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "elems") && nargs == 1) { *out = INTVAL(args[0].v == DT_T ? rk_hash_count_of(args[0]) : rk_av(args[0]).n); return 1; }
     if ((!strcmp(fn, "__rk_arr") || !strcmp(fn, "__rk_arr_lit")) && nargs >= 0) {
         DESCR_t ag = rt_make_item_agg(args, nargs);
-        *out = !strcmp(fn, "__rk_arr") ? rk_mark_list(ag) : rk_unmark(ag);
+        int as_list = !strcmp(fn, "__rk_arr");
+        if (!as_list) { ARBLK_t * ab = (ARBLK_t *) ag.arr; for (int i = 0; i <= ab->hi - ab->lo; i++) if (ab->data[i].v == DT_SNUL) ab->data[i] = rk_typeobj("Any"); }
+        *out = as_list ? rk_mark_list(ag) : rk_unmark(ag);
         return 1;
     }
     if (!strcmp(fn, "__rk_arr_spread") && nargs == 1) {
@@ -16125,7 +16128,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
     if (!strcmp(fn, "__rk_to_array") && nargs == 1) {
         if (rk_is_seq(args[0])) { *out = args[0]; return 1; }
-        if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0].v == DT_SNUL ? rk_unmark(rk_mk_arr(NULL, 0)) : args[0];
+        if (args[0].v == DT_A && args[0].arr) {
+            rk_av_t a = rk_av(args[0]);
+            *out = rk_unmark(rk_mk_arr(a.el, a.n));
+            ARBLK_t * ab = (ARBLK_t *) out->arr;
+            for (int i = 0; i < a.n; i++) if (ab->data[i].v == DT_SNUL) ab->data[i] = rk_typeobj("Any");
+        } else *out = args[0].v == DT_SNUL ? rk_unmark(rk_mk_arr(NULL, 0)) : args[0];
         return 1;
     }
     if (!strcmp(fn, "__rk_arr_slip") && nargs >= 1) { rk_av_t a = rk_av(args[0]); DESCR_t s = rk_mk_arr(a.el, a.n); ((ARBLK_t *) s.arr)->proto = rk_proto_slip; *out = s; return 1; }
@@ -19905,6 +19913,7 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out, int blank0) {
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
     if (!s && blank0 && IS_STR_fn(v)) { *out = INTVAL(0); return 1; }
     if (!s) return 0;
+    if (v.v == DT_S && s[0] == RK_TY) { *out = INTVAL(0); return 1; }
     char nb[128];
     if (IS_STR_fn(v) && v.slen != 0 && v.slen != 0xFFFFFFFFu) { char *cp = (v.slen < sizeof nb) ? nb : (char *)rt_wsb_alloc((size_t)v.slen + 1); memcpy(cp, s, v.slen); cp[v.slen] = '\0'; s = cp; }
     const char *t = s;

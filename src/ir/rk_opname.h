@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#define RK_TY '\x07'
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void rk_op_canon_base(const char *cat, const char *op, char *out, size_t n) {
     if (!out || n == 0) return;

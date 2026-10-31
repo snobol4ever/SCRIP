@@ -397,10 +397,20 @@ static tree_t * rk_to_hash_call(const tree_t * rhs) {
     return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_fnc2(const char * nm, const tree_t * a, const tree_t * b);
+static int rk_is_nil_term(const tree_t * t) { return t && t->t == TT_VAR && !t->n && (t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Nil") && !rk_is_class_name("Nil"); }
+static tree_t * rk_typeobj_tree(const char * ty) { return rk_fnc2("__rk_typeobj", leaf_sval2(TT_QLIT, ty), NULL); }
+static const char * rk_decl_typeobj_name(const char * ty) {
+    if (!ty || !isupper((unsigned char) ty[0])) return NULL;
+    for (const char * p = ty; *p; p++) if (!isalnum((unsigned char) *p) && *p != '_' && !(*p == ':' && (p[1] == ':' || (p > ty && p[-1] == ':')))) return NULL;
+    return ty;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_assign_rhs(const char * vn, const tree_t * rhs) {
     if (!vn || !rhs) return rhs;
     if (vn[0] == '@') return rk_to_array_call(rhs);
     if (vn[0] == '%') { if (rhs->t == TT_FNC && rhs->n > 0 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "__rk_hash")) return rhs; return rk_to_hash_call(rhs); }
+    if (rk_is_nil_term(rhs)) return rk_typeobj_tree("Any");
     return rhs;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1502,6 +1512,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_QLIT:
         { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
         case TT_NUL:
+        if (t->v.ival == 1) return lower_rv(cx, rk_typeobj_tree("Any"), γ, ω, res);
         { IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_undef"; *res = nd; return nd; }
         case TT_NOT:
         {
@@ -1685,6 +1696,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * e;
             if (t->n > 2 && t->c[2]) {
                 e = lower_rv(cx, rk_assign_rhs(t->c[1]->v.sval, t->c[2]), nd, ω, &rr);
+            } else if (t->c[1]->v.sval && t->c[1]->v.sval[0] != '%' && t->c[1]->v.sval[0] != '@' && t->c[0] && t->c[0]->t == TT_VAR && rk_decl_typeobj_name(t->c[0]->v.sval)) {
+                e = lower_rv(cx, rk_typeobj_tree(t->c[0]->v.sval), nd, ω, &rr);
             } else {
                 IR_t * u = build(cx, IR_CALL, nd, ω);
                 IR_LIT(u).sval = (t->c[1]->v.sval && t->c[1]->v.sval[0] == '%') ? "__rk_hash" : "__rk_undef";
@@ -5855,27 +5868,31 @@ static void rk_tv_walk(tree_t * t, rk_tvenv_t * e) {
             const char * cty = c->c[0]->v.sval, * base = rk_coerce_base(cty), * nm = c->c[1]->v.sval;
             c->c[0]->v.sval = (char *) base;
             rk_tv_push(e, nm, cty);
-            if (c->n >= 3 && c->c[2]) c->c[2] = rk_tv_check(e, rk_coerce_val(c->c[2], base), base, nm, 0);
+            if (c->n >= 3 && c->c[2] && rk_is_nil_term(c->c[2])) c->c[2] = rk_typeobj_tree(base);
+            else if (c->n >= 3 && c->c[2]) c->c[2] = rk_tv_check(e, rk_coerce_val(c->c[2], base), base, nm, 0);
             continue;
         }
         if (c->t == TT_DECL && c->n >= 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[1] && c->c[1]->t == TT_VAR && c->c[1]->v.sval && c->c[0]->v.sval && rk_tv_enforced(c->c[0]->v.sval, &e->classes)) {
             rk_tv_walk(c, e);
             const char * ty = c->c[0]->v.sval, * nm = c->c[1]->v.sval;
             rk_tv_push(e, nm, ty);
-            if (c->n >= 3 && c->c[2] && nm[0] != '@' && nm[0] != '%') c->c[2] = rk_tv_check(e, c->c[2], ty, nm, 0);
+            if (c->n >= 3 && c->c[2] && nm[0] != '@' && nm[0] != '%' && rk_is_nil_term(c->c[2])) c->c[2] = rk_typeobj_tree(ty);
+            else if (c->n >= 3 && c->c[2] && nm[0] != '@' && nm[0] != '%') c->c[2] = rk_tv_check(e, c->c[2], ty, nm, 0);
             continue;
         }
         if (c->t == TT_DECL && c->n >= 1) { rk_tv_walk(c, e); tree_t * v = c->c[c->n >= 3 ? 1 : 0]; if (v && v->t == TT_VAR && v->v.sval) rk_tv_push(e, v->v.sval, NULL); continue; }
         rk_tv_walk(c, e);
         if (c->t == TT_ASSIGN && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval) {
             const char * nm = c->c[0]->v.sval, * ty = rk_tv_find(e, nm), * cb = rk_coerce_base(ty);
-            if (cb && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, rk_coerce_val(c->c[1], cb), cb, nm, 0);
+            if (nm[0] != '@' && nm[0] != '%' && rk_is_nil_term(c->c[1])) c->c[1] = rk_typeobj_tree(cb ? cb : ty ? ty : "Any");
+            else if (cb && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, rk_coerce_val(c->c[1], cb), cb, nm, 0);
             else if (ty && nm[0] != '@' && nm[0] != '%') c->c[1] = rk_tv_check(e, c->c[1], ty, nm, 0);
             else if (!ty && nm[0] != '@' && nm[0] != '%' && !rk_tv_find(e, nm)) rk_tv_push(e, nm, NULL);
         }
         if ((c->t == TT_ARR_SET || c->t == TT_HASH_SET) && c->n == 3 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval) {
             const char * ty = rk_tv_find(e, c->c[0]->v.sval);
-            if (ty) c->c[2] = rk_tv_check(e, c->c[2], ty, c->c[0]->v.sval, 1);
+            if (rk_is_nil_term(c->c[2])) c->c[2] = rk_typeobj_tree(ty ? ty : "Any");
+            else if (ty) c->c[2] = rk_tv_check(e, c->c[2], ty, c->c[0]->v.sval, 1);
         }
         if (c->t == TT_METHCALL && c->n >= 3 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] == '@' && c->c[1] && c->c[1]->t == TT_QLIT && c->c[1]->v.sval &&
             (!strcmp(c->c[1]->v.sval, "push") || !strcmp(c->c[1]->v.sval, "append") || !strcmp(c->c[1]->v.sval, "unshift") || !strcmp(c->c[1]->v.sval, "prepend"))) {
