@@ -157,6 +157,7 @@ int zd_djx_of(const IR_t * nd);
 int zd_upost_of(const IR_t * nd);
 int zd_k_g(const IR_graph_t * cg, IR_t * nd);
 int zd_kf_g(const IR_graph_t * cg, IR_t * nd);
+int zd_mframe_g(const IR_graph_t * cg, IR_t * nd);
 int zd_rel_g(const IR_graph_t * cg, IR_t * nd);
 int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd);
 int zd_k(IR_t * nd);

@@ -944,7 +944,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_stmt_dyn = g_emitter.g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_emitter.g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0;
         } else if (nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_emitter.g_arbk16_stmt = 0; }
     g_emit.op_zcp_src = -1; g_emit.op_zcp_dst = -1; g_emit.op_xrec = 0;
-    g_emit.op_zres = 0; g_emit.op_zrel = 0; g_emit.op_zgpop = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0;
+    g_emit.op_zres = 0; g_emit.op_zrel = 0; g_emit.op_zgpop = 0; g_emit.op_zwhack = 0; g_emit.op_zbgrow = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0;
         g_emit.op_xf_off = -1; g_emit.op_zdef = 1;
         g_emit.op_zcut = -1;
         emit_ops_reserve(nd ? nd->n_operands + 1 : 0);
@@ -1174,11 +1174,12 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.op_arbno_body_k0 = _zn->abk0; g_emit.op_arbno_body_defer_unsafe = _zn->abdu; }
         bb_emit_x86(bb_match_arbno()); } return 0;
     case IR_MATCH_BEGIN: { int _th = _zn->hth; if (_zn->hfp >= 0 || _th) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off;
-        } if (_th) g_emit.op_tail = 1; bb_emit_x86(bb_match_begin()); } return 0;
+        } if (_th) g_emit.op_tail = 1; if (g_emit.op_zres) g_emit.op_zdepth -= (int)g_emit.op_fc_bytes; g_emit.op_fc_bytes = 0; bb_emit_x86(bb_match_begin()); } return 0;
     case IR_MATCH_END: { if (getenv("SCRIP_FCDISP_DIAG")) fprintf(stderr, "[FCDISP] tail_release=%d br=%d head_fp=%d\n", _zn->hrel, _zn->hbr, _zn->hfp);
                                     if (_zn->hrel) { g_emit.op_tail = 1; g_emit.op_fc_disp = _zn->hbr; }
                                     else g_emit.op_fc_disp = _zn->hfp;
                                     if (_zn->hfp >= 0 || _zn->hth) { g_emit.op_fc_wbytes = 80; g_emit.op_fc_base = g_emit.op_off; }
+                                    g_emit.op_zwhack = g_emit.op_zgpop; g_emit.op_zgpop = 0;
                                     bb_emit_x86(bb_match_end()); } return 0;
     case IR_MATCH_REPLACE: { bb_emit_x86(bb_match_replace()); } return 0;
     case IR_MATCH_ASSIGN_COND: { bb_prepare(nd); g_emit.op_fc_disp = _zn->cfp; g_emit.op_cap_frame_off = _zn->aslot;

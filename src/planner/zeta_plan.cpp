@@ -239,6 +239,7 @@ int zd_upost_of(const IR_t * nd) { if (!nd || nd->op != IR_UNMARK || g_planner.g
 int zd_rel_g(const IR_graph_t * cg, IR_t * nd);
 int zd_k_g(const IR_graph_t * cg, IR_t * nd) { return zd_k_own_g(cg, nd) + zst_s_of(nd) + zd_djx_of(nd) + zd_rel_g(cg, nd); }
 int zd_kf_g(const IR_graph_t * cg, IR_t * nd) { return zd_k_g(cg, nd) - zd_rel_g(cg, nd); }
+int zd_mframe_g(const IR_graph_t * cg, IR_t * nd) { return nd && nd->op == IR_MATCH_BEGIN ? zd_k_own_g(cg, nd) : 0; }
 static int zd_dj_spine(const IR_t * nd) { if (!g_planner.g_zd_zarm_p || g_planner.g_zd_zarm_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_planner.g_zd_zarm_nodes, g_planner.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_planner.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
@@ -308,6 +309,7 @@ static int zd_bcs_words(const IR_graph_t * cg, const IR_t * nd, int w) {
     if (w == -7) return 16 * (2 + nd->n_operands);
     if (w == -8) return 16 * (1 + nd->n_operands) + 112;
     if (w == -9) return 16 * (2 + nd->n_operands) + 112;
+    if (w == -10) return 56 + planner_act_extra(nd);
     return w;
 }
 static int zd_bcs_pick(const IR_graph_t * cg, IR_t * nd) {
@@ -1330,12 +1332,14 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
     zst_plan(cg, nodes, n);
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = -1;
     IR_t ** zgt = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); IR_t ** zot = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n);
-    unsigned char * zgin = (unsigned char *)alloca((size_t)n); unsigned char * zoin = (unsigned char *)alloca((size_t)n); int * zmatch = (int *)alloca(sizeof(int) * (size_t)n);
+    int * zegp = (int *)alloca(sizeof(int) * (size_t)n); unsigned char * zgin = (unsigned char *)alloca((size_t)n); unsigned char * zoin = (unsigned char *)alloca((size_t)n);
+        int * zmatch = (int *)alloca(sizeof(int) * (size_t)n);
     int * zstmt = (int *)alloca(sizeof(int) * (size_t)n); for (int _q = 0; _q < n; _q++) zstmt[_q] = -1;
     int * zmafter = (int *)alloca(sizeof(int) * (size_t)n); for (int _q = 0; _q < n; _q++) zmafter[_q] = -1;
     int * zwms = (int *)alloca(sizeof(int) * (size_t)n); for (int _q = 0; _q < n; _q++) zwms[_q] = 0;
     int * zurel = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) zurel[_q] = 0;
-    for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; if (zarm) zarm[i] = -1; zgt[i] = (IR_t *)0; zot[i] = (IR_t *)0; zgin[i] = 0; zoin[i] = 0; zmatch[i] = -1; }
+    for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; if (zarm) zarm[i] = -1; zgt[i] = (IR_t *)0; zot[i] = (IR_t *)0; zgin[i] = 0; zoin[i] = 0; zmatch[i] = -1;
+        zegp[i] = -1; }
     int * zarmj = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * djn = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     unsigned char * djok = g_planner.g_zd_admit.data();
@@ -1541,11 +1545,12 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                     else if (_ub >= 0 && claim[_ub] != hi && zd_pl_bspine(cg, nodes[_ub])) UREL = zd_bound_pop(cg, nodes[_ub]); }
                 if (zd_pl_cut(cg, nodes[i])) UREL = (int)zd + K;
                 zurel[i] = UREL;
-                { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K - RG; } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K - RG; }
+                { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K - RG - zd_mframe_g(cg, nodes[i]); } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K - RG;
+                    }
                 { if (nodes[i]->op == IR_STATEMENT_BEGIN && r > 0 && zd > 0 && !(zarm && zarm[i] >= 0) ) { int rel =
                     zd_exit_pop_s(IR_STATEMENT_END, zdh_match, (int)zd, zdh_stmt, zdh_mafter); if (rel > 0) zgpop[run[r - 1]] += rel; zd = 0; } }
                 { if (nodes[i]->op == IR_STATEMENT_BEGIN && r > 0) { zdh_match = -1; zdh_stmt = -1; zdh_mafter = -1; zwt = 0; } }
-                { if (nodes[i]->op == IR_MATCH_BEGIN && zwt < n) zwms[zwt++] = (int)zd + K - RG; }
+                { if (nodes[i]->op == IR_MATCH_BEGIN && zwt < n) zwms[zwt++] = (int)zd + K - RG - zd_mframe_g(cg, nodes[i]); }
                 { if (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END) zdh_mafter = (int)zd + K - RG; }
                 if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]] - (nodes[zarm[i]]->op == IR_DISJUNCTION ? zd_djx_of(nodes[zarm[i]]) : zd_k_g(cg, nodes[zarm[i]])); zon[i] = 1;
                     if (nodes[i]->op == IR_UNMARK && (IR_LIT(nodes[i]).ival & 16) && nodes[i]->n_operands > 0 && nodes[i]->operands[0] && nodes[i]->operands[0]->op == IR_BOUND) {
@@ -1557,7 +1562,8 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                 else { zon[i] = 1; zout[i] = zd + K - REL; zd = zd + K - REL - UREL - RG; }
                 { if (zwt == 0 && nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0, _me = 0; for (int _rr = r - 1; _rr >= 0; _rr--) { int _j = run[_rr];
                     if (nodes[_j]->op == IR_MATCH_END) { _me = 1; break; } _zu += zd_kf_g(cg, nodes[_j]); } if (_me) { zd -= _zu; zdh_mafter = (int)zd; } } }
-                { if (zwt > 0 && (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END)) { zd = zwms[--zwt]; zdh_match = (int)zd; zdh_mafter = (int)zd; } }
+                { if (zwt > 0 && (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END)) { int _zx = zout[i]; zd = zwms[--zwt]; zdh_match = (int)zd; zdh_mafter = (int)zd;
+                    if (nodes[i]->op == IR_MATCH_END) zegp[i] = _zx - (int)zd; } }
                 IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
                 int gin = 0; int oin = 0; int gback = -1; int oback = -1;
                 int gib = port_sz_beta(nodes[i]->γ.sz); { int _gg = 0; IR_t * _g = nodes[i]->γ.node; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz);
@@ -1619,6 +1625,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k_g(cg, nodes[oback])) : 0;
         if (!zgin[i]) zgpop[i] = (planner_resumable_frame(cg) && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
+        if (zegp[i] >= 0) zgpop[i] = zegp[i];
         int _obeta = oback >= 0 && port_sz_beta(zd_edge_sz(nodes[i], 1)) && !beta_is_stmt_land(zot[i]);
         if (nodes[i]->op == IR_BOUND && !zd_pl_bspine(cg, nodes[i]) && (planner_resumable_frame(cg) || (cg && cg->spine_cells))) zwpop[i] = -K;
         else if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
@@ -2206,7 +2213,8 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                     if (ka >= i) break;
                     int mb1 = -1, nmb = 0;
                     for (int z2 = i - 1; z2 > ka; z2--) if (nodes[z2]->op == IR_MATCH_BEGIN) { nmb++; mb1 = z2; }
-                    if (nmb == 1 && mb1 > ka) { int xk = 0; for (int z3 = mb1 - 1; z3 > ka; z3--) if (nodes[z3]->op == IR_MATCH_DEFER) xk += 16; rd[j].anchor = 8 + (zout[mb1] - zout[ka]) + xk; }
+                    if (nmb == 1 && mb1 > ka) { int xk = 0; for (int z3 = mb1 - 1; z3 > ka; z3--) if (nodes[z3]->op == IR_MATCH_DEFER) xk += 16;
+                        rd[j].anchor = 8 + (zout[mb1] - zd_mframe_g(cg, nodes[mb1]) - zout[ka]) + xk; }
                     break;
                 }
             }
@@ -2250,6 +2258,7 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
                 rd[j].dist = planner_read_distance(cg, nodes, n, zarm, i, k, zout, rec->xb);
+                if (nd->op == IR_MATCH_BEGIN) rd[j].dist -= zd_mframe_g(cg, nd);
                 if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && zon[k] && rec->xb[k] != INT_MIN && nd->op == IR_UNMARK && p->op == IR_BOUND && planner_bound_spine(cg, p))
                     rd[j].xf = -(rec->xb[k] + zout[k]);
                 if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && rec->claim && zon[k] && rec->claim[i] != rec->claim[k] && rec->xb[k] != INT_MIN && rec->xb[i] == INT_MIN) { int fok = 0;
@@ -2273,7 +2282,8 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
             if (nd->op == IR_MATCH_REPLACE) { rd[2].dist = -1; rd[2].kind = -1; IR_t * mb2 = (IR_t *)0; int jh2 = -1;
                 for (int zj = i - 1; zj >= 0; zj--) if (nodes[zj]->op == IR_MATCH_BEGIN) { mb2 = nodes[zj]; jh2 = zj; break; }
                 IR_t * sp = (mb2 && mb2->n_operands > 0) ? mb2->operands[0] : (IR_t *)0;
-                if (sp && jh2 >= 0) for (int js = jh2 - 1; js >= 0; js--) if (nodes[js] == sp) { if (zon[js]) { rd[2].dist = rec->under[i] + (zout[jh2] - zout[js]); rd[2].kind = (int)sp->op; } break;
+                if (sp && jh2 >= 0) for (int js = jh2 - 1; js >= 0; js--) if (nodes[js] == sp) { if (zon[js]) { rd[2].dist = rec->under[i] + (zout[jh2] - zd_mframe_g(cg, nodes[jh2]) - zout[js]);
+                    rd[2].kind = (int)sp->op; } break;
                     } }
             int ns = nq < no ? nq : no;
             for (int j = 0; j < ns; j++) { IR_t * po = nd->operands[j], * pv = zd_value_producer_g(cg, po); int ko = po ? nidx(nodes, n, po) : -1, kp = pv ? nidx(nodes, n, pv) : -1;
@@ -2523,13 +2533,19 @@ extern "C" long planner_zsm_row_word(const IR_graph_t * g, const zeta_plan_t * r
     int rel = rec->gp && rec->wp;
     long k = zd_k_g(g, (IR_t *)nd), gp = rel ? rec->gp[i] : 0, wp = rel ? rec->wp[i] : 0;
     int o = (int)nd->op, en = o == IR_MATCH_END || o == IR_MATCH_REPLACE, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || en;
-    if (en) gp += zd_rel_g(g, (IR_t *)nd);
+    if (o == IR_MATCH_REPLACE) gp += zd_rel_g(g, (IR_t *)nd);
+    if (o == IR_MATCH_END) {
+        const IR_t * ob = (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_MATCH_BEGIN) ? nd->operands[0] : (const IR_t *)0;
+        int j = ob ? nidx(rec->nodes, rec->n, ob) : -1;
+        gp = k;
+        if (rel && rec->gp[i] > 0 && j >= 0 && rec->on[j]) gp += rec->out[i] - rec->gp[i] - (rec->out[j] - zd_k_g(g, (IR_t *)ob));
+    }
     IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
     int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
     int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
     int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
     int ret = zls_retains_why(g, nd) != 0;
-    if (o == IR_MATCH_BEGIN) *own0 = 64 + planner_act_extra(nd);
+    if (o == IR_MATCH_BEGIN) *own0 = 8;
     return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) | ((long)ret << 57);
 }
 static void planner_zsm_graph_facts(IR_graph_t * g) {

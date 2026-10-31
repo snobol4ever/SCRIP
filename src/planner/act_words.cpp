@@ -364,7 +364,7 @@ int planner_read_distance(const IR_graph_t * cg, IR_t ** nodes, int n, const int
             if (planner_env_encloses(zarm, i, zm) && nodes[zm]->op == IR_MATCH_FENCE1 && planner_act_slot(nodes[zm]) == -1) { xh += 16; continue; }
             if (nodes[zm]->op == IR_MATCH_DEFER) { xh += 16; continue; }
             if (nodes[zm]->op != IR_MATCH_BEGIN) continue;
-            xh += 64 + planner_act_extra(nodes[zm]);
+            xh += 8;
         }
     int fok = 0, fd = zd_fam_delta(i, k, &fok);
     return zout[i] - zout[k] + zd_rel_g(cg, nodes[k]) + xh + ((xb && xb[i] != INT_MIN && xb[k] != INT_MIN) ? xb[i] - xb[k] : fd);

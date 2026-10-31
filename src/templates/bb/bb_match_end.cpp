@@ -128,7 +128,7 @@ static std::string release_pump() {
          + x86("note", "frame_whack")
          + x86("mov", "rsp", "rbp")
          + x86("pop", "rbp")
-         + x86_gc_site(X86_SITE_MATCH_LEAVE)
+         + x86_gc_site_adj(X86_SITE_MATCH_LEAVE, _.op_zwhack ? (int)(_.op_fc_bytes - _.op_zwhack) : 0)
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
          + x86_gamma();
 }
