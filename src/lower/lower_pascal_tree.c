@@ -2310,7 +2310,7 @@ static int pas_array_scoped(const char *name) {
         (g_lower.pas.sem.pas_arrays[i].is_param || !g_lower.pas.sem.pas_arrays[i].uid || g_lower.pas.sem.pas_arrays[i].uid == u)) return 1;
     return 0;
 }
-static int pas_is_strelem_arr(const char *name) { long long hi; return name && pas_decl_string_kind(name) && pas_array_scoped(name) && (pas_array_isdyn(name) || pas_array_high_get(name, &hi)); }
+static int pas_is_strelem_arr(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t && t->k == PTK_ARRAY && t->base && t->base->k == PTK_STRING; }
 static int pas_var_string_kind(const char *name) { return pas_is_strelem_arr(name) ? 0 : pas_decl_string_kind(name); }
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) {
     if (n) {
