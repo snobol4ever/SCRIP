@@ -877,19 +877,19 @@ RTX_FUNC(rt_pl_dop_tbl_resume_all)
     jmp     rt_pl_pseg_switch
 RTX_ENDF(rt_pl_dop_tbl_resume_all)
 RTX_FUNC(rt_pl_pseg_ball)
-    and     rsp, -16
+    RTX_CALL_ALIGN(8)
     mov     rdi, r14
     mov     rsi, r12
     call    rt_pl_pseg_ball_c
-    mov     r11, rax
-    mov     rbp, qword ptr [r11 + PSCH_RBP]
-    mov     rbx, qword ptr [r11 + PSCH_RBX]
-    mov     r12, qword ptr [r11 + PSCH_R12]
-    mov     r13, qword ptr [r11 + PSCH_R13]
-    mov     r14, qword ptr [r11 + PSCH_R14]
-    mov     rcx, qword ptr [r11 + PSCH_RET]
-    mov     rsp, qword ptr [r11 + PSCH_ENTRY]
-    add     rsp, 8
+    mov     rdx, rax
+    mov     rbp, qword ptr [rdx + PSCH_RBP]
+    mov     rbx, qword ptr [rdx + PSCH_RBX]
+    mov     r12, qword ptr [rdx + PSCH_R12]
+    mov     r13, qword ptr [rdx + PSCH_R13]
+    mov     r14, qword ptr [rdx + PSCH_R14]
+    RTX_SWITCH_RSP(rdx, PSCH_ENTRY)
+    RTX_ADD_RSP(8)
+    mov     rcx, qword ptr [rdx + PSCH_RET]
     RTX_GVA_R9
     mov     eax, DT_FAIL
     xor     edx, edx
@@ -898,37 +898,35 @@ RTX_ENDF(rt_pl_pseg_ball)
 RTX_FUNC(rt_pl_pseg_switch)
     test    rax, rax
     jz      2f
-    mov     r11, rax
-    mov     rsp, qword ptr [r11 + PSEG_ORIG]
-    sub     rsp, 256
-    mov     rdi, qword ptr [r11 + PSEG_ORIG]
-    mov     rax, qword ptr [r11 + PSEG_ORIG]
-    and     eax, 15
-    lea     rsi, [r11 + rax + PSEG_BYTES]
-    mov     rcx, qword ptr [r11 + PSEG_CLEN]
+    RTX_SWITCH_RSP(rax, PSEG_ORIG)
+    RTX_SUB_RSP(256)
+    mov     rdi, qword ptr [rax + PSEG_ORIG]
+    mov     rcx, qword ptr [rax + PSEG_ORIG]
+    and     ecx, 15
+    lea     rsi, [rax + rcx + PSEG_BYTES]
+    mov     rcx, qword ptr [rax + PSEG_CLEN]
     cld
     rep movsb
-    mov     rbp, qword ptr [r11 + PSEG_RBP]
-    mov     rbx, qword ptr [r11 + PSEG_RBX]
-    mov     r12, qword ptr [r11 + PSEG_R12]
-    mov     r13, qword ptr [r11 + PSEG_R13]
-    mov     r14, qword ptr [r11 + PSEG_R14]
-    mov     r15, qword ptr [r11 + PSEG_R15]
-    mov     rsp, qword ptr [r11 + PSEG_ORIG]
+    mov     rbp, qword ptr [rax + PSEG_RBP]
+    mov     rbx, qword ptr [rax + PSEG_RBX]
+    mov     r12, qword ptr [rax + PSEG_R12]
+    mov     r13, qword ptr [rax + PSEG_R13]
+    mov     r14, qword ptr [rax + PSEG_R14]
+    mov     r15, qword ptr [rax + PSEG_R15]
+    RTX_SWITCH_RSP(rax, PSEG_ORIG)
     RTX_GVA_R9
     mov     eax, DT_I
     mov     edx, 1
     ret
-2:  mov     r11, rdx
-    mov     rbp, qword ptr [r11 + PSCH_RBP]
-    mov     rbx, qword ptr [r11 + PSCH_RBX]
-    mov     r12, qword ptr [r11 + PSCH_R12]
-    mov     r13, qword ptr [r11 + PSCH_R13]
-    mov     r14, qword ptr [r11 + PSCH_R14]
-    mov     r15, qword ptr [r11 + PSCH_R15]
-    mov     rcx, qword ptr [r11 + PSCH_RET]
-    mov     rsp, qword ptr [r11 + PSCH_ENTRY]
-    add     rsp, 8
+2:  mov     rbp, qword ptr [rdx + PSCH_RBP]
+    mov     rbx, qword ptr [rdx + PSCH_RBX]
+    mov     r12, qword ptr [rdx + PSCH_R12]
+    mov     r13, qword ptr [rdx + PSCH_R13]
+    mov     r14, qword ptr [rdx + PSCH_R14]
+    mov     r15, qword ptr [rdx + PSCH_R15]
+    RTX_SWITCH_RSP(rdx, PSCH_ENTRY)
+    RTX_ADD_RSP(8)
+    mov     rcx, qword ptr [rdx + PSCH_RET]
     RTX_GVA_R9
     mov     eax, DT_I
     mov     edx, 1

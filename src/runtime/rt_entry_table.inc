@@ -166,7 +166,7 @@ static const rt_entry_t g_rt_entries[RT_ENTRIES] = { { "NV_GET_fn", RT_CONV_LEAF
     -1 }, { "rt_pl_dop_write_sb", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_write_term", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_write_term_s", RT_CONV_ASM, RT_RC_DESCR, 1, 29,
     -1 }, { "rt_pl_dop_writeln_sb", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_dop_writeq_sb", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_exist_raise", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "rt_pl_fresh_var_ref", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "rt_pl_goal_resolve", RT_CONV_ASM, RT_RC_OTHER, 1, 29, -1 }, { "rt_pl_is_cold", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
-    { "rt_pl_occurs_a", RT_CONV_ASM, RT_RC_NONE, 0, 16, -1 }, { "rt_pl_pseg_ball", RT_CONV_ASM, RT_RC_VOID, 1, 0, 1 }, { "rt_pl_pseg_switch", RT_CONV_ASM, RT_RC_NONE, 0, 0, 1 }, { "rt_pl_quad_seed",
+    { "rt_pl_occurs_a", RT_CONV_ASM, RT_RC_NONE, 0, 16, -1 }, { "rt_pl_pseg_ball", RT_CONV_ASM, RT_RC_VOID, 1, 29, 1 }, { "rt_pl_pseg_switch", RT_CONV_ASM, RT_RC_NONE, 0, 29, 1 }, { "rt_pl_quad_seed",
     RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 }, { "rt_pl_throw_raise", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_tr_refuse", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "rt_pl_tv1_walk_a", RT_CONV_ASM,
     RT_RC_NONE, 0, 16, -1 }, { "rt_pl_type_cold", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_pl_unify_const_cold", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "rt_pl_unify_deep", RT_CONV_ASM, RT_RC_NONE,
     0, 29, -1 }, { "rt_pl_zguard_cold", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_proc_call_open", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "rt_proc_call_open_det", RT_CONV_OPEN, RT_RC_OTHER, 1, 0,
