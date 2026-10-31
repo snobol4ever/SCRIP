@@ -32987,6 +32987,7 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "    ;   Out = Line\n"
     "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
+    { "$clause", 4 },
     { "open_string", 2 },
     { "exists_file", 1 },
     { "exists_directory", 1 },
@@ -33032,6 +33033,11 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
 static const char PL_PRELUDE_LIB_68_SRC[] =
     "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
+    "'$clause'(H, B, R, _) :- nonvar(R), !, ( clause(H0, B0, R) -> true ; nb_current('$tx_cur', tx(Rs)), '$swb_tx_erased'(Rs, R, (H0 :- B0)) ), B = B0, '$swb_unmangle'(H0, H).\n"
+    "'$swb_tx_erased'([E|Es], R, C) :- ( E = '$txdb'(1, _, _, R0, C0), R0 == R -> C = C0 ; '$swb_tx_erased'(Es, R, C) ).\n"
+    "'$clause'(H, B, R, _) :- clause(H, B, R).\n"
+    "'$swb_unmangle'(H0, M:H) :- callable(H0), functor(H0, F, _), sub_atom(F, Bf, 1, Af, ':'), Bf > 0, Af > 0, !, sub_atom(F, 0, Bf, _, M), sub_atom(F, _, Af, 0, F1), H0 =.. [_|As], H =.. [F1|As].\n"
+    "'$swb_unmangle'(H, H).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
     "maplist(G, L1, L2, L3, L4, L5, L6) :- '$swb_maplist'(L1, L2, L3, L4, L5, L6, G).\n"
@@ -33356,6 +33362,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "$idg_forced", 1 },
     { "$idg_mono_affects_lazy", 5 },
     { "transaction", 1 },
+    { "transaction_updates", 1 },
     { "snapshot", 1 },
     { 0, 0 }
 };
@@ -33767,6 +33774,12 @@ static const char PL_PRELUDE_LIB_69_SRC[] =
     "'$tbl_table_status'(dyn(F/N),dynamic,M:W,Sk):-!,functor(Q,F,N),'$tbl_unqual'(Q,M,W),term_variables(W,Vs),Sk=..[ret|Vs].\n"
     "'$tbl_table_status'(T,S,M:W,Sk):-'$trie_id'(T,I),'$trie_meta_get'(I,0,S),'$tbl_dgoal'(I,G),'$tbl_unqual'(G,M0,W0),term_variables(W0,Vs),Sk=..[ret|Vs],M=M0,W=W0.\n"
     "transaction(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),throw(E)))->'$tx_commit'(P,L),'$tx_close'(P);'$tx_undo'(L),'$tx_close'(P),fail).\n"
+    "transaction_updates(L):-nb_current('$tx_cur',C),C=tx(Rs),!,'$tx_upd'(Rs,[],L).\n"
+    "'$tx_upd'([],L,L).\n"
+    "'$tx_upd'([R|Rs],A,L):-(R='$txdb'(K,_,_,Ref,_)->'$tx_upd_k'(K,Ref,U),'$tx_upd'(Rs,[U|A],L);'$tx_upd'(Rs,A,L)).\n"
+    "'$tx_upd_k'(0,R,assertz(R)).\n"
+    "'$tx_upd_k'(2,R,asserta(R)).\n"
+    "'$tx_upd_k'(1,R,erased(R)).\n"
     "snapshot(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),throw(E)))->'$tx_undo'(L),'$tx_close'(P);'$tx_undo'(L),'$tx_close'(P),fail).\n"
     "'$tx_open'(P,L):-(nb_current('$tx_cur',P0)->P=P0;P=none),L=tx([]),b_setval('$tx_cur',L).\n"
     "'$tx_close'(P):-b_setval('$tx_cur',P).\n"
@@ -35428,6 +35441,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$call_delays_m", 14, 3, 69 },
     { "$call_residual_m", 16, 3, 69 },
     { "$chr_attach", 11, 5, 8 },
+    { "$clause", 7, 4, 68 },
     { "$declare_module", 15, 3, 3 },
     { "$dict_eval", 10, 3, 25 },
     { "$gr_idx", 7, 4, 69 },
@@ -36695,6 +36709,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "top_sort", 8, 2, 71 },
     { "top_sort", 8, 3, 71 },
     { "transaction", 11, 1, 69 },
+    { "transaction_updates", 19, 1, 69 },
     { "transitive_closure", 18, 2, 71 },
     { "transportation", 14, 4, 63 },
     { "transpose", 9, 2, 11 },

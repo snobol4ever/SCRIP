@@ -7,11 +7,16 @@
     test_gate_pl_maplist_include_and_exclude_exit_deterministically_and_fast_term_io_round_trips_as_swipl.sh. maplist/6 and maplist/7 (hq_prolog 2026-10-24) are what swipl's
     library(apply_macros) expansion gives every program whose load reaches library(clpfd), list-first like the base prelude's maplist/2..5; set_prolog_stack/2 checks the stack
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
-:- module(swi_builtins, [ open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
+:- module(swi_builtins, [ '$clause'/4, open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
                           setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3,
                           set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1, expand_file_name/2]).
 get_time(T) :- '$gnu_os'(get_time, 0, T).
 maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).
+'$clause'(H, B, R, _) :- nonvar(R), !, ( clause(H0, B0, R) -> true ; nb_current('$tx_cur', tx(Rs)), '$swb_tx_erased'(Rs, R, (H0 :- B0)) ), B = B0, '$swb_unmangle'(H0, H).
+'$swb_tx_erased'([E|Es], R, C) :- ( E = '$txdb'(1, _, _, R0, C0), R0 == R -> C = C0 ; '$swb_tx_erased'(Es, R, C) ).
+'$clause'(H, B, R, _) :- clause(H, B, R).
+'$swb_unmangle'(H0, M:H) :- callable(H0), functor(H0, F, _), sub_atom(F, Bf, 1, Af, ':'), Bf > 0, Af > 0, !, sub_atom(F, 0, Bf, _, M), sub_atom(F, _, Af, 0, F1), H0 =.. [_|As], H =.. [F1|As].
+'$swb_unmangle'(H, H).
 '$swb_maplist'([], [], [], [], [], _).
 '$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).
 maplist(G, L1, L2, L3, L4, L5, L6) :- '$swb_maplist'(L1, L2, L3, L4, L5, L6, G).

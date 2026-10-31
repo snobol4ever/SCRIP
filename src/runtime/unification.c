@@ -5585,7 +5585,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
             db->n++;
             pl_db_note_live(root, db, i);
             pl_ix_note(db, i, prepend);
-            if (tx) pl_db_tx_note(root, db, 0, i);
+            if (tx) pl_db_tx_note(root, db, prepend ? 2 : 0, i);
             if (recompile) pl_db_place(root, db, i);
         }
         return 1;
@@ -5785,11 +5785,16 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
     nm = pl_db_head_name((void *)&db->s[slot].cl, &ar);
     if (!nm || nm[0] == '$') return;
     {
-        pl_cell_t *da = (pl_cell_t *)rt_ws_alloc_descr(3), *cons = (pl_cell_t *)rt_ws_alloc_descr(2);
+        PL_DB_KEY_VLA(key, nm, ar);
+        pl_cell_t *da = (pl_cell_t *)rt_ws_alloc_descr(5), *cons = (pl_cell_t *)rt_ws_alloc_descr(2), *rk = (pl_cell_t *)rt_ws_alloc_descr(2);
+        rk[0] = pl_make_atom(prolog_atom_intern(key));
+        rk[1] = pl_make_int(db->s[slot].ref);
         da[0] = pl_make_int(kind);
         da[1] = pl_make_int(db->cell_k);
         da[2] = pl_make_int(slot);
-        cons[0] = pl_make_compound(prolog_atom_intern("$txdb"), 3, (void *)da);
+        da[3] = pl_make_compound(prolog_atom_intern("$clref"), 2, (void *)rk);
+        da[4] = kind == 1 ? plc_copy(&db->s[slot].cl) : pl_make_atom(g_runtime.atoms.atom_nil);
+        cons[0] = pl_make_compound(prolog_atom_intern("$txdb"), 5, (void *)da);
         cons[1] = *lst;
         *lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, (void *)cons);
         if (kind == 1) db->tx_pins++;
@@ -5825,7 +5830,7 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
     pl_cell_t *l = pl_deref((pl_cell_t *)recs);
     while ((int)l->v == DT_PLREF && l->p && plc_fid_arity(l->slen) == 2 && plc_fid_name(l->slen) == g_runtime.atoms.atom_dot) {
         pl_cell_t *cons = (pl_cell_t *)l->p, *d = pl_deref(&cons[0]);
-        if ((int)d->v == DT_PLREF && d->p && plc_fid_arity(d->slen) == 3 && plc_fid_name(d->slen) == txdb) {
+        if ((int)d->v == DT_PLREF && d->p && plc_fid_arity(d->slen) == 5 && plc_fid_name(d->slen) == txdb) {
             pl_cell_t *a = (pl_cell_t *)d->p, *k = pl_deref(&a[0]), *c = pl_deref(&a[1]), *s = pl_deref(&a[2]);
             pl_db_t *db = ((int)k->v == DT_I && (int)c->v == DT_I && (int)s->v == DT_I) ? (pl_db_t *)rt_pl_db_get(root, c->i) : (pl_db_t *)0;
             int i = (int)s->i;
