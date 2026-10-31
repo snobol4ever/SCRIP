@@ -81,7 +81,9 @@ int zls_g_block_args(const IR_graph_t * g);
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_zverify.h"
 extern "C" {
 #include "optimizer/gva_collect.h"
 }

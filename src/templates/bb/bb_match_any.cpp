@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zeta.h"
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);

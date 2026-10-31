@@ -6,6 +6,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 extern "C" void rk_box_match_build(const char *subj, long span, const long *cells, const char *names);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_rkland() {

@@ -15,7 +15,6 @@ void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by
 int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

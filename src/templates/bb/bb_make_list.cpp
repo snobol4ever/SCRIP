@@ -7,9 +7,9 @@ extern "C" {
 DESCR_t rt_make_list(DESCR_t *args, int nargs);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_zverify.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_make_list() {
     x86_begin();

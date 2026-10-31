@@ -11,7 +11,6 @@ DESCR_t NV_SET_fn(const char * name, DESCR_t val);
 DESCR_t NV_GET_fn(const char * name);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_icn.h"
 #include "templates/x86/x86_jump.h"

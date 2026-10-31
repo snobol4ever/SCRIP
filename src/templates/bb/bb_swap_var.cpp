@@ -6,7 +6,6 @@ extern "C" {
 extern DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_swap_var() {

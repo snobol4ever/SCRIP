@@ -7,7 +7,6 @@ int bb_slot_get(IR_t *nd);
 int rk_is_truthy(DESCR_t v);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

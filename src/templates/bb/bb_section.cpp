@@ -12,7 +12,6 @@ extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 extern DESCR_t rt_section_var_strict(DESCR_t, DESCR_t, DESCR_t);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

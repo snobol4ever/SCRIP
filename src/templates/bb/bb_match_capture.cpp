@@ -24,11 +24,12 @@ extern "C" const char * bb_ab_sym_name(const char * nm);
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zeta.h"
 #include "ir/pin_va.h"
 extern "C" {
 #include "optimizer/gva_collect.h"
+#include "runtime/rtx/rtcc.h"
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define havehome() (_.op_zres || _.op_off >= 0)

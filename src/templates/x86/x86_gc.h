@@ -1,7 +1,6 @@
 #ifndef X86_GC_H
 #define X86_GC_H
 #include <string>
-#include "templates/x86/x86_frame.h"
 extern "C++" {
 #define X86_SITE_CALL 1
 #define X86_SITE_LANDING 2

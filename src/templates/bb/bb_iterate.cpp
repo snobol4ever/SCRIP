@@ -10,7 +10,6 @@ DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

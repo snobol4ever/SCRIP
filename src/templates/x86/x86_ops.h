@@ -51,6 +51,9 @@ const char * x86_strkeep(const std::string & v);
 const char * ROQ(int n);
 const char * ABSQ(unsigned long va);
 const char * GVARQ(int k, int w);
+const char * FR(int off);
+const char * FRQ(int off);
+const char * FRQB(int off, int bump);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * LFC(int d);
 const char * LFDQ(int d, int sd);

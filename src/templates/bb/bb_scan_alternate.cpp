@@ -5,9 +5,8 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string scanalt_dispatch_chain(long N, int base, int lo) {
     return lo >= N

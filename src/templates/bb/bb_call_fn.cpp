@@ -13,11 +13,11 @@ extern DESCR_t rt_call_pas_bi(DESCR_t * args, int nargs, long idx);
 DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_icn.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_frame.h"
 extern "C" {
 typedef struct { long fn; long how; } rk_next_t;
 extern rk_next_t rk_method_open(DESCR_t * args, int nargs, void * rec);

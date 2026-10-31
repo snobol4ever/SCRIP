@@ -11,7 +11,6 @@ struct DESCR_t rt_rev_swap_fwd(long lkind, struct DESCR_t *lp, long rkind, struc
 struct DESCR_t rt_rev_swap_undo(long lkind, struct DESCR_t *lp, long rkind, struct DESCR_t *rp, struct DESCR_t *save, int64_t *spill);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_frame.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 std::string xa_coexpr_body_lea(const char * dst);
 int xa_icn_block_size(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -7,7 +7,6 @@ extern "C" {
 int rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

@@ -7,7 +7,8 @@
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_rtcc.h"
-#include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_rodata.h"
+#include "templates/x86/x86_zverify.h"
 #include "ir/pin_va.h"
 #include "../planner/planner.h"
 g_emitter_t g_emitter;

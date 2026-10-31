@@ -7,7 +7,6 @@
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"
-#include "templates/x86/x86_zeta.h"
 static const char * x86_zr();
 static int x86_zr_num();
 static int x86_fb_stmt_on();
@@ -141,7 +140,6 @@ std::string x86_frame_sub_from_reg(const char * reg, int off) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x2B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
     return x86_rec("sub") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
-const char * FR(int off) { return x86_zop(off, 0, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string x86_frame_load64(const char * reg, int off) {
     int g = x86_rnum(reg);
@@ -159,9 +157,6 @@ std::string x86_frame_mov_imm64(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xC7; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
     return x86_rec("mov") + "qword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * FRQ(int off) { return x86_zop(off, 1, 0); }
-const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
 const char * x86_frame_top() { return (g_emit_cfg && g_emit_cfg->pf.home_frame) ? RDQ("rbp", g_emit.flat_frame_bytes) : FRQ(g_emit.flat_frame_bytes); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string x86_rsp_store64(int off, const char * reg) {

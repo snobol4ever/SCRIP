@@ -10,7 +10,6 @@ DESCR_t rt_keyword_gen(const char *sval, long idx);
 DESCR_t rt_keyword_var(const char *name);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

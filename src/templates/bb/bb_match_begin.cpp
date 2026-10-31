@@ -14,6 +14,7 @@ extern "C" long *rt_anchor_ptr(void);
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_zverify.h"
 #include "runtime/rtx/rtcc.h"
 #define subjc() (_.op_subj_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

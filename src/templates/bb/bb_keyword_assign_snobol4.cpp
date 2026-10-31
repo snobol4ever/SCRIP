@@ -7,7 +7,6 @@ extern "C" {
 DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

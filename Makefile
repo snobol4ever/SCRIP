@@ -1699,7 +1699,9 @@ RT_PIC_SRCS := \
     $(SRC)/templates/x86/x86_jump.cpp \
     $(SRC)/templates/x86/x86_rsp_tracker.cpp \
     $(SRC)/templates/x86/x86_rtcc.cpp \
+    $(SRC)/templates/x86/x86_rodata.cpp \
     $(SRC)/templates/x86/x86_zeta.cpp \
+    $(SRC)/templates/x86/x86_zverify.cpp \
     $(SRC)/templates/bb/bb_glue_flat.cpp \
     $(SRC)/templates/bb/bb_main.cpp \
     $(SRC)/templates/bb/bb_match_lambda.cpp \

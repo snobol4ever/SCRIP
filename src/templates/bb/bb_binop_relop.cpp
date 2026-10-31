@@ -11,7 +11,6 @@ void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_armed.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

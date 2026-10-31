@@ -11,7 +11,6 @@ extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

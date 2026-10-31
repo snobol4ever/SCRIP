@@ -10,7 +10,6 @@ int stage2_owner_varslot(const char * proc, const char * var);
 const char * stage2_owner_l3_ancestor(const char * proc);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define VF_PD() (_.op_sval && !strcmp(_.op_sval, "__pas_display"))
 std::string bb_var_frame() {

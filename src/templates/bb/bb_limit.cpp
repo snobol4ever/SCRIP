@@ -7,7 +7,6 @@ int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi);
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

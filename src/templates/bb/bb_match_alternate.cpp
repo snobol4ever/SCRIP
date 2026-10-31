@@ -6,7 +6,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define alt_M() (_.op_alt_M < 0 ? 0 : _.op_alt_M)
 #define alt_pad(j) ((_.op_alt_M < 0 || !_.op_alt_pad) ? 0 : _.op_alt_pad[(j)])

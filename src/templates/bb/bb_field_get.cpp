@@ -10,7 +10,6 @@ extern DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj);
 extern DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"

@@ -12,10 +12,9 @@ long rt_sg_member(void);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #define RO_SEAL_Q(n, v) \
     (x86("def", L(n)) \
    + x86(".quad", (uint64_t)(v)))

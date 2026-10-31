@@ -7,7 +7,6 @@ extern "C" {
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_real() {

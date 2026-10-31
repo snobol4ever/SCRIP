@@ -40,7 +40,7 @@ extern "C" { int xa_flat_class_c_pred(void); }
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_rsp_tracker.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 extern "C" {
 #include "optimizer/gva_collect.h"
 }
@@ -221,6 +221,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 #include "pin_va.h"
+#include "runtime/rtx/rtcc.h"
 int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int rt_proc_nformals(const char *);
 }

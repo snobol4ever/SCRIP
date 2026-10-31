@@ -7,7 +7,7 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #define LITN() ((long) strlen(_.op_sval ? _.op_sval : ""))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define LITD(k) emit_lit_d(_.op_sval, (k))

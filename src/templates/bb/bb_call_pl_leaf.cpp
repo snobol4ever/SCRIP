@@ -21,12 +21,14 @@ DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 }
 #include "rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"
 #include "bb_pl_cell.h"
 #include "bb_pl_leaf_kinds.h"
+#include "templates/x86/x86_call.h"
+#include "templates/x86/x86_frame.h"
+#include "templates/x86/x86_rodata.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_L_COLD 190
 #define PL_L_OK 180

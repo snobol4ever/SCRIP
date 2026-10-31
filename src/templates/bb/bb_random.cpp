@@ -7,7 +7,6 @@ extern DESCR_t rt_random_var(DESCR_t base);
 extern DESCR_t rt_random_var_strict(DESCR_t);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_random() {

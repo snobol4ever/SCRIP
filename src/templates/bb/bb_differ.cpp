@@ -7,7 +7,6 @@ extern "C" {
 int descr_identical(DESCR_t a, DESCR_t b);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_differ() {

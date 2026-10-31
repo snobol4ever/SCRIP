@@ -15,7 +15,8 @@
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_rtcc.h"
-#include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_rodata.h"
+#include "templates/x86/x86_zverify.h"
 extern "C" { extern uint64_t g_rtccb[32]; }
 extern "C" { long *rt_anchor_ptr(void); }
 extern "C" void rt_bomb(const char * msg);
@@ -393,6 +394,10 @@ const char * ROQ(int n) { static char b[8][40]; static int i; i = (i + 1) & 7; s
 const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }
 const char * GVARQ(int k, int w) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [" RTCC_GVA_REG " + %d]", k * 16 + w); return b[i]; }
+const char * FR(int off) { return x86_zop(off, 0, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * FRQ(int off) { return x86_zop(off, 1, 0); }
+const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
 const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * LFC(int d) { return FR(_.x86_scratch_off + d); }

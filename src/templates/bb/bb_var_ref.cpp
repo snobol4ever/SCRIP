@@ -13,7 +13,7 @@ extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zeta.h"
 #include "ir/pin_va.h"
 extern "C" {

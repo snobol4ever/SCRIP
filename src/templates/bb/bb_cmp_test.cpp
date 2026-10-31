@@ -7,7 +7,6 @@ extern "C" {
 int rt_cmp_d(const DESCR_t *a, const DESCR_t *b);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"
 #include <cstdlib>

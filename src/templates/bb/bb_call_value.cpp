@@ -35,6 +35,7 @@ void rt_gen_spine_resume_enter(void);
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_zeta.h"
+#include "templates/x86/x86_zverify.h"
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_is_apply() (_.op_sval && strcmp(_.op_sval, "apply") == 0 && _.op_arg_slot_n == 1)

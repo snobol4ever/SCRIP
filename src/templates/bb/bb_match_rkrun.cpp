@@ -7,7 +7,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 extern "C" long rk_box_step(const char *subj, long delta, long end, const char *blob);
 extern "C" long rk_box_back(const char *subj, long delta, const char *blob, long floor_delta);
 #define RUN_MIN() ((long)(_.op_ival & 0xFFFF))

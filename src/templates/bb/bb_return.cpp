@@ -10,7 +10,7 @@ extern "C" {
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zeta.h"
 extern "C" void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

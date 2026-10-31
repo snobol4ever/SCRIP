@@ -6,7 +6,6 @@ extern "C" {
 extern DESCR_t rt_proc_value(const char *name);
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_proc_value() {
