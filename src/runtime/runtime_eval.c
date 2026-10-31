@@ -84,6 +84,7 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define EVAL_SEEN_ONCE_TABLE_MAX 8192
+#define EVAL_FIRST_ADMIT_ENTRIES 128
 static void eval_cache_put(char *key, eval_chain_fn fn) {
     eval_cache_ent_t *have = eval_cache_slot(key);
     if (have) { if (fn) have->fn = fn; return; }
@@ -684,7 +685,10 @@ void rt_eval_syntax_raise(const char *s) { int code = 0; const char *msg = (cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t mark, size_t built, int thunks, int keep) {
     if (!keep) { bb_pool_release(mark); return; }
-    if (!thunks && bb_pool_mark() == built && eval_result_is_plain(res) && !eval_cache_slot(key)) { eval_cache_put(key, NULL); bb_pool_release(mark); } else eval_cache_put(key, fn);
+    if (!thunks && bb_pool_mark() == built && eval_result_is_plain(res) && !eval_cache_slot(key) && g_runtime.eval.eval_cache_n >= EVAL_FIRST_ADMIT_ENTRIES) {
+        eval_cache_put(key, NULL);
+        bb_pool_release(mark);
+    } else eval_cache_put(key, fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
