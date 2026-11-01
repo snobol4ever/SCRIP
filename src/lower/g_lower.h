@@ -172,10 +172,6 @@ typedef struct {
     struct { char *pname; char *rname; } *pas_ptrtypes;
     int pas_ptrtypes_cap;
     int pas_nptrtype;
-    struct { char *vname; char *rname; } *pas_arrptr;
-    int pas_arrptr_cap;
-    int pas_narrptr;
-    char *pas_pend_arr_ptrto;
     struct { const char **names; int n, cap; int decl_level; const char *func_name; } *pas_lstk;
     int pas_lstk_cap;
     struct { char *name; long long hi; long long pack; } *pas_settypes;
