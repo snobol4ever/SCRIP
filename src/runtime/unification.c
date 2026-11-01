@@ -1959,8 +1959,8 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
     return m.pthrown;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char plc_fmt_goal_failed_tok;
-void *rt_pl_format_failed_token(void) { return &plc_fmt_goal_failed_tok; }
+static const char plc_fmt_goal_failed_tok = 1;
+void *rt_pl_format_failed_token(void) { return (void *)&plc_fmt_goal_failed_tok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fb_goal(plc_fb *f, pl_cell_t *g) {
     extern DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball, pl_tr_ctx_t *cx);
@@ -1995,7 +1995,7 @@ static void *plc_fb_goal(plc_fb *f, pl_cell_t *g) {
     fclose(ms);
     plc_fb_add(f, bp ? bp : "", bn);
     if (b) return b;
-    return IS_FAIL_fn(r) ? &plc_fmt_goal_failed_tok : (void *)0;
+    return IS_FAIL_fn(r) ? (void *)&plc_fmt_goal_failed_tok : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_PLATOM || (int)d->v == DT_S) && !pl_cell_unbound(d); }
