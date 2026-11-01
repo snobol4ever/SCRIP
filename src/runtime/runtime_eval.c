@@ -155,9 +155,9 @@ static int eval_thunks_emit_from(int pc0) {
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g_stage2.bbp.table[idx]); }
+        { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g_stage2.bbp.table[idx]); }
         planner_cells_graph(g_stage2.bbp.table[idx]);
         if (g_stage2.proc_table[pi].is_generator) { extern void zls_g_generator_set(const IR_graph_t *); zls_g_generator_set(g_stage2.bbp.table[idx]); }
-        { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g_stage2.bbp.table[idx]); }
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
         if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
@@ -316,6 +316,8 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     int pc0 = g_stage2.proc_count;
     void *g = lower_snobol4(prog);
     if (!g) { eval_stmt_strings_drop(st); ast_tree_free_dyn(prog); return NULL; }
+    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph((IR_graph_t *)g); }
+    { extern void planner_cells_graph(IR_graph_t *); planner_cells_graph((IR_graph_t *)g); }
     sno_expr_thunks_build(xm);
     if (sno_pat_count() > pat0) sno_pat_thunks_build(pat0);
     extern int g_frame_active;
@@ -324,7 +326,6 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     g_emit_cfg = (IR_graph_t *)g;
     int fa = g_frame_active;
     g_frame_active = 1;
-    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph((IR_graph_t *)g); }
     emit_jmp_entry_for_chain((IR_graph_t *)g);
     g_runtime.eval.rt_fragment_emit = 1;
     eval_chain_fn fn = compile_chain(g_emit_cfg, ((IR_graph_t *)g)->entry, NULL, "pat_flat");
@@ -1026,8 +1027,8 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
         optimizer_run(g);
         zls_forget_graph_nodes(g);
         fl_derive_tier(g);
-        planner_cells_graph(g);
         { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
+        planner_cells_graph(g);
         {
             IR_graph_t *cfg_sv = g_emit_cfg;
             int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_runtime.eval.rt_fragment_emit;
@@ -1196,6 +1197,8 @@ DESCR_t code_at(const char *src, long base, long endline) {
             g_runtime.eval.rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
+            { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
+            { extern void planner_cells_graph(IR_graph_t *); planner_cells_graph(g); }
             extern IR_graph_t *g_emit_cfg;
             IR_graph_t *cfg_sv = g_emit_cfg;
             g_emit_cfg = g;
@@ -1203,7 +1206,6 @@ DESCR_t code_at(const char *src, long base, long endline) {
             g_frame_active = 1;
             int rfe_sv = g_runtime.eval.rt_fragment_emit;
             g_runtime.eval.rt_fragment_emit = 1;
-            { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, "code_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
@@ -1341,8 +1343,8 @@ static int rk_emit_new_procs(int pc0) {
         optimizer_run(g);
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
         fl_derive_tier(g);
-        planner_cells_graph(g);
         { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
+        planner_cells_graph(g);
         if (g->caller_frame && g->nslots > 0) rt_proc_set_frame(pname, g->nslots - 1, g_stage2.proc_table[pi].decl_level);
     }
     IR_graph_t *cfg_sv = g_emit_cfg;

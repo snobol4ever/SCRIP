@@ -100,8 +100,8 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     IR_graph_t *g = sno_pat_tree_graph_rt((const tree_t *)tv);
     if (!g || !g->entry) { if (zsz) *zsz = 0; if (zstatic) *zstatic = 0; return (void *)0; }
     optimizer_run(g);
-    planner_cells_graph(g);
     lower_call_forms_graph(g);
+    planner_cells_graph(g);
     IR_graph_t *saved_cfg = g_emit_cfg;
     int saved_fa = g_frame_active;
     extern int g_gva_active;

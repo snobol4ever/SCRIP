@@ -4145,9 +4145,9 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     { extern void optimizer_run(IR_graph_t *); optimizer_run(g); }
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
+    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
     { extern void zls_home_pass(const IR_graph_t *); zls_home_pass(g); }
     { extern void planner_cells_graph(IR_graph_t *); planner_cells_graph(g); }
-    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
     cfg_sv = g_emit_cfg;
     g_emit_cfg = g;
     fa = g_frame_active;
