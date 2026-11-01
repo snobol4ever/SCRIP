@@ -170,20 +170,36 @@ static tree_t * pl_stmt_subj(const tree_t *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_splice_consults(tree_t *prog, const char *from_file) {
-    cv_t pending = {0, 0, 0, 0}; int npending = 0;
+    cv_t pending = {0, 0, 0, 0}; int npending = 0, done = 0, n0, moved = 0;
     if (!prog || g_parser.pl.consult_depth >= PL_CONSULT_DEPTH_MAX) return;
-    for (int r = 0; r < prog->n; r++) {
+    n0 = prog->n;
+    int (*span)[2] = (int (*)[2])ct_zalloc((size_t)n0 + 1, sizeof *span);
+    for (int r = 0; r < n0; r++) {
         tree_t *subj = pl_stmt_subj(prog->c[r]);
         if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE) continue;
         pl_consult_scan_goal(subj, &pending, &npending);
+        if (done == npending) continue;
+        g_parser.pl.consult_depth++;
+        span[r][0] = prog->n;
+        for (; done < npending; done++) {
+            const pl_pend_t *p = &CV_AT(pending, pl_pend_t, done);
+            if (p->import) pl_import_one(prog, p->spec, from_file); else pl_consult_one(prog, p->spec, from_file);
+        }
+        span[r][1] = prog->n;
+        moved += span[r][1] - span[r][0];
+        g_parser.pl.consult_depth--;
     }
-    if (!npending) return;
-    g_parser.pl.consult_depth++;
-    for (int i = 0; i < npending; i++) {
-        const pl_pend_t *p = &CV_AT(pending, pl_pend_t, i);
-        if (p->import) pl_import_one(prog, p->spec, from_file); else pl_consult_one(prog, p->spec, from_file);
+    if (moved) {
+        tree_t **ord = (tree_t **)ct_alloc((size_t)prog->n * sizeof *ord);
+        int k = 0;
+        for (int r = 0; r < n0; r++) {
+            ord[k++] = prog->c[r];
+            for (int q = span[r][0]; q < span[r][1]; q++) ord[k++] = prog->c[q];
+        }
+        for (int q = 0; q < k; q++) prog->c[q] = ord[q];
+        ct_drop(ord);
     }
-    g_parser.pl.consult_depth--;
+    ct_drop(span);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *prolog_compile_parse(const char *source, const char *filename)
