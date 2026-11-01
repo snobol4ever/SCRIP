@@ -287,6 +287,11 @@ typedef struct {
     int op_dq_np, op_dq_nf, op_dq_fb;
     void * op_dq_fn;
     const char * op_dq_csv;
+    int op_dq_seal_alpha, op_dq_seal_entry, op_dq_bind, op_dq_site_entry, op_frag_release;
+    const char * op_dq_fname, * op_dq_blbl, * op_dq_ent, * op_dq_alpha_sym, * op_dq_entry_cell_sym, * op_sig_bcell, * op_sig_blb;
+    const struct bb_label_t * op_sig_lbl_a, * op_sig_lbl_b, * op_sig_lbl_o;
+    uint64_t op_sig_entry_cell;
+    long site_shim9_saved;
     int op_zwhack;
     int op_zbgrow;
     int * op_zread;
