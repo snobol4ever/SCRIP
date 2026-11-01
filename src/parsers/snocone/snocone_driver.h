@@ -4,3 +4,4 @@
 void snocone_compile(const char *source, const char *filename, tree_t **out_ast);
 void *snocone_compile_parse(const char *source, const char *filename);
 void  snocone_compile_finish(void *parsed, const char *filename, tree_t **out_ast);
+tree_t *snocone_resolve_imports(tree_t *prog, const char *path);

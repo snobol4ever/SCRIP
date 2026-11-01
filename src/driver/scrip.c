@@ -27,6 +27,7 @@
 #include "parsers/pascal/pascal_driver.h"
 #include "parsers/raku/raku_driver.h"
 #include "lower/lower_rebus.h"
+#include "parsers/rebus/rebus_driver.h"
 #include "runtime/builtins/gen.h"
 #include "parsers/icon/icon_lex.h"
 #include "ir/bb_box.h"
@@ -2112,13 +2113,10 @@ int main(int argc, char **argv) {
             else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
             else snocone_compile(src, input_path, &sub_ast);
-            if (lang_snocone && g_sc_module_name && sub_ast) {
-                extern void emit_module_mode(int);
-                sub_ast = snocone_resolve_imports(sub_ast, input_path);
-                sc_module_qualify(sub_ast);
-                emit_module_mode(1);
-            }
-            if (lang_snocone) sub_ast = lower_snocone_tree_at(sub_ast, input_path);
+            if (lang_rebus) sub_ast = lower_rebus_tree(sub_ast);
+            if (lang_snocone && sub_ast) sub_ast = snocone_resolve_imports(sub_ast, input_path);
+            if (lang_snocone && g_sc_module_name && sub_ast) { extern void emit_module_mode(int); sc_module_qualify(sub_ast); emit_module_mode(1); }
+            if (lang_snocone) sub_ast = lower_snocone_tree(sub_ast);
             ct_drop(src);
             tree_t *parsed_ast = sub_ast;
             if (lang_pascal) sub_ast = lower_pascal_tree(sub_ast, input_path);

@@ -1,4 +1,3 @@
-#include "parsers/rebus/rebus.h"
 #include "ir/ct_arena.h"
 #include "lower_rebus.h"
 #include "parsers/snobol4/scrip_cc.h"
@@ -6,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 typedef struct RebLoop { char *top; char *end; struct RebLoop *up; } RebLoop;
 typedef struct { CODE_t *prog; const char *filename; int nerrors; int label_ctr; int cur_line; char *fname; RebLoop *loop; } RebLow;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -497,22 +497,14 @@ CODE_t *rebus_lower(tree_t *prog) {
     return L.prog;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rebus_compile_parse(const char *src, const char *filename) { return rebus_parse_buf(src, strlen(src), filename ? filename : "<stdin>"); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rebus_compile(const char *src, const char *filename, tree_t **out_ast) { if (out_ast) *out_ast = NULL; rebus_compile_finish(rebus_compile_parse(src, filename), filename, out_ast); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rebus_compile_finish(void *parsed, const char *filename, tree_t **out_ast) {
-    if (!filename) filename = "<stdin>";
-    if (out_ast) *out_ast = NULL;
-    tree_t *rp = (tree_t *)parsed;
-    if (rebus_nerrors > 0) { fprintf(stderr, "rebus_compile: %d parse error(s) in %s -- no code generated\n", rebus_nerrors, filename); return; }
-    if (!rp) { fprintf(stderr, "rebus_compile: parse error in %s\n", filename); return; }
+tree_t *lower_rebus_tree(tree_t *rp) {
+    if (!rp) return NULL;
     CODE_t *prog = rebus_lower(rp);
-    if (!prog) return;
+    if (!prog) return NULL;
     STMT_t *call_st = ct_zalloc(1, sizeof(STMT_t));
     call_st->subject = make_fnc("MAIN", 0);
     if (!prog->head) prog->head = prog->tail = call_st;
     else { prog->tail->next = call_st; prog->tail = call_st; }
     prog->nstmts++;
-    if (out_ast) *out_ast = code_to_ast(prog);
+    return code_to_ast(prog);
 }
