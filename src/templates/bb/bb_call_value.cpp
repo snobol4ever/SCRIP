@@ -64,12 +64,7 @@ void rt_gen_spine_resume_enter(void);
 #define CV_H() (_.op_off + 16 + _.op_arg_slot_n * 16)
 #define CV_UNFILLED() (std::count_if(_.op_arg_slot, _.op_arg_slot + _.op_arg_slot_n, [](int s) { return s < 0; }) > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_zrow_sprec(const IR_t * nd);
-static std::string cv_r9(const char * a) {
-    const char * p = !strncmp(a, "qword ptr [rsp# + ", 18) ? a + 18 : !strncmp(a, "qword ptr [rsp + ", 17) ? a + 17 : (const char *)0;
-    if (!p) return a;
-    return std::string("qword ptr [r9 + ") + std::to_string(atoi(p)) + "]";
-}
+#define CV_SPINE() (cv_pl_proto() && _.op_sprec && _.op_sa >= 0)
 static std::string cv_pl_spine_box() {
     return x86_alpha()
          + x86("note", "call/N's resume record (ARCH-PROLOG-ACTIVATION-LIFETIME 8.1): this box's cell holds the result and, at +16, the record its beta reads -- null at alpha, so a goal that "
@@ -107,9 +102,9 @@ static std::string cv_pl_spine_box() {
          + x86("add", "rcx", "rcx")
          + x86("rep_movsq")
          + FOR(0, CV_N(), [&](int i) {
-             return x86("mov", "rax", cv_r9(FRQ(_.op_arg_slot[i])))
+             return x86("mov", "rax", x86_zop_base(_.op_arg_slot[i], 1, 0, "r9"))
                   + x86("mov", RDQ("rdi", 0), "rax")
-                  + x86("mov", "rax", cv_r9(FRQ(_.op_arg_slot[i] + 8)))
+                  + x86("mov", "rax", x86_zop_base(_.op_arg_slot[i] + 8, 1, 0, "r9"))
                   + x86("mov", RDQ("rdi", 8), "rax")
                   + x86("add", "rdi", 16L); })
          + cv_lvl_add(1L)
@@ -162,8 +157,8 @@ static std::string cv_pl_spine_box() {
 }
 std::string bb_call_value() {
     x86_begin();
-    if (cv_pl_proto() && emit_zrow_sprec(_.node) && _.op_sa >= 0) return cv_pl_spine_box();
-    return IF(_.op_off < 0 || _.op_sa < 0, x86_alpha()
+    return IF(CV_SPINE(), cv_pl_spine_box())
+         + IF(!CV_SPINE(), IF(_.op_off < 0 || _.op_sa < 0, x86_alpha()
         + x86_bomb("bb_call_value: needs own slot + callee operand slot"))
         + IF(!(_.op_off < 0 || _.op_sa < 0) && CV_UNFILLED(), x86_alpha()
         + x86_bomb("bb_call_value: argument slot unfilled"))
@@ -495,5 +490,5 @@ std::string bb_call_value() {
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_rt_gc_poll_or(x86_omega("je"))
              + x86_gamma())
-       + x86_omega());
+       + x86_omega()));
 }
