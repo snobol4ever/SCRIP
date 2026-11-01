@@ -417,3 +417,181 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0; lx->run0 = 0; lx->pc = NULL;
     memset(&lx->peek, 0, sizeof lx->peek);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct xp_mac { struct xp_mac *next; char *name; char *body; int on; } xp_mac_t;
+typedef struct xp_cond { struct xp_cond *next; int outer; int taken; int live; } xp_cond_t;
+typedef struct { char *buf; size_t len; size_t cap; xp_mac_t *mac; xp_cond_t *cond; int quiet; int nerr; int incm; } xp_t;
+static void xp_put(xp_t *x, const char *s, size_t n) {
+    if (x->len + n + 1 > x->cap) { x->cap = (x->len + n + 1) * 2; x->buf = (char *)ct_grow(x->buf, x->cap); }
+    memcpy(x->buf + x->len, s, n);
+    x->len += n;
+    x->buf[x->len] = 0;
+}
+static int xp_idc(int c) { return isalnum(c) || c == '_'; }
+static int xp_blank(int c) { return c == ' ' || c == '\t' || c == '\r'; }
+static xp_mac_t *xp_find(xp_t *x, const char *n, size_t l) {
+    for (xp_mac_t *m = x->mac; m; m = m->next) if (!strncmp(m->name, n, l) && !m->name[l]) return m;
+    return (xp_mac_t *)0;
+}
+static int xp_defined(xp_t *x, const char *n, size_t l) { xp_mac_t *m = xp_find(x, n, l); return m && m->on; }
+static void xp_define(xp_t *x, const char *n, size_t l, const char *b, size_t bl) {
+    xp_mac_t *m = xp_find(x, n, l);
+    if (!m) { m = (xp_mac_t *)ct_zalloc(1, sizeof *m); m->name = ct_strndup(n, l); m->next = x->mac; x->mac = m; }
+    else ct_drop(m->body);
+    m->body = ct_strndup(b, bl);
+    m->on = 1;
+}
+static void xp_diag(xp_t *x, const char *file, int line, const char *what, const char *arg, size_t al) {
+    if (!x->quiet) fprintf(stderr, "%s:%d: xpp: %s '%.*s'\n", file, line, what, (int)al, arg);
+    x->nerr++;
+}
+static size_t xp_quote_end(const char *s, size_t i, size_t n) {
+    size_t j = i + 1;
+    while (j < n) {
+        if (s[j] == '\\' && j + 1 < n) j += 2;
+        else if (s[j] != s[i]) j++;
+        else if (j + 1 < n && s[j + 1] == s[i]) j += 2;
+        else return j + 1;
+    }
+    return n;
+}
+static void xp_expand(xp_t *x, const char *s, size_t n, int depth) {
+    size_t i = 0, j;
+    while (i < n) {
+        xp_mac_t *m = (xp_mac_t *)0;
+        if (x->incm) { for (j = i; j < n && !(s[j] == '*' && j + 1 < n && s[j + 1] == '/'); j++) ; if (j < n) { x->incm = 0; j += 2; } }
+        else if (s[i] == '%') j = n;
+        else if (s[i] == '/' && i + 1 < n && s[i + 1] == '*') { x->incm = 1; j = i + 2; }
+        else if (s[i] == '\'' || s[i] == '"') j = xp_quote_end(s, i, n);
+        else if (s[i] == '0' && i + 2 < n && s[i + 1] == '\'' && (i == 0 || !xp_idc((unsigned char)s[i - 1]))) j = s[i + 2] == '\\' && i + 3 < n ? i + 4 : i + 3;
+        else if (xp_idc((unsigned char)s[i])) { for (j = i; j < n && xp_idc((unsigned char)s[j]); j++) ; if (!isdigit((unsigned char)s[i]) && depth < 32) m = xp_find(x, s + i, j - i); }
+        else j = i + 1;
+        if (j > n) j = n;
+        if (m && m->on) xp_expand(x, m->body, strlen(m->body), depth + 1);
+        else xp_put(x, s + i, j - i);
+        i = j;
+    }
+}
+static int xp_eval(xp_t *x, const char *q, const char *end, const char *file, int line) {
+    int neg = 0, v = 0;
+    const char *w;
+    while (q < end && (*q == '!' || xp_blank(*q))) { if (*q == '!') neg = !neg; q++; }
+    if (end - q >= 7 && !memcmp(q, "defined", 7)) {
+        for (q += 7; q < end && (xp_blank(*q) || *q == '('); q++) ;
+        for (w = q; q < end && xp_idc((unsigned char)*q); q++) ;
+        v = xp_defined(x, w, (size_t)(q - w));
+    } else if (q < end && isdigit((unsigned char)*q)) v = atoi(q) != 0;
+    else if (q < end && xp_idc((unsigned char)*q)) {
+        xp_mac_t *m;
+        for (w = q; q < end && xp_idc((unsigned char)*q); q++) ;
+        m = xp_find(x, w, (size_t)(q - w));
+        v = m && m->on && atoi(m->body) != 0;
+    } else xp_diag(x, file, line, "cannot evaluate the #if expression at", q, (size_t)(end - q));
+    return neg ? !v : v;
+}
+static char *xp_read(const char *file, const char *spec, char **path_out) {
+    const char *sl = strrchr(file, '/');
+    size_t dl = sl ? (size_t)(sl - file) + 1 : 0, sp = strlen(spec);
+    char *cand = (char *)ct_alloc(dl + sp + 1), *src;
+    FILE *f = (FILE *)0;
+    long n;
+    if (dl && spec[0] != '/') { memcpy(cand, file, dl); memcpy(cand + dl, spec, sp + 1); f = fopen(cand, "r"); }
+    if (!f) { memcpy(cand, spec, sp + 1); f = fopen(cand, "r"); }
+    if (!f) { ct_drop(cand); return (char *)0; }
+    fseek(f, 0, SEEK_END); n = ftell(f); rewind(f);
+    src = (char *)ct_alloc((size_t)n + 1);
+    if (fread(src, 1, (size_t)n, f) != (size_t)n) n = 0;
+    src[n] = 0;
+    fclose(f);
+    *path_out = cand;
+    return src;
+}
+static void xp_text(xp_t *x, const char *src, const char *file, int depth);
+static int xp_word(const char *w, size_t wl, const char *k) { return wl == strlen(k) && !memcmp(w, k, wl); }
+static void xp_directive(xp_t *x, const char *w, size_t wl, const char *q, const char *end, const char *file, int line, int depth) {
+    xp_cond_t *c = x->cond;
+    int live = !c || c->live;
+    if (xp_word(w, wl, "ifdef") || xp_word(w, wl, "ifndef") || xp_word(w, wl, "if")) {
+        int v = 0;
+        xp_cond_t *k = (xp_cond_t *)ct_zalloc(1, sizeof *k);
+        if (live && wl == 2) v = xp_eval(x, q, end, file, line);
+        else if (live) { const char *e = q; while (e < end && xp_idc((unsigned char)*e)) e++; v = xp_defined(x, q, (size_t)(e - q)); if (wl == 6) v = !v; }
+        k->next = c; k->outer = live; k->taken = v; k->live = live && v; x->cond = k;
+    } else if (xp_word(w, wl, "elif") && c) {
+        int v = (c->outer && !c->taken) ? xp_eval(x, q, end, file, line) : 0;
+        c->live = c->outer && v; c->taken = c->taken || v;
+    } else if (xp_word(w, wl, "else") && c) { c->live = c->outer && !c->taken; c->taken = 1; }
+    else if (xp_word(w, wl, "endif") && c) { x->cond = c->next; ct_drop(c); }
+    else if (live && xp_word(w, wl, "define")) {
+        const char *e = q;
+        while (e < end && xp_idc((unsigned char)*e)) e++;
+        if (e == q) xp_diag(x, file, line, "#define names no macro at", q, (size_t)(end - q));
+        else if (e < end && *e == '(') xp_diag(x, file, line, "a function-like macro is not supported:", q, (size_t)(e - q));
+        else { const char *b = e, *t = end; while (b < t && xp_blank(*b)) b++; while (t > b && xp_blank(t[-1])) t--; xp_define(x, q, (size_t)(e - q), b, (size_t)(t - b)); }
+    } else if (live && xp_word(w, wl, "undef")) {
+        const char *e = q;
+        xp_mac_t *m;
+        while (e < end && xp_idc((unsigned char)*e)) e++;
+        m = xp_find(x, q, (size_t)(e - q));
+        if (m) m->on = 0;
+    } else if (live && xp_word(w, wl, "include")) {
+        char close = *q == '<' ? '>' : '"', *path = (char *)0, *inc;
+        const char *e = q + 1;
+        while (e < end && *e != close) e++;
+        if ((*q != '"' && *q != '<') || e >= end) { xp_diag(x, file, line, "malformed #include at", q, (size_t)(end - q)); return; }
+        inc = ct_strndup(q + 1, (size_t)(e - q - 1));
+        if (depth >= 16) xp_diag(x, file, line, "include nesting too deep at", inc, strlen(inc));
+        else {
+            char *txt = xp_read(file, inc, &path);
+            if (!txt) xp_diag(x, file, line, "cannot read include", inc, strlen(inc));
+            else { xp_text(x, txt, path, depth + 1); ct_drop(txt); ct_drop(path); }
+        }
+        ct_drop(inc);
+    }
+}
+static int xp_is_directive(const char *w, size_t wl) {
+    return xp_word(w, wl, "ifdef") || xp_word(w, wl, "ifndef") || xp_word(w, wl, "if") || xp_word(w, wl, "elif") || xp_word(w, wl, "else")
+        || xp_word(w, wl, "endif") || xp_word(w, wl, "define") || xp_word(w, wl, "undef") || xp_word(w, wl, "include");
+}
+static void xp_text(xp_t *x, const char *src, const char *file, int depth) {
+    const char *p = src;
+    int line = 0;
+    while (*p) {
+        const char *e = strchr(p, '\n'), *q = p + 1, *w;
+        size_t n = e ? (size_t)(e - p) : strlen(p), wl;
+        const char *end = p + n;
+        line++;
+        if (p[0] == '#') {
+            while (q < end && xp_blank(*q)) q++;
+            for (w = q; q < end && isalpha((unsigned char)*q); q++) ;
+            wl = (size_t)(q - w);
+            while (q < end && xp_blank(*q)) q++;
+            if (xp_is_directive(w, wl)) { xp_directive(x, w, wl, q, end, file, line, depth); xp_put(x, "\n", 1); p = e ? e + 1 : end; continue; }
+        }
+        if (x->cond && !x->cond->live) xp_put(x, "\n", 1);
+        else if (!x->mac) xp_put(x, p, e ? n + 1 : n);
+        else { xp_expand(x, p, n, 0); if (e) xp_put(x, "\n", 1); }
+        p = e ? e + 1 : end;
+    }
+}
+static int xp_wanted(const char *s) {
+    for (const char *p = strstr(s, "compiler_options("); p; p = strstr(p + 1, "compiler_options(")) {
+        const char *e = strstr(p, ").");
+        if (!e) e = p + strlen(p);
+        for (const char *q = p; q + 6 <= e; q++) if (!memcmp(q, "xpp_on", 6)) return 1;
+    }
+    return 0;
+}
+char *pl_xpp_expand(const char *src, const char *filename, int quiet, int *nerr) {
+    xp_t x;
+    if (!src || !xp_wanted(src)) return (char *)0;
+    memset(&x, 0, sizeof x);
+    x.quiet = quiet;
+    xp_define(&x, "XSB_PROLOG", 10, "", 0);
+    xp_text(&x, src, filename ? filename : "", 0);
+    if (!x.buf) xp_put(&x, "", 0);
+    for (xp_mac_t *m = x.mac, *nx; m; m = nx) { nx = m->next; ct_drop(m->name); ct_drop(m->body); ct_drop(m); }
+    for (xp_cond_t *c = x.cond, *nx; c; c = nx) { nx = c->next; ct_drop(c); }
+    *nerr = x.nerr;
+    return x.buf;
+}

@@ -75,6 +75,7 @@ void token_free(Token *t);
 int prolog_escape_bytes(const char *raw, char *out, int cap);
 int prolog_u_nd_zero(unsigned c);
 const char *tk_name(TkKind kind);
+char *pl_xpp_expand(const char *src, const char *filename, int quiet, int *nerr);
 static inline int u8_decode(const unsigned char *u, int *cp) {
     if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); return 2; }
     if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { *cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); return 3; }

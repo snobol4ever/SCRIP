@@ -4961,9 +4961,12 @@ static void pl_parse_loop(Parser *pp, PlProgram *prog) {
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prolog_atom_init();
     Parser p;
+    int xpp_errs = 0;
+    char *xpp_src = pl_xpp_expand(src, filename, quiet, &xpp_errs);
+    if (xpp_src) src = xpp_src;
     lexer_init(&p.lx, src);
     p.filename = filename ? filename : "<input>";
-    p.nerrors  = 0;
+    p.nerrors  = xpp_errs;
     p.clause_errs = 0;
     p.in_args  = 0;
     p.in_list  = 0;
