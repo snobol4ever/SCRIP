@@ -20078,12 +20078,14 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
     return BSTRVAL(b, cl);
 }
-static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0);
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int num_text);
 static int bn_identical(DESCR_t a, DESCR_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(c_rt_jct_relop, leaf, 0);
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
-    if ((op & ~BINOP_F_NUMIFY_BLANK) == BINOP_EQV || (op & ~BINOP_F_NUMIFY_BLANK) == BINOP_NEQV) return rt_jct_relop_impl(lhs, rhs, op & ~BINOP_F_NUMIFY_BLANK, 0);
+    int fl = op & (BINOP_F_NUMIFY_BLANK | BINOP_F_NUM_TEXT);
+    op &= ~fl;
+    if (op == BINOP_EQV || op == BINOP_NEQV) return rt_jct_relop_impl(lhs, rhs, op, 0, 0);
     extern int g_core_errjmp_n;
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
@@ -20091,12 +20093,12 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_rk_cbh_cur = cbh0; return 0; }
     core_errjmp_push(&ej);
     g_core_errjmp_n = my + 1;
-    int r = rt_jct_relop_impl(lhs, rhs, op & ~BINOP_F_NUMIFY_BLANK, op & BINOP_F_NUMIFY_BLANK);
+    int r = rt_jct_relop_impl(lhs, rhs, op, fl & BINOP_F_NUMIFY_BLANK, fl & BINOP_F_NUM_TEXT);
     core_errjmp_pop(&ej, my);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int num_text) {
     if (IS_FAIL_fn(lhs) || IS_FAIL_fn(rhs)) return 0;
     if (op == BINOP_EQV || op == BINOP_NEQV) return (op == BINOP_EQV) ? bn_identical(lhs, rhs) : !bn_identical(lhs, rhs);
     if (rk_match_is(lhs)) lhs = FIELD_GET_fn(lhs, "text");
@@ -20183,7 +20185,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
         return 0;
     }
     {
-        const char *a = IS_REAL_fn(lhs) ? rk_cstr(lhs) : VARVAL_fn(lhs), *b = IS_REAL_fn(rhs) ? rk_cstr(rhs) : VARVAL_fn(rhs);
+        const char *a = (num_text && IS_REAL_fn(lhs)) ? rk_cstr(lhs) : VARVAL_fn(lhs), *b = (num_text && IS_REAL_fn(rhs)) ? rk_cstr(rhs) : VARVAL_fn(rhs);
         if (!a) a="";
         if (!b) b="";
         size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);

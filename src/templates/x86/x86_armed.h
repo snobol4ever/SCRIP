@@ -18,7 +18,8 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
 #define RK_ARMED_STORE_ZD() (x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx"))
 #define RELOP_ARMED(truthy) IF(g_stage2.rk_infix_armed, bb_glue_binop_open(60, RK_ARMED_LOAD_FR(), RK_ARMED_STORE_FR(), (long)_.op_ival, 14, (truthy)) + x86("def", L(14)))
 #define RELOP_NUMIFY_BLANK() ((_.op_strict & IR_STRICT_RELOP_NUMIFY_BLANK) != 0)
-#define RELOP_OPW() ((long)_.op_ival | (RELOP_NUMIFY_BLANK() ? (long)BINOP_F_NUMIFY_BLANK : 0L))
+#define RELOP_NUM_TEXT() ((_.op_strict & IR_STRICT_RELOP_NUM_TEXT) != 0)
+#define RELOP_OPW() ((long)_.op_ival | (RELOP_NUMIFY_BLANK() ? (long)BINOP_F_NUMIFY_BLANK : 0L) | (RELOP_NUM_TEXT() ? (long)BINOP_F_NUM_TEXT : 0L))
 #define RELOP_RAISED_OMEGA() IF(RELOP_NUMIFY_BLANK(), x86_omega("js"))
 #define ARITH_ARMED_FR() \
     IF(g_stage2.rk_infix_armed, \

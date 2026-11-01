@@ -367,7 +367,11 @@ static int rk_is_binop(tree_e tt) { switch (tt) { case TT_ADD: case TT_SUB: case
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int64_t rk_binop_code(tree_e tt) { switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_relop_code(IR_t * op, tree_e tt) { IR_LIT(op).ival = lc_binop_code(tt); if (IR_LIT(op).ival >= BINOP_LT && IR_LIT(op).ival <= BINOP_NE) op->strict |= IR_STRICT_RELOP_NUMIFY_BLANK; }
+static void rk_relop_code(IR_t * op, tree_e tt) {
+    IR_LIT(op).ival = lc_binop_code(tt);
+    if (IR_LIT(op).ival >= BINOP_LT && IR_LIT(op).ival <= BINOP_NE) op->strict |= IR_STRICT_RELOP_NUMIFY_BLANK;
+    if (IR_LIT(op).ival >= BINOP_SLT && IR_LIT(op).ival <= BINOP_SNE) op->strict |= IR_STRICT_RELOP_NUM_TEXT;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_io_lower_name(const char * nm) {
     static const char * const names[] = { "open", "close", "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", "chdir", "make-temp-file", "make-temp-dir", NULL };
