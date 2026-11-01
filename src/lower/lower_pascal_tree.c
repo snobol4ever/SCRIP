@@ -2251,13 +2251,7 @@ static int pas_decl_string_kind(const char *name) {
         return pas_string_type_kind(g_lower.pas.sem.pas_scalarvartype[i].tname);
     return 0;
 }
-static int pas_array_scoped(const char *name) {
-    int u = pas_scope_uid(name);
-    for (int i = g_lower.pas.sem.pas_narray - 1; name && i >= 0; i--)
-        if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name) &&
-        (g_lower.pas.sem.pas_arrays[i].is_param || !g_lower.pas.sem.pas_arrays[i].uid || g_lower.pas.sem.pas_arrays[i].uid == u)) return 1;
-    return 0;
-}
+static int pas_array_scoped(const char *name) { return name && pty_name_agg(name) > 0; }
 static int pas_is_strelem_arr(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t && t->k == PTK_ARRAY && t->base && t->base->k == PTK_STRING; }
 static int pas_var_string_kind(const char *name) { return pas_is_strelem_arr(name) ? 0 : pas_decl_string_kind(name); }
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) {
@@ -3354,7 +3348,7 @@ static char pas_typename_class(const char *t) {
 static char pas_var_decl_class(const char *name) {
     char k = 0;
     if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++) if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) return 0;
+    if (pty_name_agg(name) > 0) return 0;
     for (int i = 0; name && i < g_lower.pas.sem.pas_nscalarvartype; i++) if (g_lower.pas.sem.pas_scalarvartype[i].vname && !strcmp(g_lower.pas.sem.pas_scalarvartype[i].vname, name)) {
         char c = pas_typename_class(g_lower.pas.sem.pas_scalarvartype[i].tname);
         if (!c || (k && k != c)) return 0;
@@ -3366,7 +3360,7 @@ static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi) {
     int n = 0;
     long long l = 0, h = -1;
     if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++) if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) return 0;
+    if (pty_name_agg(name) > 0) return 0;
     for (int i = 0; i < g_lower.pas.sem.pas_nscalarvartype; i++) if (g_lower.pas.sem.pas_scalarvartype[i].vname && !strcmp(g_lower.pas.sem.pas_scalarvartype[i].vname, name)) {
         const char *t = g_lower.pas.sem.pas_scalarvartype[i].tname;
         long long cl = 0, ch = -1;
@@ -4024,7 +4018,7 @@ static int pas_sizeof_lookup(const char *name, long long *out) {
     { long long lo, hi; if (pas_subvar_get(name, &lo, &hi)) { *out = pas_range_fit_size(lo, hi); return 1; } }
     if (pas_rectype_nf(name) > 0 && pas_rectype_total_size(name, out)) return 1;
     if (pas_rvt(name)) { const char *rt = pas_with_sel_rtype(leaf_s(TT_VAR, name)); return (rt && pas_rectype_total_size(rt, out)) ? 1 : 0; }
-    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++) if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) return pas_tsz_get(name, out);
+    if (pty_name_agg(name) > 0) return pas_tsz_get(name, out);
     if (pas_is_charvar(name)) { *out = 1; return 1; }
     if (pas_is_boolvar(name)) { *out = 1; return 1; }
     if (pas_ptrvar_target(name)) { *out = 8; return 1; }
@@ -4050,7 +4044,7 @@ static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *
     { const char *al = pas_typealias_get(name); if (al && strcmp(al, name)) return pas_ordinal_bound_lookup(al, lo, hi); }
     { long long sh = pas_subtype_high(name); if (sh >= 0) { *lo = pas_subtype_low(name); *hi = sh; return 1; } }
     if (pas_subvar_get(name, lo, hi)) return 1;
-    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++) if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) return 0;
+    if (pty_name_agg(name) > 0) return 0;
     if (pas_rvt(name)) return 0;
     if (pas_is_charvar(name)) { *lo = 0; *hi = 255; return 1; }
     if (pas_is_boolvar(name)) { *lo = 0; *hi = 1; return 1; }

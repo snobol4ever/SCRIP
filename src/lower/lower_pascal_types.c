@@ -949,6 +949,23 @@ static psym_t *pe_find_fn(struct pty_state *s, const char *name) {
     for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 'f' && p->name && !strcmp(p->name, name)) return p;
     return NULL;
 }
+int pty_name_agg(const char *name) {
+    struct pty_state *s = pt_st();
+    if (!s || !s->ecur || !name) return -1;
+    psym_t *p = pe_find(s, name);
+    const pty_t *t = p ? p->t : NULL;
+    int fn = !p || p->k == 'R';
+    long long h;
+    if (!p) { p = pe_find_fn(s, name); t = p ? p->t : NULL; if (!t) return -1; }
+    if (!t || t->k == PTK_UNKNOWN) return -1;
+    if (fn) return t->k == PTK_ARRAY && t->dyn;
+    if (t->k == PTK_RECORD) return t->lay && t->lay->nf > 0;
+    if (t->k != PTK_ARRAY) return 0;
+    if (t->dyn || t->open || t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 1;
+    h = t->ix[0]->hi;
+    if (t->nix == 2 && t->ix[1]) { if (!t->ix[1]->bounded) return 1; h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; }
+    return h >= 0;
+}
 int pty_name_dyn(const char *name) {
     struct pty_state *s = pt_st();
     const pty_t *t = name ? pty_name_type(name) : NULL;
