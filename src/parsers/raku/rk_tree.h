@@ -47,6 +47,17 @@ struct RkDecl {
 };
 typedef struct { int k; int from, to; const char *txt; int form, mod, hyper; RkList *inner; RkList *args; tree_t *qname; } RkPf;
 typedef struct { int pos; RkList *last; int cnt; int end; } RkClosure;
+#define RKQ_BS 1
+#define RKQ_QBS 2
+#define RKQ_SC 4
+#define RKQ_AR 8
+#define RKQ_HS 16
+#define RKQ_FN 32
+#define RKQ_CLOS 64
+#define RKQ_WORDS 128
+#define RKQ_WW 256
+#define RKQ_UNSUP 512
+#define RKQ_QQ (RKQ_BS | RKQ_SC | RKQ_AR | RKQ_HS | RKQ_FN | RKQ_CLOS)
 RkB     *rkb_new(const char *src, int len);
 RkList  *rkb_list_new(void);
 RkEl    *rkb_list_el(RkList *L);
@@ -98,7 +109,7 @@ tree_t  *rkb_bracket(RkB *b, RkList *L);
 void     rkb_var(RkB *b, RkTerm *it, int from, int to, const char *named_capture, int nclen);
 void     rkb_number(RkB *b, RkTerm *it, int from, int to);
 void     rkb_set_rad_inner(RkB *b, tree_t *t);
-void     rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int bf, int bt);
+void     rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int bf, int bt, int qf);
 void     rkb_words(RkB *b, RkTerm *it, int from, int to, int inner_from, int inner_to);
 void     rkb_name(RkB *b, RkTerm *it, int from, int to, int namelen);
 void     rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, int form);

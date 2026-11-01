@@ -25,7 +25,7 @@ typedef struct {
     RkStrs meths; RkStrs mnames; RkStrs multis; RkStrs stubs; RkStrs explicit; RkStrs ours; int has_parent; int decl_pos; int generic_is;
 } RkPkg;
 typedef struct RkLang {
-    int regex; int cc; int words; int ww;
+    int regex; int cc; int words; int ww; int xv;
     int bs; int qbs; int clos; int sc; int ar; int hs; int fn;
     int start; int stop; int stop2; int nrep;
     const char *here; int here_len;
@@ -64,7 +64,7 @@ typedef struct RkP {
     tree_t *cur_list; int bk; int next_bk; int xb_bk;
     RkList *stmt_list; RkList *last_list; int last_nstmts; int last_real_semi;
     RkList *blk_last; int blk_n; tree_t *blk_list; tree_t *pb_sig;
-    RkClosure *qc; int nqc; int cqc; int qs, qe;
+    RkClosure *qc; int nqc; int cqc; int qs, qe, qfl;
     tree_t *sig; RkTrait *tr; int ntr; RkTrait tr1; int has_tr1;
     RkDecl *dcl; const char *init_op;
     RkList *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
@@ -1167,8 +1167,8 @@ static int r_quotepair(RkP *p, int pos, const char **key, int *val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int apply_quote_adverb(RkP *p, int pos, RkLang *L, const char *k, int v, int *to) {
-    if (!strcmp(k, "q") || !strcmp(k, "single")) { lang_q(L); return 1; }
-    if (!strcmp(k, "qq") || !strcmp(k, "double")) { lang_qq(L); return 1; }
+    if (!strcmp(k, "q") || !strcmp(k, "single")) { L->qbs = 1; return 1; }
+    if (!strcmp(k, "qq") || !strcmp(k, "double")) { L->bs = 1; L->qbs = 0; L->clos = 1; L->sc = 1; L->ar = 1; L->hs = 1; L->fn = 1; return 1; }
     if (!strcmp(k, "b") || !strcmp(k, "backslash")) { L->bs = v != 0; if (v) L->qbs = 0; return 1; }
     if (!strcmp(k, "s") || !strcmp(k, "scalar")) { L->sc = v != 0; return 1; }
     if (!strcmp(k, "a") || !strcmp(k, "array")) { L->ar = v != 0; return 1; }
@@ -1177,13 +1177,18 @@ static int apply_quote_adverb(RkP *p, int pos, RkLang *L, const char *k, int v, 
     if (!strcmp(k, "c") || !strcmp(k, "closure")) { L->clos = v != 0; return 1; }
     if (!strcmp(k, "w") || !strcmp(k, "words")) { L->words = 1; return 1; }
     if (!strcmp(k, "ww") || !strcmp(k, "quotewords")) { L->ww = v != 0; L->words = 1; return 1; }
-    if (!strcmp(k, "x") || !strcmp(k, "exec") || !strcmp(k, "v") || !strcmp(k, "val")) return 1;
+    if (!strcmp(k, "x") || !strcmp(k, "exec") || !strcmp(k, "v") || !strcmp(k, "val")) { L->xv = 1; return 1; }
     if (!strcmp(k, "to") || !strcmp(k, "heredoc")) { *to = 1; return 1; }
     if (!strcmp(k, "cc")) { L->cc = 1; return 1; }
     if (!strcmp(k, "regex")) { memset(L, 0, sizeof *L); L->regex = 1; return 1; }
     if (!strcmp(k, "p") || !strcmp(k, "path")) panic_at(p, pos, "Unrecognized adverb: :%s", k);
     panic_at(p, pos, "Unrecognized adverb: :%s", k);
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lang_bits(const RkLang *L) {
+    return (L->bs ? RKQ_BS : 0) | (L->qbs ? RKQ_QBS : 0) | (L->sc ? RKQ_SC : 0) | (L->ar ? RKQ_AR : 0) | (L->hs ? RKQ_HS : 0) | (L->fn ? RKQ_FN : 0) | (L->clos ? RKQ_CLOS : 0)
+        | (L->words ? RKQ_WORDS : 0) | (L->ww ? RKQ_WW : 0) | ((L->cc || L->regex || L->xv) ? RKQ_UNSUP : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
@@ -1207,7 +1212,7 @@ static int r_quibble(RkP *p, int pos, RkLang *L, int to, const char *what) {
         RkHere *h = &p->here[p->nhere++];
         h->delim = ct_strndup0(p->s + d0, dl); h->dlen = dl; h->lang = *L; h->lang.start = 0; h->lang.stop = 0; h->lang.stop2 = 0; h->lang.nrep = 1;
     }
-    p->qs = s; p->qe = stop_at;
+    p->qs = s; p->qe = stop_at; p->qfl = lang_bits(L);
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3223,13 +3228,13 @@ static int simple_quote(RkP *p, int pos, int open, int stop, int stop2, int qq, 
 static int r_quote_raw(RkP *p, int pos);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quote(RkP *p, int pos) {
-    RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc, sqs = p->qs, sqe = p->qe;
-    p->qc = NULL; p->nqc = 0; p->cqc = 0; p->qs = -1; p->qe = -1;
+    RkClosure *sq = p->qc; int sn = p->nqc, sc = p->cqc, sqs = p->qs, sqe = p->qe, sqf = p->qfl;
+    p->qc = NULL; p->nqc = 0; p->cqc = 0; p->qs = -1; p->qe = -1; p->qfl = 0;
     int nh = p->nhere;
     int e = r_quote_raw(p, pos);
     if (e >= 0 && p->build && p->nhere > nh) { rkb_heredoc_stub(p->B, &p->tm, pos, e); p->here[p->nhere - 1].node = p->tm.t; }
-    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc, p->qs, p->qe);
-    p->qc = sq; p->nqc = sn; p->cqc = sc; p->qs = sqs; p->qe = sqe;
+    else if (e >= 0 && p->build) rkb_quote(p->B, &p->tm, pos, e, p->qc, p->nqc, p->qs, p->qe, p->qfl);
+    p->qc = sq; p->nqc = sn; p->cqc = sc; p->qs = sqs; p->qe = sqe; p->qfl = sqf;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

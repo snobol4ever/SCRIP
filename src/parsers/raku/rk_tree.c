@@ -862,16 +862,28 @@ static int dq_named_chars(SB *buf, const char *p, int n) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
+static int rk_u8len(unsigned char c) { return (c & 0xF8) == 0xF0 ? 4 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xE0) == 0xC0 ? 2 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *b_dq_fl(RkB *b, RkClosure *cl, int ncl, int from, int to, int fl) {
     const char *s = b->s; SB buf = { 0 };
+    int os = from > 0 ? from - 1 : 0; while (os > 0 && ((unsigned char) s[os] & 0xC0) == 0x80) os--;
+    int ol = from > 0 ? from - os : 0, cl2 = to < b->len ? rk_u8len((unsigned char) s[to]) : 0;
     typedef struct { int at; int pos; } Mk;
-    Mk *mk = NULL; int nmk = 0, cmk = 0;
-#define DQ_PUTCP(X) do { unsigned long _c = (X); if (_c == '$' || _c == '@') { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = -(int) _c; nmk++; } else sb_cp(&buf, _c); } while (0)
+    Mk *mk = NULL; int nmk = 0, cmk = 0, nbrk = 0;
+    int interp = (fl & (RKQ_SC | RKQ_AR)) != 0;
+#define DQ_MARK(P) do { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = (P); nmk++; } while (0)
+#define DQ_BRK() do { if (interp) { DQ_MARK(-1); nbrk++; } } while (0)
+#define DQ_PUTCP(X) do { unsigned long _c = (X); if ((_c == '$' || _c == '@') && interp) DQ_MARK(-(int) _c); else sb_cp(&buf, _c); } while (0)
     int i = from;
     while (i < to) {
         char c = s[i];
         if (c == '\\' && i + 1 < to) {
             char d = s[i + 1];
+            if (!(fl & RKQ_BS)) {
+                int l = d == '\\' ? 1 : ol > 0 && i + 1 + ol <= to && !memcmp(s + i + 1, s + os, (size_t) ol) ? ol : cl2 > 0 && i + 1 + cl2 <= to && !memcmp(s + i + 1, s + to, (size_t) cl2) ? cl2 : 0;
+                if ((fl & RKQ_QBS) && l) { DQ_BRK(); for (int k = 0; k < l; k++) sb_c(&buf, s[i + 1 + k]); DQ_BRK(); i += 1 + l; continue; }
+                sb_c(&buf, c); i++; continue;
+            }
             if (d == '{') { sb_c(&buf, '{'); i += 2; continue; }
             if (d == '}') { sb_c(&buf, '}'); i += 2; continue; }
             if (d == 'n') { sb_c(&buf, '\n'); i += 2; continue; }
@@ -908,9 +920,17 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
             if (d == 'f') { sb_c(&buf, '\f'); i += 2; continue; }
             if (d == '\\') { sb_c(&buf, '\\'); i += 2; continue; }
             if (d == '"') { sb_c(&buf, '"'); i += 2; continue; }
-            if (d == '$' || d == '@') { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = -(int) d; nmk++; i += 2; continue; }
+            if (d == '$' || d == '@') { if (interp) DQ_MARK(-(int) d); else sb_c(&buf, d); i += 2; continue; }
+            if (!isalnum((unsigned char) d) && d != '_') {
+                int l = rk_u8len((unsigned char) d);
+                DQ_BRK();
+                for (int k = 0; k < l && i + 1 + k < to; k++) sb_c(&buf, s[i + 1 + k]);
+                DQ_BRK();
+                i += 1 + l; continue;
+            }
             sb_c(&buf, c); i++; continue;
         }
+        if ((c == '$' && !(fl & RKQ_SC)) || (c == '@' && !(fl & RKQ_AR))) { if (interp) DQ_MARK(-(int) c); else sb_c(&buf, c); i++; continue; }
         if (c == '{') {
             RkClosure *cc = closure_at(cl, ncl, i);
             int e = cc ? (cc->end > i ? cc->end : dq_closure_end(s, i, to)) : -1;
@@ -923,22 +943,24 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
         sb_c(&buf, c); i++;
     }
     char *str = sb_str(&buf);
-    if (!nmk) return dq_segment(b, str);
+    if (!nmk) return interp ? dq_segment(b, str) : leaf_sval(TT_QLIT, str);
+    if (nmk == nbrk && !strchr(str, '$') && !strchr(str, '@')) return leaf_sval(TT_QLIT, str);
     tree_t *acc = NULL; int segstart = 0;
     for (int k = 0; k <= nmk; k++) {
         int segend = k < nmk ? mk[k].at : buf.n;
         char *seg = (char *) ct_alloc((size_t) (segend - segstart) + 1); memcpy(seg, str + segstart, (size_t) (segend - segstart)); seg[segend - segstart] = 0;
         tree_t *st = leaf_sval(TT_QLIT, seg);
-        if (strchr(seg, '$') || strchr(seg, '@')) st = lower_interp_str(b, seg);
+        if (interp && (strchr(seg, '$') || strchr(seg, '@'))) st = lower_interp_str(b, seg);
         acc = acc ? expr_binary(TT_CAT, acc, st) : st;
         if (k < nmk) {
-            tree_t *x = mk[k].pos < 0 ? leaf_sval(TT_QLIT, mk[k].pos == -(int) '$' ? "$" : "@") : closure_expr(b, closure_at(cl, ncl, mk[k].pos));
-            acc = expr_binary(TT_CAT, acc, x);
+            if (mk[k].pos != -1) acc = expr_binary(TT_CAT, acc, mk[k].pos < 0 ? leaf_sval(TT_QLIT, mk[k].pos == -(int) '$' ? "$" : "@") : closure_expr(b, closure_at(cl, ncl, mk[k].pos)));
             segstart = mk[k].at;
         }
     }
     return acc;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) { return b_dq_fl(b, cl, ncl, from, to, RKQ_QQ); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *b_sq(RkB *b, int from, int to) {
     SB buf = { 0 };
@@ -970,7 +992,7 @@ static int words_ok(const char *s, int n) {
     return words >= 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *b_words(RkB *b, const char *s, int n) {
+static tree_t *b_words(RkB *b, const char *s, int n, int bs) {
     tree_t *call = make_call("__rk_arr"); int wc = 0;
     int i = 0, l = 1;
     while (i < n) {
@@ -978,7 +1000,7 @@ static tree_t *b_words(RkB *b, const char *s, int n) {
         if (i >= n) break;
         int w = i; while (i < n && !rk_word_sep_at(s, n, i, &l)) i += l;
         SB t = { 0 };
-        for (int j = w; j < i; j++) { if (s[j] == '\\' && j + 1 < i && s[j + 1] == '\\') { sb_c(&t, '\\'); j++; } else sb_c(&t, s[j]); }
+        for (int j = w; j < i; j++) { if (bs && s[j] == '\\' && j + 1 < i && s[j + 1] == '\\') { sb_c(&t, '\\'); j++; } else sb_c(&t, s[j]); }
         expr_add_child(call, leaf_sval(TT_QLIT, sb_str(&t))); wc++;
     }
     if (wc == 1) { tree_t *only = call->c[1]; return only; }
@@ -1863,13 +1885,25 @@ static int rk_wordquote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int bf, int bt) {
+static int b_quote_fl(RkB *b, RkTerm *it, RkClosure *cl, int ncl, int bf, int bt, int qf) {
+    if (qf & (RKQ_WW | RKQ_UNSUP)) return 0;
+    if ((qf & RKQ_WORDS) && (qf & (RKQ_SC | RKQ_AR | RKQ_HS | RKQ_FN | RKQ_CLOS))) return 0;
+    tree_t *t = b_dq_fl(b, cl, ncl, bf, bt, qf);
+    if (!(qf & RKQ_WORDS)) { it->t = t; return 1; }
+    if (!t || t->t != TT_QLIT || !t->v.sval) return 0;
+    it->kind = TK_WORDS; it->name = spn(b, bf, bt);
+    it->t = b_words(b, t->v.sval, (int) strlen(t->v.sval), 0);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int bf, int bt, int qf) {
     memset(it, 0, sizeof *it); it->kind = TK_QUOTE; it->from = from; it->to = it->core_to = to;
     const unsigned char *u = (const unsigned char *) b->s + from;
     if (u[0] == '"') it->t = b_dq(b, cl, ncl, from + 1, to - 1);
     else if (u[0] == '\'') it->t = b_sq(b, from + 1, to - 1);
     else if (u[0] == 0xEF && u[1] == 0xBD && u[2] == 0xA2) it->t = leaf_sval(TT_QLIT, spn(b, from + 3, to - 3));
     else if ((u[0] == 'q' || u[0] == 'Q') && rk_wordquote(b, it, from, to, cl, ncl, bf, bt)) { }
+    else if ((u[0] == 'q' || u[0] == 'Q') && bf >= 0 && b_quote_fl(b, it, cl, ncl, bf, bt, qf)) { }
     else {
         RkRq q;
         char rxbuf[2 * (to - from) + 8];
@@ -1884,7 +1918,7 @@ void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int
 void rkb_words(RkB *b, RkTerm *it, int from, int to, int ifrom, int ito) {
     memset(it, 0, sizeof *it); it->kind = TK_WORDS; it->from = from; it->to = it->core_to = to;
     it->name = spn(b, ifrom, ito);
-    it->t = b_words(b, b->s + ifrom, ito - ifrom);
+    it->t = b_words(b, b->s + ifrom, ito - ifrom, 1);
     {
         const char *wt = b->s + ifrom;
         int wl = ito - ifrom, k = 0, nd1 = 0, nd2 = 0, kind = 0;
