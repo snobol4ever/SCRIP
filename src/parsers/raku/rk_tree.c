@@ -1879,13 +1879,12 @@ static int rk_wordquote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int
     const unsigned char *u = (const unsigned char *) b->s + from;
     int wl = 0;
     while (from + wl < to && (isalnum(u[wl]) || u[wl] == '_')) wl++;
-    int kind = (wl == 1 && u[0] == 'q') ? 'q' : (wl == 2 && u[0] == 'q' && u[1] == 'q') ? 'Q' : (wl == 1 && u[0] == 'Q') ? 'R' : (wl == 2 && u[0] == 'q' && u[1] == 'w') ? 'W' : 0;
+    int kind = (wl == 1 && u[0] == 'q') ? 'q' : (wl == 2 && u[0] == 'q' && u[1] == 'q') ? 'Q' : (wl == 1 && u[0] == 'Q') ? 'R' : 0;
     if (!kind || cf < 0 || ct < cf) return 0;
     int k = wl;
     while (from + k < to && isspace(u[k])) k++;
     unsigned char d = u[k];
     if (d == ':' || isalnum(d) || d == '_') return 0;
-    if (kind == 'W') { rkb_words(b, it, from, to, cf, ct); return 1; }
     if (kind == 'Q') it->t = b_dq(b, cl, ncl, cf, ct);
     else if (kind == 'R') it->t = leaf_sval(TT_QLIT, spn(b, cf, ct));
     else {

@@ -3080,13 +3080,19 @@ static int r_colonpair(RkP *p, int pos) {
     return -1;
 }
 /*====================================================================================================================================================================================================*/
+static int user_routine_n(RkP *p, const char *s, int n) {
+    char *buf = (char *) ct_alloc((size_t) n + 1);
+    buf[0] = '&';
+    memcpy(buf + 1, s, (size_t) n);
+    return user_name_index(p, buf, n + 1) >= 0;
+}
 static int qok(RkP *p, int pos, const char *word) {
     if (wordch_at(p, pos)) return -1;
     if (ch(p, pos) == '(') return -1;
-    if (ch(p, pos) != ':' && (is_name_n(p, word, (int) strlen(word)))) return -1;
+    if (ch(p, pos) != ':' && (is_name_n(p, word, (int) strlen(word)) || user_routine_n(p, word, (int) strlen(word)))) return -1;
     int h = NSPAN(p, pos, ck(is_space_cp));
     if (ch(p, h) == '#') panic_at(p, h, "# not allowed as delimiter");
-    if (ch(p, h) == ',' || ch(p, h) == ';' || ch(p, h) == ')' || h >= p->n || (ch(p, h) == '=' && ch(p, h + 1) == '>')) return -1;
+    if (ch(p, h) == ')' || h >= p->n || (ch(p, h) == '=' && ch(p, h + 1) == '>')) return -1;
     return ws(p, pos);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
