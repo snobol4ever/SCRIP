@@ -1425,9 +1425,11 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
           if (zarm) {
-            for (int r0 = 0; r0 < rl; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE && (int)env->op != IR_MATCH_ARBNO && (int)env->op != IR_MATCH_FENCE1) continue;
+            for (int pass = 0; pass < 2; pass++) for (int r0 = 0; r0 < rl; r0++) { IR_t * env = nodes[run[r0]];
+                if ((int)env->op != IR_MATCH_ALTERNATE && (int)env->op != IR_MATCH_ARBNO && (int)env->op != IR_MATCH_FENCE1) continue;
                 int ei = run[r0];
-                for (int a = 0; a + 1 < env->n_operands; a += 2) { IR_t * c2 = env->operands[a]; int rl0 = rl; int bad = 0; int g2 = 0; int first = 1;
+                for (int a = 0; a + 1 < env->n_operands; a += 2) { if (pass == 0 && a >= 2 && (int)env->op == IR_MATCH_ARBNO) continue; IR_t * c2 = env->operands[a]; int rl0 = rl; int bad = 0;
+                    int g2 = 0; int first = 1;
                     while (c2 && g2++ <= n) {
                         int ci = -1; { int k = nidx(nodes, n, c2); if (k >= 0) { ci = k; } }
                         if (ci < 0 || claim[ci] >= 0) break;
