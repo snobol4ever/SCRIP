@@ -817,6 +817,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "lower_pascal_tree", GC_RET_OTHER },
     { "lower_pl_pred_graph", GC_RET_OTHER },
     { "lower_pl_stage2", GC_RET_OTHER },
+    { "lower_pm_boxes", GC_RET_OTHER },
     { "lower_pmatch", GC_RET_OTHER },
     { "lower_proc_body", GC_RET_OTHER },
     { "lower_raku_body", GC_RET_OTHER },

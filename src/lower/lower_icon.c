@@ -1067,12 +1067,19 @@ static int pm_flatten(const tree_t * t, const tree_t ** out, int cap) {
     return 1;
 }
 static int pm_count(const tree_t * t) { return (t->t == TT_CAT && t->n == 2) ? pm_count(t->c[0]) + pm_count(t->c[1]) : 1; }
+static void pm_retag_alpha(IR_graph_t * g, int from, IR_t * target) {
+    for (int k = from; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == target && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) lc_γ_to(x, target); }
+}
 static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, pm_var(fn)); if (a0) ast_push(c, a0); if (a1) ast_push(c, a1); return c; }
 static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
 static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
-    static const struct { const char * nm; tree_e tt; char k; } pf[] = { {"Len", TT_LEN, 'N'}, {"Pos", TT_POS, 'N'}, {"Rpos", TT_RPOS, 'N'}, {"Tab", TT_TAB, 'N'}, {"Rtab", TT_RTAB, 'N'},
-        {"Any", TT_ANY, 'K'}, {"NotAny", TT_NOTANY, 'K'}, {"Span", TT_SPAN, 'K'}, {"Break", TT_BREAK, 'K'}, {"Breakx", TT_BREAKX, 'K'}, {"Nspan", TT_SPAN, 'S'},
-        {"Arb", TT_ARB, '0'}, {"Rem", TT_REM, '0'}, {"Bal", TT_BAL, '0'}, {"Fail", TT_FAIL, '0'}, {"Succeed", TT_SUCCEED, '0'}, {"Abort", TT_ABORT, '0'}, {"Fence", TT_FENCE, 'F'}, {"Arbno", TT_ARBNO, 'A'} };
+    static const struct {
+        const char * nm;
+        tree_e tt;
+        char k;
+    } pf[] = { {"Len", TT_LEN, 'N'}, {"Pos", TT_POS, 'N'}, {"Rpos", TT_RPOS, 'N'}, {"Tab", TT_TAB, 'N'}, {"Rtab", TT_RTAB, 'N'}, {"Any", TT_ANY, 'K'}, {"NotAny", TT_NOTANY, 'K'}, {"Span", TT_SPAN,
+        'K'}, {"Break", TT_BREAK, 'K'}, {"Breakx", TT_BREAKX, 'K'}, {"Nspan", TT_SPAN, 'S'}, {"Arb", TT_ARB, '0'}, {"Rem", TT_REM, '0'}, {"Bal", TT_BAL, '0'}, {"Fail", TT_FAIL, '0'}, {"Succeed",
+        TT_SUCCEED, '0'}, {"Abort", TT_ABORT, '0'}, {"Fence", TT_FENCE, 'F'}, {"Arbno", TT_ARBNO, 'A'} };
     if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t != TT_FNC || t->n < 1 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval) return NULL;
     const char * nm = t->c[0]->v.sval;
@@ -1082,36 +1089,92 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         if (strcmp(pf[i].nm, nm)) continue;
         tree_t * kt = pm_int((int64_t) pf[i].tt);
         switch (pf[i].k) {
-            case 'N': return na == 1 ? pm_call("SNO$PBN", kt, (tree_t *) t->c[1]) : NULL;
-            case 'K': return na == 1 ? pm_call("SNO$PBK", kt, (tree_t *) t->c[1]) : NULL;
-            case 'S': return na == 1 ? pm_call("SNO$PBALT", pm_call("SNO$PBK", kt, (tree_t *) t->c[1]), pm_empty_str()) : NULL;
-            case '0': return na == 0 ? pm_call("SNO$PB0", kt, NULL) : NULL;
-            case 'A': return na == 1 ? pm_call("SNO$PARB", (tree_t *) t->c[1], NULL) : NULL;
-            default: return na == 0 ? pm_call("SNO$PB0", kt, NULL) : (na == 1 ? pm_call("SNO$PFEN", (tree_t *) t->c[1], NULL) : NULL);
+            case 'N':
+            return na == 1 ? pm_call("SNO$PBN", kt, (tree_t *) t->c[1]) : NULL;
+            case 'K':
+            return na == 1 ? pm_call("SNO$PBK", kt, (tree_t *) t->c[1]) : NULL;
+            case 'S':
+            return na == 1 ? pm_call("SNO$PBALT", pm_call("SNO$PBK", kt, (tree_t *) t->c[1]), pm_empty_str()) : NULL;
+            case '0':
+            return na == 0 ? pm_call("SNO$PB0", kt, NULL) : NULL;
+            case 'A':
+            return na == 1 ? pm_call("SNO$PARB", (tree_t *) t->c[1], NULL) : NULL;
+            default:
+            return na == 0 ? pm_call("SNO$PB0", kt, NULL) : (na == 1 ? pm_call("SNO$PFEN", (tree_t *) t->c[1], NULL) : NULL);
         }
     }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pm_const_int(const tree_t * a, int64_t * v) {
+    if (a->t == TT_ILIT) { *v = a->v.ival; return 1; }
+    if (a->t == TT_MNS && a->n == 1 && a->c[0] && a->c[0]->t == TT_ILIT) { *v = -a->c[0]->v.ival; return 1; }
+    return 0;
+}
+static IR_t * pm_fn_box(icx_t * cx, const tree_t * e, IR_t ** en) {
+    static const struct {
+        const char * nm;
+        IR_e op;
+        char k;
+    } bx[] = { {"Len", IR_MATCH_LEN, 'N'}, {"Rpos", IR_MATCH_RPOS, 'N'}, {"Rtab", IR_MATCH_RTAB, 'N'}, {"Pos", IR_MATCH_POS, 'P'}, {"Tab", IR_MATCH_TAB, 'P'}, {"Any", IR_MATCH_ANY, 'S'}, {"NotAny",
+        IR_MATCH_NOTANY, 'S'}, {"Span", IR_MATCH_SPAN, 'S'}, {"Break", IR_MATCH_BREAK, 'S'}, {"Breakx", IR_MATCH_BREAKX, 'S'}, {"Rem", IR_MATCH_REM, '0'}, {"Arb", IR_MATCH_ARB, '0'} };
+    if (e->t != TT_FNC || e->n < 1 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval || icn_is_proc(e->c[0]->v.sval)) return NULL;
+    for (int i = 0; i < (int) (sizeof bx / sizeof bx[0]); i++) {
+        if (strcmp(bx[i].nm, e->c[0]->v.sval)) continue;
+        const tree_t * a = e->n > 1 ? e->c[1] : NULL;
+        IR_e op = bx[i].op;
+        if (bx[i].k == '0') { if (e->n != 1) return NULL; return lc_build(cx->g, op, NULL, NULL); }
+        if (e->n != 2 || !a) return NULL;
+        if (bx[i].k == 'S') { if ((a->t != TT_QLIT && a->t != TT_CSET) || !a->v.sval) return NULL; IR_t * nd = lc_build(cx->g, op, NULL, NULL); IR_LIT(nd).sval = a->v.sval; return nd; }
+        if (bx[i].k == 'P') {
+            int64_t n;
+            if (!pm_const_int(a, &n)) return NULL;
+            IR_t * nd = lc_build(cx->g, n > 0 ? op : (op == IR_MATCH_POS ? IR_MATCH_RPOS : IR_MATCH_RTAB), NULL, NULL);
+            IR_LIT(nd).ival = n > 0 ? n - 1 : -n;
+            return nd;
+        }
+        { int64_t n; if (pm_const_int(a, &n)) { IR_t * nd = lc_build(cx->g, op, NULL, NULL); IR_LIT(nd).ival = n; return nd; } }
+        IR_t * nd = lc_build(cx->g, op, NULL, NULL);
+        *en = (IR_t *) a;
+        return nd;
+    }
+    return NULL;
+}
 static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
     int ne = pm_count(pat);
     const tree_t * el[ne];
     IR_t * nd[ne];
+    IR_t * en[ne];
     pm_flatten(pat, el, ne);
     for (int i = 0; i < ne; i++) {
         const tree_t * e = el[i];
+        IR_t * argt = NULL;
+        en[i] = NULL;
         if (e->t == TT_QLIT) {
             nd[i] = lc_build(cx->g, IR_MATCH_LIT, NULL, NULL);
             IR_LIT(nd[i]).sval = e->v.sval ? e->v.sval : (char *) "";
-        } else if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->t == TT_VAR && !strcmp(e->c[0]->v.sval, "Arb")) nd[i] = lc_build(cx->g, IR_MATCH_ARB, NULL, NULL);
-        else { fprintf(stderr, "icon: line %d: this pattern element is not lowered yet (ARCH-UNICON step 4b stage B slice 1)\n", e->line); exit(1); }
+        } else {
+            nd[i] = pm_fn_box(cx, e, &argt);
+            if (!nd[i]) { fprintf(stderr, "icon: line %d: this pattern element is not lowered yet (ARCH-UNICON step 4b stage B)\n", e->line); exit(1); }
+        }
+        en[i] = nd[i];
+        if (argt) {
+            IR_t * fb = ω;
+            if (i > 0) { fb = build(cx, IR_GOTO, NULL, ω); lc_γ_to_β(fb, nd[i - 1]); }
+            IR_t * vr = NULL;
+            int before = cx->g->n;
+            en[i] = lower(cx, (const tree_t *) argt, nd[i], fb, &vr);
+            pm_retag_alpha(cx->g, before, nd[i]);
+            if (vr) ir_operand_push(nd[i], vr);
+            if (!en[i]) en[i] = nd[i];
+        }
     }
-    for (int i = 0; i < ne; i++) { if (i + 1 < ne) lc_γ_to(nd[i], nd[i + 1]); else γ_to(nd[i], γ); if (i > 0) lc_ω_to_β(nd[i], nd[i - 1]); else ω_to(nd[i], ω); }
+    for (int i = 0; i < ne; i++) { if (i + 1 < ne) lc_γ_to(nd[i], en[i + 1]); else γ_to(nd[i], γ); if (i > 0) lc_ω_to_β(nd[i], nd[i - 1]); else ω_to(nd[i], ω); }
     IR_t * g = build(cx, IR_GOTO, NULL, ω);
     lc_γ_to_β(g, nd[ne - 1]);
     cx->beta = g;
     *res = nd[ne - 1];
-    return nd[0];
+    return en[0];
 }
 static IR_t * lower_pmatch(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (t->n == 1 && t->c[0]) return lower_pm_boxes(cx, t->c[0], γ, ω, res);
@@ -1119,10 +1182,12 @@ static IR_t * lower_pmatch(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     const char * nx = icn_synth_local(cx);
     const char * si = icn_synth_local(cx);
     const char * en = icn_synth_local(cx);
-    tree_t * to = pm_node(TT_TO, pm_var(nx), pm_node(TT_ADD, pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL), pm_int(1), NULL), NULL);
+    tree_t * to =
+        pm_node(TT_TO, pm_var(nx), pm_node(TT_IF, pm_node(TT_GT, pm_var(nx), pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL), NULL), pm_var(nx), pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL)),
+        NULL);
     tree_t * pass = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(si), to, NULL), pm_node(TT_ASSIGN, pm_var("&pos"), pm_var(si), NULL), pm_node(TT_PMATCH, (tree_t *) t->c[1], NULL, NULL));
     ast_push(pass, pm_node(TT_ASSIGN, pm_var(en), pm_var("&pos"), NULL));
-    ast_push(pass, pm_node(TT_ASSIGN, pm_var(nx), pm_node(TT_IF, pm_node(TT_GT, pm_var(en), pm_var(si), NULL), pm_var(en), pm_node(TT_ADD, pm_var(si), pm_int(1), NULL)), NULL));
+    ast_push(pass, pm_node(TT_ASSIGN, pm_var(nx), pm_var(en), NULL));
     ast_push(pass, pm_node(TT_SECTION, pm_var("&subject"), pm_var(si), pm_var(en)));
     tree_t * body = pm_node(TT_REPALT, pm_node(TT_LIMIT, pass, pm_int(1), NULL), NULL, NULL);
     tree_t * all = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(nx), pm_int(1), NULL), pm_node(TT_SCAN, (tree_t *) t->c[0], body, NULL), NULL);
