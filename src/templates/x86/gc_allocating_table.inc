@@ -782,6 +782,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "kwb_write_ent", GC_RET_OTHER },
     { "le", GC_RET_OTHER },
     { "lex_cmp_pair", GC_RET_OTHER },
+    { "lexical_text", GC_RET_OTHER },
     { "list_bang_at", GC_RET_OTHER },
     { "list_bang_key_at", GC_RET_OTHER },
     { "load_names_file_bin", GC_RET_OTHER },

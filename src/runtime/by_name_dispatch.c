@@ -20646,7 +20646,10 @@ DESCR_t c_rt_str_coerce(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(c_rt_str_coerce, leaf, 0);
 DESCR_t c_rt_str_coerce(DESCR_t d) {
-    if (!IS_CSET_fn(d)) { if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { extern DESCR_t descr_to_str(DESCR_t); DESCR_t sv = descr_to_str(d); if (!IS_FAIL_fn(sv)) return sv; return d; } return d; }
+    if (!IS_CSET_fn(d)) {
+        if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); DESCR_t sv = descr_to_str_fracdigit(d); if (!IS_FAIL_fn(sv)) return sv; return d; }
+        return d;
+    }
     const char *cp;
     int cl;
     if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
@@ -20658,6 +20661,12 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
 }
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int num_text);
 static int bn_identical(DESCR_t a, DESCR_t b);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * lexical_text(DESCR_t d, int num_text) {
+    extern DESCR_t descr_to_str_fracdigit(DESCR_t);
+    if (!IS_REAL_fn(d)) return VARVAL_fn(d);
+    return num_text ? rk_cstr(d) : descr_to_str_fracdigit(d).s;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(c_rt_jct_relop, leaf, 0);
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
@@ -20763,7 +20772,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int n
         return 0;
     }
     {
-        const char *a = (num_text && IS_REAL_fn(lhs)) ? rk_cstr(lhs) : VARVAL_fn(lhs), *b = (num_text && IS_REAL_fn(rhs)) ? rk_cstr(rhs) : VARVAL_fn(rhs);
+        const char *a = lexical_text(lhs, num_text), *b = lexical_text(rhs, num_text);
         if (!a) a="";
         if (!b) b="";
         size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);
