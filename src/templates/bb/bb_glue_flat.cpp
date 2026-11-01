@@ -378,10 +378,8 @@ std::string bb_glue_name_or_rec_lea(const char * nm) {
                                   : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)nm, x86_strtab_lbl(nm).c_str());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_patv_slot_of(const char * sv) {
-    const char * d = (sv && !strncmp(sv, "PAT$", 4)) ? strstr(sv, "$V") : NULL;
-    return (d && strspn(d + 2, "0123456789") > 0 && !d[2 + strspn(d + 2, "0123456789")]) ? atoi(d + 2) : -1;
-}
+static int patv_digits(const char * d) { return (d && strspn(d + 2, "0123456789") > 0 && !d[2 + strspn(d + 2, "0123456789")]) ? atoi(d + 2) : -1; }
+int bb_patv_slot_of(const char * sv) { return patv_digits((sv && !strncmp(sv, "PAT$", 4)) ? strstr(sv, "$V") : NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_patv_args(void) {
     return (_.op_head_spine && _.op_head_rsp < 0)
@@ -394,7 +392,7 @@ std::string bb_glue_patv_args(void) {
 std::string bb_glue_patv_cell(const char * reg) {
     return (_.op_head_spine && _.op_head_rsp < 0)
          ? x86_bomb("bb_glue_patv_cell: a frameless thunk reads its head from a box with no spine depth")
-         : x86_reg_disp32_lea64(reg, _.op_head_spine ? "rsp" : "rbp", _.op_head_spine ? _.op_head_rsp : -24);
+         : x86("lea", reg, RDQ(_.op_head_spine ? "rsp" : "rbp", _.op_head_spine ? _.op_head_rsp : -24));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
@@ -434,7 +432,7 @@ std::string bb_glue_prim_member(int base, int code) {
          + x86_rt_gc_poll_rec_sigma(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code) {
+std::string bb_glue_prim(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code) {
     return emit_seq({ bb_glue_prim_open_enter(base),
                       x86("lea", "rdi", LFDQ(ptr_d, ptr_sd)),
                       x86("lea", "rsi", LFD(len_d, len_sd)),
@@ -443,7 +441,7 @@ std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len
                       x86_rt_gc_poll_rec_sigma(1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code) {
+std::string bb_glue_prim_rsp(int base, int ptr_off, int len_off, int code) {
     return emit_seq({ bb_glue_prim_open_enter(base),
                       x86("lea", "rdi", RDQ("rsp", ptr_off)),
                       x86("lea", "rsi", RDQ("rsp", len_off)),

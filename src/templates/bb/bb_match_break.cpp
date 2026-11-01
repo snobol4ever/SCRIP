@@ -55,7 +55,7 @@ std::string bb_match_break() {
                x86("comment", "IR_MATCH_BREAK defer")
              + x86_alpha()
              + bb_glue_name_or_rec_lea(_.op_sval)
-             + bb_glue_prim_str(50, 0, 4, 8, 12, 44)
+             + bb_glue_prim(50, 0, 4, 8, 12, 44)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "edi", "r14d")
