@@ -406,6 +406,19 @@ __attribute__((visibility("hidden"))) int plw_unify_cell_val(DESCR_t *dst, DESCR
 __attribute__((visibility("hidden"))) void plw_bind_x(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) { plw_bind(cell, word, cx); }
 __attribute__((visibility("hidden"))) int plw_unify_vals_oc(DESCR_t va, DESCR_t vb, pl_tr_ctx_t *cx) { DESCR_t ta = va, tb = vb; return plw_unify_cells_oc(plw_entry(&ta), plw_entry(&tb), cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_catch_trim(const pl_tr_ctx_t *cx, pl_tr_ctx_t *c2, char *mark) {
+    char probe;
+    char *floor_ = &probe, *s = mark, *d = mark;
+    for (; s < c2->tr; s += PL_TR_ENTRY_BYTES) {
+        const pl_tr_entry_t *e = (const pl_tr_entry_t *)s;
+        if (e->cell && !e->pad && !pl_tr_needs_log_bind(cx, e->cell, floor_)) continue;
+        if (d != s) memcpy(d, s, PL_TR_ENTRY_BYTES);
+        d += PL_TR_ENTRY_BYTES;
+    }
+    c2->tr = d;
+    *(char **)pl_tr_base_of(d) = d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) {
     char fakeb[PL_TR_FRAME_HEADER_BYTES];
     char *base, *mark;
@@ -421,7 +434,7 @@ int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) {
     pl_tr_frame_hi_set(fakeb, (const void *)0);
     c2.b = fakeb;
     ok = plw_unify_cells(plw_entry(&a[0]), (DESCR_t *)ball, &c2);
-    if (ok) { cx->tr = c2.tr; cx->ball = c2.ball; return 1; }
+    if (ok) { if (*pl_tr_wake_slot(base) == wake0) plc_catch_trim(cx, &c2, mark); cx->tr = c2.tr; cx->ball = c2.ball; return 1; }
     cx->tr = rt_pl_tr_unwind_to(c2.tr, mark);
     *pl_tr_wake_slot(base) = wake0;
     cx->ball = c2.ball;
