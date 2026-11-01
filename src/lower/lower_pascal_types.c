@@ -1399,6 +1399,76 @@ const pty_t *pty_type_by_name(const char *name) {
     for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 't' && p->name && !strcmp(p->name, name)) return p->t;
     return NULL;
 }
+static const pty_t *pt_tn(struct pty_state *s, const char *name, pty_t *tmp) {
+    if (!s || !s->ecur || !name) return NULL;
+    if (!strncmp(name, "$open$", 6)) { memset(tmp, 0, sizeof *tmp); tmp->k = PTK_ARRAY; tmp->dyn = 1; tmp->open = 1; tmp->base = pt_named(s, name + 6); return tmp; }
+    const pty_t *t = pty_type_by_name(name);
+    return t && t->k == PTK_ARRAY ? t : NULL;
+}
+static const pty_t *pt_tn_inner(const pty_t *t) { while (t && t->k == PTK_ARRAY) t = t->base; return t; }
+static long long pt_tn_hi(const pty_t *t) {
+    if (t->dyn || t->open) return 0;
+    if (t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return -1;
+    if (t->nix == 2) return t->ix[1] && t->ix[1]->bounded ? (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1 : -1;
+    return t->ix[0]->hi;
+}
+static int pt_tn_ischar(const pty_t *t) {
+    const pty_t *e = pt_tn_inner(t);
+    if (!e || e->k != PTK_CHAR) return 0;
+    if (t->base && t->base->k == PTK_ARRAY) return t->dyn ? 3 : (pt_tn_ischar(t->base) & 2) ? 0 : 3;
+    if (t->dyn) return 3;
+    if (t->nix == 2) return 1;
+    return t->packed && t->ix && t->ix[0] && t->ix[0]->lo == 1 && t->ix[0]->hi >= 2 && t->ix[0]->k != PTK_ENUM ? 1 : 3;
+}
+static int pt_tn_isbool(const pty_t *t) { const pty_t *e = pt_tn_inner(t); if (!e || e->k != PTK_BOOL) return 0; return !(!t->dyn && t->base && t->base->k == PTK_ARRAY && !t->base->dyn); }
+int pty_tn_dyn(const char *name) { pty_t tmp; const pty_t *t = pt_tn(pt_st(), name, &tmp); int d = 0; while (t && t->k == PTK_ARRAY && t->dyn) { d++; t = t->base; } return d; }
+long long pty_tn_high(const char *name) { pty_t tmp; const pty_t *t = pt_tn(pt_st(), name, &tmp); long long h = t ? pt_tn_hi(t) : -1; return h < 0 ? -1 : h; }
+long long pty_tn_lo(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    if (!t || t->dyn || t->open || pt_tn_hi(t) < 0) return 0;
+    return t->nix == 2 ? (t->ix[0]->lo > 0 ? t->ix[0]->lo : 0) : t->ix[0]->lo;
+}
+long long pty_tn_ncols(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    return t && !t->dyn && !t->open && t->nix == 2 && pt_tn_hi(t) >= 0 ? t->ix[1]->hi - t->ix[1]->lo + 1 : -1;
+}
+int pty_tn_d2(const char *name, long long *out) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    if (!t || t->dyn || t->open || t->nix != 2 || pt_tn_hi(t) < 0) return 0;
+    out[0] = t->ix[0]->lo;
+    out[1] = t->ix[0]->hi;
+    out[2] = t->ix[1]->lo;
+    out[3] = t->ix[1]->hi;
+    return 1;
+}
+int pty_tn_ischar(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    if (!t) return 0;
+    if (t->open) return pt_tn_inner(t) && pt_tn_inner(t)->k == PTK_CHAR && !strcmp(name + 6, "char") ? 3 : 0;
+    return pt_tn_hi(t) < 0 ? 0 : pt_tn_ischar(t);
+}
+int pty_tn_isbool(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    return t && (t->open ? pt_tn_inner(t) && pt_tn_inner(t)->k == PTK_BOOL : pt_tn_hi(t) >= 0 && pt_tn_isbool(t));
+}
+int pty_tn_wrap(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    return t && !t->open && pt_tn_hi(t) >= 0 && t->base && t->base->k == PTK_ARRAY && pt_tn_ischar(t->base) && !(!t->dyn && (pt_tn_ischar(t->base) & 2) && !t->base->dyn);
+}
+const char *pty_tn_elem(const char *name) {
+    pty_t tmp;
+    const pty_t *t = pt_tn(pt_st(), name, &tmp);
+    if (!t || !t->dyn) return NULL;
+    if (t->open) return name + 6;
+    const pty_t *e = pt_tn_inner(t);
+    return e ? pty_name_of(e) : NULL;
+}
 const pty_t *pty_rec_by_name(const char *name) {
     struct pty_state *s = pt_st();
     if (!s || !name) return NULL;

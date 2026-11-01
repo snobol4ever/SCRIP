@@ -116,9 +116,6 @@ typedef struct {
     struct { char *name; } *pas_assigned;
     int pas_assigned_cap;
     int pas_nassigned;
-    struct { char *name; long long high; int ndim2; long long ncols; int ischar; long long lo; int isbool; int isdyn; int wrap; char *elem; long long d2[4]; } *pas_arrtypes;
-    int pas_arrtypes_cap;
-    int pas_narrtype;
     int pas_pend_arr_ischar;
     int pas_pend_arr_wrap;
     struct { char *name; long long high; long long min_size; } *pas_enumtypes;

@@ -302,7 +302,6 @@ static int pas_is_dynexpr(const tree_t *e);
 static int pas_array_isopen(const char *name);
 static void pas_openparm_add(const char *name, unsigned long long m);
 static unsigned long long pas_openparm_mask(const char *name);
-static void pas_open_type_ensure(const char *tn);
 static const char *pas_proctype_get(const char *name);
 static PNodeList *pas_defaults_extend(const char *routine, PNodeList *args);
 static tree_t *pas_default_get(const char *routine, int idx);
@@ -1895,7 +1894,6 @@ static const char *pas_sconst_get(const char *name) {
     for (int i = 0; i < g_lower.pas.sem.pas_nsconst; i++) if (g_lower.pas.sem.pas_sconsts[i].name && !strcmp(g_lower.pas.sem.pas_sconsts[i].name, name)) return g_lower.pas.sem.pas_sconsts[i].val;
     return 0;
 }
-static void pas_d2_copy(long long *dst) { for (int q = 0; q < 4; q++) dst[q] = g_lower.pas.sem.pas_pend_dim2.v[q]; }
 static int pas_array_is_param(const char *name) {
     const pty_t *t = name ? pty_name_type(name) : NULL;
     int k = pty_name_kind(name);
@@ -1975,37 +1973,9 @@ static unsigned long long pas_openparm_mask(const char *name) {
     for (int i = g_lower.pas.sem.pas_nopenparm - 1; name && i >= 0; i--) if (!strcmp(g_lower.pas.sem.pas_openparms[i].name, name)) return g_lower.pas.sem.pas_openparms[i].mask;
     return 0;
 }
-static void pas_open_type_ensure(const char *tn) {
-    if (!tn || strncmp(tn, "$open$", 6) || pas_arrtype_isdyn(tn)) return;
-    const char *el = tn + 6;
-    if (g_lower.pas.sem.pas_narrtype >= g_lower.pas.sem.pas_arrtypes_cap) g_lower.pas.sem.pas_arrtypes =
-        pas_pool_grow(g_lower.pas.sem.pas_arrtypes, &g_lower.pas.sem.pas_arrtypes_cap, sizeof *g_lower.pas.sem.pas_arrtypes, 16);
-    int k = g_lower.pas.sem.pas_narrtype++;
-    g_lower.pas.sem.pas_arrtypes[k].name = ct_strdup(tn);
-    g_lower.pas.sem.pas_arrtypes[k].high = 0;
-    g_lower.pas.sem.pas_arrtypes[k].ndim2 = 0;
-    g_lower.pas.sem.pas_arrtypes[k].ncols = -1;
-    g_lower.pas.sem.pas_arrtypes[k].ischar = !strcmp(el, "char") ? (1 | PAS_CA_NOSTR) : 0;
-    g_lower.pas.sem.pas_arrtypes[k].lo = 0;
-    g_lower.pas.sem.pas_arrtypes[k].isbool = pas_is_booltype(el);
-    g_lower.pas.sem.pas_arrtypes[k].isdyn = 1;
-    g_lower.pas.sem.pas_arrtypes[k].elem = ct_strdup(el);
-}
-static int pas_arrtype_wrap(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i].wrap;
-    return 0;
-}
-static int pas_arrtype_isdyn(const char *name) {
-    for (int i = 0; name && i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name))
-        return g_lower.pas.sem.pas_arrtypes[i].isdyn;
-    return 0;
-}
-static const char *pas_arrtype_elem(const char *name) {
-    for (int i = 0; name && i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name))
-        return g_lower.pas.sem.pas_arrtypes[i].elem;
-    return NULL;
-}
+static int pas_arrtype_wrap(const char *name) { return pty_tn_wrap(name); }
+static int pas_arrtype_isdyn(const char *name) { return pty_tn_dyn(name); }
+static const char *pas_arrtype_elem(const char *name) { return pty_tn_elem(name); }
 static int pas_is_dynexpr(const tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_VAR && e->v.sval) return pas_array_isdyn(e->v.sval) > 0;
@@ -2015,60 +1985,12 @@ static int pas_is_dynexpr(const tree_t *e) {
 }
 static int pas_array_high_get(const char *name, long long *out) { return name ? pty_name_high(name, out) : 0; }
 static int pas_array_dims(const char *name, long long *out) { return name ? pty_name_dims(name, out) : 0; }
-static void pas_arrtype_add(const char *name, long long high, int ndim2, long long ncols) {
-    if (name) {
-        if (g_lower.pas.sem.pas_narrtype >= g_lower.pas.sem.pas_arrtypes_cap) g_lower.pas.sem.pas_arrtypes =
-            pas_pool_grow(g_lower.pas.sem.pas_arrtypes, &g_lower.pas.sem.pas_arrtypes_cap, sizeof *g_lower.pas.sem.pas_arrtypes, 16);
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].name = ct_strdup(name);
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].high = high;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].ndim2 = ndim2;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].ncols = ncols;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].ischar = g_lower.pas.sem.pas_pend_arr_ischar;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].isbool = g_lower.pas.sem.pas_pend_isbool;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].isdyn = g_lower.pas.sem.pas_pend_dyn;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].wrap = g_lower.pas.sem.pas_pend_arr_wrap;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].elem = (g_lower.pas.sem.pas_pend_dyn && g_lower.pas.sem.pas_pend_typename) ? ct_strdup(g_lower.pas.sem.pas_pend_typename) : NULL;
-        g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].lo = ndim2 ? (g_lower.pas.sem.pas_pend_sub_low > 0 ? g_lower.pas.sem.pas_pend_sub_low : 0) : g_lower.pas.sem.pas_pend_sub_low;
-        pas_d2_copy(g_lower.pas.sem.pas_arrtypes[g_lower.pas.sem.pas_narrtype].d2);
-        g_lower.pas.sem.pas_narrtype++;
-    }
-}
-static long long pas_arrtype_high(const char *name) {
-    if (!name) return -1;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i].high;
-    return -1;
-}
-static long long pas_arrtype_ncols(const char *name) {
-    if (!name) return -1;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i]
-        .ndim2 ? g_lower.pas.sem.pas_arrtypes[i].ncols : -1;
-    return -1;
-}
-static long long pas_arrtype_lo(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i].lo;
-    return 0;
-}
-static int pas_arrtype_d2_get(const char *name, long long *out) {
-    for (int i = 0; name && i < g_lower.pas.sem.pas_narrtype; i++)
-        if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name) && g_lower.pas.sem.pas_arrtypes[i].ndim2) {
-        for (int q = 0; q < 4; q++) out[q] = g_lower.pas.sem.pas_arrtypes[i].d2[q];
-        return 1;
-    }
-    return 0;
-}
-static int pas_arrtype_isbool(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i]
-        .isbool;
-    return 0;
-}
-static int pas_arrtype_ischar(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narrtype; i++) if (g_lower.pas.sem.pas_arrtypes[i].name && !strcmp(g_lower.pas.sem.pas_arrtypes[i].name, name)) return g_lower.pas.sem.pas_arrtypes[i]
-        .ischar;
-    return 0;
-}
+static long long pas_arrtype_high(const char *name) { return pty_tn_high(name); }
+static long long pas_arrtype_ncols(const char *name) { return pty_tn_ncols(name); }
+static long long pas_arrtype_lo(const char *name) { return pty_tn_lo(name); }
+static int pas_arrtype_d2_get(const char *name, long long *out) { return pty_tn_d2(name, out); }
+static int pas_arrtype_isbool(const char *name) { return pty_tn_isbool(name); }
+static int pas_arrtype_ischar(const char *name) { return pty_tn_ischar(name); }
 static void pas_enumtype_add(const char *n, long long h) {
     if (n) {
         if (g_lower.pas.sem.pas_nenum >= g_lower.pas.sem.pas_enumtypes_cap) g_lower.pas.sem.pas_enumtypes =
@@ -5945,7 +5867,6 @@ static pval E_parameter_decl(const tree_t *n) {
         v[2] = E_id_list(n->c[0], 0, n->c[0]->n);
         v[4].str = tok_s(n->c[1]);
         {
-            pas_open_type_ensure(v[4].str);
             pas_pf_section('r', v[2].list, v[4].str);
             {
                 {
@@ -5973,7 +5894,6 @@ static pval E_parameter_decl(const tree_t *n) {
         v[1] = E_id_list(n->c[0], 0, n->c[0]->n);
         v[3].str = tok_s(n->c[1]);
         {
-            pas_open_type_ensure(v[3].str);
             pas_value_formal_file_check(v[1].list, v[3].str);
             pas_pf_section('v', v[1].list, v[3].str);
             if (pas_is_realtypename(v[3].str)) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i]) ast_push(v[1].list->items[i], ast_node_new(TT_FLIT));
@@ -7072,7 +6992,6 @@ static pval E_type_decl(const tree_t *n) {
             if (g_lower.pas.sem.pas_pend_sub_high >= 0 && _ty3 < 0 && g_lower.pas.sem.pas_pend_arr_ncols < 0)
                 pas_subtype_add(v[1].str, g_lower.pas.sem.pas_pend_sub_low, g_lower.pas.sem.pas_pend_sub_high);
             if (g_lower.pas.sem.pas_pend_proctype) pas_proctype_add(v[1].str, g_lower.pas.sem.pas_pend_proctype);
-            if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget) { pas_arrtype_add(v[1].str, _ty3, g_lower.pas.sem.pas_pend_arr_ncols >= 0 ? 1 : 0, g_lower.pas.sem.pas_pend_arr_ncols); }
             if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget && g_lower.pas.sem.pas_pend_row_hi >= g_lower.pas.sem.pas_pend_row_lo)
                 pas_rows_add(v[1].str, g_lower.pas.sem.pas_pend_row_lo, g_lower.pas.sem.pas_pend_row_hi, 1, g_lower.pas.sem.pas_pend_row_kind);
             if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget && g_lower.pas.sem.pas_pend_arr_ptrto) pas_arrptr_add(v[1].str, g_lower.pas.sem.pas_pend_arr_ptrto);
