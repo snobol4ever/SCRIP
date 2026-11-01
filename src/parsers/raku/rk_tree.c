@@ -897,6 +897,21 @@ static tree_t *b_dq_fl(RkB *b, RkClosure *cl, int ncl, int from, int to, int fl)
                     i = j + 1; continue;
                 }
             }
+            if (d == 'o' && i + 2 < to && s[i + 2] == '[') {
+                int j = i + 3; while (j < to && ((s[j] >= '0' && s[j] <= '7') || s[j] == ',' || s[j] == ' ')) j++;
+                if (j < to && s[j] == ']' && j > i + 3) {
+                    const char *p = s + i + 3;
+                    while (p < s + j) { while (p < s + j && (*p == ' ' || *p == ',')) p++; if (p >= s + j) break; char *e; unsigned long cp = strtoul(p, &e, 8); if (e == p) break; DQ_PUTCP(cp);
+                        p = e; }
+                    i = j + 1; continue;
+                }
+            }
+            if (d == 'o' && i + 2 < to && s[i + 2] >= '0' && s[i + 2] <= '7') {
+                int j = i + 2;
+                while (j < to && s[j] >= '0' && s[j] <= '7') j++;
+                DQ_PUTCP(strtoul(spn(b, i + 2, j), NULL, 8));
+                i = j; continue;
+            }
             if (d == 'x' && i + 2 < to && ishex(s[i + 2])) { int j = i + 2; while (j < to && ishex(s[j])) j++; DQ_PUTCP(strtoul(spn(b, i + 2, j), NULL, 16)); i = j; continue; }
             if (d == 'c' && i + 2 < to && s[i + 2] == '[') {
                 int j = i + 3; while (j < to && s[j] != ']') j++;
@@ -936,7 +951,7 @@ static tree_t *b_dq_fl(RkB *b, RkClosure *cl, int ncl, int from, int to, int fl)
             int e = cc ? (cc->end > i ? cc->end : dq_closure_end(s, i, to)) : -1;
             if (e > 0) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; i = e; continue; }
         }
-        if (c == '$' || c == '@') {
+        if (c == '$' || c == '@' || c == '%' || c == '&') {
             RkClosure *cc = closure_at(cl, ncl, i);
             if (cc && cc->end > i && cc->end <= to) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; i = cc->end; continue; }
         }

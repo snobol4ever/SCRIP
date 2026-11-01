@@ -1079,6 +1079,13 @@ static void interp_call(RkP *p, int pos, int sigil) {
     p->qc[p->nqc].pos = pos; p->qc[p->nqc].last = X; p->qc[p->nqc].cnt = 1; p->qc[p->nqc].end = e; p->nqc++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int interp_subscripted(RkP *p, int pos, int e) {
+    int c = cp_at(p, pos + 1);
+    if (!is_alpha_cp(c) && c != '_') return 0;
+    for (int i = pos; i < e; i++) if (p->s[i] == '[' || p->s[i] == '{' || p->s[i] == '<') return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quote_escape(RkP *p, int pos, RkLang *L) {
     int c = cp_at(p, pos);
     if (c == '\\') {
@@ -1094,12 +1101,12 @@ static int r_quote_escape(RkP *p, int pos, RkLang *L) {
     if (c == '$' && L->sc) {
         int e = interp_sigil(p, pos, '$');
         if (e < 0) panic_at(p, pos, "Non-variable $ must be backslashed");
-        if (p->build && memchr(p->s + pos, '(', (size_t) (e - pos))) interp_call(p, pos, '$');
+        if (p->build && (memchr(p->s + pos, '(', (size_t) (e - pos)) || interp_subscripted(p, pos, e))) interp_call(p, pos, '$');
         return e;
     }
-    if (c == '@' && L->ar) { int e = interp_sigil(p, pos, '@'); if (e >= 0 && p->build && memchr(p->s + pos, '(', (size_t) (e - pos))) interp_call(p, pos, '@'); return e; }
-    if (c == '%' && L->hs) return interp_sigil(p, pos, '%');
-    if (c == '&' && L->fn) return interp_sigil(p, pos, '&');
+    if (c == '@' && L->ar) { int e = interp_sigil(p, pos, '@'); if (e >= 0 && p->build) interp_call(p, pos, '@'); return e; }
+    if (c == '%' && L->hs) { int e = interp_sigil(p, pos, '%'); if (e >= 0 && p->build) interp_call(p, pos, '%'); return e; }
+    if (c == '&' && L->fn) { int e = interp_sigil(p, pos, '&'); if (e >= 0 && p->build) interp_call(p, pos, '&'); return e; }
     if (L->ww) {
         if (c == '\'' || c == '"' || c == 0x2018 || c == 0x201A || c == 0x2019 || c == 0x201C || c == 0x201E || c == 0x201D || c == 0xFF62) return r_quote(p, pos);
         if (c == ':' && (is_alpha_cp(cp_at(p, pos + 1)) || ch(p, pos + 1) == '!' || ch(p, pos + 1) == '$' || ch(p, pos + 1) == '@')) { int e = r_colonpair(p, pos); if (e >= 0) return e; }
@@ -2109,7 +2116,18 @@ static int r_termish(RkP *p, int pos) {
         while (k >= base && !bracket_ending_at(p, p->ends[k])) k--;
         int res = k >= base ? p->ends[k] : (p->qsigil == '$' ? t : -1);
         p->nends = base;
-        if (p->build && res >= 0) { int r2 = t; for (;;) { int e = r_postfixish(p, r2); if (e < 0 || e > res) break; rkb_postfix(p->B, &it, &p->pf); r2 = e; } p->tm = it; }
+        if (p->build && res >= 0) {
+            int r2 = t;
+            for (;;) {
+                p->x_sub = !it.npost && it.kind == TK_VAR && it.cls == 'A';
+                int e = r_postfixish(p, r2);
+                p->x_sub = 0;
+                if (e < 0 || e > res) break;
+                rkb_postfix(p->B, &it, &p->pf);
+                r2 = e;
+            }
+            p->tm = it;
+        }
         return res;
     }
     int tq = q;
