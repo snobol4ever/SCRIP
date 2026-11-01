@@ -1938,8 +1938,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$gnu_last_sep'(Cs,Ch,Pre,Post):-reverse(Cs,R),'$gnu_upto'(R,Ch,RPost,RPre),reverse(RPost,Post),reverse(RPre,Pre).\n"
     "'$gnu_upto'([C|Cs],C,[],Cs):-!.\n"
     "'$gnu_upto'([C|Cs],Ch,[C|P],R):-'$gnu_upto'(Cs,Ch,P,R).\n"
-    "last([X],X):- !.\n"
-    "last([_|T],X):-last(T,X).\n"
+    "last([X|Xs],Last):-'$last_'(Xs,X,Last).\n"
+    "'$last_'([],Last,Last).\n"
+    "'$last_'([X|Xs],_,Last):-'$last_'(Xs,X,Last).\n"
     "argument_counter(N):-nonvar(N),\\+ integer(N),!,throw(error(type_error(integer,N),argument_counter/1)).\n"
     "argument_counter(N):-'$argv'(L),length(L,N).\n"
     "argument_list(L):-nonvar(L),L\\=[],L\\=[_|_],!,throw(error(type_error(list,L),argument_list/1)).\n"
@@ -1949,10 +1950,10 @@ static const char * const PL_PRELUDE_SRC =
     "argument_value(I,_):-I<0,!,throw(error(domain_error(not_less_than_zero,I),argument_value/2)).\n"
     "argument_value(_,A):-nonvar(A),\\+ atom(A),!,throw(error(type_error(atom,A),argument_value/2)).\n"
     "argument_value(I,A):-'$argv'(L),nth0(I,L,A0),!,A=A0.\n"
-    "nth0(N,L,E):-integer(N),!,'$nth_det'(N,L,E).\n"
+    "nth0(N,L,E):-integer(N),!,'$seek_list'(N,L,RN,RL),'$nth_det'(RN,RL,E).\n"
     "nth0(N,L,E):-var(N),!,'$nth_'(L,0,N,E).\n"
     "nth0(N,_,_):-throw(error(type_error(integer,N),context(nth0/3,_))).\n"
-    "nth1(N,L,E):-integer(N),!,N0 is N-1,'$nth_det'(N0,L,E).\n"
+    "nth1(N,L,E):-integer(N),!,N0 is N-1,'$seek_list'(N0,L,RN,RL),'$nth_det'(RN,RL,E).\n"
     "nth1(N,L,E):-var(N),!,'$nth_'(L,1,N,E).\n"
     "nth1(N,_,_):-throw(error(type_error(integer,N),context(nth1/3,_))).\n"
     "'$nth_det'(0,[X|_],E):-!,E=X.\n"
@@ -4522,6 +4523,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
+    if (pl_cv_has(&referenced, "call_with_depth_limit")) pl_cv_add(&referenced, "$dl_findall");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "char_type")) pl_cv_add(&referenced, "$ctype");
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");

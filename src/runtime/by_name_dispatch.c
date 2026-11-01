@@ -8079,6 +8079,18 @@ PL_CX_LEAF_HEAD(skip_list, 3)
         ok = plw_unify_cell_val(&args[0], INTVAL((int64_t)n), cx) && plw_unify_cells(&args[2], c, cx);
     }
 PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(seek_list, 4)
+    {
+        DESCR_t cnt = rt_pl_deref_val(args[0]);
+        DESCR_t *c = plw_cell_deref(&args[1]);
+        int64_t size = cnt.i;
+        ok = 0;
+        if (cnt.v == DT_I) {
+            while (size > 0 && pl_is_cons(*c) && c->p) { c = plw_cell_deref(&((DESCR_t *)c->p)[1]); size--; }
+            ok = plw_unify_cells(&args[3], c, cx) && plw_unify_cell_val(&args[2], INTVAL(size), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(univ, 2) ok = rt_pl_univ_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_share_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_keep, 4) ok = rt_pl_copy_keep_cell(&args[0], &args[1], &args[2], &args[3], cx); PL_CX_LEAF_TAIL
@@ -26254,9 +26266,9 @@ DESCR_t rt_pl_dop_dl_reset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_dl_tick_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
     int64_t *w = (int64_t *)fb, *pair = (int64_t *)(uintptr_t)w[1], lvl = w[0] + 1;
-    (void)args;
-    (void)nargs;
+    DESCR_t kv;
     (void)cx;
+    if (nargs == 1) { kv = rt_pl_deref_val(args[0]); if (kv.v == DT_I && kv.i > 0) lvl += kv.i; }
     if (!pair) return pl_ok();
     if (lvl > pair[1]) pair[1] = lvl;
     return lvl > pair[0] ? FAILDESCR : pl_ok();

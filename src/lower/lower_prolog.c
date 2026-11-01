@@ -1593,9 +1593,9 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$float" }, { "atomic", 1, "$atomic" }, { "string", 1, "$string" }, { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" },
     { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
     { "compare", 3, "$compare" }, { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "$copy_term_nat", 2, "$copy_term_nat" },
-    { "term_variables", 2, "$term_variables" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" },
-    { "$between_special", 2, "$between_special" }, { "$argv", 1, "$argv" }, { "$scc_bnew", 1, "$scc_bnew" }, { "$scc_take", 2, "$scc_take" }, { "$attv_set", 2, "$attv_set" }, { "setarg", 3,
-    "$setarg" }, { "nb_setarg", 3, "$nb_setarg" }, { "nb_linkarg", 3, "$nb_linkarg" }, { "stamp_date_time", 3, "$stamp_date_time" }, { "date_time_stamp", 2, "$date_time_stamp" },
+    { "term_variables", 2, "$term_variables" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" }, { "$seek_list", 4,
+    "$seek_list" }, { "$between_special", 2, "$between_special" }, { "$argv", 1, "$argv" }, { "$scc_bnew", 1, "$scc_bnew" }, { "$scc_take", 2, "$scc_take" }, { "$attv_set", 2, "$attv_set" },
+    { "setarg", 3, "$setarg" }, { "nb_setarg", 3, "$nb_setarg" }, { "nb_linkarg", 3, "$nb_linkarg" }, { "stamp_date_time", 3, "$stamp_date_time" }, { "date_time_stamp", 2, "$date_time_stamp" },
     { "$format_time_text", 3, "$format_time_text" }, { "$create_prolog_flag", 4, "$create_prolog_flag" }, { "$flag_meta", 3, "$flag_meta" }, { "$attv_atts", 2, "$attv_atts" }, { "$attv_take", 1,
     "$attv_take" }, { "$unifiable", 3, "$unifiable" }, { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "$char_type_d", 2, "$char_type" },
     { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_to_atom" }, { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" },
@@ -2481,30 +2481,45 @@ static int pl_trace_stmt_control(const tree_t * t) {
     return !strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dl_prelude_key(const lcx_t * cx) {
+    extern int pl_prelude_defines(const char *, int);
+    const char * sl = cx->cur_key ? strrchr(cx->cur_key, '/') : (const char *) 0;
+    if (!sl || sl == cx->cur_key) return 0;
+    char kn[sl - cx->cur_key + 1];
+    memcpy(kn, cx->cur_key, (size_t)(sl - cx->cur_key));
+    kn[sl - cx->cur_key] = 0;
+    return pl_prelude_defines(kn, atoi(sl + 1)) && !pl_file_defines(kn, atoi(sl + 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_dl_wants_tick(const lcx_t * cx, const tree_t * t) {
     extern int pl_prelude_defines(const char *, int);
     static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "not", "call", "findall", "forall", "once", "ignore", "catch", "setup_call_cleanup", "call_cleanup", "true", "fail", ":", "bagof",
         "setof", NULL };
     const char * nm;
     int n;
-    if (cx->cur_key && (!strncmp(cx->cur_key, "$dl_", 4) || !strcmp(cx->cur_key, "call_with_depth_limit/3"))) return 0;
-    if (cx->cur_key) {
-        const char * sl = strrchr(cx->cur_key, '/');
-        if (sl && sl != cx->cur_key) {
-            char kn[sl - cx->cur_key + 1];
-            memcpy(kn, cx->cur_key, (size_t)(sl - cx->cur_key));
-            kn[sl - cx->cur_key] = 0;
-            if (pl_prelude_defines(kn, atoi(sl + 1)) && !pl_file_defines(kn, atoi(sl + 1))) return 0;
-        }
-    }
+    if (cx->cur_key && (!strncmp(cx->cur_key, "$dl_", 4) || !strncmp(cx->cur_key, "$mc:", 4) || !strcmp(cx->cur_key, "call_with_depth_limit/3"))) return 0;
+    if (pl_dl_prelude_key(cx)) return 0;
     if (t->t == TT_UNIFY) return !(t->n == 2 && t->c[0] && t->c[1] && (t->c[0]->t == TT_VAR || t->c[1]->t == TT_VAR));
     if (t->t != TT_FNC && t->t != TT_QLIT && t->t != TT_NAME) return 0;
     nm = t->v.sval;
     n = (t->t == TT_FNC) ? t->n : 0;
     if (!nm || nm[0] == '$') return 0;
+    if (cx->cur_key) { char sk[fmt_len("%s/%d", nm, n)]; snprintf(sk, sizeof sk, "%s/%d", nm, n); if (!strcmp(cx->cur_key, sk)) return 0; }
     for (int i = 0; ctl[i]; i++) if (!strcmp(nm, ctl[i])) return 0;
     if (t->t == TT_FNC && n == 2 && (!strcmp(nm, "=") || !strcmp(nm, "==") || !strcmp(nm, "\\==")) && t->c[0] && t->c[1] && (t->c[0]->t == TT_VAR || t->c[1]->t == TT_VAR)) return 0;
     return pl_user_defines(nm, n) || pl_prelude_defines(nm, n) || pl_db_owned(nm, n) ? 0 : 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dl_ctl_leaf_scope(const lcx_t * cx) {
+    static const char * const pre[] = { "$cc", "$mc:,/", "$mc:;/", "$mc:->/", "$mc:*->/", "$mc:\\+/", "$mc:|/", NULL };
+    if (!g_stage2.depth_counted || !cx->cur_key) return 0;
+    for (int i = 0; pre[i]; i++) if (!strncmp(cx->cur_key, pre[i], strlen(pre[i]))) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_dl_leaf_tree(tree_t * v) {
+    tree_t * is_fail = pl_cc_fnc2(";", pl_cc_fnc2("==", v, (tree_t *) pl_atom_goal("fail")), pl_cc_fnc2("==", v, (tree_t *) pl_atom_goal("false")));
+    return pl_cc_ite(pl_cc_fnc2("==", v, (tree_t *) pl_atom_goal("true")), (tree_t *) pl_atom_goal("true"), pl_cc_ite(is_fail, (tree_t *) pl_atom_goal("fail"), pl_cc_fnc1("$dl_dyn", v)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -2965,6 +2980,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     return goal(cx, pl_cc_fnc2(",", fa, rd), γnext, ωfail, entry_out);
                 }
             }
+            if (g_stage2.depth_counted && !strcmp(nm, "findall") && t->n == 3 && !pl_dl_prelude_key(cx) && !(cx->cur_key && !strncmp(cx->cur_key, "$dl_", 4)))
+                return goal(cx, pl_cc_fnc3(cx->cur_key && !strncmp(cx->cur_key, "$mc:findall/", 12) ? "$dl_f2" : "$dl_findall", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext,
+                ωfail, entry_out);
             if (((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) || (!strcmp(nm, "findall") && t->n == 4)) {
                 int pl_find4 = t->n == 4;
                 const char * fin = !strcmp(nm, "findall") ? (pl_find4 ? "$findall_result4" : "$findall_result") : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
@@ -3195,6 +3213,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
             if (!strcmp(nm, "read_term") && t->n == 3) return pl_leaf_lv(cx, "$read_term_opts_s", t, 3, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_decls") && t->n >= 1) return pl_leaf_lv(cx, "$db_decls", t, t->n, γnext, ωfail, entry_out);
+            if (t->n == 1 && !strcmp(nm, "$dl_dyn")) return pl_meta_call_dyn(cx, t->c[0], NULL, 0, γnext, ωfail, entry_out);
             if (t->n == 1 && (!strcmp(nm, "$dl_push") || !strcmp(nm, "$dl_reached") || !strcmp(nm, "$dl_false") || !strcmp(nm, "$dl_reset") || !strcmp(nm, "$dl_tick")))
                 return pl_leaf_lv(cx, nm, t, 1, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_data") && t->n == 1) {
@@ -3783,6 +3802,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         case TT_PROGRAM:
         return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL, NULL);
         case TT_VAR:
+        if (pl_dl_ctl_leaf_scope(cx)) return goal(cx, pl_dl_leaf_tree((tree_t *) t), γnext, ωfail, entry_out);
         return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
         default:
         return build(cx, IR_SUCCEED, γnext, ωfail);

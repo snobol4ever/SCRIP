@@ -474,7 +474,7 @@ static std::string zf_pro_packet(int kt) {
            + x86_pl_frame_choice_open(x86_hb(), kt, 236, 237, g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? -1 : 245);
 }
 static std::string zf_pro_depth(int kt);
-static std::string zf_epo_pl(int kt);
+static std::string zf_epo_pl(int kt, int l_ok);
 static std::string zf_pro_finish(const std::string & s, int kt) {
     return (g_emit.flat_pkt && (!g_emit_cfg || kt - g_emit_cfg->jcon_value_region != FLAT_FRAME_ALLOWANCE_PINNED))
          ? x86_bomb("packet fragment: the pinned allowance is not 96, the G word at [kt-80] has no home")
@@ -509,7 +509,7 @@ static std::string zf_pro_depth(int kt) {
          + x86("def", L(960))
          + x86("cmp", "rcx", RDQ("rdi", 0))
          + x86("jle", L(961))
-         + (g_emit.flat_pkt && g_emit.flat_pkt_chainω_p ? x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p) : zf_epo_pl(kt))
+         + (g_emit.flat_pkt && g_emit.flat_pkt_chainω_p ? x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p) : zf_epo_pl(kt, 962))
          + x86("def", L(961)));
 }
 static std::string zf_pro(int kt) {
@@ -935,8 +935,8 @@ static std::string zf_epo_pkt_walk(int kt, int k, int i, int np) {
 static std::string zf_epo_pkt(int kt, int k, int i, int np) {
     return (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) ? x86_bomb("packet fragment chain-omega without its labels") : zf_epo_pkt_walk(kt, k, i, np);
 }
-static std::string zf_epo_pl(int kt) {
-    return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 250))
+static std::string zf_epo_pl(int kt, int l_ok) {
+    return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, l_ok))
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + zf_release(kt)
@@ -957,7 +957,7 @@ static std::string zf_epo(int kt) {
     return (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_epo_wire(kt)
          : zf_pas_nest_graph() ? zf_epo_nest(kt)
          : (x86_resumable_frame() && g_emit.flat_pkt) ? zf_epo_pkt(kt, g_emit.flat_pkt_cell, g_emit.flat_pkt_slot, zf_pro_np())
-         : x86_resumable_frame() ? zf_epo_pl(kt)
+         : x86_resumable_frame() ? zf_epo_pl(kt, 250)
          : zf_epo_plain(kt);
 }
 static std::string xa_flat_zframe_epilogue_ω_str(void) {

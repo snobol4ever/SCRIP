@@ -33630,6 +33630,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "maplist", 7 },
     { "set_prolog_stack", 2 },
     { "call_with_depth_limit", 3 },
+    { "$dl_findall", 3 },
+    { "$dl_f2", 3 },
     { "set_time_file", 3 },
     { "link_file", 3 },
     { "file_mode_", 2 },
@@ -33738,6 +33740,11 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "    (   call(G), '$dl_reached'(R), ( true ; '$dl_reset'(0), fail )\n"
     "    ;   '$dl_false'(R)\n"
     "    ).\n"
+    "'$dl_findall'(T, G, L) :- '$dl_f2'(T, G, L).\n"
+    "'$dl_f2'(T, G, L) :- '$dl_f3'(T, G, L).\n"
+    "'$dl_f3'(T, G, L) :- '$dl_f4'(T, G, L).\n"
+    "'$dl_f4'(T, G, L) :- '$dl_f5'(T, G, L).\n"
+    "'$dl_f5'(T, G, L) :- '$dl_tick'(1), findall(T, G, L).\n"
     "'$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).\n"
     "'$swb_fx_text'(X, P, Ctx) :- ( var(X) -> throw(error(instantiation_error, context(Ctx, _))) ; atom(X) -> P = X ; string(X) -> atom_string(P, X) ; is_list(X), catch(text_to_string(X, S), _, fail) -> atom_string(P, S) ; throw(error(type_error(text, X), context(Ctx, _))) ).\n"
     "'$swb_fx_err'(e(enoent, M), _, O) :- !, throw(error(existence_error(file, O), context(_, M))).\n"
@@ -36224,6 +36231,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$clause", 7, 4, 73 },
     { "$declare_module", 15, 3, 5 },
     { "$dict_eval", 10, 3, 27 },
+    { "$dl_f2", 6, 3, 73 },
+    { "$dl_findall", 11, 3, 73 },
     { "$gr_idx", 7, 4, 74 },
     { "$grd", 4, 3, 74 },
     { "$grd_u", 6, 3, 74 },

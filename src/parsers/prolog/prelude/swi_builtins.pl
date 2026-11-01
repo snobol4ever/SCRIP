@@ -8,7 +8,7 @@
     library(apply_macros) expansion gives every program whose load reaches library(clpfd), list-first like the base prelude's maplist/2..5; set_prolog_stack/2 checks the stack
     name and the parameter as swipl 9.0.4 does, and limit(Size) sets the stack_limit flag, the combined limit swipl's own warning names. */
 :- module(swi_builtins, [ '$clause'/4, open_string/2, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
-                          setenv/2, unsetenv/1, wait_for_input/3, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3,
+                          setenv/2, unsetenv/1, wait_for_input/3, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2, maplist/6, maplist/7, set_prolog_stack/2 , call_with_depth_limit/3, '$dl_findall'/3, '$dl_f2'/3,
                           set_time_file/3, link_file/3, file_mode_/2, chmod_/2, read_link/3, prolog_to_os_filename/2, copy_stream_data/2, copy_stream_data/3, get_time/1, expand_file_name/2,
                           current_arithmetic_function/1]).
 get_time(T) :- '$gnu_os'(get_time, 0, T).
@@ -93,6 +93,11 @@ call_with_depth_limit(G, L, R) :-
     (   call(G), '$dl_reached'(R), ( true ; '$dl_reset'(0), fail )
     ;   '$dl_false'(R)
     ).
+'$dl_findall'(T, G, L) :- '$dl_f2'(T, G, L).
+'$dl_f2'(T, G, L) :- '$dl_f3'(T, G, L).
+'$dl_f3'(T, G, L) :- '$dl_f4'(T, G, L).
+'$dl_f4'(T, G, L) :- '$dl_f5'(T, G, L).
+'$dl_f5'(T, G, L) :- '$dl_tick'(1), findall(T, G, L).
 '$dl_check'(L) :- ( var(L) -> throw(error(instantiation_error, call_with_depth_limit/3)) ; integer(L) -> true ; throw(error(type_error(integer, L), call_with_depth_limit/3)) ).
 '$swb_fx_text'(X, P, Ctx) :- ( var(X) -> throw(error(instantiation_error, context(Ctx, _))) ; atom(X) -> P = X ; string(X) -> atom_string(P, X) ; is_list(X), catch(text_to_string(X, S), _, fail) -> atom_string(P, S) ; throw(error(type_error(text, X), context(Ctx, _))) ).
 '$swb_fx_err'(e(enoent, M), _, O) :- !, throw(error(existence_error(file, O), context(_, M))).

@@ -4732,7 +4732,7 @@ DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DE
             DESCR_t rt_sno_xlv_d(DESCR_t *, int);
             DESCR_t rt_sno_stmt_d(DESCR_t *,
             int); DESCR_t rt_sno_nofail_d(DESCR_t *, int); DESCR_t rt_sno_list_d(DESCR_t *, int);
-DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
+DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_seek_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_attv_set(DESCR_t *, int); DESCR_t rt_pl_dop_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_linkarg(DESCR_t *, int);
 DESCR_t rt_pl_dop_stamp_date_time(DESCR_t *, int); DESCR_t rt_pl_dop_date_time_stamp(DESCR_t *, int); DESCR_t rt_pl_dop_format_time_text(DESCR_t *, int);
@@ -4909,7 +4909,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             "rt_sno_mkexpr_d", rt_sno_mkexpr_d },
         { "SNO$STMT", -1, "rt_sno_stmt_d", rt_sno_stmt_d }, { "SNO$NOFAIL", 0, "rt_sno_nofail_d", rt_sno_nofail_d }, { "SNO$LIST", 1, "rt_sno_list_d", rt_sno_list_d },
         { "$compare", 3, "rt_pl_dop_compare", rt_pl_dop_compare }, { "$functor", 3, "rt_pl_dop_functor", rt_pl_dop_functor }, { "$arg", 3, "rt_pl_dop_arg", rt_pl_dop_arg },
-        { "$skip_list", 3, "rt_pl_dop_skip_list", rt_pl_dop_skip_list }, { "$argv", 1, "rt_pl_dop_argv", rt_pl_dop_argv },
+        { "$skip_list", 3, "rt_pl_dop_skip_list", rt_pl_dop_skip_list }, { "$seek_list", 4, "rt_pl_dop_seek_list", rt_pl_dop_seek_list }, { "$argv", 1, "rt_pl_dop_argv", rt_pl_dop_argv },
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
         { "$copy_term_nat", 2, "rt_pl_dop_copy_term_nat", rt_pl_dop_copy_term_nat },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
