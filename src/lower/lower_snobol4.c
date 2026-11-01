@@ -3302,7 +3302,7 @@ static int sno_pat_supported(const tree_t * t) {
         sno_pat_supported(t->c[0]);
     if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0 || sno_capt_elem_tg(t->c[1], 0)) &&
         sno_pat_supported(t->c[0]);
-    if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && ((t->c[0]->t == TT_VAR && t->c[0]->v.sval) || sno_capt_elem_tg(t->c[0], 1));
+    if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && ((t->c[0]->t == TT_VAR && t->c[0]->v.sval) || (t->c[0]->t == TT_DEFER && t->c[0]->n > 0) || sno_capt_elem_tg(t->c[0], 1));
     if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_FNC) return 1;
