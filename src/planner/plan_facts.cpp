@@ -77,7 +77,7 @@ static int pf_trivial_beta(const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pf_unwind_beta(const IR_t * nd) {
     switch (nd->op) {
-    case IR_VAR: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_ATOM: case IR_BINOP: case IR_UNOP: case IR_ASSIGN: case IR_ASSIGN_VAR:
+    case IR_VAR: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_DSTAR: case IR_LIT_THUNK: case IR_LIT_ATOM: case IR_BINOP: case IR_UNOP: case IR_ASSIGN: case IR_ASSIGN_VAR:
     case IR_CMP_TEST: case IR_COERCE_NUMERIC: case IR_COERCE_STRING: case IR_COERCE_INTEGER: case IR_COERCE_REAL:
     case IR_IDENT: case IR_DIFFER:
     case IR_DEREF: case IR_SUBSCRIPT: case IR_FIELD_VAR: case IR_FIELD_GET: return 1;

@@ -3,7 +3,7 @@
 #include "ir_index.h"
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dp_pure_lit(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_LIT_ATOM; }
+static int dp_pure_lit(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || ir_is_lit_text_kind(op) || op == IR_LIT_ATOM; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dp_run(IR_graph_t * g) {
     if (!g || g->n <= 0) return 0;

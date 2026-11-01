@@ -670,7 +670,7 @@ static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int of
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_elide_ok(IR_e op) {
     return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN ||
-        op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN;
+        op == IR_MATCH_LIT || op == IR_LIT_INTEGER || ir_is_lit_text_kind(op) || op == IR_CMP_TEST || op == IR_ASSIGN;
 }
 static int zls_writes_no_result(IR_e op) { return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE; }
 static int zls_s4_ok(IR_e op) {
@@ -763,7 +763,7 @@ static int fct_defer_susp(const IR_t * nd) {
     const char * pn = 0;
     for (int j = 0; j < nd->n_operands; j++) {
         const IR_t * o = nd->operands[j];
-        if (o && o->op == IR_LIT_STRING && IR_LIT(o).sval && !strncmp(IR_LIT(o).sval, "PAT$", 4)) { pn = IR_LIT(o).sval; break; }
+        if (o && ir_is_lit_text_kind(o->op) && IR_LIT(o).sval && !strncmp(IR_LIT(o).sval, "PAT$", 4)) { pn = IR_LIT(o).sval; break; }
     }
     int susp = 0;
     if (!pn || !planner_callee_uniform_ft(pn, &susp) || susp <= 0) return -1;
@@ -852,10 +852,10 @@ static void fc_vpost_push(cv_t * pv, int * pn, const IR_t * nd) { cv_reserve(pv,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, cv_t * pv, int * pn, int depth) {
     if (!nd || depth > 24) return 0;
-    if (nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { fc_vpost_push(pv, pn, nd); return 1; }
+    if (nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { fc_vpost_push(pv, pn, nd); return 1; }
     if (fc_vunop_ok(nd) && fc_vtree_scan(g, nd->operands[0], pv, pn, depth + 1)) { fc_vpost_push(pv, pn, nd); return 1; }
     if (fc_call_ok(nd) && g_lower.ir.fcc_gfence && nd->operands[0] &&
-        (nd->operands[0]->op == IR_LIT_INTEGER || nd->operands[0]->op == IR_LIT_STRING || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0])))) {
+        (nd->operands[0]->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->operands[0]->op) || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0])))) {
         fc_vpost_push(pv, pn, nd->operands[0]);
         fc_vpost_push(pv, pn, nd);
         return 1;
@@ -878,7 +878,7 @@ static const char * zls_pas_display_name(int lvl) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_at(const IR_graph_t * g, const IR_t * nd, int i, int sc, int root, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off, int off) {
     if (rec[i].pooled >= 0) { zls_entry(nd, sc, rec[i].pooled); if (dl_base >= 0 && zls_reuse_detleaf(nd)) ze[g_lower.ir.ze_n - 1].aoff = dl_base; return 0; }
-    if (g_lower.ir.zls_build_eon && uo[i] == 1 && rec[i].w < 0 && (nd->op == IR_VAR_REF || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL))
+    if (g_lower.ir.zls_build_eon && uo[i] == 1 && rec[i].w < 0 && (nd->op == IR_VAR_REF || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_ATOM || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_REAL))
         return 0;
     if (dl_base >= 0 && zls_reuse_detleaf(nd) && sc == root) {
         if (g_lower.ir.zls_build_eon && !lv[i]) {
@@ -1301,7 +1301,7 @@ void zls_build(IR_graph_t * g) {
         if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }
         IR_t * r = a->operands[0];
-        if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET || r->op == IR_LIT_NAME ||
+        if ((r->op == IR_LIT_INTEGER || ir_is_lit_text_kind(r->op) || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET || r->op == IR_LIT_NAME ||
             (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' &&
             ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes")))) && r->γ.node == a) {
             fc_vlit_register(r);
@@ -1414,7 +1414,7 @@ void zls_build(IR_graph_t * g) {
                     }
                     if (_c == h) _pb1s_adj = 1;
                 }
-                if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL ||
+                if ((r->op == IR_LIT_INTEGER || ir_is_lit_text_kind(r->op) || r->op == IR_LIT_REAL ||
                     (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' &&
                     ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes")))) && _pb1s_adj) {
                     fc_vlit_register(r);
@@ -1861,7 +1861,7 @@ int fc_geom(const IR_t * nd, long * k) {
         if (fc_arm_member(nd) && !(g_lower.ir.fc_geom_ac && nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd))) return 0;
     }
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }
-    if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR) && fc_vlit_active(nd) &&
+    if ((nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR) && fc_vlit_active(nd) &&
         (!zc_nofc() || fc_subj_member(nd))) {
         if (k) *k = 16;
         return 1;
@@ -1981,7 +1981,7 @@ void fc_subj_register(const IR_t * nd) { fcn_flag(nd, FCN_SUBJ); }
 int fc_subj_member(const IR_t * nd) { return fcn_find(nd, FCN_SUBJ) != (const fcn_t *)0; }
 int fc_vlit_active(const IR_t * nd) {
     if (!fc_cells_on()) return 0;
-    if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0;
+    if (!nd || !(nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0;
     return fcn_find(nd, FCN_VLIT) != (const fcn_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2120,7 +2120,7 @@ static int zls_dj_arm_rbp_state(const IR_t * nd, int a) {
     if (!rs || rs->op != IR_TO || !ir_range_trailed(rs)) return 0;
     for (int g = 0; x && x != rs && g < 8; g++) {
         int o = (int)x->op;
-        if (o != IR_LIT_INTEGER && o != IR_LIT_STRING && o != IR_LIT_REAL && o != IR_VAR && o != IR_LINE_MARK) return 0;
+        if (o != IR_LIT_INTEGER && !ir_is_lit_text_kind(o) && o != IR_LIT_REAL && o != IR_VAR && o != IR_LINE_MARK) return 0;
         x = zls_chase(x->γ.node);
     }
     return x == rs && zls_chase(rs->γ.node) == nd;
@@ -2561,10 +2561,10 @@ static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_op_names_a_string(IR_e op) {
     return op == IR_CALL || op == IR_CALL_BUILTIN || op == IR_CALL_BUILTIN_GEN || op == IR_CALL_ICON || op == IR_CALL_PROC_STAGED || op == IR_CALL_SNOBOL4 || op == IR_CALL_VALUE ||
-        op == IR_MATCH_DEFER || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF;
+        op == IR_MATCH_DEFER || ir_is_lit_text_kind(op) || op == IR_VAR || op == IR_VAR_REF;
 }
 static int zls_reuse_straight(IR_e op) {
-    return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK;
+    return op == IR_LIT_INTEGER || op == IR_LIT_REAL || ir_is_lit_text_kind(op) || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK;
 }
 static int zls_reuse_detleaf(const IR_t * c) { return c && ir_kind0(c) == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
 static int zls_wi_cmp(const void * a, const void * b) {
@@ -2963,8 +2963,8 @@ void fl_derive_tier(IR_graph_t * g) {
         {
             int o = (int)ir_kind0(c);
             if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++;
-            else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_ATOM && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME)
-                others++;
+            else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && !ir_is_lit_text_kind(o) && o != IR_LIT_ATOM && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET &&
+                o != IR_LIT_NAME) others++;
         }
         switch ((int)ir_kind0(c)) {
             case IR_STATEMENT:
@@ -3046,7 +3046,7 @@ long zw_carve_k(const IR_t * nd) {
     }
     if (!g_lower.ir.zw_carve_k_ba || !nd) return 0;
     _spine =
-        (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
+        (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
         nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine) return 0;
     if (!g_lower.ir.zw_carve_k_all && ((ir_is_define_kind(ir_kind0(nd)) && ir_define_sr_citizen(nd)) || ir_norm_call_kind(ir_kind0(nd)) == IR_CALL || ir_kind0(nd) == IR_GOTO_DEFERRED)) return 0;

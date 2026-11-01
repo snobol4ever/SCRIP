@@ -133,6 +133,8 @@ std::string bb_binop_concat_slot();
 std::string bb_binop_xrep_slot();
 std::string bb_lit_integer();
 std::string bb_lit_string();
+std::string bb_lit_dstar();
+std::string bb_lit_thunk();
 std::string bb_lit_atom();
 std::string bb_lit_name();
 std::string bb_lit_charset();

@@ -250,7 +250,8 @@ static int zd_icn_chain_step_ok(const IR_graph_t * cg, IR_t ** nodes, int n, int
     if (!(cg && cg->spine_cells)) return 1;
     if (p < 0 || q < 0 || zd_chase(nodes[p]->ω.node) != nodes[q]) return 0;
     switch (nodes[p]->op) {
-        case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL: case IR_VAR: case IR_VAR_REF: case IR_DEREF: case IR_COERCE_NUMERIC: case IR_BINOP: case IR_BINOP_TEST: case IR_UNOP: case IR_ASSIGN:
+        case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_DSTAR: case IR_LIT_THUNK: case IR_LIT_REAL: case IR_VAR: case IR_VAR_REF: case IR_DEREF: case IR_COERCE_NUMERIC: case IR_BINOP:
+            case IR_BINOP_TEST: case IR_UNOP: case IR_ASSIGN:
         case IR_CALL_BYNAME: case IR_CALL_DIRECT: case IR_LINE_MARK: return 1;
         default: return 0;
     }
@@ -547,7 +548,7 @@ static int zd_chain_link(const IR_graph_t * cg, IR_t ** nodes, int q, int t, con
     if (ir_is_generator_kind(nodes[q]->op) || nodes[q]->op == IR_TO) return 0;
     if (qo == nodes[t] && (port_sz_beta(qs) || zd_sz_phi(qs))) return 1;
     int o = (int)nodes[q]->op;
-    int never_fails = o == IR_ASSIGN || o == IR_VAR || o == IR_VAR_REF || o == IR_LINE_MARK || o == IR_BOUND || o == IR_LIT_INTEGER || o == IR_LIT_STRING || o == IR_LIT_REAL ||
+    int never_fails = o == IR_ASSIGN || o == IR_VAR || o == IR_VAR_REF || o == IR_LINE_MARK || o == IR_BOUND || o == IR_LIT_INTEGER || ir_is_lit_text_kind((IR_e)o) || o == IR_LIT_REAL ||
         o == IR_LIT_CHARSET;
     return !qo || qo == zd_chase(nodes[q]->γ.node) || never_fails;
 }

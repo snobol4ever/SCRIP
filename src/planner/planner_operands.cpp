@@ -22,7 +22,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int planner_chain_arity(const IR_t *n) {
     switch (n->op) {
-    case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_ATOM: case IR_LIT_REAL:
+    case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_DSTAR: case IR_LIT_THUNK: case IR_LIT_ATOM: case IR_LIT_REAL:
     case IR_VAR: case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: return 0;
     case IR_BINOP: case IR_TO: return 2;
     case IR_TO_BY: return 3;

@@ -720,6 +720,8 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
         fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval);
         break;
         case IR_LIT_STRING:
+        case IR_LIT_DSTAR:
+        case IR_LIT_THUNK:
         case IR_LIT_CHARSET:
         case IR_LIT_NAME:
         case IR_LIT_ATOM:

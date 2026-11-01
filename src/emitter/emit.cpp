@@ -989,7 +989,7 @@ static const char * sr3_gamma_label(const IR_t * g) { if (g_emitter.sr3_gamma_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void lit_prepare(IR_t * nd, const znode_t * zn) { g_emit.op_seal = nd->seal; if (!g_emit.op_zres && zn->fcg > 0) { g_emit.op_fc_bytes = zn->fcg; g_emit.op_fc_base = g_emit.op_off; }
+static void lit_prepare(IR_t * nd, const znode_t * zn) { if (!g_emit.op_zres && zn->fcg > 0) { g_emit.op_fc_bytes = zn->fcg; g_emit.op_fc_base = g_emit.op_off; }
     g_emit.op_lit_stamp = sn4_descr_stamp() ? (long)(((g_emit.nid <= 0 || g_emit.nid > (long)DESCR_SRC_NODE_OVERFLOW - 1) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)g_emit.nid) << 8) : 0L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
@@ -1001,7 +1001,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emitter.walk_bb_node_inner__bo = getenv("SCRIP_BB_ONLY");
         g_emitter.walk_bb_node_inner__bs = getenv("SCRIP_BB_SKIP"); }
       int _spine =
-          (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
+          (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
           nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
       { if (g_emitter.walk_bb_node_inner__all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); g_emitter.walk_bb_node_inner__all = (e && *e == '1') ? 1 : 0; }
       (void)g_emitter.walk_bb_node_inner__ba; (void)g_emitter.walk_bb_node_inner__bo; (void)g_emitter.walk_bb_node_inner__bs; (void)g_emitter.walk_bb_node_inner__all; (void)_spine;
@@ -1075,7 +1075,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.frame_region = g_emit_cfg ? ((32 + g_emit_cfg->jcon_value_region + 15) & ~15) : 0;
     g_emit.op_strict = nd->strict;
     g_emit.op_sval =
-        (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_VAR_FRAME || nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM ||
+        (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_VAR_FRAME || nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_ATOM ||
         nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME
                        || nd->op == IR_KW_ICON || nd->op == IR_KW_ICON_GEN || nd->op == IR_KW_SNOBOL4 || nd->op == IR_KW_ASSIGN || nd->op == IR_KW_ASSIGN_SNOBOL4 || nd->op == IR_REV_SWAP ||
                            nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ASSIGN_VAR || nd->op == IR_ITERATE
@@ -1126,6 +1126,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     switch (nd->op) {
     case IR_LIT_INTEGER: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_integer()); return 0;
     case IR_LIT_STRING: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_string()); return 0;
+    case IR_LIT_DSTAR: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_dstar()); return 0;
+    case IR_LIT_THUNK: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_thunk()); return 0;
     case IR_LIT_ATOM: lit_prepare(nd, _zn); g_emit.op_ival = (int64_t)(unsigned)prolog_atom_intern_lit(g_emit.op_sval ? g_emit.op_sval : ""); bb_emit_x86(bb_lit_atom()); return 0;
     case IR_LIT_CHARSET: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_charset()); return 0;
     case IR_LIT_NAME: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_name()); return 0;
@@ -1802,7 +1804,7 @@ static void drive_guard_refused(IR_t *nd, int line) {
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_guard_refused(nd, __LINE__); return; }
     switch (nd->op) {
-    case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
+    case IR_LIT_STRING: case IR_LIT_DSTAR: case IR_LIT_THUNK: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_CHARSET:
     case IR_LIT_NAME:
@@ -2584,7 +2586,7 @@ static void blob_fg_bind_build(void) {
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) { IR_graph_t * g = g_stage2.bbp.table[gi]; if (!g || !g->all) continue;
         for (int i = 0; i < g->n; i++) { IR_t * x = g->all[i]; if (!x || x->op != IR_ASSIGN || !IR_LIT(x).sval || x->n_operands < 1 || !x->operands[0]) continue;
             IR_t * v = x->operands[0]; const char * t = (const char *)0, * f = (const char *)0;
-            if (ir_norm_call_kind(v->op) == IR_CALL && IR_LIT(v).sval && !strcmp(IR_LIT(v).sval, "SNO$MKPAT") && v->n_operands >= 1 && v->operands[0] && v->operands[0]->op == IR_LIT_STRING &&
+            if (ir_norm_call_kind(v->op) == IR_CALL && IR_LIT(v).sval && !strcmp(IR_LIT(v).sval, "SNO$MKPAT") && v->n_operands >= 1 && v->operands[0] && v->operands[0]->op == IR_LIT_THUNK &&
                 IR_LIT(v->operands[0]).sval && !strncmp(IR_LIT(v->operands[0]).sval, "PAT$", 4)) t = IR_LIT(v->operands[0]).sval;
             else if (v->op == IR_VAR && IR_LIT(v).sval) f = IR_LIT(v).sval;
             else continue;
@@ -5182,9 +5184,9 @@ static void call_marg_plan(int i, IR_t * lf, int aoff, IR_t * owner) {
       if (lf->op == IR_LIT_INTEGER) { m->kind = MARG_LIT_I; m->imm = (uint64_t)IR_LIT(lf).ival; return; }
       if (lf->op == IR_LIT_REAL) { m->kind = MARG_LIT_F; m->imm = emit_double_bits(IR_LIT(lf).dval); return; }
       if (lf->op == IR_LIT_ATOM) { m->kind = MARG_LIT_ATOM; m->imm = (uint64_t)(unsigned)prolog_atom_intern_lit(sv ? sv : ""); return; }
-      if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_DSTAR_REF) { std::string star = std::string("*") + (sv ? sv : ""); m->kind = MARG_DSTAR;
+      if (lf->op == IR_LIT_DSTAR) { std::string star = std::string("*") + (sv ? sv : ""); m->kind = MARG_DSTAR;
           m->str = ct_strdup((std::string(".Ldstar_") + bb_ab_sym_name(star.c_str())).c_str()); m->imm = (uint64_t)(uintptr_t)bb_dstar_rec_addr(star.c_str()); return; }
-      if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_THUNK_REF) { m->kind = MARG_THUNK; m->str = ct_strdup((std::string(".Lthk_") + bb_ab_sym_name(sv ? sv : "")).c_str());
+      if (lf->op == IR_LIT_THUNK) { m->kind = MARG_THUNK; m->str = ct_strdup((std::string(".Lthk_") + bb_ab_sym_name(sv ? sv : "")).c_str());
           m->imm = (uint64_t)(uintptr_t)bb_thunk_rec_addr(sv); return; }
       if (lf->op == IR_LIT_STRING) { m->kind = MARG_LIT_S; m->str = sv ? sv : ""; return; }
       if ((ir_kind0(lf) == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || ir_is_call_kind(ir_kind0(lf))) {

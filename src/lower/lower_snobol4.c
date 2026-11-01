@@ -969,9 +969,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const char * bn = sno_expr_collect((t->n > 0) ? t->c[0] : NULL);
             IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
             IR_LIT(mk).sval = (char *) "SNO$MKEXPR";
-            IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω);
+            IR_t * nl = lc_build(cx->g, IR_LIT_DSTAR, mk, ω);
             IR_LIT(nl).sval = (char *) bn;
-            nl->seal = IR_SEAL_DSTAR_REF;
             ir_operand_push(mk, nl);
             if (res) *res = mk;
             return nl;
@@ -1155,9 +1154,9 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * es;
             IR_t * vs = NULL;
             if (vn) {
-                nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
-                IR_LIT(nl).sval = (char *) vn;
-                if (vn[0] == '*' && sno_expr_is_thunk(vn + 1)) { IR_LIT(nl).sval = (char *) (vn + 1); nl->seal = IR_SEAL_DSTAR_REF; }
+                int vn_star = vn[0] == '*' && sno_expr_is_thunk(vn + 1);
+                nl = lc_build(cx->g, vn_star ? IR_LIT_DSTAR : IR_LIT_STRING, NULL, ω);
+                IR_LIT(nl).sval = (char *) (vn_star ? vn + 1 : vn);
                 es = sx_lower(cx, t->c[0], NULL, ω, &vs);
                 lc_γ_to(kt, nl);
                 lc_γ_to(nl, es);
@@ -1620,9 +1619,9 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (!cvn) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
             IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
             IR_LIT(mk).sval = (char *) "SNO$PCUR";
-            IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω);
-            IR_LIT(nl).sval = (char *) cvn;
-            if (cvn[0] == '*' && sno_expr_is_thunk(cvn + 1)) { IR_LIT(nl).sval = (char *) (cvn + 1); nl->seal = IR_SEAL_DSTAR_REF; }
+            int cvn_star = cvn[0] == '*' && sno_expr_is_thunk(cvn + 1);
+            IR_t * nl = lc_build(cx->g, cvn_star ? IR_LIT_DSTAR : IR_LIT_STRING, mk, ω);
+            IR_LIT(nl).sval = (char *) (cvn_star ? cvn + 1 : cvn);
             ir_operand_push(mk, nl);
             if (res) *res = mk;
             return nl;
@@ -2472,6 +2471,8 @@ static int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
             break;
             case IR_LIT_INTEGER:
             case IR_LIT_STRING:
+            case IR_LIT_DSTAR:
+            case IR_LIT_THUNK:
             case IR_LIT_REAL:
             if (!lit_ok) lin = 0;
             else if (fp) *fp += 16;
@@ -2496,7 +2497,7 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
                 const char * _pn = 0;
                 for (int _j = 0; _j < x->n_operands; _j++) {
                     IR_t * _o = x->operands[_j];
-                    if (_o && _o->op == IR_LIT_STRING && IR_LIT(_o).sval && !strncmp(IR_LIT(_o).sval, "PAT$", 4)) { _pn = IR_LIT(_o).sval; break; }
+                    if (_o && ir_is_lit_text_kind(_o->op) && IR_LIT(_o).sval && !strncmp(IR_LIT(_o).sval, "PAT$", 4)) { _pn = IR_LIT(_o).sval; break; }
                 }
                 if (_pn) continue;
             }
@@ -2517,6 +2518,8 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
             case IR_GOTO:
             case IR_LIT_INTEGER:
             case IR_LIT_STRING:
+            case IR_LIT_DSTAR:
+            case IR_LIT_THUNK:
             case IR_LIT_REAL:
             break;
             default:
@@ -3433,9 +3436,8 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     const char * bn = sno_pat_collect(pat);
     IR_t * mk = lc_build(g, IR_CALL, γ, ω);
     IR_LIT(mk).sval = (char *) "SNO$MKPAT";
-    IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, ω);
+    IR_t * nl = lc_build(g, IR_LIT_THUNK, NULL, ω);
     IR_LIT(nl).sval = (char *) bn;
-    nl->seal = IR_SEAL_THUNK_REF;
     ir_operand_push(mk, nl);
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx;

@@ -1749,6 +1749,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_cut.cpp \
     $(SRC)/templates/bb/bb_lit_integer.cpp \
     $(SRC)/templates/bb/bb_lit_string.cpp \
+    $(SRC)/templates/bb/bb_lit_dstar.cpp \
+    $(SRC)/templates/bb/bb_lit_thunk.cpp \
     $(SRC)/templates/bb/bb_lit_atom.cpp \
     $(SRC)/templates/bb/bb_lit_name.cpp \
     $(SRC)/templates/bb/bb_lit_charset.cpp \
