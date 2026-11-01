@@ -1292,14 +1292,17 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             } if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5;
             } if (g_emit.op_ival == 0 && _zn->gcall && nd->n_operands == 1 && nd->operands[0]) {
             int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = _zn->o0off; if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as;
-            } } g_emit.op_define_role = (g_emit.op_ival == 4 && nd->n_operands >= 3) ? 7 : (int)g_emit.op_ival; extern std::string bb_define(); bb_emit_x86(bb_define()); return 0; }
+            } } g_emit.op_define_role = (g_emit.op_ival == 4 && nd->n_operands >= 3) ? 7 : (int)g_emit.op_ival; extern std::string bb_define();
+                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); return 0; }
         if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd);
             int _realstub = 0;
             if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq];
-            _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; } g_emit.op_define_role = 6; extern std::string bb_define(); bb_emit_x86(bb_define()); int _d1st = 1;
+            _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; } g_emit.op_define_role = 6; extern std::string bb_define();
+                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); int _d1st = 1;
             if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break;
             if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break;
-            } } if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5; bb_emit_x86(bb_define()); g_emit.op_ival = _sv5;
+            } } if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5;
+                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); g_emit.op_ival = _sv5;
             } return 0; }
         fprintf(stderr, "IR_DEFINE %s with %d operand(s) is neither an SR citizen nor a bind: no lowerer builds this shape since the activation road was retired\n",
             IR_LIT(nd).sval ? IR_LIT(nd).sval : "", (int)nd->n_operands);
@@ -1405,7 +1408,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_PROC_GEN:
-    case IR_CALL: { g_emit.op_call_route = bb_call_route_classify(nd); call_fc_fill(nd); bb_emit_x86(bb_call()); return 0; }
+    case IR_CALL: { g_emit.op_call_route = bb_call_route_classify(nd); call_fc_fill(nd); sig_prepare(g_emit.op_sval, (int)g_emit.op_ival); bb_emit_x86(bb_call()); return 0; }
     case IR_CALL_DIRECT: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_direct); return 0;
     case IR_CALL_PL_LEAF: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_pl_leaf); return 0;
     case IR_CALL_PAS_BI: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_pas_bi); return 0;
@@ -3550,7 +3553,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); if (_pl->zdp_on) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     int _sigk = 0;
-    if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam, &_sigk);
+    if (xa_flat_class_c_pred()) { sig_prepare_chain(fam); xa_flat_chain_prologue(fam, &_sigk); }
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build();
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
@@ -4191,7 +4194,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                   + x86("mov", "rbp", RDQ("rdx", 0))
          + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
+    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(1, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86((_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ())); }
     }
     if (!bare && !_top_hoist) {
@@ -4210,7 +4213,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                   + x86("mov", "rbp", RDQ("rbp", 0))
                   + x86("mov32", "eax", (long)DT_FAIL) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { xa_flat_chain_epilogue_sig(0, fam); }
+    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(0, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86((_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω())); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {

@@ -278,6 +278,14 @@ typedef struct {
     int op_strict;
     int op_zgpop;
     int op_gcell, op_bspk, op_sprec, op_actoff, op_tret;
+    int op_sig_ok, op_sig_np, op_sig_nf, op_sig_ns, op_sig_xt, op_sig_rg, op_sig_nnv, op_sig_gk_cap;
+    long op_sig_T, op_sig_F;
+    int * op_sig_gk;
+    int op_csig_ok, op_csig_nf, op_csig_ns, op_csig_rg, op_csig_gk_cap;
+    int * op_csig_gk;
+    int op_dq_np, op_dq_nf, op_dq_fb;
+    void * op_dq_fn;
+    const char * op_dq_csv;
     int op_zwhack;
     int op_zbgrow;
     int * op_zread;
@@ -405,6 +413,9 @@ typedef struct {
     const long long * op_pl_db_words;
     int op_pl_db_n;
 } sm_emit_t;
+void sig_prepare(const char * fname, int nargs);
+void sig_prepare_define(const char * fname, const char * entry, int role);
+void sig_prepare_chain(const char * fname);
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))
 extern IR_graph_t * g_emit_cfg;

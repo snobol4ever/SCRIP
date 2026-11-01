@@ -29,7 +29,6 @@ extern "C++" int zf_pas_nest_graph(void);
 extern "C++" int zf_display_mem_off(int dl);
 extern "C++" int xa_flat_class_zf(void);
 extern "C++" int xa_flat_class_c(void);
-extern "C++" int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0);
 extern "C++" const char * xa_icn_trace_intern(const char * s);
 extern "C++" int xa_flat_graph_holds_a_frame_retry(void);
 #include "ir/pin_va.h"
@@ -41,8 +40,6 @@ extern "C" {
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_main_args_fetch(void);
-extern "C" int rt_proc_nformals(const char *name);
-extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 extern int * const rt_k_level_p;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
@@ -577,12 +574,11 @@ static std::string xa_flat_chain_sig_arg(const int * gk, int nf, int i) {
                     + x86_deflabel_id(40 + i));
 }
 static std::string xa_flat_chain_sig_block(const char * fname, int * argkt_out) {
-    int nf = 0, nsave = 0; int gk[bb_scc_gk_len(fname)];
-    return IF(xa_flat_sig_names(fname, &nf, &nsave, gk) && xa_flat_argkt_set(argkt_out, 16 * nsave),
-               x86("sub", "rsp", (long)(16 * nsave))
+    return IF(_.op_csig_ok && xa_flat_argkt_set(argkt_out, 16 * _.op_csig_ns),
+               x86("sub", "rsp", (long)(16 * _.op_csig_ns))
              + x86("mov", "rdx", "[rcx + 0]")
-             + x86("lea", "r8", "[rsp + " + std::to_string(zf_kt() + 16 * nsave) + "]")
-             + FOR(0, nsave, [&](int i) { return xa_flat_chain_sig_arg(gk, nf, i); }));
+             + x86("lea", "r8", "[rsp + " + std::to_string(zf_kt() + 16 * _.op_csig_ns) + "]")
+             + FOR(0, _.op_csig_ns, [&](int i) { return xa_flat_chain_sig_arg(_.op_csig_gk, _.op_csig_nf, i); }));
 }
 static std::string xa_flat_chain_prologue_str(const char * fname, int * argkt_out) {
     return IF(xa_flat_class_c(),
@@ -604,23 +600,21 @@ static std::string xa_flat_chain_epilogue_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_epi_sig_diag(int is_gamma, const char * fname) {
-    int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)]; int have = xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk);
-    fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname ? fname : "(null)", is_gamma, zf_kt(), have, nf, nsave);
+    fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname ? fname : "(null)", is_gamma, zf_kt(), _.op_csig_ok, _.op_csig_nf, _.op_csig_ns);
     return std::string();
 }
 static std::string xa_flat_epi_sig_block(int is_gamma, const char * fname) {
-    int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)];
-    return IF(xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk),
-               IF(is_gamma && res_gk >= 0, x86("note", gva_note(res_gk))
-                                         + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0))
-                                         + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
-             + FOR(0, nsave, [&](int i) {
-                   return x86("note", gva_note(gk[i]))
+    return IF(_.op_csig_ok,
+               IF(is_gamma && _.op_csig_rg >= 0, x86("note", gva_note(_.op_csig_rg))
+                                               + x86("mov", "rax", xa_flat_sig_gq(_.op_csig_rg, 0))
+                                               + x86("mov", "rdx", xa_flat_sig_gq(_.op_csig_rg, 8)))
+             + FOR(0, _.op_csig_ns, [&](int i) {
+                   return x86("note", gva_note(_.op_csig_gk[i]))
                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]")
-                        + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
+                        + x86("mov", xa_flat_sig_gq(_.op_csig_gk[i], 0), "r10")
                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]")
-                        + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
-             + x86("add", "rsp", (long)(16 * nsave)));
+                        + x86("mov", xa_flat_sig_gq(_.op_csig_gk[i], 8), "r10"); })
+             + x86("add", "rsp", (long)(16 * _.op_csig_ns)));
 }
 static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fname) {
     return IF(xa_flat_class_c(),

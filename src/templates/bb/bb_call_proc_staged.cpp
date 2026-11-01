@@ -74,7 +74,6 @@ void bb_slot_register(IR_t * nd, int off);
 int bb_proc_target_zframe_graph(const char *fname);
 int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname);
 int bb_proc_target_block_graph(const char *fname); int bb_sig_site_ok(const char *fname, int nargs);
-int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int rt_proc_pinned(const char *name);
 void *bb_ab_fn_cell_ptr(const char *fname);
 int bb_proc_target_icn_block(const char *fname, int *np, int *vari);
@@ -271,12 +270,10 @@ static std::string bcps_det_arm() {
         { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp_z[3] = (uint64_t)(uintptr_t)(void*)f3; }
         { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp_z[4] = (uint64_t)(uintptr_t)(void*)f4; }
         static const char * const detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
-        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[bb_scc_gk_len(_.op_sval)];
-        scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
         uint64_t dc_slot_fp_z = dc_slot_z;
         return x86_alpha()
              + x86_anchor_enter()
-             + ((scc_z || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
+             + ((_.op_sig_ok || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
                     if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
@@ -330,19 +327,19 @@ static std::string bcps_det_arm() {
                              + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
                         }
                     }
-                    if (!scc_z) return std::string();
+                    if (!_.op_sig_ok) return std::string();
                     return x86_bomb("bb_call_proc_staged: the CALL2BB slice-2 slim road (zref arm) retired 2026-09-27 on a plant proof over the 4659 corpus sources, "
                                     "the 5027 rungs entries compiled and the SNOBOL4, Snocone and Rebus rungs entries run in mode 3 (0 reached it once the role-4 shim "
                                     "took 30 to 60 formals, scripts/gc_rungs_entry_plant_receipt.tsv): the SCC probe held but no tiny or signature arm took the call");
                 }()
                 : std::string(""))
-             + (!scc_z && dc_z
+             + (!_.op_sig_ok && dc_z
                 ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i))
                 + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                 + x86_call_dc(dc_name_z, dc_slot_fp_z)
                 + x86("jmp", L(2))
                 : std::string(""))
-             + (!scc_z && !dc_z
+             + (!_.op_sig_ok && !dc_z
                 ? ((det_fuse_z
                     ? x86("mov32", "edi", det_idx_z)
                     + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i))

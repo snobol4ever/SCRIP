@@ -12,7 +12,6 @@ static_assert(BB_SHIM_ID_CHAINS >= BB_SHIM_ID_FIXED + 20,
               "the shim's literals name them, and its three per-formal chains (alpha swap, beta restore, omega restore; nformals + 1 ids each, the restores' joins "
               "at their base - 5) and the three trace-handler glue blocks (BB_SHIM_TRACE_IDS each, after the omega chain) sit above them at bases computed from "
               "nformals, so the two-byte record id (X86_INTERNAL_MAX) is the only bound and the encoder refuses loudly past it");
-extern "C" int bb_scc_gk_len(const char *fname);
 extern "C" { void bb_pattern_stub(const char * which); }
 extern "C++" {
 std::string bb_match_any();

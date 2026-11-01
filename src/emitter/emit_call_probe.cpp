@@ -6,6 +6,8 @@
 #include "planner/frame_layout.h"
 extern "C" {
 #include "emitter/emit_state.h"
+#include "ir/ct_arena.h"
+const char *rt_define_query(const char *, int *, int *, int *, void **);
 #include "ir/stage2.h"
 #include "ir/ab_abi.h"
 #include "templates/bb/bb_templates.h"
@@ -142,3 +144,34 @@ extern "C" const char * bcps_alpha_cellp_table_c(void) {
 }
 extern "C" int bb_proc_target_det_block(const char *fname) { if (!fname) return -1; { int i = bb_proc_find(fname); if (i >= 0) { int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
         && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && cg->pf.det_block) ? cg->nparams : -1; } } return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out);
+static int * sig_gk_room(int ** gk, int * cap, int n) { if (n > *cap) { *gk = (int *)ct_grow(*gk, (size_t)n * sizeof(int)); *cap = n; } return *gk; }
+extern "C" void sig_prepare(const char * fname, int nargs) {
+    int * gk = sig_gk_room(&g_emit.op_sig_gk, &g_emit.op_sig_gk_cap, bb_scc_gk_len(fname));
+    g_emit.op_sig_np = 0; g_emit.op_sig_ns = 0; g_emit.op_sig_rg = -1; g_emit.op_sig_nf = 0; g_emit.op_sig_xt = 0; g_emit.op_sig_nnv = 0; g_emit.op_sig_T = 0; g_emit.op_sig_F = 0;
+    g_emit.op_sig_ok = (fname && fname[0]) ? bb_scc_probe(fname, nargs, &g_emit.op_sig_np, &g_emit.op_sig_ns, gk, &g_emit.op_sig_rg) : 0;
+}
+extern "C" void sig_prepare_define(const char * fname, const char * entry, int role) {
+    int rt = role == 7, ok = 0, nf = 0, nnv = 0, np = 0, nf2 = 0, fb = 0; void * fn = 0; const char * csv;
+    int * gk = sig_gk_room(&g_emit.op_sig_gk, &g_emit.op_sig_gk_cap, bb_scc_gk_len(fname));
+    g_emit.op_sig_np = 0; g_emit.op_sig_ns = 0; g_emit.op_sig_rg = -1;
+    if (!entry) entry = fname;
+    ok = (fname && entry) ?
+        (rt ? bb_rt_shim_probe(fname, &g_emit.op_sig_np, &g_emit.op_sig_ns, gk, &g_emit.op_sig_rg) :
+        (bb_tiny_shim_ok(fname, 0) ? bb_scc_probe(fname, 0, &g_emit.op_sig_np, &g_emit.op_sig_ns, gk, &g_emit.op_sig_rg) : 0)) : 0;
+    nf = ok ? rt_proc_nformals(fname) : 0;
+    g_emit.op_sig_ok = (ok && nf >= 0 && nf <= g_emit.op_sig_np) ? 1 : 0;
+    g_emit.op_sig_nf = nf; g_emit.op_sig_xt = g_emit.op_sig_ns - nf; g_emit.op_sig_T = 16L * g_emit.op_sig_xt + 32;
+    for (int j = 0; j < g_emit.op_sig_ns; j++) if (gk[j] < 0) nnv++;
+    g_emit.op_sig_nnv = nnv; g_emit.op_sig_F = g_emit.op_sig_T + 16L * nf + 16L * nnv;
+    csv = rt_define_query(fname ? fname : "?", &np, &nf2, &fb, &fn);
+    if (g_emit.op_proto && strchr(g_emit.op_proto, '|')) { nf2 = atoi(g_emit.op_proto); csv = strchr(g_emit.op_proto, '|') + 1; np = *csv ? 1 : 0;
+        for (const char * c = csv; *c; c++) if (*c == ',') np++; fn = 0; }
+    g_emit.op_dq_np = np; g_emit.op_dq_nf = nf2; g_emit.op_dq_fb = fb; g_emit.op_dq_fn = fn; g_emit.op_dq_csv = csv;
+}
+extern "C" void sig_prepare_chain(const char * fname) {
+    int * gk = sig_gk_room(&g_emit.op_csig_gk, &g_emit.op_csig_gk_cap, bb_scc_gk_len(fname));
+    g_emit.op_csig_nf = 0; g_emit.op_csig_ns = 0; g_emit.op_csig_rg = -1;
+    g_emit.op_csig_ok = xa_flat_sig_names(fname, &g_emit.op_csig_nf, &g_emit.op_csig_ns, gk, &g_emit.op_csig_rg);
+}
