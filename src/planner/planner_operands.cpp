@@ -1,5 +1,24 @@
-#include "planner_head.h"
-#include "planner.h"
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <climits>
+#include <algorithm>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+extern "C" {
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
+#include "ir/ir_node.h"
+#include "optimizer/ir_query.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+#include "planner/planner.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int planner_chain_arity(const IR_t *n) {
     switch (n->op) {

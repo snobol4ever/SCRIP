@@ -1,8 +1,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include "planner_head.h"
-#include "planner.h"
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <climits>
+#include <algorithm>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+extern "C" {
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/ir_node_index.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+#include "planner/zeta_plan.h"
+#include "planner/act_words.h"
 }
 extern "C" int fc_pair_extent(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

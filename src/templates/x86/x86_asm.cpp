@@ -9,7 +9,6 @@
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
 #include "emitter/emit_data.h"
-#include "emitter/emit_regime.h"
 #include "emitter/emit_walk.h"
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"

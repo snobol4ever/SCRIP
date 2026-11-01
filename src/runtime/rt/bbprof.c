@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include "bbprof.h"
 #include "rt_diag.h"
-#include "ir/IR.h"
+#include "ir/ir_node.h"
 #if RT_DIAG
 typedef struct g_bbprof_e { uintptr_t lo, hi; int32_t nid, kind, uid; uint64_t direct, viac; } bbprof_e;
 typedef struct g_bbprof_pc bbprof_pc;

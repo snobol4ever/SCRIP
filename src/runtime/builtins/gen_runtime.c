@@ -10,7 +10,6 @@
 #include "rt_diag.h"
 #include "coerce.h"
 #include "../by_name_dispatch.h"
-#include "ir/IR.h"
 #include "ir/bb_box.h"
 #include <stdlib.h>
 #include <string.h>
@@ -274,4 +273,9 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 }
 #include "../../driver/driver_private.h"
 #include <time.h>
+#include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return NULL; if (e->bb_idx >= 0 && e->bb_idx < g_stage2.bbp.count) return g_stage2.bbp.table[e->bb_idx]; return NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }

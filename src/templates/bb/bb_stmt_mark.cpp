@@ -1,6 +1,7 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
+#include "ir/ir_node.h"
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"

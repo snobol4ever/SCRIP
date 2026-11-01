@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "planner/g_planner.h"
+#include "ir/ir_fwd.h"
 struct bb_ab_thunk_stems_t { std::unordered_map<std::string, std::string> stem; std::unordered_set<std::string> stems; int np; int nx; std::string fn; };
 typedef struct { int32_t line; int32_t _r; const char * file; } sno_stno_src_t;
 typedef struct { const char *s; int idx; } strtab_ent_t;

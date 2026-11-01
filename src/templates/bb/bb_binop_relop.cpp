@@ -1,6 +1,7 @@
 #include <string>
 #include <stdint.h>
 extern "C" {
+#include "ir/ir_node.h"
 #include "emitter/emit_state.h"
 #include "ir/descr.h"
 #include "../runtime/builtins/gen.h"

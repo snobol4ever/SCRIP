@@ -9,7 +9,7 @@
 #include "ir/SM.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "ir/IR.h"
+#include "ir/ir_fwd.h"
 #include "runtime/builtins/gen.h"
 #include "SM.h"
 #include "driver.h"

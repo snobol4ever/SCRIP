@@ -1,5 +1,30 @@
-#include "planner_head.h"
-#include "planner.h"
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <climits>
+#include <algorithm>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+extern "C" {
+#include "ir/ct_arena.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/gc_frame_map.h"
+#include "ir/ir_node_index.h"
+#include "optimizer/ir_query.h"
+#include "planner/zeta_depth.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+#include "planner/zeta_plan.h"
+#include "planner/act_words.h"
+#include "planner/plan_facts.h"
+#include "planner/planner.h"
 extern "C" int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd);
 extern "C" int bb_proc_target_retains(const char * fname);
 extern "C" int planner_callee_gen_ft(const char * fname);

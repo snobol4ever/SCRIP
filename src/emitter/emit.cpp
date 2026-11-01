@@ -44,7 +44,9 @@ extern "C" {
 #include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zverify.h"
 #include "ir/pin_va.h"
-#include "../planner/planner.h"
+#include "planner/zeta_plan.h"
+#include "planner/act_words.h"
+#include "lower/lower_common.h"
 #include "runtime/core/comm_var.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/trace.h"
@@ -92,6 +94,7 @@ int g_use_sm_macros = 0;
 int g_use_bb_macros = 0;
 sm_emit_t g_emit;
 IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
+extern "C" int emit_resumable_frame(void) { return (g_emit_cfg && g_emit_cfg->pf.resumable_frame) ? 1 : 0; }
 static void emit_stno_mark(int32_t stno);
 static bb_ab_thunk_stems_t * bb_ab_thunk_stems(void) {
     bb_ab_thunk_stems_t * t = (bb_ab_thunk_stems_t *) g_emit.thunk_stems; if (!t) { t = new bb_ab_thunk_stems_t(); g_emit.thunk_stems = t; } return t;
@@ -498,7 +501,8 @@ extern "C" void g_emit_stno_drop_above(uint64_t addr) {
     while (lo < hi) { int mid = (lo + hi) / 2; if (STNO_REC(mid).pc < addr) lo = mid + 1; else hi = mid; }
     g_emit.stno_map_n = lo;
 }
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
 void xa_dispatch(XA_op_t op)
@@ -632,9 +636,8 @@ static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
 #include "../runtime/builtins/gen.h"
-#include "IR.h"
 #include "../rt/rt.h"
-#include "bb_build.h"
+#include "ir/bb_box.h"
 #include "../optimizer/gva_collect.h"
 #include "../optimizer/proc_collect.h"
 #include "../optimizer/ir_query.h"
@@ -645,11 +648,6 @@ static void emit_ops_reserve(int n);
 #include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
-extern const char * Σ;
-extern int Σlen;
-extern atp_t * bb_atp_new (const char *varname);
-extern cap_t * bb_cap_new_call (bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
-extern cap_t * bb_cap_new (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
 static long flat_buf_max_v() { if (g_emitter.flat_buf_max_v_v < 0) { const char * e = getenv("SCRIP_FLAT_BUF_MB"); long mb = e && *e ? atol(e) : 4; if (mb < 4) mb = 4; if (mb > 256) mb = 256;

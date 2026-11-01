@@ -13,6 +13,7 @@
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_zverify.h"
+#include "ir/ir_graph.h"
 static const char * x86_tgt0();
 static struct bb_label_t * x86_tgt0_p();
 static const char * x86_tgt1();

@@ -2,6 +2,7 @@
 #include <cstdint>
 extern "C" {
 #include "emitter/emit_state.h"
+#include "ir/descr.h"
 }
 extern "C" long rt_at_cursor(const char *varname, int cur_delta, void *pend);
 extern "C" long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta);

@@ -1,4 +1,4 @@
-#include "IR.h"
+#include "ir/ir_graph.h"
 #include "ct_arena.h"
 #include "bb_program.h"
 #include "stage2.h"

@@ -2,6 +2,9 @@
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include <stdlib.h>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/ir_construct.h"
 #include "frame_layout.h"
 #include "zeta_depth.h"
 #include "gc_frame_map.h"

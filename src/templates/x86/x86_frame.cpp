@@ -10,6 +10,7 @@
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"
+#include "ir/ir_graph.h"
 static const char * x86_zr();
 static int x86_zr_num();
 static int x86_fb_stmt_on();

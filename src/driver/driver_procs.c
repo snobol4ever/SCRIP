@@ -1,6 +1,7 @@
 #include <alloca.h>
 #include "bb_box.h"
-#include "ir/IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include <stdio.h>
 void rt_proc_set_generator(const char *, int);

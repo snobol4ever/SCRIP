@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <stdint.h>
 #include "emitter/emit_knobs.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"

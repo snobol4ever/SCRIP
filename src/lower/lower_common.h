@@ -1,7 +1,8 @@
 #ifndef LOWER_COMMON_H
 #define LOWER_COMMON_H
 #include "ir/ast.h"
-#include "ir/IR.h"
+#include "ir/ir_fwd.h"
+#include "ir/ir_node.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "ir/descr.h"
@@ -34,4 +35,5 @@ typedef IR_t * (*lc_lower_fn)(void * cx, const tree_t * a, IR_t * F);
 IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const tree_t * a);
 typedef struct { bb_node_t left; bb_node_t right; BinopKind op; int is_relop; DESCR_t left_val; DESCR_t right_val; int phase; } binop_dcg_t;
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
+int is_global(const char * name);
 #endif

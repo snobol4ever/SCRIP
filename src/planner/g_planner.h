@@ -4,19 +4,11 @@
 #error g_planner.h is C++ only (CEO-1575)
 #endif
 #include <unordered_map>
-#include "ct_arena.h"
-#include "ct_vec.h"
 #include <string>
-#include "gc_frame_map.h"
-#include "dtp.h"
-#include "ir_index.h"
-#include <unordered_set>
 #include <vector>
-#include <algorithm>
-#include "stage2.h"
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
+#include <stdint.h>
+#include "ir/ct_vec.h"
+#include "ir/ir_fwd.h"
 struct zeta_plan_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_planner_t {

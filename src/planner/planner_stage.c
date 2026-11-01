@@ -1,4 +1,5 @@
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "stage2.h"
 #include "gc_frame_map.h"
 #include <stdlib.h>

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_rtx.h"
+#include "ir/ir_node.h"
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"

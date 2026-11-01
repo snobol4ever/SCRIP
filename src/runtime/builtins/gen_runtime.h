@@ -4,14 +4,14 @@
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "bb_box.h"
 #include "gen.h"
-#include "IR.h"
+#include "ir/ir_fwd.h"
 #include "SM.h"
 #include "stage2.h"
 struct GeneratorState;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return NULL; if (e->bb_idx >= 0 && e->bb_idx < g_stage2.bbp.count) return g_stage2.bbp.table[e->bb_idx]; return NULL; }
+IR_graph_t *bb_graph_of_proc(const ProcEntry *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }
+IR_t *bb_proc_entry(const ProcEntry *e);
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);

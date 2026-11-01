@@ -1,6 +1,6 @@
 #ifndef IR_NODE_INDEX_H
 #define IR_NODE_INDEX_H
-#include "IR.h"
+#include "ir/ir_node.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

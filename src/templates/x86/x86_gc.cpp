@@ -13,6 +13,8 @@
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_rtcc.h"
+#include "ir/descr.h"
+#include "ir/ir_graph.h"
 extern "C" { extern uint64_t g_rtccb[32]; }
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;

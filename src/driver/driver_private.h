@@ -28,13 +28,8 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "runtime/builtins/gen_runtime.h"
 #include "ir/bb_box.h"
 #include "SM.h"
-#include "bb_build.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 #include "runtime/builtins/gen_runtime.h"
-extern const char *Σ;
-extern int Ω;
-extern int Δ;
-extern int Σlen;
 #include "driver.h"
 extern char g_script_exception[512];
 extern int g_script_try_depth;

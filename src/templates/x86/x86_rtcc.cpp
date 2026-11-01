@@ -7,6 +7,7 @@
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
+#include "ir/descr_tags.h"
 #include "emitter/emit_rtx.h"
 #include "emitter/emit_str.h"
 #include "runtime/rtx/rtcc.h"

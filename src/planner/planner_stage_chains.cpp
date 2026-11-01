@@ -1,5 +1,26 @@
-#include "planner_head.h"
-#include "planner.h"
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <climits>
+#include <algorithm>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+extern "C" {
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+#include "planner/zeta_plan.h"
+#include "planner/act_words.h"
+#include "planner/plan_facts.h"
+#include "planner/planner.h"
 extern "C" void zls_fct_finalize(IR_graph_t *, int);
 extern "C" void zls_graph_name(const IR_graph_t *, const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

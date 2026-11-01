@@ -6,7 +6,6 @@
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
 #include "emitter/emit_data.h"
-#include "emitter/emit_regime.h"
 #include "emitter/emit_walk.h"
 #include "emitter/emit_str.h"
 #include "templates/x86/x86_jump.h"

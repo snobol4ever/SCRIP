@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "stage2.h"
 #include "call_forms.h"
 #include "builtin_ids.h"

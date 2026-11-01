@@ -2,6 +2,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
+#include "ir/ir_graph.h"
 #include "planner/frame_layout.h"
 extern "C" {
 #include "emitter/emit_state.h"

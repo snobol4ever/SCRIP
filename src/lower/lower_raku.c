@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include "ir/ast.h"
 #include "lower/lower_raku.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "ir/IR.h"
+#include "ir/ir_graph.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "lower/lower_common.h"

@@ -1,7 +1,8 @@
 #ifndef CALL_FORMS_H
 #define CALL_FORMS_H
 #include <stdint.h>
-#include "IR.h"
+#include "ir/ir_fwd.h"
+#include "ir/ir_node.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

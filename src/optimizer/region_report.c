@@ -2,7 +2,8 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rr_idx_of(IR_graph_t * g, IR_t * t) { for (int i = 0; i < g->n; i++) if (g->all[i] == t) return i; return -1; }
 static int rr_is_beta(const char * sz) { return sz && sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }

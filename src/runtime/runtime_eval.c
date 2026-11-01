@@ -12,7 +12,7 @@
 #include "keywords.h"
 #include "sil_macros.h"
 #include "../parsers/snobol4/scrip_cc.h"
-#include "IR.h"
+#include "ir/ir_graph.h"
 #include "pin_va.h"
 #include "runtime/core/core_error.h"
 #include "runtime/core/nv.h"

@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 extern "C" {
+#include "ir/descr.h"
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
 }

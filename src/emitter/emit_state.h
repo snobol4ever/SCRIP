@@ -1,7 +1,7 @@
 #ifndef EMITTER_EMIT_STATE_H
 #define EMITTER_EMIT_STATE_H
 #include <stdint.h>
-#include "ir/IR.h"
+#include "ir/ir_fwd.h"
 #include "ir/ct_vec.h"
 #include "emitter/bb_label.h"
 #ifdef __cplusplus

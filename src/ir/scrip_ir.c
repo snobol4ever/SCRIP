@@ -1,4 +1,6 @@
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/ir_construct.h"
 #include "ct_arena.h"
 #include "bb_program.h"
 #include <stdlib.h>
@@ -391,3 +393,141 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
         }
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_is_matcher(int t) {
+    switch (t) {
+        case IR_MATCH_LIT:
+        case IR_MATCH_ANY:
+        case IR_MATCH_NOTANY:
+        case IR_MATCH_SPAN:
+        case IR_MATCH_SPAN_VAR:
+        case IR_MATCH_BREAK:
+        case IR_MATCH_BREAKX:
+        case IR_MATCH_LEN:
+        case IR_MATCH_POS:
+        case IR_MATCH_RPOS:
+        case IR_MATCH_TAB:
+        case IR_MATCH_RTAB:
+        case IR_MATCH_ARB:
+        case IR_MATCH_ARBNO:
+        case IR_MATCH_REM:
+        case IR_MATCH_BAL:
+        case IR_MATCH_FENCE0:
+        case IR_MATCH_FENCE1:
+        case IR_MATCH_ABORT:
+        case IR_MATCH_ALTERNATE:
+        case IR_MATCH_ASSIGN_IMM:
+        case IR_MATCH_ASSIGN_COND:
+        case IR_MATCH_ASSIGN_SAVE:
+        case IR_MATCH_ATP:
+        case IR_MATCH_CALLOUT:
+        case IR_MATCH_DEFER:
+        case IR_MATCH_LAMBDA:
+        case IR_MATCH_VALUE:
+        case IR_MATCH_BEGIN:
+        case IR_MATCH_END:
+        case IR_MATCH_REPLACE:
+        case IR_MATCH_RETRY:
+        return 1;
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_is_matcher_element(int t) {
+    switch (t) {
+        case IR_MATCH_LIT:
+        case IR_MATCH_ANY:
+        case IR_MATCH_NOTANY:
+        case IR_MATCH_SPAN:
+        case IR_MATCH_SPAN_VAR:
+        case IR_MATCH_BREAK:
+        case IR_MATCH_BREAKX:
+        case IR_MATCH_LEN:
+        case IR_MATCH_POS:
+        case IR_MATCH_RPOS:
+        case IR_MATCH_TAB:
+        case IR_MATCH_RTAB:
+        case IR_MATCH_ARB:
+        case IR_MATCH_ARBNO:
+        case IR_MATCH_REM:
+        case IR_MATCH_BAL:
+        case IR_MATCH_FENCE0:
+        case IR_MATCH_FENCE1:
+        case IR_MATCH_ABORT:
+        case IR_MATCH_ALTERNATE:
+        case IR_MATCH_ASSIGN_IMM:
+        case IR_MATCH_ASSIGN_COND:
+        case IR_MATCH_ASSIGN_SAVE:
+        return 1;
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_is_call_kind(IR_e t) {
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_VALUE || ir_is_call_road_kind(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_decides_own_failure_kind(IR_e t) {
+    switch (ir_norm_call_kind(t)) { case IR_CALL: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: case IR_BINOP_TEST: case IR_MATCH_BEGIN: return 1; default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_range_tag_has(const IR_t * nd, char a, char b, char c) {
+    const char * t = nd ? IR_LIT(nd).sval : (const char *)0;
+    if (!t) return 0;
+    for (; *t; t++) if (t[0] == ':' && t[1] == a && t[2] == b && t[3] == c) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_range_kind_is(const IR_t * nd, const char * k) {
+    const char * t = nd ? IR_LIT(nd).sval : (const char *)0;
+    if (!t || !k) return 0;
+    while (*k && *t == *k) { t++; k++; }
+    return (!*k && (!*t || *t == ':')) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_floater_kind(const IR_t * n) {
+    if (!n) return 0;
+    if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1;
+    if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
+    if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_floater_member(const IR_t * n) {
+    if (!n) return 0;
+    if (ir_floater_kind(n)) return 1;
+    if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_glue_box(const IR_t * t, int phi) {
+    int o = (int)t->op;
+    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) || (phi && o == IR_MATCH_BEGIN);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * ir_define_bind_entry(const IR_t * nd) {
+    return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands >= 1 && nd->n_operands <= 2 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval :
+        (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * ir_define_bind_proto(const IR_t * nd) {
+    return (nd && nd->op == IR_DEFINE && nd->n_operands >= 1 && nd->operands[nd->n_operands - 1] && nd->operands[nd->n_operands - 1]->op == IR_LIT_STRING) ?
+        IR_LIT(nd->operands[nd->n_operands - 1]).sval : (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_define_is_bind(const IR_t * nd) {
+    if (!nd || nd->op != IR_DEFINE || ir_define_sr_citizen(nd)) return 0;
+    if (nd->n_operands == 0) return 1;
+    if (ir_define_bind_entry(nd)) return (nd->n_operands == 1 || ir_define_bind_proto(nd)) ? 1 : 0;
+    return (nd->n_operands == 1 && ir_define_bind_proto(nd)) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int ir_graph_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * ir_call_arg(const IR_t * nd, int j) { if (!nd || j < 0) return NULL; return (nd->n_operands > 0 && j < nd->n_operands) ? nd->operands[j] : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * ir_pair_arg(const IR_t * nd, int j) { if (!nd || j < 0 || j > 1) return NULL; return (nd->n_operands > 0 && j < nd->n_operands) ? nd->operands[j] : NULL; }

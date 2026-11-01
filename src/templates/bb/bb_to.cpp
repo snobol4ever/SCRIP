@@ -1,5 +1,6 @@
 #include <string>
 #include <stdint.h>
+#include "ir/descr.h"
 #include "emitter/emit_str.h"
 extern "C" {
 extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);

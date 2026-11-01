@@ -2,6 +2,7 @@
 #define X86_ARMED_H
 #include <string>
 #include "emitter/emit_state.h"
+#include "ir/ir_node.h"
 #include "emitter/emit_str.h"
 #include "ir/stage2.h"
 #include "runtime/builtins/gen.h"

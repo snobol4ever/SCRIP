@@ -1,6 +1,7 @@
 #ifndef IR_INDEX_H
 #define IR_INDEX_H
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <stdint.h>

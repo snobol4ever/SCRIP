@@ -5,6 +5,7 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
+#include "ir/descr.h"
 }
 typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj, void *rec);

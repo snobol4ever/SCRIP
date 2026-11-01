@@ -3,9 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sil_macros.h"
-#include "bb_build.h"
 #include "bb_pool.h"
-#include "emitter/emit_regime.h"
 #include "ir/ast.h"
 #include "ir/bb_box.h"
 #include "ast.h"

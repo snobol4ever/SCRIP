@@ -1,6 +1,7 @@
 #include <string>
 #include <stdint.h>
 #include "emitter/emit_str.h"
+#include "ir/ir_graph.h"
 extern "C" {
 extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "emitter/emit_state.h"

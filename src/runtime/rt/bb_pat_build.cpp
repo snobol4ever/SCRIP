@@ -1,5 +1,6 @@
 extern "C" {
-#include "IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ast.h"
 #include "bb_pool.h"
 #include "ir/bb_box.h"

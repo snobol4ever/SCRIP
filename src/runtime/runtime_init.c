@@ -1,7 +1,7 @@
 #include "rt/rt.h"
 #include "g_runtime.h"
 #include "dtp.h"
-#include "IR.h"
+#include "ir/ir_node.h"
 #include "bb_pool.h"
 #include "rt/prolog_atom.h"
 #include <stdio.h>

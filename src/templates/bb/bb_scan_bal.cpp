@@ -1,7 +1,6 @@
 #include <string>
 #include <cstring>
 #include <cstdint>
-#include "emitter/emit_regime.h"
 extern "C" {
 #include "emitter/emit_state.h"
 #include "ir/descr_tags.h"

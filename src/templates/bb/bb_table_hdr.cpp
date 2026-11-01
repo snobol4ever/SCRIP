@@ -4,6 +4,7 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "ir/descr.h"
+#include "ir/ir_graph.h"
 DESCR_t rt_pl_dop_tbl_open(DESCR_t *, int);
 }
 #include "templates/x86/x86_ops.h"

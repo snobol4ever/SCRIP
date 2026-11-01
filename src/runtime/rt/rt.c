@@ -23,7 +23,7 @@
 #include "bb_box.h"
 #include "rt_proc_block.h"
 #include "bb_pool.h"
-#include "bb_build.h"
+#include "ir/bb_box.h"
 #include "ast.h"
 #include "SM.h"
 #include "rt/prolog_atom.h"
@@ -108,10 +108,7 @@ int rt_case_eq(const DESCR_t *sel, const DESCR_t *key) {
     if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
     { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
 }
-#include "IR.h"
 #include "ct_vec.h"
-extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
-extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern void *bb_arbno_new(void *fn, void *state);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_nv_cstr(const char *name) { const char *s = VARVAL_fn(NV_GET_fn(name ? name : "")); return s ? s : ""; }

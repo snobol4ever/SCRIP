@@ -3,7 +3,7 @@
 #define ZETA_STORAGE_H
 #include <stdio.h>
 #include <stdint.h>
-#include "IR.h"
+#include "ir/ir_fwd.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -87,6 +87,12 @@ int zls_g_root_value_bytes(const IR_graph_t * g);
 int zls_g_block_base(const IR_graph_t * g);
 int zls_g_entry_block(const IR_graph_t * g);
 int zls_g_has_suspend(const IR_graph_t * g);
+#define ZST_BIAS (1 << 24)
+int zls_fcn_hret(const IR_t * nd);
+int zls_fcn_hunres(const IR_t * nd);
+int zls_fcn_bs_get(const IR_t * nd, int which);
+void zls_fcn_bs_set(const IR_t * nd, int which, int val);
+int fc_geom(const IR_t * nd, long * k);
 #ifdef __cplusplus
 }
 #endif

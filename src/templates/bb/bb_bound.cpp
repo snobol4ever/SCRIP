@@ -1,5 +1,7 @@
 #include <string>
 #include <cstdint>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "emitter/emit_str.h"
 extern "C" int emit_zrow_bspk(const IR_t * nd);
 extern "C" {

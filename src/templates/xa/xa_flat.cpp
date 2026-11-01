@@ -6,6 +6,7 @@
 #include <cstdio>
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
+#include "ir/ir_graph.h"
 #include "emitter/emit_state.h"
 #include "emitter/emit_data.h"
 #include "emitter/emit_knobs.h"

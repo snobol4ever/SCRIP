@@ -1,4 +1,4 @@
-#include "IR.h"
+#include "ir/ir_node.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include "g_lower.h"

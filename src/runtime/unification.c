@@ -9,7 +9,6 @@
 #include "core/utf8.h"
 #include "bb_pool.h"
 #include "rt/prolog_atom.h"
-#include "../ir/IR.h"
 #include "../ir/gc_frame_map.h"
 #include <stdio.h>
 #include <time.h>

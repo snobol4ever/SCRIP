@@ -3,6 +3,7 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
+#include "ir/descr.h"
 }
 extern "C" int rt_defer_close (int cur_delta, void *rec);
 extern "C" void *rt_match_value_get_pat_fn (DESCR_t *pval);

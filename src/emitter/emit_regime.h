@@ -1,8 +1,8 @@
 #ifndef EMITTER_EMIT_REGIME_H
 #define EMITTER_EMIT_REGIME_H
 #include <stdint.h>
-#include "ir/IR.h"
 #include "emitter/emit_state.h"
+#include "ir/bb_box.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,10 +14,7 @@ static inline int emit_heap_fb_adopt(void) { return g_gen_proc_active || g_resum
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline const char * emit_pl_fb(void) { return "rbp"; }
 int cap_fail_retreat(void);
-static inline int emit_resumable_frame(void) { return (g_emit_cfg && g_emit_cfg->pf.resumable_frame) ? 1 : 0; }
-extern const char *Σ;
-extern int Σlen;
-extern int Δ;
+int emit_resumable_frame(void);
 #define TEMPLATE_FN_ADDR(sym) ((uint64_t)(uintptr_t)(void *)(sym))
 #define TEMPLATE_ADDR_SIGMA ((uint64_t)(uintptr_t)&Σ)
 #define TEMPLATE_ADDR_SIGLEN ((uint64_t)(uintptr_t)&Σlen)

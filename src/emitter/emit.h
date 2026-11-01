@@ -1,7 +1,8 @@
 #ifndef EMITTER_EMIT_H
 #define EMITTER_EMIT_H
 #include <stdio.h>
-#include "ir/IR.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ir/bb_box.h"
 #include "emitter/bb_label.h"
 #ifdef __cplusplus

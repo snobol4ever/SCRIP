@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef ARITH_FOLD_H
 #define ARITH_FOLD_H
-#include "IR.h"
+#include "ir/ir_fwd.h"
 int gz_arith_const_eval(const IR_t *nd, long *out);
 int sno_arith_lit_coerce(const IR_t *nd, long *out);
 int gz_arith_float_eval(const IR_t *nd, double *out);

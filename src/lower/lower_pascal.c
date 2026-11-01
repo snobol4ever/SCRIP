@@ -3,12 +3,14 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include "ir/ast.h"
 #include "lower/lower_pascal.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "ir/IR.h"
+#include "ir/ir_graph.h"
 #include "runtime/builtins/gen.h"
 #include "lower/lc_vec.h"
 #include "lower/lower_common.h"

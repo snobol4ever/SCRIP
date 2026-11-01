@@ -2,7 +2,7 @@
 #pragma once
 #ifdef __cplusplus
 #include <string>
-#include "IR.h"
+#include <stdint.h>
 enum { BB_SHIM_ID_FIXED = 230, BB_SHIM_ID_CHAINS = 250, BB_SHIM_TRACE_IDS = 13 };
 static inline int bb_shim_id_alpha(int nf) { (void)nf; return BB_SHIM_ID_CHAINS; }
 static inline int bb_shim_id_beta(int nf) { return BB_SHIM_ID_CHAINS + nf + 6; }

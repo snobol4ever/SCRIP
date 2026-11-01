@@ -4,12 +4,14 @@
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <math.h>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include "ir/ast.h"
 #include "lower/lower_icon.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "ir/IR.h"
+#include "ir/ir_graph.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "lower/lower_common.h"
@@ -3392,7 +3394,6 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     return g;
 }
 #include "bb_program.h"
-#include "emitter/emit_regime.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;

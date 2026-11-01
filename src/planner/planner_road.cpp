@@ -1,5 +1,23 @@
-#include "planner_head.h"
-#include "planner.h"
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+#include <climits>
+#include <algorithm>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+extern "C" {
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+}
+extern "C" {
+#include "planner/frame_layout.h"
+#include "planner/planner.h"
 extern "C" int rt_pl_dc_ok(const char *, int);
 extern "C" int zls_g_region(const IR_graph_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
