@@ -2463,6 +2463,10 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                 goto again;
             }
             if (xb && x && (x->kind & 255) == 2) { pc = w; r = fbm; rbp = rbm; g_runtime.gc.gc_chain_landhops++; goto again; }
+            if (b->ckt > 0 && g_runtime.gc.gc_program_top) {
+                const gc_site_blk_t *rb = gc_root_block();
+                if (rb && fbm + b->ckt + (long)rb->map->value_bytes + 16 + (long)rb->map->header_bytes == g_runtime.gc.gc_program_top) { cx->b = rb; cx->base = fbm + b->ckt; cx->st = 1; return; }
+            }
             if (b->ckt >= 48) {
                 uint64_t g = *(const uint64_t *)(fbm + b->ckt - 24);
                 const gc_site_ent_t *x2 = (const gc_site_ent_t *)0;
@@ -2507,10 +2511,6 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                     const gc_site_blk_t *yb = gc_site_find(sg, &y);
                     if (yb && y && (y->kind & 255) == 2) { pc = sg; r = fbm + b->ckt; rbp = rbm; g_runtime.gc.gc_chain_landhops++; goto again; }
                 }
-            }
-            if (b->ckt > 0 && g_runtime.gc.gc_program_top) {
-                const gc_site_blk_t *rb = gc_root_block();
-                if (rb && fbm + b->ckt + (long)rb->map->value_bytes + 16 + (long)rb->map->header_bytes == g_runtime.gc.gc_program_top) { cx->b = rb; cx->base = fbm + b->ckt; cx->st = 1; return; }
             }
         }
     }
