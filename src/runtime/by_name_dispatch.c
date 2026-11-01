@@ -22597,6 +22597,8 @@ static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
     return (DESCR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *rt_icn_local_cell(const char *name, size_t len) { DESCR_t nm = { .v = DT_S, .slen = (uint32_t) len, .s = (char *) name }; return icn_variable_frame_cell(nm, NULL, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_rchar(int with_echo) {
     struct termios o, t;
     unsigned char c;

@@ -1225,6 +1225,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_REM: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_rem()); } return 0;
     case IR_MATCH_ATP: { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;
+    case IR_MATCH_CASMARK: { bb_prepare(nd); bb_emit_x86(bb_match_casmark()); } return 0;
     case IR_MATCH_ARB: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_arb()); } return 0;
     case IR_MATCH_BAL: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
@@ -1979,6 +1980,10 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ATP: {
+        g_emit.op_sa = -1; g_emit.op_off = -1;
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_CASMARK: {
         g_emit.op_sa = -1; g_emit.op_off = -1;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }

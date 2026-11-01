@@ -2997,6 +2997,7 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_MATCH_ARB:
             case IR_MATCH_BAL:
             case IR_MATCH_ATP:
+            case IR_MATCH_CASMARK:
             case IR_MATCH_LAMBDA:
             case IR_MATCH_RETRY:
             case IR_MATCH_REPLACE:

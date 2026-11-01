@@ -1162,6 +1162,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
             }
         }
         if (e->varname && e->varname[0]) {
+            extern DESCR_t *rt_icn_local_cell(const char *, size_t);
+            DESCR_t *icl = rt_icn_local_cell(e->varname, strlen(e->varname));
+            if (icl) { if (d.v == DT_S) rt_sxt_break_fast(d.s); *icl = d; continue; }
             DESCR_t *cell0;
             {
                 unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));

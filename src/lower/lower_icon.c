@@ -1083,6 +1083,7 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n >= 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval) {
         tree_t * q = ast_node_new(TT_QLIT);
         q->v.sval = t->c[1]->v.sval;
+        q->slen = (int) strlen(q->v.sval);
         tree_t * c3 = ast_node_new(TT_FNC);
         ast_push(c3, pm_var("SNO$PBC"));
         ast_push(c3, pm_int((int64_t) t->t));
@@ -1154,8 +1155,9 @@ static IR_t * pm_defer_box(icx_t * cx, const tree_t * e, IR_t ** argt) {
     const char * nm = NULL;
     if (e->t == TT_VAR && e->v.sval && e->v.sval[0] != '&' && icn_is_own_global(cx, e->v.sval) && !icn_is_proc(e->v.sval)) nm = e->v.sval;
     else {
-        char b[32];
-        snprintf(b, sizeof b, "$pmg%d", ++g_lower.icn.pm_hidden_n);
+        int hn = ++g_lower.icn.pm_hidden_n;
+        char b[fmt_len("$pmg%d", hn)];
+        snprintf(b, sizeof b, "$pmg%d", hn);
         nm = lp_strdup(b);
         { extern void global_register(const char *); global_register(nm); }
         lc_vec_push(&g_lower.icn.lower_icon_proc_gnv, &nm);
@@ -1173,36 +1175,67 @@ static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     const tree_t * el[ne];
     IR_t * nd[ne];
     IR_t * en[ne];
+    IR_t * ag[ne];
     pm_flatten(pat, el, ne);
+    int commit = 0;
     for (int i = 0; i < ne; i++) {
         const tree_t * e = el[i];
         IR_t * argt = NULL;
-        en[i] = NULL;
+        ag[i] = NULL;
         if (e->t == TT_QLIT) {
             nd[i] = lc_build(cx->g, IR_MATCH_LIT, NULL, NULL);
             IR_LIT(nd[i]).sval = e->v.sval ? e->v.sval : (char *) "";
         } else {
             nd[i] = pm_fn_box(cx, e, &argt);
-            if (!nd[i]) nd[i] = pm_defer_box(cx, e, &argt);
+            if (!nd[i]) { nd[i] = pm_defer_box(cx, e, &argt); commit = 1; }
         }
         en[i] = nd[i];
-        if (argt) {
-            IR_t * fb = ω;
-            if (i > 0) { fb = build(cx, IR_GOTO, NULL, ω); lc_γ_to_β(fb, nd[i - 1]); }
-            IR_t * vr = NULL;
-            int before = cx->g->n;
-            en[i] = lower(cx, (const tree_t *) argt, nd[i], fb, &vr);
-            pm_retag_alpha(cx->g, before, nd[i]);
-            if (vr && nd[i]->op != IR_MATCH_DEFER) ir_operand_push(nd[i], vr);
-            if (!en[i]) en[i] = nd[i];
-        }
+        ag[i] = argt;
     }
-    for (int i = 0; i < ne; i++) { if (i + 1 < ne) lc_γ_to(nd[i], en[i + 1]); else γ_to(nd[i], γ); if (i > 0) lc_ω_to_β(nd[i], nd[i - 1]); else ω_to(nd[i], ω); }
+    IR_t * cm = NULL;
+    IR_t * fl = NULL;
+    IR_t * sy = NULL;
+    IR_t * pp = NULL;
+    if (commit) { cm = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL); IR_LIT(cm).ival = 0; ω_to(cm, ω); }
+    for (int i = 0; i < ne; i++) {
+        if (!ag[i]) continue;
+        IR_t * fb = ω;
+        if (i > 0) { fb = build(cx, IR_GOTO, NULL, ω); lc_γ_to_β(fb, nd[i - 1]); } else if (commit) { fb = build(cx, IR_GOTO, NULL, ω); lc_γ_to_β(fb, cm); }
+        IR_t * vr = NULL;
+        int before = cx->g->n;
+        en[i] = lower(cx, (const tree_t *) ag[i], nd[i], fb, &vr);
+        pm_retag_alpha(cx->g, before, nd[i]);
+        if (vr && nd[i]->op != IR_MATCH_DEFER) ir_operand_push(nd[i], vr);
+        if (!en[i]) en[i] = nd[i];
+    }
+    if (commit) {
+        fl = lc_build(cx->g, IR_MATCH_FENCE0, NULL, NULL);
+        IR_LIT(fl).ival = SNO_FENCE_LIT_FLUSH;
+        sy = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL);
+        IR_LIT(sy).ival = 2;
+        lc_γ_to(sy, fl);
+        lc_ω_to_β(fl, sy);
+        pp = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL);
+        IR_LIT(pp).ival = 1;
+        lc_γ_to(fl, pp);
+        lc_ω_to_β(sy, nd[ne - 1]);
+        γ_to(pp, γ);
+        lc_ω_to_β(pp, fl);
+        lc_γ_to(cm, en[0]);
+    }
+    for (int i = 0; i < ne; i++) {
+        if (i + 1 < ne) lc_γ_to(nd[i], en[i + 1]);
+        else if (commit) lc_γ_to(nd[i], sy);
+        else γ_to(nd[i], γ);
+        if (i > 0) lc_ω_to_β(nd[i], nd[i - 1]);
+        else if (commit) lc_ω_to_β(nd[i], cm);
+        else ω_to(nd[i], ω);
+    }
     IR_t * g = build(cx, IR_GOTO, NULL, ω);
     lc_γ_to_β(g, nd[ne - 1]);
     cx->beta = g;
     *res = nd[ne - 1];
-    return en[0];
+    return commit ? cm : en[0];
 }
 static IR_t * lower_pmatch(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (t->n == 1 && t->c[0]) return lower_pm_boxes(cx, t->c[0], γ, ω, res);
