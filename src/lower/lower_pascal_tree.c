@@ -215,6 +215,7 @@ static int pas_rectype_field_is_bool(const char *rn, long idx);
 static long long pas_array_nonparam_low(const char *name);
 static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
+static long long pas_range_fit_size(long long lo, long long hi);
 static int pas_lohi_bits(tree_t *a);
 static long long pas_elem_size(const char *an);
 static int pas_sizeof_builtin_size(const char *n, long long *out);
@@ -438,6 +439,7 @@ static int pas_is_proc(const char *name);
 static int pas_is_func(const char *name);
 static tree_t *pas_addr_of_proc(tree_t *e);
 static tree_t *pas_addr_of(tree_t *e);
+static tree_t *pas_addr_of_cell(tree_t *e);
 static int pas_ptr_typed(const tree_t *low);
 static int pas_pchar_typed(const tree_t *low);
 static int pas_row_designator(const tree_t *e, long long *d2);
@@ -919,11 +921,13 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         return e;
     }
     if (name && !strcmp(name, "addr") && args && args->count >= 1) return pas_addr_of(args->items[0]);
+    long long _fw = 1;
     if (name && args && args->count >= 5 && !strncmp(name, "fill", 4) && strchr("bwdq", name[4]) && !strcmp(name + 5, name[4] == 'b' ? "yte" : name[4] == 'w' ? "ord" : "word") && !pas_is_func(name) &&
         !pas_is_proc(name)) {
         long long w = name[4] == 'b' ? 1 : name[4] == 'w' ? 2 : name[4] == 'd' ? 4 : 8;
         tree_t *c = args->items[2];
         args->items[2] = (c && c->t == TT_ILIT) ? ilit(c->v.ival * w) : bin(TT_MUL, c, ilit(w));
+        _fw = w;
         name = "fillchar";
     }
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval && args->items[2] && args->items[2]->t == TT_ILIT) {
@@ -996,6 +1000,27 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             ast_push(floop, ilit(fhi));
             ast_push(floop, fbody);
             return floop;
+        }
+        long long _pw = dst ? pty_sizeof_low(dst) : -1;
+        const pty_t *_et = dst ? pty_of_low(dst) : NULL;
+        if (_pw <= 0 && _et && (_et->k == PTK_CHAR || _et->k == PTK_BOOL) && !(_et->name && pas_sizeof_lookup(_et->name, &_pw))) _pw = 1;
+        if (_pw <= 0 && _et && (_et->k == PTK_INT || _et->k == PTK_ENUM) && !(_et->name && pas_sizeof_lookup(_et->name, &_pw))) _pw = pas_range_fit_size(_et->lo, _et->hi);
+        tree_t *_n = NULL;
+        if (cnt && _pw > 0) _n = cnt->t == TT_ILIT ? ilit(cnt->v.ival / _pw) : _pw == 1 ? cnt : (cnt->t == TT_MUL && cnt->n == 2 && cnt->c[1] && cnt->c[1]->t == TT_ILIT && cnt->c[1]->v.ival == _pw) ?
+            cnt->c[0] : NULL;
+        tree_t *_pa = (dst && _n && val && _et && (_pw == _fw || (val->t == TT_ILIT && val->v.ival == 0))) ? pas_addr_of_cell(pas_tree_clone(dst)) : NULL;
+        if (_pa && (_et->k == PTK_INT || _et->k == PTK_CHAR || _et->k == PTK_BOOL || _et->k == PTK_ENUM)) {
+            const pty_t *_vt = pty_of_low(val);
+            tree_t *_v = val;
+            if (_et->k == PTK_CHAR && !(_vt && _vt->k == PTK_CHAR)) _v = mk_chrlit(val);
+            else if (_et->k != PTK_CHAR && _vt && _vt->k == PTK_CHAR) _v = bin(TT_ADD, val, ilit(0));
+            const char *_fcv = ct_fmt("__pas_fc%d", g_lower.pas.sem.fcn++);
+            tree_t *_loop = ast_node_new(TT_FOR);
+            ast_push(_loop, leaf_s(TT_VAR, _fcv));
+            ast_push(_loop, ilit(0));
+            ast_push(_loop, _n->t == TT_ILIT ? ilit(_n->v.ival - 1) : bin(TT_SUB, _n, ilit(1)));
+            ast_push(_loop, mk_fnc2("__pas_deref_set", mk_fnc2("__pas_ptr_inc", _pa, leaf_s(TT_VAR, _fcv)), _v));
+            return _loop;
         }
     }
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(g_lower.pas.sem.pas_dialect_fpc ? 2 : 1));
