@@ -1660,6 +1660,44 @@ static tree_t *pas_addr_of_cell(tree_t *e) {
     return NULL;
 }
 static tree_t *pas_addr_of(tree_t *e) { tree_t *c = pas_addr_of_cell(e); return c ? c : pas_addr_of_proc(e); }
+static int pas_view_kind(const pty_t *t, long long *w) {
+    if (!t) return -1;
+    *w = pty_sizeof_flat(t);
+    if (*w != 1 && *w != 2 && *w != 4 && *w != 8) return -1;
+    if (t->k == PTK_INT || t->k == PTK_ENUM) return t->lo < 0 ? 4 : 0;
+    if (t->k == PTK_CHAR) return 1;
+    if (t->k == PTK_BOOL) return t->wbool ? 4 : 2;
+    if (t->k == PTK_REAL) return *w == 4 || *w == 8 ? 3 : -1;
+    return -1;
+}
+static tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
+    if (!g_lower.pas.sem.pas_dialect_fpc || !sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
+    int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
+    const pty_t *pt = (av || ae) ? pty_of_low(sel) : NULL;
+    if (!pt || pt->k != PTK_POINTER || !pt->base || pty_is_pchar(pt)) return rhs;
+    const pty_t *bt = pty_of_low(rhs->c[1]);
+    if (!bt && rhs->c[1]->t == TT_VAR && rhs->c[1]->v.sval) bt = pty_name_type(rhs->c[1]->v.sval);
+    if (!bt || bt->k == PTK_UNKNOWN) return rhs;
+    const pty_t *P = pt->base, *e = bt;
+    tree_t *addr = rhs;
+    if (bt->k == PTK_ARRAY) {
+        if (P == bt || P->k == PTK_ARRAY || bt->dyn || bt->open || bt->nix != 1 || !bt->ix || !bt->ix[0] || !bt->ix[0]->bounded || !bt->base) return rhs;
+        e = bt->base;
+        if (av) addr = mk_fnc2("__pas_addr", rhs->c[1], ilit(bt->ix[0]->lo));
+    } else if (ae) return rhs;
+    if (P == e) return addr;
+    long long w = 0, W = 0;
+    int ek = pas_view_kind(e, &w), pk = pas_view_kind(P, &W);
+    if (ek < 0 || pk < 0) {
+        if (P->k == PTK_UNKNOWN || e->k == PTK_UNKNOWN || (P->name && e->name && !strcmp(P->name, e->name))) return addr;
+        fprintf(stderr, "pascal: a pointer to %s cannot view the storage of %s: only flat ordinal storage takes a pointer of another width (ARCH-PASCAL-REDESIGN R5 amended (5))\n",
+            pty_name_of(P) ? pty_name_of(P) : pty_kind_name(P->k), pty_name_of(e) ? pty_name_of(e) : pty_kind_name(e->k));
+        g_lower.pas.sem.pas_iso_errors++;
+        return rhs;
+    }
+    if (w == W && ek == pk) return addr;
+    return mk_fnc2("__pas_pview", addr, ilit(w | (W << 8) | ((long long)((ek & 3) | ((ek >> 2) << 2) | ((pk & 3) << 3) | ((pk >> 2) << 5)) << 16)));
+}
 static tree_t *pas_ptr_rel(tree_e tt, tree_t *a, tree_t *b) {
     if (!(pas_ptr_typed(a) || pas_ptr_typed(b)) || !pas_ptr_or_nil(a) || !pas_ptr_or_nil(b)) return NULL;
     return bin(tt == TT_EQ ? TT_NE : TT_EQ, mk_fnc2("__pas_ptr_eq", a, b), ilit(0));
@@ -3505,6 +3543,7 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         return mk_assign(e0, pt);
     }
     { tree_t *_pc = pas_pchar_assign(sel, rhs); if (_pc) return _pc; }
+    rhs = pas_pun_view(sel, rhs);
     { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
     if (sel && sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[1] && sel->c[1]->t == TT_ILIT && rhs && rhs->t != TT_QLIT && pas_is_charexpr(rhs)) {
         const char *_frt = pas_with_sel_rtype(sel->c[0]);
