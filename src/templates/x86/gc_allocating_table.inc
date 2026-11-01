@@ -813,6 +813,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "lower_pl_stage2", GC_RET_OTHER },
     { "lower_pm_boxes", GC_RET_OTHER },
     { "lower_pmatch", GC_RET_OTHER },
+    { "lower_pmatch_repl", GC_RET_OTHER },
     { "lower_proc_body", GC_RET_OTHER },
     { "lower_raku_body", GC_RET_OTHER },
     { "lower_raku_eval_stage2", GC_RET_OTHER },

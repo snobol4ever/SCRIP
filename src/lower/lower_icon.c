@@ -1072,6 +1072,7 @@ static void pm_retag_alpha(IR_graph_t * g, int from, IR_t * target) {
 }
 static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, pm_var(fn)); if (a0) ast_push(c, a0); if (a1) ast_push(c, a1); return c; }
 static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
+static int pm_const_int(const tree_t * a, int64_t * v);
 static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     static const struct {
         const char * nm;
@@ -1101,6 +1102,10 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         tree_t * kt = pm_int((int64_t) pf[i].tt);
         switch (pf[i].k) {
             case 'N':
+            if (na == 1 && (pf[i].tt == TT_POS || pf[i].tt == TT_TAB)) {
+                int64_t pn1;
+                if (pm_const_int(t->c[1], &pn1)) return pm_call("SNO$PBN", pm_int((int64_t) (pn1 > 0 ? pf[i].tt : (pf[i].tt == TT_POS ? TT_RPOS : TT_RTAB))), pm_int(pn1 > 0 ? pn1 - 1 : -pn1));
+            }
             return na == 1 ? pm_call("SNO$PBN", kt, (tree_t *) t->c[1]) : NULL;
             case 'K':
             return na == 1 ? pm_call("SNO$PBK", kt, (tree_t *) t->c[1]) : NULL;
@@ -1255,6 +1260,30 @@ static IR_t * lower_pmatch(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     return lower(cx, all, γ, ω, res);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_pmatch_repl(icx_t * cx, const tree_t * m, const tree_t * repl, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const char * nx = icn_synth_local(cx);
+    const char * si = icn_synth_local(cx);
+    const char * en = icn_synth_local(cx);
+    const char * rv = icn_synth_local(cx);
+    const char * sn = m->c[0]->v.sval;
+    tree_t * to =
+        pm_node(TT_TO, pm_var(nx), pm_node(TT_IF, pm_node(TT_GT, pm_var(nx), pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL), NULL), pm_var(nx), pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL)),
+        NULL);
+    tree_t * pass = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(si), to, NULL), pm_node(TT_ASSIGN, pm_var("&pos"), pm_var(si), NULL), pm_node(TT_PMATCH, (tree_t *) m->c[1], NULL, NULL));
+    ast_push(pass, pm_node(TT_ASSIGN, pm_var(en), pm_var("&pos"), NULL));
+    tree_t * adv =
+        pm_node(TT_IF, pm_node(TT_GT, pm_node(TT_SIZE, pm_var(rv), NULL, NULL), pm_int(0), NULL), pm_node(TT_ADD, pm_var(si), pm_node(TT_SIZE, pm_var(rv), NULL, NULL), NULL),
+        pm_node(TT_ADD, pm_var(si), pm_int(1), NULL));
+    tree_t * one =
+        pm_node(TT_CONJ, pm_node(TT_SCAN, pm_var(sn), pass, NULL), pm_node(TT_ASSIGN, pm_var(rv), (tree_t *) repl, NULL),
+        pm_node(TT_ASSIGN, pm_node(TT_SECTION, pm_var(sn), pm_var(si), pm_var(en)), pm_var(rv), NULL));
+    ast_push(one, pm_node(TT_ASSIGN, pm_var(nx), adv, NULL));
+    ast_push(one, pm_var(sn));
+    tree_t * body = pm_node(TT_REPALT, pm_node(TT_LIMIT, one, pm_int(1), NULL), NULL, NULL);
+    tree_t * all = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(nx), pm_int(1), NULL), body, NULL);
+    return lower(cx, all, γ, ω, res);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * pl = cx->op_last;
     int pn = cx->op_line;
@@ -1266,6 +1295,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pm_fn_form(icx_t * cx, const tree_t * t) {
+    if (!t || t->t != TT_FNC || t->n != 3 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval || strcmp(t->c[0]->v.sval, "pattern_match") || icn_is_proc(t->c[0]->v.sval)) return t;
+    return pm_node(TT_PMATCH, (tree_t *) t->c[1], (tree_t *) t->c[2], NULL);
+}
 static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -1274,6 +1307,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     cx->after_line = 0;
     cx->key_after_line = after_line;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    t = pm_fn_form(cx, t);
     if (lc_is_binop(t->t)) {
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         int64_t bcode = lc_binop_code(t->t);
@@ -1594,8 +1628,9 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         return lower_make_list(cx, t, γ, ω, res);
         case TT_ASSIGN:
         {
-            const tree_t * lhs = t->c[0];
+            const tree_t * lhs = pm_fn_form(cx, t->c[0]);
             const tree_t * rhs = t->c[1];
+            if (lhs && lhs->t == TT_PMATCH && lhs->n == 2 && lhs->c[0] && lhs->c[0]->t == TT_VAR && lhs->c[0]->v.sval && lhs->c[1] && rhs) return lower_pmatch_repl(cx, lhs, rhs, γ, ω, res);
             {
                 const char * vn = icn_variable_lit(cx, lhs);
                 if (vn) {
