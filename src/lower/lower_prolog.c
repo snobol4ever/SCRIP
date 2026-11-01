@@ -4525,7 +4525,7 @@ static void pl_db_decls_capture(void) {
         const char * dn = g_stage2.pl_dyn_name[di];
         int da = g_stage2.pl_dyn_arity[di];
         int kind = 0;
-        if (!dn || pl_name_is_scrip_own(dn, da)) continue;
+        if (!dn || (pl_name_is_scrip_own(dn, da) && strncmp(dn, "$pl_", 4))) continue;
         if (da >= 0) { if (pl_decl_dyn_is(dn, da)) kind = 2; else if (pl_file_defines(dn, da)) kind = 3; }
         PL_DW(prolog_atom_intern(dn));
         PL_DW(da);
