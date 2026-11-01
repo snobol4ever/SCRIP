@@ -2632,6 +2632,7 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     }
     if (cla == 3) {
         if (a->i == b->i) return 0;
+        if (rt_pl_dialect_swi() && plc_is_nil(a) != plc_is_nil(b)) return plc_is_nil(a) ? -1 : 1;
         size_t la = plc_atom_len(a), lb = plc_atom_len(b);
         int c = memcmp(rt_pl_cell_name(a), rt_pl_cell_name(b), la < lb ? la : lb);
         if (!c) c = la < lb ? -1 : la > lb ? 1 : 0;
