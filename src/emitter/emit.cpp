@@ -969,6 +969,24 @@ static void call_box_emit(std::string (*box)(void)) {
     bb_emit_x86(box());
     g_emit.op_wpop = sw; g_emit.op_zgpop = sz;
 }
+extern "C++" int bcps_arg_slot(IR_t * call, int i);
+static void pl_block_prepare(IR_t * nd) {
+    int n = (int)g_emit.op_ival, off = zrow(nd)->loff, nk = 0, nh = 0;
+    g_emit.op_pb_off = off; g_emit.op_pb_act = g_emit.op_actoff >= 0 ? g_emit.op_actoff : off + 16 * (1 + n); g_emit.op_pb_idx = g_emit.op_sval ? rt_proc_index_of(g_emit.op_sval) : -1;
+    g_emit.op_pb_zsp = (g_emit.op_zres && !g_emit.op_tret) ? 1 : 0; g_emit.op_pb_fr = (!g_emit.op_pb_zsp && !g_emit.op_sprec) ? 1 : 0;
+    g_emit.op_pb_frs = (g_emit.op_pb_fr && g_emit.op_zres && g_emit.op_xf_off == -1 && g_emit.op_res_alias == off) ? 1 : 0;
+    g_emit.op_pb_lco = ((g_emit.op_seal == 1 || g_emit.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && (g_emit_cfg->root_graph || g_emit_cfg->depth_counted))) ? 1 : 0;
+    g_emit.op_pb_pop = g_emit.op_seal == IR_SEAL_TAIL_POP ? 1 : 0; g_emit.op_pb_ns = g_emit_cfg ? g_emit_cfg->nparams : 0; g_emit.op_pb_static = ((nd->strict & (1 << 30)) && g_emit.op_sval) ? 1 : 0;
+    for (int i = 0; i < n; i++) {
+        IR_t * a = ir_call_arg(nd, i); int named = (a && a->op == IR_VAR_REF && a->sval) ? 1 : 0, vs = named ? g_emit.op_opvs[i] : -1, ok = (vs >= 0 && !x86_key_unbacked(vs)) ? 1 : 0, seen = 0;
+        g_emit.op_pb_slot[i] = bcps_arg_slot(nd, i); g_emit.op_pb_vs[i] = named ? ((vs >= 0 && x86_key_unbacked(vs)) ? -1 : vs) : -1;
+        g_emit.op_pb_kv[i] = (ok && a->seal == IR_SEAL_KILL_VALUE) ? vs : -1; g_emit.op_pb_kh[i] = (ok && a->seal == IR_SEAL_KILL_HOME) ? vs : -1; g_emit.op_pb_kvn[i] = 0; g_emit.op_pb_khn[i] = 0;
+        if (g_emit.op_pb_kv[i] >= 0) { for (int k = 0; k < i; k++) if (g_emit.op_pb_kv[k] == vs) seen = 1; if (!seen) g_emit.op_pb_kvn[i] = ++nk; }
+        seen = 0;
+        if (g_emit.op_pb_kh[i] >= 0) { for (int k = 0; k < i; k++) if (g_emit.op_pb_kh[k] == vs) seen = 1; if (!seen) g_emit.op_pb_khn[i] = ++nh; }
+    }
+    g_emit.op_pb_kvt = n <= 30 ? nk : 0; g_emit.op_pb_kht = n <= 30 ? nh : 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
 extern "C" int fc_geom(const IR_t *, long *);
@@ -1443,6 +1461,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.lbl_t1 = g_emit.flat_fail_p ? g_emit.flat_fail_p->name : (const char *)0; }
         else { g_emit.op_sb = -1; g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0; }
         bb_emit_x86(bb_return()); return 0; }
+    case IR_CALL_PL_BLOCK: { g_emit.op_call_route = bb_call_route_classify(nd); call_fc_fill(nd); sig_prepare(g_emit.op_sval, (int)g_emit.op_ival); pl_block_prepare(nd);
+        bb_emit_x86(bb_call_pl_block()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_PROC_GEN:
@@ -1949,7 +1969,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_VAR_FRAME:
     case IR_ASSIGN_FRAME:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
+    case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN: case IR_CALL_PL_BLOCK:
     case IR_CALL_DIRECT: case IR_CALL_PL_LEAF: case IR_CALL_PAS_BI: case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: case IR_CALL_BYNAME: case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP:
     case IR_CALL_APPLY: case IR_CALL_EVAL: case IR_CALL_GEN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4: {
@@ -3323,6 +3343,8 @@ static void emit_ops_reserve(int n) {
     g_emit.op_zread = emit_grow_one(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = emit_grow_one(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = emit_grow_one(g_emit.op_zread_xf, o, cap, -1);
     g_emit.op_zread_fr = emit_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = emit_grow_one(g_emit.op_zslot, o, cap, -1); g_emit.op_zkown = emit_grow_one(g_emit.op_zkown, o, cap, -1);
         g_emit.op_zfres = emit_grow_one(g_emit.op_zfres, o, cap, 1); g_emit.op_opvs = emit_grow_one(g_emit.op_opvs, o, cap, -1);
+    g_emit.op_pb_slot = emit_grow_one(g_emit.op_pb_slot, o, cap, -1); g_emit.op_pb_vs = emit_grow_one(g_emit.op_pb_vs, o, cap, -1); g_emit.op_pb_kv = emit_grow_one(g_emit.op_pb_kv, o, cap, -1);
+    g_emit.op_pb_kh = emit_grow_one(g_emit.op_pb_kh, o, cap, -1); g_emit.op_pb_kvn = emit_grow_one(g_emit.op_pb_kvn, o, cap, 0); g_emit.op_pb_khn = emit_grow_one(g_emit.op_pb_khn, o, cap, 0);
     g_emit.op_zcap = cap;
 }
 static int zrow_under(int ri) { const zeta_plan_t * r = g_planner.g_zd_rec_p; return (ri >= 0 && r && r->under) ? r->under[ri] : 0; }

@@ -28,11 +28,12 @@ static const struct {
     0, 0, 0, 0, 0 }, { IR_MATCH_VALUE, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_MATCH_ALTERNATE, -5, BCS_ALWAYS, 0, 0, 2, 0, 0 }, { IR_MATCH_FENCE1, -4, BCS_ALWAYS, 0, 0, 2, 0, 0 }, { IR_MATCH_FENCE0, 0,
     BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_MATCH_ABORT, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_MATCH_TRAP, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_MATCH_CASMARK, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_BOUND, 0,
     BCS_HOME_STATE, 0, 0, 0, 0, 0 }, { IR_CALL_PROC_STAGED, 32, BCS_PL_SPINE_RECORD, 5, 4, 0, 0, 0 }, { IR_CALL_PROC_STAGED, 16, BCS_PL_HOME_DYN, 1, 2, 0, 0, 0 }, { IR_CALL_PROC_STAGED, 32,
-    BCS_PL_HOME, 1, 4, 0, 0, 0 }, { IR_CALL_VALUE, 32, BCS_PL_SPINE_RECORD, 5, 4, 0, 0, 0 }, { IR_CALL_VALUE, 16, BCS_PL_HOME, 1, 2, 0, 0, 0 }, { IR_GATE, 0, BCS_PL_HOME, 0, 0, 0, 0, 0 }, { IR_BOUND,
-    0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNMARK, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CONJUNCTION, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CUT, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_GATE_ARM, 16,
-    BCS_PL_GATE_ARM, 1, 2, 0, 0, 0 }, { IR_GATE_ARM, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_PL_HOME, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_TABLE_HDR, 0,
-    BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_CONST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_FIRST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_VALUE, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_RETURN, 0,
-    BCS_ALWAYS, 0, 0, 0, 0, 0 }, { -1, 16, BCS_ALWAYS, 1, 2, 0, 0, 0 } };
+    BCS_PL_HOME, 1, 4, 0, 0, 0 }, { IR_CALL_PL_BLOCK, 32, BCS_PL_SPINE_RECORD, 5, 4, 0, 0, 0 }, { IR_CALL_PL_BLOCK, 16, BCS_PL_HOME_DYN, 1, 2, 0, 0, 0 }, { IR_CALL_PL_BLOCK, 32, BCS_PL_HOME, 1, 4, 0,
+    0, 0 }, { IR_CALL_VALUE, 32, BCS_PL_SPINE_RECORD, 5, 4, 0, 0, 0 }, { IR_CALL_VALUE, 16, BCS_PL_HOME, 1, 2, 0, 0, 0 }, { IR_GATE, 0, BCS_PL_HOME, 0, 0, 0, 0, 0 }, { IR_BOUND, 0, BCS_ALWAYS, 0, 0,
+    0, 0, 0 }, { IR_UNMARK, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CONJUNCTION, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CUT, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_GATE_ARM, 16, BCS_PL_GATE_ARM, 1, 2, 0, 0,
+    0 }, { IR_GATE_ARM, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_PL_HOME, 0, 0, 0, 0, 0 }, { IR_CLEANUP, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_TABLE_HDR, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 },
+    { IR_UNIFY_CONST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_FIRST, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_UNIFY_VALUE, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 }, { IR_RETURN, 0, BCS_ALWAYS, 0, 0, 0, 0, 0 },
+    { -1, 16, BCS_ALWAYS, 1, 2, 0, 0, 0 } };
 static const struct {
     int op;
     int bytes;

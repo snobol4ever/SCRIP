@@ -31,7 +31,7 @@ static int planner_chain_arity(const IR_t *n) {
     case IR_UNOP: case IR_UNOP_TEST: return 1;
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
-    case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
+    case IR_CALL_PROC_STAGED: case IR_CALL_PL_BLOCK: case IR_CALL_BUILTIN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_DIRECT: case IR_CALL_PL_LEAF: case IR_CALL_PAS_BI: case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: case IR_CALL_BYNAME:
     case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP: case IR_CALL_APPLY: case IR_CALL_EVAL: case IR_CALL_GEN:
     case IR_CALL: return n->n_operands;

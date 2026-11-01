@@ -16,3 +16,13 @@ void xa_strtab_rodata (void);
 void xa_csettab_rodata (void);
 void xa_cap_fixup (void);
 void xa_pattern_blobs (void);
+#ifdef __cplusplus
+#include <string>
+extern "C++" {
+std::string xa_call_tail_land(long bytes);
+std::string xa_call_tail_fail(void);
+std::string xa_call_tail_result_frame(int off);
+std::string xa_call_tail_result_zres(void);
+std::string xa_call_tail_fail_test(void);
+}
+#endif

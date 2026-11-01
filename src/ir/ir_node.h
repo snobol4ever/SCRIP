@@ -20,7 +20,7 @@ typedef enum {
         IR_STATEMENT_END, IR_STMT_MARK, IR_LINE_MARK, IR_SUBSCRIPT, IR_SUCCEED, IR_SUSPEND, IR_SWAP, IR_SWAP_VAR, IR_TO, IR_TO_BY, IR_UNMARK, IR_UNOP, IR_UNOP_TEST, IR_VAR, IR_VAR_REF, IR_VAR_FRAME,
         IR_ASSIGN_FRAME, IR_LIMIT_GATE, IR_LIT_ATOM, IR_UNIFY_CONST, IR_UNIFY_STRUCT, IR_UNIFY_FIRST, IR_UNIFY_VALUE, IR_SETEXIT_TEST, IR_CLEANUP, IR_CALL_DIRECT, IR_CALL_PL_LEAF, IR_CALL_PAS_BI,
         IR_CALL_CALLEE_REC, IR_CALL_FIELD_REC, IR_CALL_BYNAME, IR_CALL_TRY, IR_CALL_METHOD, IR_CALL_REDISP, IR_CALL_APPLY, IR_CALL_EVAL, IR_CALL_GEN, IR_LIT_DSTAR, IR_LIT_THUNK, IR_TABLE_HDR,
-        IR_OP_COUNT
+        IR_CALL_PL_BLOCK, IR_OP_COUNT
 } IR_e;
 #define TABLE_HDR_CELLS 15
 typedef enum {
@@ -38,7 +38,7 @@ DESCR_SASSERT(IR_OP_COUNT > 0,
     "the numbering history, including the 123 per-runtime-routine ids that were a SECOND, ORTHOGONAL " "dimension and are still homeless.");
 typedef enum { BINOP_CAT_ARITH = 0, BINOP_CAT_RELOP = 1, BINOP_CAT_CONCAT = 2, BINOP_CAT_XREP = 3 } binop_cat_t;
 static inline int ir_is_scan_kind(IR_e t) { return 0; }
-static inline int ir_is_call_road_kind(IR_e t) { return t >= IR_CALL_DIRECT && t <= IR_CALL_GEN; }
+static inline int ir_is_call_road_kind(IR_e t) { return (t >= IR_CALL_DIRECT && t <= IR_CALL_GEN) || t == IR_CALL_PL_BLOCK; }
 int ir_is_call_kind(IR_e t);
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
 static inline int ir_is_define_kind(IR_e t) { return t >= IR_DEFINE_BIND && t <= IR_DEFINE_CALL; }
