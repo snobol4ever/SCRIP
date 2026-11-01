@@ -2,6 +2,7 @@
 #include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <ctype.h>
 #include "ir/ct_arena.h"
 #include "ir/ast.h"
@@ -5319,6 +5320,11 @@ static pval E_compound_statement(const tree_t *n) {
     elab_bad("compound_statement", n);
     return out;
 }
+static int pas_const_fold_fn(const char *s) {
+    static const char *const N[] = { "high", "low", "trunc", "round", "ln", "sqrt", "exp" };
+    for (size_t i = 0; s && i < sizeof N / sizeof N[0]; i++) if (!strcmp(s, N[i])) return 1;
+    return 0;
+}
 static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, const char **sv) {
     if (!e) return 0;
     if (e->t == TT_ILIT) { *k = 1; *iv = e->v.ival; return 1; }
@@ -5394,6 +5400,26 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
             if (!pas_arrtype_isdyn(a) && pas_arrtype_high(a) >= 0 && pas_arrtype_ncols(a) < 0) { *k = 1; *iv = f[0] == 'h' ? pas_arrtype_high(a) : pas_arrtype_lo(a); return 1; }
             return 0;
         }
+        if (!strcmp(f, "trunc") || !strcmp(f, "round") || !strcmp(f, "ln") || !strcmp(f, "sqrt") || !strcmp(f, "exp")) {
+            int ka = 0;
+            long long ia = 0;
+            double da = 0;
+            const char *sa = NULL;
+            if (!pas_fold_const(e->c[1], &ka, &ia, &da, &sa) || (ka != 1 && ka != 2)) return 0;
+            double x = ka == 1 ? (double)ia : da;
+            if (f[0] == 't' || f[0] == 'r') {
+                double y = f[0] == 't' ? trunc(x) : g_lower.pas.sem.pas_dialect_fpc ? rint(x) : round(x);
+                if (!(y > -9223372036854775809.0 && y < 9223372036854775808.0)) return 0;
+                *k = 1;
+                *iv = (long long)y;
+                return 1;
+            }
+            double y = f[0] == 'l' ? (x > 0 ? log(x) : NAN) : f[0] == 's' ? (x >= 0 ? sqrt(x) : NAN) : exp(x);
+            if (!isfinite(y)) return 0;
+            *k = 2;
+            *dv = y;
+            return 1;
+        }
         static const char *const F[] = { "ord", "chr", "succ", "pred", "abs" };
         int fi = -1;
         for (int j = 0; j < 5; j++) if (!strcmp(f, F[j])) fi = j;
@@ -5453,7 +5479,7 @@ static pval E_const_decl(const tree_t *n) {
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && n->c[1] &&
         (n->c[1]->t == TT_ADD || n->c[1]->t == TT_SUB || n->c[1]->t == TT_MUL || n->c[1]->t == TT_DIV || n->c[1]->t == TT_IDIV || n->c[1]->t == TT_MOD ||
-        (n->c[1]->t == TT_FNC && n->c[1]->n == 2 && n->c[1]->c[0] && n->c[1]->c[0]->v.sval && (!strcmp(n->c[1]->c[0]->v.sval, "high") || !strcmp(n->c[1]->c[0]->v.sval, "low"))) ||
+        (n->c[1]->t == TT_FNC && n->c[1]->n == 2 && n->c[1]->c[0] && pas_const_fold_fn(n->c[1]->c[0]->v.sval)) ||
         (n->c[1]->t == TT_VAR && n->c[1]->v.sval && (pas_sconst_get(n->c[1]->v.sval) || pas_rconst_get(n->c[1]->v.sval, &v[5].dval))))) {
         int k = 0;
         long long iv = 0;

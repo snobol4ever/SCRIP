@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
 #include "ir/ct_arena.h"
 #include "ir/ast.h"
 #include "ir/bb_box.h"
@@ -139,6 +140,7 @@ static int pt_hilo(struct pty_state *s, const char *nm, int hi, long long *v) {
     if (p->k == 't' && t->bounded && (t->k == PTK_INT || t->k == PTK_CHAR)) { *v = hi ? t->hi : t->lo; return 1; }
     return 0;
 }
+static int pt_rconst(struct pty_state *s, const tree_t *n, double *d);
 static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
     long long a, b;
     if (!n) return 0;
@@ -193,11 +195,51 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
                 return q ? (q->t && ty_sizeof(q->t, v, 0) && *v >= 0) : lk_bsize(n->c[1]->v.sval, v);
             }
             if ((!strcmp(f, "high") || !strcmp(f, "low")) && PT_IS(n->c[1], TT_VAR) && n->c[1]->v.sval) return pt_hilo(s, n->c[1]->v.sval, f[0] == 'h', v);
+            if (f && (!strcmp(f, "trunc") || !strcmp(f, "round")) && !ps_find_kind(s, f, 'f')) {
+                double x;
+                if (!pt_rconst(s, n->c[1], &x)) return 0;
+                double y = f[0] == 't' ? trunc(x) : g_lower.pas.sem.pas_dialect_fpc ? rint(x) : round(x);
+                if (!(y > -9223372036854775809.0 && y < 9223372036854775808.0)) return 0;
+                *v = (long long)y;
+                return 1;
+            }
             if (!pt_const(s, n->c[1], &a)) return 0;
             if (!strcmp(f, "ord") || !strcmp(f, "chr")) { *v = a; return 1; }
             if (!strcmp(f, "succ")) { *v = a + 1; return 1; }
             if (!strcmp(f, "pred")) { *v = a - 1; return 1; }
             return 0;
+        }
+        default:
+        return 0;
+    }
+}
+static int pt_rconst(struct pty_state *s, const tree_t *n, double *d) {
+    long long a;
+    double x, y;
+    if (!n) return 0;
+    if (n->t == TT_FLIT) { *d = n->v.dval; return 1; }
+    if (pt_const(s, n, &a)) { *d = (double)a; return 1; }
+    switch (n->t) {
+        case TT_PLS:
+        return n->n == 1 && pt_rconst(s, n->c[0], d);
+        case TT_MNS:
+        if (n->n == 1 && pt_rconst(s, n->c[0], &x)) { *d = -x; return 1; }
+        return 0;
+        case TT_ADD:
+        case TT_SUB:
+        case TT_MUL:
+        case TT_DIV:
+        if (n->n != 2 || !pt_rconst(s, n->c[0], &x) || !pt_rconst(s, n->c[1], &y) || (n->t == TT_DIV && y == 0)) return 0;
+        *d = n->t == TT_ADD ? x + y : n->t == TT_SUB ? x - y : n->t == TT_MUL ? x * y : x / y;
+        return 1;
+        case TT_FNC:
+        {
+            const char *f = (n->n == 2 && PT_IS(n->c[0], TT_VAR)) ? n->c[0]->v.sval : NULL;
+            if (!f || (strcmp(f, "ln") && strcmp(f, "sqrt") && strcmp(f, "exp")) || ps_find_kind(s, f, 'f') || !pt_rconst(s, n->c[1], &x)) return 0;
+            y = f[0] == 'l' ? (x > 0 ? log(x) : NAN) : f[0] == 's' ? (x >= 0 ? sqrt(x) : NAN) : exp(x);
+            if (!isfinite(y)) return 0;
+            *d = y;
+            return 1;
         }
         default:
         return 0;
