@@ -4139,6 +4139,26 @@ static int pl_libs_hook_lines(PlProgram **lp, int nlibs, const PlProgram *uprog)
     }
     return any;
 }
+static int pl_goal_names_export(const tree_t *g, const pl_prelude_lib_pi_t *ex) {
+    if (!g || g->t != TT_FNC || !g->v.sval) return 0;
+    if (g->n == 2 && !strcmp(g->v.sval, ",")) return pl_goal_names_export(g->c[0], ex) || pl_goal_names_export(g->c[1], ex);
+    for (; ex->nm[0]; ex++) if (ex->ar == g->n && !strcmp(ex->nm, g->v.sval)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_libs_autoload_hook_lines(PlProgram **lp, int nlibs, const PlProgram *uprog) {
+    int any = 0;
+    for (const PlClause *dc = uprog ? uprog->head : (const PlClause *)0; dc; dc = dc->next) {
+        const tree_t *g = pl_clause_is_directive((PlClause *)dc) ? dc->tr->c[1] : (const tree_t *)0;
+        if (!g || dc->lineno <= 0) continue;
+        for (int j = 0; j < nlibs; j++) {
+            if (!lp[j] || !pl_goal_names_export(g, PL_PRELUDE_LIBS[j].exports)) continue;
+            for (PlClause *cl = lp[j]->head; cl; cl = cl->next) if (cl->lineno >= 0 && pl_clause_is_load_hook(cl)) { cl->lineno = -dc->lineno; cl->file = dc->file; any = 1; }
+        }
+    }
+    return any;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi, int xsb) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib[0]) nlibs++;
@@ -4201,7 +4221,9 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             ct_drop(lh.t);
         }
     }
-    if (pl_libs_hook_lines(lp, nlibs, uprog)) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
+    int hk = pl_libs_hook_lines(lp, nlibs, uprog);
+    hk |= pl_libs_autoload_hook_lines(lp, nlibs, uprog);
+    if (hk) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         for (int j = 0; j < nlibs; j++) {
