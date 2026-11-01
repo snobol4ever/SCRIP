@@ -17,5 +17,5 @@ std::string bb_main_β() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_main_floater(int kind) {
-    return (kind == 3) ? bb_nreturn_mark() : bb_define();
+    return (kind == 3) ? bb_nreturn_mark() : (kind == 2) ? bb_define_freturn() : bb_define_return();
 }

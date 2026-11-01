@@ -1290,28 +1290,27 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GOTO: { if (g_emitter.walk_bb_node_inner__mgt < 0) g_emitter.walk_bb_node_inner__mgt = getenv("MONITOR_GOTO_TAP") ? 1 : 0; extern void emit_mon_label_tap(int32_t);
         if (g_runtime.abi.trace_budget != 0 && g_emitter.walk_bb_node_inner__mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto()); return 0;
     case IR_GOTO_DEFERRED: bb_emit_x86(bb_goto_deferred()); return 0;
-    case IR_DEFINE_BIND: case IR_DEFINE_ADOPT: case IR_DEFINE_SHIM: case IR_DEFINE_RT_SHIM: case IR_DEFINE_RETURN: case IR_DEFINE_FRETURN: case IR_DEFINE_CALL: {
-        if (ir_define_sr_citizen(nd)) {
-            if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval;
-            } if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5;
-            } if (g_emit.op_ival == 0 && _zn->gcall && nd->n_operands == 1 && nd->operands[0]) {
-            int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = _zn->o0off; if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as;
-            } } g_emit.op_define_role = (nd->op == IR_DEFINE_RT_SHIM) ? 7 : (int)g_emit.op_ival; extern std::string bb_define();
-                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); return 0; }
-        if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd);
-            int _realstub = 0;
-            if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq];
-            _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; } g_emit.op_define_role = 6; extern std::string bb_define();
-                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); int _d1st = 1;
-            if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break;
-            if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break;
-            } } if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5;
-                sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); g_emit.op_ival = _sv5;
-            } return 0; }
-        fprintf(stderr, "IR_DEFINE %s with %d operand(s) is neither an SR citizen nor a bind: no lowerer builds this shape since the activation road was retired\n",
-            IR_LIT(nd).sval ? IR_LIT(nd).sval : "", (int)nd->n_operands);
-        abort();
-    } return 0;
+    case IR_DEFINE_SHIM: { if (nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval; }
+        g_emit.op_define_role = 4; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 4); bb_emit_x86(bb_define_shim()); return 0; }
+    case IR_DEFINE_RT_SHIM: { if (nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval; }
+        g_emit.op_define_role = 7; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 7); bb_emit_x86(bb_define_rt_shim()); return 0; }
+    case IR_DEFINE_ADOPT: { if (nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5; }
+        g_emit.op_define_role = 3; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 3); bb_emit_x86(bb_define_adopt()); return 0; }
+    case IR_DEFINE_CALL: { if (_zn->gcall && nd->n_operands == 1 && nd->operands[0]) { int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = _zn->o0off;
+            if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as; } }
+        g_emit.op_define_role = 0; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 0); bb_emit_x86(bb_define_call()); return 0; }
+    case IR_DEFINE_RETURN: { g_emit.op_define_role = 1; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 1); bb_emit_x86(bb_define_return()); return 0; }
+    case IR_DEFINE_FRETURN: { g_emit.op_define_role = 2; sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 2); bb_emit_x86(bb_define_freturn()); return 0; }
+    case IR_DEFINE_BIND: { g_emit.op_sval = IR_LIT(nd).sval; g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd);
+        int _realstub = 0;
+        if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq];
+            _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; } g_emit.op_define_role = 6;
+        sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 6); bb_emit_x86(bb_define_bind()); int _d1st = 1;
+        if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break;
+            if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break; } }
+        if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5;
+            sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 5); bb_emit_x86(bb_define_shim_inline()); g_emit.op_ival = _sv5; }
+        return 0; }
     case IR_STATEMENT_BEGIN: { g_emit.op_mon_stmt_tap = ((g_runtime.abi.trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;
         { if (g_emit.op_mon_stmt_tap && !g_runtime.eval.rt_fragment_emit && g_emit.op_stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
@@ -1669,6 +1668,35 @@ static int bb_ab_slot_for(const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)ab_cell(bb_ab_slot_for(fname)) : (void *)0; }
 void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)ab_cell(bb_ab_slot_for(fname)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" const char * bb_ab_sym_name(const char * nm);
+extern "C" const char * bb_ab_thunk_stem_or(const char * nm);
+extern "C" const char * bb_ab_sym_name(const char * nm) {
+    enum { MAXN = 48, KEEP = 31 }; static_assert(KEEP + 17 <= MAXN, "a long name is its kept units, a dollar and 16 hex"); static char b[MAXN + 1]; int j = 0, bnd = 0, over = 0;
+    std::string star_stem; if (nm && nm[0] == '*' && bb_ab_thunk_stem_or(nm + 1) != nm + 1) { star_stem = std::string("*") + bb_ab_thunk_stem_or(nm + 1); nm = star_stem.c_str(); }
+    nm = bb_ab_thunk_stem_or(nm);
+    unsigned long long h = 1469598103934665603ULL; for (const char * c = nm ? nm : ""; *c; c++) { unsigned char u = (unsigned char) *c; char e[4]; int k; h = (h ^ u) * 1099511628211ULL;
+        if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') { e[0] = (char) u; k = 1; } else k = snprintf(e, sizeof e, "$%02X", u);
+        if (!over && j + k <= MAXN) { memcpy(b + j, e, (size_t) k); j += k; if (j <= KEEP) bnd = j; } else over = 1; }
+    if (over) j = bnd + snprintf(b + bnd, sizeof b - (size_t) bnd, "$%016llx", h); b[j] = 0; return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int alpha_face) {
+    extern int emit_label_lookup_offset(const char *);
+    if (!pname || !fnbase) return;
+    const char * sn = alpha_face ? pname : bb_ab_sym_name(pname); char lbl[fmt_len(alpha_face ? "%s_\xce\xb1" : "LBL__%s", sn)], cell[fmt_len(alpha_face ? "alpha$%s" : "entry$%s", pname)];
+    if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
+    else { snprintf(lbl, sizeof lbl, "LBL__%s", sn); snprintf(cell, sizeof cell, "entry$%s", pname); }
+    int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }
+    *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(bb_ab_seal_alpha, leaf, 0);
+extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
+    if (!pname || !alpha) return;
+    char cell[fmt_len("alpha$%s", pname)]; snprintf(cell, sizeof cell, "alpha$%s", pname);
+    *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
+}
 int bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
 void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < g_emitter.g_ab_fn_cell_n) ? (void *)ab_cell(slot) : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3388,7 +3416,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
               g_emit.lbl_α_p = _fa; g_emit.lbl_α = _fa->name; g_emit.lbl_γ_p = _fg; g_emit.lbl_γ = _fg->name; g_emit.lbl_ω_p = &lbl_ω; g_emit.lbl_ω = lbl_ω.name; g_emit.lbl_β_p = _fa;
                   g_emit.lbl_β = _fa->name;
               g_emit.op_ival = _k; g_emit.op_define_role = (_k == 3) ? 0 : _k;
-              int _uid0 = g_flat_node_id; emit_sep_rule('-'); bb_emit_x86(bb_main_floater(_k)); _flt_uid_burn[_k] = g_flat_node_id - _uid0; g_flat_node_id = _uid0; }
+              sig_prepare_floater(); int _uid0 = g_flat_node_id; emit_sep_rule('-'); bb_emit_x86(bb_main_floater(_k)); _flt_uid_burn[_k] = g_flat_node_id - _uid0; g_flat_node_id = _uid0; }
           g_emit.flat_main_body_p = (bb_label_t *)0; g_emit.flat_main_ω_p = (bb_label_t *)0;
       } }
     if (text_externalise && g_is_text && !fn_face_dead) emit_label_define_bb(&lbl_α);

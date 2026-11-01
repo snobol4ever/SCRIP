@@ -1720,7 +1720,11 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_main.cpp \
     $(SRC)/templates/bb/bb_match_lambda.cpp \
     $(SRC)/templates/bb/bb_keyword_assign_snobol4.cpp \
-    $(SRC)/templates/bb/bb_define.cpp \
+    $(SRC)/templates/bb/bb_define_bind.cpp \
+    $(SRC)/templates/bb/bb_define_shim.cpp \
+    $(SRC)/templates/bb/bb_define_floater.cpp \
+    $(SRC)/templates/bb/bb_define_adopt.cpp \
+    $(SRC)/templates/bb/bb_define_call.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb/bb_conjunction.cpp \
     $(SRC)/templates/bb/bb_subscript.cpp \
