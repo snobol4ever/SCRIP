@@ -542,6 +542,13 @@ static tree_t *pas_split_writes(tree_t *e) {
     }
     return seq;
 }
+static tree_t *pas_crt_route(tree_t *t) {
+    if (!IS(t, TT_FNC) || t->n < 1 || !t->c[0] || !is_pas_io(t->c[0]->v.sval)) return t;
+    int nl = !strcmp(t->c[0]->v.sval, "__pas_writeln");
+    t->c[0] = leaf_s(TT_VAR, "__pas_writestr");
+    if (nl) { ast_push(t, leaf_s(TT_QLIT, "\n")); ast_push(t, ilit(-1)); }
+    return mk_fnc1("crt.crtwrite", t);
+}
 static tree_t *mk_call_raw(const char *name, PNodeList *args);
 static tree_t *pas_divchk_wrap(tree_t *b) {
     if (!g_lower.pas.sem.pas_divchk || !b || (b->t == TT_ILIT && b->v.ival != 0)) return b;
@@ -1488,7 +1495,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         }
     }
     if (_wstr) return mk_assign(args->items[0], e);
-    if (is_pas_io(map_io(name))) return pas_split_writes(e);
+    if (is_pas_io(map_io(name))) return (!_wstream && g_lower.pas.sem.pas_crt_out && !g_lower.pas.sem.pas_crt_raw) ? pas_crt_route(e) : pas_split_writes(e);
     return e;
 }
 static tree_t *pas_mod(tree_t *a, tree_t *b) {
@@ -6027,10 +6034,12 @@ static pval E_procedure_decl_in(const tree_t *n);
 static pval E_procedure_decl(const tree_t *n) {
     const void *pc = pty_enter(n);
     const char *nm = n->n > 0 && n->c[0] ? tok_s(n->c[0]) : NULL;
-    int sv = g_lower.pas.sem.pas_divchk;
+    int sv = g_lower.pas.sem.pas_divchk, svr = g_lower.pas.sem.pas_crt_raw;
     if (nm && !strncmp(nm, "__sh_", 5)) g_lower.pas.sem.pas_divchk = 0;
+    if (nm && !strncasecmp(nm, "crt.", 4)) g_lower.pas.sem.pas_crt_raw = 1;
     pval o = E_procedure_decl_in(n);
     g_lower.pas.sem.pas_divchk = sv;
+    g_lower.pas.sem.pas_crt_raw = svr;
     pty_leave(pc);
     return o;
 }
@@ -7334,6 +7343,7 @@ static void pu_prune_routines(tree_t *nb, tree_t *ur) {
     for (int i = 0; i < nb->n; i++) if (!pu_listed(cand, nb->c[i])) pu_idents(nb->c[i], refs);
     if (g_lower.pas.sem.pas_ioflow) { pu_add(refs, leaf_s(TT_VAR, "__sh_iocheck")); pu_add(refs, leaf_s(TT_VAR, "__sh_iochecke")); }
     if (g_lower.pas.sem.pas_divchk) { pu_add(refs, leaf_s(TT_VAR, "__sh_divchk")); pu_add(refs, leaf_s(TT_VAR, "__sh_rdiv")); }
+    if (g_lower.pas.sem.pas_crt_out) pu_add(refs, leaf_s(TT_VAR, "crt.crtwrite"));
     for (int grew = 1; grew;) {
         grew = 0;
         for (int i = 0; i < cand->n; i++) {
@@ -7362,6 +7372,7 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     tree_t *unames = ast_node_new(TT_VLIST), *qfrom = ast_node_new(TT_VLIST), *qto = ast_node_new(TT_VLIST), *pnames = ast_node_new(TT_VLIST);
     tree_t *pubs = ast_node_new(TT_VLIST), *seen = ast_node_new(TT_VLIST), *conf = ast_node_new(TT_VLIST);
     for (int k = 0; k < nu; k++) pu_add(unames, forest->c[k]->c[0]);
+    for (int k = 0; k < nu; k++) if (forest->c[k]->c[0]->v.sval && !strcasecmp(forest->c[k]->c[0]->v.sval, "crt")) g_lower.pas.sem.pas_crt_out = 1;
     pu_part_names(block, pnames);
     for (int k = 0; k < nu; k++) {
         tree_t *pub = ast_node_new(TT_VLIST);
