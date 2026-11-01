@@ -2605,7 +2605,7 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
         }
         { int c = pl_rat_cmp(*a, *b); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     }
-    if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R) && !rt_pl_dialect_swi()) return ((int)a->v == DT_R) ? -1 : 1;
+    if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R) && (rt_pl_dialect_gnu() || rt_pl_dialect_xsb())) return ((int)a->v == DT_R) ? -1 : 1;
     if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG) && (int)a->v != DT_R && (int)b->v != DT_R) {
         extern int rt_big_cmp(DESCR_t, DESCR_t);
         int rc = rt_big_cmp(*a, *b);
