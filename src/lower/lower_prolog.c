@@ -1941,6 +1941,7 @@ static tree_t * pl_db_mq_term(const char * mod, tree_t * t) {
         return r;
     }
     if (!mod) return t;
+    if (t->v.sval && (t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME)) { size_t ml = strlen(mod); if (!strncmp(t->v.sval, mod, ml) && t->v.sval[ml] == ':') return t; }
     if (t->t == TT_FNC && t->v.sval) {
         char qn[fmt_len("%s:%s", mod, t->v.sval)];
         tree_t * r = ast_node_new(TT_FNC);
