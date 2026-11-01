@@ -125,6 +125,20 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
 static pty_t *pt_named(struct pty_state *s, const char *n) { psym_t *p = ps_find_kind(s, n, 't'); return p ? p->t : pt_builtin(s, n); }
 static pty_t *pt_expr(struct pty_state *s, const tree_t *n);
 static const pty_t *pt_of_src_mut(struct pty_state *s, const tree_t *n);
+static int lk_bsize(const char *n, long long *out);
+static int ty_sizeof(const pty_t *t, long long *out, int depth);
+static int pt_hilo(struct pty_state *s, const char *nm, int hi, long long *v) {
+    static const char *const P[] = { "byte", "shortint", "smallint", "word", "longint", "longword", "cardinal", "int64", "char", "boolean" };
+    static const long long PL[] = { 0, -128, -32768, 0, -2147483647LL - 1, 0, 0, INT64_MIN, 0, 0 };
+    static const long long PH[] = { 255, 127, 32767, 65535, 2147483647LL, 4294967295LL, 4294967295LL, INT64_MAX, 255, 1 };
+    psym_t *p = ps_find(s, nm);
+    const pty_t *t = p ? p->t : NULL;
+    if (!p) { for (int j = 0; j < 10; j++) if (!strcmp(nm, P[j])) { *v = hi ? PH[j] : PL[j]; return 1; } return 0; }
+    if (!t) return 0;
+    if (t->k == PTK_ARRAY) { if (t->dyn || t->open || t->nix != 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 0; *v = hi ? t->ix[0]->hi : t->ix[0]->lo; return 1; }
+    if (p->k == 't' && t->bounded && (t->k == PTK_INT || t->k == PTK_CHAR)) { *v = hi ? t->hi : t->lo; return 1; }
+    return 0;
+}
 static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
     long long a, b;
     if (!n) return 0;
@@ -166,8 +180,20 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
         return 1;
         case TT_FNC:
         {
-            const char *f = (n->n == 2 && PT_IS(n->c[0], TT_VAR)) ? n->c[0]->v.sval : NULL;
-            if (!f || !pt_const(s, n->c[1], &a)) return 0;
+            const char *f = (n->n >= 2 && PT_IS(n->c[0], TT_VAR)) ? n->c[0]->v.sval : NULL;
+            if (!f) return 0;
+            if (n->n == 3 && (!strcmp(f, "shl") || !strcmp(f, "shr") || !strcmp(f, "xor"))) {
+                if (!pt_const(s, n->c[1], &a) || !pt_const(s, n->c[2], &b)) return 0;
+                *v = !strcmp(f, "xor") ? (a ^ b) : !strcmp(f, "shl") ? (long long)((unsigned long long)a << (b & 63)) : (long long)((unsigned long long)a >> (b & 63));
+                return 1;
+            }
+            if (n->n != 2) return 0;
+            if (!strcmp(f, "sizeof") && PT_IS(n->c[1], TT_VAR) && n->c[1]->v.sval) {
+                psym_t *q = ps_find(s, n->c[1]->v.sval);
+                return q ? (q->t && ty_sizeof(q->t, v, 0) && *v >= 0) : lk_bsize(n->c[1]->v.sval, v);
+            }
+            if ((!strcmp(f, "high") || !strcmp(f, "low")) && PT_IS(n->c[1], TT_VAR) && n->c[1]->v.sval) return pt_hilo(s, n->c[1]->v.sval, f[0] == 'h', v);
+            if (!pt_const(s, n->c[1], &a)) return 0;
             if (!strcmp(f, "ord") || !strcmp(f, "chr")) { *v = a; return 1; }
             if (!strcmp(f, "succ")) { *v = a + 1; return 1; }
             if (!strcmp(f, "pred")) { *v = a - 1; return 1; }
@@ -876,6 +902,41 @@ static psym_t *pe_find(struct pty_state *s, const char *name) {
 int pty_is_pchar(const pty_t *t) { struct pty_state *s = pt_st(); return s && t && t == s->tpchar; }
 int pty_name_kind(const char *name) { struct pty_state *s = pt_st(); if (!s || !s->ecur) return 0; psym_t *p = pe_find(s, name); return p ? p->k : 0; }
 const pty_t *pty_name_type(const char *name) { struct pty_state *s = pt_st(); if (!s || !s->ecur) return NULL; psym_t *p = pe_find(s, name); return p ? p->t : NULL; }
+static int lf_arr(const pty_t *t, int *ischar, long long *lo, long long *hi);
+static psym_t *pe_find_fn(struct pty_state *s, const char *name) {
+    for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 'f' && p->name && !strcmp(p->name, name)) return p;
+    return NULL;
+}
+int pty_name_dyn(const char *name) {
+    struct pty_state *s = pt_st();
+    const pty_t *t = name ? pty_name_type(name) : NULL;
+    int d = 0;
+    if (!t && s && s->ecur && name) { psym_t *f = pe_find_fn(s, name); if (f && !pe_find(s, name)) t = f->t; }
+    if (!t) return -1;
+    while (t && t->k == PTK_ARRAY && t->dyn) { d++; t = t->base; }
+    return d;
+}
+int pty_name_high(const char *name, long long *hi) {
+    const pty_t *t = name ? pty_name_type(name) : NULL;
+    int k = pty_name_kind(name), ischar;
+    long long lo, h;
+    if (!t || k == 'R') return 0;
+    if (t->k == PTK_RECORD && t->lay && k == 'v' && pty_rec_nf(t) > 0) { *hi = pty_rec_nf(t) - 1; return 1; }
+    if (t->k != PTK_ARRAY || t->dyn || t->open || k == 'p' || k == 'r' || t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 0;
+    if (t->nix == 2) { if (!t->ix[1] || !t->ix[1]->bounded) return 0; h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; } else if (!lf_arr(t, &ischar, &lo, &h)) return 0;
+    if (h < 0) return 0;
+    *hi = h;
+    return 1;
+}
+int pty_name_dims(const char *name, long long *d2) {
+    const pty_t *t = name ? pty_name_type(name) : NULL;
+    if (!t || t->k != PTK_ARRAY || t->dyn || t->open || t->nix != 2 || !t->ix || !t->ix[0] || !t->ix[1]) return 0;
+    d2[0] = t->ix[0]->lo;
+    d2[1] = t->ix[0]->hi;
+    d2[2] = t->ix[1]->lo;
+    d2[3] = t->ix[1]->hi;
+    return 1;
+}
 int pty_name_is(const char *name, pty_kind want) {
     struct pty_state *s = pt_st();
     if (!s || !s->ecur) return -1;
