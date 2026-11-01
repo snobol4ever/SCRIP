@@ -1067,6 +1067,32 @@ static int pm_flatten(const tree_t * t, const tree_t ** out, int cap) {
     return 1;
 }
 static int pm_count(const tree_t * t) { return (t->t == TT_CAT && t->n == 2) ? pm_count(t->c[0]) + pm_count(t->c[1]) : 1; }
+static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, pm_var(fn)); if (a0) ast_push(c, a0); if (a1) ast_push(c, a1); return c; }
+static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
+static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
+    static const struct { const char * nm; tree_e tt; char k; } pf[] = { {"Len", TT_LEN, 'N'}, {"Pos", TT_POS, 'N'}, {"Rpos", TT_RPOS, 'N'}, {"Tab", TT_TAB, 'N'}, {"Rtab", TT_RTAB, 'N'},
+        {"Any", TT_ANY, 'K'}, {"NotAny", TT_NOTANY, 'K'}, {"Span", TT_SPAN, 'K'}, {"Break", TT_BREAK, 'K'}, {"Breakx", TT_BREAKX, 'K'}, {"Nspan", TT_SPAN, 'S'},
+        {"Arb", TT_ARB, '0'}, {"Rem", TT_REM, '0'}, {"Bal", TT_BAL, '0'}, {"Fail", TT_FAIL, '0'}, {"Succeed", TT_SUCCEED, '0'}, {"Abort", TT_ABORT, '0'}, {"Fence", TT_FENCE, 'F'}, {"Arbno", TT_ARBNO, 'A'} };
+    if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
+    if (t->t != TT_FNC || t->n < 1 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval) return NULL;
+    const char * nm = t->c[0]->v.sval;
+    int na = t->n - 1;
+    if (icn_is_proc(nm) || icn_is_local(cx, nm) || icn_is_own_global(cx, nm)) return NULL;
+    for (int i = 0; i < (int) (sizeof pf / sizeof pf[0]); i++) {
+        if (strcmp(pf[i].nm, nm)) continue;
+        tree_t * kt = pm_int((int64_t) pf[i].tt);
+        switch (pf[i].k) {
+            case 'N': return na == 1 ? pm_call("SNO$PBN", kt, (tree_t *) t->c[1]) : NULL;
+            case 'K': return na == 1 ? pm_call("SNO$PBK", kt, (tree_t *) t->c[1]) : NULL;
+            case 'S': return na == 1 ? pm_call("SNO$PBALT", pm_call("SNO$PBK", kt, (tree_t *) t->c[1]), pm_empty_str()) : NULL;
+            case '0': return na == 0 ? pm_call("SNO$PB0", kt, NULL) : NULL;
+            case 'A': return na == 1 ? pm_call("SNO$PARB", (tree_t *) t->c[1], NULL) : NULL;
+            default: return na == 0 ? pm_call("SNO$PB0", kt, NULL) : (na == 1 ? pm_call("SNO$PFEN", (tree_t *) t->c[1], NULL) : NULL);
+        }
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
     int ne = pm_count(pat);
     const tree_t * el[ne];
@@ -1276,6 +1302,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         case TT_CAPT_CURSOR:
         case TT_DEFER:
         case TT_ALT:
+        { tree_t * pw = pm_patfn(cx, t); if (pw) return lower(cx, pw, γ, ω, res); }
         fprintf(stderr, "icon: line %d: a Unicon pattern operator is parsed but not lowered yet (ARCH-UNICON step 4b: the pattern type on the SNOBOL4 boxes)\n", t->line);
         exit(1);
         case TT_FIELD:
@@ -1292,6 +1319,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         case TT_FNC:
         {
             const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
+            { tree_t * pw = pm_patfn(cx, t); if (pw) return lower(cx, pw, γ, ω, res); }
             {
                 const char * vn = icn_variable_lit(cx, t);
                 if (vn) {

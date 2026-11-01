@@ -21333,7 +21333,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     } else if (av.v==DT_C) t="CODE";
     else if (av.v==DT_X) t="EXPRESSION";
     else if (av.v==DT_N) t="name";
-    else if (av.v==DT_P) t="PATTERN";
+    else if (av.v==DT_P) t=(!strcmp(fn,"DATATYPE")) ? "PATTERN" : "pattern";
     else if (av.v==DT_SNUL) t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";
     else t="string";
     if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_heap_strdup_c(t)); return 1; }

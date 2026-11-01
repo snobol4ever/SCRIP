@@ -104,6 +104,7 @@ DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
     extern char *rt_big_str(DESCR_t);
     extern int core_icn_error(int code, DESCR_t val);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
+    if (a.v == DT_P || b.v == DT_P) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
     if (!core_icn_str_ok(a) || !core_icn_str_ok(b)) {
         DESCR_t bad = core_icn_str_ok(a) ? b : a, sa = a;
         if (core_icn_str_ok(a) && (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL)) sa = descr_to_str_fracdigit(a);
