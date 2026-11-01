@@ -10,6 +10,7 @@
 #include "ir/gc_frame_map.h"
 #include "ir/ast.h"
 #include "lower/g_lower.h"
+#include "ir/stage2.h"
 #include "ir/call_forms.h"
 #include "runtime/rt/pl_trail_layout.h"
 extern const char * bb_op_name(IR_e k);
@@ -868,12 +869,11 @@ static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, cv_t * pv, int *
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * zls_pas_display_name(int lvl) {
-    if (!g_lower.ir.zls_pas_display_name_init) {
-        for (int i = 0; i < 13; i++) snprintf(g_lower.ir.zls_pas_display_name_names[i], sizeof g_lower.ir.zls_pas_display_name_names[i], "__pas_display_%d", i + 4);
-        g_lower.ir.zls_pas_display_name_init = 1;
-    }
-    return (lvl >= 4 && lvl <= 16) ? g_lower.ir.zls_pas_display_name_names[lvl - 4] : (const char *)0;
+static const char * zls_pas_display_name(int lvl) { char * nm = (char *)ct_alloc(24); snprintf(nm, 24, "__pas_display_%d", lvl); return nm; }
+static int zls_pas_max_level(void) {
+    int m = 3;
+    for (int i = 0; i < g_stage2.bbp.count; i++) if (g_stage2.bbp.table[i] && g_stage2.bbp.table[i]->decl_level > m) m = g_stage2.bbp.table[i]->decl_level;
+    return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_at(const IR_graph_t * g, const IR_t * nd, int i, int sc, int root, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off, int off) {
@@ -1259,7 +1259,7 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
         }
     }
     if (g->zframe_graph && !g->cell_frame && g->decl_level == 3) {
-        for (int _pdl = 4; _pdl <= 16; _pdl++) {
+        for (int _pdl = 4, _pmax = zls_pas_max_level(); _pdl <= _pmax; _pdl++) {
             const char * nm = zls_pas_display_name(_pdl);
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ nm, base + k * 16 };

@@ -379,7 +379,6 @@ typedef struct {
     long zls_slot_census_tg;
     long zls_slot_census_tl;
     long zls_slot_census_tn;
-    int zls_pas_display_name_init;
     int zls_build_dbg;
     int zls_build_dbg2;
     int zls_build_dbg3;
@@ -449,7 +448,6 @@ typedef struct {
     int zdp_valid;
     int zzone_valid;
     zls_fct_t fct[64];
-    char zls_pas_display_name_names[13][24];
     struct ct_head * ct_bin[CT_BINS];
     int ct_poison;
     uint8_t * ct_cur;
