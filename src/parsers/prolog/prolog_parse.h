@@ -38,6 +38,7 @@ void prolog_rewrite_incremental_dynamics(PlProgram *prog);
 void prolog_dcg_expand(PlClause *cl);
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet);
 int pl_prelude_defines(const char *nm, int ar);
+const char *pl_prelude_lib_private(const char *lib, const char *nm, int ar);
 void prolog_program_free(PlProgram *prog);
 int prolog_op_table_count(void);
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out);

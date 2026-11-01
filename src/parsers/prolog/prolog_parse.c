@@ -310,7 +310,8 @@ static void register_op_directive(tree_t *goal, int swi) {
             for (int i = 0; i < exports->n; i++) register_op_directive(exports->c[i], swi);
         return;
     }
-    if (!strcmp(goal->v.sval, "use_module") && goal->n >= 1 && goal->c[0] && goal->c[0]->t == TT_FNC && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "library") && goal->c[0]->n == 1 && goal->c[0]->c[0]
+    if ((!strcmp(goal->v.sval, "use_module") || !strcmp(goal->v.sval, "autoload")) && goal->n >= 1 && goal->c[0] && goal->c[0]->t == TT_FNC
+        && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "library") && goal->c[0]->n == 1 && goal->c[0]->c[0]
         && (goal->c[0]->c[0]->t == TT_QLIT || goal->c[0]->c[0]->t == TT_NAME) && goal->c[0]->c[0]->v.sval) { register_lib_ops(goal->c[0]->c[0]->v.sval); return; }
     if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
@@ -4562,10 +4563,39 @@ static int pl_program_is_xsb(const PlProgram *prog) {
     for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_xsb(c)) return 1;
     return 0;
 }
+static void pl_module_imports_referenced(const PlProgram *prog, cv_t *referenced, cv_t *keys) {
+    const char *mod = "user";
+    for (PlClause *cl = prog->head; cl; cl = cl->next) {
+        const tree_t *g = pl_clause_is_directive(cl) ? cl->tr->c[1] : (const tree_t *)0, *ls;
+        size_t nl;
+        if (g && g->t == TT_PROGRAM && g->n > 0) g = g->c[0];
+        if (!g || g->t != TT_FNC || !g->v.sval) continue;
+        if (((!strcmp(g->v.sval, "module") && g->n == 2) || (!strcmp(g->v.sval, "$module_restore") && g->n == 1)) && g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME) && g->c[0]->v.sval) {
+            mod = g->c[0]->v.sval;
+            continue;
+        }
+        if (strcmp(g->v.sval, "use_module") || g->n != 2 || !strcmp(mod, "user") || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval || strcmp(g->c[0]->v.sval, "library")
+            || g->c[0]->n != 1) continue;
+        if (!(nl = pl_lib_path_name(g->c[0]->c[0], (char *)0)) || !(ls = g->c[1]) || ls->t != TT_MAKELIST) continue;
+        char lib[nl + 1];
+        pl_lib_path_name(g->c[0]->c[0], lib);
+        for (int i = 0; i < ls->n; i++) {
+            const tree_t *pi = ls->c[i];
+            if (!pi || pi->t != TT_FNC || !pi->v.sval || pi->n != 2 || (strcmp(pi->v.sval, "/") && strcmp(pi->v.sval, "//")) || !pi->c[0] || (pi->c[0]->t != TT_QLIT && pi->c[0]->t != TT_NAME)
+                || !pi->c[0]->v.sval) continue;
+            char k[nl + strlen(pi->c[0]->v.sval) + 8];
+            snprintf(k, sizeof k, "%s:%s", lib, pi->c[0]->v.sval);
+            pl_cv_add(referenced, k);
+            snprintf(k, sizeof k, "system:%s", pi->c[0]->v.sval);
+            pl_cv_add(referenced, k);
+            if (pi->c[1] && pi->c[1]->t == TT_ILIT) pl_cv_add(keys, pl_pred_key(pi->c[0]->v.sval, (int)pi->c[1]->v.ival + (pi->v.sval[1] == '/' ? 2 : 0)));
+        }
+    }
+}
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     int hooked_dyn = pl_incremental_dynamics(prog, 0);
-    cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
+    cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 }, modimp = { 0 };
     int xsb_prog = pl_program_is_xsb(prog);
     for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) pl_cv_add(&user_defined, CV_AT(g_stage2.pl_user_keys_files, char *, i));
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
@@ -4579,6 +4609,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
         if (xsb_prog && cl->tr && pl_tree_dyn_modq(cl->tr)) pl_cv_add(&referenced, "load_files");
     }
+    pl_module_imports_referenced(prog, &referenced, &modimp);
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
@@ -4758,7 +4789,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             int ar;
             if (cl->dq_forced == 3 + 1 || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_lib_export_of(&bk, &bv, nm, ar) != -1) continue;
             char *k = pl_pred_key(nm, ar), *sn = pl_lib_private_name(-2, nm);
-            if (pl_cv_has(&user_defined, k) || pl_prelude_key_has(sn, ar)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
+            if (pl_cv_has(&user_defined, k) || pl_cv_has(&modimp, k) || pl_prelude_key_has(sn, ar)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
         }
         for (PlClause *cl = bk.len ? pre->head : (PlClause *)0; cl; cl = cl->next) {
             const char *nm;
@@ -4871,6 +4902,20 @@ int pl_prelude_defines(const char *nm, int ar) {
         ct_drop(pre);
     }
     return pl_prelude_key_has(nm, ar);
+}
+const char *pl_prelude_lib_private(const char *lib, const char *nm, int ar) {
+    char k[strlen(lib) + strlen(nm) + 8];
+    snprintf(k, sizeof k, "%s:%s", lib, nm);
+    if (pl_prelude_defines(k, ar)) return ct_strdup(k);
+    for (int i = 0; PL_PRELUDE_LIBS[i].lib[0]; i++) {
+        if (strcmp(PL_PRELUDE_LIBS[i].lib, lib)) continue;
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[i].exports; e->nm[0]; e++) {
+            if (e->ar != ar || strcmp(e->nm, nm)) continue;
+            snprintf(k, sizeof k, "system:%s", nm);
+            return pl_prelude_defines(k, ar) ? ct_strdup(k) : (const char *)0;
+        }
+    }
+    return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog);
@@ -4996,7 +5041,15 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
     prog->nerrors += q.nerrors;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0, -1); }
+static void pl_autoload_as_use_module(PlProgram *prog) {
+    for (PlClause *cl = prog ? prog->head : (PlClause *)0; cl; cl = cl->next) {
+        tree_t *g = pl_clause_is_directive(cl) ? cl->tr->c[1] : (tree_t *)0;
+        if (g && g->t == TT_PROGRAM && g->n > 0) g = g->c[0];
+        if (g && g->t == TT_FNC && g->v.sval && (g->n == 1 || g->n == 2) && !strcmp(g->v.sval, "autoload") && g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "library"))
+            g->v.sval = ct_strdup("use_module");
+    }
+}
+void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0, -1); pl_autoload_as_use_module(prog); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog) {
     for (;;) {

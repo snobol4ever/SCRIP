@@ -702,7 +702,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *fil
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *mod; const char *name; int ar; } pl_mkey_t;
-typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; int reflects; } pl_mods_t;
+typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; cv_t imps; int reflects; } pl_mods_t;
 typedef struct { char nm[27]; int ar; char spec[27]; } pl_mspec_t;
 static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
     { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
@@ -776,10 +776,35 @@ static void pl_mod_table_each(tree_t *spec, const char *mod, cv_t *into) {
     if (pl_mod_table_moded(spec)) pl_mk_add(into, mod, spec->v.sval, spec->n);
     else pl_mod_pi_each(spec, mod, into);
 }
+static const char *pl_mod_lib_private(const char *lib, const char *nm, int ar) {
+    const char *k = pl_prelude_lib_private(lib, nm, ar);
+    if (k) (void)prolog_atom_intern(k);
+    return k;
+}
+static const char *pl_mod_import_of(pl_mods_t *ms, const char *m, const char *nm, int ar) {
+    for (uint32_t i = 0; m && i + 1 < ms->imps.len; i += 2) {
+        const pl_mkey_t *e = &CV_AT(ms->imps, pl_mkey_t, i);
+        if (e->ar == ar && !strcmp(e->name, nm) && !strcmp(e->mod, m)) return pl_mod_lib_private(CV_AT(ms->imps, pl_mkey_t, i + 1).mod, nm, ar);
+    }
+    return (const char *)0;
+}
+static void pl_mod_import_each(pl_mods_t *ms, const char *mod, const tree_t *d) {
+    const tree_t *lb = d->c[0], *ls = d->c[1];
+    if (!lb || lb->t != TT_FNC || !lb->v.sval || strcmp(lb->v.sval, "library") || lb->n != 1 || !pl_mod_atomish(lb->c[0]) || !ls || ls->t != TT_MAKELIST) return;
+    for (int i = 0; i < ls->n; i++) {
+        const tree_t *pi = ls->c[i];
+        if (!pi || pi->t != TT_FNC || !pi->v.sval || pi->n != 2 || (strcmp(pi->v.sval, "/") && strcmp(pi->v.sval, "//")) || !pl_mod_atomish(pi->c[0]) || !pi->c[1] || pi->c[1]->t != TT_ILIT) continue;
+        pl_mkey_t k = { mod, pi->c[0]->v.sval, (int)pi->c[1]->v.ival + (pi->v.sval[1] == '/' ? 2 : 0) }, l = { lb->c[0]->v.sval, "", 0 };
+        CV_PUSH(ms->imps, pl_mkey_t) = k;
+        CV_PUSH(ms->imps, pl_mkey_t) = l;
+    }
+}
 static const char *pl_mod_resolve(pl_mods_t *ms, const char *m1, const char *m2, const char *nm, int ar) {
+    const char *q;
     if (!nm) return (const char *)0;
     if (m1 && pl_mk_has(&ms->defs, m1, nm, ar)) return pl_mod_qname(m1, nm);
     if (m2 && pl_mk_has(&ms->defs, m2, nm, ar)) return pl_mod_qname(m2, nm);
+    if ((q = pl_mod_import_of(ms, m1, nm, ar)) || (q = pl_mod_import_of(ms, m2, nm, ar))) return q;
     return (const char *)0;
 }
 static tree_t *pl_mod_ctx_node(const char *m1, int transparent) {
@@ -1081,6 +1106,7 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
         if (in->t == TT_FNC && in->v.sval) pl_mod_args(ms, m1, m2, in, trans, in->v.sval, g->c[0]);
         if (pl_mod_atomish(in) && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, 0))) in->v.sval = (char *)q;
         else if (in->t == TT_FNC && in->v.sval && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, in->n))) in->v.sval = (char *)q;
+        else if (in->v.sval && !strchr(in->v.sval, ':') && (in->t == TT_FNC || pl_mod_atomish(in)) && (q = pl_mod_lib_private(m, in->v.sval, in->t == TT_FNC ? in->n : 0))) in->v.sval = (char *)q;
         return;
     }
     if (ar == 2 && !strcmp(nm, "@") && pl_mod_at(ms, m1, m2, g, trans)) return;
@@ -1156,6 +1182,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             if (!strcmp(f, "module") && d->n == 2 && pl_mod_atomish(d->c[0])) { fmod = d->c[0]->v.sval; m1v[ci] = fmod; pl_mod_pi_each(d->c[1], fmod, &ms.exps); any = 1; }
             else if (!strcmp(f, "$module_restore") && d->n == 1 && pl_mod_atomish(d->c[0])) fmod = d->c[0]->v.sval;
             else if (!strcmp(f, "export") && d->n == 1) pl_mod_pi_each(d->c[0], fmod, &ms.exps);
+            else if (!strcmp(f, "use_module") && d->n == 2 && strcmp(m1v[ci], "user")) pl_mod_import_each(&ms, m1v[ci], d);
             else if (!strcmp(f, "begin_tests") && (d->n == 1 || d->n == 2) && pl_mod_atomish(d->c[0])) {
                 char b[strlen(d->c[0]->v.sval) + 8];
                 snprintf(b, sizeof b, "plunit_%s", d->c[0]->v.sval);
