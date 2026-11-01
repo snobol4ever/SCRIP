@@ -259,6 +259,7 @@ void bb_emit_begin(bb_buf_t buf, int size)
     bb_emit_buf = buf;
     bb_emit_pos = 0;
     bb_emit_size = size;
+    g_emitter.bb_emit_want = 0;
     bb_patch_reset();
     emit_label_pool_reset();
 }
@@ -329,6 +330,7 @@ void bb_emit_byte(uint8_t b)
                 (int)bb_emit_mode, (unsigned)b);
         abort();
     }
+    g_emitter.bb_emit_want++;
     if (bb_emit_pos >= bb_emit_size) {
         g_emitter.bb_emit_overflow = 1;
         return;
@@ -344,6 +346,7 @@ void bb_emit_bytes(const uint8_t * p, size_t k)
     }
     size_t room = bb_emit_pos < bb_emit_size ? (size_t)(bb_emit_size - bb_emit_pos) : 0, n = k < room ? k : room;
     if (n) memcpy(bb_emit_buf + bb_emit_pos, p, n);
+    g_emitter.bb_emit_want += (long)k;
     bb_emit_pos += (int)n;
     if (n < k) g_emitter.bb_emit_overflow = 1;
 }
@@ -4401,31 +4404,38 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
     emit_chain_prepare(rec->key);
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(rec, prefix); emitter_end();
         return rc == 0 ? (bb_box_fn)1 : NULL; }
-    long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) { flat_cap = (long)g_emit_cfg->n * 2048L;
-        if (flat_cap > 1024L * 1024L * 1024L) flat_cap = 1024L * 1024L * 1024L; }
-    bb_buf_t buf = bb_alloc(flat_cap);
-    if (!buf) return NULL;
-    g_flat_node_id = 0;
-    emitter_init_binary(buf, flat_cap);
-    codegen_flat_chain_body(rec, prefix);
-    if (g_emit_chain_posthook) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
-    int nbytes = emitter_end();
-    if (g_emitter.bb_emit_overflow || nbytes <= 0 || nbytes > flat_cap) {
-        extern int bb_emit_pos; extern int bb_patch_count;
-        fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%d patches=%d — %s\n",
-                prefix ? prefix : "", g_emitter.bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count,
-                (bb_emit_pos >= flat_cap) ? "flat_cap exceeded (graph too large for the 1MB flat buffer)" : "empty or invalid emission");
-        bb_free(buf, flat_cap); return NULL;
+    long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) flat_cap = (long)g_emit_cfg->n * 2048L;
+    size_t mark = bb_pool_mark();
+    for (int pass = 0;; pass++) {
+        if (flat_cap > 2147483647L) { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the chain wants %ld bytes, more than the binary medium addresses (pass %d)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
+        bb_buf_t buf = bb_alloc(flat_cap);
+        if (!buf) { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the code pool has no room for %ld bytes (pass %d; the pool is BB_POOL_SIZE, raised by SCRIP_CODE_POOL_MB)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
+        g_flat_node_id = 0;
+        if (pass) emit_chain_prepare(rec->key);
+        emitter_init_binary(buf, flat_cap);
+        codegen_flat_chain_body(rec, prefix);
+        if (g_emit_chain_posthook && !g_emitter.bb_emit_overflow) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
+        int nbytes = emitter_end();
+        long want = g_emitter.bb_emit_want;
+        if (!g_emitter.bb_emit_overflow && nbytes > 0 && nbytes <= flat_cap) {
+            bb_seal(buf, (size_t)nbytes);
+        { const char *_pm = getenv("SCRIP_PERF_MAP");
+          if (_pm && *_pm && *_pm != '0') {
+              char _pmp[64]; snprintf(_pmp, sizeof _pmp, "/tmp/perf-%d.map", (int)getpid());
+              FILE *_pmf = fopen(_pmp, "a");
+              if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
+                                  (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
+            bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
+            return (bb_box_fn)buf;
+        }
+        bb_pool_release(mark);
+        if (!g_emitter.bb_emit_overflow || want <= flat_cap) {
+            extern int bb_emit_pos; extern int bb_patch_count;
+            fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%ld patches=%d — empty or invalid emission\n", prefix ? prefix : "", g_emitter.bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count);
+            return NULL;
+        }
+        flat_cap = want + (want >> 3) + 4096L;
     }
-    bb_seal(buf, (size_t)nbytes);
-    { const char *_pm = getenv("SCRIP_PERF_MAP");
-      if (_pm && *_pm && *_pm != '0') {
-          char _pmp[64]; snprintf(_pmp, sizeof _pmp, "/tmp/perf-%d.map", (int)getpid());
-          FILE *_pmf = fopen(_pmp, "a");
-          if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
-                              (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
-    bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
-    return (bb_box_fn)buf;
 }
 extern "C" void emit_flat_road(planner_road_t * rd) {
     extern int g_flat_frame_floor;

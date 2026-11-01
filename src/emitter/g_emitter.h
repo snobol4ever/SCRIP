@@ -77,6 +77,7 @@ struct g_emitter_t {
     int bb_patch_n = 0;
     int seq_fold_on_on = -1;
     int bb_emit_overflow = 0;
+    long bb_emit_want = 0;
     int bb_label_define_bm = -1;
     cv_t g_strtab;
     int g_strtab_n = 0;
