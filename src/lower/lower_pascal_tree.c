@@ -215,6 +215,7 @@ static int pas_rectype_field_is_bool(const char *rn, long idx);
 static long long pas_array_nonparam_low(const char *name);
 static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
+static int pas_lohi_bits(tree_t *a);
 static long long pas_elem_size(const char *an);
 static int pas_sizeof_builtin_size(const char *n, long long *out);
 static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *hi);
@@ -1059,6 +1060,11 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         }
     }
     if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
+    if (name && (!strcmp(name, "lo") || !strcmp(name, "hi")) && args && args->count == 2 && !pas_is_func(name) && !pas_is_proc(name)) {
+        int b = pas_lohi_bits(args->items[0]);
+        tree_t *x = name[0] == 'h' ? mk_fnc2("ishift", args->items[0], ilit(-b)) : args->items[0];
+        return mk_fnc2("iand", x, ilit(b == 32 ? 4294967295LL : (1LL << b) - 1));
+    }
     if (name && args && args->count >= 1 && !pas_is_func(name) && !pas_is_proc(name) && pas_enumtype_high(name) >= 0) return args->items[0];
     if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
@@ -3964,6 +3970,21 @@ static long long pas_range_fit_size(long long lo, long long hi) {
     if (lo >= -128 && hi <= 127) return 1;
     if (lo >= -32768 && hi <= 32767) return 2;
     return 4;
+}
+static int pas_lohi_bits(tree_t *a) {
+    long long sz = 8;
+    int lit = a && a->t == TT_ILIT, neg = a && a->t == TT_MNS && a->n == 1 && a->c[0] && a->c[0]->t == TT_ILIT;
+    if (lit || neg) {
+        long long v = lit ? a->v.ival : -a->c[0]->v.ival;
+        if (v >= -128 && v <= 127) return 8;
+        if (v >= 0 && v <= 255) return 4;
+        return (v >= -32768 && v <= 65535) ? 8 : (v >= -2147483648LL && v <= 4294967295LL) ? 16 : 32;
+    }
+    int named = a && (a->t == TT_VAR || a->t == TT_IDX || a->t == TT_FIELD || (a->t == TT_FNC && a->n >= 1 && a->c[0] && a->c[0]->v.sval && pas_is_func(a->c[0]->v.sval)));
+    const pty_t *t = named ? pty_of_low(a) : NULL;
+    if (!t || t->k != PTK_INT) return 32;
+    if (!(t->name && pas_sizeof_lookup(t->name, &sz))) sz = pas_range_fit_size(t->lo, t->hi);
+    return sz == 1 ? (t->lo >= 0 ? 4 : 8) : sz == 2 ? 8 : sz == 4 ? 16 : 32;
 }
 static int pas_sizeof_builtin_size(const char *n, long long *out) {
     if (!n) return 0;

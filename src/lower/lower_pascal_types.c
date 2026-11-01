@@ -534,7 +534,7 @@ static pty_t *pt_routine_result(struct pty_state *s, const char *nm, int *found)
     return NULL;
 }
 static pty_t *pt_builtin_call(struct pty_state *s, const char *f, const tree_t *n) {
-    static const char *const toint[] = { "ord", "length", "pos", "round", "trunc", "sizeof", "ioresult", "paramcount", "strtoint", "bitsizeof", "ord64", 0 };
+    static const char *const toint[] = { "ord", "length", "pos", "round", "trunc", "sizeof", "ioresult", "paramcount", "strtoint", "bitsizeof", "ord64", "lo", "hi", 0 };
     static const char *const toreal[] = { "sqrt", "sin", "cos", "arctan", "exp", "ln", "frac", "int", "pi", "tan", "arcsin", "arccos", "arctan2", "hypot", "power", "log10", "log2", "logn", 0 };
     static const char *const tostr[] = { "copy", "concat", "stringofchar", "format", "paramstr", "space", "dupestring", "inttostr", "trim", "trimleft", "trimright", "reversestring", 0 };
     static const char *const tobool[] = { "odd", "eof", "eoln", "assigned", "seekeof", "seekeoln", 0 };

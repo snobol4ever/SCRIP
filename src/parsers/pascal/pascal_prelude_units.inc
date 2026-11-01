@@ -777,6 +777,7 @@ static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "  Mono = 7;\n"
     "  C40 = 1;\n"
     "  C80 = 3;\n"
+    "  Font8x8 = 256;\n"
     "var\n"
     "  TextAttr: byte;\n"
     "  LastMode: word;\n"

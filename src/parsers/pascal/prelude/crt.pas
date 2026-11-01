@@ -25,6 +25,7 @@ const
   Mono = 7;
   C40 = 1;
   C80 = 3;
+  Font8x8 = 256;
 var
   TextAttr: byte;
   LastMode: word;
