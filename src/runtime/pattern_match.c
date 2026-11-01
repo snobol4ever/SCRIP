@@ -378,6 +378,13 @@ static int icn_section_operands_ok_code(DESCR_t base, DESCR_t i, DESCR_t j, int 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_section_operands_ok(DESCR_t base, DESCR_t i, DESCR_t j, int strict) { return icn_section_operands_ok_code(base, i, j, 101, strict); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rec_field_find(const DATBLK_t * blk, DESCR_t idx) {
+    const char * k = idx.s ? idx.s : "";
+    size_t kl = (idx.v == DT_S && idx.slen != 0xFFFFFFFFu) ? (size_t) idx.slen : strlen(k);
+    for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strlen(blk->fields[i]) == kl && !memcmp(blk->fields[i], k, kl)) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
     if (IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
     if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
@@ -418,11 +425,7 @@ static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
             DATBLK_t *blk = arr.u->type;
             if (idx.v == DT_SNUL && !icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
             if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i; if (i < 1 || i > blk->nfields) return FAILDESCR; return arr.u->fields[i-1]; }
-            if (idx.v == DT_S || idx.v == DT_SNUL) {
-                const char *k = idx.s ? idx.s : "";
-                for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) return arr.u->fields[i];
-                return FAILDESCR;
-            }
+            if (idx.v == DT_S || idx.v == DT_SNUL) { int fi = rec_field_find(blk, idx); if (fi >= 0) return arr.u->fields[fi]; return FAILDESCR; }
         }
         int i = (int)to_int(idx);
         DESCR_t children = FIELD_GET_fn(arr, "c");
@@ -443,11 +446,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         if (arr.u && arr.u->type && arr.u->fields) {
             DATBLK_t *blk = arr.u->type;
             if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i < 1 || i > blk->nfields) return 0; arr.u->fields[i - 1] = val; return 1; }
-            if (idx.v == DT_S || idx.v == DT_SNUL) {
-                const char *k = idx.s ? idx.s : "";
-                for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) { arr.u->fields[i] = val; return 1; }
-                return 0;
-            }
+            if (idx.v == DT_S || idx.v == DT_SNUL) { int fi = rec_field_find(blk, idx); if (fi >= 0) { arr.u->fields[fi] = val; return 1; } return 0; }
         }
         return 0;
     }
@@ -1970,8 +1969,7 @@ static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
                 if (i < 1 || i > blk->nfields) return FAILDESCR;
                 f = i - 1;
             } else if (idx.v == DT_S || idx.v == DT_SNUL) {
-                const char *k = idx.s ? idx.s : "";
-                for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) { f = i; break; }
+                f = rec_field_find(blk, idx);
                 if (f < 0) return FAILDESCR;
             } else {
                 if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
