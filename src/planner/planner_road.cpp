@@ -37,7 +37,7 @@ void planner_road_proc(stage2_t * s2, int pi, planner_road_t * rd, int rt) {
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     if (pe->thunk_kind == PROC_THUNK_PATTERN) planner_road_pattern(rd); else planner_road_named(pname, pe->dyn_scope, pe->is_generator, g, rd);
     rd->gen_proc = pe->is_generator;
-    int floor_hit = (is_lbl || (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)));
+    int floor_hit = (is_lbl || (g->entry && ((g->entry->op == IR_DEFINE_ADOPT) || g->entry->op == IR_GOTO_DEFERRED)));
     if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", is_lbl, g->entry ? (int) g->entry->op : -1, floor_hit);
     if (floor_hit) for (int mi = 0; mi < s2->proc_count; mi++) if (s2->proc_table[mi].name && !strcmp(s2->proc_table[mi].name, "main")) {
         int mx = s2->proc_table[mi].bb_idx; if (mx >= 0 && mx < s2->bbp.count && s2->bbp.table[mx]) rd->floor = zls_g_region(s2->bbp.table[mx]); break; }

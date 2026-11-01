@@ -211,7 +211,7 @@ static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2) {
             if (!_sn) continue;
             int _sg = 0;
             while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
-            IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn;
+            IR_t *_gd = (_sn && ir_is_define_kind(_sn->op) && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn;
             if (!_gd) break;
             if (_gd->op == IR_GOTO_DEFERRED) {
                 if (!IR_LIT(_gd).sval) break;
@@ -371,7 +371,7 @@ static void sc_module_qualify(tree_t *root) {
     for (int i = 0; i < root->n; i++) { const char *m = sc_qual_marker(root->c[i]); if (m) cur = m; else sc_qual_apply(root->c[i], &fns, &vars, cur); }
 }
 static const char *asm_fn_sym(const char *nm) { extern const char * bb_ab_fn_sym(const char *); return bb_ab_fn_sym(nm); }
-static const char * ir_define_plain_name(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
+static const char * ir_define_plain_name(const IR_t * nd) { return (nd && ir_is_define_kind(nd->op) && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) { if (!kw) return 0; if (kw[0] == '&') kw++; return !strcmp(kw, "subject") || !strcmp(kw, "pos") || !strcmp(kw, "null") || !strcmp(kw, "fail"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -908,7 +908,7 @@ static int m4_proc_startup_skip(stage2_t *s2, ProcEntry *pe, int ispat) {
         if (!dn) continue;
         int dg = 0;
         while (dn && (dn->op == IR_SUCCEED || dn->op == IR_FAIL || dn->op == IR_GOTO) && dn->γ.node && dg++ < 64) dn = dn->γ.node;
-        IR_t *dd = (dn && dn->op == IR_DEFINE && ir_define_sr_citizen(dn)) ? dn->γ.node : dn;
+        IR_t *dd = (dn && ir_is_define_kind(dn->op) && ir_define_sr_citizen(dn)) ? dn->γ.node : dn;
         if (!dd || dd->op != IR_GOTO_DEFERRED || !IR_LIT(dd).sval) continue;
         const char *de = IR_LIT(dd).sval;
         if (strncmp(de, "LBL__", 5) == 0) de += 5;

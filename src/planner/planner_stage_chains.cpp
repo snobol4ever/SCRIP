@@ -31,7 +31,7 @@ int planner_road_blob_scope(const planner_road_t * rd) { return (rd->jmp_entry &
 int proc_role3_kind(const IR_graph_t *g) {
     if (!g || !g->entry) return 0;
     if (g->entry->op == IR_GOTO_DEFERRED) return 1;
-    const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0;
+    const IR_t *e = (g->entry->op == IR_DEFINE_ADOPT) ? g->entry : (const IR_t *)0;
     return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2;
 }
 void planner_stage_chain(IR_graph_t * g, IR_t * entry, const char * prefix, const planner_road_t * rd) {

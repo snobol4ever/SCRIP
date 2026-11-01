@@ -701,7 +701,7 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
     call->strict = 2;
     IR_t * sr0 = NULL;
     if (g_lower.sno.sx_call_named_c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_lower.sno.sx_call_named_c2bb = (e2 && *e2 == '1') ? 1 : 0; }
-    if (g_lower.sno.sx_call_named_c2bb) { sr0 = lc_build(cx->g, IR_DEFINE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
+    if (g_lower.sno.sx_call_named_c2bb) { sr0 = lc_build(cx->g, IR_DEFINE_CALL, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
     IR_t * tail = sr0 ? sr0 : call;
     if (bn) {
         IR_t * wm = lc_build(cx->g, IR_CALL, tail, ω);
@@ -1355,7 +1355,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     sno_parse_define(sno_qlit_fold(t->c[argbase]), sno_define_entry_opt(t, argbase), &d);
                     IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω);
                     IR_LIT(nd).sval = (char *) "";
-                    IR_t * bind = lc_build(cx->g, IR_DEFINE, nd, ω);
+                    IR_t * bind = lc_build(cx->g, IR_DEFINE_BIND, nd, ω);
                     IR_LIT(bind).sval = lp_strdup(d.fname);
                     sno_bind_attach_entry(cx->g, bind, d.entry, ω);
                     sno_bind_attach_proto(cx->g, bind, &d, ω);
@@ -4082,9 +4082,8 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
     IR_graph_t * g = IR_alloc(64);
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
-    IR_t * sh4 = fname ? lc_build(g, IR_DEFINE, exitnd, failnd) : (IR_t *)0;
+    IR_t * sh4 = fname ? lc_build(g, IR_DEFINE_SHIM, exitnd, failnd) : (IR_t *)0;
     if (sh4) {
-        IR_LIT(sh4).ival = 4;
         IR_t * s41 = lc_build(g, IR_LIT_STRING, NULL, NULL);
         IR_LIT(s41).sval = (char *) fname;
         IR_t * s42 = lc_build(g, IR_LIT_STRING, NULL, NULL);
@@ -4107,8 +4106,7 @@ IR_graph_t * sno_build_rt_shim_graph(const char * fname, const char * entry_labe
     IR_graph_t * g = IR_alloc(16);
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
-    IR_t * sh4 = lc_build(g, IR_DEFINE, exitnd, failnd);
-    IR_LIT(sh4).ival = 4;
+    IR_t * sh4 = lc_build(g, IR_DEFINE_RT_SHIM, exitnd, failnd);
     IR_t * s41 = lc_build(g, IR_LIT_STRING, NULL, NULL);
     IR_LIT(s41).sval = (char *) fn;
     IR_t * s42 = lc_build(g, IR_LIT_STRING, NULL, NULL);
@@ -4176,10 +4174,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     }
     bb_label_registry_add(lp_strdup("END"), endnd);
     if (!result_name) {
-        IR_t * rf = lc_build(g, IR_DEFINE, exitnd, failnd);
-        IR_LIT(rf).ival = 1;
-        IR_t * ff = lc_build(g, IR_DEFINE, exitnd, failnd);
-        IR_LIT(ff).ival = 2;
+        IR_t * rf = lc_build(g, IR_DEFINE_RETURN, exitnd, failnd);
+        IR_t * ff = lc_build(g, IR_DEFINE_FRETURN, exitnd, failnd);
         if (!bb_label_landing("RETURN")) bb_label_registry_add(lp_strdup("RETURN"), rf);
         if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), ff);
         if (!bb_label_landing("NRETURN")) {
@@ -4285,7 +4281,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 if (pnode && sno_qlit_fold(pnode)) {
                     sno_def_t d;
                     sno_parse_define(sno_qlit_fold(pnode), sno_define_entry_opt(dsub, _argbase), &d);
-                    IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA);
+                    IR_t * bind = lc_build(g, IR_DEFINE_BIND, sJ, fA);
                     IR_LIT(bind).sval = lp_strdup(d.fname);
                     sno_bind_attach_entry(g, bind, d.entry, fA);
                     sno_bind_attach_proto(g, bind, &d, fA);
@@ -4798,7 +4794,7 @@ void sno_expr_thunks_build(int x0) {
         } else {
             gx->entry = e;
         }
-        { IR_t * ad = lc_build(gx, IR_DEFINE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }
+        { IR_t * ad = lc_build(gx, IR_DEFINE_ADOPT, gx->entry, fJ); gx->entry = ad; }
         int xpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[xpi].name = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name;
         g_stage2.proc_table[xpi].proc = NULL;
@@ -5424,7 +5420,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             for (uint32_t k = 0; k < stmt_bind_fname.len; k++) if (!strcmp(CV_AT(stmt_bind_fname, const char *, k), dfn)) { covered = 1; break; }
             if (covered || !sno_exprdef_seen(&exprdef_names, dfn)) continue;
             IR_t * pfail = lc_build(g, IR_FAIL, NULL, NULL);
-            IR_t * pbind = lc_build(g, IR_DEFINE, NULL, pfail);
+            IR_t * pbind = lc_build(g, IR_DEFINE_BIND, NULL, pfail);
             IR_LIT(pbind).sval = lp_strdup(dfn);
             if (!prelude_head) prelude_head = pbind;
             else lc_γ_to(prelude_tail, pbind);

@@ -105,7 +105,7 @@ IR_t * zd_conj_value_node_g(const IR_graph_t * cg, IR_t * nd) { int g = 0; while
     return nd; }
 int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_planner.g_zd_plan_on || g_planner.g_zd_plan_nodes != g_planner.codegen_flat_chain_body_nodes) return 0;
     for (int k = 0; k < g_planner.g_zd_plan_n; k++) if (g_planner.g_zd_plan_nodes[k] == nd) return g_planner.g_zd_plan_on[k] ? 1 : 0; return 0; }
-int zd_sr_role(const IR_t * nd) { int64_t v = IR_LIT(nd).ival; return (v == 1 || v == 2 || v == 3 || v == 4) ? (int)v : 0; }
+int zd_sr_role(const IR_t * nd) { return ir_define_ch8_role(nd); }
 int zd_cpos(int i, const int *xb, const int *zout, long *d) {
     const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
     if (xb[i] != INT_MIN) { *d = xb[i] + zout[i]; return -2; }

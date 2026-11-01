@@ -1094,7 +1094,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         { int32_t _stno = (int32_t)IR_LIT(nd).ival;
         if (_stno != g_emit.stno_last) { emit_stno_mark(_stno); g_emit.stno_last = _stno; } g_emit.op_stno = _stno; }
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : (nd->op == IR_GOTO_DEFERRED ? (int64_t)nd->seal : IR_LIT(nd).ival);
-    if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)_zn->srole; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
+    if (ir_is_define_kind(nd->op) && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)_zn->srole; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_dval = IR_LIT(nd).dval;
     IR_t *op_a = (nd->n_operands > 0) ? nd->operands[0] : (IR_t *)0;
@@ -1288,13 +1288,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GOTO: { if (g_emitter.walk_bb_node_inner__mgt < 0) g_emitter.walk_bb_node_inner__mgt = getenv("MONITOR_GOTO_TAP") ? 1 : 0; extern void emit_mon_label_tap(int32_t);
         if (g_runtime.abi.trace_budget != 0 && g_emitter.walk_bb_node_inner__mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto()); return 0;
     case IR_GOTO_DEFERRED: bb_emit_x86(bb_goto_deferred()); return 0;
-    case IR_DEFINE: {
+    case IR_DEFINE_BIND: case IR_DEFINE_ADOPT: case IR_DEFINE_SHIM: case IR_DEFINE_RT_SHIM: case IR_DEFINE_RETURN: case IR_DEFINE_FRETURN: case IR_DEFINE_CALL: {
         if (ir_define_sr_citizen(nd)) {
             if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval;
             } if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5;
             } if (g_emit.op_ival == 0 && _zn->gcall && nd->n_operands == 1 && nd->operands[0]) {
             int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = _zn->o0off; if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as;
-            } } g_emit.op_define_role = (g_emit.op_ival == 4 && nd->n_operands >= 3) ? 7 : (int)g_emit.op_ival; extern std::string bb_define();
+            } } g_emit.op_define_role = (nd->op == IR_DEFINE_RT_SHIM) ? 7 : (int)g_emit.op_ival; extern std::string bb_define();
                 sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, g_emit.op_define_role); bb_emit_x86(bb_define()); return 0; }
         if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval; g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd);
             int _realstub = 0;
@@ -2159,7 +2159,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_SUCCEED:
     case IR_CUT:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_DEFINE:
+    case IR_DEFINE_BIND: case IR_DEFINE_ADOPT: case IR_DEFINE_SHIM: case IR_DEFINE_RT_SHIM: case IR_DEFINE_RETURN: case IR_DEFINE_FRETURN: case IR_DEFINE_CALL:
         if (ir_define_sr_citizen(nd)) {
         { int64_t v = IR_LIT(nd).ival; int64_t r = (v == 1 || v == 2 || v == 3 || v == 4) ? v : 0; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
         int na = nd->n_operands; drive_arg_slots_reserve(na);

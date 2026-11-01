@@ -33,10 +33,11 @@ static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INT
     [IR_MATCH_BEGIN] = "IR_MATCH_BEGIN", [IR_MATCH_END] = "IR_MATCH_END", [IR_MATCH_REPLACE] = "IR_MATCH_REPLACE", [IR_GOTO_DEFERRED] = "IR_GOTO_DEFERRED", [IR_MATCH_RETRY] = "IR_MATCH_RETRY",
     [IR_MATCH_RKRUN] = "IR_MATCH_RKRUN", [IR_MATCH_RKCAPS] = "IR_MATCH_RKCAPS", [IR_MATCH_RKCAPE] = "IR_MATCH_RKCAPE", [IR_MATCH_RKLAND] = "IR_MATCH_RKLAND", [IR_BOUND] = "IR_BOUND",
     [IR_UNMARK] = "IR_UNMARK", [IR_STATEMENT] = "IR_STATEMENT", [IR_STATEMENT_BEGIN] = "IR_STATEMENT_BEGIN", [IR_STATEMENT_END] = "IR_STATEMENT_END", [IR_STMT_MARK] = "IR_STMT_MARK",
-    [IR_SETEXIT_TEST] = "IR_SETEXIT_TEST", [IR_CLEANUP] = "IR_CLEANUP", [IR_LINE_MARK] = "IR_LINE_MARK", [IR_DEFINE] = "IR_DEFINE", [IR_COERCE_STRING] = "IR_COERCE_STRING",
-    [IR_COERCE_INTEGER] = "IR_COERCE_INTEGER", [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC", [IR_COERCE_REAL] = "IR_COERCE_REAL", [IR_CMP_TEST] = "IR_CMP_TEST", [IR_CUT] = "IR_CUT",
-    [IR_REF_INVARIANT] = "IR_REF_INVARIANT", [IR_PATTERN_CAT] = "IR_PATTERN_CAT", [IR_PATTERN_ALT] = "IR_PATTERN_ALT", [IR_PATTERN_CAPTURE] = "IR_PATTERN_CAPTURE",
-    [IR_PATTERN_DEFER] = "IR_PATTERN_DEFER", [IR_DTP_ASSIGN] = "IR_DTP_ASSIGN", [IR_EXCISED] = "IR_EXCISED", };
+    [IR_SETEXIT_TEST] = "IR_SETEXIT_TEST", [IR_CLEANUP] = "IR_CLEANUP", [IR_LINE_MARK] = "IR_LINE_MARK", [IR_DEFINE_BIND] = "IR_DEFINE_BIND", [IR_DEFINE_ADOPT] = "IR_DEFINE_ADOPT",
+    [IR_DEFINE_SHIM] = "IR_DEFINE_SHIM", [IR_DEFINE_RT_SHIM] = "IR_DEFINE_RT_SHIM", [IR_DEFINE_RETURN] = "IR_DEFINE_RETURN", [IR_DEFINE_FRETURN] = "IR_DEFINE_FRETURN",
+    [IR_DEFINE_CALL] = "IR_DEFINE_CALL", [IR_COERCE_STRING] = "IR_COERCE_STRING", [IR_COERCE_INTEGER] = "IR_COERCE_INTEGER", [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC",
+    [IR_COERCE_REAL] = "IR_COERCE_REAL", [IR_CMP_TEST] = "IR_CMP_TEST", [IR_CUT] = "IR_CUT", [IR_REF_INVARIANT] = "IR_REF_INVARIANT", [IR_PATTERN_CAT] = "IR_PATTERN_CAT",
+    [IR_PATTERN_ALT] = "IR_PATTERN_ALT", [IR_PATTERN_CAPTURE] = "IR_PATTERN_CAPTURE", [IR_PATTERN_DEFER] = "IR_PATTERN_DEFER", [IR_DTP_ASSIGN] = "IR_DTP_ASSIGN", [IR_EXCISED] = "IR_EXCISED", };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) { if (k >= 0 && k < IR_OP_COUNT && kind_names[k][0]) return kind_names[k]; return "IR_UNKNOWN"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -488,12 +489,14 @@ int ir_range_kind_is(const IR_t * nd, const char * k) {
     return (!*k && (!*t || *t == ':')) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
+int ir_define_ch8_role(const IR_t * nd) {
+    switch (nd->op) { case IR_DEFINE_RETURN: return 1; case IR_DEFINE_FRETURN: return 2; case IR_DEFINE_ADOPT: return 3; case IR_DEFINE_SHIM: case IR_DEFINE_RT_SHIM: return 4; default: return 0; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_floater_kind(const IR_t * n) {
     if (!n) return 0;
-    if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1;
-    if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
+    if (n->op == IR_DEFINE_RETURN) return 1;
+    if (n->op == IR_DEFINE_FRETURN) return 2;
     if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3;
     return 0;
 }
@@ -511,17 +514,17 @@ int ir_glue_box(const IR_t * t, int phi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * ir_define_bind_entry(const IR_t * nd) {
-    return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands >= 1 && nd->n_operands <= 2 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval :
-        (const char *)0;
+    return (nd && ir_is_define_kind(nd->op) && nd->pat_static == 1 && nd->n_operands >= 1 && nd->n_operands <= 2 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ?
+        IR_LIT(nd->operands[0]).sval : (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * ir_define_bind_proto(const IR_t * nd) {
-    return (nd && nd->op == IR_DEFINE && nd->n_operands >= 1 && nd->operands[nd->n_operands - 1] && nd->operands[nd->n_operands - 1]->op == IR_LIT_STRING) ?
+    return (nd && ir_is_define_kind(nd->op) && nd->n_operands >= 1 && nd->operands[nd->n_operands - 1] && nd->operands[nd->n_operands - 1]->op == IR_LIT_STRING) ?
         IR_LIT(nd->operands[nd->n_operands - 1]).sval : (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_define_is_bind(const IR_t * nd) {
-    if (!nd || nd->op != IR_DEFINE || ir_define_sr_citizen(nd)) return 0;
+    if (!nd || nd->op != IR_DEFINE_BIND) return 0;
     if (nd->n_operands == 0) return 1;
     if (ir_define_bind_entry(nd)) return (nd->n_operands == 1 || ir_define_bind_proto(nd)) ? 1 : 0;
     return (nd->n_operands == 1 && ir_define_bind_proto(nd)) ? 1 : 0;

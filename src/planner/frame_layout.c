@@ -658,7 +658,7 @@ static int zls_fc_cell(const IR_t * nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_no_result(const IR_t * nd) { return zls_is_wiring(ir_kind0(nd)) || (nd->op == IR_DEFINE && ir_define_ch8_role(nd) >= 1 && ir_define_ch8_role(nd) <= 3); }
+static int zls_no_result(const IR_t * nd) { return zls_is_wiring(ir_kind0(nd)) || (ir_is_define_kind(nd->op) && ir_define_ch8_role(nd) >= 1 && ir_define_ch8_role(nd) <= 3); }
 static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     if (zls_no_result(nd)) return 0;
     if (nd->op == IR_CLEANUP && IR_LIT(nd).ival != CLEANUP_OPEN && IR_LIT(nd).ival != CLEANUP_BANK) return 0;
@@ -776,7 +776,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
         IR_t * x = g->all[j];
         if (!x) continue;
         int op = (int)ir_kind0(x);
-        if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (op == IR_DEFINE && ir_define_sr_citizen(x)) || op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
+        if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (ir_is_define_kind(op) && ir_define_sr_citizen(x)) || op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
             op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_SETEXIT_TEST || op == IR_LINE_MARK || op == IR_MATCH_LIT || op == IR_MATCH_LEN ||
             op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE ||
             op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_GATE_ARM ||
@@ -1287,7 +1287,7 @@ void zls_build(IR_graph_t * g) {
             IR_t * x = g->all[i];
             if (!x) continue;
             if (x->op == IR_GOTO_DEFERRED || x->op == IR_GATE || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0;
-            else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) {
+            else if ((ir_is_define_kind(x->op) && ir_define_sr_citizen(x))) {
                 long long v = IR_LIT(x).ival;
                 if (v == 1 || v == 2) f = 0;
             }
@@ -1322,7 +1322,7 @@ void zls_build(IR_graph_t * g) {
                 for (int i = 0; i + 1 < pn; i++) {
                     const IR_t * gx = post[i]->γ.node;
                     if (gx == post[i + 1]) continue;
-                    if (gx && ir_kind0(gx) == IR_DEFINE && gx->γ.node == post[i + 1] && (ir_kind0(post[i + 1]) == IR_CALL || ir_kind0(post[i + 1]) == IR_CALL_PROC_STAGED)) {
+                    if (gx && ir_is_define_kind(ir_kind0(gx)) && gx->γ.node == post[i + 1] && (ir_kind0(post[i + 1]) == IR_CALL || ir_kind0(post[i + 1]) == IR_CALL_PROC_STAGED)) {
                         long long v = IR_LIT(gx).ival;
                         if (!(v == 1 || v == 2 || v == 3)) continue;
                     }
@@ -2972,7 +2972,13 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_STATEMENT_END:
             case IR_STMT_MARK:
             case IR_SETEXIT_TEST:
-            case IR_DEFINE:
+            case IR_DEFINE_BIND:
+            case IR_DEFINE_ADOPT:
+            case IR_DEFINE_SHIM:
+            case IR_DEFINE_RT_SHIM:
+            case IR_DEFINE_RETURN:
+            case IR_DEFINE_FRETURN:
+            case IR_DEFINE_CALL:
             case IR_GOTO_DEFERRED:
             case IR_CALL_SNOBOL4:
             case IR_KW_SNOBOL4:
@@ -3043,7 +3049,7 @@ long zw_carve_k(const IR_t * nd) {
         (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
         nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine) return 0;
-    if (!g_lower.ir.zw_carve_k_all && ((ir_kind0(nd) == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(ir_kind0(nd)) == IR_CALL || ir_kind0(nd) == IR_GOTO_DEFERRED)) return 0;
+    if (!g_lower.ir.zw_carve_k_all && ((ir_is_define_kind(ir_kind0(nd)) && ir_define_sr_citizen(nd)) || ir_norm_call_kind(ir_kind0(nd)) == IR_CALL || ir_kind0(nd) == IR_GOTO_DEFERRED)) return 0;
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd);
     if (_k <= 0) return 0;

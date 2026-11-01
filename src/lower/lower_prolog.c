@@ -4164,7 +4164,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
         extern int g_flat_frame_floor;
         extern int zls_g_region(const IR_graph_t *);
         g_flat_frame_floor = 0;
-        if (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)) {
+        if (g->entry && ((g->entry->op == IR_DEFINE_ADOPT) || g->entry->op == IR_GOTO_DEFERRED)) {
             for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
                 int _mx = g_stage2.proc_table[_mi].bb_idx;
                 if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]);
