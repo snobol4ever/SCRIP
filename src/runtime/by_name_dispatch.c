@@ -213,6 +213,9 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/tcp.h>
+#include <poll.h>
+#include <sys/syscall.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name) {
     if (!name) return 0;
@@ -8833,15 +8836,18 @@ static int pl_peekc_cp(FILE *f, char *seq, int *seqn) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_past_eos_ball(void);
+static int pl_rd_eintr(FILE *f, pl_tr_ctx_t *cx);
 PL_CX_LEAF_HEAD(get_char, 1)
     {
         extern FILE *fh_cur_in_fp(void);
         char sq[8];
         int sn = 0;
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
-        if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
+        do c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
+        if (r == 2) ok = 0;
+        else if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
         else ok = plw_unify_vals(args[0], pl_mk_atom_dup(sq, (size_t)sn), cx);
     }
 PL_CX_LEAF_TAIL
@@ -8851,10 +8857,12 @@ PL_CX_LEAF_HEAD(peek_char, 1)
         extern FILE *fh_cur_in_fp(void);
         char sq[8];
         int sn = 0;
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
-        if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
+        do c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
+        if (r == 2) ok = 0;
+        else if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
         else ok = plw_unify_vals(args[0], pl_mk_atom_dup(sq, (size_t)sn), cx);
     }
 PL_CX_LEAF_TAIL
@@ -8864,10 +8872,11 @@ PL_CX_LEAF_HEAD(get_code, 1)
         extern FILE *fh_cur_in_fp(void);
         char sq[8];
         int sn = 0;
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
-        ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx);
+        do c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
+        ok = r != 2 && plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8876,10 +8885,11 @@ PL_CX_LEAF_HEAD(peek_code, 1)
         extern FILE *fh_cur_in_fp(void);
         char sq[8];
         int sn = 0;
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
-        ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx);
+        do c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
+        ok = r != 2 && plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8911,22 +8921,24 @@ static void *pl_text_cur_ball(void) {
 PL_CX_LEAF_HEAD(get_byte, 1)
     {
         extern FILE *fh_cur_in_fp(void);
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_byte_cur_ball(0)) || (cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = fgetc(fh_cur_in_fp());
-        ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx);
+        do c = fgetc(fh_cur_in_fp());
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
+        ok = r != 2 && plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(peek_byte, 1)
     {
         extern FILE *fh_cur_in_fp(void);
-        int c;
+        int c, r = 0;
         if ((cx->ball = pl_byte_cur_ball(0)) || (cx->ball = pl_past_eos_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-        c = fgetc(fh_cur_in_fp());
+        do c = fgetc(fh_cur_in_fp());
+        while (c == EOF && (r = pl_rd_eintr(fh_cur_in_fp(), cx)) == 1);
         if (c != EOF) ungetc(c, fh_cur_in_fp());
         else clearerr(fh_cur_in_fp());
-        ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx);
+        ok = r != 2 && plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11757,6 +11769,485 @@ static DESCR_t pl_fx_target(const char *link, int n) {
     pl_fx_canon(nx);
     return pl_fx_target(nx, n - 1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_n(DESCR_t t) { return t.v == (DTYPE_t)DT_PLREF ? plc_fid_arity(t.slen) : 0; }
+static DESCR_t pl_ct_a(DESCR_t t, int i) { return rt_pl_deref_val(((DESCR_t *)t.p)[i]); }
+static DESCR_t pl_os_err_of(int e) {
+    extern const char *strerrorname_np(int);
+    const char *n = strerrorname_np(e);
+    size_t k = n ? strlen(n) : 0;
+    char lb[k + 9];
+    DESCR_t a[2];
+    if (!n) { memcpy(lb, "eunknown", 9); k = 8; } else { for (size_t i = 0; i < k; i++) lb[i] = (char)tolower((unsigned char)n[i]); lb[k] = 0; }
+    a[0] = pl_mk_atom_dup(lb, k);
+    a[1] = pl_mk_atom(strerror(e));
+    return pl_gnu_fn("$oserr", 2, a);
+}
+static int pl_os_errv(DESCR_t r, pl_tr_ctx_t *cx) { return plw_unify_vals(r, pl_os_err_of(errno), cx); }
+static int pl_os_okv(DESCR_t r, pl_tr_ctx_t *cx) { return plw_unify_vals(r, pl_mk_atom("ok"), cx); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_alarm_take(pl_tr_ctx_t *cx) {
+    extern void *rt_pl_ball_make(DESCR_t *, int);
+    volatile int32_t *d = (volatile int32_t *)(pl_tr_base_of(cx->tr) + PL_TR_ALARM_DUE_OFF);
+    DESCR_t a;
+    if (!*d) return 0;
+    *d = 0;
+    a = pl_mk_atom("time_limit_exceeded");
+    cx->ball = rt_pl_ball_make(&a, 1);
+    return 1;
+}
+static int pl_rd_eintr(FILE *f, pl_tr_ctx_t *cx) { if (!f || !ferror(f) || errno != EINTR) return 0; clearerr(f); return pl_alarm_take(cx) ? 2 : 1; }
+static int64_t pl_mono_us(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (int64_t)t.tv_sec * 1000000 + (int64_t)t.tv_nsec / 1000; }
+static void pl_alarm_on(int sig, siginfo_t *si, void *uc) { (void)sig; (void)uc; if (si && si->si_value.sival_ptr) *(volatile int32_t *)((char *)si->si_value.sival_ptr + PL_TR_ALARM_DUE_OFF) = 1; }
+static int pl_alarm_arm(char *h, int64_t us) {
+    struct itimerspec it;
+    memset(&it, 0, sizeof it);
+    if (!*(int64_t *)(h + PL_TR_ALARM_MADE_OFF)) {
+        struct sigaction sa, old;
+        struct sigevent ev;
+        if (us <= 0) return 0;
+        if (sigaction(SIGALRM, (struct sigaction *)0, &old) != 0) return -1;
+        if (!(old.sa_flags & SA_SIGINFO) || old.sa_sigaction != pl_alarm_on) {
+            memset(&sa, 0, sizeof sa);
+            sa.sa_sigaction = pl_alarm_on;
+            sa.sa_flags = SA_SIGINFO;
+            sigemptyset(&sa.sa_mask);
+            if (sigaction(SIGALRM, &sa, (struct sigaction *)0) != 0) return -1;
+        }
+        memset(&ev, 0, sizeof ev);
+        ev.sigev_notify = SIGEV_THREAD_ID;
+        ev.sigev_signo = SIGALRM;
+        ev.sigev_value.sival_ptr = h;
+        ev._sigev_un._tid = (pid_t)syscall(SYS_gettid);
+        if (timer_create(CLOCK_MONOTONIC, &ev, (timer_t *)(h + PL_TR_ALARM_TIMER_OFF)) != 0) return -1;
+        *(int64_t *)(h + PL_TR_ALARM_MADE_OFF) = 1;
+    }
+    if (us > 0) { it.it_value.tv_sec = (time_t)(us / 1000000); it.it_value.tv_nsec = (long)(us % 1000000) * 1000; }
+    return timer_settime(*(timer_t *)(h + PL_TR_ALARM_TIMER_OFF), 0, &it, (struct itimerspec *)0);
+}
+PL_CX_LEAF_HEAD(alarm_push, 2)
+    {
+        char *h = pl_tr_base_of(cx->tr);
+        DESCR_t t = rt_pl_deref_val(args[0]);
+        double sec = t.v == (DTYPE_t)DT_I ? (double)t.i : t.v == (DTYPE_t)DT_R ? t.r : 0.0;
+        int64_t now = pl_mono_us(), prev = *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF), nw = now + (int64_t)(sec * 1e6), d = (prev && prev < nw) ? prev : nw;
+        *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF) = d;
+        if (d - now <= 0) *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 1;
+        else pl_alarm_arm(h, d - now);
+        ok = plw_unify_vals(args[1], INTVAL((long long)prev), cx);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(alarm_pop, 1)
+    {
+        char *h = pl_tr_base_of(cx->tr);
+        DESCR_t p = rt_pl_deref_val(args[0]);
+        int64_t prev = p.v == (DTYPE_t)DT_I ? (int64_t)p.i : 0, now = pl_mono_us();
+        *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF) = prev;
+        if (!prev) {
+            pl_alarm_arm(h, 0);
+            *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 0;
+        } else if (prev <= now) {
+            pl_alarm_arm(h, 0);
+            *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 1;
+        } else {
+            *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 0;
+            pl_alarm_arm(h, prev - now);
+        }
+        ok = 1;
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(os_sleep, 1)
+    {
+        DESCR_t a = rt_pl_deref_val(args[0]);
+        double sec = a.v == (DTYPE_t)DT_I ? (double)a.i : a.v == (DTYPE_t)DT_R ? a.r : -1.0;
+        struct timespec ts, rem;
+        ok = sec >= 0;
+        ts.tv_sec = (time_t)(sec > 0 ? sec : 0);
+        ts.tv_nsec = (long)((sec - (double)ts.tv_sec) * 1e9);
+        if (ts.tv_nsec < 0) ts.tv_nsec = 0;
+        while (ok && nanosleep(&ts, &rem) != 0) { if (errno != EINTR || pl_alarm_take(cx)) ok = 0; ts = rem; }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_sk_idx(DESCR_t s) {
+    DESCR_t k;
+    s = rt_pl_deref_val(s);
+    if (s.v != (DTYPE_t)DT_PLREF || plc_fid_arity(s.slen) != 1 || plc_fid_name(s.slen) != prolog_atom_intern("$sock")) return -1;
+    k = rt_pl_deref_val(((DESCR_t *)s.p)[0]);
+    return (k.v == (DTYPE_t)DT_I && k.i >= 3 && k.i < FH_N && g_fh[k.i].fp && g_fh[k.i].tsk == 's') ? (int)k.i : -1;
+}
+static int pl_sk_fd(DESCR_t s) { int i = pl_sk_idx(s); if (i < 0) { errno = EBADF; return -1; } return fileno(g_fh[i].fp); }
+static DESCR_t pl_sk_new(int fd) {
+    extern int fh_alloc(FILE *);
+    FILE *fp = fdopen(fd, "r+");
+    int idx, e;
+    DESCR_t v[1];
+    if (!fp) { e = errno; close(fd); errno = e; return FAILDESCR; }
+    idx = fh_alloc(fp);
+    g_fh[idx].tsk = 's';
+    v[0] = INTVAL(idx);
+    return pl_gnu_fn("$sock", 1, v);
+}
+static DESCR_t pl_sk_gai_err(int rc) {
+    DESCR_t a[2];
+    a[0] = pl_mk_atom(rc == EAI_NONAME ? "eai_noname" : rc == EAI_AGAIN ? "eai_again" : rc == EAI_FAIL ? "eai_fail" : "eai_system");
+    a[1] = pl_mk_atom(gai_strerror(rc));
+    return pl_gnu_fn("$oserr", 2, a);
+}
+static int pl_sk_addr(DESCR_t a, struct sockaddr_storage *ss, socklen_t *ln, int bnd, DESCR_t *err) {
+    DESCR_t x, pt;
+    const char *h;
+    struct sockaddr_in *in = (struct sockaddr_in *)ss;
+    struct addrinfo hints, *res = (struct addrinfo *)0;
+    int rc;
+    a = rt_pl_deref_val(a);
+    memset(ss, 0, sizeof *ss);
+    *err = pl_os_err_of(EINVAL);
+    if (pl_ct_n(a) == 1) {
+        if (pl_gs_unix_addr((struct sockaddr_un *)ss, pl_atom_str(pl_ct_a(a, 0))) != 0) { *err = pl_os_err_of(errno); return 0; }
+        *ln = (socklen_t)sizeof(struct sockaddr_un);
+        return 1;
+    }
+    if (pl_ct_n(a) != 2) return 0;
+    x = pl_ct_a(a, 0);
+    pt = pl_ct_a(a, 1);
+    h = pl_atom_str(x);
+    if (pt.v != (DTYPE_t)DT_I) return 0;
+    *ln = (socklen_t)sizeof *in;
+    in->sin_family = AF_INET;
+    in->sin_port = htons((unsigned short)pt.i);
+    if (bnd && (!h || !*h)) { in->sin_addr.s_addr = htonl(INADDR_ANY); return 1; }
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    if ((rc = getaddrinfo(h ? h : "", (const char *)0, &hints, &res)) != 0 || !res) { *err = pl_sk_gai_err(rc ? rc : EAI_NONAME); return 0; }
+    in->sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    freeaddrinfo(res);
+    return 1;
+}
+static DESCR_t pl_sk_ip(const struct in_addr *a) {
+    const unsigned char *b = (const unsigned char *)a;
+    DESCR_t v[4] = { INTVAL(b[0]), INTVAL(b[1]), INTVAL(b[2]), INTVAL(b[3]) };
+    return pl_gnu_fn("ip", 4, v);
+}
+PL_CX_LEAF_HEAD(sk_socket, 2)
+    {
+        const char *d = pl_atom_str(rt_pl_deref_val(args[0]));
+        int u = d && !strcmp(d, "unix"), g = d && !strcmp(d, "udp");
+        int fd = socket(u ? AF_UNIX : AF_INET, (g ? SOCK_DGRAM : SOCK_STREAM) | SOCK_CLOEXEC, 0);
+        DESCR_t s;
+        if (fd < 0) ok = pl_os_errv(args[1], cx);
+        else { s = pl_sk_new(fd); ok = IS_FAIL_fn(s) ? pl_os_errv(args[1], cx) : plw_unify_vals(args[1], s, cx); }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_close, 2)
+    {
+        int i = pl_sk_idx(args[0]);
+        FILE *fp;
+        if (i < 0) { errno = EBADF; ok = pl_os_errv(args[1], cx); } else { fp = g_fh[i].fp; fh_free(i); ok = fclose(fp) == 0 ? pl_os_okv(args[1], cx) : pl_os_errv(args[1], cx); }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_bind, 3)
+    {
+        int fd = pl_sk_fd(args[0]);
+        struct sockaddr_storage ss;
+        struct sockaddr_in in;
+        socklen_t ln = 0, l = (socklen_t)sizeof in;
+        DESCR_t ae;
+        if (fd < 0) ok = pl_os_errv(args[2], cx);
+        else if (!pl_sk_addr(args[1], &ss, &ln, 1, &ae)) ok = plw_unify_vals(args[2], ae, cx);
+        else if (bind(fd, (struct sockaddr *)&ss, ln) != 0) ok = pl_os_errv(args[2], cx);
+        else if (ss.ss_family != AF_INET) ok = pl_os_okv(args[2], cx);
+        else ok = getsockname(fd, (struct sockaddr *)&in, &l) == 0 ? plw_unify_vals(args[2], INTVAL(ntohs(in.sin_port)), cx) : pl_os_errv(args[2], cx);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_listen, 3)
+    { int fd = pl_sk_fd(args[0]); DESCR_t n = rt_pl_deref_val(args[1]); ok = (fd >= 0 && listen(fd, n.v == (DTYPE_t)DT_I ? (int)n.i : 5) == 0) ? pl_os_okv(args[2], cx) : pl_os_errv(args[2], cx); }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_accept, 2)
+    {
+        int fd = pl_sk_fd(args[0]), c = -1, up = 0;
+        struct sockaddr_storage ss;
+        socklen_t l = (socklen_t)sizeof ss;
+        DESCR_t v[2];
+        ok = 1;
+        if (fd >= 0) {
+            for (;;) {
+                c = accept(fd, (struct sockaddr *)&ss, &l);
+                if (c >= 0) fcntl(c, F_SETFD, FD_CLOEXEC);
+                if (c >= 0 || errno != EINTR) break;
+                if (pl_alarm_take(cx)) { up = 1; break; }
+                l = (socklen_t)sizeof ss;
+            }
+        }
+        if (up) ok = 0;
+        else if (c < 0) ok = pl_os_errv(args[1], cx);
+        else {
+            v[0] = pl_sk_new(c);
+            v[1] = ss.ss_family == AF_INET ? pl_sk_ip(&((struct sockaddr_in *)&ss)->sin_addr) : pl_mk_atom("");
+            ok = IS_FAIL_fn(v[0]) ? pl_os_errv(args[1], cx) : plw_unify_vals(args[1], pl_gnu_fn("acc", 2, v), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_connect, 3)
+    {
+        int fd = pl_sk_fd(args[0]), rc = -1, up = 0, se = 0;
+        struct sockaddr_storage ss;
+        socklen_t ln = 0, sl = (socklen_t)sizeof se;
+        DESCR_t ae;
+        struct pollfd pf;
+        ok = 1;
+        if (fd < 0) ok = pl_os_errv(args[2], cx);
+        else if (!pl_sk_addr(args[1], &ss, &ln, 0, &ae)) ok = plw_unify_vals(args[2], ae, cx);
+        else {
+            rc = connect(fd, (struct sockaddr *)&ss, ln);
+            if (rc != 0 && errno == EINTR) {
+                for (;;) { pf.fd = fd; pf.events = POLLOUT; pf.revents = 0; if (poll(&pf, 1, -1) >= 0) break; if (errno != EINTR) break; if (pl_alarm_take(cx)) { up = 1; break; } }
+                if (!up && getsockopt(fd, SOL_SOCKET, SO_ERROR, &se, &sl) == 0) { rc = se ? -1 : 0; if (se) errno = se; }
+            }
+            if (up) ok = 0;
+            else ok = rc == 0 ? pl_os_okv(args[2], cx) : pl_os_errv(args[2], cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_open, 2)
+    {
+        int fd = pl_sk_fd(args[0]), a = -1, b = -1;
+        DESCR_t v[2];
+        if (fd >= 0) { a = fcntl(fd, F_DUPFD_CLOEXEC, 3); b = a >= 0 ? fcntl(fd, F_DUPFD_CLOEXEC, 3) : -1; }
+        if (a < 0 || b < 0) {
+            if (a >= 0) close(a);
+            ok = pl_os_errv(args[1], cx);
+        } else {
+            v[0] = pl_gs_fdstream(a, "r");
+            v[1] = pl_gs_fdstream(b, "w");
+            ok = plw_unify_vals(args[1], pl_gnu_fn("$stream_pair", 2, v), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_setopt, 4)
+    {
+        int fd = pl_sk_fd(args[0]), lv = SOL_SOCKET, nm = -1, v;
+        const char *o = pl_atom_str(rt_pl_deref_val(args[1]));
+        DESCR_t n = rt_pl_deref_val(args[2]);
+        v = n.v == (DTYPE_t)DT_I ? (int)n.i : 1;
+        if (o && !strcmp(o, "reuseaddr")) nm = SO_REUSEADDR;
+        else if (o && !strcmp(o, "nodelay")) { lv = IPPROTO_TCP; nm = TCP_NODELAY; } else if (o && !strcmp(o, "broadcast")) nm = SO_BROADCAST;
+        else if (o && !strcmp(o, "keepalive")) nm = SO_KEEPALIVE;
+        else if (o && !strcmp(o, "sndbuf")) nm = SO_SNDBUF;
+        else if (o && !strcmp(o, "rcvbuf")) nm = SO_RCVBUF;
+        if (fd >= 0 && nm < 0) errno = EINVAL;
+        ok = (fd >= 0 && nm >= 0 && setsockopt(fd, lv, nm, &v, sizeof v) == 0) ? pl_os_okv(args[3], cx) : pl_os_errv(args[3], cx);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_fileno, 2) { int fd = pl_sk_fd(args[0]); ok = fd >= 0 && plw_unify_vals(args[1], INTVAL(fd), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_hostname, 1)
+    {
+        long hm = sysconf(_SC_HOST_NAME_MAX);
+        size_t n = (size_t)(hm > 0 ? hm : 255) + 1;
+        char h[n];
+        ok = gethostname(h, n) == 0;
+        if (ok) { h[n - 1] = 0; ok = plw_unify_vals(args[0], pl_mk_atom_dup(h, strlen(h)), cx); }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(sk_resolve, 2)
+    {
+        DESCR_t x = rt_pl_deref_val(args[0]);
+        struct addrinfo hints, *res = (struct addrinfo *)0;
+        int rc;
+        if (pl_ct_n(x) == 4) {
+            struct sockaddr_in in;
+            char hb[NI_MAXHOST];
+            unsigned char *b = (unsigned char *)&in.sin_addr;
+            memset(&in, 0, sizeof in);
+            in.sin_family = AF_INET;
+            for (int i = 0; i < 4; i++) b[i] = (unsigned char)pl_ct_a(x, i).i;
+            rc = getnameinfo((struct sockaddr *)&in, sizeof in, hb, sizeof hb, (char *)0, 0, NI_NAMEREQD);
+            ok = rc == 0 ? plw_unify_vals(args[1], pl_mk_atom_dup(hb, strlen(hb)), cx) : plw_unify_vals(args[1], pl_sk_gai_err(rc), cx);
+        } else {
+            const char *h = pl_atom_str(x);
+            memset(&hints, 0, sizeof hints);
+            hints.ai_family = AF_INET;
+            rc = h ? getaddrinfo(h, (const char *)0, &hints, &res) : EAI_NONAME;
+            if (rc != 0 || !res) ok = plw_unify_vals(args[1], pl_sk_gai_err(rc ? rc : EAI_NONAME), cx);
+            else { DESCR_t ip = pl_sk_ip(&((struct sockaddr_in *)res->ai_addr)->sin_addr); freeaddrinfo(res); ok = plw_unify_vals(args[1], ip, cx); }
+        }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_pc_strv(DESCR_t t, const char **v, int n) { for (int i = 0; i < n; i++) v[i] = pl_atom_str(pl_ct_a(t, i)); v[n] = (const char *)0; }
+static int pl_pc_spec(DESCR_t c, int k, int *pp, int *dst, char *ty, int *own) {
+    extern int pipe2(int *, int);
+    extern FILE *fh_get(int);
+    const char *a = pl_atom_str(c);
+    int f[2];
+    *ty = 't';
+    *own = 0;
+    pp[0] = pp[1] = -1;
+    *dst = -1;
+    if (a && !strcmp(a, "std")) return 0;
+    if (a && !strcmp(a, "null")) { *own = 1; *dst = open("/dev/null", (k ? O_WRONLY : O_RDONLY) | O_CLOEXEC); return *dst < 0 ? -1 : 0; }
+    if (pl_ct_n(c) == 1 && plc_fid_name(c.slen) == prolog_atom_intern("pipe")) {
+        const char *t = pl_atom_str(pl_ct_a(c, 0));
+        if (t && !strcmp(t, "binary")) *ty = 'b';
+        if (pipe2(f, O_CLOEXEC) != 0) return -1;
+        pp[0] = f[0];
+        pp[1] = f[1];
+        *dst = k ? f[1] : f[0];
+        return 0;
+    }
+    if (pl_ct_n(c) == 1 && plc_fid_name(c.slen) == prolog_atom_intern("fd")) {
+        void *b = (void *)0;
+        int si = pl_stream_resolve(pl_ct_a(c, 0), k ? 1 : 0, 0, &b);
+        FILE *fp = si >= 0 ? fh_get(si) : (FILE *)0;
+        if (!fp) { errno = EBADF; return -1; }
+        fflush(fp);
+        *dst = fileno(fp);
+        return 0;
+    }
+    return 0;
+}
+PL_CX_LEAF_HEAD(proc_create, 7)
+    {
+        extern int fh_alloc(FILE *);
+        DESCR_t io = rt_pl_deref_val(args[2]), av = rt_pl_deref_val(args[1]), ev = rt_pl_deref_val(args[4]), cwd = rt_pl_deref_val(args[3]), dt = rt_pl_deref_val(args[5]);
+        const char *path = pl_atom_str(rt_pl_deref_val(args[0])), *cw = pl_atom_str(cwd);
+        int na = pl_ct_n(av), pp[3][2], dst[3], own[3], e = 0, rep = pl_ct_n(ev) == 1 && plc_fid_name(ev.slen) == prolog_atom_intern("replace"),
+            det = pl_atom_str(dt) && !strcmp(pl_atom_str(dt), "true");
+        DESCR_t eterm = pl_ct_n(ev) == 1 ? pl_ct_a(ev, 0) : FAILDESCR;
+        int ne = IS_FAIL_fn(eterm) ? 0 : pl_ct_n(eterm);
+        const char *argv[na + 2], *envv[ne + 1];
+        char ty[3];
+        pid_t pid = -1;
+        DESCR_t r[4];
+        argv[0] = path;
+        pl_pc_strv(av, argv + 1, na);
+        if (ne) pl_pc_strv(eterm, envv, ne);
+        else envv[0] = (const char *)0;
+        errno = 0;
+        for (int k = 0; k < 3; k++) { pp[k][0] = pp[k][1] = dst[k] = -1; own[k] = 0; ty[k] = 't'; }
+        for (int k = 0; k < 3; k++) if (!e && pl_pc_spec(pl_ct_n(io) == 3 ? pl_ct_a(io, k) : pl_mk_atom("std"), k, pp[k], &dst[k], &ty[k], &own[k]) != 0) e = errno ? errno : EINVAL;
+        if (!e && path) {
+            fflush((FILE *)0);
+            pid = fork();
+            if (pid == 0) {
+                if (det) setsid();
+                for (int k = 0; k < 3; k++) if (dst[k] >= 0 && dst[k] != k) dup2(dst[k], k);
+                if (cw && *cw && chdir(cw) != 0) _exit(127);
+                if (rep) execve(path, (char *const *)argv, (char *const *)envv);
+                for (int i = 0; i < ne; i++) putenv((char *)envv[i]);
+                execv(path, (char *const *)argv);
+                _exit(127);
+            }
+            if (pid < 0) e = errno;
+        }
+        for (int k = 0; k < 3; k++) {
+            int mine = k ? pp[k][0] : pp[k][1], theirs = k ? pp[k][1] : pp[k][0];
+            if (theirs >= 0) close(theirs);
+            else if (own[k] && dst[k] >= 0) close(dst[k]);
+            r[k + 1] = pl_mk_atom("[]");
+            if (mine >= 0 && e) close(mine);
+            else if (mine >= 0) { int si = fh_alloc(fdopen(mine, k ? "r" : "w")); g_fh[si].mode = k ? 'r' : 'w'; g_fh[si].type = ty[k]; r[k + 1] = pl_mk_stream(si); }
+        }
+        if (e || !path) { errno = e ? e : ENOENT; ok = pl_os_errv(args[6], cx); } else { r[0] = INTVAL((long long)pid); ok = plw_unify_vals(args[6], pl_gnu_fn("pr", 4, r), cx); }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(proc_wait, 3)
+    {
+        DESCR_t p = rt_pl_deref_val(args[0]), t = rt_pl_deref_val(args[1]);
+        double sec = t.v == (DTYPE_t)DT_I ? (double)t.i : t.v == (DTYPE_t)DT_R ? t.r : -1.0;
+        int64_t end = sec >= 0 ? pl_mono_us() + (int64_t)(sec * 1e6) : 0;
+        int ws = 0, up = 0;
+        pid_t got = -1;
+        struct timespec ts = { 0, 10000000 };
+        DESCR_t v[1];
+        for (;;) {
+            got = waitpid((pid_t)p.i, &ws, sec >= 0 ? WNOHANG : 0);
+            if (got < 0 && errno == EINTR) { if (pl_alarm_take(cx)) { up = 1; break; } continue; }
+            if (got != 0 || pl_mono_us() >= end) break;
+            if (nanosleep(&ts, (struct timespec *)0) != 0 && errno == EINTR && pl_alarm_take(cx)) { up = 1; break; }
+        }
+        if (up) ok = 0;
+        else if (got < 0) ok = pl_os_errv(args[2], cx);
+        else if (got == 0) ok = plw_unify_vals(args[2], pl_mk_atom("timeout"), cx);
+        else if (WIFEXITED(ws)) {
+            v[0] = INTVAL(WEXITSTATUS(ws));
+            ok = plw_unify_vals(args[2], pl_gnu_fn("exit", 1, v), cx);
+        } else {
+            v[0] = INTVAL(WIFSIGNALED(ws) ? WTERMSIG(ws) : 0);
+            ok = plw_unify_vals(args[2], pl_gnu_fn("killed", 1, v), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(proc_kill, 3)
+    {
+        DESCR_t p = rt_pl_deref_val(args[0]), s = rt_pl_deref_val(args[1]);
+        ok = (p.v == (DTYPE_t)DT_I && s.v == (DTYPE_t)DT_I && kill((pid_t)p.i, (int)s.i) == 0) ? pl_os_okv(args[2], cx) : pl_os_errv(args[2], cx);
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(fx_stat, 2)
+    {
+        const char *p = pl_atom_str(rt_pl_deref_val(args[0]));
+        struct stat sb;
+        DESCR_t t[4];
+        ok = 0;
+        if (p && stat(p, &sb) != 0) ok = plw_unify_vals(args[1], pl_fx_err(), cx);
+        else if (p) {
+            t[0] = INTVAL((long long)sb.st_mode);
+            t[1] = REALVAL((double)sb.st_atime);
+            t[2] = REALVAL((double)sb.st_mtime);
+            t[3] = REALVAL((double)sb.st_ctime);
+            ok = plw_unify_vals(args[1], pl_gnu_fn("st", 4, t), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(fx_utime, 4)
+    {
+        const char *p = pl_atom_str(rt_pl_deref_val(args[0]));
+        DESCR_t ta = rt_pl_deref_val(args[1]), tm = rt_pl_deref_val(args[2]);
+        struct utimbuf ub;
+        ok = 0;
+        if (p && ta.v == (DTYPE_t)DT_I && tm.v == (DTYPE_t)DT_I) {
+            ub.actime = (time_t)ta.i;
+            ub.modtime = (time_t)tm.i;
+            ok = utime(p, &ub) == 0 ? pl_os_okv(args[3], cx) : plw_unify_vals(args[3], pl_fx_err(), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(fx_symlink, 3)
+    {
+        const char *x = pl_atom_str(rt_pl_deref_val(args[0])), *y = pl_atom_str(rt_pl_deref_val(args[1]));
+        ok = x && y && (symlink(x, y) == 0 ? pl_os_okv(args[2], cx) : plw_unify_vals(args[2], pl_fx_err(), cx));
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(fx_link, 3)
+    {
+        const char *x = pl_atom_str(rt_pl_deref_val(args[0])), *y = pl_atom_str(rt_pl_deref_val(args[1]));
+        ok = x && y && (link(x, y) == 0 ? pl_os_okv(args[2], cx) : plw_unify_vals(args[2], pl_fx_err(), cx));
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(fx_chmod, 3)
+    {
+        const char *x = pl_atom_str(rt_pl_deref_val(args[0]));
+        DESCR_t m = rt_pl_deref_val(args[1]);
+        ok = x && m.v == (DTYPE_t)DT_I && (chmod(x, (mode_t)(m.i & 07777)) == 0 ? pl_os_okv(args[2], cx) : plw_unify_vals(args[2], pl_fx_err(), cx));
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(fx_readlink, 2)
+    {
+        const char *p = pl_atom_str(rt_pl_deref_val(args[0]));
+        struct stat ls;
+        ok = 0;
+        if (p && lstat(p, &ls) == 0 && S_ISLNK(ls.st_mode)) {
+            size_t cn = (size_t)ls.st_size + 1;
+            char c[cn + 1];
+            ssize_t k = readlink(p, c, cn);
+            DESCR_t t = (k >= 0 && (size_t)k < cn) ? pl_fx_target(p, 20) : FAILDESCR;
+            if (!IS_FAIL_fn(t)) { c[k] = 0; DESCR_t lt[2] = { pl_mk_atom(c), t }; ok = plw_unify_vals(args[1], pl_gnu_fn("l", 2, lt), cx); }
+        }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -11785,35 +12276,6 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 else if (!strcmp(op, "st_size")) ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_size), cx);
                 else if (!strcmp(op, "st_mtime")) ok = plw_unify_vals(args[2], REALVAL((double)sb.st_mtim.tv_sec + (double)sb.st_mtim.tv_nsec / 1e9), cx);
                 else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
-            }
-        } else if (!strcmp(op, "st_times") || !strcmp(op, "st_mode")) {
-            const char *p = pl_atom_str(a);
-            struct stat sb;
-            if (p && stat(p, &sb) != 0) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
-            else if (p && op[3] == 'm') ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_mode), cx);
-            else if (p) { DESCR_t t3[3] = { REALVAL((double)sb.st_atime), REALVAL((double)sb.st_mtime), REALVAL((double)sb.st_ctime) }; ok = plw_unify_vals(args[2], pl_gnu_fn("t", 3, t3), cx); }
-        } else if (!strcmp(op, "utime") || !strcmp(op, "symlink") || !strcmp(op, "hardlink") || !strcmp(op, "chmod")) {
-            DESCR_t x = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[0]) : FAILDESCR;
-            DESCR_t y = (a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2) ? rt_pl_deref_val(((DESCR_t *)a.p)[1]) : FAILDESCR;
-            const char *xp = pl_atom_str(x), *yp = pl_atom_str(y);
-            int r = -2;
-            if (op[0] == 'u' && xp && y.v == (DTYPE_t)DT_PLREF && plc_fid_arity(y.slen) == 2) {
-                DESCR_t ta = rt_pl_deref_val(((DESCR_t *)y.p)[0]), tm = rt_pl_deref_val(((DESCR_t *)y.p)[1]);
-                if (ta.v == DT_I && tm.v == DT_I) { struct utimbuf ub = { (time_t)ta.i, (time_t)tm.i }; r = utime(xp, &ub); }
-            } else if (op[0] == 's' && xp && yp) r = symlink(xp, yp);
-            else if (op[0] == 'h' && xp && yp) r = link(xp, yp);
-            else if (op[0] == 'c' && xp && y.v == DT_I) r = chmod(xp, (mode_t)(y.i & 07777));
-            if (r == 0) ok = plw_unify_vals(args[2], pl_mk_atom("ok"), cx);
-            else if (r == -1) ok = plw_unify_vals(args[2], pl_fx_err(), cx);
-        } else if (!strcmp(op, "read_link")) {
-            const char *p = pl_atom_str(a);
-            struct stat ls;
-            if (p && lstat(p, &ls) == 0 && S_ISLNK(ls.st_mode)) {
-                size_t cn = (size_t)ls.st_size + 1;
-                char c[cn + 1];
-                ssize_t k = readlink(p, c, cn);
-                DESCR_t t = (k >= 0 && (size_t)k < cn) ? pl_fx_target(p, 20) : FAILDESCR;
-                if (!IS_FAIL_fn(t)) { c[k] = 0; DESCR_t lt[2] = { pl_mk_atom(c), t }; ok = plw_unify_vals(args[2], pl_gnu_fn("l", 2, lt), cx); }
             }
         } else if (!strncmp(op, "fseek", 5) || !strcmp(op, "ftruncate")) {
             extern FILE *fh_get(int);
@@ -11849,12 +12311,6 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
         } else if (!strcmp(op, "setenv") || !strcmp(op, "unsetenv")) {
             const char *nm = pl_atom_str(a), *vv = pl_atom_str(b);
             ok = nm && (op[0] == 'u' ? unsetenv(nm) == 0 : (vv && setenv(nm, vv, 1) == 0));
-        } else if (!strcmp(op, "sleep")) {
-            double sec = a.v == (DTYPE_t)DT_I ? (double)a.i : a.v == (DTYPE_t)DT_R ? a.r : -1.0;
-            struct timespec ts;
-            ts.tv_sec = (time_t)sec;
-            ts.tv_nsec = (long)((sec - (double)ts.tv_sec) * 1e9);
-            ok = sec >= 0 && nanosleep(&ts, (struct timespec *)0) == 0;
         } else if (!strcmp(op, "hostname")) {
             char h[256];
             if (gethostname(h, sizeof h) != 0) ok = pl_gnu_os_fail(cx);

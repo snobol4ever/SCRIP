@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <signal.h>
 #include "pl_trail_layout.h"
 #include "rt_pl_trail.h"
 #include "runtime/core/g_runtime.h"
@@ -19,6 +22,7 @@ static char *pl_tr_arena_open(char *raw) {
     *pl_tr_wake_slot(base) = 0;
     *pl_tr_residue_slot(base) = 0;
     *pl_tr_floor_slot(base) = (char *)0;
+    memset(base + PL_TR_ALARM_DUE_OFF, 0, PL_TR_HEADER_BYTES - PL_TR_ALARM_DUE_OFF);
     rt_gc_root_range_add_topword(base);
     return tr;
 }
@@ -32,6 +36,7 @@ void *rt_pl_tr_new_arena(void **slab_out) {
 void rt_pl_tr_free_arena(const char *tr, void *slab) {
     extern void rt_gc_root_range_del(const char *lo);
     if (!tr || !slab) return;
+    if (*(int64_t *)(pl_tr_base_of(tr) + PL_TR_ALARM_MADE_OFF)) timer_delete(*(timer_t *)(pl_tr_base_of(tr) + PL_TR_ALARM_TIMER_OFF));
     rt_gc_root_range_del(pl_tr_base_of(tr));
     rt_slab_put((rt_slab_t *)slab);
 }
@@ -49,9 +54,12 @@ _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the hea
 _Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)536870912, "rtx_plunify.s and x86_asm.h spell this arena size as the literal mask -536870912");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");
 _Static_assert(PL_TR_OCHECK_OFF == 24 && PL_TR_HEADER_BYTES >= PL_TR_OCHECK_OFF + 8, "the occurs_check mode word (0 false, 1 true, 2 error): rtx_plunify.s and bb_unify_value.cpp read offset 24");
-_Static_assert(PL_TR_HEADER_BYTES == 128 && PL_TR_FLOOR_OFF == 64 && PL_TR_FLOOR_OFF == PL_TR_RESIDUE_OFF + 8 && PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40 &&
+_Static_assert(PL_TR_HEADER_BYTES == 160 && PL_TR_FLOOR_OFF == 64 && PL_TR_FLOOR_OFF == PL_TR_RESIDUE_OFF + 8 && PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40 &&
     PL_TR_HEADER_BYTES >= PL_TR_PROBE_B_OFF + 8,
     "the cleanup record cell (a stack address, never a heap pointer) and the cut probe's B word: bb_cleanup.cpp, xa_flat.cpp and gc_heap.c's trail scan read these offsets");
+_Static_assert(PL_TR_ALARM_DUE_OFF == 128 && PL_TR_ALARM_DEADLINE_OFF == 136 && PL_TR_ALARM_TIMER_OFF == 144 && PL_TR_ALARM_MADE_OFF == 152 && sizeof(timer_t) <= 8 &&
+    PL_TR_HEADER_BYTES == PL_TR_ALARM_MADE_OFF + 8,
+    "the goal interrupt words (ARCH-PROLOG-DATABASE 19.2): DUE int32, DEADLINE monotonic microseconds, the timer, the timer-made word; the SIGALRM handler stores DUE through the timer value");
 _Static_assert(PL_TR_WSLOT_OFF != PL_TR_BALL_OFF && PL_TR_WSLOT_OFF >= 8 && PL_TR_HEADER_BYTES >= PL_TR_WSLOT_OFF + 8,
     "the writer's slot-vector word must fit inside the trail header, apart from the top word and the ball (the cfo's condition c)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

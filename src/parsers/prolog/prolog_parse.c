@@ -2732,6 +2732,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$wot_stream_sink'(S):-nonvar(S),S='$stream'(_),catch(stream_property(S,_),_,fail),!.\n"
     "is_stream(S):-nonvar(S),S='$stream'(_),catch(stream_property(S,_),_,fail),!.\n"
     "is_stream(S):-atom(S),catch(stream_property(_,alias(S)),_,fail),!.\n"
+    "is_stream(S):-nonvar(S),S='$stream_pair'(I,O),is_stream(I),is_stream(O),!.\n"
     "'$wot_stream'(S,G):-current_output(O),setup_call_cleanup(set_output(S),once(G),set_output(O)).\n"
     "'$between_test'(L,_,_):-var(L),!,throw(error(instantiation_error,context(between/3,_))).\n"
     "'$between_test'(L,_,_):- \\+integer(L),!,throw(error(type_error(integer,L),context(between/3,_))).\n"

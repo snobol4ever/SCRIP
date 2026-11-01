@@ -4860,6 +4860,12 @@ DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t 
                         int); DESCR_t rt_pl_dop_pl_sp_check(DESCR_t *, int); DESCR_t rt_pl_dop_pl_ioarg(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_count(DESCR_t *,
                             int); DESCR_t rt_pl_dop_pl_op_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_count(DESCR_t *, int); DESCR_t rt_pl_dop_cutcall(DESCR_t *,
                                 int); DESCR_t rt_pl_dop_shc(DESCR_t *, int); DESCR_t rt_pl_dop_db_clause_src(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int);
+DESCR_t rt_pl_dop_alarm_push(DESCR_t *, int); DESCR_t rt_pl_dop_alarm_pop(DESCR_t *, int); DESCR_t rt_pl_dop_os_sleep(DESCR_t *, int); DESCR_t rt_pl_dop_sk_socket(DESCR_t *, int);
+DESCR_t rt_pl_dop_sk_close(DESCR_t *, int); DESCR_t rt_pl_dop_sk_bind(DESCR_t *, int); DESCR_t rt_pl_dop_sk_listen(DESCR_t *, int); DESCR_t rt_pl_dop_sk_accept(DESCR_t *, int);
+DESCR_t rt_pl_dop_sk_connect(DESCR_t *, int); DESCR_t rt_pl_dop_sk_open(DESCR_t *, int); DESCR_t rt_pl_dop_sk_setopt(DESCR_t *, int); DESCR_t rt_pl_dop_sk_fileno(DESCR_t *, int);
+DESCR_t rt_pl_dop_sk_hostname(DESCR_t *, int); DESCR_t rt_pl_dop_sk_resolve(DESCR_t *, int); DESCR_t rt_pl_dop_proc_create(DESCR_t *, int); DESCR_t rt_pl_dop_proc_wait(DESCR_t *, int);
+DESCR_t rt_pl_dop_proc_kill(DESCR_t *, int); DESCR_t rt_pl_dop_fx_stat(DESCR_t *, int); DESCR_t rt_pl_dop_fx_utime(DESCR_t *, int); DESCR_t rt_pl_dop_fx_symlink(DESCR_t *, int);
+DESCR_t rt_pl_dop_fx_link(DESCR_t *, int); DESCR_t rt_pl_dop_fx_chmod(DESCR_t *, int); DESCR_t rt_pl_dop_fx_readlink(DESCR_t *, int);
                                     DESCR_t rt_pl_dop_pl_cs_count(DESCR_t *, int);
                                     DESCR_t rt_pl_dop_pl_cs_nth(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_rem(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fpow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_min(DESCR_t *, int);
@@ -5070,6 +5076,16 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
                         "rt_pl_dop_pl_sp_check", rt_pl_dop_pl_sp_check }, { "$pl_ioarg", 2,
                         "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall }, { "$shc", 1, "rt_pl_dop_shc", rt_pl_dop_shc }, { "$db_clause_src", 3,
                             "rt_pl_dop_db_clause_src", rt_pl_dop_db_clause_src },
+        { "$alarm_push", 2, "rt_pl_dop_alarm_push", rt_pl_dop_alarm_push }, { "$alarm_pop", 1, "rt_pl_dop_alarm_pop", rt_pl_dop_alarm_pop },
+        { "$os_sleep", 1, "rt_pl_dop_os_sleep", rt_pl_dop_os_sleep }, { "$sk_socket", 2, "rt_pl_dop_sk_socket", rt_pl_dop_sk_socket }, { "$sk_close", 2, "rt_pl_dop_sk_close", rt_pl_dop_sk_close },
+        { "$sk_bind", 3, "rt_pl_dop_sk_bind", rt_pl_dop_sk_bind }, { "$sk_listen", 3, "rt_pl_dop_sk_listen", rt_pl_dop_sk_listen }, { "$sk_accept", 2, "rt_pl_dop_sk_accept", rt_pl_dop_sk_accept },
+        { "$sk_connect", 3, "rt_pl_dop_sk_connect", rt_pl_dop_sk_connect }, { "$sk_open", 2, "rt_pl_dop_sk_open", rt_pl_dop_sk_open },
+        { "$sk_setopt", 4, "rt_pl_dop_sk_setopt", rt_pl_dop_sk_setopt }, { "$sk_fileno", 2, "rt_pl_dop_sk_fileno", rt_pl_dop_sk_fileno },
+        { "$sk_hostname", 1, "rt_pl_dop_sk_hostname", rt_pl_dop_sk_hostname }, { "$sk_resolve", 2, "rt_pl_dop_sk_resolve", rt_pl_dop_sk_resolve },
+        { "$proc_create", 7, "rt_pl_dop_proc_create", rt_pl_dop_proc_create }, { "$proc_wait", 3, "rt_pl_dop_proc_wait", rt_pl_dop_proc_wait },
+        { "$proc_kill", 3, "rt_pl_dop_proc_kill", rt_pl_dop_proc_kill }, { "$fx_stat", 2, "rt_pl_dop_fx_stat", rt_pl_dop_fx_stat }, { "$fx_utime", 4, "rt_pl_dop_fx_utime", rt_pl_dop_fx_utime },
+        { "$fx_symlink", 3, "rt_pl_dop_fx_symlink", rt_pl_dop_fx_symlink }, { "$fx_link", 3, "rt_pl_dop_fx_link", rt_pl_dop_fx_link }, { "$fx_chmod", 3, "rt_pl_dop_fx_chmod", rt_pl_dop_fx_chmod },
+        { "$fx_readlink", 2, "rt_pl_dop_fx_readlink", rt_pl_dop_fx_readlink },
         { "$print", 1, "rt_pl_dop_print", rt_pl_dop_print }, { "$print_s", 2, "rt_pl_dop_print_s", rt_pl_dop_print_s },
         { "$pl_op_count", 1, "rt_pl_dop_pl_op_count", rt_pl_dop_pl_op_count }, { "$pl_op_nth", 4, "rt_pl_dop_pl_op_nth", rt_pl_dop_pl_op_nth },
         { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },

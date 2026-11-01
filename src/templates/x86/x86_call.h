@@ -22,7 +22,7 @@ int x86_port_of(const char * s);
 std::string x86_pl_tr_pop_head();
 std::string x86_pl_tr_pop_restore();
 std::string x86_pl_tr_top_sync();
-#define X86_PL_TR_HEADER_BYTES 128L
+#define X86_PL_TR_HEADER_BYTES 160L
 #define X86_PL_TR_WAKE_OFF 48L
 #define X86_PL_TR_RESIDUE_OFF 56L
 #define X86_PL_TR_FLOOR_OFF 64L

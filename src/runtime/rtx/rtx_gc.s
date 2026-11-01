@@ -1797,7 +1797,7 @@ RTX_FUNC(rt_gc_trail_run)
     cmp     qword ptr [rsi + 8], 0
     jne     .Ltr_rnext
     mov     rbx, qword ptr [rsi]
-    add     rbx, 64
+    add     rbx, 160
 .Ltr_entry:
     mov     r8, qword ptr [rsi]
     mov     r8, qword ptr [r8]
@@ -2168,7 +2168,7 @@ RTX_FUNC(rt_gc_trail_roots_run)
     mov     rsi, qword ptr [r8 + 24]
     test    rsi, rsi
     jne     .Ltr2_entry
-    lea     rsi, [rdx + 128]
+    lea     rsi, [rdx + 160]
 .Ltr2_entry:
     lea     rax, [rsi + 32]
     cmp     rax, qword ptr [r8 + 40]

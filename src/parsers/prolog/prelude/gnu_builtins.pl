@@ -273,7 +273,7 @@ file_permission(P, M) :- '$gnu_b_perm'(M, 0, Mask), '$gnu_os'(access, P, Mask).
 sleep(S) :- var(S), !, throw(error(instantiation_error, sleep/1)).
 sleep(S) :- \+ number(S), !, throw(error(type_error(number, S), sleep/1)).
 sleep(S) :- S < 0, !, throw(error(domain_error(not_less_than_zero, S), sleep/1)).
-sleep(S) :- '$gnu_os'(sleep, S, _).
+sleep(S) :- '$os_sleep'(S).
 host_name(H) :- '$gnu_os'(hostname, 0, H).
 os_version(V) :- '$gnu_os'(os_version, 0, V).
 architecture(A) :- '$gnu_os'(architecture, 0, A).

@@ -96,7 +96,7 @@ call_with_depth_limit(G, L, R) :-
 '$swb_fx_err'(e(enoent, M), _, O) :- !, throw(error(existence_error(file, O), context(_, M))).
 '$swb_fx_err'(e(eperm, M), A, O) :- !, throw(error(permission_error(A, file, O), context(_, M))).
 '$swb_fx_err'(e(_, M), _, _) :- throw(error(system_error, context(_, M))).
-set_time_file(F, Old, New) :- '$swb_fx_text'(F, P, files_ex:set_time_file/3), '$gnu_os'(st_times, P, R), ( R = t(A, M, C) -> true ; '$swb_fx_err'(R, stat, P) ), '$swb_fx_old'(Old, access, A), '$swb_fx_old'(Old, modified, M), '$swb_fx_old'(Old, changed, C), '$swb_fx_close'(Old), ( New == [] -> true ; '$swb_fx_new'(New, access, A, A1), '$swb_fx_new'(New, modified, M, M1), '$gnu_os'(utime, P-t(A1, M1), U), ( U == ok -> true ; '$swb_fx_err'(U, set_time, P) ) ).
+set_time_file(F, Old, New) :- '$swb_fx_text'(F, P, files_ex:set_time_file/3), '$fx_stat'(P, R), ( R = st(_, A, M, C) -> true ; '$swb_fx_err'(R, stat, P) ), '$swb_fx_old'(Old, access, A), '$swb_fx_old'(Old, modified, M), '$swb_fx_old'(Old, changed, C), '$swb_fx_close'(Old), ( New == [] -> true ; '$swb_fx_new'(New, access, A, A1), '$swb_fx_new'(New, modified, M, M1), '$fx_utime'(P, A1, M1, U), ( U == ok -> true ; '$swb_fx_err'(U, set_time, P) ) ).
 '$swb_fx_old'(L, N, T) :- var(L), !, X =.. [N, T], L = [X|_].
 '$swb_fx_old'([X|L], N, T) :- !, ( compound(X), functor(X, N, 1) -> arg(1, X, V), ( V = T -> true ; true ) ; '$swb_fx_old'(L, N, T) ).
 '$swb_fx_old'(_, _, _).
@@ -109,10 +109,10 @@ set_time_file(F, Old, New) :- '$swb_fx_text'(F, P, files_ex:set_time_file/3), '$
 '$swb_fx_time'(now, T) :- !, get_time(T0), T is truncate(T0).
 '$swb_fx_time'(X, T) :- number(X), !, T is truncate(X).
 '$swb_fx_time'(X, _) :- throw(error(type_error(time, X), _)).
-link_file(O, N, T) :- '$swb_fx_text'(O, OP, files_ex:link_file/3), '$swb_fx_text'(N, NP, files_ex:link_file/3), ( var(T) -> throw(error(instantiation_error, _)) ; \+ atom(T) -> throw(error(type_error(atom, T), _)) ; T == symbolic -> Op = symlink ; T == hard -> Op = hardlink ; throw(error(domain_error(link_type, T), _)) ), '$gnu_os'(Op, OP-NP, R), ( R == ok -> true ; '$swb_fx_err'(R, link, NP) ).
-file_mode_(F, M) :- '$swb_fx_text'(F, P, files_ex:file_mode_/2), '$gnu_os'(st_mode, P, R), ( integer(R) -> M = R ; '$swb_fx_err'(R, stat, P) ).
-chmod_(F, M) :- '$swb_fx_text'(F, P, files_ex:chmod_/2), ( var(M) -> throw(error(instantiation_error, context(files_ex:chmod_/2, _))) ; integer(M) -> true ; throw(error(type_error(integer, M), context(files_ex:chmod_/2, _))) ), '$gnu_os'(chmod, P-M, R), ( R == ok -> true ; '$swb_fx_err'(R, chmod, M) ).
-read_link(F, L, T) :- '$swb_fx_text'(F, P, system:read_link/3), '$gnu_os'(read_link, P, l(L0, T0)), L = L0, T = T0.
+link_file(O, N, T) :- '$swb_fx_text'(O, OP, files_ex:link_file/3), '$swb_fx_text'(N, NP, files_ex:link_file/3), ( var(T) -> throw(error(instantiation_error, _)) ; \+ atom(T) -> throw(error(type_error(atom, T), _)) ; T == symbolic -> true ; T == hard -> true ; throw(error(domain_error(link_type, T), _)) ), ( T == symbolic -> '$fx_symlink'(OP, NP, R) ; '$fx_link'(OP, NP, R) ), ( R == ok -> true ; '$swb_fx_err'(R, link, NP) ).
+file_mode_(F, M) :- '$swb_fx_text'(F, P, files_ex:file_mode_/2), '$fx_stat'(P, R), ( R = st(M0, _, _, _) -> M = M0 ; '$swb_fx_err'(R, stat, P) ).
+chmod_(F, M) :- '$swb_fx_text'(F, P, files_ex:chmod_/2), ( var(M) -> throw(error(instantiation_error, context(files_ex:chmod_/2, _))) ; integer(M) -> true ; throw(error(type_error(integer, M), context(files_ex:chmod_/2, _))) ), '$fx_chmod'(P, M, R), ( R == ok -> true ; '$swb_fx_err'(R, chmod, M) ).
+read_link(F, L, T) :- '$swb_fx_text'(F, P, system:read_link/3), '$fx_readlink'(P, l(L0, T0)), L = L0, T = T0.
 prolog_to_os_filename(P, O) :- P = O.
 copy_stream_data(I, O) :- '$swb_csd'(I, O, -1).
 copy_stream_data(I, O, N) :- ( var(N) -> throw(error(instantiation_error, context(system:copy_stream_data/3, _))) ; integer(N) -> true ; throw(error(type_error(integer, N), context(system:copy_stream_data/3, _))) ), '$swb_csd'(I, O, N).
