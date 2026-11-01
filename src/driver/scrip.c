@@ -125,7 +125,7 @@ static void n2_xgraph_probe(const stage2_t *s2) {
     if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
     extern int rt_proc_is_registered(const char *);
     extern int rt_proc_is_generator(const char *);
-    fprintf(stderr, "[N2-XG] window=post-drive_slots_all procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
+    fprintf(stderr, "[N2-XG] window=post-planner_cells procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
     for (int i = 0; i < s2->proc_count; i++) {
         const char *pn = s2->proc_table[i].name;
         int gi = s2->proc_table[i].bb_idx;
@@ -680,7 +680,6 @@ static void register_procs_all(stage2_t * s2) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void drive_slots_all(stage2_t * s2) { extern void planner_stage(stage2_t *, int); planner_stage(s2, polyglot_main_bb_idx(s2)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
     char *end = NULL;
@@ -2236,7 +2235,7 @@ int main(int argc, char **argv) {
     if (dump_transpile) { extern int tree_to_sno(const tree_t *ast, FILE *out); tree_to_sno(ast_prog, stdout); return 0; }
     if (dump_ir || dump_zeta) {
         extern void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose);
-        extern void planner_stage_graph(IR_graph_t * g);
+        extern void planner_cells_graph(IR_graph_t * g);
         extern void zls_graph_name(const IR_graph_t * g, const char * name);
         extern void zls_dump(FILE * fp);
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
@@ -2245,8 +2244,10 @@ int main(int argc, char **argv) {
         ast_tree_free(ast_prog);
         ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+        { extern void planner_tiers(stage2_t *, int); planner_tiers(s2, polyglot_main_bb_idx(s2)); }
         { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
-        { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
+        { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); }
+        { extern void planner_cells(stage2_t *); planner_cells(s2); }
         const IR_t ** seen_all = (const IR_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2367,8 +2368,9 @@ int main(int argc, char **argv) {
             int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             register_procs_all(s2);
+            { extern void planner_tiers(stage2_t *, int); planner_tiers(s2, main_bb_idx); }
             { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
-            drive_slots_all(s2);
+            { extern void planner_cells(stage2_t *); planner_cells(s2); }
             n2_region_diag(s2);
             n2_xgraph_probe(s2);
             {
@@ -2810,8 +2812,9 @@ int main(int argc, char **argv) {
             }
             register_procs_all(s2);
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            { extern void planner_tiers(stage2_t *, int); planner_tiers(s2, polyglot_main_bb_idx(s2)); }
             { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
-            drive_slots_all(s2);
+            { extern void planner_cells(stage2_t *); planner_cells(s2); }
             n2_region_diag(s2);
             n2_xgraph_probe(s2);
             {

@@ -91,7 +91,7 @@ void planner_graph_facts(IR_graph_t * g) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void planner_stage_graph(IR_graph_t * g) {
+void planner_cells_graph(IR_graph_t * g) {
     if (!g) return;
     extern void zls_build(IR_graph_t *);
     extern int zls_off(const IR_t *);
@@ -122,12 +122,9 @@ void planner_stage_graph(IR_graph_t * g) {
     planner_graph_facts(g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void planner_stage(stage2_t * s2, int main_bb_idx) {
+void planner_tiers(stage2_t * s2, int main_bb_idx) {
     extern void fl_derive_tier(IR_graph_t * g);
     extern void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np);
-    extern void zls_home_pass(const IR_graph_t * g);
-    extern void zls_g_generator_set(const IR_graph_t * g);
-    int _mx = main_bb_idx;
     {
         int np = s2->proc_count;
         const char * pn[np > 0 ? np : 1];
@@ -139,10 +136,14 @@ void planner_stage(stage2_t * s2, int main_bb_idx) {
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];
         if (!_g->home_frame) fl_derive_tier(_g);
-        if (_gi == _mx && !_g->cell_frame && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
-        zls_home_pass(_g);
-        planner_stage_graph(_g);
+        if (_gi == main_bb_idx && !_g->cell_frame && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void planner_cells(stage2_t * s2) {
+    extern void zls_home_pass(const IR_graph_t * g);
+    extern void zls_g_generator_set(const IR_graph_t * g);
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { zls_home_pass(s2->bbp.table[_gi]); planner_cells_graph(s2->bbp.table[_gi]); }
     for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].is_generator && s2->proc_table[i].bb_idx >= 0 && s2->proc_table[i].bb_idx < s2->bbp.count) {
         zls_g_generator_set(s2->bbp.table[s2->proc_table[i].bb_idx]);
         planner_graph_facts(s2->bbp.table[s2->proc_table[i].bb_idx]);
