@@ -58,10 +58,8 @@ static std::string xa_flat_data_section_str(void) {
 extern "C" void xa_entry_dispatch(void) {
     bb_emit_x86(x86_bomb("xa_entry_dispatch: no lowerer constructs an XA_ENTRY_DISPATCH node (CEO-2009 under CEO-2002); a program that gets here names itself"));
 }
-extern "C" void xa_flat_data_section(void) {
-    auto s = xa_flat_data_section_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
-}
+static void xa_flat_emit_text(const std::string & s) { if (!s.empty()) emit_text_n(s.data(), s.size()); }
+extern "C" void xa_flat_data_section(void) { xa_flat_emit_text(xa_flat_data_section_str()); }
 extern "C" void rt_pl_dc_prep(void *, long, long, long, long, long);
 extern "C" DESCR_t rt_pl_dc_leave_γ(DESCR_t, long, void *);
 extern "C" DESCR_t rt_pl_dc_leave_ω(long, void *);
@@ -112,7 +110,7 @@ static std::string zf_dc_block(int np, int nb) {
 static int zf_dc_pad(int np) {
     return (np > 0 && np % 2 == 1) ? 1 : 0;
 }
-static int zf_dc_pushbytes(int np) {
+static int zf_dc_push_size(int np) {
     return np * 8 + (zf_dc_pad(np) ? 8 : 0);
 }
 static std::string zf_dc_zf_head(int np) {
@@ -144,7 +142,7 @@ static std::string zf_dc_zf_plain(void) {
          + zf_dc_rets(8);
 }
 static std::string zf_dc_zf(int np) {
-    return emit_seq({zf_dc_zf_head(np), FOR(0, np, zf_dc_zf_stage), IF(zf_dc_pushbytes(np) > 0, x86("add", "rsp", (long)zf_dc_pushbytes(np))),
+    return emit_seq({zf_dc_zf_head(np), FOR(0, np, zf_dc_zf_stage), IF(zf_dc_push_size(np) > 0, x86("add", "rsp", (long)zf_dc_push_size(np))),
                      (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) ? zf_dc_zf_wire() : zf_dc_zf_plain()});
 }
 static std::string zf_dc_pl(int kt, int np) {
@@ -238,39 +236,35 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 extern "C" { int stage2_owner_varslot(const char *, const char *); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * zf_display_reg(int dl) { return dl == 1 ? "r13" : dl == 2 ? "r14" : "r15"; }
 static std::string zf_display_restore(int kt) {
-    int dl = zf_display_level();
-    if (!dl) return std::string();
-    if (dl <= 3) {
-    const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
-        return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
-             + x86("mov", dr, x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40)); }
-    int off = zf_display_mem_off(dl);
-    if (off < 0) return x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (restore)");
-    return x86("comment", "PAS-DISPLAY-N: restore [r15+off] from [kt-40] (saved caller value)")
-         + x86("mov", "rax", x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40))
-         + x86("mov", RDQ("r15", off), "rax");
+    return IF(zf_display_level() >= 1 && zf_display_level() <= 3,
+               x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
+             + x86("mov", zf_display_reg(zf_display_level()), x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40)))
+         + IF(zf_display_level() > 3 && zf_display_mem_off(zf_display_level()) < 0, x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (restore)"))
+         + IF(zf_display_level() > 3 && zf_display_mem_off(zf_display_level()) >= 0,
+               x86("comment", "PAS-DISPLAY-N: restore [r15+off] from [kt-40] (saved caller value)")
+             + x86("mov", "rax", x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40))
+             + x86("mov", RDQ("r15", zf_display_mem_off(zf_display_level())), "rax"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_det_block(const IR_graph_t * g);
 #define zf_det_block_size() ((g_emit_cfg && g_emit_cfg->pf.det_block) ? 16L * g_emit_cfg->nparams : 0L)
 static std::string zf_pin_restore(int kt) { return IF(x86_hb_on(), x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8))); }
+#define zf_release_np() ((g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0)
 static std::string zf_release(int kt) {
-    int np = (g_emit_cfg && g_emit_cfg->pf.block_args) ? g_emit_cfg->nparams : 0;
-    if (x86_hb_on()) return x86("lea", "rsp", RDQ(x86_hb(), kt + 16 * np));
-    return x86("add", "rsp", (long)(kt + 16 * np));
+    return x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + 16 * zf_release_np()))
+                       : x86("add", "rsp", (long)(kt + 16 * zf_release_np()));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_quad_seed(void *);
 static std::string pl_standing_cells_zero(int kt, int n) {
-    std::string s;
-    if (n > 16) return x86("lea", "rdi", RDQ("rsp", kt - 64 - 24 - 8 * (n - 1)))
-                     + x86("xor", "eax", "eax")
-                     + x86("mov32", "ecx", (long)n)
-                     + x86("rep_stosq");
-    for (int k = 0; k < n; k++) s += x86("mov", RDQ("rsp", kt - 64 - 24 - 8 * k), 0L);
-    return s;
+    return n > 16 ? x86("lea", "rdi", RDQ("rsp", kt - 64 - 24 - 8 * (n - 1)))
+                  + x86("xor", "eax", "eax")
+                  + x86("mov32", "ecx", (long)n)
+                  + x86("rep_stosq")
+                  : FOR(0, n, [&](int k) { return x86("mov", RDQ("rsp", kt - 64 - 24 - 8 * k), 0L); });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define xa_flat_pkt_slot_addr(idx64, out, tmp) ( \
@@ -283,27 +277,25 @@ static std::string pl_standing_cells_zero(int kt, int n) {
 extern "C" int rt_pl_db_frame_cells(void);
 extern "C" int rt_pl_db_slot_ensure(void * root, void * db, int i);
 static std::string xa_flat_pkt_cell_rax(int k) {
-    int nf = rt_pl_db_frame_cells();
-    if (k < nf) return x86("mov", "rax", RDQ("r14", -24 - 8 * k));
-    return x86("note",
+    return k < rt_pl_db_frame_cells() ? x86("mov", "rax", RDQ("r14", -24 - 8 * k))
+         : x86("note",
         "a root cell past the frame's PL_DB_FRAME_CELLS lives in the registry's overflow vector: cell 0 holds the "
             "registry, [registry + 24] the vector, re-read here because the collector may move both")
          + x86("mov", "rax", RDQ("r14", -24))
          + x86("mov", "rax", RDQ("rax", 24))
-         + x86("mov", "rax", RDQ("rax", 8 * (k - nf)));
+         + x86("mov", "rax", RDQ("rax", 8 * (k - rt_pl_db_frame_cells())));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk) {
-    int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
-    if (k < 0 || i < 0) return std::string();
-    return x86("note", "packet fragment last call: when this frame's own clause choice is the youngest (r13 == its header) and no later slot of the chain is visible at the generation the call "
+    return IF(g_emit.flat_pkt_cell >= 0 && g_emit.flat_pkt_slot >= 0,
+               x86("note", "packet fragment last call: when this frame's own clause choice is the youngest (r13 == its header) and no later slot of the chain is visible at the generation the call "
                        "began in, this clause is the last alternative, so the choice is popped to F.B0 as the packet gamma's det exit pops it, and the frame-reuse test that follows passes")
          + x86("lea", "rax", RDQ(fb, kt - 64))
          + x86("cmp", "r13", "rax")
          + x86("jne", L(lsk + 97))
          + x86("mov", "r8", RDQ(fb, kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
-         + xa_flat_pkt_cell_rax(k) + x86("mov", "r9", RDQ("rax", 0))
-         + x86("mov", "r10d", RDD("r9", 40 * i + 32))
+         + xa_flat_pkt_cell_rax(g_emit.flat_pkt_cell) + x86("mov", "r9", RDQ("rax", 0))
+         + x86("mov", "r10d", RDD("r9", 40 * g_emit.flat_pkt_slot + 32))
          + x86("movsxd", "r10", "r10d")
          + x86("def", L(lsk + 95))
          + x86("cmp", "r10d", 0L)
@@ -323,21 +315,21 @@ std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk) {
          + x86("jmp", L(lsk + 95))
          + x86("def", L(lsk + 96))
          + x86("mov", "r13", RDQ(fb, kt - 40))
-         + x86("def", L(lsk + 97));
+         + x86("def", L(lsk + 97)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PKT_FRESH_OK() (g_emit.flat_pkt_cell >= 0 && g_emit.flat_pkt_slot >= 0 && g_emit.flat_pkt_walk_p)
 static std::string xa_flat_pkt_fresh_entry_str(void) {
-    int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
-    if (k < 0 || i < 0 || !g_emit.flat_pkt_walk_p) return x86_bomb("xa_flat_pkt_fresh_entry: a packet fragment without its cell, its slot or its walk label");
-    return x86("comment",
+    return IF(!PKT_FRESH_OK(), x86_bomb("xa_flat_pkt_fresh_entry: a packet fragment without its cell, its slot or its walk label"))
+         + IF(PKT_FRESH_OK(), x86("comment",
         "PACKET FRAGMENT fresh entry (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): the registry road -- the packet from root cell k, G = next_ref, this slot visible at G, else the walk from the head")
-         + xa_flat_pkt_cell_rax(k)
+         + xa_flat_pkt_cell_rax(g_emit.flat_pkt_cell)
          + x86("mov", "r8d", RDD("rax", 20))
          + x86("mov", "r9", RDQ("rax", 0))
-         + x86("mov", "r11d", RDD("r9", 40 * i + 20))
+         + x86("mov", "r11d", RDD("r9", 40 * g_emit.flat_pkt_slot + 20))
          + x86("cmp", "r11d", "r8d")
          + x86("jge", L(210))
-         + x86("mov", "r11d", RDD("r9", 40 * i + 16))
+         + x86("mov", "r11d", RDD("r9", 40 * g_emit.flat_pkt_slot + 16))
          + x86("test", "r11d", "r11d")
          + x86("je", L(211))
          + x86("cmp", "r11d", "r8d")
@@ -348,7 +340,7 @@ static std::string xa_flat_pkt_fresh_entry_str(void) {
          + x86("mov", "esi", RDD("rax", 24))
          + x86("movsxd", "rsi", "esi")
          + x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_walk_p)
-         + x86("def", L(212));
+         + x86("def", L(212)));
 }
 extern "C" void xa_flat_pkt_fresh_entry(void) { bb_emit_x86(xa_flat_pkt_fresh_entry_str()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -499,8 +491,8 @@ static int zf_pro_nl(void) {
     return g_emit_cfg ? g_emit_cfg->nlocals : 0;
 }
 static std::string zf_pro_depth(int kt) {
-    if (!(g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph)) return std::string();
-    return x86("comment",
+    return IF(g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph,
+               x86("comment",
         "DEPTH-COUNTED (ARCH-PROLOG-DATABASE section 8): LEVEL is the caller's plus 1 and LIMITER the caller's, copied down through the link at [kt-8] from the caller's base +0 and +8; "
                           "an active limiter's REACHED (pair +8) rises to this level, and a level over its LIMIT (pair +0) is this clause's omega -- the predicate fails, no ball")
          + x86("mov", "rax", RDQ("rsp", kt - 8))
@@ -518,7 +510,7 @@ static std::string zf_pro_depth(int kt) {
          + x86("cmp", "rcx", RDQ("rdi", 0))
          + x86("jle", L(961))
          + (g_emit.flat_pkt && g_emit.flat_pkt_chainω_p ? x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p) : zf_epo_pl(kt))
-         + x86("def", L(961));
+         + x86("def", L(961)));
 }
 static std::string zf_pro(int kt) {
     return zf_pro_finish(emit_seq({zf_pro_head(zf_pro_kt(kt)), zf_pro_body(kt, zf_pro_np(), zf_pro_nl()), zf_pro_display(kt, zf_display_level())}), kt);
@@ -536,106 +528,105 @@ static std::string xa_flat_zframe_prologue_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_wn_park_str(int kt, const char * fname) {
     extern int rt_g_want_name; extern int rt_g_ret_by_name;
-    if (!xa_flat_wn_park(fname)) return std::string();
-    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+    return IF(xa_flat_wn_park(fname), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", RDD("rax", 0), (long)0)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "edx", RDD("rax", 0))
          + x86("mov", RDQ("rsp", kt - 16), "rdx")
-         + x86("mov", RDD("rax", 0), (long)0);
+         + x86("mov", RDD("rax", 0), (long)0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
     extern int rt_g_want_name;
-    if (!xa_flat_wn_park(fname)) return std::string();
-    return x86("comment", "name request: put the parked request back so the call site's by-name consult reads THIS call's")
+    return IF(xa_flat_wn_park(fname), x86("comment", "name request: put the parked request back so the call site's by-name consult reads THIS call's")
          + x86("push", "rax")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "rcx", RDQ("rsp", kt - 16 + 8))
          + x86("mov", RDD("rax", 0), "ecx")
-         + x86("pop", "rax");
+         + x86("pop", "rax"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_chain_prologue_str(const char * fname, int * argkt_out) {
-    if (!xa_flat_class_c()) return std::string();
-    {
-    static int _d = -1; if (_d < 0) {
-    const char * e = getenv("SCRIP_CHAIN_DIAG");
-    _d = (e && *e == '1') ? 1 : 0;
+#define zf_kt() (g_emit.flat_frame_bytes)
+static std::string xa_flat_chain_diag(void) {
+    extern int bb_emit_pos;
+    fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat);
+    return std::string();
 }
-      if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n",
-                                                bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
-    int kt = g_emit.flat_frame_bytes;
-    if (kt & 15) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", kt); abort(); }
-    std::string s = x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
-         + x86("sub", "rsp", (long)kt)
-         + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
-         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
-         + xa_flat_wn_park_str(kt, fname);
+static std::string xa_flat_chain_kt_fatal(void) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", zf_kt()); abort(); return std::string(); }
+static int xa_flat_argkt_set(int * argkt_out, int v) { if (argkt_out) *argkt_out = v; return 1; }
+static std::string xa_flat_chain_sig_arg(const int * gk, int nf, int i) {
+    return x86("note", gva_note(gk[i]))
+         + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0))
+         + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
+         + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8))
+         + x86("mov", "[rsp + " + std::to_string(16 * i + 8) + "]", "r10")
+         + IF(i >= nf, x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
+                     + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0))
+         + IF(i < nf, x86("cmp", "rdx", (long)i)
+                    + x86_jcc_id("jbe", 1 + i)
+                    + x86("mov", "r10", "[rcx + " + std::to_string(24 + 8 * i) + "]")
+                    + x86("add", "r10", "r8")
+                    + x86("mov", "r11", "[r10 + 0]")
+                    + x86("mov", xa_flat_sig_gq(gk[i], 0), "r11")
+                    + x86("mov", "r11", "[r10 + 8]")
+                    + x86("mov", xa_flat_sig_gq(gk[i], 8), "r11")
+                    + x86_jmp_id(40 + i)
+                    + x86_deflabel_id(1 + i)
+                    + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
+                    + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0)
+                    + x86_deflabel_id(40 + i));
+}
+static std::string xa_flat_chain_sig_block(const char * fname, int * argkt_out) {
     int nf = 0, nsave = 0; int gk[bb_scc_gk_len(fname)];
-    if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
-        int argkt = 16 * nsave;
-        if (argkt_out) *argkt_out = argkt;
-        s += x86("sub", "rsp", (long)argkt)
+    return IF(xa_flat_sig_names(fname, &nf, &nsave, gk) && xa_flat_argkt_set(argkt_out, 16 * nsave),
+               x86("sub", "rsp", (long)(16 * nsave))
              + x86("mov", "rdx", "[rcx + 0]")
-             + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
-             + FOR(0, nsave, [&](int i) {
-                   std::string sv = x86("note", gva_note(gk[i]))
-                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0))
-                        + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
-                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8))
-                        + x86("mov", "[rsp + " + std::to_string(16 * i + 8) + "]", "r10");
-                   if (i >= nf) return sv + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
-                                          + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0);
-                   return sv + x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", 1 + i)
-                        + x86("mov", "r10", "[rcx + " + std::to_string(24 + 8 * i) + "]")
-                        + x86("add", "r10", "r8")
-                        + x86("mov", "r11", "[r10 + 0]")
-                        + x86("mov", xa_flat_sig_gq(gk[i], 0), "r11")
-                        + x86("mov", "r11", "[r10 + 8]")
-                        + x86("mov", xa_flat_sig_gq(gk[i], 8), "r11")
-                        + x86_jmp_id(40 + i)
-                        + x86_deflabel_id(1 + i)
-                        + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL)
-                        + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0)
-                        + x86_deflabel_id(40 + i); });
-    }
-    return s;
+             + x86("lea", "r8", "[rsp + " + std::to_string(zf_kt() + 16 * nsave) + "]")
+             + FOR(0, nsave, [&](int i) { return xa_flat_chain_sig_arg(gk, nf, i); }));
+}
+static std::string xa_flat_chain_prologue_str(const char * fname, int * argkt_out) {
+    return IF(xa_flat_class_c(),
+               IF(emit_knob_if_one("SCRIP_CHAIN_DIAG"), xa_flat_chain_diag())
+             + IF(zf_kt() & 15, xa_flat_chain_kt_fatal())
+             + x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
+             + x86("sub", "rsp", (long)zf_kt())
+             + x86("mov", "[rsp + " + std::to_string(zf_kt() - 24) + "]", "rcx")
+             + x86("mov", "[rsp + " + std::to_string(zf_kt() - 16) + "]", "rdx")
+             + x86("mov", "[rsp + " + std::to_string(zf_kt() - 8) + "]", "rbp")
+             + xa_flat_wn_park_str(zf_kt(), fname)
+             + xa_flat_chain_sig_block(fname, argkt_out));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_str(void) {
-    if (!xa_flat_class_c()) return std::string();
-    return x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
-         + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
+    return IF(xa_flat_class_c(),
+               x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
+             + x86("add", "rsp", (long)g_emit.flat_frame_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_epi_sig_diag(int is_gamma, const char * fname) {
+    int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)]; int have = xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk);
+    fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname ? fname : "(null)", is_gamma, zf_kt(), have, nf, nsave);
+    return std::string();
+}
+static std::string xa_flat_epi_sig_block(int is_gamma, const char * fname) {
+    int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)];
+    return IF(xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk),
+               IF(is_gamma && res_gk >= 0, x86("note", gva_note(res_gk))
+                                         + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0))
+                                         + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
+             + FOR(0, nsave, [&](int i) {
+                   return x86("note", gva_note(gk[i]))
+                        + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]")
+                        + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
+                        + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]")
+                        + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
+             + x86("add", "rsp", (long)(16 * nsave)));
+}
 static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fname) {
-    if (!xa_flat_class_c()) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    std::string pre;
-    { int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)];
-      int have = xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk);
-      if (getenv("SCRIP_SIGEPI_DIAG")) fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname?fname:"(null)", is_gamma, kt, have, nf, nsave);
-      if (have) {
-          int argkt = 16 * nsave;
-          std::string reload = (is_gamma && res_gk >= 0)
-              ? ( x86("note", gva_note(res_gk))
-                + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0))
-                + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
-              : std::string();
-          pre = reload
-         + FOR(0, nsave, [&](int i) {
-                    return x86("note", gva_note(gk[i]))
-                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]")
-                         + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
-                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]")
-                         + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
-              + x86("add", "rsp", (long)argkt);
-          (void)nf;
-      }
-    }
-    return pre + x86("comment", is_gamma
+    return IF(xa_flat_class_c(),
+               IF(emit_knob_nonzero("SCRIP_SIGEPI_DIAG"), xa_flat_epi_sig_diag(is_gamma, fname))
+             + xa_flat_epi_sig_block(is_gamma, fname)
+             + x86("comment", is_gamma
                    ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] "
                      "(bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire "
                      "epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx carry the typed result -- reloaded from "
@@ -650,50 +641,51 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
                      "sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit "
                      "MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two "
                      "apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
-         + xa_flat_wn_restore_str(kt, fname)
-         + x86("mov", "rcx", RDQ("rsp", kt - 24))
+         + xa_flat_wn_restore_str(zf_kt(), fname)
+         + x86("mov", "rcx", RDQ("rsp", zf_kt() - 24))
          + x86("mov", "rcx", RDQ("rcx", is_gamma ? 8 : 16))
-         + (is_gamma ? std::string() : (x86("mov32", "eax", (long)DT_FAIL)
-                                      + x86("xor", "edx", "edx")))
-         + x86("add", "rsp", (long)kt)
-         + x86_jmp_reg("rcx");
+         + IF(!is_gamma, x86("mov32", "eax", (long)DT_FAIL)
+                       + x86("xor", "edx", "edx"))
+         + x86("add", "rsp", (long)zf_kt())
+         + x86_jmp_reg("rcx"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
+static std::string trace_tap_skip(int kind) { return kind <= 4 ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); }
+static std::string trace_tap_lbl(int id) { return ".Licn_trace_nm" + std::to_string(id); }
+static std::string trace_tap_body(const char * pname, int kind, int np, int r11d, int id) {
     extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
+    return x86("push", "rax")
+         + x86("push", "rdx")
+         + x86_align_call_enter()
+         + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+                       + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
+                       + x86("cmp", "rax", (long)0)
+                       + x86("je", trace_tap_skip(kind)))
+         + x86("directive", ".section .rodata")
+         + x86("directive", (trace_tap_lbl(id) + ": .string \"" + pname + "\"").c_str())
+         + x86("directive", ".section .text")
+         + x86("directive", ".intel_syntax noprefix")
+         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, trace_tap_lbl(id).c_str())
+         + IF(kind == 1, x86("mov32", "esi", (long)np)
+                       + x86("lea", "rdx", RDQ("r11", r11d)))
+         + IF(kind == 2, x86("mov", "rsi", RDQ("r11", 8))
+                       + x86("mov", "rdx", RDQ("r11", 0)))
+         + IF(kind == 5, x86("mov", "rsi", "rbp"))
+         + IF(kind == 1, x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f))
+         + IF(kind == 2, x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook))
+         + IF(kind == 5, x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook))
+         + IF(kind != 1 && kind != 2 && kind != 5, x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook))
+         + x86_rt_gc_poll()
+         + x86("def", trace_tap_skip(kind))
+         + x86_align_call_leave()
+         + x86("pop", "rdx")
+         + x86("pop", "rax");
+}
+std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     extern int g_flat_node_id;
-    if (!x86_trace_hooks_on()) return std::string();
-    if (!pname) return std::string();
-    pname = xa_icn_trace_intern(pname);
-    std::string id = std::to_string(g_flat_node_id++);
-    std::string sk = (kind <= 4) ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); std::string fl = ".Licn_trace_nm" + id;
-    std::string s = x86("push", "rax")
-                  + x86("push", "rdx") + x86_align_call_enter()
-        + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
-        + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
-        + x86("cmp", "rax", (long)0)
-        + x86("je", sk))
-        + x86("directive", ".section .rodata")
-        + x86("directive", (fl + ": .string \"" + pname + "\"").c_str())
-        + x86("directive", ".section .text")
-        + x86("directive", ".intel_syntax noprefix")
-        + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
-    if (kind == 1) s += x86("mov32", "esi", (long)np)
-                      + x86("lea", "rdx", RDQ("r11", r11d));
-    else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8))
-                           + x86("mov", "rdx", RDQ("r11", 0));
-    else if (kind == 5) s += x86("mov", "rsi", "rbp");
-    if (kind == 1) s += x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
-    else if (kind == 2) s += x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
-    else if (kind == 5) s += x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
-    else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
-    s += x86_rt_gc_poll();
-    s += x86("def", sk) + x86_align_call_leave()
-       + x86("pop", "rdx")
-       + x86("pop", "rax");
-    return s;
+    return IF(x86_trace_hooks_on() && pname, trace_tap_body(xa_icn_trace_intern(pname), kind, np, r11d, g_flat_node_id++));
 }
 const char * xa_icn_trace_pname(void) {
     return (g_emit_cfg && g_emit_cfg->root_graph) ? "main"
@@ -972,44 +964,42 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     return xa_flat_class_zf() ? zf_epo(zf_epi_kt()) : std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_switch_ext(const char * op, bb_label_t * l) { return x86(op, "extlbl", (uint64_t)(uintptr_t)l); }
+static int pl_switch_has(const pl_ix_arm_t * arms, int n, int tag) { return n > 0 && (arms[n - 1].tag == tag || pl_switch_has(arms, n - 1, tag)); }
+static std::string pl_switch_arm_ref(const pl_ix_arm_t * a) { return x86("cmp", "ecx", (long)a->val) + pl_switch_ext("je", a->to); }
+static std::string pl_switch_arm_val(const pl_ix_arm_t * a) { return x86_movabs_r64("rax", (uint64_t)a->val) + x86("cmp", "rsi", "rax") + pl_switch_ext("je", a->to); }
+#define PLSW_REF() (pl_switch_has(arms, narms, DT_PLREF) || fb_ref != chain)
+#define PLSW_ATOM() (pl_switch_has(arms, narms, DT_PLATOM) || fb_atom != chain)
+#define PLSW_INT() (pl_switch_has(arms, narms, DT_I) || fb_int != chain)
 static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
     x86_begin();
-    auto ext = [](const char * op, bb_label_t * l) { return x86(op, "extlbl", (uint64_t)(uintptr_t)l); };
-    auto has = [&](int tag) { for (int i = 0; i < narms; i++) if (arms[i].tag == tag) return 1; return 0; };
-    int dref = has(DT_PLREF) || fb_ref != chain, datom = has(DT_PLATOM) || fb_atom != chain, dint = has(DT_I) || fb_int != chain;
-    std::string s = x86("comment", "PL SWITCH (ARCH-PROLOG-C-OUT-OF-THE-BOX 11; the design of record's section 7.2, V1): the first argument's key -- a functor id, an atom id or a small integer -- "
+    return x86("comment", "PL SWITCH (ARCH-PROLOG-C-OUT-OF-THE-BOX 11; the design of record's section 7.2, V1): the first argument's key -- a functor id, an atom id or a small integer -- "
                                    "selects the clauses whose first head argument can match it; ONE candidate is entered in last-alternative form (no next alternative, B back to the outer choice), "
                                    "NONE concedes through the step, two or more take the full chain; an unbound, float, bignum or text first argument takes the chain")
-                  + x86("lea", "rdi", FRQ(a0_off))
-                  + PL_DEREF(10, 11, 12, 13);
-    if (dref) s += x86("cmp", "al", (long)DT_PLREF)
-                  + x86("je", L(20));
-    if (datom) s += x86("cmp", "al", (long)DT_PLATOM)
-                  + x86("je", L(30));
-    if (dint) s += x86("cmp", "al", (long)DT_I)
-                  + x86("je", L(40));
-    s += ext("jmp", chain);
-    if (dref) {
-        s += x86("def", L(20))
-           + x86("mov", "ecx", RDD("rdi", 4));
-        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_PLREF) s += x86("cmp", "ecx", (long)arms[i].val) + ext("je", arms[i].to);
-        s += ext("jmp", fb_ref);
-    }
-    if (datom) {
-        s += x86("def", L(30))
-           + x86("mov", "rsi", RDQ("rdi", 8));
-        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_PLATOM) s += x86_movabs_r64("rax", (uint64_t)arms[i].val) + x86("cmp", "rsi", "rax") + ext("je", arms[i].to);
-        s += ext("jmp", fb_atom);
-    }
-    if (dint) {
-        s += x86("def", L(40))
-           + x86("mov", "ecx", RDD("rdi", 4))
-           + x86("test", "ecx", "ecx") + ext("jne", chain)
-           + x86("mov", "rsi", RDQ("rdi", 8));
-        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_I) s += x86_movabs_r64("rax", (uint64_t)arms[i].val) + x86("cmp", "rsi", "rax") + ext("je", arms[i].to);
-        s += ext("jmp", fb_int);
-    }
-    return s;
+         + x86("lea", "rdi", FRQ(a0_off))
+         + PL_DEREF(10, 11, 12, 13)
+         + IF(PLSW_REF(), x86("cmp", "al", (long)DT_PLREF)
+                        + x86("je", L(20)))
+         + IF(PLSW_ATOM(), x86("cmp", "al", (long)DT_PLATOM)
+                         + x86("je", L(30)))
+         + IF(PLSW_INT(), x86("cmp", "al", (long)DT_I)
+                        + x86("je", L(40)))
+         + pl_switch_ext("jmp", chain)
+         + IF(PLSW_REF(), x86("def", L(20))
+                        + x86("mov", "ecx", RDD("rdi", 4))
+                        + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_PLREF, pl_switch_arm_ref(&arms[i])); })
+                        + pl_switch_ext("jmp", fb_ref))
+         + IF(PLSW_ATOM(), x86("def", L(30))
+                         + x86("mov", "rsi", RDQ("rdi", 8))
+                         + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_PLATOM, pl_switch_arm_val(&arms[i])); })
+                         + pl_switch_ext("jmp", fb_atom))
+         + IF(PLSW_INT(), x86("def", L(40))
+                        + x86("mov", "ecx", RDD("rdi", 4))
+                        + x86("test", "ecx", "ecx")
+                        + pl_switch_ext("jne", chain)
+                        + x86("mov", "rsi", RDQ("rdi", 8))
+                        + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_I, pl_switch_arm_val(&arms[i])); })
+                        + pl_switch_ext("jmp", fb_int));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_pl_switch(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
