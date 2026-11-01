@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include "ir/ir_graph.h"
 #include "planner/frame_layout.h"
+#include "runtime/core/g_runtime.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_walk.h"
 extern "C" {
 #include "emitter/emit_state.h"
 #include "ir/ct_arena.h"
@@ -15,6 +19,7 @@ int zls_g_resumable_frame(const IR_graph_t * g);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);
 const char *bb_ab_sym_name(const char *nm);
+int xa_flat_class_c_pred(void);
 void *bb_ab_fn_cell_ptr(const char *fname);
 int rt_proc_dyn_scope(const char *name);
 int rt_proc_is_generator(const char *name);
@@ -152,6 +157,33 @@ extern "C" void sig_prepare(const char * fname, int nargs) {
     g_emit.op_sig_np = 0; g_emit.op_sig_ns = 0; g_emit.op_sig_rg = -1; g_emit.op_sig_nf = 0; g_emit.op_sig_xt = 0; g_emit.op_sig_nnv = 0; g_emit.op_sig_T = 0; g_emit.op_sig_F = 0;
     g_emit.op_sig_ok = (fname && fname[0]) ? bb_scc_probe(fname, nargs, &g_emit.op_sig_np, &g_emit.op_sig_ns, gk, &g_emit.op_sig_rg) : 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sig_prepare_floater(void) { g_emit.op_frag_release = (g_runtime.eval.rt_fragment_emit && xa_flat_class_c_pred()) ? 1 : 0; }
+static void sig_prepare_define_columns(const char * fname, const char * entry, int role) {
+    const char * fn6 = fname ? fname : "?"; int cell = 0, tiny = 0;
+    if (role == 1 || role == 2) sig_prepare_floater();
+    if ((role == 4 || role == 5 || role == 7) && g_emit.op_sig_ok) {
+        g_emit.op_sig_lbl_a = emit_label_intern((std::string(fname) + "_\xce\xb1").c_str());
+        g_emit.op_sig_lbl_b = emit_label_intern((std::string(fname) + "_\xce\xb3").c_str());
+        g_emit.op_sig_lbl_o = emit_label_intern((std::string(fname) + "_\xcf\x89").c_str());
+        g_emit.op_sig_blb = ct_strdup(role == 5 ? std::string(entry).c_str() : (std::string("LBL__") + entry).c_str());
+        g_emit.op_sig_entry_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("entry$") + fname).c_str());
+        g_emit.op_sig_bcell = ct_strdup((std::string("entry_cell$") + std::string(bb_ab_sym_name(fname))).c_str());
+    }
+    if ((role == 4 || role == 5) && g_emit.op_sig_ok) bcps_alpha_shim_note(fname);
+    if (role == 6) {
+        cell = bb_ab_cell_addr(fn6) ? 1 : 0; tiny = bb_tiny_shim_ok(fn6, 0);
+        g_emit.op_dq_fname = fn6;
+        g_emit.op_dq_blbl = g_emit.lbl_t0 ? g_emit.lbl_t0 : "rt_ab_undef_fn_stub";
+        g_emit.op_dq_seal_alpha = (emit_knob_unless_zero("SCRIP_M4_ALPHA_SEAL") && !cell && tiny) ? 1 : 0;
+        g_emit.op_dq_seal_entry = (g_emit.lbl_t0 && !cell && tiny) ? 1 : 0;
+        g_emit.op_dq_bind = (g_emit.lbl_t0 && cell) ? 1 : 0;
+        g_emit.op_dq_ent = g_emit.op_dq_bind ? ct_strdup((strncmp(g_emit.lbl_t0, "LBL__", 5) == 0) ? g_emit.lbl_t0 + 5 : g_emit.lbl_t0) : (const char *)0;
+        g_emit.op_dq_site_entry = (g_emit.op_proto && strchr(g_emit.op_proto, '|') && g_emit.op_entry && *g_emit.op_entry) ? 1 : 0;
+        g_emit.op_dq_alpha_sym = ct_strdup((std::string(fn6) + "_\xce\xb1").c_str());
+        g_emit.op_dq_entry_cell_sym = ct_strdup((std::string("entry_cell$") + std::string(bb_ab_sym_name(fn6))).c_str());
+    }
+}
 extern "C" void sig_prepare_define(const char * fname, const char * entry, int role) {
     int rt = role == 7, ok = 0, nf = 0, nnv = 0, np = 0, nf2 = 0, fb = 0; void * fn = 0; const char * csv;
     int * gk = sig_gk_room(&g_emit.op_sig_gk, &g_emit.op_sig_gk_cap, bb_scc_gk_len(fname));
@@ -169,9 +201,29 @@ extern "C" void sig_prepare_define(const char * fname, const char * entry, int r
     if (g_emit.op_proto && strchr(g_emit.op_proto, '|')) { nf2 = atoi(g_emit.op_proto); csv = strchr(g_emit.op_proto, '|') + 1; np = *csv ? 1 : 0;
         for (const char * c = csv; *c; c++) if (*c == ',') np++; fn = 0; }
     g_emit.op_dq_np = np; g_emit.op_dq_nf = nf2; g_emit.op_dq_fb = fb; g_emit.op_dq_fn = fn; g_emit.op_dq_csv = csv;
+    sig_prepare_define_columns(fname, entry, role);
 }
 extern "C" void sig_prepare_chain(const char * fname) {
     int * gk = sig_gk_room(&g_emit.op_csig_gk, &g_emit.op_csig_gk_cap, bb_scc_gk_len(fname));
     g_emit.op_csig_nf = 0; g_emit.op_csig_ns = 0; g_emit.op_csig_rg = -1;
     g_emit.op_csig_ok = xa_flat_sig_names(fname, &g_emit.op_csig_nf, &g_emit.op_csig_ns, gk, &g_emit.op_csig_rg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int emit_entry_cell_first(const char * lbl) {
+    static std::vector<std::string> seen;
+    if (std::count(seen.begin(), seen.end(), std::string(lbl)) > 0) return 0;
+    seen.push_back(std::string(lbl));
+    return 1;
+}
+void emit_shim9_arm(long loff, long carve) {
+    if (loff > 0xFFFF || carve > 0xFFFF) {
+        fprintf(stderr, "FATAL bb_define role 4: a SIG shim frame of %ld bytes cannot be named by a rule-9 SHIM-SELF site (loff and carve must fit 16 bits)\n", carve);
+        abort();
+    }
+    g_emit.site_shim9_saved = g_emit.site_shim9;
+    g_emit.site_shim9 = (loff | (carve << 16)) + 1L;
+}
+std::string emit_shim9_after(std::string s) {
+    g_emit.site_shim9 = g_emit.site_shim9_saved;
+    return s;
 }
