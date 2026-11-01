@@ -2455,6 +2455,10 @@ static void icn_trace_iterate_relax(const icx_t * cx, const tree_t * t, IR_t * a
     if (!IR_LIT(ar).sval || strcmp(IR_LIT(ar).sval, "lv")) return;
     if (!icn_trace_var_form(cx, t->c[0])) IR_LIT(ar).sval = (char *) "lvv";
 }
+static int icn_conduit_reaches(const IR_graph_t * g, const IR_t * x, const IR_t * dj) {
+    for (int i = 0; x && x->op == IR_GOTO && x->γ.node == x->ω.node && i < g->n; i++) { x = x->ω.node; if (x == dj) return 1; }
+    return 0;
+}
 static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lval) {
     int n = t->n;
     if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -2476,6 +2480,7 @@ static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         IR_t * ab = cx->beta;
         int ab_in_arm = 0;
         if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        if (ab_in_arm && icn_conduit_reaches(g, ab, dj)) ab_in_arm = 0;
         IR_t * rj = ab_in_arm ? ab : dj;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
