@@ -33621,6 +33621,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "working_directory", 2 },
     { "setenv", 2 },
     { "unsetenv", 1 },
+    { "wait_for_input", 3 },
     { "text_to_string", 2 },
     { "fast_term_serialized", 2 },
     { "fast_write", 2 },
@@ -33688,6 +33689,8 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "working_directory(Old, New) :- '$gnu_os'(cwd, x, C0), ( atom_concat(_, /, C0) -> Old0 = C0 ; atom_concat(C0, /, Old0) ), Old = Old0, ( var(New) -> New = Old0 ; New == Old0 -> true ; '$swb_arg'(New, P, working_directory/2), ( '$gnu_os'(chdir, P, _) -> true ; throw(error(existence_error(directory, New), context(system:working_directory/2, 'No such file or directory'))) ) ).\n"
     "setenv(N, V) :- '$swb_arg'(N, PN, setenv/2), ( var(V) -> throw(error(instantiation_error, context(system:setenv/2, _))) ; number(V) -> atom_number(PV, V) ; '$swb_arg'(V, PV, setenv/2) ), '$gnu_os'(setenv, PN, PV).\n"
     "unsetenv(N) :- '$swb_arg'(N, PN, unsetenv/1), '$gnu_os'(unsetenv, PN, x).\n"
+    "wait_for_input(L, R, T) :- ( var(L) ; var(T) ), !, throw(error(instantiation_error, context(system:wait_for_input/3, _))).\n"
+    "wait_for_input(L, R, T) :- '$gnu_os'(poll, L-T, R0), R = R0.\n"
     "fast_term_serialized(T, S) :- var(S), !, '$swb_ftser'(T, S, fast_term_serialized/2).\n"
     "fast_term_serialized(T, S) :- ( string(S) -> true ; throw(error(type_error(string, S), context(system:fast_term_serialized/2, _))) ), '$swb_ftdes'(S, T).\n"
     "fast_write(Out, T) :- '$swb_ftser'(T, S, fast_write/2), string_codes(S, Cs), '$swb_u8e'(Cs, Bs), length(Bs, N), number_codes(N, NCs), '$swb_putb'(NCs, Out), put_byte(Out, 46),\n"
@@ -37598,6 +37601,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "vertices", 8, 2, 77 },
     { "vertices_edges_to_ugraph", 24, 3, 77 },
     { "wait", 4, 2, 34 },
+    { "wait_for_input", 14, 3, 73 },
     { "wait_linear", 11, 3, 50 },
     { "wait_linear", 11, 3, 51 },
     { "weighted_maximum", 16, 3, 12 },

@@ -21,6 +21,7 @@
 int icn_builtin_arity(const char *name);
 extern int rt_icn_cset_member_n(const char *, long, int);
 #include <unistd.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <utime.h>
 #include <setjmp.h>
@@ -7624,6 +7625,44 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_open_pipe(DESCR_t *args, int nargs, DESCR_t f, DESCR_t m, pl_tr_ctx_t *cx) {
+    extern int fh_alloc(FILE *);
+    extern int fh_is_untranslated(int);
+    extern void fh_free(int);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    DESCR_t c = rt_pl_deref_val(((DESCR_t *)f.p)[0]);
+    const char *cmd = pl_atom_str(c), *md = pl_atom_str(m);
+    const char *pm = md && !strcmp(md, "read") ? "r" : md && !strcmp(md, "write") ? "w" : (const char *)0;
+    FILE *fp;
+    int idx, bom_opt = -1;
+    if (pl_val_unbound(c)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if (!cmd) { cx->ball = rt_pl_ball_kind2("type_error", "atom", c); return 0; }
+    if (!pm && md && (!strcmp(md, "append") || !strcmp(md, "update"))) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
+    if (!pm) { cx->ball = rt_pl_ball_kind2("domain_error", "io_mode", m); return 0; }
+    fflush((FILE *)0);
+    fp = popen(cmd, pm);
+    if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
+    if (pm[0] == 'w') signal(SIGPIPE, SIG_IGN);
+    idx = fh_alloc(fp);
+    if (idx < 0) { pclose(fp); return 0; }
+    g_fh[idx].mode = pm[0];
+    g_fh[idx].repos = 0;
+    if (!pl_open_opts(args, nargs, idx, cx, &bom_opt)) { pclose(fp); fh_free(idx); return 0; }
+    if (pm[0] == 'r' && bom_opt != 0 && g_fh[idx].type != 'b' && !fh_is_untranslated(idx)) {
+        extern void fh_set_bom(int, int);
+        extern void fh_set_encoding(int, const char *);
+        extern int fh_transcode(int, int, const char *);
+        int ch = fgetc(fp), bk = 0;
+        if (ch != EOF) ungetc(ch, fp);
+        if (ch == 0xEF || ch == 0xFE || ch == 0xFF || ch == 0) bk = pl_skip_bom(fp);
+        fh_set_bom(idx, bk != 0);
+        if (bk && strcmp(pl_bom_enc[bk], "UTF-8")) fh_set_encoding(idx, pl_bom_enc[bk]);
+        if (bk && pl_enc_kind(pl_bom_enc[bk]) && !fh_transcode(idx, pl_enc_kind(pl_bom_enc[bk]), pm)) { pclose(fp); fh_free(idx); return 0; }
+    }
+    return plw_unify_vals(args[2], pl_mk_stream(idx), cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern int fh_alloc(FILE *);
     extern int rt_pl_dialect_xsb(void);
@@ -7663,6 +7702,7 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
             return plw_unify_vals(args[2], pl_mk_stream(ti), cx);
         }
     }
+    if (f.v == (DTYPE_t)DT_PLREF && plc_fid_arity(f.slen) == 1 && plc_fid_name(f.slen) == prolog_atom_intern("pipe")) return pl_open_pipe(args, nargs, f, m, cx);
     if (f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn) || !pl_cell_text(args[1], mb, sizeof mb, &md)) return 0;
     fmode = !strcmp(md, "read") ? "r" : !strcmp(md, "write") ? "w" : !strcmp(md, "append") ? "a" : !strcmp(md, "update") ? "r+" : (const char *)0;
@@ -9744,10 +9784,22 @@ PL_CX_LEAF_HEAD(put_edin, 1)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_out_ioerr(int idx, DESCR_t s, pl_tr_ctx_t *cx) {
+    extern FILE *fh_get(int);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    FILE *fp = idx >= 3 ? fh_get(idx) : (FILE *)0;
+    if (!fp || !ferror(fp)) return 1;
+    clearerr(fp);
+    if (!cx->ball) cx->ball = rt_pl_ball_kind2("io_error", "write", rt_pl_deref_val(s));
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_OUT_CX_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx_ball(args[0], 1, PL_TEXTOP_##nm, cx); ok = 0; \
-    if (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_output(sv); ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
+    if (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_output(sv); ok = pl_out_ioerr(idx, args[0], cx) && r.v == (DTYPE_t) \
+    DT_I; } } PL_CX_LEAF_TAIL
 #define PL_OUT_BALL_LEAF(nm, body1, ar) PL_CX_LEAF_HEAD(nm##_sb, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx_ball(args[0], 1, 1, cx); ok = 0; if \
-    (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = body1(args + 1, ar - 1); fh_set_output(sv); ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
+    (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = body1(args + 1, ar - 1); fh_set_output(sv); ok = pl_out_ioerr(idx, args[0], cx) && r.v == (DTYPE_t)DT_I; } } \
+    PL_CX_LEAF_TAIL
 PL_OUT_BALL_LEAF(write, dop_write, 2) PL_OUT_BALL_LEAF(writeq, dop_pl_writeq, 2) PL_OUT_BALL_LEAF(write_canonical, dop_pl_write_canonical, 2) PL_OUT_BALL_LEAF(writeln, dop_pl_writeln, 2)
     PL_OUT_BALL_LEAF(nl, dop_nl, 1) PL_OUT_BALL_LEAF(tab, dop_pl_tab, 2) PL_OUT_BALL_LEAF(put_char, dop_pl_put_char, 2) PL_OUT_BALL_LEAF(put_code, dop_pl_put_code, 2)
     PL_OUT_BALL_LEAF(flush_output, dop_pl_flush_output, 1)
@@ -10089,7 +10141,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1, PLF_GONE },
     { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1,
     { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { "$apply_macros", "false", 1, { "true", "false",
-    0 } }, { "color_term", "false", 1, { "true", "false", 0 } }, { 0, "", 0, { 0 } } };
+    0 } }, { "color_term", "false", 1, { "true", "false", 0 } }, { "pipe", "true", 0, { 0 } }, { "pid", "", 0, { 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
 static const pl_dia_flag_t pl_dia_flags[] = { { "xsb", "max_integer", "9223372036854775807" }, { "xsb", "min_integer", "-9223372036854775807" }, { "xsb", "bounded", "true" }, { "gnu", "max_integer",
@@ -10344,6 +10396,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
                 l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l);
             }
             ok = plw_unify_vals(args[1], l, cx);
+        } else if (!strcmp(fl->nm, "pid")) {
+            ok = plw_unify_vals(args[1], INTVAL((int64_t)getpid()), cx);
         } else if (!strcmp(fl->nm, "stack_limit")) {
             ok = plw_unify_vals(args[1], INTVAL((int64_t)strtoll(fl->val ? fl->val : "0", (char **)0, 10)), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
@@ -12256,6 +12310,38 @@ PL_CX_LEAF_HEAD(fx_readlink, 2)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_os_poll(DESCR_t a, DESCR_t out, pl_tr_ctx_t *cx) {
+    extern FILE *fh_get(int);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    int pr = a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2;
+    DESCR_t l = pr ? rt_pl_deref_val(((DESCR_t *)a.p)[0]) : pl_nil(), t = pr ? rt_pl_deref_val(((DESCR_t *)a.p)[1]) : FAILDESCR;
+    const char *ts = pl_atom_str(t);
+    int n = 0, got = 0, ms = ts && !strcmp(ts, "infinite") ? -1 : t.v == (DTYPE_t)DT_I ? (int)(t.i * 1000) : t.v == (DTYPE_t)DT_R ? (int)(t.r * 1000.0) : -2;
+    if (ms == -2) { cx->ball = rt_pl_ball_kind2("type_error", "float", t); return 0; }
+    for (DESCR_t c = l; pl_is_cons(c); c = rt_pl_deref_val(((DESCR_t *)c.p)[1])) n++;
+    struct pollfd pf[n + 1];
+    DESCR_t el[n + 1];
+    char bf[n + 1];
+    int i = 0;
+    for (DESCR_t c = l; pl_is_cons(c); c = rt_pl_deref_val(((DESCR_t *)c.p)[1]), i++) {
+        DESCR_t e = rt_pl_deref_val(((DESCR_t *)c.p)[0]);
+        void *b = (void *)0;
+        int idx = e.v == (DTYPE_t)DT_I ? -1 : pl_stream_resolve(e, 0, 0, &b);
+        FILE *fp = idx >= 0 ? fh_get(idx) : (FILE *)0;
+        el[i] = e;
+        pf[i].fd = e.v == (DTYPE_t)DT_I ? (int)e.i : fp ? fileno(fp) : -1;
+        pf[i].events = POLLIN;
+        pf[i].revents = 0;
+        bf[i] = fp && fp->_IO_read_ptr < fp->_IO_read_end;
+        got |= bf[i];
+        if (pf[i].fd < 0) { cx->ball = b ? b : rt_pl_ball_kind2("domain_error", "waitable_stream", e); return 0; }
+    }
+    if (poll(pf, (nfds_t)n, got ? 0 : ms) < 0) return pl_gnu_os_fail(cx);
+    DESCR_t r = pl_nil();
+    for (i = n - 1; i >= 0; i--) if (bf[i] || (pf[i].revents & (POLLIN | POLLHUP | POLLERR))) r = pl_cons(el[i], r);
+    return plw_unify_vals(out, r, cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -12362,6 +12448,8 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 ok = plw_unify_vals(k[0], pl_mk_stream(ii), cx) && plw_unify_vals(k[1], pl_mk_stream(io), cx) && plw_unify_vals(k[2], pl_mk_stream(ie), cx) &&
                     plw_unify_vals(k[3], INTVAL((long long)pid), cx);
             }
+        } else if (!strcmp(op, "poll")) {
+            ok = pl_os_poll(a, args[2], cx);
         } else if (!strcmp(op, "wait")) {
             int ws = 0;
             if (a.v != (DTYPE_t)DT_I) ok = 0;
@@ -13010,6 +13098,7 @@ PL_CX_LEAF_HEAD(format3, 3)
             fh_set_output(idx);
             ok = (rt_pl_dop_format_c(args + 1, 2, cx).v == (DTYPE_t)DT_I);
             fh_set_output(sv);
+            ok = pl_out_ioerr(idx, args[0], cx) && ok;
         } else if (kind) {
             {
                 char *buf = 0;
