@@ -973,6 +973,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pat_mk_num", GC_RET_DESCR },
     { "pat_notany", GC_RET_DESCR },
     { "pat_num_arg_ok", GC_RET_OTHER },
+    { "pat_operand", GC_RET_DESCR },
     { "pat_pos", GC_RET_DESCR },
     { "pat_rem", GC_RET_DESCR },
     { "pat_rpos", GC_RET_DESCR },

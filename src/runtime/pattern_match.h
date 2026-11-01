@@ -5,6 +5,7 @@
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len);
 int cset_has(const char *cv, int clen, unsigned char ch);
 DESCR_t pat_lit(const char *s);
+DESCR_t pat_operand(DESCR_t d);
 DESCR_t pat_span(const char *chars);
 DESCR_t pat_break_(const char *chars);
 DESCR_t pat_breakx (const char *chars);

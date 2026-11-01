@@ -2311,7 +2311,12 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         }
         return FAILDESCR;
     }
-    if (strcmp(type, "PATTERN") == 0) { if (IS_PAT(val)) return val; if (IS_STR(val) || val.v == DT_SNUL) { const char *s = VARVAL_fn(val); return s ? pat_lit(s) : FAILDESCR; } return FAILDESCR; }
+    if (strcmp(type, "PATTERN") == 0) {
+        if (IS_PAT(val)) return val;
+        if (IS_STR(val) || val.v == DT_SNUL) { const char *s = VARVAL_fn(val); return s ? pat_lit(s) : FAILDESCR; }
+        if (val.v == DT_X || val.v == DT_E || val.v == DT_I || val.v == DT_R || (val.v == DT_N && !rt_name_textless(val))) return pat_operand(val);
+        return FAILDESCR;
+    }
     if (strcmp(type, "CODE") == 0) { const char *s = VARVAL_fn(val); if (!s || !*s) return FAILDESCR; return code(s); }
     if (strcmp(type, "EXPRESSION") == 0) { return CONVE_fn(val); }
     if (strcmp(type, "NAME") == 0) { const char *s = VARVAL_fn(val); if (!s || !*s) return FAILDESCR; return NAMEVAL(rt_heap_strdup_c(s)); }

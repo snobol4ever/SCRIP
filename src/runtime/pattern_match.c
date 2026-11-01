@@ -115,7 +115,7 @@ static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p && ((DTP_t *)d.p)->rcp) return ((DTP_t *)d.p)->rcp;
-    if ((d.v == DT_P && d.p) || (d.v == DT_X && SNO_DTX_REC(d) && (SNO_DTX_REC(d)->flags & SNO_DSTAR_THUNK))) {
+    if ((d.v == DT_P && d.p) || d.v == DT_E || (d.v == DT_X && SNO_DTX_REC(d) && (SNO_DTX_REC(d)->flags & SNO_DSTAR_THUNK))) {
         static int opq_uid = 0;
         char nb[24];
         snprintf(nb, sizeof nb, "OPQ$%d", opq_uid++);
@@ -226,6 +226,7 @@ void *dtp_fn_of(void *headv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_lit(const char *s) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0)); return v; }
+DESCR_t pat_operand(DESCR_t d) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_of(d)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_span(const char *chars) {
     DESCR_t v = {0};
