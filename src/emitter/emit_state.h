@@ -65,6 +65,7 @@ typedef struct {
     long op_fc_wbytes;
     int op_scan;
     int op_seal;
+    long op_lit_stamp;
     int op_scan_head_off;
     int op_arbno_chain;
     int x86_fc_synth;

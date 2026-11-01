@@ -989,6 +989,9 @@ static const char * sr3_gamma_label(const IR_t * g) { if (g_emitter.sr3_gamma_la
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lit_prepare(IR_t * nd, const znode_t * zn) { g_emit.op_seal = nd->seal; if (!g_emit.op_zres && zn->fcg > 0) { g_emit.op_fc_bytes = zn->fcg; g_emit.op_fc_base = g_emit.op_off; }
+    g_emit.op_lit_stamp = sn4_descr_stamp() ? (long)(((g_emit.nid <= 0 || g_emit.nid > (long)DESCR_SRC_NODE_OVERFLOW - 1) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)g_emit.nid) << 8) : 0L; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     const int _ri = zrow_of(nd);
     if (_ri < 0) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE"); abort(); }
@@ -1121,13 +1124,12 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     bb_classify_node(nd);
     if (ir_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }
     switch (nd->op) {
-    case IR_LIT_INTEGER:
-    case IR_LIT_STRING:
-    case IR_LIT_ATOM:
-    case IR_LIT_CHARSET:
-    case IR_LIT_NAME:
-    case IR_LIT_REAL: { g_emit.op_seal = nd->seal; { if (!g_emit.op_zres && _zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off;
-        } } bb_emit_x86(bb_lit_scalar()); } return 0;
+    case IR_LIT_INTEGER: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_integer()); return 0;
+    case IR_LIT_STRING: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_string()); return 0;
+    case IR_LIT_ATOM: lit_prepare(nd, _zn); g_emit.op_ival = (int64_t)(unsigned)prolog_atom_intern_lit(g_emit.op_sval ? g_emit.op_sval : ""); bb_emit_x86(bb_lit_atom()); return 0;
+    case IR_LIT_CHARSET: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_charset()); return 0;
+    case IR_LIT_NAME: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_name()); return 0;
+    case IR_LIT_REAL: lit_prepare(nd, _zn); bb_emit_x86(bb_lit_real()); return 0;
     case IR_KW_ICON:
     case IR_KW_ICON_GEN: g_emit.op_var_form = nd->pat_static; g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
     case IR_KW_SNOBOL4: kw_snobol4_prepare(); bb_emit_x86(bb_keyword_snobol4()); return 0;

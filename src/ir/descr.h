@@ -19,7 +19,7 @@ DESCR_SASSERT(sizeof(DESCR_t) == 16, "DESCR_t is a SysV register-pair (rax:rdx) 
 #define DESCR_SRC_NODE_UNSTAMPED 0u
 #define DESCR_SRC_NODE_OVERFLOW 0xFFFFFFu
 DESCR_SASSERT(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, src_node0) == 1 && offsetof(DESCR_t, src_node2) == 3 && offsetof(DESCR_t, slen) == 4,
-    "the tag word is {v:1, src_node:3, slen:4} and emitted code mints it as ONE 32-bit immediate: " "bb_lit_scalar.cpp's lit_tag_imm ORs the node id in at <<8, which on little-endian x86-64 lands in "
+    "the tag word is {v:1, src_node:3, slen:4} and emitted code mints it as ONE 32-bit immediate: " "emit.cpp's lit_prepare ORs the node id in at <<8, which on little-endian x86-64 lands in "
     "src_node[0..2] exactly. Move either field and every stamped literal mints a wrong node id silently.");
 DESCR_SASSERT(DESCR_SRC_NODE_OVERFLOW == 0xFFFFFFu && DESCR_SRC_NODE_UNSTAMPED == 0u,
     "src_node is 24 bits (Lon 2026-09-18, in-chat: mint_op is REMOVED because the IR op is DERIVABLE from "

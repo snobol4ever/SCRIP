@@ -1743,7 +1743,12 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_goto_deferred.cpp \
     $(SRC)/templates/bb/bb_fail.cpp \
     $(SRC)/templates/bb/bb_cut.cpp \
-    $(SRC)/templates/bb/bb_lit_scalar.cpp \
+    $(SRC)/templates/bb/bb_lit_integer.cpp \
+    $(SRC)/templates/bb/bb_lit_string.cpp \
+    $(SRC)/templates/bb/bb_lit_atom.cpp \
+    $(SRC)/templates/bb/bb_lit_name.cpp \
+    $(SRC)/templates/bb/bb_lit_charset.cpp \
+    $(SRC)/templates/bb/bb_lit_real.cpp \
     $(SRC)/templates/bb/bb_var.cpp \
     $(SRC)/templates/bb/bb_var_global.cpp \
     $(SRC)/templates/bb/bb_return.cpp \

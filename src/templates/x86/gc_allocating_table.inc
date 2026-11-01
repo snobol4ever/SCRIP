@@ -161,7 +161,6 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "_TRIM_", GC_RET_DESCR },
     { "_UNLOAD_", GC_RET_DESCR },
     { "_VALUE_", GC_RET_DESCR },
-    { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
     { "_Z15bb_main_floaterB5cxx11i", GC_RET_UNKNOWN },
     { "_Z17xa_flat_sig_namesPKcPiS1_S1_S1_", GC_RET_UNKNOWN },
     { "_Z9bb_defineB5cxx11v", GC_RET_UNKNOWN },
