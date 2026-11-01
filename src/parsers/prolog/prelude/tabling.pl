@@ -75,9 +75,9 @@
 '$tbl_sl_tnot'(_,T,G):-St=st(0,T,0,1,0),'$tbl_sl'(3,T,St),repeat,('$tbl_park'(St)->true;!,fail),'$tbl_dlpush'(tnot(G)).
 '$tbl_sl_uncond'(T):-'$trie_entries'(T,L),memberchk(e(_,_,true),L).
 '$tbl_kcall'(G,I,subs):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_sget'(G,I,T),'$tbl_sanswer'(T,G).
-'$tbl_sget'(G,_,T):-'$tbl_vt'(VT),\+'$trie_lookup'(VT,G,_),'$trie_entries'(VT,L),'$tbl_sfind'(L,VT,G,T0),!,T=T0.
+'$tbl_sget'(G,_,T):-'$tbl_vt'(VT),\+'$trie_lookup'(VT,G,_),'$trie_entries'(VT,L),'$tbl_sfind'(L,VT,G,T0),!,T=T0,'$trie_meta_get'(T,0,S),(S==complete->true;'$tbl_depn'(T)).
 '$tbl_sget'(G,I,T):-'$tbl_get'(G,I,plain,subs,T).
-'$tbl_sfind'([e(_,Q,Tq)|_],VT,G,T):-'$tbl_sfits'(Q,G),'$tbl_valid'(Tq,VT,Q,T),T\==none,'$trie_meta_get'(T,0,complete),!.
+'$tbl_sfind'([e(_,Q,Tq)|_],VT,G,T):-'$tbl_sfits'(Q,G),'$tbl_valid'(Tq,VT,Q,T),T\==none,!.
 '$tbl_sfind'([_|L],VT,G,T):-'$tbl_sfind'(L,VT,G,T).
 '$tbl_sfits'(Q,G):-callable(Q),functor(Q,F,N),functor(G,F,N),subsumes_term(Q,G).
 '$tbl_sanswer'(T,G):-'$trie_meta_get'(T,1,D),arg(1,D,Q0),copy_term(Q0,Q),term_variables(Q,Vs),Sk=..[ret|Vs],Q=G,'$tbl_slice'(T,L),member(e(_,Sk,V),L),'$tbl_aval'(V,T,G,Sk).
