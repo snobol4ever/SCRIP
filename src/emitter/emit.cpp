@@ -1046,7 +1046,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                     for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
                         fprintf(stderr, " [%d %s slot=%d zread=%d fr=%d xf=%d]", _zi, _po ? bb_op_name(_po->op) : "-", g_emit.op_zslot[_zi],
                             g_emit.op_zread[_zi], g_emit.op_zread_fr[_zi], g_emit.op_zread_xf[_zi]); } fprintf(stderr, "\n"); } } }
-        g_emit.op_zgpop = ((g_emit.flat_jmp_entry && g_emit.flat_pat) || g_emitter.g_zd_fence_exit) ? 0 : g_emitter.g_zd_gpop; g_emit.op_wpop += g_emitter.g_zd_wpop;
+        g_emit.op_zgpop = g_emitter.g_zd_fence_exit ? 0 : (g_emit.flat_jmp_entry && g_emit.flat_pat) ? (g_emitter.g_zd_arm ? _zn->rel : 0) : g_emitter.g_zd_gpop; g_emit.op_wpop += g_emitter.g_zd_wpop;
             g_emitter.g_zd_fence_exit = 0;
         g_emit.op_zbgrow = g_emitter.g_zd_bgrow ? g_emit.op_zgpop : 0; g_emitter.g_zd_bgrow = 0;
         if (g_planner.zd_plan__dg)
@@ -4408,9 +4408,12 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
     long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) flat_cap = (long)g_emit_cfg->n * 2048L;
     size_t mark = bb_pool_mark();
     for (int pass = 0;; pass++) {
-        if (flat_cap > 2147483647L) { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the chain wants %ld bytes, more than the binary medium addresses (pass %d)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
+        if (flat_cap > 2147483647L)
+            { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the chain wants %ld bytes, more than the binary medium addresses (pass %d)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
         bb_buf_t buf = bb_alloc(flat_cap);
-        if (!buf) { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the code pool has no room for %ld bytes (pass %d; the pool is BB_POOL_SIZE, raised by SCRIP_CODE_POOL_MB)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
+        if (!buf)
+            { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the code pool has no room for %ld bytes (pass %d; the pool is BB_POOL_SIZE, raised by SCRIP_CODE_POOL_MB)\n", prefix ? prefix : "",
+            flat_cap, pass); return NULL; }
         g_flat_node_id = 0;
         if (pass) emit_chain_prepare(rec->key);
         emitter_init_binary(buf, flat_cap);
@@ -4432,7 +4435,8 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
         bb_pool_release(mark);
         if (!g_emitter.bb_emit_overflow || want <= flat_cap) {
             extern int bb_emit_pos; extern int bb_patch_count;
-            fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%ld patches=%d — empty or invalid emission\n", prefix ? prefix : "", g_emitter.bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count);
+            fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%ld patches=%d — empty or invalid emission\n", prefix ? prefix : "", g_emitter.bb_emit_overflow, nbytes,
+                bb_emit_pos, flat_cap, bb_patch_count);
             return NULL;
         }
         flat_cap = want + (want >> 3) + 4096L;

@@ -195,4 +195,15 @@ std::string bb_scan_upto();
 std::string bb_scan_find();
 std::string bb_scan_bal();
 }
+#define PUMP_ROW_BYTES 384L
+#define PUMP_XO 128L
+#define PUMP_RB 160L
+#define PUMP_ROW() (_.op_zrel >= PUMP_ROW_BYTES)
+#define PUMP_X(o) (PUMP_ROW() ? PUMP_XO + (o) : (long)(o))
+#define PUMP_R(o) (PUMP_ROW() ? PUMP_RB + (o) : (long)(o))
+#define PUMP_REC(r) ( \
+      PUMP_ROW() \
+    ? x86("lea", r, RDQ("rsp", PUMP_RB)) \
+    : x86("mov", r, "rsp") \
+)
 #endif

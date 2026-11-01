@@ -69,7 +69,7 @@ extern "C" int planner_body_live(const IR_graph_t * g, const IR_t * first, const
         { int o = (int)ir_kind0(cur);
             if (act_unbounded_kind(o)) { act_depth--; return -1; }
             if (o == IR_MATCH_ALTERNATE) { int M = 0; if (planner_alt_exit(g, cur, &M) != 0) { act_depth--; return -1; } }
-            live += zd_k_g(g, cur); }
+            live += zd_kf_g(g, cur); }
         if (cur == last) { act_depth--; return live; }
         cur = zd_chase(cur->γ.node); }
     act_depth--; return -1;
@@ -82,7 +82,7 @@ extern "C" int planner_blob_exit_live(const IR_graph_t * g) {
         if (o == IR_FAIL) break;
         if (act_unbounded_kind(o)) break;
         if (o == IR_MATCH_ALTERNATE) { int M = 0; if (planner_alt_exit(g, cur, &M) != 0) break; }
-        live += zd_k_g(g, cur); cur = zd_chase(cur->γ.node); }
+        live += zd_kf_g(g, cur); cur = zd_chase(cur->γ.node); }
     act_depth--; return -1;
 }
 extern "C" int planner_alt_k(const IR_graph_t * g, const IR_t * nd) { int M = 0; return planner_alt_exit(g, nd, &M) == 0 ? 32 + M : 48; }

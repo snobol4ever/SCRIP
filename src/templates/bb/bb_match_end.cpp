@@ -14,9 +14,6 @@ extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, void *rec);
 extern "C" rt_dcap_next_t rt_dcap_land_ω(void *rec);
 extern "C" rt_dcap_next_t rt_dcap_resume(void *rec);
 #define DCF_RECORD_BYTES 224L
-#define MEND_ROW_BYTES 384L
-#define MEND_XO 128L
-#define MEND_RB 160L
 extern "C" long zvo_owner_dout(int cur_head);
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_frame.h"
@@ -25,14 +22,6 @@ extern "C" long zvo_owner_dout(int cur_head);
 #include "templates/x86/x86_zeta.h"
 #include "runtime/rtx/rtcc.h"
 #define rfc() (_.op_fc_disp >= 0)
-#define MEND_ROW() (_.op_zrel >= MEND_ROW_BYTES)
-#define MEND_X(o) (MEND_ROW() ? MEND_XO + (o) : (long)(o))
-#define MEND_R(o) (MEND_ROW() ? MEND_RB + (o) : (long)(o))
-#define MEND_REC(r) ( \
-      MEND_ROW() \
-    ? x86("lea", r, RDQ("rsp", MEND_RB)) \
-    : x86("mov", r, "rsp") \
-)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -54,43 +43,43 @@ extern "C" long zvo_owner_dout(int cur_head);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump() {
     return std::string()
-         + x86_xfer_enter(MEND_ROW() ? MEND_XO : -1L)
+         + x86_xfer_enter(PUMP_ROW() ? PUMP_XO : -1L)
          + x86_anchor_enter()
-         + IF(!MEND_ROW(), x86("sub", "rsp", DCF_RECORD_BYTES))
-         + x86("mov", RDQ("rsp", MEND_R(112)), 0L)
-         + x86("mov", RDQ("rsp", MEND_R(120)), 0L)
+         + IF(!PUMP_ROW(), x86("sub", "rsp", DCF_RECORD_BYTES))
+         + x86("mov", RDQ("rsp", PUMP_R(112)), 0L)
+         + x86("mov", RDQ("rsp", PUMP_R(120)), 0L)
          + x86("note", "cas_mark")
          + x86("mov", "rdi", RDQ("rbp", -8))
          + x86("mov", "rsi", "r12")
          + x86("mov", "rdx", "r13")
-         + MEND_REC("rcx")
+         + PUMP_REC("rcx")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, const char *, const char *, void *))rt_dcap_end_ok_open)
-         + x86_rt_gc_poll_rec_sigma_word(1, MEND_ROW())
+         + x86_rt_gc_poll_rec_sigma_word(1, PUMP_ROW())
          + x86("def", L(1))
          + x86("cmp", "rax", 1L)
          + x86("jbe", L(2))
          + x86("cmp", "rax", 2L)
          + x86("je", L(10))
-         + bb_glue_enter_c2bb(20, 8, 9, -1, 0, MEND_ROW())
+         + bb_glue_enter_c2bb(20, 8, 9, -1, 0, PUMP_ROW())
          + x86("def", L(8))
-         + MEND_REC("rdx")
+         + PUMP_REC("rdx")
          + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t, void *))rt_dcap_land_γ)
-         + x86_rt_gc_poll_rec_sigma_word(1, MEND_ROW())
+         + x86_rt_gc_poll_rec_sigma_word(1, PUMP_ROW())
          + x86("jmp", L(1))
          + x86("def", L(9))
-         + MEND_REC("rdi")
+         + PUMP_REC("rdi")
          + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_dcap_land_ω)
-         + x86_rt_gc_poll_rec_sigma_word(1, MEND_ROW())
+         + x86_rt_gc_poll_rec_sigma_word(1, PUMP_ROW())
          + x86("jmp", L(1))
          + x86("def", L(10))
-         + bb_glue_trace_pend_run(40, std::string(), 0, MEND_R(112), MEND_ROW())
-         + MEND_REC("rdi")
+         + bb_glue_trace_pend_run(40, std::string(), 0, PUMP_R(112), PUMP_ROW())
+         + PUMP_REC("rdi")
          + x86("call", "rt_dcap_resume", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_dcap_resume)
-         + x86_rt_gc_poll_rec_sigma_word(1, MEND_ROW())
+         + x86_rt_gc_poll_rec_sigma_word(1, PUMP_ROW())
          + x86("jmp", L(1))
          + x86("def", L(2))
-         + IF(!MEND_ROW(), x86("add", "rsp", DCF_RECORD_BYTES))
-         + x86("mov", RDQ("rsp", MEND_X(0)), "rax")
+         + IF(!PUMP_ROW(), x86("add", "rsp", DCF_RECORD_BYTES))
+         + x86("mov", RDQ("rsp", PUMP_X(0)), "rax")
          + x86("note", HKN(1))
          + x86("mov", "rdi", RDQ("rbp", -16))
          + x86("note", HKN(3))
@@ -99,9 +88,9 @@ static std::string release_pump() {
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)
          + x86("note", HKN(1))
          + x86("mov", RDQ("rbp", -16), "rax")
-         + x86("mov", "rax", RDQ("rsp", MEND_X(0)))
+         + x86("mov", "rax", RDQ("rsp", PUMP_X(0)))
          + x86_anchor_leave()
-         + x86_xfer_leave(MEND_ROW() ? MEND_XO : -1L)
+         + x86_xfer_leave(PUMP_ROW() ? PUMP_XO : -1L)
          + IF(cap_name_strict(),
                x86("comment",
                    "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus "
