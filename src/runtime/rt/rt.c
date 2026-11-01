@@ -1343,7 +1343,22 @@ static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, lon
     return (rt_call_next_t){ fn, how | ((long)(unsigned)nsb << 8) | (idx << 40) };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int proc_open_p_on(void);
+static inline __attribute__((always_inline)) int rt_open_trace_idle(void) {
+#if RT_DIAG
+    return g_runtime.abi.trace_budget == 0 && rt_trace_layer_idle();
+#else
+    return 1;
+#endif
+}
+static inline __attribute__((always_inline)) rt_call_next_t rt_thunk_open_fast(rt_proc_t *p) {
+    long idx = (long)(p - g_runtime.abi.rt_gen_procs);
+    if (!p->thunk || !p->fn || !p->dyn_scope || idx < 0 || idx >= g_runtime.rt.rt_gen_proc_count || !rt_open_trace_idle() || !proc_open_p_on()) return (rt_call_next_t){ 0, 0 };
+    return (rt_call_next_t){ (long)(uintptr_t)p->fn, (rt_proc_touches_level(p) << 6) | ((rt_g_want_name ? 1L : 0L) << 7) | (idx << 40) };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs) {
+    if (p) { rt_call_next_t tn = rt_thunk_open_fast(p); if (tn.fn) return tn; }
     if (p && p->dyn_scope && !p->thunk) {
         void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
         if (!afn) afn = rt_sno_shim_lazy(p, name);
@@ -1518,7 +1533,8 @@ rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
     *registered = p ? 1 : 0;
     if (!p) return (rt_call_next_t){ 0, 0 };
     {
-        rt_call_next_t n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0);
+        rt_call_next_t n = rt_thunk_open_fast(p);
+        if (!n.fn) n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0);
         if (n.fn && g_runtime.abi.error == 0 && !p->stage_var) g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
         return n;
     }
