@@ -20030,7 +20030,72 @@ static int pas_itoa(char *b, long long v, int uns) {
     b[k] = '\0';
     return k;
 }
-static void pas_put_rjust(FILE *f, const char *s, int len, int width) { for (int i = len; i < width; i++) putc(' ', f); fwrite(s, 1, (size_t)len, f); }
+typedef struct pas_wsink_t { FILE *fp; char *b; size_t n; size_t cap; } pas_wsink_t;
+static void pas_wput(pas_wsink_t *k, const char *s, size_t n) {
+    if (k->fp) { fwrite(s, 1, n, k->fp); return; }
+    if (k->n + n + 1 > k->cap) { size_t c = (k->n + n + 1) * 2 + 32; k->b = (char *)rt_wsb_realloc(k->b, c); k->cap = c; }
+    if (n) memcpy(k->b + k->n, s, n);
+    k->n += n;
+    k->b[k->n] = '\0';
+}
+static void pas_wpad(pas_wsink_t *k, long n) { for (long i = 0; i < n; i++) pas_wput(k, " ", 1); }
+static void pas_put_rjust(pas_wsink_t *k, const char *s, int len, int width) { pas_wpad(k, (long)width - (long)len); pas_wput(k, s, (size_t)len); }
+static void pas_currency_str(double r, char *buf, int bufsz);
+static void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start) {
+    for (int _pi = start; _pi + 1 < nargs; _pi += 2) {
+        DESCR_t av = args[_pi];
+        DESCR_t aw = args[_pi + 1];
+        int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i >= 0 ? (int)aw.i : -1))))))) : -1;
+        int _upper = 0, _uns = 0;
+        if (IS_INT_fn(aw) && aw.i == -11 && _pi + 3 < nargs) { _uns = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
+        if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
+        if (w == -6) {
+            double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
+            int _cn = 32;
+            char _cb[_cn];
+            pas_currency_str(_cv, _cb, _cn);
+            pas_wput(k, _cb, strlen(_cb));
+            continue;
+        }
+        if (w == -3) {
+            double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
+            long _fw2 = 0, _fp2 = 0;
+            if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
+            if (_fw2 < 0) _fw2 = 0;
+            if (_fp2 < 0) _fp2 = 0;
+            if (_fp2 > 255) _fp2 = 255;
+            char _fxb[(size_t)(_fw2 > 255 ? _fw2 : 255) + 64];
+            pas_fmt_fixed_double(_rv, (int)_fw2, (int)_fp2, _fxb);
+            pas_wput(k, _fxb, strlen(_fxb));
+            _pi += 2;
+            continue;
+        }
+        if (IS_INT_fn(av)) {
+            int _pbn = 32;
+            char _pbq[_pbn];
+            int _pfmtlen = pas_itoa(_pbq, (long long)av.i, w == -7 || w == -8 || _uns);
+            if (w < 0 && w != -4 && w != -8 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
+            int _fw = (w == -4 || w == -8) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
+            pas_put_rjust(k, _pbq, _pfmtlen, _fw);
+        } else if (IS_REAL_fn(av)) {
+            char _rb[64];
+            int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
+            pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4);
+            int _pfmtlen = (int)strlen(_rb);
+            int _signpad = (_rb[0] == '-') ? 0 : 1;
+            int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
+            int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
+            pas_put_rjust(k, _rb, _pfmtlen, _fw);
+        } else {
+            const char *_ps = VARVAL_fn(av);
+            if (_ps) {
+                if (w == -2) pas_wput(k, _ps, 1);
+                else if (w >= 0) { size_t _l = strnlen(_ps, (size_t)w); pas_wpad(k, (long)w - (long)_l); pas_wput(k, _ps, _l); } else pas_wput(k, _ps, pas_slen(av, _ps));
+            }
+        }
+    }
+}
+static DESCR_t pas_writestr(DESCR_t *args, int nargs) { pas_wsink_t k = { NULL, NULL, 0, 0 }; pas_wput(&k, "", 0); pas_write_items(&k, args, nargs, 0); return BSTRVAL(k.b, k.n); }
 static int pas_bi_chr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return 0;
     long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
@@ -20090,6 +20155,8 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         if (idx == PBI_arctan) return rt_pas_arctan(args, nargs);
     }
     switch (idx) {
+        case PBI_writestr:
+        return pas_writestr(args, nargs);
         case PBI_chr:
         if (pas_bi_chr(args, nargs, &out)) return out;
         break;
@@ -23519,48 +23586,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             core_runtime_error(103, "file not open for writing (rewrite it first)");
             _start = 2;
         }
-        for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
-            DESCR_t av = args[_pi];
-            DESCR_t aw = args[_pi + 1];
-            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i >= 0 ? (int)aw.i : -1))))))) : -1;
-            int _upper = 0, _uns = 0;
-            if (IS_INT_fn(aw) && aw.i == -11 && _pi + 3 < nargs) { _uns = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
-            if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
-            if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
-            if (w == -3) {
-                double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
-                long _fw2 = 0, _fp2 = 0;
-                if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
-                if (_fw2 < 0) _fw2 = 0;
-                if (_fp2 < 0) _fp2 = 0;
-                if (_fp2 > 255) _fp2 = 255;
-                char _fxb[(size_t)(_fw2 > 255 ? _fw2 : 255) + 64];
-                pas_fmt_fixed_double(_rv, (int)_fw2, (int)_fp2, _fxb);
-                fputs(_fxb, _dest);
-                _pi += 2;
-                continue;
-            }
-            if (IS_INT_fn(av)) {
-                int _pbn = 32;
-                char _pbq[_pbn];
-                int _pfmtlen = pas_itoa(_pbq, (long long)av.i, w == -7 || w == -8 || _uns);
-                if (w < 0 && w != -4 && w != -8 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
-                int _fw = (w == -4 || w == -8) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
-                pas_put_rjust(_dest, _pbq, _pfmtlen, _fw);
-            } else if (IS_REAL_fn(av)) {
-                char _rb[64];
-                int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-                pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4);
-                int _pfmtlen = (int)strlen(_rb);
-                int _signpad = (_rb[0] == '-') ? 0 : 1;
-                int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
-                int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
-                pas_put_rjust(_dest, _rb, _pfmtlen, _fw);
-            } else {
-                const char *_ps = VARVAL_fn(av);
-                if (_ps) { if (w == -2) { putc((int)(unsigned char)_ps[0], _dest); } else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); } else { fwrite(_ps, 1, pas_slen(av, _ps), _dest); } }
-            }
-        }
+        pas_wsink_t _k = { _dest, NULL, 0, 0 };
+        pas_write_items(&_k, args, nargs, _start);
         if (nl) fputc('\n', _dest);
         *out = NULVCL;
         return 1;

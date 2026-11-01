@@ -1315,6 +1315,8 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
     tree_t *e = ast_node_new(TT_FNC);
     int _wstart = 0;
     tree_t *_wstream = NULL;
+    int _wstr = name && !strcmp(name, "writestr") && !pas_is_proc(name) && !pas_is_func(name) && args && args->count >= 2;
+    if (_wstr) _wstart = 2;
     if (is_pas_io(map_io(name)) && args && args->count >= 2) {
         tree_t *fa = args->items[0];
         if (pas_is_filevar_elem(fa) || (fa && fa->t == TT_VAR && fa->v.sval && pas_is_filevar(fa->v.sval) && !pas_is_stdstream(fa->v.sval))) {
@@ -1324,10 +1326,10 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             _wstart = 2;
         }
     }
-    ast_push(e, leaf_s(TT_VAR, map_io(name)));
+    ast_push(e, leaf_s(TT_VAR, _wstr ? "__pas_writestr" : map_io(name)));
     if (_wstream) { ast_push(e, pas_tree_clone(_wstream)); ast_push(e, ilit(-9)); }
     if (args) {
-        if (is_pas_io(map_io(name))) {
+        if (is_pas_io(map_io(name)) || _wstr) {
             int _fmt_cont = 0;
             for (int i = _wstart; i + 1 < args->count; i += 2) {
                 tree_t *val = args->items[i];
@@ -1485,6 +1487,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             }
         }
     }
+    if (_wstr) return mk_assign(args->items[0], e);
     if (is_pas_io(map_io(name))) return pas_split_writes(e);
     return e;
 }
