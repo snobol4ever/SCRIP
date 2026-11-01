@@ -409,7 +409,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"alphabet")) return kw_read("cset");
     if (!strcmp(kw,"ascii")) {
         static int csi = -1;
-        if (csi < 0) csi = kw_cset_slot_of("&ascii");
+        if (csi < 0) { kw_cset_prime(); csi = kw_cset_slot_of("&ascii"); }
         if (csi < 0) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
@@ -424,7 +424,7 @@ DESCR_t kw_read(const char *kw) {
     }
     if (!strcmp(kw,"cset")) {
         static int csi = -1;
-        if (csi < 0) csi = kw_cset_slot_of("&cset");
+        if (csi < 0) { kw_cset_prime(); csi = kw_cset_slot_of("&cset"); }
         if (csi < 0) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
