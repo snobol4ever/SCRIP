@@ -2486,6 +2486,13 @@ static int pl_dl_prelude_key(const lcx_t * cx) {
     return pl_prelude_defines(kn, atoi(sl + 1)) && !pl_file_defines(kn, atoi(sl + 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dl_ctl_key(const char * key) {
+    static const char * const pre[] = { "$cc", "$mc:,/", "$mc:;/", "$mc:->/", "$mc:*->/", "$mc:\\+/", "$mc:|/", ",/2", ";/2", "->/2", "*->/2", "$conj_nocut/1", "$fc/3", NULL };
+    if (!key) return 0;
+    for (int i = 0; pre[i]; i++) if (!strncmp(key, pre[i], strlen(pre[i]))) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_dl_wants_tick(const lcx_t * cx, const tree_t * t) {
     extern int pl_prelude_defines(const char *, int);
     static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "not", "call", "findall", "forall", "once", "ignore", "catch", "setup_call_cleanup", "call_cleanup", "true", "fail", ":", "bagof",
@@ -2493,7 +2500,7 @@ static int pl_dl_wants_tick(const lcx_t * cx, const tree_t * t) {
     const char * nm;
     int n;
     if (cx->cur_key && (!strncmp(cx->cur_key, "$dl_", 4) || !strncmp(cx->cur_key, "$mc:", 4) || !strcmp(cx->cur_key, "call_with_depth_limit/3"))) return 0;
-    if (pl_dl_prelude_key(cx)) return 0;
+    if (pl_dl_ctl_key(cx->cur_key) || pl_dl_prelude_key(cx)) return 0;
     if (t->t == TT_UNIFY) return !(t->n == 2 && t->c[0] && t->c[1] && (t->c[0]->t == TT_VAR || t->c[1]->t == TT_VAR));
     if (t->t != TT_FNC && t->t != TT_QLIT && t->t != TT_NAME) return 0;
     nm = t->v.sval;
@@ -2505,12 +2512,7 @@ static int pl_dl_wants_tick(const lcx_t * cx, const tree_t * t) {
     return pl_user_defines(nm, n) || pl_prelude_defines(nm, n) || pl_db_owned(nm, n) ? 0 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_dl_ctl_leaf_scope(const lcx_t * cx) {
-    static const char * const pre[] = { "$cc", "$mc:,/", "$mc:;/", "$mc:->/", "$mc:*->/", "$mc:\\+/", "$mc:|/", NULL };
-    if (!g_stage2.depth_counted || !cx->cur_key) return 0;
-    for (int i = 0; pre[i]; i++) if (!strncmp(cx->cur_key, pre[i], strlen(pre[i]))) return 1;
-    return 0;
-}
+static int pl_dl_ctl_leaf_scope(const lcx_t * cx) { return g_stage2.depth_counted && pl_dl_ctl_key(cx->cur_key); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_dl_leaf_tree(tree_t * v) {
     tree_t * is_fail = pl_cc_fnc2(";", pl_cc_fnc2("==", v, (tree_t *) pl_atom_goal("fail")), pl_cc_fnc2("==", v, (tree_t *) pl_atom_goal("false")));
@@ -2677,6 +2679,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     extra = (const tree_t * const *) &t->c[1];
                     nextra = t->n - 1;
                 }
+                if (t->c[0] && t->c[0]->t == TT_VAR && nextra == 0 && !strcmp(nm, "call") && pl_dl_ctl_leaf_scope(cx)) return goal(cx, pl_dl_leaf_tree((tree_t *) t->c[0]), γnext, ωfail, entry_out);
                 if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
                 const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);
                 if (ext && pl_body_ill_typed(ext)) return goal(cx, pl_cc_type_error("callable", ext, nm, t->n), γnext, ωfail, entry_out);
@@ -4060,6 +4063,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     g->alt_entry[0] = g->entry;
     pl_graph_stamp(g, arity, maxlocal, aliased, nva);
     g->deterministic = (nc == 1);
+    g->dl_latent = g_stage2.depth_counted && pl_dl_ctl_key(key);
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

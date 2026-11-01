@@ -487,16 +487,38 @@ static int zf_pro_np(void) {
 static int zf_pro_nl(void) {
     return g_emit_cfg ? g_emit_cfg->nlocals : 0;
 }
+static int zf_pro_depth_on(void) {
+    return g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph;
+}
+static std::string zf_pro_depth_latent(int kt) {
+    return x86("comment",
+        "DEPTH-LATENT (ARCH-PROLOG-DATABASE section 8, the control-construct frame): swipl's temp clause holds a level and counts nothing; "
+                          "LEVEL is the caller's plus 1 minus the caller's latent tag, the tag being bit 0 of the LIMITER word "
+                          "(set here, so a latent frame under a latent frame holds no second level); REACHED and LIMIT are not touched")
+         + x86("mov", "rax", RDQ("rsp", kt - 8))
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("add", "rcx", 1L)
+         + x86("mov", "rdi", RDQ("rax", 8))
+         + x86("mov", "rdx", "rdi")
+         + x86("and", "edx", 1L)
+         + x86("sub", "rcx", "rdx")
+         + x86("mov", RDQ("rsp", 0), "rcx")
+         + x86("or", "rdi", 1L)
+         + x86("mov", RDQ("rsp", 8), "rdi");
+}
 static std::string zf_pro_depth(int kt) {
-    return IF(g_emit_cfg && g_emit_cfg->depth_counted && x86_resumable_frame() && !g_emit_cfg->root_graph,
+    return IF(zf_pro_depth_on() && g_emit_cfg->dl_latent, zf_pro_depth_latent(kt))
+         + IF(zf_pro_depth_on() && !g_emit_cfg->dl_latent,
                x86("comment",
-        "DEPTH-COUNTED (ARCH-PROLOG-DATABASE section 8): LEVEL is the caller's plus 1 and LIMITER the caller's, copied down through the link at [kt-8] from the caller's base +0 and +8; "
+        "DEPTH-COUNTED (ARCH-PROLOG-DATABASE section 8): LEVEL is the caller's plus 1 and LIMITER the caller's with the latent tag (bit 0) cleared, "
+                          "copied down through the link at [kt-8] from the caller's base +0 and +8; "
                           "an active limiter's REACHED (pair +8) rises to this level, and a level over its LIMIT (pair +0) is this clause's omega -- the predicate fails, no ball")
          + x86("mov", "rax", RDQ("rsp", kt - 8))
          + x86("mov", "rcx", RDQ("rax", 0))
          + x86("add", "rcx", 1L)
          + x86("mov", RDQ("rsp", 0), "rcx")
          + x86("mov", "rdi", RDQ("rax", 8))
+         + x86("and", "rdi", -2L)
          + x86("mov", RDQ("rsp", 8), "rdi")
          + x86("test", "rdi", "rdi")
          + x86("je", L(961))

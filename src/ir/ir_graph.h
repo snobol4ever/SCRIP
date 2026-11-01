@@ -31,6 +31,7 @@ struct IR_graph_t {
     int resumable_callable;
     int depth_counted;
     int dl_pair;
+    int dl_latent;
     int keeps_choice;
     int rt_redefinable;
     int decl_level;

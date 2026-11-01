@@ -26330,18 +26330,18 @@ DESCR_t rt_pl_dop_dl_push_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_dl_reached_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
-    int64_t *w = (int64_t *)fb;
+    int64_t *w = (int64_t *)fb, d = w[3] - w[0];
     DESCR_t v;
     if (nargs != 1) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    v = INTVAL(w[3] - w[0]);
+    v = INTVAL(d < 1 ? 1 : d);
     { char *tr0 = cx->tr; int ok = plw_unify_vals(args[0], v, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_dl_reset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) { int64_t *w = (int64_t *)fb; (void)args; (void)nargs; (void)cx; w[3] = w[0] + 1; return pl_ok(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_dl_tick_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *fb) {
-    int64_t *w = (int64_t *)fb, *pair = (int64_t *)(uintptr_t)w[1], lvl = w[0] + 1;
+    int64_t *w = (int64_t *)fb, *pair = (int64_t *)(uintptr_t)(w[1] & ~(int64_t)1), lvl = w[0] + 1;
     DESCR_t kv;
     (void)cx;
     if (nargs == 1) { kv = rt_pl_deref_val(args[0]); if (kv.v == DT_I && kv.i > 0) lvl += kv.i; }
