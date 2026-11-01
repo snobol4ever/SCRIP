@@ -9082,7 +9082,22 @@ PL_CX_LEAF_HEAD(skip, 1)
         if (v.v == (DTYPE_t)DT_I) { do { c = fgetc(f); } while (c != EOF && c != (int)v.i); ok = 1; }
     }
 PL_CX_LEAF_TAIL
-typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; const char *err; const tree_t *tr; const char *src; int shift; const int *cm; int ncm; } pl_vtab_t;
+typedef struct {
+    const char **nm;
+    DESCR_t *v;
+    int *cnt;
+    int *hs;
+    int n;
+    int cap;
+    unsigned hmask;
+    const char *err;
+    const tree_t *tr;
+    const char *src;
+    int shift;
+    int base;
+    const int *cm;
+    int ncm;
+} pl_vtab_t;
 #define PL_SYNERR(vt) ((vt).err ? (vt).err : "cannot_start_term")
 static int pl_vt_occ(const tree_t *t) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) c++; for (int i = 0; i < t->n; i++) c += pl_vt_occ(t->c[i]); return c; }
 static unsigned pl_vt_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
@@ -9379,6 +9394,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     size_t e;
     vt->err = (const char *)0;
     vt->tr = (const tree_t *)0;
+    vt->base = 0;
     vt->cm = (const int *)0;
     vt->ncm = 0;
     if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
@@ -9470,7 +9486,7 @@ PL_CX_LEAF_HEAD(atom_to_term, 3)
     }
 PL_CX_LEAF_TAIL
 extern int prolog_token_extent(const char *, int, int, int *, int *);
-static int pl_pos_off(const pl_vtab_t *vt, int off) { int c = 0; for (int i = 0; i < off && vt->src[i]; i++) if (((unsigned char)vt->src[i] & 0xC0) != 0x80) c++; return c - vt->shift; }
+static int pl_pos_off(const pl_vtab_t *vt, int off) { int c = 0; for (int i = 0; i < off && vt->src[i]; i++) if (((unsigned char)vt->src[i] & 0xC0) != 0x80) c++; return c - vt->shift + vt->base; }
 static DESCR_t pl_pos_cmp(const char *nm, int ar, const DESCR_t *kids) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr(ar);
@@ -9711,7 +9727,13 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
             if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
             if (got != 1) se = "end_of_file";
             else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = PL_SYNERR(vt);
-            if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx) && pl_read_term_pos_opt(args[1], cx); break; }
+            if (!se) {
+                extern int fh_last_read_pos(long *, long *, long *, long *);
+                long ch = 0, ln = 0, lp = 0, by = 0;
+                if (vt.tr && fh_last_read_pos(&ch, &ln, &lp, &by)) vt.base = (int)ch - pl_pos_off(&vt, vt.tr->start);
+                ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx) && pl_read_term_pos_opt(args[1], cx);
+                break;
+            }
             { const char *g = pl_gp_read_err(off0); if (g) se = g; }
             if (sm == 2) printf("warning: syntax error: %s\n", se);
             if (sm == 3) { fprintf(stderr, "warning: syntax error: %s\n", se); continue; }
