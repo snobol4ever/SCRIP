@@ -3708,9 +3708,11 @@ static void icn_display_homes_every_local(void) {
             if (x && (x->op == IR_CALL || x->op == IR_VAR || x->op == IR_VAR_REF) && IR_LIT(x).sval && !strcmp(IR_LIT(x).sval, "display")) on = 1;
         }
     }
-    for (int gi = 0; on && gi < g_stage2.bbp.count; gi++) {
+    for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         const IR_graph_t * g = g_stage2.bbp.table[gi];
-        for (int k = 0; g && g->lnames && k < g->nlocals; k++) if (g->lnames[k] && g->lnames[k][0] != '&') zls_home_local_declare(g, g->lnames[k], 9);
+        int here = on;
+        for (int i = 0; g && i < g->n && !here; i++) here = g->all[i] && g->all[i]->op == IR_MATCH_CASMARK;
+        for (int k = 0; here && g->lnames && k < g->nlocals; k++) if (g->lnames[k] && g->lnames[k][0] != '&') zls_home_local_declare(g, g->lnames[k], 9);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

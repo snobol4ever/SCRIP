@@ -1164,6 +1164,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
         if (e->varname && e->varname[0]) {
             extern DESCR_t *rt_icn_local_cell(const char *, size_t);
             DESCR_t *icl = rt_icn_local_cell(e->varname, strlen(e->varname));
+            if (icl && IS_FH_fn(*icl)) { extern FILE *fh_get(int); FILE *fp = fh_get((int)icl->i); if (fp && d.v == DT_S) { fwrite(d.s, 1, d.slen, fp); fputc('\n', fp); } continue; }
             if (icl) { if (d.v == DT_S) rt_sxt_break_fast(d.s); *icl = d; continue; }
             DESCR_t *cell0;
             {
