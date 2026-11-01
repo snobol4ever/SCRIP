@@ -1678,6 +1678,7 @@ int main(int argc, char **argv) {
     int dump_transpile = 0;
     int opt_bench = 0;
     const char *opt_dialect = NULL;
+    int opt_pl_subs = 0;
     int opt_pp_only = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
@@ -1796,13 +1797,14 @@ int main(int argc, char **argv) {
             preload_path[n_preload++] = lp;
             argi++;
         }
-        while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
+        while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekES0123456789", argv[argi][1])) {
             char sw = argv[argi][1];
             const char *rest = argv[argi] + 2;
             long v;
             if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
             if (sw == 'o') return refuse_dash_o();
             if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
+            if (sw == 'S' && *rest == '\0') { opt_pl_subs = 1; argi++; continue; }
             if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
             if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
             if (sw == 'b' || sw == 'f') { argi++; continue; }
@@ -1938,6 +1940,8 @@ int main(int argc, char **argv) {
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n" "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --dump-plan      print the planner's table, one PLAN line per chain and one PLAN_ROW per node, on stdout (compiles to /dev/null)\n"
             "  --bench          print wall-clock time after execution\n"
+            "  -S               Prolog: read the source as if it began with ':- use_subsumptive_tabling.', every table without an explicit mode subsumptive (XSB's -S, an entry's oracle switch carrie"
+            "d as its compile_args, CEO-2110)\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
             "ns. Prolog: gnu\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
@@ -2098,7 +2102,7 @@ int main(int argc, char **argv) {
             fseek(f, 0, SEEK_END);
             long flen = ftell(f);
             rewind(f);
-            const char *pdir = (lang_pascal && opt_dialect) ? pascal_dialect_directive(opt_dialect) : NULL;
+            const char *pdir = (lang_pascal && opt_dialect) ? pascal_dialect_directive(opt_dialect) : (lang_prolog && opt_pl_subs) ? ":- use_subsumptive_tabling. " : NULL;
             size_t plen = pdir ? strlen(pdir) : 0;
             char *src = ct_alloc(flen + 1 + (long)plen);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
