@@ -109,7 +109,7 @@ typedef struct {
     int pas_sconsts_cap;
     int pas_nsconst;
     int pas_level;
-    struct { char *name; long long high; long long ncols; int is_param; int is_local; int isbool; int isdyn; int uid; int ischar; long long d2[4]; } *pas_arrays;
+    struct { char *name; long long high; long long ncols; int is_param; int is_local; int isdyn; int uid; long long d2[4]; } *pas_arrays;
     int pas_array_cap;
     int pas_narray;
     long long pas_pend_arr_ncols;
