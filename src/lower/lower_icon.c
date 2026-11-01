@@ -1323,6 +1323,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(sc, (tree_t *) t->c[sub]);
                     ast_push(sc, one);
                     for (int w = sub + 1; w < t->n; w++) ast_push(sc, (tree_t *) t->c[w]);
+                    if (t->n == sub + 1) { ast_push(sc, ast_node_new(TT_NUL)); ast_push(sc, ast_node_new(TT_NUL)); }
                     tree_t * cj = ast_node_new(TT_CONJ);
                     ast_push(cj, asg);
                     ast_push(cj, sc);

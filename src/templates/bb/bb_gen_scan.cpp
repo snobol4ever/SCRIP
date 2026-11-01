@@ -31,8 +31,12 @@ std::string bb_gen_scan() {
              + x86("mov", FRQ(_.op_off + 8), "r13")
              + x86("mov", FRQ(_.op_off + 16), "r14")
              + x86("mov", FRQ(_.op_off + 24), "r15")
+             + IF(_.op_ww, x86("mov", "rax", FRQ(_.op_sa))
+                         + x86("cmp", "al", (long)DT_SNUL)
+                         + x86("je", L(50)))
              + scan_subject_load(_.op_sa, 1)
-             + IF(_.op_ww, x86_scan_window(_.op_wi, _.op_wj, _.op_off, 30))
+             + IF(_.op_ww, x86("def", L(50))
+                         + x86_scan_window(_.op_wi, _.op_wj, _.op_off, 30, _.op_sa))
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(_.op_sb != 1 && _.op_off >= 0,

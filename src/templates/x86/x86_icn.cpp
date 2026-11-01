@@ -97,12 +97,22 @@ std::string x86_icn_subject_set(int a, int mode, int k) {
          + x86("def", L(k + 1))
          + x86("xor", "r14d", "r14d");
 }
-static std::string x86_scan_window_pos(int slot, int is_j, int k, int kfail) {
-    if (slot < 0) return is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L);
+static std::string x86_scan_window_default(int is_j, int sa, int bank, int k) {
+    return is_j ? x86("mov", "rax", "rcx")
+                : x86("mov", "rax", 1L)
+                + x86("mov", "rdx", FRQ(sa))
+                + x86("cmp", "dl", (long)DT_SNUL)
+                + x86("jne", L(k))
+                + x86("mov", "rax", FRQ(bank + 16))
+                + x86("add", "rax", 1L)
+                + x86("def", L(k));
+}
+static std::string x86_scan_window_pos(int slot, int is_j, int k, int kfail, int sa, int bank) {
+    if (slot < 0) return x86_scan_window_default(is_j, sa, bank, k + 8);
     return x86("mov", "rax", FRQ(slot))
          + x86("cmp", "al", (long)DT_SNUL)
          + x86("jne", L(k))
-         + (is_j ? x86("mov", "rax", "rcx") : x86("mov", "rax", 1L))
+         + x86_scan_window_default(is_j, sa, bank, k + 8)
          + x86("jmp", L(k + 2))
          + x86("def", L(k))
          + x86("cmp", "al", (long)DT_I)
@@ -128,14 +138,14 @@ static std::string x86_scan_window_pos(int slot, int is_j, int k, int kfail) {
          + x86("jg", L(kfail))
          + x86("def", L(k + 2));
 }
-std::string x86_scan_window(int wi, int wj, int bank, int k) {
+std::string x86_scan_window(int wi, int wj, int bank, int k, int sa) {
     return x86("mov", "rcx", "r15")
          + x86("add", "rcx", 1L)
-         + x86_scan_window_pos(wi, 0, k, k + 5)
+         + x86_scan_window_pos(wi, 0, k, k + 5, sa, bank)
          + x86("mov", "r14", "rax")
          + x86("mov", "rcx", "r15")
          + x86("add", "rcx", 1L)
-         + x86_scan_window_pos(wj, 1, k + 10, k + 5)
+         + x86_scan_window_pos(wj, 1, k + 10, k + 5, sa, bank)
          + x86("mov", "rdx", "rax")
          + x86("mov", "rax", "r14")
          + x86("cmp", "rax", "rdx")
