@@ -10,7 +10,7 @@
 #include "../parsers/snobol4/scrip_cc.h"
 #include "bb_program.h"
 #include "../runtime/builtins/gen_runtime.h"
-#include "driver_private.h"
+#include "driver/driver.h"
 #include "polyglot.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sm_resolve_proc_entry_pcs(stage2_t *s2) {

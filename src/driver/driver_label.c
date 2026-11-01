@@ -1,4 +1,11 @@
-#include "driver_private.h"
+#include <string.h>
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/core/datatype.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "driver/driver.h"
+#include "driver/driver_label.h"
 #include "ct_arena.h"
 #include "../runtime/snobol4_system_fns.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

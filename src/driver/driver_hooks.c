@@ -1,4 +1,16 @@
-#include "driver_private.h"
+#include <stdio.h>
+#include <string.h>
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/core/datatype.h"
+#include "runtime/core/core.h"
+#include "ir/stage2.h"
+#include "ir/ast.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "driver/driver.h"
+#include "driver/driver_call.h"
+#include "driver/driver_hooks.h"
+#include "driver/driver_data.h"
 #include "rtx_try.h"
 extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

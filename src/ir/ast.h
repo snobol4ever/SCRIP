@@ -1,5 +1,6 @@
 #ifndef TREE_H
 #define TREE_H
+#include <stdio.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -149,4 +150,5 @@ static const char tt_e_name[TT_KIND_COUNT][19] = { [TT_QLIT] = "TT_QLIT", [TT_IL
 #ifdef __cplusplus
 }
 #endif
+void ir_print_node (const tree_t *e, FILE *f);
 #endif

@@ -271,7 +271,9 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
     g_runtime.abi.dump = i;
     return INTVAL((int64_t)i);
 }
-#include "../../driver/driver_private.h"
+#include "runtime/core/nv.h"
+#include "runtime/core/runtime_shim.h"
+#include "ir/stage2.h"
 #include <time.h>
 #include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

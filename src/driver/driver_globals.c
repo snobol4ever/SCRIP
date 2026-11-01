@@ -4,7 +4,16 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdio_ext.h>
-#include "driver_private.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/re.h"
+#include "runtime/core/nv.h"
+#include "ir/bb_box.h"
+#include "driver/driver.h"
+#include "driver/driver_globals.h"
+#include "ir/ct_vec.h"
 char g_script_exception[512] = "";
 int g_script_try_depth = 0;
 Match g_match;

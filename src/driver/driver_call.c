@@ -1,7 +1,16 @@
 #include "rt/rt_arena.h"
 #include "g_runtime.h"
 #include "rtx_try.h"
-#include "driver_private.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "runtime/builtins/gen.h"
+#include "ir/ast.h"
+#include "driver/driver.h"
+#include "ir/ct_vec.h"
+#include "driver/driver_call.h"
+#include "driver/driver_data.h"
+#include "runtime/by_name_dispatch.h"
 #include "runtime/core/comm_var.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/nv.h"

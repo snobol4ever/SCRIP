@@ -1,6 +1,13 @@
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
-#include "driver_private.h"
+#include <stdio.h>
+#include <string.h>
+#include "runtime/core/core.h"
+#include "ir/bb_box.h"
+#include "driver/driver.h"
+#include "driver/driver_globals.h"
+#include "ir/ct_vec.h"
+#include "driver/driver_data.h"
 #include "ct_arena.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/array.h"
