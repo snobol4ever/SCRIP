@@ -1434,16 +1434,6 @@ long long pty_tn_ncols(const char *name) {
     const pty_t *t = pt_tn(pt_st(), name, &tmp);
     return t && !t->dyn && !t->open && t->nix == 2 && pt_tn_hi(t) >= 0 ? t->ix[1]->hi - t->ix[1]->lo + 1 : -1;
 }
-int pty_tn_d2(const char *name, long long *out) {
-    pty_t tmp;
-    const pty_t *t = pt_tn(pt_st(), name, &tmp);
-    if (!t || t->dyn || t->open || t->nix != 2 || pt_tn_hi(t) < 0) return 0;
-    out[0] = t->ix[0]->lo;
-    out[1] = t->ix[0]->hi;
-    out[2] = t->ix[1]->lo;
-    out[3] = t->ix[1]->hi;
-    return 1;
-}
 int pty_tn_ischar(const char *name) {
     pty_t tmp;
     const pty_t *t = pt_tn(pt_st(), name, &tmp);
@@ -1576,8 +1566,7 @@ const char *pty_fld_typename(const pty_t *r, int i) {
     snprintf(m, len, "$dyn%d$%s", d, n);
     return m;
 }
-void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
-    char **fldptrto, char **fldrec, char **fldenum) {
+void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldfile, char **fldptrto, char **fldrec, char **fldenum) {
     struct pty_state *s = pt_st();
     if (!s || !g_lower.pas.dump_types) return;
     const pty_ent *e = pt_map_get(&s->src, rec);
@@ -1596,34 +1585,19 @@ void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *
     }
     for (int i = 0; i < nf; i++) {
         const pty_t *ft = L->ft[i];
-        int ph = (L->named[i] & 4) != 0, nm = L->named[i] & 1;
-        if (ph && i > 0) { ft = L->ft[i - 1]; nm = L->named[i - 1] & 1; }
-        int ischar = 0, c = ph ? 0 : lf_eff_char(L, i);
-        long long lo = 0, hi = -1;
-        int ar = lf_arr(ft, &ischar, &lo, &hi);
-        if (ar && ft->nix == 2 && !ft->dyn && !nm && ft->ix[1]) { lo = ft->ix[1]->lo; hi = ft->ix[1]->hi; }
-        int ca = ar && ischar, na = ar && !ischar;
-        if (ph && !nm) { ca = 0; na = 0; }
-        if (ca && !nm && !ph) c = 1;
-        if (ph) c = lf_eff_char(L, i);
+        int ph = (L->named[i] & 4) != 0;
+        if (ph && i > 0) ft = L->ft[i - 1];
         int file = lf_has_file(ft), ptr = !ph && ft && ft->k == PTK_POINTER && (ft->base || ft->fwd), rc = lf_rec(ft), en = ft && ft->k == PTK_ENUM && ft->name && ft->nf > 0;
         const char *what = NULL;
         if (!fields[i] || !L->name[i] || strcmp(fields[i], L->name[i])) what = "name";
-        else if (fldchar[i] != c) what = "char";
-        else if ((fldca[i] != 0) != ca) what = "ca";
-        else if (ca && (ca_lo[i] != (lo > 0 ? lo : 0) || ca_hi[i] != hi)) what = "ca-bounds";
-        else if ((fldna[i] != 0) != na) what = "na";
-        else if (na && (na_lo[i] != lo || na_hi[i] != hi)) what = "na-bounds";
         else if ((fldfile[i] != 0) != file) what = "file";
         else if ((fldptrto[i] != NULL) != ptr) what = "ptr";
         else if ((fldrec[i] != NULL) != rc) what = "rec";
         else if ((fldenum[i] != NULL) != en) what = "enum";
         if (what) {
             bad++;
-            fprintf(stderr,
-                "PTYL %s line=%d field=%s legacy[char=%d ca=%d na=%d file=%d ptr=%d rec=%d enum=%d bounds=%lld..%lld/%lld..%lld] typer[kind=%s char=%d arr=%d ischar=%d %lld..%lld named=%d]\n", what,
-                rec->line, fields[i] ? fields[i] : "?", fldchar[i], fldca[i], fldna[i], fldfile[i], fldptrto[i] != NULL, fldrec[i] != NULL, fldenum[i] != NULL, ca_lo[i], ca_hi[i], na_lo[i], na_hi[i],
-                ft ? pty_kind_name(ft->k) : "-", c, ar, ischar, lo, hi, (int)L->named[i]);
+            fprintf(stderr, "PTYL %s line=%d field=%s legacy[file=%d ptr=%d rec=%d enum=%d] typer[kind=%s named=%d]\n", what, rec->line, fields[i] ? fields[i] : "?", fldfile[i], fldptrto[i] != NULL,
+                fldrec[i] != NULL, fldenum[i] != NULL, ft ? pty_kind_name(ft->k) : "-", (int)L->named[i]);
         }
     }
     s->stats[64 + 1] += bad ? 0 : 1;

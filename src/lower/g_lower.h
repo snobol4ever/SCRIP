@@ -16,22 +16,7 @@ typedef union { tree_t *node; PNodeList *list; char *str; long long ival; double
 typedef struct { const char *name; const char *sig; const char *owner; const char *alias; const char *ov; int depth, rid, formal, uid, fld; } PasDef;
 typedef struct { const char *name; PNodeList *params; const char *sig; } PasFwd;
 struct pas_vt { int state; char *name; tree_t *node; tree_t *tagexpr; long long mask; };
-struct pas_pend_frame {
-    char **fields;
-    char **fldptrto;
-    char **fldenum;
-    char **fldrec;
-    char **fldtypename;
-    int *fldca;
-    long long *fldca_lo;
-    long long *fldca_hi;
-    int *fldchar;
-    int *fldfile;
-    int *fldna;
-    long long *fldna_lo;
-    long long *fldna_hi;
-    int nf;
-};
+struct pas_pend_frame { char **fields; char **fldptrto; char **fldenum; char **fldrec; char **fldtypename; int *fldfile; int nf; };
 typedef struct { const tree_t *n; int i; } pas_sem_step_t;
 typedef struct {
     PNodeList pascal_procs;
@@ -112,7 +97,6 @@ typedef struct {
     int pas_nsconst;
     int pas_level;
     long long pas_pend_arr_ncols;
-    union { long long v[4]; struct { long long rlo, rhi, clo, chi; }; } pas_pend_dim2;
     struct { char *name; } *pas_assigned;
     int pas_assigned_cap;
     int pas_nassigned;
@@ -177,10 +161,6 @@ typedef struct {
     char **pas_pend_fldenum;
     char **pas_pend_fldrec;
     char **pas_pend_fldtypename;
-    int *pas_pend_fldca;
-    long long *pas_pend_fldca_lo;
-    long long *pas_pend_fldca_hi;
-    int *pas_pend_fldchar;
     int *pas_pend_fldfile;
     int pas_pend_nf;
     int pas_pend_cap;
@@ -189,9 +169,6 @@ typedef struct {
     char *pas_pend_typename;
     int pas_pend_ischar;
     int pas_pend_isarr;
-    int *pas_pend_fldna;
-    long long *pas_pend_fldna_lo;
-    long long *pas_pend_fldna_hi;
     struct { char *pname; char *rname; } *pas_ptrtypes;
     int pas_ptrtypes_cap;
     int pas_nptrtype;

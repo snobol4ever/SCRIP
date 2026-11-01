@@ -38,8 +38,7 @@ int pty_rec_fld(const pty_t *r, int i, struct pty_fld *o);
 const char *pty_fld_typename(const pty_t *r, int i);
 const char *pty_name_of(const pty_t *t);
 const pty_t *pty_pointee(const pty_t *t);
-void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldchar, int *fldca, long long *ca_lo, long long *ca_hi, int *fldna, long long *na_lo, long long *na_hi, int *fldfile,
-    char **fldptrto, char **fldrec, char **fldenum);
+void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldfile, char **fldptrto, char **fldrec, char **fldenum);
 void pty_run(tree_t *prog, int fpc);
 const pty_t *pty_of_src(const tree_t *n);
 const pty_t *pty_of_low(const tree_t *e);
@@ -61,7 +60,6 @@ int pty_tn_dyn(const char *name);
 long long pty_tn_high(const char *name);
 long long pty_tn_lo(const char *name);
 long long pty_tn_ncols(const char *name);
-int pty_tn_d2(const char *name, long long *out);
 int pty_tn_ischar(const char *name);
 int pty_tn_isbool(const char *name);
 int pty_tn_wrap(const char *name);
