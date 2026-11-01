@@ -22,6 +22,14 @@ size_t bb_pool_mark (void);
 const uint8_t * bb_pool_base(void);
 long bb_pool_page(void);
 void bb_pool_release (size_t mark);
+void bb_pool_reclaim (const void * lo, const void * hi);
+bb_buf_t bb_alloc_hole (size_t min_size, size_t * cap);
+void bb_hole_return (bb_buf_t buf, size_t keep, size_t cap);
+void bb_hole_abort (bb_buf_t buf, size_t cap);
+int bb_pool_in_hole (const void * p);
+void bb_pool_last_set (bb_buf_t buf, size_t used);
+const uint8_t * bb_pool_last_lo (void);
+const uint8_t * bb_pool_last_hi (void);
 #ifdef __cplusplus
 }
 #endif

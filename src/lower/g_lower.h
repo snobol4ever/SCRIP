@@ -464,6 +464,9 @@ typedef struct {
     uint8_t * bb_pool_top;
     uint8_t * bb_pool_limit;
     long bb_pool_page_size;
+    cv_t bb_holes;
+    uint8_t * bb_last_lo;
+    uint8_t * bb_last_hi;
 } g_lower_ir_t;
 typedef struct {
     cv_t gram_names;

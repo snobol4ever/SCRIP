@@ -1082,6 +1082,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_db_of_term", GC_RET_OTHER },
     { "pl_db_owned", GC_RET_OTHER },
     { "pl_db_place", GC_RET_VOID },
+    { "pl_db_rc_index", GC_RET_OTHER },
+    { "pl_db_reclaim", GC_RET_VOID },
     { "pl_db_reg_add", GC_RET_OTHER },
     { "pl_db_registry", GC_RET_OTHER },
     { "pl_db_seed_file", GC_RET_OTHER },

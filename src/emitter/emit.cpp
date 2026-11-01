@@ -73,7 +73,10 @@ static inline void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j) {
 #define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
 static inline void stno_rec_push(uint64_t pc, int32_t stno, int32_t line, const char * file) {
     cv_reserve(&g_emit.stno_map, (uint32_t)sizeof(sno_stno_rec_t), (uint64_t)g_emit.stno_map_n + 1, "stno_map");
-    sno_stno_rec_t * e = &STNO_REC(g_emit.stno_map_n);
+    int at = g_emit.stno_map_n;
+    while (at > 0 && STNO_REC(at - 1).pc > pc) at--;
+    if (at < g_emit.stno_map_n) memmove(&STNO_REC(at + 1), &STNO_REC(at), (size_t)(g_emit.stno_map_n - at) * sizeof(sno_stno_rec_t));
+    sno_stno_rec_t * e = &STNO_REC(at);
     e->pc = pc;
     e->stno = stno;
     e->line = line;
@@ -503,6 +506,15 @@ extern "C" void g_emit_stno_drop_above(uint64_t addr) {
     int lo = 0, hi = g_emit.stno_map_n;
     while (lo < hi) { int mid = (lo + hi) / 2; if (STNO_REC(mid).pc < addr) lo = mid + 1; else hi = mid; }
     g_emit.stno_map_n = lo;
+}
+extern "C" void g_emit_stno_drop_range(uint64_t from, uint64_t to) {
+    int a = 0, b = g_emit.stno_map_n, c;
+    while (a < b) { int mid = (a + b) / 2; if (STNO_REC(mid).pc < from) a = mid + 1; else b = mid; }
+    c = a;
+    b = g_emit.stno_map_n;
+    while (c < b) { int mid = (c + b) / 2; if (STNO_REC(mid).pc < to) c = mid + 1; else b = mid; }
+    if (c > a) memmove(&STNO_REC(a), &STNO_REC(c), (size_t)(g_emit.stno_map_n - c) * sizeof(sno_stno_rec_t));
+    g_emit.stno_map_n -= c - a;
 }
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
@@ -4426,22 +4438,25 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(rec, prefix); emitter_end();
         return rc == 0 ? (bb_box_fn)1 : NULL; }
     long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) flat_cap = (long)g_emit_cfg->n * 2048L;
+    int holes_ok = g_emit_cfg && g_emit_cfg->pkt_fragment; size_t hole_min = 0, need = 0;
     size_t mark = bb_pool_mark();
     for (int pass = 0;; pass++) {
-        if (flat_cap > 2147483647L)
+        size_t hcap = 0; bb_buf_t hole = holes_ok ? bb_alloc_hole(hole_min, &hcap) : NULL; bb_buf_t buf = hole; long cap = hole ? (long)hcap : flat_cap;
+        if (!hole && flat_cap > 2147483647L)
             { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the chain wants %ld bytes, more than the binary medium addresses (pass %d)\n", prefix ? prefix : "", flat_cap, pass); return NULL; }
-        bb_buf_t buf = bb_alloc(flat_cap);
+        if (!hole) buf = bb_alloc(flat_cap);
+        if (!hole && !buf && bb_pool_free() >= need && bb_pool_free() > 0 && (long)bb_pool_free() < flat_cap) { flat_cap = cap = (long)bb_pool_free(); buf = bb_alloc(flat_cap); }
         if (!buf)
             { fprintf(stderr, "[IBB] emit_chain('%s') FAILED: the code pool has no room for %ld bytes (pass %d; the pool is BB_POOL_SIZE, raised by SCRIP_CODE_POOL_MB)\n", prefix ? prefix : "",
             flat_cap, pass); return NULL; }
         g_flat_node_id = 0;
         if (pass) emit_chain_prepare(rec->key);
-        emitter_init_binary(buf, flat_cap);
+        emitter_init_binary(buf, cap);
         codegen_flat_chain_body(rec, prefix);
         if (g_emit_chain_posthook && !g_emitter.bb_emit_overflow) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
         int nbytes = emitter_end();
         long want = g_emitter.bb_emit_want;
-        if (!g_emitter.bb_emit_overflow && nbytes > 0 && nbytes <= flat_cap) {
+        if (!g_emitter.bb_emit_overflow && nbytes > 0 && nbytes <= cap) {
             bb_seal(buf, (size_t)nbytes);
         { const char *_pm = getenv("SCRIP_PERF_MAP");
           if (_pm && *_pm && *_pm != '0') {
@@ -4449,16 +4464,18 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
               FILE *_pmf = fopen(_pmp, "a");
               if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
                                   (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
-            bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
+            if (hole) bb_hole_return(buf, (size_t)nbytes, hcap); else bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
+            bb_pool_last_set(buf, (size_t)nbytes);
             return (bb_box_fn)buf;
         }
-        bb_pool_release(mark);
-        if (!g_emitter.bb_emit_overflow || want <= flat_cap) {
+        if (hole) bb_hole_abort(buf, hcap); else bb_pool_release(mark);
+        if (!g_emitter.bb_emit_overflow || want <= cap) {
             extern int bb_emit_pos; extern int bb_patch_count;
             fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%ld patches=%d — empty or invalid emission\n", prefix ? prefix : "", g_emitter.bb_emit_overflow, nbytes,
-                bb_emit_pos, flat_cap, bb_patch_count);
+                bb_emit_pos, cap, bb_patch_count);
             return NULL;
         }
+        need = hole_min = (size_t)want;
         flat_cap = want + (want >> 3) + 4096L;
     }
 }

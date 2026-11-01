@@ -5408,14 +5408,12 @@ static const char *pl_db_frag_lo(int f) { const uint8_t *b = bb_pool_base(); ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pl_db_frag_hi(int f) { const char *lo = pl_db_frag_lo(f); return lo ? lo + (size_t)PL_DB_FRAG_PAGES(f) * (size_t)bb_pool_page() : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_db_frag_record(pl_db_t *db, int i, const void *fn, size_t m0) {
-    const uint8_t *b = bb_pool_base();
-    size_t at = (b && fn) ? (size_t)((const uint8_t *)fn - b) : 0;
-    int f = (b && fn && (const uint8_t *)fn >= b && at >= m0) ? pl_db_frag_pack(at, bb_pool_mark()) : 0;
+static void pl_db_frag_record(pl_db_t *db, int i, const void *fn) {
+    const uint8_t *b = bb_pool_base(), *lo = bb_pool_last_lo(), *hi = bb_pool_last_hi();
+    int f = (b && fn && (const uint8_t *)fn == lo && hi > lo) ? pl_db_frag_pack((size_t)(lo - b), (size_t)(hi - b)) : 0;
     db->s[i].frag = f;
     if (!f) { db->frag_top = -2; return; }
-    if (db->frag_top == -2) return;
-    db->frag_top = ((f & 0xFFFFF) > db->frag_top) ? (f & 0xFFFFF) : -2;
+    if (db->frag_top != -2) db->frag_top = f & 0xFFFFF;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_fragment(void *root, pl_db_t *db, int i) {
@@ -5432,12 +5430,11 @@ static int pl_db_fragment(void *root, pl_db_t *db, int i) {
         PL_DB_KEY_VLA(key, nm, ar);
         {
             char fkey[fmt_len("%s@%d", key, i)];
-            size_t m0 = bb_pool_mark();
             void *fn;
             snprintf(fkey, sizeof fkey, "%s@%d", key, i);
             fn = pl_runtime_define_fragment(fkey, (void *)&db->s[i].cl, ar, db->cell_k, i, &ridx, &off, root);
             if (!fn) return 0;
-            pl_db_frag_record(db, i, fn, m0);
+            pl_db_frag_record(db, i, fn);
         }
         db->s[i].ridx = ridx;
         db->s[i].chain_off = off;
@@ -5825,26 +5822,48 @@ static void pl_db_reclaim_report(pl_db_t *db) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_db_frag_find(const pl_db_t *db, const char *p) {
-    int lo = 0, hi = db->n - 1;
+typedef struct { const char *lo; int slot; } pl_db_rcix_t;
+typedef struct { pl_db_t *db; const char *lo; const char *hi; int min_g; int c_lo; int c_hi; const pl_db_rcix_t *ix; int nix; } pl_db_rc_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_rcix_cmp(const void *a, const void *b) { const char *x = ((const pl_db_rcix_t *)a)->lo, *y = ((const pl_db_rcix_t *)b)->lo; return (x > y) - (x < y); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_rc_index(pl_db_rc_t *r) {
+    extern void *rt_heap_alloc_c(size_t);
+    const pl_db_t *db = r->db;
+    int n = 0, k = 0, asc = 1;
+    pl_db_rcix_t *ix;
+    for (int i = 0; i < db->n; i++) if (PL_DB_FRAG_REC(db->s[i].frag) && !(db->s[i].frag & PL_DB_FRAG_GONE)) n++;
+    ix = (pl_db_rcix_t *)rt_heap_alloc_c((size_t)(n > 0 ? n : 1) * sizeof(pl_db_rcix_t));
+    if (!ix) return 0;
+    for (int i = 0; i < db->n; i++) {
+        if (!PL_DB_FRAG_REC(db->s[i].frag) || (db->s[i].frag & PL_DB_FRAG_GONE)) continue;
+        ix[k].lo = pl_db_frag_lo(db->s[i].frag);
+        ix[k].slot = i;
+        if (k && ix[k - 1].lo > ix[k].lo) asc = 0;
+        k++;
+    }
+    if (!asc) qsort(ix, (size_t)n, sizeof(pl_db_rcix_t), pl_db_rcix_cmp);
+    r->ix = ix;
+    r->nix = n;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_frag_find(const pl_db_rc_t *r, const char *p) {
+    int lo = 0, hi = r->nix - 1;
     while (lo <= hi) {
-        int mid = lo + (hi - lo) / 2, m = mid;
-        while (m <= hi && !PL_DB_FRAG_REC(db->s[m].frag)) m++;
-        if (m > hi) { hi = mid - 1; continue; }
-        if (p < pl_db_frag_lo(db->s[m].frag)) hi = mid - 1;
-        else if (p >= pl_db_frag_hi(db->s[m].frag)) lo = m + 1;
+        int mid = lo + (hi - lo) / 2, m = r->ix[mid].slot;
+        if (p < pl_db_frag_lo(r->db->s[m].frag)) hi = mid - 1;
+        else if (p >= pl_db_frag_hi(r->db->s[m].frag)) lo = mid + 1;
         else return m;
     }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { pl_db_t *db; const char *lo; const char *hi; int min_g; int c_lo; int c_hi; } pl_db_rc_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_db_rc_hold(pl_db_rc_t *r, const char *p) {
     int j;
-    if (!p || p < r->lo || p >= r->hi || (j = pl_db_frag_find(r->db, p)) < 0) return;
-    if (r->db->s[j].frag & PL_DB_FRAG_GONE)
-        rt_bomb("the assertz reclaim: a frame holds a reclaimed run-time Prolog fragment -- a pass reclaimed code a live activation still reaches (unification.c pl_db_rc_hold)");
+    if (!p || p < r->lo || p >= r->hi) return;
+    if (bb_pool_in_hole(p)) rt_bomb("the assertz reclaim: a frame holds a reclaimed run-time Prolog fragment -- a pass reclaimed code a live activation still reaches (unification.c pl_db_rc_hold)");
+    if ((j = pl_db_frag_find(r, p)) < 0) return;
     if (r->db->s[j].ref + 1 < r->min_g) r->min_g = r->db->s[j].ref + 1;
     if (j >= r->c_lo && j <= r->c_hi) r->db->s[j].frag |= PL_DB_FRAG_HELD;
 }
@@ -5869,7 +5888,7 @@ static void pl_db_rc_seg(const char *lo, const char *hi, void *a) {
         uint64_t x = *(const uint64_t *)w;
         const char *p = (const char *)(uintptr_t)(x >> 8);
         int j;
-        if ((x & 255u) != (uint64_t)DT_RAW || p < r->lo || p >= r->hi || (j = pl_db_frag_find(r->db, p)) < 0 || (r->db->s[j].frag & PL_DB_FRAG_GONE)) continue;
+        if ((x & 255u) != (uint64_t)DT_RAW || p < r->lo || p >= r->hi || (j = pl_db_frag_find(r, p)) < 0) continue;
         pl_db_rc_hold(r, p);
     }
 }
@@ -5900,6 +5919,7 @@ static int pl_db_reclaim_one(pl_db_t *db, int i) {
     db->s[i].chain_off = 0;
     db->s[i].frag = (f & ~PL_DB_FRAG_HELD) | PL_DB_FRAG_GONE;
     db->recl_n++;
+    bb_pool_reclaim(lo, hi);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5917,8 +5937,9 @@ static void pl_db_reclaim(pl_db_t *db) {
     for (int i = db->recl_lo; i < db->n; i++) if (pl_db_reclaim_cand(db, i)) { if (lo < 0) lo = i; hi = i; }
     if (lo < 0) { db->recl_lo = db->n; return; }
     {
-        pl_db_rc_t r = { db, b, b + bb_pool_used(), INT_MAX, lo, hi };
-        int ok = rt_gc_frames_visit(pl_db_rc_frame, (void *)&r);
+        pl_db_rc_t r = { db, b, b + bb_pool_used(), INT_MAX, lo, hi, (const pl_db_rcix_t *)0, 0 };
+        int ok = pl_db_rc_index(&r);
+        if (ok) ok = rt_gc_frames_visit(pl_db_rc_frame, (void *)&r);
         if (ok) rt_gc_segments_visit(pl_db_rc_seg, (void *)&r);
         next_lo = db->n;
         for (int i = lo; i <= hi; i++) {
