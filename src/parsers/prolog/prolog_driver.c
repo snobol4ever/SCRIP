@@ -108,6 +108,40 @@ static void pl_import_one(tree_t *prog, const char *mod, const char *from_file) 
     ct_drop(src);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_text_loads_yall(const char *s) {
+    for (const char *l = s; l && *l; l = strchr(l, '\n') ? strchr(l, '\n') + 1 : (const char *)0) {
+        while (*l == ' ' || *l == '\t') l++;
+        if (l[0] != ':' || l[1] != '-') continue;
+        for (l += 2; *l == ' ' || *l == '\t';) l++;
+        if (strncmp(l, "use_module(", 11)) continue;
+        for (l += 11; *l == ' ' || *l == '\t';) l++;
+        if (strncmp(l, "library(", 8)) continue;
+        for (l += 8; *l == ' ' || *l == '\t';) l++;
+        if (!strncmp(l, "yall", 4) && !(isalnum((unsigned char)l[4]) || l[4] == '_')) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_consults_yall(const tree_t *g, const char *from_file) {
+    if (!g || g->t != TT_FNC || !g->v.sval) return 0;
+    if (g->n == 2 && (!strcmp(g->v.sval, ",") || !strcmp(g->v.sval, ";") || !strcmp(g->v.sval, "->"))) return pl_goal_consults_yall(g->c[0], from_file) || pl_goal_consults_yall(g->c[1], from_file);
+    if (g->n != 1 || (strcmp(g->v.sval, "consult") && strcmp(g->v.sval, "ensure_loaded"))) return 0;
+    const char *sp = pl_consult_spec(g->c[0]);
+    char *path = sp ? pl_consult_resolve(sp, from_file) : (char *)0, *src = path ? pl_slurp(path) : (char *)0;
+    int hit = src && pl_text_loads_yall(src);
+    if (src) ct_drop(src);
+    if (path) ct_drop(path);
+    return hit;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_consults_yall(const PlProgram *pl, const char *from_file) {
+    for (const PlClause *cl = pl->head; cl; cl = cl->next) {
+        const tree_t *tr = cl->tr;
+        if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && pl_goal_consults_yall(tr->c[1], from_file)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *spec; int import; } pl_pend_t;
 static void pl_consult_scan_goal(tree_t *g, cv_t *pending, int *npending) {
     if (!g) return;
@@ -173,6 +207,7 @@ void prolog_compile_finish(void *parsed, const char *filename, tree_t **out_ast)
     if (pl->nerrors > 0) fprintf(stderr, "prolog: %d parse error(s) in %s\n", pl->nerrors, filename);
     if (pl->nclauses == 0) { if (out_ast) *out_ast = NULL; if (pl->nerrors > 0) exit(1); }
     if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(pl, pl->src);
+    pl->consults_yall = pl_consults_yall(pl, filename);
     tree_t *prog = prolog_lower(pl);
     if (out_ast && prog) { *out_ast = prog; pl_splice_consults(*out_ast, filename); }
 }

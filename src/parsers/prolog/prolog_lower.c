@@ -1360,6 +1360,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_yall_loaded(const PlProgram *pl_prog) {
+    if (pl_prog->consults_yall) return 1;
     for (const PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         const tree_t *tr = cl->tr, *g, *a;
         if (!tr || tr->t != TT_CLAUSE || tr->n != 2 || !tr->c[0] || tr->c[0]->t != TT_NUL) continue;
