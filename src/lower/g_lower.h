@@ -351,6 +351,7 @@ typedef struct {
     const tree_t * reassigned_prog;
     lc_vec breassigned;
     const tree_t * breassigned_prog;
+    void * (*parse)(const char *, const char *);
     const char * icn_record_names[512];
     int icn_record_name_count;
 } g_lower_icn_t;

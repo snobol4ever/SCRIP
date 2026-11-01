@@ -41,6 +41,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "ir/stage2.h"
 #include "ir/ast.h"
 #include "lower/lower_icon.h"
+#include "lower/g_lower.h"
 #include "lower/lower_pascal.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_raku.h"
@@ -1660,6 +1661,7 @@ static void icn_register_locals(const char *pname, IR_graph_t *g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int refuse_dash_o(void) { fprintf(stderr, "scrip: -o FILE is refused: SPITBOL's -o=file names the compilation listing, so the assembly output of --compile is --out=FILE\n"); return 2; }
 int main(int argc, char **argv) {
+    g_lower.icn.parse = icon_compile_parse;
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     int mode_run = 0;
     int opt_no_exec = 0, opt_input_after_end = 0;

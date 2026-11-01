@@ -6,7 +6,6 @@
 #include "runtime/builtins/gen.h"
 #include "g_lower.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "parsers/icon/icon_driver.h"
 typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
 typedef struct cx_class { const tree_t * node; const char * name; cx_sv supers, fields, anc; cx_meth * meth; int nmeth, cmeth; const tree_t * init; int built; } cx_class;
@@ -290,7 +289,7 @@ static void cx_prelude(cx_st * st, tree_t * prog) {
         "procedure __uimage(x)\n   local s, t;\n   t := type(x);\n   if not (t[-7:0] == \"__state\") then return image(x);\n   s := image(x);\n   return \"object \" || t[1:-7] || s[find(\"__state\","
         " s) + 7:find(\"(\", s)] || \"(\" || (*x - 2) || \")\";\nend\n");
     if (!sb.n) return;
-    tree_t * pre = (tree_t *) icon_compile_parse(sb.b, "<unicon-prelude>");
+    tree_t * pre = g_lower.icn.parse ? (tree_t *) g_lower.icn.parse(sb.b, "<unicon-prelude>") : (tree_t *) 0;
     for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
