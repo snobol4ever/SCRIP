@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "ct_arena.h"
-#include "ast.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "g_lower.h"

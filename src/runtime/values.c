@@ -1,5 +1,5 @@
-#include "core.h"
-#include "builtins/gen_runtime.h"
+#include "runtime/core/core.h"
+#include "runtime/builtins/gen_runtime.h"
 #include <string.h>
 #include "runtime/core/table.h"
 #include "runtime/core/g_runtime_entry.h"

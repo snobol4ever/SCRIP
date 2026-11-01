@@ -1,9 +1,9 @@
 #define _GNU_SOURCE
 #include <signal.h>
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include "gc_heap.h"
-#include "bb_pool.h"
+#include "ir/bb_pool.h"
 #include <ucontext.h>
 #include <pthread.h>
 #include <stdint.h>

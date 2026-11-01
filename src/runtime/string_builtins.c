@@ -1,8 +1,8 @@
-#include "core.h"
+#include "runtime/core/core.h"
 #include "runtime/core/core_error.h"
-#include "sil_macros.h"
-#include "utf8.h"
-#include "rt/gc_heap.h"
+#include "emitter/sil_macros.h"
+#include "runtime/core/utf8.h"
+#include "runtime/rt/gc_heap.h"
 #include <string.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

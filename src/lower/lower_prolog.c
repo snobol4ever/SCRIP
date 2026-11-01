@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -22,15 +22,15 @@
 #include "emitter/emit_state.h"
 #include "emitter/emit_regime.h"
 #include "planner/frame_layout.h"
-#include "stage2.h"
-#include "../parsers/snobol4/scrip_cc.h"
-#include "../runtime/rt/prolog_atom.h"
-#include "bb_program.h"
-#include "ir_query.h"
+#include "ir/stage2.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/rt/prolog_atom.h"
+#include "ir/bb_program.h"
+#include "optimizer/ir_query.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
 #include "pl_aggregate_names.h"
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 #include "g_lower.h"
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

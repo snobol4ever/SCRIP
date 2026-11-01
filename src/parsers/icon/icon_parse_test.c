@@ -1,5 +1,5 @@
 #include "icon_lex.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "icon_ast.h"
 #include "icon_parse.h"
 #include <stdio.h>

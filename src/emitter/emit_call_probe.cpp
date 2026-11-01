@@ -6,9 +6,9 @@
 #include "planner/frame_layout.h"
 extern "C" {
 #include "emitter/emit_state.h"
-#include "stage2.h"
-#include "ab_abi.h"
-#include "bb_templates.h"
+#include "ir/stage2.h"
+#include "ir/ab_abi.h"
+#include "templates/bb/bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_det_block(const IR_graph_t * g);

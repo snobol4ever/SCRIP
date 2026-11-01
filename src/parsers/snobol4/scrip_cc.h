@@ -1,11 +1,11 @@
 #ifndef SCRIP_CC_H
 #define SCRIP_CC_H
 #include <stdio.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "ast.h"
+#include "ir/ast.h"
 #define expr_right(e)    ((e) && (e)->n >= 2 ? (e)->c[1] : NULL)
 typedef struct STMT_t STMT_t;
 struct STMT_t {

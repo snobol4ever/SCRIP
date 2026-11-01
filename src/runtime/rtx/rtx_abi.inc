@@ -1,8 +1,8 @@
 #ifndef RTX_ABI_INC
 #define RTX_ABI_INC
-#include "../core/g_runtime_abi.inc"
+#include "runtime/core/g_runtime_abi.inc"
 .intel_syntax noprefix
-#include "descr_tags.inc"
+#include "ir/descr_tags.inc"
 #define RTX_NAME(name) .pushsection rtx_entry_names,"a",@progbits; .asciz #name; .popsection
 #define RTX_FUNC(name) .text; .globl name; .type name,@function; .align 16; name: ; .cfi_startproc; endbr64; RTX_NAME(name)
 #define RTX_ENTRY(name) .globl name; .type name,@function; name: ; endbr64; RTX_NAME(name)
@@ -31,4 +31,4 @@
 #define RTX_CALL_ALIGN(k) RTX_PUSH(rsp); RTX_PUSH(qword ptr [rsp]); and rsp, -16; RTX_CFA_DYN(8, k)
 #define RTX_CALL_UNALIGN(k) mov rsp, [rsp + 8]; .cfi_def_cfa rsp, k
 #endif
-#include "../rt/rt_diag.h"
+#include "runtime/rt/rt_diag.h"

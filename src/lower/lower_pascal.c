@@ -1,6 +1,6 @@
 #include <string.h>
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include "ir/ir_node.h"
@@ -1393,8 +1393,8 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     }
     return g;
 }
-#include "stage2.h"
-#include "bb_program.h"
+#include "ir/stage2.h"
+#include "ir/bb_program.h"
 extern int scope_get(Scope *sc, const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_pascal_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }

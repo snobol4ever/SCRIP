@@ -1,6 +1,6 @@
-#include "g_runtime.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -19,11 +19,11 @@
 #include "runtime/builtins/gen.h"
 #include "lower/lower_common.h"
 #include "g_lower.h"
-#include "dtp.h"
-#include "bb_program.h"
+#include "ir/dtp.h"
+#include "ir/bb_program.h"
 #include "parsers/icon/icon_lex.h"
-#include "snobol4_system_fns.h"
-#include "../runtime/core/core_errjmp.h"
+#include "runtime/snobol4_system_fns.h"
+#include "runtime/core/core_errjmp.h"
 int rt_kw_index(const char * kw);
 static int sno_sub_val_on(void) {
     if (g_lower.sno.sno_sub_val_on_v < 0) { const char * e = getenv("SCRIP_SUB_VAL"); g_lower.sno.sno_sub_val_on_v = (e && *e == '0') ? 0 : 1; }

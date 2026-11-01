@@ -1,7 +1,7 @@
-#include "rt/rt_arena.h"
+#include "runtime/rt/rt_arena.h"
 #include "rt_slab.h"
-#include "rt/prolog_atom.h"
-#include "g_runtime.h"
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/g_runtime.h"
 typedef g_atom_hentry_t HEntry;
 typedef g_atom_fentry_t FEntry;
 typedef g_atom_opcol_t OpCol;

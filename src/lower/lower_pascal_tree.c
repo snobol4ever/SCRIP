@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "ct_arena.h"
-#include "ast.h"
-#include "../parsers/snobol4/scrip_cc.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"

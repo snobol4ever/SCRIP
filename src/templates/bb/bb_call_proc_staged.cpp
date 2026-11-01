@@ -1,6 +1,6 @@
 #include "runtime/core/core.h"
 #include <string>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
@@ -18,9 +18,9 @@ extern "C" {
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
-#include "rt/rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail.h"
 #include "bb_pl_cell.h"
-#include "rt/gc_heap.h"
+#include "runtime/rt/gc_heap.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
 void *rt_proc_call_open_det(long idx, int nargs);

@@ -1,6 +1,6 @@
 #include "icon_lex.h"
 #include "parsers/g_parser.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>

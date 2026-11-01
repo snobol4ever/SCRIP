@@ -1,5 +1,5 @@
 %{
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 %}
 %code requires {
 #include "scrip_cc.h"

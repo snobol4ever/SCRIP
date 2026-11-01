@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "rx.h"
-#include "rt/rt_arena.h"
+#include "runtime/rt/rt_arena.h"
 #define RX_ALLOC(n) rx_alloc0(n)
 #define RX_REALLOC(p, n) rt_wsb_realloc((p), (n))
 static void *rx_alloc0(size_t n) { void *p = rt_wsb_alloc(n); memset(p, 0, n ? n : 1); return p; }

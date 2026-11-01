@@ -778,7 +778,7 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

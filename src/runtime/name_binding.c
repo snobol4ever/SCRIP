@@ -1,4 +1,4 @@
-#include "builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

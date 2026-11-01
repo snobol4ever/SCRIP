@@ -1,7 +1,7 @@
 %{
-#include "ct_arena.h"
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "pascal.tab.h"
 #include <stdio.h>
 #include <stdlib.h>

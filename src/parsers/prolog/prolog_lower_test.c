@@ -1,8 +1,8 @@
 #include "prolog_lower.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "prolog_parse.h"
-#include "rt/prolog_atom.h"
-#include "scrip_cc.h"
+#include "runtime/rt/prolog_atom.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

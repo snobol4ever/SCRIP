@@ -3,13 +3,13 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include "ct_arena.h"
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "rk_tree.h"
 #include "rk_regex.h"
 #include "rk_syntax.h"
-#include "rk_opname.h"
+#include "ir/rk_opname.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
 typedef struct { const char **k; int n, cap; } NS;

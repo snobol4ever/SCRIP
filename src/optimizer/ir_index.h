@@ -2,7 +2,7 @@
 #define IR_INDEX_H
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <stdint.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

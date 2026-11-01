@@ -1,4 +1,4 @@
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

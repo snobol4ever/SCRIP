@@ -1,16 +1,16 @@
 #include <string.h>
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/ir_construct.h"
 #include "frame_layout.h"
 #include "zeta_depth.h"
-#include "gc_frame_map.h"
-#include "ast.h"
-#include "g_lower.h"
-#include "call_forms.h"
+#include "ir/gc_frame_map.h"
+#include "ir/ast.h"
+#include "lower/g_lower.h"
+#include "ir/call_forms.h"
 #include "runtime/rt/pl_trail_layout.h"
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
@@ -2430,7 +2430,7 @@ int zls_g_resume_by_name(const char *name) { if (!name) return -1; for (int i = 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "gc_frame_map.h"
+#include "ir/gc_frame_map.h"
 _Static_assert(GC_LAY_DESCR == ZK_DESCR && GC_LAY_RAW == ZK_RAW && GC_LAY_PTR_GC == ZK_PTR_GC && GC_LAY_PTR_CODE == ZK_PTR_CODE && GC_LAY_PTR_FRAME == ZK_PTR_FRAME &&
     GC_LAY_PTR_FRAME_H == ZK_PTR_FRAME_H,
     "a layout quad's kind IS the zls_field kind: the emitter seals zls_field_t.kind unchanged after the map's four quads and the collector reads it back as GC_LAY_*, so the two enumerations must agr"

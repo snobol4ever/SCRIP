@@ -1,6 +1,6 @@
 #ifndef G_RUNTIME_ZSM_H
 #define G_RUNTIME_ZSM_H
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 #define ZSM_N 65536
 #define ZSM_TRACE 2048
 typedef struct { unsigned long node, E, F, rsp_a, live; int state; } zsm_ent;

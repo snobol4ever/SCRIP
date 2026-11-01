@@ -75,7 +75,7 @@
 /* First part of user prologue.  */
 #line 1 "snobol4.y"
 
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 
 #line 81 "snobol4.tab.c"
 

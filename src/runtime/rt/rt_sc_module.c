@@ -1,18 +1,18 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <sys/resource.h>
 #include "ir/descr.h"
-#include "core.h"
-#include "ast.h"
-#include "pin_va.h"
+#include "runtime/core/core.h"
+#include "ir/ast.h"
+#include "ir/pin_va.h"
 #include "rt_sc_module.h"
 enum { SC_GVA_RESERVE = 741 };
-#include "../rtx/rtcc.h"
+#include "runtime/rtx/rtcc.h"
 extern void core_lib_init(void);
 extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 extern DESCR_t *rt_gva_island(int n);

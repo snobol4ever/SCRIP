@@ -1,19 +1,19 @@
 #include <stdio.h>
-#include "g_runtime.h"
-#include "rt/rt_arena.h"
-#include "rt/gc_heap.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/gc_heap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "core.h"
+#include "runtime/core/core.h"
 #include "eval_blocks.h"
-#include "dtp.h"
+#include "ir/dtp.h"
 #include "keywords.h"
-#include "sil_macros.h"
-#include "../parsers/snobol4/scrip_cc.h"
+#include "emitter/sil_macros.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "ir/ir_graph.h"
-#include "pin_va.h"
+#include "ir/pin_va.h"
 #include "runtime/core/core_error.h"
 #include "runtime/core/nv.h"
 #include "runtime/core/setexit.h"
@@ -23,8 +23,8 @@ _Static_assert(RT_DCAP_TOP == 0x70000000UL,
 _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL,
     "rt_chain_enter/rt_chain_enter_v bound-test r12 against base+67108864 written literally in their asm to tell a LIVE pend top from C's own callee-saved value; if the island resizes the test admit"
     "s or rejects the wrong halves of it");
-#include "stage2.h"
-#include "core/core_errjmp.h"
+#include "ir/stage2.h"
+#include "runtime/core/core_errjmp.h"
 extern void *rt_wsb_alloc(size_t n);
 extern const char *Σ;
 extern int Ω;

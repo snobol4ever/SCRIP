@@ -10,7 +10,7 @@ extern "C" {
 void rt_icn_cset_register(const char *ptr, int len);
 int prolog_atom_intern_lit(const char *s);
 const char * bb_ab_sym_name(const char * nm);
-#include "dtp.h"
+#include "ir/dtp.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"

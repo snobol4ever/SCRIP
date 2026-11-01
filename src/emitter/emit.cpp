@@ -635,12 +635,12 @@ static int zrow_partvs(const IR_t * nd, int j);
 static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
-#include "../runtime/builtins/gen.h"
-#include "../rt/rt.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/rt/rt.h"
 #include "ir/bb_box.h"
-#include "../optimizer/gva_collect.h"
-#include "../optimizer/proc_collect.h"
-#include "../optimizer/ir_query.h"
+#include "optimizer/gva_collect.h"
+#include "optimizer/proc_collect.h"
+#include "optimizer/ir_query.h"
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -4227,7 +4227,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
 extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden")));
 extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
 static uint32_t rtxe_hash(const char * s) { uint32_t h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
-#include "../runtime/rt_entry_table.inc"
+#include "runtime/rt_entry_table.inc"
 extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
     if (!sym) return 0u;
     for (int i = 0; i < RT_ENTRIES; i++) if (g_rt_entries[i].sym[0] == sym[0] && strcmp(g_rt_entries[i].sym, sym) == 0) return g_rt_entries[i].clobbers & ~(unsigned)RT_CLOB_STATED;
@@ -4236,11 +4236,11 @@ extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
 struct rtx_ssr_t { const char * s; long n; };
 struct rt_dcap_next_t { long fn; long how; };
 #define RTX_TWIN(kind, ret, leaf, twin, args) extern "C" ret twin args;
-#include "../templates/x86/rtx_twin_table.inc"
+#include "templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
 static const struct { char sym[36]; char cname[36]; void * caddr; int kind; } rtx_twin_tab[] = {
 #define RTX_TWIN(kind, ret, leaf, twin, args) { #leaf, #twin, (void *)twin, RTX_VERDICT_##kind },
-#include "../templates/x86/rtx_twin_table.inc"
+#include "templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
 };
 extern "C" void * emit_rtx_twin(const char * sym, const char ** cname, int * kind) {
@@ -4573,8 +4573,8 @@ void unify_prepare(IR_t *nd) {
 void emit_text_s(const std::string & s) { if (!s.empty()) emit_text_n(s.data(), s.size()); }
 void emit_write_file_s(const char * path, const std::string & s) { FILE * f = fopen(path, "w"); if (f) { fputs(s.c_str(), f); fclose(f); } }
 extern "C" {
-#include "builtin_ids.h"
-#include "snobol4_system_fns.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/snobol4_system_fns.h"
 DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
 DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);

@@ -1,8 +1,8 @@
 #include "parsers/rebus/rebus.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "lower_rebus.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "ast.h"
+#include "ir/ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

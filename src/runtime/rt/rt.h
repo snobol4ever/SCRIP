@@ -68,7 +68,7 @@ void rt_choice_cut_unwind(void *cp);
 int rt_get_cut_flag(void);
 long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 void rt_init_arbno(void **slot_ptr, void *child_fn);
-#include "bb_box.h"
+#include "ir/bb_box.h"
 #include "ir/ir_fwd.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);

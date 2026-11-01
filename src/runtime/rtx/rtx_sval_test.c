@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 #include "ir/descr.h"
-#include "core.h"
-#include "gc_heap.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap.h"
 DESCR_t rt_subscript_val(DESCR_t, DESCR_t);
 DESCR_t c_rt_subscript_val(DESCR_t, DESCR_t);
 DESCR_t rt_subscript_val_strict(DESCR_t, DESCR_t);

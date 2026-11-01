@@ -4,7 +4,7 @@
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"
-#include "ast.h"
+#include "ir/ast.h"
 #include "ir/descr.h"
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);

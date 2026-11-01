@@ -55,8 +55,8 @@ extern int sc_debug;
 /* "%code requires" blocks.  */
 #line 6 "snocone_parse.y"
 
-#include "scrip_cc.h"
-#include "ct_vec.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/ct_vec.h"
 struct LexCtx;
 struct IfHead;
 struct WhileHead;

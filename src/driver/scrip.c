@@ -1,10 +1,10 @@
-#include "g_runtime.h"
-#include "g_runtime_abi.inc"
+#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_abi.inc"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdarg.h>
-#include "../ir/pin_va.h"
+#include "ir/pin_va.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,23 +19,23 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/resource.h>
-#include "../parsers/snobol4/scrip_cc.h"
-#include "../parsers/snocone/snocone_driver.h"
-#include "../parsers/prolog/prolog_driver.h"
-#include "../runtime/rt/prolog_atom.h"
-#include "../parsers/icon/icon_driver.h"
-#include "../parsers/pascal/pascal_driver.h"
-#include "../parsers/raku/raku_driver.h"
-#include "../lower/lower_rebus.h"
-#include "../runtime/builtins/gen.h"
-#include "../parsers/icon/icon_lex.h"
-#include "../ir/bb_box.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "parsers/snocone/snocone_driver.h"
+#include "parsers/prolog/prolog_driver.h"
+#include "runtime/rt/prolog_atom.h"
+#include "parsers/icon/icon_driver.h"
+#include "parsers/pascal/pascal_driver.h"
+#include "parsers/raku/raku_driver.h"
+#include "lower/lower_rebus.h"
+#include "runtime/builtins/gen.h"
+#include "parsers/icon/icon_lex.h"
+#include "ir/bb_box.h"
 extern void ir_print_node (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern int pl_dyn_is_marked(const char *name, int arity);
-#include "core.h"
-#include "sil_macros.h"
-#include "runtime_shim.h"
+#include "runtime/core/core.h"
+#include "emitter/sil_macros.h"
+#include "runtime/core/runtime_shim.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
@@ -49,7 +49,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "ir/ir_graph.h"
 #include "lower/lower_common.h"
 #include "lower/lower_pascal_tree.h"
-#include "lower_snobol4.h"
+#include "lower/lower_snobol4.h"
 #include "emitter/emit_medium.h"
 #include "emitter/emit_state.h"
 #include "emitter/emit_data.h"
@@ -184,9 +184,9 @@ __asm__(".globl rt_outer_call_icn_root\n.type rt_outer_call_icn_root, @function\
 extern const char *Σ;
 extern int Ω;
 extern int Δ;
-#include "../runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime.h"
 #include "driver/polyglot.h"
-#include "../tools/emit_per_kind_audit.h"
+#include "tools/emit_per_kind_audit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

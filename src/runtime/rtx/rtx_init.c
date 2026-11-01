@@ -1,10 +1,10 @@
 #include "ir/descr.h"
-#include "g_runtime.h"
-#include "core.h"
-#include "gc_heap.h"
-#include "gen.h"
-#include "rt_diag.h"
-#include "pin_va.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/rt/rt_diag.h"
+#include "ir/pin_va.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>

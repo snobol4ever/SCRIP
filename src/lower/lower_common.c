@@ -1,7 +1,7 @@
 #define BB_DEFINE_NAMES
-#include "rt/rt_arena.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "runtime/rt/rt_arena.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/ir_node.h"
@@ -12,8 +12,8 @@
 #include "lower/lower_common.h"
 #include "lower/lc_vec.h"
 #include "g_lower.h"
-#include "bb_program.h"
-#include "../runtime/core/coerce.h"
+#include "ir/bb_program.h"
+#include "runtime/core/coerce.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

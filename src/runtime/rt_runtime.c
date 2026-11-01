@@ -1,16 +1,16 @@
-#include "rt/rt_arena.h"
-#include "g_runtime.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/core/g_runtime.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "rt/rt.h"
+#include "runtime/rt/rt.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "lower/lower_common.h"
-#include "../../emitter/sil_macros.h"
-#include "rt/prolog_atom.h"
+#include "emitter/sil_macros.h"
+#include "runtime/rt/prolog_atom.h"
 #include "re.h"
 #include <stddef.h>
 #include <string.h>
@@ -20,8 +20,8 @@
 #include <limits.h>
 #include <ctype.h>
 #include <setjmp.h>
-#include "../../parsers/prolog/pl_cell.h"
-#include "../ir/dtp.h"
+#include "parsers/prolog/pl_cell.h"
+#include "ir/dtp.h"
 #include "runtime/core/table.h"
 #include "runtime/core/nv.h"
 #include "runtime/pattern_match.h"
@@ -29,18 +29,18 @@ extern const char *Σ;
 extern int Δ;
 extern int Ω;
 extern int Σlen;
-#include "core.h"
-#include "rt/rt_list_view.h"
-#include "../runtime/builtins/gen_runtime.h"
-#include "../runtime/builtins/gen_value.h"
-#include "coerce.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/rt_list_view.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_value.h"
+#include "runtime/core/coerce.h"
 extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
 extern DESCR_t *data_field_ptr(const char *field, DESCR_t obj);
 typedef struct { char * name; int nfields; char ** fields; } DatType;
 extern DatType *dat_register(const char *spec);
 extern DatType *dat_find_type(const char *name);
 extern DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs);
-#include "bb_box.h"
+#include "ir/bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,7 +1,7 @@
 #include "icon_parse.h"
-#include "ct_arena.h"
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

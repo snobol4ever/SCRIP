@@ -1,11 +1,11 @@
 #ifndef REBUS_H
 #define REBUS_H
 #include <stdio.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "ast.h"
+#include "ir/ast.h"
 typedef struct RCase RCase;
 struct RCase {
     int       is_default;

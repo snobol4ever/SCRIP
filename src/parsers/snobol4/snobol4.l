@@ -1,5 +1,5 @@
 %{
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"

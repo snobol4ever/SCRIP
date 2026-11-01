@@ -1,6 +1,6 @@
 #include "prolog_lex.h"
-#include "ct_arena.h"
-#include "ast.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

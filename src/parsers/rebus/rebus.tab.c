@@ -79,10 +79,10 @@
 /* First part of user prologue.  */
 #line 1 "rebus.y"
 
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "rebus.h"
-#include "ast.h"
-#include "../../parsers/snobol4/scrip_cc.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

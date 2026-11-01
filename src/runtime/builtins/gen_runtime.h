@@ -1,12 +1,12 @@
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
-#include "ast.h"
-#include "../../parsers/snobol4/scrip_cc.h"
-#include "bb_box.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/bb_box.h"
 #include "gen.h"
 #include "ir/ir_fwd.h"
-#include "SM.h"
-#include "stage2.h"
+#include "ir/SM.h"
+#include "ir/stage2.h"
 struct GeneratorState;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t *bb_graph_of_proc(const ProcEntry *e);
@@ -34,5 +34,5 @@ const char *cset_union(const char *a, int alen, const char *b, int blen, int *ou
 const char *cset_diff(const char *a, int alen, const char *b, int blen, int *outlen);
 const char *cset_inter(const char *a, int alen, const char *b, int blen, int *outlen);
 const char *cset_canonical(const char *cs, int len);
-#include "../keywords.h"
+#include "runtime/keywords.h"
 #endif

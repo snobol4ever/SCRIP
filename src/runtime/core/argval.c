@@ -1,10 +1,10 @@
-#include "rt/rt_arena.h"
+#include "runtime/rt/rt_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "core.h"
-#include "sil_macros.h"
+#include "emitter/sil_macros.h"
 #include "runtime/core/nv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t VARVAL_d_fn(DESCR_t d) {

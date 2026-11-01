@@ -1,24 +1,24 @@
 #include <stdio.h>
-#include "g_runtime.h"
-#include "rtx_try.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/rtx_try.h"
 #include <errno.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <stddef.h>
-#include "dtp.h"
-#include "core.h"
+#include "ir/dtp.h"
+#include "runtime/core/core.h"
 #include "pattern_blocks.h"
-#include "rtx/rtcc.h"
-#include "ast.h"
-#include "../parsers/snobol4/scrip_cc.h"
-#include "sil_macros.h"
-#include "builtins/gen_runtime.h"
-#include "rt/gc_heap.h"
-#include "rt_diag.h"
-#include "rt/rt_arena.h"
-#include "rt/rt_protected.h"
+#include "runtime/rtx/rtcc.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "emitter/sil_macros.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/rt_diag.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/rt_protected.h"
 #include "snobol4_system_fns.h"
 #include "runtime/core/array.h"
 #include "runtime/core/core_error.h"
@@ -860,7 +860,7 @@ void rt_defer_pairs_forget(void) {
     for (int i = 0; i < g_runtime.misc.sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
     g_runtime.misc.sno_defer_pair_hwm = 0;
 }
-#include "pin_va.h"
+#include "ir/pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
 static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend, int vcode);

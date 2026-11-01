@@ -3,7 +3,7 @@
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"
-#include "../runtime/rt/rt_coexpr.h"
+#include "runtime/rt/rt_coexpr.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"

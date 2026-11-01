@@ -1,7 +1,7 @@
 #include <stddef.h>
-#include "g_runtime.h"
-#include "rt_diag.h"
-#include "g_runtime_abi.inc"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/rt_diag.h"
+#include "runtime/core/g_runtime_abi.inc"
 g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .misc = { .sn4_direct_v = -1, .monitor_quiet_depth = 0, .kw_stcount = 0, .kw_anchor = 0, .kw_stlimit = -1, .kw_trace = 0,
     .core_stack_floor_raised = 0, .core_err_active = 0, .kw_ctx = 0, .icn_errnumber = 0, .icn_errtext = "", .icn_err_valid = 0, .root = NULL, .bb_rnd_seed = 12345UL, .sno_defer_pair_hwm = 0,
     .dcap_base = 0, }, .abi = { .hp_fr = { .zfull = -1 }, .sxt_fr = { .off = -1 }, .error = 0, .trace = 0, .dump = 0, .random = 0, .stno = 0, .stcount = 0, .lastno = 0, .line = 0, .lastline = 0,
@@ -26,4 +26,4 @@ g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .misc = { .sn
     .zsm_fsm_illegal = 0UL, .zsm_gamma_events = 0UL, .zsm_leaked_at_exit = 0UL, .zsm_alpha_while_live = 0UL, .zsm_rsp0 = 0UL, .zsm_stmt0 = 0UL, .zsm_seen_n = 0UL, .zdp_rbp_violations = 0UL,
     .zdp_rbp_nobank = 0UL, }, .slab = { .pool_bytes = 0, .mx = PTHREAD_MUTEX_INITIALIZER, }, .agg = { .agg_list_ser = 1, .agg_table_ser = 1, .agg_set_ser = 1, .agg_external_ser = 1, .sno_dumpno = 0,
     }, .atoms = { .atom_dot = -1, .atom_nil = -1, .atom_true = -1, .atom_fail = -1, .atom_cut = -1, .functor_dot2 = -1 }, };
-#include "g_runtime_abi_check.inc"
+#include "runtime/core/g_runtime_abi_check.inc"

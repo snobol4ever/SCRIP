@@ -1,32 +1,32 @@
 #define _GNU_SOURCE 1
 #include <errno.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <dlfcn.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "rt.h"
-#include "../keywords.h"
+#include "runtime/keywords.h"
 #include "rt_arena.h"
 #include "rt_coexpr.h"
 #include "rt_pl_trail.h"
 #include <unistd.h>
 #include <stddef.h>
-#include "../ir/pin_va.h"
-#include "../ir/dtp.h"
-#include "../ir/ab_abi.h"
+#include "ir/pin_va.h"
+#include "ir/dtp.h"
+#include "ir/ab_abi.h"
 #include <alloca.h>
 #include "gc_heap.h"
-#include "core.h"
+#include "runtime/core/core.h"
 #include "rt_list_view.h"
 #include "ir/descr.h"
-#include "sil_macros.h"
-#include "bb_pool.h"
-#include "bb_box.h"
-#include "rt_proc_block.h"
-#include "bb_pool.h"
+#include "emitter/sil_macros.h"
+#include "ir/bb_pool.h"
 #include "ir/bb_box.h"
-#include "ast.h"
-#include "SM.h"
-#include "rt/prolog_atom.h"
+#include "rt_proc_block.h"
+#include "ir/bb_pool.h"
+#include "ir/bb_box.h"
+#include "ir/ast.h"
+#include "ir/SM.h"
+#include "runtime/rt/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -108,7 +108,7 @@ int rt_case_eq(const DESCR_t *sel, const DESCR_t *key) {
     if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
     { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
 }
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 extern void *bb_arbno_new(void *fn, void *state);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_nv_cstr(const char *name) { const char *s = VARVAL_fn(NV_GET_fn(name ? name : "")); return s ? s : ""; }
@@ -2498,7 +2498,7 @@ DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur) {
 }
 extern int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 extern int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
-#include "SM.h"
+#include "ir/SM.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include <string.h>
 #include <stdlib.h>

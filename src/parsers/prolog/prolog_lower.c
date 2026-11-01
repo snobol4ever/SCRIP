@@ -1,11 +1,11 @@
 #include "prolog_lower.h"
 #include "parsers/g_parser.h"
 #include "prolog_lex.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
-#include "rt/prolog_atom.h"
-#include "scrip_cc.h"
-#include "stage2.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
+#include "runtime/rt/prolog_atom.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/stage2.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

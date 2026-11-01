@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef PROLOG_DRIVER_H
 #define PROLOG_DRIVER_H
-#include "ast.h"
+#include "ir/ast.h"
 void prolog_compile(const char *source, const char *filename, tree_t **out_ast);
 void *prolog_compile_parse(const char *source, const char *filename);
 void  prolog_compile_finish(void *parsed, const char *filename, tree_t **out_ast);

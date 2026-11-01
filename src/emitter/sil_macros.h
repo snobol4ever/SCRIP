@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
-#include "core.h"
+#include "runtime/core/core.h"
 #define IS_INT(d) ((d).v == DT_I)
 #define IS_REAL(d) ((d).v == DT_R)
 #define IS_STR(d) ((d).v == DT_S || (d).v == DT_SNUL)

@@ -2,7 +2,7 @@
 #define G_LOWER_H
 #include <stdint.h>
 #include <stddef.h>
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 #include "lc_vec.h"
 typedef struct tree_t tree_t;
 typedef struct IR_t IR_t;

@@ -2,7 +2,7 @@
 #define G_RUNTIME_RT_H
 #include <stddef.h>
 #include "g_runtime_vec.h"
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 #define DCR_CELL_CACHE_SIZE 2048
 struct g_dcr_cell { const char *name; struct DESCR_t *cell; int valid; };
 typedef struct {

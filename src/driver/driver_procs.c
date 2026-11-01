@@ -1,5 +1,5 @@
 #include <alloca.h>
-#include "bb_box.h"
+#include "ir/bb_box.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"

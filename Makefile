@@ -75,9 +75,9 @@ TEST_SHARDS ?= $(shell bash ../harness/scripts/lib_fanout.sh width)
 # ⛔⭐⭐⭐⭐ THE DEFAULT ARENA IS 128 KB AND IT IS COMPILED IN, NOT EXPORTED (Lon 2026-09-21 17:3x, in-chat to the ceo: "So let's take the default GC arena down to 128 KB."; ceo CEO-1095). GC_HEAP_KB in gc_heap.c is the default, so it travels with the BINARY and needs no make variable -- which also retires the blanket `export SCRIP_HEAP_MB ?= 1` this line used to carry, the one test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh arm 1 refuses by name because it changed what every existing gate measured and masked standing reds. MEASURED on two allocating witnesses: 128 KB is the PEAK of collector exasperation, not the floor -- icon concat 1613 collections at 1 MB, 7533 at 256 KB, 21362 at 128 KB, then DOWN to 5429 at 64 KB because the live set no longer fits and the window GROWS. Below the peak, smaller is LESS exasperating.
 SCRIP_HEAP_KB_TINY ?= 128  # kept as the knob `make arena` raises; the old note follows. THE TINY ARENA IS THE EXERCISER OF ALL GC TESTING, AND IT WAS ITS OWN PASS UNTIL CEO-1075 (`make test-arena`), NOT THE BLOCKING SET'S ENVIRONMENT (Lon 2026-09-19 16:1x, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should use a tiny arena to exasperate all the problems all the time."; ceo CEO-931/934/938/939, RULES.md § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2). SCRIP_HEAP_MB is the COMMITTED WINDOW in MB (rt_gcheap_init); at 1 MB a program collects wherever it allocates a megabyte -- 1614 collections against SIX at the shipped 512 on corpus/benchmarks/icon/bench_icnstr_concat_table.icn, stdout identical -- and the reserve is the larger of 8x the window and the shipped default's, so a tiny window REFUSES NO LIVE SET (the cap used to be 8x the window and manufactured three phantom SIGABRTs on the SNOBOL4 rungs; cured at SCRIP e6aab28c7). ⛔ MEASURED AND REVERSED THE SAME SITTING (CEO-939): this was first landed as a blanket `export SCRIP_HEAP_MB ?= 1` here, so every arm of `make test` inherited it. The full 360-arm set then read 326 green / 32 red / 2 refused, and the classification says why that is the wrong shape -- gates that grade the SHIPPED configuration's behaviour flipped red for an arena nobody ships (gc2's Arizona witness and the co-expression frame image are green at 512 and red at 1 MB), while other reds were standing reds the export got blamed for. A landing gate must grade what we ship; the tiny arena is the SECOND pass whose every red is a row. Same logic as CLAUSE 2's published-row refinement.
 DEPFLAGS := -MMD -MP
-CBASE   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -I$(SRC)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86 -I$(RT) $(ZCFLAGS)
+CXXRT   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) $(ZCFLAGS)
 CRT     := $(CBASE) $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
@@ -1928,8 +1928,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_var_frame.cpp
 
 # ⛔ RT_OPT IS DEFINED ONCE, NEAR THE TOP (`grep -n "^RT_OPT" Makefile` names its line). A SECOND `RT_OPT ?=` stood here carrying the RETIRED O0-DEV-O2-BENCH text (s179) — inert by `?=` but read as law by anyone who greps for the flag and lands on the wrong one, which is how a NO-O2-BUILDS violation gets written in good faith. Deleted hq_P s269; the s262 FACT RULE lives at :34 and nowhere else.
-RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
-    -I$(SRC)/parsers/snobol4 -I$(SRC)/parsers/raku -I$(SRC)/optimizer -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86
+RT_INCS := -I$(SRC)
 # ⭐⭐ BUILD CACHE KEYED BY THE FLAGS THAT PRODUCED IT (Lon 2026-08-22 s258, in-chat: "can we enforce a
 # pure incremental build and keep these objects around longer ... That is killing us concerning optimized
 # tests"). MEASURED CAUSE, and it is NOT header fan-out (that was the hypothesis; transitive-include census

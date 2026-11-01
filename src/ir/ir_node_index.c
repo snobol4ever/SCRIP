@@ -1,7 +1,7 @@
 #include "ir/ir_node.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
-#include "g_lower.h"
+#include "lower/g_lower.h"
 #include "ir_node_index.h"
 #include <string.h>
 #include <stdint.h>

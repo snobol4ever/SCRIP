@@ -1,8 +1,8 @@
 #include <string.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <unistd.h>
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
@@ -3218,8 +3218,8 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     g->entry = trace_call_wrap(&cx, rk_proc_name, entry, fail);
     return g;
 }
-#include "stage2.h"
-#include "bb_program.h"
+#include "ir/stage2.h"
+#include "ir/bb_program.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_raku_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

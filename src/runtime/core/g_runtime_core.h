@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include "g_runtime_vec.h"
-#include "ct_vec.h"
+#include "ir/ct_vec.h"
 #define DATA_MAX_TYPES 64
 #define DATA_MAX_FIELDS 16
 #define FIELD_ACCESSOR_MAX (DATA_MAX_TYPES * DATA_MAX_FIELDS)

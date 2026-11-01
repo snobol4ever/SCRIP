@@ -1,7 +1,7 @@
 #include "prolog_driver.h"
 #include "parsers/g_parser.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include "prolog_parse.h"
 #include "prolog_lower.h"
 #include <stdio.h>

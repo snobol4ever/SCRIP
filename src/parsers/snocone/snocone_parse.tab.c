@@ -80,7 +80,7 @@
 /* First part of user prologue.  */
 #line 1 "snocone_parse.y"
 
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 
 #line 86 "snocone_parse.tab.c"
 
@@ -242,7 +242,7 @@ typedef enum yysymbol_kind_t yysymbol_kind_t;
 #include <string.h>
 #include <ctype.h>
 #include "snocone_lex.h"
-#include "../icon/icon_lex.h"
+#include "parsers/icon/icon_lex.h"
 #define expr_new(k)            ast_node_new(k)
 #define expr_add_child(p,c)    ast_push((p),(c))
 #define TT_ASSIGN  TT_ASSIGN

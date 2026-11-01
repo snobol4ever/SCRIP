@@ -1,7 +1,7 @@
 #include "branch_chain.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "ir_index.h"
-#include "g_lower.h"
+#include "lower/g_lower.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

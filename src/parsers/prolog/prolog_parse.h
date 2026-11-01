@@ -1,8 +1,8 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef PL_PARSE_H
 #define PL_PARSE_H
-#include "rt/prolog_atom.h"
-#include "ast.h"
+#include "runtime/rt/prolog_atom.h"
+#include "ir/ast.h"
 #include <stdio.h>
 typedef struct PlClause PlClause;
 struct PlClause {

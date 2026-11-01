@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <pthread.h>
 #include <semaphore.h>
 #include <stddef.h>

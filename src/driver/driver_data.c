@@ -1,5 +1,5 @@
-#include "rt/rt_arena.h"
-#include "rt/gc_heap.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/gc_heap.h"
 #include <stdio.h>
 #include <string.h>
 #include "runtime/core/core.h"
@@ -8,7 +8,7 @@
 #include "driver/driver_globals.h"
 #include "ir/ct_vec.h"
 #include "driver/driver_data.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/array.h"
 #include "runtime/core/core_error.h"
@@ -613,4 +613,4 @@ DESCR_t *data_field_ptr(const char *fname, DESCR_t inst) {
     for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], fname) == 0) return &inst.u->fields[i];
     return NULL;
 }
-#include "../runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime.h"

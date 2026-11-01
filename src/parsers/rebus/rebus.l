@@ -1,5 +1,5 @@
 %{
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

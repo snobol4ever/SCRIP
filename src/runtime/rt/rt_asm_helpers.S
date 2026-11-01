@@ -1,5 +1,5 @@
-#include "descr_tags.inc"
-#include "g_runtime_entry.h"
+#include "ir/descr_tags.inc"
+#include "runtime/core/g_runtime_entry.h"
     .data
     .align 1
     .globl rtx_gate_leaf

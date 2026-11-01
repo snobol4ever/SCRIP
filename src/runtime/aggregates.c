@@ -1,8 +1,8 @@
-#include "rt/rt_arena.h"
-#include "g_runtime.h"
-#include "rt/gc_heap.h"
-#include "core.h"
-#include "sil_macros.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/core/core.h"
+#include "emitter/sil_macros.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>

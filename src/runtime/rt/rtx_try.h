@@ -1,7 +1,7 @@
 #ifndef RTX_TRY_H
 #define RTX_TRY_H
 #include "ir/descr.h"
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include "gc_heap.h"
 #ifdef __cplusplus
 extern "C" {

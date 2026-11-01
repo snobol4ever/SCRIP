@@ -1,5 +1,5 @@
-#include "core.h"
-#include "rt/rt.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/rt.h"
 #include "pl_rat.h"
 #include <math.h>
 #include <stdint.h>

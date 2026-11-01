@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "../../ir/ast.h"
+#include "ir/ast.h"
 #include "rk_regex.h"
 #define RXF_I 1
 #define RXF_M 2

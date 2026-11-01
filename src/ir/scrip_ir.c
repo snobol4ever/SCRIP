@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "g_lower.h"
+#include "lower/g_lower.h"
 static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR",
     [IR_VAR_REF] = "IR_VAR_REF", [IR_VAR_FRAME] = "IR_VAR_FRAME", [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME", [IR_ACTIVATE] = "IR_ACTIVATE", [IR_ASSIGN] = "IR_ASSIGN", [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR",
     [IR_BINOP] = "IR_BINOP", [IR_BINOP_TEST] = "IR_BINOP_TEST", [IR_BINOP_RELOP_VAL] = "IR_BINOP_RELOP_VAL", [IR_UNOP] = "IR_UNOP", [IR_UNOP_TEST] = "IR_UNOP_TEST", [IR_CALL] = "IR_CALL",

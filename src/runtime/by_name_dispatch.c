@@ -1,14 +1,14 @@
 #include "runtime/core/core.h"
 #include <glob.h>
 #include <sys/utsname.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <sys/resource.h>
-#include "rtx_try.h"
-#include "dtp.h"
+#include "runtime/rt/rtx_try.h"
+#include "ir/dtp.h"
 #include "by_name_dispatch.h"
-#include "rk_opname.h"
-#include "ct_arena.h"
-#include "rt/rt_diag.h"
+#include "ir/rk_opname.h"
+#include "ir/ct_arena.h"
+#include "runtime/rt/rt_diag.h"
 #include "runtime/core/array.h"
 #include "runtime/core/core_error.h"
 #include "runtime/core/datatype.h"
@@ -26,8 +26,8 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include <setjmp.h>
 #include <math.h>
 #include "snobol4_system_fns.h"
-#include "pl_arith_names.h"
-#include "pl_control_names.h"
+#include "lower/pl_arith_names.h"
+#include "lower/pl_control_names.h"
 #include "rk_case_table.inc"
 int core_icn_error(int code, DESCR_t val);
 void rt_pl_iso_throw_existence_key(const char *key);
@@ -158,16 +158,16 @@ static int icn_cvt_num_ok(DESCR_t d) {
     while (*e == ' ') e++;
     return !*e && !(isinf(x) && strpbrk(p, ".eE"));
 }
-#include "rt/rt_arena.h"
-#include "rt/gc_heap.h"
-#include "rt/prolog_atom.h"
-#include "ct_vec.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/prolog_atom.h"
+#include "ir/ct_vec.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 void rt_call_args_clear_from(int n);
 #define CALL_ARGS ((DESCR_t *)g_call_args.p)
-#include "builtins/gen_value.h"
-#include "builtins/gen_runtime.h"
+#include "runtime/builtins/gen_value.h"
+#include "runtime/builtins/gen_runtime.h"
 #include "runtime/builtins/gen.h"
 #include "emitter/sil_macros.h"
 #include "runtime/core/runtime_shim.h"
@@ -179,17 +179,17 @@ void rt_call_args_clear_from(int n);
 #include "driver/driver_data.h"
 #include "re.h"
 #include "rx.h"
-#include "core.h"
+#include "runtime/core/core.h"
 extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
-#include "core/utf8.h"
+#include "runtime/core/utf8.h"
 #include "builtin_ids.h"
 #include "builtin_table.inc"
 #include "pattern_match.h"
-#include "rt/rt.h"
-#include "rt/rt_list_view.h"
-#include "rt/rt_protected.h"
+#include "runtime/rt/rt.h"
+#include "runtime/rt/rt_list_view.h"
+#include "runtime/rt/rt_protected.h"
 #include "pl_rat.h"
-#include "gc_frame_map.h"
+#include "ir/gc_frame_map.h"
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -256,9 +256,9 @@ int icn_builtin_arity(const char *name) {
     for (int i = 0; tbl[i].nm; i++) if (tbl[i].nm[0] == name[0] && !strcmp(tbl[i].nm, name)) return tbl[i].np;
     return ICN_ARITY_UNKNOWN;
 }
-#include "../parsers/prolog/pl_cell.h"
-#include "rt/rt_pl_trail.h"
-#include "rt/pl_rational.h"
+#include "parsers/prolog/pl_cell.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "runtime/rt/pl_rational.h"
 static inline __attribute__((always_inline)) int plw_n_self(const DESCR_t *c) { return c->v == DT_N && c->slen == 1 && c->p == (void *)c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c) || plw_n_self(c); }
@@ -6807,8 +6807,8 @@ DESCR_t dop_nl(DESCR_t *args, int nargs) {
     { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "../parsers/prolog/prolog_parse.h"
-#include "core/core_errjmp.h"
+#include "parsers/prolog/prolog_parse.h"
+#include "runtime/core/core_errjmp.h"
 int rt_pl_keysort_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_compare_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_atop_cell(int, void *, void *);

@@ -1,5 +1,5 @@
-#include "../core/core.h"
-#include "../rt/rt_arena.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/rt_arena.h"
 __attribute__((visibility("hidden"))) unsigned char rtx_gate_str = 0;
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,5 +1,5 @@
 #include <algorithm>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <string>
 #include <cstdint>
 #include <cstdio>
@@ -10,8 +10,8 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
-#include "pin_va.h"
-#include "rt.h"
+#include "ir/pin_va.h"
+#include "runtime/rt/rt.h"
 #include "runtime/core/trace.h"
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
@@ -222,7 +222,7 @@ static std::string bb_define_bind() {
 extern "C" {
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
-#include "pin_va.h"
+#include "ir/pin_va.h"
 #include "runtime/rtx/rtcc.h"
 int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int rt_proc_nformals(const char *);

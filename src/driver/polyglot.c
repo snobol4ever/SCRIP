@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include "parsers/snobol4/scrip_cc.h"
@@ -25,7 +25,7 @@
 #include "lower/lower_snocone.h"
 #include "runtime/builtins/gen.h"
 #include "lower/lower_pascal_tree.h"
-#include "SM.h"
+#include "ir/SM.h"
 int g_fi8_gen_init_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void polyglot_init(stage2_t *s2, const tree_t *prog) {

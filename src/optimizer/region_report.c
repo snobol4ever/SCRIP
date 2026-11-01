@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include "ir/ir_node.h"

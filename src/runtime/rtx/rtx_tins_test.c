@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 #include "ir/descr.h"
-#include "core.h"
-#include "gc_heap.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap.h"
 DESCR_t rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 DESCR_t c_rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 extern int g_gc_pending;

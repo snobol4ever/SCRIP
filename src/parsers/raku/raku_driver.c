@@ -1,6 +1,6 @@
 #include "raku_driver.h"
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "rk_syntax.h"
 #include <stdio.h>
 #include <string.h>

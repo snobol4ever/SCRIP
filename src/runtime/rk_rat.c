@@ -1,9 +1,9 @@
-#include "core.h"
-#include "rt/rt.h"
-#include "rt/gc_heap.h"
-#include "builtins/gen.h"
-#include "rt/rt_arena.h"
-#include "dtp.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/rt.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/rt/rt_arena.h"
+#include "ir/dtp.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>

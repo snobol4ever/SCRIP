@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "ir/descr.h"
-#include "core.h"
+#include "runtime/core/core.h"
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t rt_pas_resundef(DESCR_t *, int);
 DESCR_t rt_pas_sin(DESCR_t *, int);

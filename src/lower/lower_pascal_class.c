@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "ct_arena.h"
-#include "ast.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
 #include "lower_pascal_class.h"
 #define PC_IS(x, k) ((x) && (x)->t == (k))
 typedef struct pc_class pc_class;

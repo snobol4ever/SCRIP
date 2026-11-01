@@ -715,7 +715,7 @@ static const flex_int16_t yy_chk[855] =
 #define yymore() yymore_used_but_not_detected
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"

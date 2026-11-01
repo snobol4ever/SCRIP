@@ -1,7 +1,7 @@
 #include "ir/ir_graph.h"
 #include "zeta_depth.h"
-#include "ct_vec.h"
-#include "g_lower.h"
+#include "ir/ct_vec.h"
+#include "lower/g_lower.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

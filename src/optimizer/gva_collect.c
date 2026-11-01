@@ -1,8 +1,8 @@
 #include "gva_collect.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "g_lower.h"
+#include "lower/g_lower.h"
 #include <string.h>
 #include <stdlib.h>
 #include <strings.h>

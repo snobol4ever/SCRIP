@@ -1,5 +1,5 @@
 #include <string>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 extern "C" {
 #include "emitter/emit_state.h"
 }

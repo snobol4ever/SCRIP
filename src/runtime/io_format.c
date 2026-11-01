@@ -1,6 +1,6 @@
-#include "rt/rt.h"
-#include "core.h"
-#include "rt/prolog_atom.h"
+#include "runtime/rt/rt.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -7,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
-#include "ast.h"
+#include "ir/ast.h"
 #if defined(PARSER_LANG_SNOBOL4)
 #include "parsers/snobol4/scrip_cc.h"
 #define PARSER_NAME "snobol4"

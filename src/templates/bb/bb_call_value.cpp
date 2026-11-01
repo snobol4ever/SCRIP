@@ -1,5 +1,5 @@
 #include <string>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <algorithm>
 #include <stdint.h>
 #include "ir/ir_node.h"

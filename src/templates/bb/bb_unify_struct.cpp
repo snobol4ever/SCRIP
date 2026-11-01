@@ -6,9 +6,9 @@ extern "C" {
 #include "ir/descr_tags.h"
 void rt_pl_tr_refuse(const char *);
 int prolog_functor_arity(int);
-#include "rt/gc_heap.h"
+#include "runtime/rt/gc_heap.h"
 }
-#include "rt/rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"

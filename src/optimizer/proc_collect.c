@@ -1,6 +1,6 @@
 #include "proc_collect.h"
-#include "ct_arena.h"
-#include "g_lower.h"
+#include "ir/ct_arena.h"
+#include "lower/g_lower.h"
 #include <string.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

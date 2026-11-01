@@ -1,6 +1,6 @@
-#include "rt/rt_arena.h"
-#include "ct_arena.h"
-#include "coerce.h"
+#include "runtime/rt/rt_arena.h"
+#include "ir/ct_arena.h"
+#include "runtime/core/coerce.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -4,7 +4,7 @@
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
 #include "emitter/emit.h"
-#include "SM.h"
+#include "ir/SM.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

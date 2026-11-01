@@ -1,7 +1,7 @@
 #include <string.h>
-#include "../ir/cset_block.h"
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "ir/cset_block.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <math.h>
 #include "ir/ir_node.h"
@@ -3393,7 +3393,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     g->scan_regs = 1;
     return g;
 }
-#include "bb_program.h"
+#include "ir/bb_program.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;

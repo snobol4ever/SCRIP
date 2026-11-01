@@ -1,7 +1,7 @@
 #include "pascal_driver.h"
-#include "ast.h"
-#include "ct_arena.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ast.h"
+#include "ir/ct_arena.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>

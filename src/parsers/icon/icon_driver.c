@@ -1,8 +1,8 @@
 #include "icon_driver.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "icon_lex.h"
 #include "icon_parse.h"
-#include "../snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

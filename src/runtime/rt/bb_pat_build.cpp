@@ -1,8 +1,8 @@
 extern "C" {
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ast.h"
-#include "bb_pool.h"
+#include "ir/ast.h"
+#include "ir/bb_pool.h"
 #include "ir/bb_box.h"
 #include "planner/frame_layout.h"
 extern "C" int rt_gc_in_arena(const char *);

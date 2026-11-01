@@ -11,7 +11,7 @@
 #include "driver/driver_call.h"
 #include "driver/driver_hooks.h"
 #include "driver/driver_data.h"
-#include "rtx_try.h"
+#include "runtime/rt/rtx_try.h"
 extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _eval_str_impl_fn(const char *s) { extern DESCR_t eval_string_transient(const char *s); return eval_string_transient(s); }

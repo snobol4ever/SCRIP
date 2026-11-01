@@ -2,7 +2,7 @@
 #ifndef ICON_PARSE_H
 #define ICON_PARSE_H
 #include "icon_lex.h"
-#include "../snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 typedef struct {
     IcnLexer   *lex;
     IcnToken    cur;

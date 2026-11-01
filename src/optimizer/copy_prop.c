@@ -1,7 +1,7 @@
 #include "copy_prop.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "ir_index.h"
-#include "gen.h"
+#include "runtime/builtins/gen.h"
 #include "ir_query.h"
 #include <stdlib.h>
 #define OPT_ON(k) (!getenv(k) || getenv(k)[0] != '0')

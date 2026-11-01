@@ -1,6 +1,6 @@
 #include "runtime/core/trace.h"
 #include <unordered_set>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <string>
 #include <cstdlib>
 #include <cstdio>
@@ -15,7 +15,7 @@
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
 #include "lower/lower_prolog.h"
-#include "gc_frame_map.h"
+#include "ir/gc_frame_map.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"
@@ -32,11 +32,11 @@ extern "C++" int xa_flat_class_c(void);
 extern "C++" int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0);
 extern "C++" const char * xa_icn_trace_intern(const char * s);
 extern "C++" int xa_flat_graph_holds_a_frame_retry(void);
-#include "pin_va.h"
+#include "ir/pin_va.h"
 extern "C" {
 }
-#include "../bb/bb_templates.h"
-#include "../bb/bb_pl_cell.h"
+#include "templates/bb/bb_templates.h"
+#include "templates/bb/bb_pl_cell.h"
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_main_args_fetch(void);

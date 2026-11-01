@@ -4,7 +4,7 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "ir/descr.h"
-#include "../runtime/builtins/gen.h"
+#include "runtime/builtins/gen.h"
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n);
 }
 #include "templates/x86/x86_ops.h"

@@ -2,7 +2,7 @@
 #ifdef SCRIP_GC_AUDIT_B
 #define _GNU_SOURCE
 #include <stdarg.h>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

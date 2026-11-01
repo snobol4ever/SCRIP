@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "ir/descr.h"
-#include "core.h"
+#include "runtime/core/core.h"
 int rt_jct_relop(DESCR_t, DESCR_t, int);
 int c_rt_jct_relop(DESCR_t, DESCR_t, int);
 void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);

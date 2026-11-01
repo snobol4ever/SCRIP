@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <setjmp.h>
 #include "parsers/snobol4/scrip_cc.h"
-#include "stage2.h"
+#include "ir/stage2.h"
 extern int g_opt_dump_bb;
 extern int g_polyglot;
 void polyglot_init(stage2_t *s2, const tree_t *prog);

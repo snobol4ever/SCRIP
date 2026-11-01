@@ -1,11 +1,11 @@
 %{
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 %}
 %code top {
 }
 %code requires {
-#include "scrip_cc.h"
-#include "ct_vec.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/ct_vec.h"
 struct LexCtx;
 struct IfHead;
 struct WhileHead;
@@ -35,7 +35,7 @@ typedef struct ScParseState {
 #include <string.h>
 #include <ctype.h>
 #include "snocone_lex.h"
-#include "../icon/icon_lex.h"
+#include "parsers/icon/icon_lex.h"
 #define expr_new(k)            ast_node_new(k)
 #define expr_add_child(p,c)    ast_push((p),(c))
 #define TT_ASSIGN  TT_ASSIGN

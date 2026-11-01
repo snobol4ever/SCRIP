@@ -1,8 +1,8 @@
 #include "lower_snobol4.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
-#include "ast.h"
-#include "../parsers/icon/icon_lex.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
+#include "ir/ast.h"
+#include "parsers/icon/icon_lex.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

@@ -3,12 +3,12 @@
 #include <string.h>
 #include <stdarg.h>
 #include <setjmp.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "rk_syntax.h"
 #include "rk_core_names.inc"
 #include "rk_tree.h"
 #include "raku_setting.inc"
-#include "../snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 /*====================================================================================================================================================================================================*/
 enum { AS_LEFT = 1, AS_RIGHT, AS_NON, AS_LIST, AS_UNARY };
 enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_DOTTY = 32, OF_COMMA = 64, OF_WORD = 128 };

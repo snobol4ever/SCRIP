@@ -8,7 +8,7 @@ void rt_pl_tr_refuse(const char *);
 int rtx_pl_unify(DESCR_t *, DESCR_t *);
 DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 }
-#include "rt/rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"

@@ -55,8 +55,8 @@ extern int pascal_yydebug;
 /* "%code requires" blocks.  */
 #line 2 "pascal.y"
 
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
 int pascal_dialect(void);
 void pascal_dialect_set(int d);

@@ -11,7 +11,7 @@ extern "C" {
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_pas_bi(DESCR_t * args, int nargs, long idx);
-#include "dtp.h"
+#include "ir/dtp.h"
 DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
 }
 #include "templates/x86/x86_ops.h"

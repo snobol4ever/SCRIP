@@ -4,7 +4,7 @@
 #include "copy_prop.h"
 #include "dead_pure.h"
 #include "dead_goto.h"
-#include "g_lower.h"
+#include "lower/g_lower.h"
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

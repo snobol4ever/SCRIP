@@ -1,11 +1,11 @@
 #include <string>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <cstdint>
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"
-#include "dtp.h"
+#include "ir/dtp.h"
 #include "runtime/core/trace.h"
 #include "ir/bb_box.h"
 #include "ir/ir_graph.h"

@@ -1322,9 +1322,9 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#include "ct_arena.h"
-#include "ast.h"
-#include "../snobol4/scrip_cc.h"
+#include "ir/ct_arena.h"
+#include "ir/ast.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "pascal.tab.h"
 #include <stdio.h>
 #include <stdlib.h>

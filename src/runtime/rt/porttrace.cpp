@@ -1,5 +1,5 @@
 #include <cstdio>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <cstdlib>
 #include <cstring>
 #include "emitter/emit_state.h"

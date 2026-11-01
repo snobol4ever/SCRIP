@@ -1,4 +1,4 @@
-#include "g_runtime_entry.h"
+#include "runtime/core/g_runtime_entry.h"
     .text
 RT_ENTRY_DECL(rt_sg_scan_member, leaf, 0);
     .globl rt_sg_scan_member

@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "ir/descr.h"
 #define BB_DEFINE_NAMES 1
-#include "ast.h"
-#include "ct_arena.h"
+#include "ir/ast.h"
+#include "ir/ct_arena.h"
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"
 extern DESCR_t array_get(ARBLK_t *a, int i);

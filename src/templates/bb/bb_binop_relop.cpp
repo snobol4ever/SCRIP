@@ -4,7 +4,7 @@ extern "C" {
 #include "ir/ir_node.h"
 #include "emitter/emit_state.h"
 #include "ir/descr.h"
-#include "../runtime/builtins/gen.h"
+#include "runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);

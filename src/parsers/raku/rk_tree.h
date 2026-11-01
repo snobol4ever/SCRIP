@@ -1,6 +1,6 @@
 #ifndef RK_TREE_H
 #define RK_TREE_H
-#include "ast.h"
+#include "ir/ast.h"
 typedef struct RkB RkB;
 typedef struct RkList RkList;
 typedef struct RkDecl RkDecl;

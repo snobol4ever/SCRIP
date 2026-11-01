@@ -1,5 +1,5 @@
 #include <string>
-#include "g_runtime.h"
+#include "runtime/core/g_runtime.h"
 #include <cstdint>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"

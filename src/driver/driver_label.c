@@ -6,8 +6,8 @@
 #include "ir/ast.h"
 #include "driver/driver.h"
 #include "driver/driver_label.h"
-#include "ct_arena.h"
-#include "../runtime/snobol4_system_fns.h"
+#include "ir/ct_arena.h"
+#include "runtime/snobol4_system_fns.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void label_table_build(stage2_t *s2, const tree_t *prog) {
     s2->label_count = 0;

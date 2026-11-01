@@ -1,11 +1,11 @@
 #include "prolog_parse.h"
 #include "parsers/g_parser.h"
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include "prolog_lex.h"
-#include "rt/prolog_atom.h"
-#include "stage2.h"
-#include "pl_aggregate_names.h"
+#include "runtime/rt/prolog_atom.h"
+#include "ir/stage2.h"
+#include "lower/pl_aggregate_names.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

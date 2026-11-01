@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include "parsers/g_parser.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include <string.h>
 #include <stdio.h>
-#include "ast.h"
+#include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 static char * stmt_src_for(const STMT_t * s, int * depth);
 extern int snobol4_incl_depth(void);

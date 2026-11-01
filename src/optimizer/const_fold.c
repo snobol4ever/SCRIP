@@ -1,13 +1,13 @@
 #include "const_fold.h"
-#include "g_runtime.h"
-#include "rtx_try.h"
-#include "ct_arena.h"
-#include "gen.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/rtx_try.h"
+#include "ir/ct_arena.h"
+#include "runtime/builtins/gen.h"
 #include <string.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <math.h>
-#include "../runtime/core/core_errjmp.h"
+#include "runtime/core/core_errjmp.h"
 extern DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 extern DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 extern DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b);

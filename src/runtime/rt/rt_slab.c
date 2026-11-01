@@ -1,6 +1,6 @@
 #include "rt_slab.h"
-#include "g_runtime.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "g_runtime.h"
-#include "rt/rt.h"
-#include "ct_arena.h"
+#include "runtime/core/g_runtime.h"
+#include "runtime/rt/rt.h"
+#include "ir/ct_arena.h"
 #include "rt_pl_trail.h"
 #include "runtime/core/datatype.h"
 extern void rt_proc_drop_frame_h(void **);

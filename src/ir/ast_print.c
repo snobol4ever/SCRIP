@@ -1,7 +1,7 @@
 #define BB_DEFINE_NAMES
-#include "scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include <stdint.h>
-#include "g_lower.h"
+#include "lower/g_lower.h"
 #define AST_PRINT_MAX_DEPTH 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void print_escaped(const char * s, FILE * f) {

@@ -1,14 +1,14 @@
-#include "rt/rt.h"
-#include "g_runtime.h"
-#include "dtp.h"
+#include "runtime/rt/rt.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/dtp.h"
 #include "ir/ir_node.h"
-#include "bb_pool.h"
-#include "rt/prolog_atom.h"
+#include "ir/bb_pool.h"
+#include "runtime/rt/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "ct_vec.h"
-#include "rt_diag.h"
+#include "ir/ct_vec.h"
+#include "runtime/rt/rt_diag.h"
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_probe_report(unsigned long rsp, long op, long node, long expected, long portflags, long measured) {

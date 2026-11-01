@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
-#include "g_runtime.h"
-#include "g_runtime_abi.inc"
+#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_abi.inc"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
 #include <stdarg.h>
@@ -43,12 +43,12 @@ _Static_assert(GC_FREE_PCT == 15,
     "tted, never refused), and a collection that leaves less than GC_FREE_PCT percent of the committed window free grows it at once (rt_gcheap_grow(0): the larger of the committed size and -i, up to"
     " the hard cap) instead of collecting again one sixteenth later");
 #include "ir/descr.h"
-#include "pin_va.h"
-#include "gc_frame_map.h"
+#include "ir/pin_va.h"
+#include "ir/gc_frame_map.h"
 #include "rt_pl_trail.h"
 #include "gc_audit_b.h"
 #include "gc_slot_table.h"
-#include "../rtx/rtcc.h"
+#include "runtime/rtx/rtcc.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, live) == 72 && __builtin_offsetof(rt_hp_fr_t, start_abs) == 80 && __builtin_offsetof(rt_hp_fr_t, vis) == 88 &&
     __builtin_offsetof(rt_hp_fr_t, start) == 96 && __builtin_offsetof(rt_hp_fr_t, ssum) == 104 && __builtin_offsetof(rt_hp_fr_t, prefix) == 112 && __builtin_offsetof(rt_hp_fr_t, ngran) == 120,
@@ -605,7 +605,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
 #define GC_RET_DESCR 1
 #define GC_RET_OTHER 2
 #define GC_RET_UNKNOWN 3
-#include "../../templates/x86/gc_allocating_table.inc"
+#include "templates/x86/gc_allocating_table.inc"
 typedef struct { rt_emitted_regs_t r; uint64_t callee; int hit; } rt_uw_caller_t;
 static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a) {
     extern void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
@@ -821,9 +821,9 @@ char *rt_heap_fmt(const char *fmt, ...) {
     return q;
 }
 #include <setjmp.h>
-#include "../core/core.h"
+#include "runtime/core/core.h"
 #include "rt_coexpr.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 typedef struct gc_slot_t { const char **loc; const char *val; } gc_slot_t;
 typedef struct gc_tr_args_t { const struct gc_rng_t *rr; long n; char *base; const char *oldtop; char *newtop; const rt_hp_fr_t *fr; const char *arena; const char *cap_end; } gc_tr_args_t;
 _Static_assert(__builtin_offsetof(gc_tr_args_t, rr) == 0 && __builtin_offsetof(gc_tr_args_t, n) == 8 && __builtin_offsetof(gc_tr_args_t, base) == 16 &&

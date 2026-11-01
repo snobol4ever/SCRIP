@@ -4,21 +4,21 @@
 #error g_emitter.h is C++ only (CEO-1575)
 #endif
 #include <unordered_map>
-#include "ct_arena.h"
-#include "ct_vec.h"
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
 #include <string>
 #include "emitter/emit.h"
 #include "emitter/bb_label.h"
 #include "templates/x86/x86_ops.h"
-#include "gc_frame_map.h"
-#include "dtp.h"
-#include "ir_index.h"
+#include "ir/gc_frame_map.h"
+#include "ir/dtp.h"
+#include "optimizer/ir_index.h"
 #include "templates/bb/bb_templates.h"
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
 #include "driver/scrip_sm.h"
-#include "stage2.h"
+#include "ir/stage2.h"
 #include "templates/xa/xa_templates.h"
 #include <string.h>
 #include <stdlib.h>

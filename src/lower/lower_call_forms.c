@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "stage2.h"
-#include "call_forms.h"
-#include "builtin_ids.h"
-#include "snobol4_system_fns.h"
-#include "bb_pl_leaf_kinds.h"
+#include "ir/stage2.h"
+#include "ir/call_forms.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/snobol4_system_fns.h"
+#include "templates/bb/bb_pl_leaf_kinds.h"
 extern int rt_builtin_is_generator(const char *);
 extern int rt_builtin_is_known(const char *);
 extern int icn_builtin_is_generator(const char *);

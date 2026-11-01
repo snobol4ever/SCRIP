@@ -1,12 +1,12 @@
 #include <string.h>
 #include <stdio.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen.h"
 #include "g_lower.h"
-#include "../parsers/snobol4/scrip_cc.h"
-#include "../parsers/icon/icon_driver.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "parsers/icon/icon_driver.h"
 typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
 typedef struct cx_class { const tree_t * node; const char * name; cx_sv supers, fields, anc; cx_meth * meth; int nmeth, cmeth; const tree_t * init; int built; } cx_class;

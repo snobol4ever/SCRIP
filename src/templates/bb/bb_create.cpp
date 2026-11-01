@@ -4,7 +4,7 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "ir/descr_tags.h"
-#include "../runtime/rt/rt_coexpr.h"
+#include "runtime/rt/rt_coexpr.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_frame.h"
