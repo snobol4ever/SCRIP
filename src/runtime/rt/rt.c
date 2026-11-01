@@ -1391,6 +1391,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
 DESCR_t rt_call_land_γ(DESCR_t frame0, long word) {
     extern DESCR_t rt_proc_call_epilogue_idx_γ(long);
     if (RT_WORD_HOW(word) == 2 && !rt_g_ret_by_name) { rt_g_want_name = 0; return frame0; }
+    if ((word & 0x7fL) == 0) return frame0;
     {
         long how = RT_WORD_HOW(word);
         long idx = word >> 40;
@@ -1529,6 +1530,11 @@ static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r) {
 }
 long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_of_rec(r), sno_dstar_star(r) + 1, how, nsb, registered); }
 rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
+    if ((r->flags & SNO_DSTAR_THUNK) && (unsigned)r->pidx < (unsigned)g_runtime.rt.rt_gen_proc_count) {
+        rt_proc_t *tp = &g_runtime.abi.rt_gen_procs[r->pidx];
+        rt_call_next_t tn = rt_thunk_open_fast(tp);
+        if (tn.fn) { *registered = 1; if (g_runtime.abi.error == 0 && !tp->stage_var) g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel); return tn; }
+    }
     rt_proc_t *p = rt_proc_of_rec(r);
     *registered = p ? 1 : 0;
     if (!p) return (rt_call_next_t){ 0, 0 };
