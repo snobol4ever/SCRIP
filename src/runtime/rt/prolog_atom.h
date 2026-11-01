@@ -27,6 +27,7 @@ void rt_pl_functor_table_install(const long *tab);
 void prolog_op_col_set(int atom, int prec, const char *ty);
 int prolog_op_col_get(int atom, int fix, int *prec_out, int *type_out);
 int prolog_op_cols_ready(void);
+void prolog_op_cols_warm(void);
 int prolog_op_col_user(int atom, int fix);
 void prolog_op_col_set_u(int atom, int prec, const char *ty, int user);
 const char *prolog_op_type_name(int code);

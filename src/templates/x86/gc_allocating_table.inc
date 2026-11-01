@@ -1469,6 +1469,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "prolog_op_col_get", GC_RET_OTHER },
     { "prolog_op_col_set", GC_RET_VOID },
     { "prolog_op_col_set_u", GC_RET_VOID },
+    { "prolog_op_cols_warm", GC_RET_VOID },
     { "prolog_op_table_add", GC_RET_OTHER },
     { "prolog_parse", GC_RET_OTHER },
     { "prolog_parse_ex", GC_RET_OTHER },

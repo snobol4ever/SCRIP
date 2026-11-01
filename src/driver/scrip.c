@@ -2215,6 +2215,7 @@ int main(int argc, char **argv) {
         if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20);
     }
     core_lib_init();
+    if (is_prolog) { extern void prolog_op_cols_warm(void); prolog_op_cols_warm(); }
     stmt_init();
     register_fn("IDENT", _builtin_IDENT, 1, 2);
     register_fn("DIFFER", _builtin_DIFFER, 1, 2);
@@ -2561,7 +2562,10 @@ int main(int argc, char **argv) {
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
-            if (_pl_atoms) emit_textf("  lea rdi, [rip + .Lpl_atom_tab]\n  call rt_pl_atom_table_install@PLT\n  lea rdi, [rip + .Lpl_functor_tab]\n  call rt_pl_functor_table_install@PLT\n");
+            if (_pl_atoms) {
+                emit_textf("  lea rdi, [rip + .Lpl_atom_tab]\n  call rt_pl_atom_table_install@PLT\n  lea rdi, [rip + .Lpl_functor_tab]\n  call rt_pl_functor_table_install@PLT\n");
+                emit_textf("  call prolog_op_cols_warm@PLT\n");
+            }
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             {
                 extern int proc_slot_count(void);
