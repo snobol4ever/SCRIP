@@ -4966,7 +4966,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
                 2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",
                     rt_pl_dop_pl_cp_guard },
-        { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 1, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1,
+        { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 3, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1,
             "rt_pl_dop_db_asserta_t", rt_pl_dop_db_asserta_t },
         { "$db_consult_t", 3, "rt_pl_dop_db_consult_t", rt_pl_dop_db_consult_t }, { "$db_consult_done", 1, "rt_pl_dop_db_consult_done", rt_pl_dop_db_consult_done },
         { "$db_erase_t", 2, "rt_pl_dop_db_erase_t", rt_pl_dop_db_erase_t }, { "$db_abolish_t", 1, "rt_pl_dop_db_abolish_t", rt_pl_dop_db_abolish_t }, { "$db_retractall_t", 1,

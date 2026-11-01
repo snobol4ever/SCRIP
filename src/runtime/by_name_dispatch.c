@@ -26928,12 +26928,16 @@ static void *pl_db_of_term(DESCR_t *t, void *root, int create) {
     return rt_pl_db_get_by_key(root, key, create);
 }
 static DESCR_t pl_db_add_t(DESCR_t *args, int nargs, void *root, int prepend) {
-    if (nargs != 1) return FAILDESCR;
+    if (nargs != (prepend ? 1 : 3)) return FAILDESCR;
     pl_atoms_ready();
-    DESCR_t ua[1] = { args[0] };
+    DESCR_t ua[3] = { args[0], prepend ? args[0] : args[1], prepend ? args[0] : args[2] };
     args = ua;
     rt_pl_db_unqual_term((void *)&args[0]);
-    { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return FAILDESCR; return rt_pl_db_assert(root, db, (void *)&args[0], prepend) ? pl_ok() : FAILDESCR; }
+    {
+        void *db = pl_db_of_term(&args[0], root, 1);
+        if (!db) return FAILDESCR;
+        return (prepend ? rt_pl_db_assert(root, db, (void *)&args[0], 1) : pl_seed_src(db, &args[1], rt_pl_db_assert(root, db, (void *)&args[0], 0))) ? pl_ok() : FAILDESCR;
+    }
 }
 DESCR_t rt_pl_dop_db_assertz_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 0); }
 DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 1); }

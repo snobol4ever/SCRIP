@@ -1614,7 +1614,7 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     { "read_term_from_codes", 3, "$read_term_from_codes" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_term", 2, "$write_term" }, { "write_term", 3, "$write_term_s" },
     { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" }, { "display", 1, "$display" }, { "display", 2, "$display_s" }, { "unify_with_occurs_check", 2, "$unify_oc" },
     { "$aggregate_reduce", 3, "$aggregate_reduce" }, { "$wot_open", 3, "$wot_open" }, { "$wot_capture", 4, "$wot_capture" }, { "$wot_discard", 3, "$wot_discard" }, { "$set_prolog_flag_declare", 2,
-    "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_consult_t", 3, "$db_consult_t" },
+    "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 3, "$db_assertz_t" }, { "$db_consult_t", 3, "$db_consult_t" },
     { "$db_consult_done", 1, "$db_consult_done" }, { "$db_asserta_t", 1, "$db_asserta_t" }, { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once",
     5, "$db_seed_once" }, { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" }, { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3,
     "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3,
@@ -1885,7 +1885,7 @@ static int pl_db_owned(const char * nm, int ar) {
 static int pl_db_writable(const char * nm, int ar) { return pl_db_owned(nm, ar) || pl_rt_creatable(nm, ar); }
 static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar);
 static IR_t * pl_db_leaf_seed(lcx_t * cx, int k, int i, const tree_t * arg, const tree_t * fl, const tree_t * ln, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
-static tree_t * pl_seed_file_term(const char * nm, int ar);
+static tree_t * pl_seed_file_term(const char * pf);
 static tree_t * pl_seed_line_term(const tree_t * cl);
 static IR_t * pl_db_seed_file(lcx_t * cx, const char * pn, int ar, IR_t * next, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
@@ -1902,7 +1902,7 @@ static IR_t * pl_db_seed_file(lcx_t * cx, const char * pn, int ar, IR_t * next, 
             for (int i = n - 1; i >= 0; i--) {
                 const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
                 IR_t * se = NULL;
-                pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pn, ar), pl_seed_line_term(cl), next, ωfail, &se);
+                pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
                 next = se;
                 first = se;
             }
@@ -2271,12 +2271,7 @@ static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_seed_file_term(const char * nm, int ar) {
-    const char * pf = pl_pred_file(nm, ar);
-    char rp[PATH_MAX];
-    if (pf && realpath(pf, rp)) return (tree_t *) pl_atom_goal(lp_strdup(rp));
-    return pl_cc_ilit(-1);
-}
+static tree_t * pl_seed_file_term(const char * pf) { char rp[PATH_MAX]; if (pf && realpath(pf, rp)) return (tree_t *) pl_atom_goal(lp_strdup(rp)); return pl_cc_ilit(-1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_seed_line_term(const tree_t * cl) { return pl_cc_ilit(cl && cl->line > 0 ? cl->line : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3253,7 +3248,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (!pn)
                     return goal(cx,
                     pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal(nm)),
-                    pl_cc_fnc1(!strcmp(nm, "asserta") ? "$db_asserta_t" : "$db_assertz_t", (tree_t *) t->c[0])), γnext, ωfail, entry_out);
+                    (!strcmp(nm, "asserta") ? pl_cc_fnc1("$db_asserta_t", (tree_t *) t->c[0]) : pl_cc_fnc3("$db_assertz_t", (tree_t *) t->c[0], pl_cc_ilit(-1), pl_cc_ilit(0)))), γnext, ωfail,
+                    entry_out);
                 if (pl_pi_is_static_builtin(pn, ar) || !pl_db_writable(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
                 {
                     IR_t * le = NULL;
@@ -3479,7 +3475,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         for (int i = n - 1; i >= 0; i--) {
                             const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
                             IR_t * se = NULL;
-                            pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pn, ar), pl_seed_line_term(cl), next, ωfail, &se);
+                            pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
                             next = se;
                             first = se;
                         }
@@ -4484,7 +4480,7 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
         g_lower.pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const tree_t * sc = ch->t == TT_CHOICE ? ch->c[i] : ch;
-            sg[m++] = pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(sc, nm, ar), pl_seed_file_term(nm, ar), pl_seed_line_term(sc));
+            sg[m++] = pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(sc, nm, ar), pl_seed_file_term(pl_pred_file(nm, ar)), pl_seed_line_term(sc));
         }
         g_lower.pl.seed_var_base = save_base;
         {
@@ -5980,6 +5976,7 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
             tree_t * g = pl_cc_fnc3("$load_item", t, pl_cc_ilit(it[i].line), u ? (tree_t *) pl_atom_goal(u) : pl_cc_ilit(0));
             ast_push(g, pl_cc_ilit(it[i].expand));
             { const char * mo = (it[i].expand && !u) ? pl_load_module_of(prog, it[i].file) : NULL; ast_push(g, mo ? (tree_t *) pl_atom_goal(mo) : pl_cc_ilit(0)); }
+            ast_push(g, pl_seed_file_term(it[i].file));
             sg[m++] = g;
         }
         g_lower.pl.seed_var_base = save_base;
@@ -6401,7 +6398,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                     int n = ch ? ((ch->t == TT_CHOICE) ? ch->n : 1) : 0;
                     for (int i = 0; i < n; i++) {
                         const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
-                        seeds[nseed++] = pl_cc_fnc5("$db_seed_once", pl_cc_ilit(di), pl_cc_ilit(i), pl_static_clause_term(cl, dn, da), pl_seed_file_term(dn, da), pl_seed_line_term(cl));
+                        seeds[nseed++] = pl_cc_fnc5("$db_seed_once", pl_cc_ilit(di), pl_cc_ilit(i), pl_static_clause_term(cl, dn, da), pl_seed_file_term(pl_pred_file(dn, da)), pl_seed_line_term(cl));
                     }
                 }
             }

@@ -392,7 +392,7 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     "rt_pl_dop_db_abolish_t", 934, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$db_alive", "rt_pl_dop_db_alive", 935, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_asserta",
     "rt_pl_dop_db_asserta", 936, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_asserta_r", "rt_pl_dop_db_asserta_r", 937, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_asserta_t",
     "rt_pl_dop_db_asserta_t", 938, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$db_assertz", "rt_pl_dop_db_assertz", 939, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_assertz_r",
-    "rt_pl_dop_db_assertz_r", 940, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_assertz_t", "rt_pl_dop_db_assertz_t", 941, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$db_at_r",
+    "rt_pl_dop_db_assertz_r", 940, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_assertz_t", "rt_pl_dop_db_assertz_t", 941, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_at_r",
     "rt_pl_dop_db_at_r", 942, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_copy", "rt_pl_dop_db_copy", 943, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$db_data_unify", "rt_pl_dop_db_data_unify",
     944, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_decls", "", 945, BT_VOC_PL, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "$db_erase", "rt_pl_dop_db_erase", 946, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2,
     2, 0 }, { "$db_erase_ref", "rt_pl_dop_db_erase_ref", 947, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$db_erase_t", "rt_pl_dop_db_erase_t", 948, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 },
