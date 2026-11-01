@@ -227,7 +227,7 @@ void zd_cp_arm(const IR_graph_t * cg, IR_t ** nodes, int i, const int * zcps, co
         int k = -zcps[i] - 2, sx = planner_frame_slot(cg, nodes[k]);
         if (sx == -1 && zd_value_producer_g(cg, nodes[k]) != nodes[k]) sx = planner_frame_slot(cg, zd_value_producer_g(cg, nodes[k]));
         if (sx != -1) { g_planner.g_zd_cpsx = sx; g_planner.g_zd_cps = 0; }
-        else g_planner.g_zd_cps = zout[i] - zout[k];
+        else g_planner.g_zd_cps = zout[i] - zout[k] + zd_rel_g(cg, nodes[k]);
         return;
     }
     int d = -zcpd[i] - 2, k = zcps[i] <= -2 ? -zcps[i] - 2 : -1;
@@ -237,7 +237,7 @@ void zd_cp_arm(const IR_graph_t * cg, IR_t ** nodes, int i, const int * zcps, co
     if (dx == -1 || k < 0) return;
     g_planner.g_zd_cpdx = dx;
     if (sx != -1) g_planner.g_zd_cpsx = sx;
-    else g_planner.g_zd_cps = zout[i] - zout[k];
+    else g_planner.g_zd_cps = zout[i] - zout[k] + zd_rel_g(cg, nodes[k]);
 }
 int zd_icn_local_var_g(const IR_graph_t * cg, const IR_t * nd) { return nd && nd->op == IR_VAR && cg && cg->spine_cells && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(cg, IR_LIT(nd).sval)); }
