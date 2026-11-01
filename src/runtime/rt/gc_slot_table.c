@@ -58,6 +58,9 @@ _Static_assert(sizeof(rt_proc_t) == 128 && offsetof(rt_proc_t, name) == 0 && off
 _Static_assert(sizeof(rt_pseg_t) == 160 && offsetof(rt_pseg_t, sched) == 120 && offsetof(rt_pseg_t, link) == 152,
     "HB_PSEG holds one rt_pseg_t, then the parked stack bytes and the trail records the chain over the maps walks: the header's heap-pointer members are sched and link; a new member means this row i"
     "s re-read");
+_Static_assert(offsetof(rt_pseg_t, orig_lo) == 0 && offsetof(rt_pseg_t, len) == 8 && offsetof(rt_pseg_t, rbp) == 32 && offsetof(rt_pseg_t, rbx) == 40 && offsetof(rt_pseg_t, r12) == 48 &&
+    offsetof(rt_pseg_t, r13) == 56 && offsetof(rt_pseg_t, r14) == 64 && offsetof(rt_pseg_t, r15) == 72 && offsetof(rt_pseg_t, clen) == 128,
+    "rtx_plunify.s spells these offsets as PSEG_ORIG PSEG_LEN PSEG_RBP PSEG_RBX PSEG_R12 PSEG_R13 PSEG_R14 PSEG_R15 PSEG_CLEN and PSEG_BYTES = sizeof: a moved member is a frozen copy in the leaf");
 static const gc_sfield_t ss_descr[] = { { 0, GS_DESCR } };
 static const gc_sfield_t ss_raw[] = { { 0, GS_RAW } };
 static const gc_run_t run_descr = { 0, sizeof(DESCR_t), 0, 0, sizeof ss_descr / sizeof ss_descr[0], ss_descr };
