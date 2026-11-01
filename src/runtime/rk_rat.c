@@ -584,3 +584,63 @@ int rk_rat_str_method(const char *m, DESCR_t self, DESCR_t *out) {
     *out = r;
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rrv_dv(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'z' ? c - 'a' + 10 : c >= 'A' && c <= 'Z' ? c - 'A' + 10 : 99; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rrv_run(const char *p, int radix, DESCR_t *acc, int *n, int *last) {
+    for (;;) {
+        int dv = rrv_dv((unsigned char) *p);
+        if (dv < radix) { *acc = bi_add(bi_mul(*acc, INTVAL(radix)), INTVAL(dv)); (*n)++; if (dv && last) *last = *n; p++; continue; }
+        if (*p == '_' && *n > 0 && p[-1] != '_' && rrv_dv((unsigned char) p[1]) < radix) { p++; continue; }
+        break;
+    }
+    return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rrv_dec(const char *p, int64_t *out) { DESCR_t acc = INTVAL(0); int n = 0; p = rrv_run(p, 10, &acc, &n, NULL); *out = n && acc.v == DT_I ? acc.i : -1; return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rrv_die(const char *pre, int radix, const char *post) {
+    char msg[strlen(pre) + strlen(post) + 64];
+    snprintf(msg, sizeof msg, "Cannot convert string to number: %s%d%s", pre, radix, post);
+    rt_script_die_surface(msg);
+    return INTVAL(0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rrv_body(const char *p, int radix, int endc) {
+    DESCR_t ip = INTVAL(0), fp = INTVAL(0), sc = INTVAL(1);
+    int ni = 0, nf = 0, last = 0;
+    p = rrv_run(p, radix, &ip, &ni, NULL);
+    if (!ni && *p != '.') return rrv_die("base-", radix, " number must begin with valid digits or '.'");
+    if (*p == '.') { p = rrv_run(p + 1, radix, &fp, &nf, &last); if (!nf) return rrv_die("radix point must be followed by one or more valid digits in base-", radix, " number"); }
+    if (*p == '*') {
+        int64_t b, e;
+        p = rrv_dec(p + 1, &b);
+        if (p[0] != '*' || p[1] != '*' || b < 0) return rrv_die("malformed base-", radix, " number scale");
+        p = rrv_dec(p + 2, &e);
+        if (e < 0) return rrv_die("malformed base-", radix, " number scale");
+        sc = bi_pow(INTVAL(b), e);
+    }
+    if (*p != endc || (endc && p[1])) return rrv_die("malformed ':", radix, "' style radix number, expecting '>' after the body");
+    if (!last) return bi_mul(ip, sc);
+    DESCR_t den = bi_pow(INTVAL(radix), nf);
+    return rk_rat_new(bi_mul(bi_add(bi_mul(ip, den), fp), sc), den, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rk_radix_value(int radix, const char *s, int unbase) {
+    if (radix < 2 || radix > 36) return rrv_die("radix ", radix, " is out of range, expecting 2 to 36");
+    const char *p = s;
+    int c = p[0] == '0' ? p[1] : 0;
+    if (c && (unbase ? ((radix <= 11 && strchr("xdob", c)) || (radix <= 24 && (c == 'o' || c == 'x')) || (radix <= 33 && c == 'x')) : strchr("xdob", c) != NULL)) {
+        radix = c == 'x' ? 16 : c == 'o' ? 8 : c == 'd' ? 10 : 2;
+        p += 2;
+        if (*p == '_') p++;
+        return rrv_body(p, radix, 0);
+    }
+    if (unbase && p[0] == ':' && p[1] >= '1' && p[1] <= '9') {
+        int64_t r2;
+        const char *q = rrv_dec(p + 1, &r2);
+        if (*q != '<' || r2 < 2 || r2 > 36) return rrv_die("malformed ':", (int) r2, "' style radix number");
+        return rrv_body(q + 1, (int) r2, '>');
+    }
+    return rrv_body(p, radix, 0);
+}

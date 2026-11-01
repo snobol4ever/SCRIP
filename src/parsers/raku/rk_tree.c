@@ -1771,32 +1771,40 @@ void rkb_number(RkB *b, RkTerm *it, int from, int to) {
         while (k < len && isdigit((unsigned char) t[k])) base = base * 10 + (t[k++] - '0');
         while (k < len && (t[k] == ' ' || t[k] == '\t')) k++;
         if (base >= 2 && base <= 36 && k < len && t[k] == '<') {
-            double frac = 0, scale = 1;
+            SB bd = { 0 };
+            for (int m = k + 1; m < len && t[m] != '>'; m++) sb_c(&bd, t[m]);
+            const char *bs = sb_str(&bd);
+            if (strpbrk(bs, ".*") || (bs[0] == '0' && bs[1] && strchr("xdob", bs[1]))) {
+                tree_t *c = make_call("__rk_unbase");
+                expr_add_child(c, rk_ilit(base));
+                expr_add_child(c, leaf_sval(TT_QLIT, intern(bs)));
+                expr_add_child(c, rk_ilit(0));
+                it->t = c;
+                return;
+            }
             unsigned __int128 acc = 0;
-            int neg = 0, seen_dot = 0, ovf = 0;
+            int neg = 0, ovf = 0;
             for (k++; k < len && t[k] != '>'; k++) {
                 int c = (unsigned char) t[k], dv;
                 if (c == '_' || c == ' ') continue;
-                if (c == '-' && acc == 0 && !seen_dot) { neg = 1; continue; }
-                if (c == '+' && acc == 0 && !seen_dot) continue;
-                if (c == '.') { seen_dot = 1; continue; }
+                if (c == '-' && acc == 0) { neg = 1; continue; }
+                if (c == '+' && acc == 0) continue;
                 dv = isdigit(c) ? c - '0' : isalpha(c) ? tolower(c) - 'a' + 10 : -1;
                 if (dv < 0 || dv >= base) continue;
-                if (seen_dot) { scale /= base; frac += dv * scale; }
-                else { if (acc > ((unsigned __int128) 1 << 120)) ovf = 1; acc = acc * (unsigned) base + (unsigned) dv; }
+                if (acc > ((unsigned __int128) 1 << 120)) ovf = 1;
+                acc = acc * (unsigned) base + (unsigned) dv;
             }
-            if (!seen_dot && (ovf || acc > (unsigned __int128) 0x7fffffffffffffffULL)) {
+            if (ovf || acc > (unsigned __int128) 0x7fffffffffffffffULL) {
                 SB ds = { 0 };
                 for (int m = 1; m < len; m++) { if (t[m] == '<') { for (m++; m < len && t[m] != '>'; m++) if (t[m] != '_' && t[m] != ' ' && t[m] != '-' && t[m] != '+') sb_c(&ds, t[m]); break; } }
                 it->t = rk_big_lit(base, sb_str(&ds), neg);
                 return;
             }
-            if (seen_dot) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = (neg ? -1.0 : 1.0) * ((double) acc + frac); it->t = e; return; }
             it->t = rk_ilit(neg ? -(long long) acc : (long long) acc);
             return;
         }
         if (base >= 2 && k < len && (t[k] == '[' || t[k] == '(') && b->rad_inner) {
-            tree_t *c = make_call("__rk_radix_list");
+            tree_t *c = make_call(t[k] == '(' ? "__rk_unbase" : "__rk_radix_list");
             expr_add_child(c, rk_ilit(base));
             expr_add_child(c, b->rad_inner);
             b->rad_inner = NULL;
