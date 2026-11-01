@@ -70,6 +70,12 @@ const char * x86_zop(int off, int q, int bump) {
     return b[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string x86_zop_base(int off, int q, int bump, const char * base) {
+    const char * a = x86_zop(off, q, bump); const char * p = strstr(a, "[rsp# + "); if (!p) p = strstr(a, "[rsp + ");
+    if (!p) return std::string(a);
+    return std::string(q ? "qword ptr [" : "dword ptr [") + base + " + " + std::to_string(atoi(p + (p[4] == '#' ? 8 : 7))) + "]";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * x86_ztos(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15; x86_zop_note(5);
     snprintf(b[i], 48, "%s ptr [rsp + %d]", q ? "qword" : "dword", off + _.op_zdepth);

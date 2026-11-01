@@ -13,6 +13,7 @@ int x86_key_unbacked(int off);
 int x86_zop_regime(int off);
 const char * x86_zref(int off, int q);
 const char * x86_zop(int off, int q, int bump);
+std::string x86_zop_base(int off, int q, int bump, const char * base);
 int x86_zdp_rbp_on();
 std::string x86_zsm_ev(int kind);
 std::string x86_zsm_disc(long restore);

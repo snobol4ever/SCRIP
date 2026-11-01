@@ -277,6 +277,7 @@ typedef struct {
     int op_head_rsp;
     int op_strict;
     int op_zgpop;
+    int op_gcell, op_bspk, op_sprec, op_actoff, op_tret;
     int op_zwhack;
     int op_zbgrow;
     int * op_zread;
