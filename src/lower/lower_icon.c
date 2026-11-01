@@ -1080,6 +1080,16 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     } pf[] = { {"Len", TT_LEN, 'N'}, {"Pos", TT_POS, 'N'}, {"Rpos", TT_RPOS, 'N'}, {"Tab", TT_TAB, 'N'}, {"Rtab", TT_RTAB, 'N'}, {"Any", TT_ANY, 'K'}, {"NotAny", TT_NOTANY, 'K'}, {"Span", TT_SPAN,
         'K'}, {"Break", TT_BREAK, 'K'}, {"Breakx", TT_BREAKX, 'K'}, {"Nspan", TT_SPAN, 'S'}, {"Arb", TT_ARB, '0'}, {"Rem", TT_REM, '0'}, {"Bal", TT_BAL, '0'}, {"Fail", TT_FAIL, '0'}, {"Succeed",
         TT_SUCCEED, '0'}, {"Abort", TT_ABORT, '0'}, {"Fence", TT_FENCE, 'F'}, {"Arbno", TT_ARBNO, 'A'} };
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n >= 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval) {
+        tree_t * q = ast_node_new(TT_QLIT);
+        q->v.sval = t->c[1]->v.sval;
+        tree_t * c3 = ast_node_new(TT_FNC);
+        ast_push(c3, pm_var("SNO$PBC"));
+        ast_push(c3, pm_int((int64_t) t->t));
+        ast_push(c3, q);
+        ast_push(c3, (tree_t *) t->c[0]);
+        return c3;
+    }
     if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t != TT_FNC || t->n < 1 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval) return NULL;
     const char * nm = t->c[0]->v.sval;
@@ -1140,6 +1150,24 @@ static IR_t * pm_fn_box(icx_t * cx, const tree_t * e, IR_t ** en) {
     }
     return NULL;
 }
+static IR_t * pm_defer_box(icx_t * cx, const tree_t * e, IR_t ** argt) {
+    const char * nm = NULL;
+    if (e->t == TT_VAR && e->v.sval && e->v.sval[0] != '&' && icn_is_own_global(cx, e->v.sval) && !icn_is_proc(e->v.sval)) nm = e->v.sval;
+    else {
+        char b[32];
+        snprintf(b, sizeof b, "$pmg%d", ++g_lower.icn.pm_hidden_n);
+        nm = lp_strdup(b);
+        { extern void global_register(const char *); global_register(nm); }
+        lc_vec_push(&g_lower.icn.lower_icon_proc_gnv, &nm);
+        cx->gn = (const char **) g_lower.icn.lower_icon_proc_gnv.data;
+        cx->ngn = g_lower.icn.lower_icon_proc_gnv.n;
+        tree_t * v = pm_patfn(cx, e);
+        *argt = pm_node(TT_ASSIGN, pm_var(nm), v ? v : (tree_t *) e, NULL);
+    }
+    IR_t * nd = lc_build(cx->g, IR_MATCH_DEFER, NULL, NULL);
+    IR_LIT(nd).sval = (char *) nm;
+    return nd;
+}
 static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
     int ne = pm_count(pat);
     const tree_t * el[ne];
@@ -1155,7 +1183,7 @@ static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
             IR_LIT(nd[i]).sval = e->v.sval ? e->v.sval : (char *) "";
         } else {
             nd[i] = pm_fn_box(cx, e, &argt);
-            if (!nd[i]) { fprintf(stderr, "icon: line %d: this pattern element is not lowered yet (ARCH-UNICON step 4b stage B)\n", e->line); exit(1); }
+            if (!nd[i]) nd[i] = pm_defer_box(cx, e, &argt);
         }
         en[i] = nd[i];
         if (argt) {
@@ -1165,7 +1193,7 @@ static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
             int before = cx->g->n;
             en[i] = lower(cx, (const tree_t *) argt, nd[i], fb, &vr);
             pm_retag_alpha(cx->g, before, nd[i]);
-            if (vr) ir_operand_push(nd[i], vr);
+            if (vr && nd[i]->op != IR_MATCH_DEFER) ir_operand_push(nd[i], vr);
             if (!en[i]) en[i] = nd[i];
         }
     }
