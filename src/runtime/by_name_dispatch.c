@@ -25052,13 +25052,20 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_6462:
     ;
     if ((_bid == BID_variable) && nargs == 1) {
-        const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
+        const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? icn_callee_name(args[0]) : NULL;
         if (!vname || !*vname) { *out = FAILDESCR; return 1; }
         char stat[320];
         { DESCR_t *fc = icn_variable_frame_cell(args[0], stat, sizeof stat); if (fc) { *out = *fc; return 1; } if (stat[0]) vname = stat; }
         DESCR_t v = NV_GET_fn(vname);
-        if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
-        if (v.v == DT_SNUL && !NV_EXISTS_fn(vname)) { *out = FAILDESCR; return 1; }
+        if (IS_FAIL_fn(v) || (v.v == DT_SNUL && !NV_EXISTS_fn(vname))) {
+            if (!strcmp(vname, "&random") || !strcmp(vname, "&trace") || !strcmp(vname, "&error") || !strcmp(vname, "&dump")) {
+                extern DESCR_t kw_read(const char *);
+                *out = kw_read(vname + 1);
+                return 1;
+            }
+            *out = FAILDESCR;
+            return 1;
+        }
         *out = v;
         return 1;
     }

@@ -1450,6 +1450,32 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(cj, sc);
                     return lower(cx, cj, γ, ω, res);
                 }
+                if (fn && !strcmp(nm, "variable") && t->n == 2 && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] != '&' && !icn_is_proc(nm) && !icn_builtin_reassigned(nm) &&
+                    !icn_is_local(cx, nm)) {
+                    const char * kws[2] = { "&subject", "&pos" };
+                    tree_t * alt = ast_node_new(TT_ALTERNATE);
+                    for (int k = 0; k < 2; k++) {
+                        tree_t * q = ast_node_new(TT_QLIT);
+                        q->v.sval = (char *) kws[k];
+                        q->slen = (int) strlen(kws[k]);
+                        tree_t * eq = ast_node_new(TT_IDENTICAL);
+                        ast_push(eq, (tree_t *) t->c[1]);
+                        ast_push(eq, q);
+                        tree_t * kv = ast_node_new(TT_VAR);
+                        kv->v.sval = (char *) kws[k];
+                        tree_t * cj = ast_node_new(TT_CONJ);
+                        ast_push(cj, eq);
+                        ast_push(cj, kv);
+                        ast_push(alt, cj);
+                    }
+                    tree_t * par = ast_node_new(TT_SEQ_EXPR);
+                    ast_push(par, (tree_t *) t->c[1]);
+                    tree_t * call = ast_node_new(TT_FNC);
+                    ast_push(call, (tree_t *) fn);
+                    ast_push(call, par);
+                    ast_push(alt, call);
+                    return lower(cx, alt, γ, ω, res);
+                }
                 if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
                 IR_t * cr = NULL;
                 IR_t * drf = build(cx, IR_DEREF, γ, ω);
