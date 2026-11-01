@@ -7,7 +7,7 @@ extern "C" {
 #include "ir/descr.h"
 DESCR_t rt_keyword_read(const char *sval);
 DESCR_t rt_keyword_gen(const char *sval, long idx);
-DESCR_t rt_keyword_var(const char *name);
+DESCR_t rt_keyword_var(const char *name, long scan_a, void *scan_b);
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"
@@ -16,7 +16,9 @@ DESCR_t rt_keyword_var(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define KI_BOMB() (!(_.op_off >= 0) && !_.op_zres)
 #define KI_SCANKW() (_.op_sval && (!strcmp(_.op_sval, "&subject") || !strcmp(_.op_sval, "&pos")))
-#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&' && !KI_SCANKW())
+#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&' && (!KI_SCANKW() || _.op_var_form == 2))
+#define KI_SUBJVAR() (KI_SCANKW() && !strcmp(_.op_name2, "subject"))
+#define KI_POSVAR() (KI_SCANKW() && !strcmp(_.op_name2, "pos"))
 #define KI_RESULT() \
     (IF(_.op_zres, \
          x86("note", ZRESN()) \
@@ -33,6 +35,10 @@ std::string bb_keyword_icon() {
          + IF(!KI_BOMB() && KI_VARFORM(),
                x86_alpha()
              + x86("mov", "rdi", ROQ(0))
+             + IF(KI_SUBJVAR(), x86("mov", "esi", "r15d")
+                              + x86("mov", "rdx", "r13"))
+             + IF(KI_POSVAR(), x86("mov", "rsi", "r14")
+                             + x86("add", "rsi", (long)1))
              + x86("call", "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
              + KI_RESULT()
              + x86_rt_gc_poll()

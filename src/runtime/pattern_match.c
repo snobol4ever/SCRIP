@@ -2439,12 +2439,12 @@ DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_keyword_var, leaf, 0);
-DESCR_t rt_keyword_var(const char *name) {
+DESCR_t rt_keyword_var(const char *name, long scan_a, void *scan_b) {
     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
     vc->cellp = 0;
     vc->tbl = 0;
     vc->key = name;
-    vc->key_d = FAILDESCR;
+    vc->key_d = !strcmp(name, "&subject") ? (DESCR_t){ .v = DT_S, .slen = (uint32_t)scan_a, .s = (char *)scan_b } : !strcmp(name, "&pos") ? INTVAL(scan_a) : FAILDESCR;
     vc->sv = FAILDESCR;
     vc->pos = -1;
     vc->len = 0;
@@ -2502,7 +2502,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
         rt_bomb("rt_deref: reading a name of a deferred expression (.*E) is not implemented -- the expression is a compiled thunk, evaluated only through the box call protocol");
         return FAILDESCR;
     }
-    if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) { extern DESCR_t rt_keyword_read(const char *); return rt_keyword_read(vc->key); }
+    if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) { extern DESCR_t rt_keyword_read(const char *); return IS_FAIL_fn(vc->key_d) ? rt_keyword_read(vc->key) : vc->key_d; }
     if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
         int found;
