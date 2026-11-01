@@ -25547,14 +25547,21 @@ DESCR_t rt_pl_dop_tbh_own_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *roo
 DESCR_t rt_pl_dop_tbh_set_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 1); }
 DESCR_t rt_pl_dop_tbh_bset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {
+static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend, void **ball) {
+    extern void *rt_pl_db_store_refusal(void *, void *, void *);
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR; return rt_pl_db_assert(root, db, (void *)&args[1], prepend) ? pl_ok() : FAILDESCR; }
+    {
+        void *db = pl_db_cell_of(args, root);
+        if (!db) return FAILDESCR;
+        if (rt_pl_db_assert(root, db, (void *)&args[1], prepend)) return pl_ok();
+        *ball = rt_pl_db_store_refusal(root, db, (void *)&args[1]);
+        return FAILDESCR;
+    }
 }
-DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root) { return pl_db_add(args, nargs, root, 0); }
+DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root, void **ball) { return pl_db_add(args, nargs, root, 0, ball); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root) { return pl_db_add(args, nargs, root, 1); }
+DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root, void **ball) { return pl_db_add(args, nargs, root, 1, ball); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;

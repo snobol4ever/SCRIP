@@ -5247,6 +5247,16 @@ void * rt_pl_db_space_ball(void *root, const char *key, void *clause_term) {
     return (m->size + need > m->limit) ? rt_pl_ball_kind1("resource_error", "program_space") : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_db_store_refusal(void *root, void *db_v, void *clause_term) {
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    pl_db_t *db = (pl_db_t *)db_v;
+    pl_db_mod_t *pm;
+    if (!db || !clause_term) return (void *)0;
+    pm = pl_db_mod_at(root, db->mod);
+    if (!pm || !pm->limit) return (void *)0;
+    return (pm->size + pl_db_term_bytes(pl_deref((pl_cell_t *)clause_term)) > pm->limit) ? rt_pl_ball_kind1("resource_error", "program_space") : (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_space_limited(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); if (!r) return 0; for (int i = 0; i < r->nmods; i++) if (((pl_db_mod_t *)r->mods)[i].limit) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cp_count(void *root) { pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0; if (!r) return 0; for (int i = 0; i < r->n; i++) if (pl_db_key_current(root, &r->e[i])) c++; return c; }
