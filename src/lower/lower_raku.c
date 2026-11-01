@@ -5229,6 +5229,13 @@ static int rk_subst_adverb_mode(const tree_t * a) {
     if (!strcmp(a->c[2]->v.sval, "ex")) return 4;
     return -1;
 }
+static int rk_subst_x_range(const tree_t * v, long * lo, long * hi) {
+    int o = (v->t == TT_TO && v->n >= 2) ? 0 : (v->t == TT_FNC && v->v.sval && !strcmp(v->v.sval, "__rk_range_val") && v->n >= 3) ? 1 : -1;
+    if (o < 0 || !v->c[o] || !v->c[o + 1] || v->c[o]->t != TT_ILIT || v->c[o + 1]->t != TT_ILIT) return 0;
+    *lo = v->c[o]->v.ival;
+    *hi = v->c[o + 1]->v.ival;
+    return 1;
+}
 static void rk_subst_meth_walk(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_subst_meth_walk(t->c[i]);
@@ -5248,13 +5255,8 @@ static void rk_subst_meth_walk(tree_t * t) {
         const char * nm = a->c[1]->v.sval;
         if (!strcmp(nm, "x") && v->t == TT_ILIT && v->v.ival == 0) { zerox = 1; continue; }
         if (!strcmp(nm, "x") && v->t == TT_ILIT && v->v.ival >= 1) { mode |= 32; xmin = xmax = v->v.ival; hasx = 1; continue; }
-        if (!strcmp(nm, "x") && v->t == TT_TO && v->n >= 2 && v->c[0] && v->c[0]->t == TT_ILIT && v->c[1] && v->c[1]->t == TT_ILIT && v->c[0]->v.ival >= 1) {
-            mode |= 32;
-            xmin = v->c[0]->v.ival;
-            xmax = v->c[1]->v.ival;
-            hasx = 1;
-            continue;
-        }
+        long rlo = 0, rhi = 0;
+        if (!strcmp(nm, "x") && rk_subst_x_range(v, &rlo, &rhi) && rlo >= 1) { mode |= 32; xmin = rlo; xmax = rhi; hasx = 1; continue; }
         if (!strcmp(nm, "x") && v->t == TT_VAR && v->v.sval && !strcmp(v->v.sval, "*")) { mode |= 32; xmin = 0; xmax = -1; hasx = 1; continue; }
         if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
         return;
