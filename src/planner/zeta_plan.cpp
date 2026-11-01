@@ -1349,6 +1349,8 @@ static void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const un
     }
 }
 static int zd_match_env_record(const IR_graph_t * cg, const IR_t * nd) { return nd->op == IR_MATCH_ALTERNATE ? 32 : nd->op == IR_MATCH_FENCE1 ? planner_fence_k(cg, nd) : 0; }
+static int zd_g_into_glue_beta(IR_t * x, IR_t * t) { const char * sz = zd_edge_sz(x, 0);
+    return t->op == IR_MATCH_BEGIN && ((zd_sz_sigma(sz) && ir_glue_box(t, 0)) || (zd_sz_phi(sz) && ir_glue_box(t, 1))); }
 void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {
     extern const char * bb_src_of(const IR_t *);
     if (g_planner.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_planner.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
@@ -1615,7 +1617,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                     }
                                 { long kc = 0;
                 int _wzdepth = (zarm && zarm[i] >= 0) ? zout[i] : (int)zd + RG;
-                int _gbpre = (gback >= 0) ? (zout[gback] - zd_k_g(cg, nodes[gback])) : 0;
+                int _gbpre = (gback >= 0) ? (zout[gback] - (zd_g_into_glue_beta(nodes[i], nodes[gback]) ? 0 : zd_k_g(cg, nodes[gback]))) : 0;
                 int _obpre = (oback >= 0) ? (zout[oback] - zd_k_g(cg, nodes[oback])) : 0;
                 {
                 if (!gin) zgpop[i] = (planner_resumable_frame(cg) && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
@@ -1650,7 +1652,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
     { for (int i = 0; i < n; i++) { if (!zon[i]) continue; int K = zd_k_g(cg, nodes[i]); int gback = -1, oback = -1;
         if (zgt[i]) { { int tk = nidx(nodes, n, zgt[i]); if (tk >= 0 && (zon[tk])) { gback = tk; } } }
         if (zot[i]) { { int tk = nidx(nodes, n, zot[i]); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
-        int _gbpre = (gback >= 0) ? (zout[gback] - zd_k_g(cg, nodes[gback])) : 0;
+        int _gbpre = (gback >= 0) ? (zout[gback] - (zd_g_into_glue_beta(nodes[i], nodes[gback]) ? 0 : zd_k_g(cg, nodes[gback]))) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k_g(cg, nodes[oback])) : 0;
         if (!zgin[i]) zgpop[i] = (planner_resumable_frame(cg) && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
