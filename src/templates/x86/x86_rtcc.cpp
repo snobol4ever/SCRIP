@@ -4,7 +4,11 @@
 #include <string>
 #include "templates/x86/x86_rtcc.h"
 #include "templates/x86/x86_rodata.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_rtx.h"
+#include "emitter/emit_str.h"
 #include "runtime/rtx/rtcc.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include "emitter/emit.h"
 #include "runtime/rtx/rtcc.h"
 extern "C++" {
 #define RTX_VERDICT_AL 0

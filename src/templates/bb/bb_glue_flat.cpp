@@ -1,9 +1,10 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "dtp.h"
 #include "runtime/core/trace.h"
 typedef struct { long fn; long how; } rt_call_next_t;

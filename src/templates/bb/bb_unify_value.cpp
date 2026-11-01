@@ -1,8 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 void rt_pl_tr_refuse(const char *);
 int rtx_pl_unify(DESCR_t *, DESCR_t *);

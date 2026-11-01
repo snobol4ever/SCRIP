@@ -1,8 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 int rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes);
 }

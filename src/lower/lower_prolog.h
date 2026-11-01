@@ -3,4 +3,9 @@
 #include "ir/stage2.h"
 #include "ir/ast.h"
 stage2_t *lower_pl_stage2(const tree_t *prog);
+#ifdef __cplusplus
+extern "C" int emit_pl_scc_armed(void);
+#else
+int emit_pl_scc_armed(void);
+#endif
 #endif

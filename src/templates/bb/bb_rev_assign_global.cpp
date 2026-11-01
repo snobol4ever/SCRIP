@@ -2,9 +2,9 @@
 #include "g_runtime.h"
 #include <cstdint>
 #include <cstring>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern int g_gva_active;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);

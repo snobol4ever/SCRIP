@@ -3392,7 +3392,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     return g;
 }
 #include "bb_program.h"
-#include "emit.h"
+#include "emitter/emit_regime.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_subtree_has_suspend(const tree_t *n) {
     if (!n) return 0;

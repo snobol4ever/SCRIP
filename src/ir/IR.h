@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ir/descr.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef NULVCL
 # define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
 #endif
@@ -369,4 +372,7 @@ void IR_free(IR_graph_t * cfg);
 void bb_print(const IR_graph_t * cfg, FILE * fp);
 void bb_print_v(const IR_graph_t * cfg, FILE * fp, int verbose);
 const char * bb_op_name(IR_e k);
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 #include "pin_va.h"
 #include "rt.h"
@@ -214,17 +216,27 @@ static std::string bb_define_bind() {
 }
 #include <string>
 #include <cstdint>
-#include "emit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 #define wn_park() emit_knob_unless_zero("SCRIP_WN_PARK")
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 #include "pin_va.h"
 #include "runtime/rtx/rtcc.h"
 int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int rt_proc_nformals(const char *);
+}
+template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
+    long sv = g_emit.site_shim9;
+    if (loff > 0xFFFF || carve > 0xFFFF) {
+        fprintf(stderr, "FATAL bb_define role 4: a SIG shim frame of %ld bytes cannot be named by a rule-9 SHIM-SELF site (loff and carve must fit 16 bits)\n", carve);
+        abort();
+    }
+    g_emit.site_shim9 = (loff | (carve << 16)) + 1L;
+    std::string r = f();
+    g_emit.site_shim9 = sv;
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define S9(f) emit_shim9(32 + 16L * xt4, F4, (f))

@@ -1,8 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp);
 }

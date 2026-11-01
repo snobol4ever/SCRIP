@@ -1,9 +1,9 @@
 #include <string>
 #include <cstdint>
 #include <cstdlib>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 }
 typedef struct { long fn; long how; } rt_dcap_next_t;

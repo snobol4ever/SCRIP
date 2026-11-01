@@ -1,9 +1,10 @@
 #include <string>
 #include <string.h>
 #include <stdint.h>
-#include "emit.h"
+#include "ir/call_forms.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 #include "ir/descr.h"
 DESCR_t rt_pl_ax_cold(DESCR_t *, int, const char *);

@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include "bbprof.h"
 #include "rt_diag.h"
+#include "ir/IR.h"
 #if RT_DIAG
 typedef struct g_bbprof_e { uintptr_t lo, hi; int32_t nid, kind, uid; uint64_t direct, viac; } bbprof_e;
 typedef struct g_bbprof_pc bbprof_pc;
@@ -140,14 +141,12 @@ void bbprof_report(void) {
     {
         const char *e = getenv("SCRIP_BBPROF_MAP");
         if (e && *e == '1') {
-            extern const char *bb_op_name(int);
             for (int i = 0; i < g_runtime.bbprof.n; i++)
                 fprintf(stderr, "[BBMAP] %#lx %#lx %s %d %d\n", (unsigned long)g_runtime.bbprof.tab[i].lo, (unsigned long)g_runtime.bbprof.tab[i].hi, bb_op_name(g_runtime.bbprof.tab[i].kind),
                 g_runtime.bbprof.tab[i].nid, g_runtime.bbprof.tab[i].uid) ;
         }
     }
     if (g_runtime.bbprof.total == 0) { fprintf(stderr, "[BBPROF] 0 samples\n"); return; }
-    extern const char *bb_op_name(int);
     bbprof_e **rank = (bbprof_e **)ct_alloc((size_t)g_runtime.bbprof.n * sizeof(bbprof_e *));
     for (int i = 0; i < g_runtime.bbprof.n; i++) rank[i] = &g_runtime.bbprof.tab[i];
     qsort(rank, (size_t)g_runtime.bbprof.n, sizeof(bbprof_e *), bbprof_rank);

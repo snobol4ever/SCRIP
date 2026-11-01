@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi);
 }
 #include "templates/x86/x86_ops.h"

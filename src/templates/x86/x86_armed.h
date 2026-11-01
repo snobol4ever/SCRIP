@@ -1,7 +1,8 @@
 #ifndef X86_ARMED_H
 #define X86_ARMED_H
 #include <string>
-#include "emitter/emit.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_str.h"
 #include "ir/stage2.h"
 #include "runtime/builtins/gen.h"
 #include "templates/x86/x86_jump.h"

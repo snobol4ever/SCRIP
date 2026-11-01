@@ -2,9 +2,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr_tags.h"
 int stage2_owner_varslot(const char * proc, const char * var);
 const char * stage2_owner_l3_ancestor(const char * proc);

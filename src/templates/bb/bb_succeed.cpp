@@ -1,7 +1,7 @@
 #include <string>
 #include "g_runtime.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 }
 #include "templates/x86/x86_ops.h"
 extern "C" void rt_trace_stmt(long line);

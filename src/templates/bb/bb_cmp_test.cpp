@@ -1,8 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 int rt_cmp_d(const DESCR_t *a, const DESCR_t *b);
 }

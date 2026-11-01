@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdio>
-#include "emit.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_walk.h"
 #include "templates/x86/x86_ops.h"
 extern "C" {
 }

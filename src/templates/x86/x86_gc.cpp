@@ -4,7 +4,10 @@
 #include <cstring>
 #include <string>
 #include "templates/x86/x86_gc.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"

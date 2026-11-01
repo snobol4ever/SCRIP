@@ -1,7 +1,7 @@
 #ifndef X86_CALL_H
 #define X86_CALL_H
 #include <string>
-#include "emitter/emit.h"
+#include "emitter/bb_label.h"
 #include "templates/x86/x86_jump.h"
 extern "C++" {
 const char * x86_portname(int p);

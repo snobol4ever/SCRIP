@@ -3,6 +3,9 @@
 #define BB_POOL_H
 #include <stddef.h>
 #include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef uint8_t * bb_buf_t;
 #define BB_POOL_SIZE (2048UL * 1024UL * 1024UL)
 void bb_pool_init (void);
@@ -19,4 +22,7 @@ size_t bb_pool_mark (void);
 const uint8_t * bb_pool_base(void);
 long bb_pool_page(void);
 void bb_pool_release (size_t mark);
+#ifdef __cplusplus
+}
+#endif
 #endif

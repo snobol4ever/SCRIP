@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ast.h"
 #include "ir/descr.h"
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);

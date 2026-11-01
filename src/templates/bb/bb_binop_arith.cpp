@@ -1,8 +1,10 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_rtx.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);

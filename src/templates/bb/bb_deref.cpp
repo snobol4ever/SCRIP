@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t rt_deref(DESCR_t d);
 }

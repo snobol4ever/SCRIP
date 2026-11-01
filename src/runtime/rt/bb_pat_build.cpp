@@ -2,9 +2,11 @@ extern "C" {
 #include "IR.h"
 #include "ast.h"
 #include "bb_pool.h"
+#include "ir/bb_box.h"
+#include "planner/frame_layout.h"
 extern "C" int rt_gc_in_arena(const char *);
 }
-#include "emit.h"
+#include "emitter/emit_state.h"
 extern "C" void fc_tables_reset(void);
 extern "C" void bb_src_reset(void);
 extern "C" {

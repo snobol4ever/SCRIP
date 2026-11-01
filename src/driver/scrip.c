@@ -48,7 +48,11 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "lower/lower_common.h"
 #include "lower/lower_pascal_tree.h"
 #include "lower_snobol4.h"
-#include "emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit.h"
 #include "bb_build.h"
 #include "scrip_sm.h"
 extern DESCR_t pat_at_cursor(const char *varname);

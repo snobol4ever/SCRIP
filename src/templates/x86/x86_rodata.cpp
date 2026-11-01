@@ -3,7 +3,12 @@
 #include <cstring>
 #include <string>
 #include "templates/x86/x86_rodata.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
 std::string x86_load_ro(const char * dst, const char * label, uint64_t ptr) {

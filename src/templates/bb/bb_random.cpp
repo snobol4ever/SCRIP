@@ -1,7 +1,7 @@
 #include <string>
 #include <stdint.h>
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t rt_random_var(DESCR_t base);
 extern DESCR_t rt_random_var_strict(DESCR_t);

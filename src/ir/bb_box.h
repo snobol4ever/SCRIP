@@ -7,6 +7,9 @@
 #include "ir/descr.h"
 #include "name_t.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#ifdef __cplusplus
+extern "C" {
+#endif
 static inline DESCR_t descr_match_span(const char * σ, int δ) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)δ; d.s = (char *)σ; return d; }
 static inline DESCR_t descr_match (const char * σ, int δ) { return descr_match_span(σ, δ); }
 static inline DESCR_t descr_match_cat (DESCR_t x, DESCR_t y) { DESCR_t d; d.v = DT_S; d.slen = x.slen + y.slen; d.s = x.s; return d; }
@@ -44,4 +47,7 @@ int exec_stmt_blob(const char * subj_name, DESCR_t * subj_var, bb_box_fn root_fn
 typedef DESCR_t (*univ_box_fn)(void * zeta, int entry);
 typedef enum { bb_scan, bb_pump, bb_once } BrokerMode;
 void exec_stmt_pool_reset(void);
+#ifdef __cplusplus
+}
+#endif
 #endif

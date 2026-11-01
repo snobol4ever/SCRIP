@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 DESCR_t rt_list_bang_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur);

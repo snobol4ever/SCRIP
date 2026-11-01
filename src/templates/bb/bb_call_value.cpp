@@ -2,10 +2,12 @@
 #include "g_runtime.h"
 #include <algorithm>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
 #include "bb_templates.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 extern struct gv_s g_call_args;
 #include "ir/descr.h"
 #include <string.h>

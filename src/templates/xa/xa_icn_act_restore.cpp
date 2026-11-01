@@ -1,7 +1,8 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_str.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rodata.h"
 extern "C" {

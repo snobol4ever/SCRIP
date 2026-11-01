@@ -3,7 +3,10 @@
 #include <cstdlib>
 #include <string>
 #include "templates/x86/x86_frame.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"

@@ -1,10 +1,10 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 #include "bb_templates.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 #include "runtime/core/comm_var.h"
 extern int g_gva_active;

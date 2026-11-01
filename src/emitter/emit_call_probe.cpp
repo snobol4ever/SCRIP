@@ -2,9 +2,9 @@
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
-#include "emit.h"
+#include "planner/frame_layout.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "stage2.h"
 #include "ab_abi.h"
 #include "bb_templates.h"

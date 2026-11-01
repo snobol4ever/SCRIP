@@ -1,6 +1,5 @@
 #include "IR.h"
 #include "ct_arena.h"
-#include "emit.h"
 #include "bb_program.h"
 #include <stdlib.h>
 #include <string.h>

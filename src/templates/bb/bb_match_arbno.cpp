@@ -1,8 +1,9 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 }
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);

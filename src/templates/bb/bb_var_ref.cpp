@@ -1,9 +1,9 @@
 #include <string>
 #include <stdint.h>
 #include <string.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
 extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);

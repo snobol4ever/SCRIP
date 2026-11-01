@@ -5,7 +5,10 @@
 #include <string>
 #include "templates/x86/x86_zverify.h"
 #include "templates/x86/x86_zeta.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_regime.h"
+#include "ir/ir_node_index.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"

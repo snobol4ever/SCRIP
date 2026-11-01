@@ -3,6 +3,9 @@
 #define KEYWORDS_H
 #include <limits.h>
 #include "ir/descr.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define G_ERROR_EVAL_STAGE LONG_MIN
 #define G_ERROR_EVAL_LEVELS (1L << 24)
 #define G_ERROR_EVAL_AT(l) (G_ERROR_EVAL_STAGE + ((long)(l) & (G_ERROR_EVAL_LEVELS - 1)))
@@ -28,4 +31,7 @@ int kw_cset_len(const char *ptr);
 const char *kw_cset_const_str(const char *kw);
 void rt_kw_publish_error(int code, const char *msg);
 void rt_kw_dump_values(void (*emit)(void *cx, const char *name, DESCR_t v), void *cx);
+#ifdef __cplusplus
+}
+#endif
 #endif

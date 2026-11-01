@@ -1,7 +1,7 @@
 #include <string>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t icn_field_get(const char *fname, DESCR_t obj);
 extern DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1);

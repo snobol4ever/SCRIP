@@ -11,7 +11,7 @@
 #include "lower/lower_common.h"
 #include "lower/lc_vec.h"
 #include "g_lower.h"
-#include "emit.h"
+#include "emitter/emit_regime.h"
 #include "bb_program.h"
 #include "../runtime/core/coerce.h"
 #include <stdio.h>

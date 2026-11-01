@@ -1,6 +1,6 @@
 #include "rt/rt_arena.h"
 #include "g_runtime.h"
-#include "emit.h"
+#include "emitter/emit_regime.h"
 #include "rt/rt.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "ir/IR.h"

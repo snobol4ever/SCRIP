@@ -2,9 +2,11 @@
 #include <string>
 #include <string.h>
 #include <stdint.h>
-#include "emit.h"
+#include "ir/call_forms.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);

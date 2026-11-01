@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 DESCR_t rt_make_list(DESCR_t *args, int nargs);
 }

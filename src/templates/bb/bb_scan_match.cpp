@@ -1,9 +1,9 @@
 #include <string>
 #include <cstring>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_regime.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr_tags.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_icn_needle_coerce(uint64_t lo, uint64_t hi);

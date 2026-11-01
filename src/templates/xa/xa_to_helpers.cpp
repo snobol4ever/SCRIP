@@ -1,9 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
 extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);

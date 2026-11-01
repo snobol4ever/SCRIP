@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include "emitter/emit.h"
+#include "emitter/bb_label.h"
 extern "C++" {
 enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2, X86H_DEF_PAIR = 3 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

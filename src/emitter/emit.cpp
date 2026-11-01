@@ -1,4 +1,38 @@
-#include "emit_head.h"
+#include <unordered_map>
+#include "ir/ct_arena.h"
+#include "ir/ct_vec.h"
+#include "runtime/rt/prolog_atom.h"
+#include <string>
+#include <climits>
+#include "emitter/emit.h"
+#include "emitter/emit_state.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_rtx.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
+#include "runtime/keywords.h"
+#include "planner/frame_layout.h"
+#include "lower/lower_prolog.h"
+#include "ir/gc_frame_map.h"
+#include "ir/dtp.h"
+#include "optimizer/ir_index.h"
+#include "ir/ir_node_index.h"
+#include "templates/bb/bb_templates.h"
+#include <unordered_set>
+#include <vector>
+#include <algorithm>
+extern "C" {
+#include "ir/stage2.h"
+#include "templates/xa/xa_templates.h"
+#include <string.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "g_emitter.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"
@@ -15,6 +49,35 @@
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/trace.h"
 #include "runtime/rt/pl_trail_layout.h"
+#include "ir/call_forms.h"
+#include "ir/stno_map.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline void bb_label_name_set(bb_label_t * l, const char * src) {
+    size_t n = src ? strlen(src) : 0;
+    char * p = (char *) l->name;
+    if (n >= UINT32_MAX) { fprintf(stderr, "emit: a label name of %zu bytes cannot be stored\n", n); _exit(3); }
+    if (n + 1 > l->name_cap) { uint32_t c = 2 * l->name_cap; if (c < n + 1) c = (uint32_t) (n + 1); p = (char *) ct_alloc(c); l->name = p; l->name_cap = c; }
+    if (n) memcpy(p, src, n);
+    p[n] = '\0';
+}
+static inline void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j) {
+    cv_reserve(&g_emit.xa_bb_emit_pair, (uint32_t)sizeof(xa_pair_t), (uint64_t)g_emit.xa_bb_emit_pair_n + 1, "xa_bb_emit_pair");
+    xa_pair_t * e = &XA_PAIR(g_emit.xa_bb_emit_pair_n);
+    e->define = d;
+    e->jmp = j;
+    e->rsp = 0;
+    g_emit.xa_bb_emit_pair_n++;
+}
+#define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
+static inline void stno_rec_push(uint64_t pc, int32_t stno, int32_t line, const char * file) {
+    cv_reserve(&g_emit.stno_map, (uint32_t)sizeof(sno_stno_rec_t), (uint64_t)g_emit.stno_map_n + 1, "stno_map");
+    sno_stno_rec_t * e = &STNO_REC(g_emit.stno_map_n);
+    e->pc = pc;
+    e->stno = stno;
+    e->line = line;
+    e->file = file;
+    g_emit.stno_map_n++;
+}
 g_emitter_t g_emitter;
 const char * bb_src_of(const IR_t * nd);
 int bb_line_of(const IR_t * nd);
@@ -436,7 +499,6 @@ extern "C" void g_emit_stno_drop_above(uint64_t addr) {
     g_emit.stno_map_n = lo;
 }
 #include "IR.h"
-#include "emit_ir.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_emit_limit_init(int limit_slot_off) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_emit_limit_init"); abort(); }
 void xa_dispatch(XA_op_t op)
@@ -569,8 +631,6 @@ static int zrow_partvs(const IR_t * nd, int j);
 static int zrow_under(int ri);
 static void emit_ops_reserve(int n);
 #include "templates/bb/bb_templates.h"
-#include "emit_ir.h"
-#include "XA.h"
 #include "../runtime/builtins/gen.h"
 #include "IR.h"
 #include "../rt/rt.h"

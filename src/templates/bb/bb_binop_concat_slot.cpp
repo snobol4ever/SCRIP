@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b); DESCR_t sno_concat_d(DESCR_t a, DESCR_t b);

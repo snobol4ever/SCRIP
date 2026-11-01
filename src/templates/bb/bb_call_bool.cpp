@@ -1,7 +1,7 @@
 #include <string>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "../runtime/rt/rt.h"
 int bb_slot_get(IR_t *nd);
 int rk_is_truthy(DESCR_t v);

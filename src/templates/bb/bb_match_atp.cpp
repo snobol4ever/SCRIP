@@ -1,7 +1,7 @@
 #include <string>
 #include <cstdint>
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 }
 extern "C" long rt_at_cursor(const char *varname, int cur_delta, void *pend);
 extern "C" long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta);

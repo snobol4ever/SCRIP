@@ -1,7 +1,8 @@
 #include <cstdint>
 #include <string>
 #include "templates/x86/x86_icn.h"
-#include "emitter/emit.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_regime.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"

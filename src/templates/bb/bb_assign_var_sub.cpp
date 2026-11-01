@@ -1,9 +1,9 @@
 #include <string>
 #include <stdint.h>
 #include <string.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
 extern DESCR_t rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);

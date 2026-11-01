@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 #include "bb_templates.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 #include "runtime/core/trace.h"
 extern int g_gva_active;

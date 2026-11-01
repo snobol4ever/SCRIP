@@ -1,8 +1,10 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 }
 extern "C" uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);

@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "IR.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 enum { ZK_DESCR = 0, ZK_RAW = 1, ZK_PTR_GC = 2, ZK_PTR_CODE = 3, ZK_PTR_FRAME = 4, ZK_PTR_FRAME_H = 5 };
 enum { ZSC_FN = 0, ZSC_GROUP = 1, ZSC_ITER = 2, ZSC_PAT = 3, ZSC_COEXPR = 4 };
 typedef struct { int off; int size; unsigned char kind; unsigned char audit; const char * what; } zls_field_t;
@@ -66,7 +69,6 @@ int zls_g_ptr_frame_offs(const IR_graph_t * g, int kind, int * out, int cap);
 int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);
 const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void zls_dump(FILE * fp);
-#endif
 void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae);
 int fc_alt_fpmax(const IR_t * nd);
 int fc_alt_extent(const IR_t * nd, int * b, int * e);
@@ -85,3 +87,7 @@ int zls_g_root_value_bytes(const IR_graph_t * g);
 int zls_g_block_base(const IR_graph_t * g);
 int zls_g_entry_block(const IR_graph_t * g);
 int zls_g_has_suspend(const IR_graph_t * g);
+#ifdef __cplusplus
+}
+#endif
+#endif

@@ -1,8 +1,8 @@
 #include <string>
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr_tags.h"
 void rt_pl_tr_refuse(const char *);
 int prolog_functor_arity(int);

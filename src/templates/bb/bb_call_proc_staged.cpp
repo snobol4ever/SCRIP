@@ -4,12 +4,17 @@
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
+#include "planner/frame_layout.h"
 extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" int emit_zrow_sprec(const IR_t * nd);
 extern "C" {
-#include "bb_template_common.h"
 #include "bb_templates.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_state.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
 #include "bb_pl_cell.h"

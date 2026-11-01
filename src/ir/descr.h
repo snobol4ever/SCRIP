@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ir/descr_tags.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
@@ -132,4 +135,7 @@ static inline __attribute__((always_inline)) int IS_INT_fn(DESCR_t v) { return v
 static inline __attribute__((always_inline)) int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
 static inline __attribute__((always_inline)) int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
 static inline __attribute__((always_inline)) int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
+#ifdef __cplusplus
+}
+#endif
 #endif

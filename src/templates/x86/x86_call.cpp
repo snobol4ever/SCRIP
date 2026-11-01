@@ -4,7 +4,13 @@
 #include <cstring>
 #include <string>
 #include "templates/x86/x86_call.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
+#include "lower/lower_prolog.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"

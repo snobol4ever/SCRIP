@@ -3,11 +3,13 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include "emitter/emit.h"
+#include "emitter/emit_state.h"
+typedef enum {
+    XA_MACRO_LIBRARY, XA_MACRO_LIBRARY_OPEN, XA_MACRO_LIBRARY_CLOSE, XA_BB_MACRO_LIBRARY, XA_EXEC_STMT_BLOB, XA_FILE_HEADER, XA_FILE_FOOTER, XA_RODATA_STRTAB, XA_PREDICATE_REGISTRY, XA_BB_PTR_SLOT,
+        XA_ENTRY_DISPATCH, XA_FLAT_DATA_SECTION, XA_PATTERN_BLOBS, XA_PROLOGUE, XA_EPILOGUE, XA_EXPRESSION_REGISTRY, XA_KIDS_RODATA, XA_SUB_BUILDER, XA_BUILDER, XA_REGISTRY_TABLE, XA_STRTAB_RODATA,
+        XA_CSETTAB_RODATA, XA_CAP_FIXUP, XA_OP_COUNT
+} XA_op_t;
 extern "C++" {
-#ifndef _
-#define _ g_emit
-#endif
 std::string x86_rec(const char * op);
 std::string x86_recn(const char * op);
 std::string x86_reclbl(const std::string & nm);

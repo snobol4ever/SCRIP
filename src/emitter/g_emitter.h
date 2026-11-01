@@ -7,7 +7,9 @@
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include <string>
-#include "emit.h"
+#include "emitter/emit.h"
+#include "emitter/bb_label.h"
+#include "templates/x86/x86_ops.h"
 #include "gc_frame_map.h"
 #include "dtp.h"
 #include "ir_index.h"
@@ -221,4 +223,6 @@ struct g_emitter_t {
     int defer_prepare_g_defer_site_n;
 };
 extern g_emitter_t g_emitter;
+extern "C" void xa_dispatch(XA_op_t op);
+extern "C" const char * bb_ab_sym_name(const char * nm);
 #endif

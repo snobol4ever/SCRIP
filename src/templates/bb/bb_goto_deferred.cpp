@@ -1,9 +1,10 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 void *rt_goto_resolve(const char *name);
 int rt_sno_goto_special_is(const char *enc);

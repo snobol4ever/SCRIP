@@ -1,8 +1,8 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);

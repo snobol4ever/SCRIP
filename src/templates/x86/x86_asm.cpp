@@ -5,7 +5,14 @@
 #include <string>
 #include <vector>
 #include "templates/x86/x86_ops.h"
-#include "emitter/emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
 #include "ir/cset_block.h"
 #include "runtime/rtx/rtcc.h"
 #include "templates/x86/x86_arg_roles.h"

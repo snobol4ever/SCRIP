@@ -1,9 +1,11 @@
 #include <string>
 #include "g_runtime.h"
 #include <cstdint>
-#include "emit.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "bb_templates.h"
 #include "runtime/core/trace.h"
 }

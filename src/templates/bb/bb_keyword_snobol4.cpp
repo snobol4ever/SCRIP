@@ -1,8 +1,9 @@
 #include <string>
 #include <stdint.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
+#include "runtime/keywords.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 DESCR_t rt_keyword_read_snobol4(const char *sval);
 int rt_kw_index(const char *kw);

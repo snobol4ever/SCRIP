@@ -1,9 +1,9 @@
 #include <string>
 #include <stdint.h>
 #include <string.h>
-#include "emit.h"
+#include "emitter/emit_str.h"
 extern "C" {
-#include "bb_template_common.h"
+#include "emitter/emit_state.h"
 #include "ir/descr.h"
 int is_global(const char * name);
 struct DESCR_t * NV_PTR_fn(const char * name);

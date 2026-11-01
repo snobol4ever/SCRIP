@@ -1,4 +1,5 @@
-#include "emit.h"
+#include "emitter/emit_str.h"
+#include <vector>
 #include <cstdarg>
 #include <cstdint>
 #include <cstring>
@@ -29,3 +30,5 @@ std::string gas_escape_str(const char * s) {
     result += '"';
     return result;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string emit_seq(std::initializer_list<std::string> parts) { std::string r; for (const std::string & p : parts) r += p; return r; }

@@ -4,7 +4,16 @@
 #include <string>
 #include <cstdlib>
 #include <cstdio>
-#include "emit.h"
+#include "emitter/emit_medium.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
+#include "lower/lower_prolog.h"
 #include "gc_frame_map.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
