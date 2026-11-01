@@ -515,7 +515,7 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$writeln", "dop_pl_writeln", 1196, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$writeln_s", "rt_pl_dop_writeln_sb", 1197, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2,
     0 }, { "$writeq", "dop_pl_writeq", 1198, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$writeq_s", "rt_pl_dop_writeq_sb", 1199, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "$flag_meta",
     "rt_pl_dop_flag_meta", 1200, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$mod_get", "rt_pl_dop_mod_get", 1201, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$mod_set", "rt_pl_dop_mod_set", 1202,
-    BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_consult_t", "rt_pl_dop_db_consult_t", 1203, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$db_consult_done", "rt_pl_dop_db_consult_done", 1204,
+    BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_consult_t", "rt_pl_dop_db_consult_t", 1203, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 3, 3, 0 }, { "$db_consult_done", "rt_pl_dop_db_consult_done", 1204,
     BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "__pas_addr", "pas_addr", 1205, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 2, 2, 0 }, { "__pas_addr_var", "pas_addr_var", 1206, BT_VOC_PAS, BT_CONV_INLINE, 0, 1,
     1, 1, 0 }, { "__pas_ptr_inc", "pas_ptr_inc", 1207, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 2, 2, 0 }, { "__pas_ptr_eq", "pas_ptr_eq", 1208, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 2, 2, 0 },
     { "__pas_ptr_diff", "pas_ptr_diff", 1209, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 2, 2, 0 }, { "__pas_pchar_of", "pas_pchar_of", 1210, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 1, 1, 0 }, { "__pas_pstrlen",

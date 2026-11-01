@@ -9605,6 +9605,19 @@ static int pl_read_syntax_mode(DESCR_t opts) {
     }
     return m;
 }
+static int pl_read_term_pos_opt(DESCR_t opts, pl_tr_ctx_t *cx) {
+    extern int fh_last_read_pos(long *, long *, long *, long *);
+    extern int prolog_atom_intern(const char *);
+    long ch = 0, ln = 0, lp = 0, by = 0;
+    for (DESCR_t o = rt_pl_deref_val(opts); pl_is_cons(o); o = rt_pl_deref_val(((DESCR_t *)o.p)[1])) {
+        DESCR_t e = rt_pl_deref_val(((DESCR_t *)o.p)[0]);
+        if (e.v != (DTYPE_t)DT_PLREF || plc_fid_arity(e.slen) != 1 || plc_fid_name(e.slen) != prolog_atom_intern("term_position")) continue;
+        if (!fh_last_read_pos(&ch, &ln, &lp, &by)) return 1;
+        DESCR_t sp[4] = { INTVAL((int64_t)ch), INTVAL((int64_t)ln), INTVAL((int64_t)lp), INTVAL((int64_t)by) };
+        if (!plw_unify_vals(((DESCR_t *)e.p)[0], pl_pos_cmp("$stream_position", 4, sp), cx)) return 0;
+    }
+    return 1;
+}
 PL_CX_LEAF_HEAD(read_term_opts, 2)
     {
         char *text = (char *)0;
@@ -9626,7 +9639,7 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
             if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
             if (got != 1) se = "end_of_file";
             else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = PL_SYNERR(vt);
-            if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
+            if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx) && pl_read_term_pos_opt(args[1], cx); break; }
             { const char *g = pl_gp_read_err(off0); if (g) se = g; }
             if (sm == 2) printf("warning: syntax error: %s\n", se);
             if (sm == 3) { fprintf(stderr, "warning: syntax error: %s\n", se); continue; }
@@ -25584,9 +25597,9 @@ DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok()
 extern int rt_pl_db_seed(void *, void *, void *);
 static int bnd_db_key_need(void *cell);
 extern int rt_pl_db_term_key(void *, char *, size_t, int *);
-static int pl_seed_src(void *db, DESCR_t *args, int ok) {
+static int pl_seed_src(void *db, DESCR_t *fl, int ok) {
     extern int rt_pl_db_src_set_last(void *, int, int);
-    DESCR_t fv = rt_pl_deref_val(args[3]), lv = rt_pl_deref_val(args[4]);
+    DESCR_t fv = rt_pl_deref_val(fl[0]), lv = rt_pl_deref_val(fl[1]);
     if (ok) rt_pl_db_src_set_last(db, (int)fv.v == DT_PLATOM ? (int)fv.i : -1, lv.v == DT_I ? (int)lv.i : 0);
     return ok;
 }
@@ -25606,10 +25619,10 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
             extern int rt_pl_db_key_is_declared(void *, const char *);
             char key[bnd_db_key_need((void *)&args[2])];
             int ar = 0;
-            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return pl_seed_src(db, args, rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3)) ?
+            if (rt_pl_db_term_key((void *)&args[2], key, sizeof key, &ar)) return pl_seed_src(db, &args[3], rt_pl_db_consult(root, db, (void *)&args[2], rt_pl_db_key_is_declared(root, key), 3)) ?
                 pl_ok() : FAILDESCR;
         }
-        return pl_seed_src(db, args, rt_pl_db_seed(root, db, (void *)&args[2])) ? pl_ok() : FAILDESCR;
+        return pl_seed_src(db, &args[3], rt_pl_db_seed(root, db, (void *)&args[2])) ? pl_ok() : FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -26283,12 +26296,12 @@ DESCR_t rt_pl_dop_db_consult_t_c(DESCR_t *args, int nargs, void *root) {
     char key[bnd_db_key_need((void *)&args[0])];
     int ar = 0;
     void *db;
-    if (nargs != 1) return FAILDESCR;
+    if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
     if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return FAILDESCR;
     db = rt_pl_db_get_by_key(root, key, 1);
     if (!db) return FAILDESCR;
-    return rt_pl_db_consult(root, db, (void *)&args[0], rt_pl_db_key_is_declared(root, key), 1) ? pl_ok() : FAILDESCR;
+    return pl_seed_src(db, &args[1], rt_pl_db_consult(root, db, (void *)&args[0], rt_pl_db_key_is_declared(root, key), 1)) ? pl_ok() : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_consult_done_c(DESCR_t *args, int nargs, void *root) {

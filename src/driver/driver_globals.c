@@ -271,6 +271,11 @@ void fh_note_read_start(int idx) {
     g_fh[idx].rd_col = ok==1 ? p : 0;
     g_fh[idx].rd_last=1;
 }
+int fh_last_read_pos(long *ch, long *line, long *lpos, long *byte) {
+    fh_ensure_init();
+    for(int i=0;i<FH_N;i++) if(g_fh[i].rd_last){ if(g_fh[i].rd_line<1) return 0; *ch=g_fh[i].pos_chars-1; *line=g_fh[i].rd_line; *lpos=g_fh[i].rd_col-1; *byte=g_fh[i].pos_off-1; return 1; }
+    return 0;
+}
 int fh_last_read_start(long *line, long *col) { fh_ensure_init(); for(int i=0;i<FH_N;i++) if(g_fh[i].rd_last){ *line=g_fh[i].rd_line; *col=g_fh[i].rd_col; return 1; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fh_slot_init(fh_slot_t *s, FILE *fp) {

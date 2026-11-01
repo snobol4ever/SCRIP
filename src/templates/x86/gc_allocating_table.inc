@@ -1256,6 +1256,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_read_opts_ball", GC_RET_OTHER },
     { "pl_read_term_from_text", GC_RET_OTHER },
     { "pl_read_term_options_cell", GC_RET_OTHER },
+    { "pl_read_term_pos_opt", GC_RET_OTHER },
     { "pl_read_term_text", GC_RET_OTHER },
     { "pl_read_term_text_raw", GC_RET_OTHER },
     { "pl_restraint_set", GC_RET_OTHER },
