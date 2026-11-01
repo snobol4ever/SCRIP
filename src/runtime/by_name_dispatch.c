@@ -5074,11 +5074,19 @@ static DESCR_t icn_call_value_not_invocable(DESCR_t callee, DESCR_t *argv, int n
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * icn_callee_name(DESCR_t callee) {
+    if (callee.v != DT_S || !callee.slen || callee.slen == 0xFFFFFFFFu || !callee.s[callee.slen]) return callee.s;
+    char * b = rt_str_alloc((int) callee.slen);
+    memcpy(b, callee.s, (size_t) callee.slen);
+    b[callee.slen] = 0;
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
-    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = icn_callee_name(callee);
     if (!nm) return icn_call_value_not_invocable(callee, argv, n);
     icn_callee_resolve_op(&callee, &nm, n);
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
@@ -5126,7 +5134,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (callee.v == DT_R) callee = INTVAL((int64_t)callee.r);
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
-    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = icn_callee_name(callee);
     if (!nm) return icn_call_value_not_invocable(callee, argv, n);
     icn_callee_resolve_op(&callee, &nm, n);
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
@@ -5231,7 +5239,7 @@ static CVSPINE_t rt_call_value_spine_prep_x(DESCR_t callee, DESCR_t *argv, int n
     extern void *rt_proc_fn(const char *name);
     extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
-    if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    if (!nm && IS_STR_fn(callee) && callee.s) nm = icn_callee_name(callee);
     if (!nm) return cvprep_decline("noname", nm);
     icn_callee_resolve_op(&callee, &nm, n);
     icn_call_value_deref_args(nm, argv, n);

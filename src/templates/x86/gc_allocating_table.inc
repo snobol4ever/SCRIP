@@ -722,6 +722,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "icn_call_value_deref_args", GC_RET_VOID },
     { "icn_call_value_name_invocable", GC_RET_OTHER },
     { "icn_call_value_not_invocable", GC_RET_DESCR },
+    { "icn_callee_name", GC_RET_OTHER },
     { "icn_char_code", GC_RET_OTHER },
     { "icn_cvt_int_ok", GC_RET_OTHER },
     { "icn_cvt_num_ok", GC_RET_OTHER },
