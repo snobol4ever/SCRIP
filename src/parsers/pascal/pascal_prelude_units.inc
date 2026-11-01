@@ -878,7 +878,7 @@ static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "end;\n"
     "procedure Delay(ms: integer);\n"
     "begin\n"
-    "  sleep(ms)\n"
+    "  sleep(ms / 1000)\n"
     "end;\n"
     "function KeyPressed: boolean;\n"
     "begin\n"

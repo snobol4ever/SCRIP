@@ -6976,8 +6976,10 @@ static pval E_type(const tree_t *n) {
         v[1] = E_packed_opt(off ? n->c[0] : NULL);
         v[4] = E_simple_type(n->c[off]);
         long long _rlo = pas_index_low_of(n->c[off]);
+        if (v[4].ival < 0) { _rlo = pas_index_bound(-1, 0); v[4].ival = pas_index_bound(-1, 1); }
         v[6] = E_simple_type(n->c[off + 1]);
         long long _clo = pas_index_low_of(n->c[off + 1]);
+        if (v[6].ival < 0) { _clo = pas_index_bound(-1, 0); v[6].ival = pas_index_bound(-1, 1); }
         v[9] = E_type(n->c[off + 2]);
         {
             g_lower.pas.sem.pas_pend_esz = -1;

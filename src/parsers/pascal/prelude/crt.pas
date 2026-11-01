@@ -126,7 +126,7 @@ begin
 end;
 procedure Delay(ms: integer);
 begin
-  sleep(ms)
+  sleep(ms / 1000)
 end;
 function KeyPressed: boolean;
 begin
