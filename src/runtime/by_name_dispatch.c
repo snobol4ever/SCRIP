@@ -347,6 +347,7 @@ static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
     { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM; if (aa || ba) { return aa && ba && rt_pl_text_eq(A, B); } }
     if (A->v == DT_R && B->v == DT_R) return (isnan(A->r) && isnan(B->r)) || (A->r == B->r && signbit(A->r) == signbit(B->r));
+    if (A->v == (DTYPE_t)DT_BIG || B->v == (DTYPE_t)DT_BIG || pl_rat_is(*A) || pl_rat_is(*B)) { extern int rt_pl_unify_atomic_cold(DESCR_t *, DESCR_t *); return rt_pl_unify_atomic_cold(A, B); }
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 PLR_WALK2(plw_unify_walk, plw_unify_leaf, plw_cell_deref) static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_walk(a, b, (void *)cx, 1); }
@@ -390,6 +391,7 @@ static int plw_unify_oc_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
     { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM; if (aa || ba) { return aa && ba && rt_pl_text_eq(A, B); } }
     if (A->v == DT_R && B->v == DT_R) return (isnan(A->r) && isnan(B->r)) || (A->r == B->r && signbit(A->r) == signbit(B->r));
+    if (A->v == (DTYPE_t)DT_BIG || B->v == (DTYPE_t)DT_BIG || pl_rat_is(*A) || pl_rat_is(*B)) { extern int rt_pl_unify_atomic_cold(DESCR_t *, DESCR_t *); return rt_pl_unify_atomic_cold(A, B); }
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 PLR_WALK2(plw_unify_oc_walk, plw_unify_oc_leaf, plw_cell_deref) static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_oc_walk(a, b, (void *)cx, 1); }
