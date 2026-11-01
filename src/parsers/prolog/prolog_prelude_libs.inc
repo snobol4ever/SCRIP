@@ -35909,6 +35909,7 @@ static const char PL_PRELUDE_LIB_82_SRC[] =
     "'$xsb_med_cells'([D|Ds], C, [Diag, Up|Prev], Left, [X|Xs]) :- ( C =:= D -> Sub = Diag ; Sub is Diag + 1 ), U1 is Up + 1, L1 is Left + 1, X is min(Sub, min(U1, L1)), '$xsb_med_cells'(Ds, C, [Up|Prev], X, Xs).\n"
     "import(from(Ps, Mod)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Ps, Mod).\n"
     "import(as(from(Ps, Mod), Qs)) :- '$xsb_impmod'(Mod), !, '$xsb_impstub'(Ps, Qs, Mod).\n"
+    "import(as(from(Ps, Mod), Qs)) :- atom(Mod), '$xsb_mfile'(Mod, _), !, '$xsb_impstub'(Ps, Qs, Mod).\n"
     "import(as(from(Spec, _), Spec2)) :- !, '$xsb_import_as'(Spec, Spec2).\n"
     "import(_).\n"
     "'$xsb_import_as'(N/A, N2/A) :- functor(H1, N, A), H1 =.. [_|Args], H2 =.. [N2|Args], assertz((H2 :- H1)).\n"
