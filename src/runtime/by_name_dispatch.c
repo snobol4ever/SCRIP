@@ -15247,9 +15247,9 @@ DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
     if (!cur) cur = "";
     long idx = rk_ival(args[1]);
     size_t clen = pas_slen(args[0], cur);
-    if (idx < 0 || !clen) return FAILDESCR;
-    if (idx >= 1 && (size_t)idx <= clen) return INTVAL((long long)(unsigned char)cur[idx - 1]);
-    return (idx == 0) ? elem_to_descr(cur, clen) : FAILDESCR;
+    if (idx == 0) return INTVAL((long long)(clen & 0xff));
+    if (idx < 1 || (size_t)idx > clen) return FAILDESCR;
+    return INTVAL((long long)(unsigned char)cur[idx - 1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(pas_arr_set, leaf, 0);
