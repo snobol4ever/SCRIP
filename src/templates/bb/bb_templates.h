@@ -111,6 +111,7 @@ std::string bb_cut();
 std::string bb_fail();
 std::string bb_call();
 std::string bb_call_proc_staged();
+std::string bb_call_pl_block();
 std::string bb_call_direct();
 std::string bb_call_pl_leaf();
 std::string bb_call_pas_bi();

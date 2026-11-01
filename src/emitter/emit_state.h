@@ -336,6 +336,13 @@ typedef struct {
     int * op_zkown;
     int * op_zfres;
     int * op_opvs;
+    int * op_pb_slot;
+    int * op_pb_vs;
+    int * op_pb_kv;
+    int * op_pb_kh;
+    int * op_pb_kvn;
+    int * op_pb_khn;
+    int op_pb_off, op_pb_act, op_pb_idx, op_pb_zsp, op_pb_fr, op_pb_frs, op_pb_lco, op_pb_pop, op_pb_ns, op_pb_static, op_pb_kvt, op_pb_kht;
     int op_cft;
     int op_zslot_n;
     int op_own, op_kown, op_fres, op_xk, op_xw, op_xd, op_xa;

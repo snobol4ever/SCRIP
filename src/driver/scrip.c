@@ -748,6 +748,7 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
         break;
         case IR_CALL:
         case IR_CALL_PROC_STAGED:
+        case IR_CALL_PL_BLOCK:
         case IR_CALL_BUILTIN:
         case IR_CALL_DIRECT:
         case IR_CALL_PL_LEAF:

@@ -20,6 +20,10 @@ extern int rt_builtin_tail_may_open(const char *);
 extern int rt_pas_bi_index(const char *);
 extern int rt_dat_field_of_any(const char *);
 extern void * dat_find_type(const char *);
+extern int rt_proc_dyn_scope(const char *);
+extern int rt_proc_index_of(const char *);
+extern int rt_proc_pinned(const char *);
+extern int zls_g_resumable_frame(const IR_graph_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_knob_unless_zero(const char * name) { const char * e = getenv(name); return (e && *e == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -207,12 +211,24 @@ IR_e lower_call_road_kind(const IR_t * nd, int route) {
     return lower_call_tail_try(fn, strict) ? IR_CALL_TRY : IR_CALL_BYNAME;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lower_call_pl_block_road(const IR_graph_t * g, const IR_t * nd) {
+    const char * fn = nd->sval ? nd->sval : "";
+    int i = fn[0] ? bb_proc_find(fn) : -1, bi = i >= 0 ? g_stage2.proc_table[i].bb_idx : -1;
+    const IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (const IR_graph_t *)0;
+    if (ir_kind0(nd) != IR_CALL_PROC_STAGED || !fn[0] || !rt_proc_is_generator(fn) || !zls_g_resumable_frame(g) || rt_proc_dyn_scope(fn) || rt_proc_index_of(fn) < 0) return 0;
+    return cg ? zls_g_resumable_frame(cg) : rt_proc_pinned(fn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_call_forms_graph(IR_graph_t * g) {
     if (!g) return;
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd || nd->op0 || nd->op == IR_CALL_VALUE || ir_norm_call_kind(nd->op) != IR_CALL) continue;
-        { IR_e k = lower_call_road_kind(nd, lower_call_route(nd)); if (k) { nd->op0 = nd->op; nd->op = k; } }
+        {
+            int route = lower_call_route(nd);
+            IR_e k = route == CALL_ROUTE_PROC_STAGED ? (lower_call_pl_block_road(g, nd) ? IR_CALL_PL_BLOCK : (IR_e)0) : lower_call_road_kind(nd, route);
+            if (k) { nd->op0 = nd->op; nd->op = k; }
+        }
     }
 }
 void lower_call_forms_all(struct stage2_t * s2) { for (int gi = 0; gi < s2->bbp.count; gi++) lower_call_forms_graph(s2->bbp.table[gi]); }

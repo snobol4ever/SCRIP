@@ -250,12 +250,12 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
     if (!zls_g_resumable_frame(g)) return ZK_RAW;
-    if (nd->op == IR_CALL_PROC_STAGED) return ZK_PTR_FRAME;
+    if (ir_kind0(nd) == IR_CALL_PROC_STAGED) return ZK_PTR_FRAME;
     if (nd->op == IR_CALL_VALUE && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal")) return ZK_PTR_FRAME;
     return ZK_RAW;
 }
 static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
-    if (g && g->cell_frame) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
+    if (g && g->cell_frame) return (nd->op == IR_PROC_GEN || ir_kind0(nd) == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
     return ZK_PTR_CODE;
 }
 static int zls_g_pinned_frame(const IR_graph_t * g);
@@ -2174,7 +2174,7 @@ static int zls_home_local_kind(int lo) {
     return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
         lo == IR_UNIFY_VALUE;
 }
-static int zls_hf_excursion(const IR_graph_t * g, const IR_t * x) { return g->home_frame && (x->op == IR_CALL_PROC_STAGED || x->op == IR_TO) && zls_edge_retains(g, x); }
+static int zls_hf_excursion(const IR_graph_t * g, const IR_t * x) { return g->home_frame && (ir_kind0(x) == IR_CALL_PROC_STAGED || x->op == IR_TO) && zls_edge_retains(g, x); }
 void zls_home_pass(const IR_graph_t * g) {
     if (!g || g->n <= 0) return;
     int n = g->n;
@@ -2292,7 +2292,7 @@ int zls_frame_resident(const IR_t * nd) {
 static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
-    if (nd && (nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
+    if (nd && (ir_kind0(nd) == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) && !zls_home_member(nd) && planner_call_spine_record(g, nd)) return 0;
     if (nd && nd->op == IR_GATE && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g) && planner_gate_cells(g, nd)) return 0;
     if (nd && nd->op == IR_TO && !ir_range_kind_is(nd, "db") && !zls_home_member(nd) && zls_g_home_frame(g) && zls_g_resumable_frame(g)) return 0;
     return nd &&
@@ -2536,7 +2536,7 @@ int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind
         for (int k = lo; k < hi; k++) {
             const IR_t * x = g->all[k];
             const zls_entry_t * e;
-            if (!x || (x->op != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE && x->op != IR_PROC_GEN) || !(e = zx_find(x))) continue;
+            if (!x || (ir_kind0(x) != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE && x->op != IR_PROC_GEN) || !(e = zx_find(x))) continue;
             for (int f = zfc_first(x, e->scope_id); f >= 0; f = zfc_next(f)) if (zls_slot_matches(f, kind) && !zls_key_unbacked(g, zf[f].off)) { tmp[n++] = zf[f].off; break; }
         }
         if (n > 1) { int w = 1; qsort(tmp, (size_t)n, sizeof tmp[0], zls_int_cmp); for (int i = 1; i < n; i++) if (tmp[i] != tmp[w - 1]) tmp[w++] = tmp[i]; n = w; }
