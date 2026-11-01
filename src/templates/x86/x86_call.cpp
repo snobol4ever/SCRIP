@@ -220,6 +220,8 @@ std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok) { return
     x86("test", "rcx", "rcx") + x86("je", L(l_ok)) + x86("lea", "rdx", RDQ(fb, kt)) + x86("cmp", "rcx", "rdx") + x86("jae", L(l_ok)) +
     x86_bomb("setup_call_cleanup: a frame released on its failure road still holds a linked cleanup record, or one younger") + x86("def", L(l_ok)); }
 static std::string x86_pl_ball_rec_probe() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"); }
+std::string x86_pl_alarm_probe() { return x86("push", "rax") + x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "eax", RDD("rax", 128)) + x86("test", "eax", "eax") +
+    x86("pop", "rax"); }
 std::string x86_pl_ball_rule(int l_go, int l_skip) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86("jne", L(l_skip));
     return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +

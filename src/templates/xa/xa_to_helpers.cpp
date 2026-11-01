@@ -51,7 +51,12 @@ std::string xa_to_trail_unwind() {
          + IF(x86_resumable_frame() && _.op_to_trailed,
                x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201)
                + x86("test", "r15", "r15")
-               + x86_omega("jne"));
+               + x86_omega("jne")
+               + x86_pl_alarm_probe()
+               + x86("je", L(202))
+               + x86_alarm_raise_call()
+               + x86_omega("je")
+               + x86("def", L(202)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_int_operand_guard(int slot) {

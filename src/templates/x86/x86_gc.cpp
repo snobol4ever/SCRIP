@@ -19,6 +19,7 @@ extern "C" { extern uint64_t g_rtccb[32]; }
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;
 extern "C" void rt_pl_cap_raise(void);
+extern "C" void rt_pl_alarm_raise(void);
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
 static std::string x86_gc_gate(const std::string & body);
@@ -94,6 +95,12 @@ std::string x86_cap_raise_call() {
     if (MEDIUM_BINARY) return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_R11)) + x86_Lrec(x86_rtcc_call_b(fp)) + x86_gc_site(X86_SITE_CALL) +
         x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_R11));
     return x86("call", "rt_pl_cap_raise", fp);
+}
+std::string x86_alarm_raise_call() {
+    uint64_t block = (uint64_t)(uintptr_t)g_rtccb, fp = (uint64_t)(uintptr_t)(void *)rt_pl_alarm_raise;
+    if (MEDIUM_BINARY) return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_R11)) + x86_Lrec(x86_rtcc_call_b(fp)) + x86_gc_site(X86_SITE_CALL) +
+        x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_R11));
+    return x86("call", "rt_pl_alarm_raise", fp);
 }
 static int x86_scan_regs_graph() { return g_emit_cfg && g_emit_cfg->scan_regs; }
 static std::string x86_rt_gc_poll_scan_regs() {

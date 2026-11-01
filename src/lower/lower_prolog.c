@@ -4141,6 +4141,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     if (gout) *gout = g;
     g->resumable_callable = 1;
     g->unbound_serial = 1;
+    g->poll_alpha = 1;
     if (pkt_slot >= 0) { g->pkt_fragment = 1; g->pkt_cell = pkt_cell; g->pkt_slot = pkt_slot; }
     { extern void optimizer_run(IR_graph_t *); optimizer_run(g); }
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
@@ -6273,6 +6274,70 @@ static int pl_names_depth_limit(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (pl_names_depth_limit(t->c[i])) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * pl_pa_graph(int i, int bb0) {
+    int bi = g_stage2.proc_table[i].bb_idx;
+    const char * pk = g_stage2.proc_table[i].name;
+    return (pk && strrchr(pk, '/') && bi >= bb0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pa_edges(int i, int bb0, int * out) {
+    IR_graph_t * g = pl_pa_graph(i, bb0);
+    int k = 0;
+    if (g) for (int j = 0; j < g->n; j++) {
+        const IR_t * nd = g->all[j];
+        int c = (nd && nd->op == IR_CALL_PROC_STAGED && IR_LIT(nd).sval) ? bb_proc_find(IR_LIT(nd).sval) : -1;
+        if (c >= 0 && pl_pa_graph(c, bb0)) { if (out) out[k] = c; k++; }
+    }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_poll_alpha_mark(int bb0) {
+    int n = g_stage2.proc_count, t = 0, sp = 0;
+    if (n <= 0) return;
+    int * beg = (int *) ct_zalloc((size_t) n + 1, sizeof(int));
+    for (int i = 0; i < n; i++) beg[i + 1] = beg[i] + pl_pa_edges(i, bb0, (int *)0);
+    int * adj = (int *) ct_zalloc((size_t) beg[n] + 1, sizeof(int)), * num = (int *) ct_zalloc((size_t) n, sizeof(int)), * low = (int *) ct_zalloc((size_t) n, sizeof(int));
+    int * stk = (int *) ct_zalloc((size_t) n, sizeof(int)), * ons = (int *) ct_zalloc((size_t) n, sizeof(int)), * cst = (int *) ct_zalloc((size_t) n, sizeof(int));
+    int * cpos = (int *) ct_zalloc((size_t) n, sizeof(int));
+    for (int i = 0; i < n; i++) (void) pl_pa_edges(i, bb0, adj + beg[i]);
+    for (int r = 0; r < n; r++) {
+        if (num[r] || !pl_pa_graph(r, bb0)) continue;
+        int dp = 0;
+        cst[0] = r;
+        cpos[0] = beg[r];
+        num[r] = low[r] = ++t;
+        stk[sp++] = r;
+        ons[r] = 1;
+        while (dp >= 0) {
+            int v = cst[dp];
+            if (cpos[dp] < beg[v + 1]) {
+                int w = adj[cpos[dp]++];
+                if (!num[w]) { dp++; cst[dp] = w; cpos[dp] = beg[w]; num[w] = low[w] = ++t; stk[sp++] = w; ons[w] = 1; } else if (ons[w] && num[w] < low[v]) low[v] = num[w];
+                continue;
+            }
+            if (low[v] == num[v]) {
+                int k = sp - 1;
+                while (stk[k] != v) k--;
+                int cyc = sp - k > 1;
+                for (int e = beg[v]; e < beg[v + 1] && !cyc; e++) cyc = adj[e] == v;
+                for (int m = k; m < sp; m++) { ons[stk[m]] = 0; if (cyc) pl_pa_graph(stk[m], bb0)->poll_alpha = 1; }
+                sp = k;
+            }
+            dp--;
+            if (dp >= 0 && low[v] < low[cst[dp]]) low[cst[dp]] = low[v];
+        }
+    }
+    ct_drop(cpos);
+    ct_drop(cst);
+    ct_drop(ons);
+    ct_drop(stk);
+    ct_drop(low);
+    ct_drop(num);
+    ct_drop(adj);
+    ct_drop(beg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
@@ -6696,6 +6761,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) g_stage2.bbp.table[bi]->rt_redefinable = 1;
         }
     }
+    pl_poll_alpha_mark(_pl_bb0);
     { extern int rt_pl_db_frame_cells(void); top->standing_cells = rt_pl_db_frame_cells() + 1; }
     pl_db_decls_capture();
     return &g_stage2;

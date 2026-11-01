@@ -2067,6 +2067,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_patv_defer_get_pat_dtp", GC_RET_OTHER },
     { "rt_patv_defer_open_entry", GC_RET_OTHER },
     { "rt_patv_freeze", GC_RET_VOID },
+    { "rt_pl_alarm_ball", GC_RET_OTHER },
+    { "rt_pl_alarm_raise", GC_RET_VOID },
     { "rt_pl_all_solutions_cell", GC_RET_OTHER },
     { "rt_pl_all_solutions_tail_cell", GC_RET_OTHER },
     { "rt_pl_anum_cold", GC_RET_DESCR },

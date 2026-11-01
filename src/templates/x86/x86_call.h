@@ -34,6 +34,7 @@ std::string x86_release_acts(bool below_rsp, int kind = 4);
 std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok);
 std::string x86_pl_ball_rule(int l_go, int l_skip);
 std::string x86_pl_ball_rule_omega(int l_go);
+std::string x86_pl_alarm_probe();
 std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done);
 int x86_trace_hooks_on();
 }

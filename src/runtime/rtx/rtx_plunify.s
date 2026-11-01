@@ -12,6 +12,8 @@ RTX_GATE_DEF(plunify)
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
+#define PL_TR_ALARM_DUE_OFF   128
+#define PL_TR_ALARM_DEADLINE_OFF 136
 #define PL_VAR_ATTV_MASK  0x1FF
 #define PL_VAR_ATTV_WORD  0x148
 #define PL_SERIAL_SLOT    -2064
@@ -74,6 +76,39 @@ RTX_FUNC(rt_pl_cap_raise)
 .Lcr_ret:
     ret
 RTX_ENDF(rt_pl_cap_raise)
+RTX_FUNC(rt_pl_alarm_raise)
+    mov     rax, r12
+    and     rax, PL_TR_ARENA_MASK
+    cmp     dword ptr [rax + PL_TR_ALARM_DUE_OFF], 0
+    jne     .Lar_go
+    test    rsp, rsp
+    ret
+.Lar_go:
+    mov     dword ptr [rax + PL_TR_ALARM_DUE_OFF], 0
+    cmp     qword ptr [rax + PL_TR_ALARM_DEADLINE_OFF], 0
+    jle     .Lar_mk
+    neg     qword ptr [rax + PL_TR_ALARM_DEADLINE_OFF]
+.Lar_mk:
+    RTX_PUSHS(rcx)
+    RTX_PUSHS(rsi)
+    RTX_PUSHS(rdi)
+    RTX_PUSHS(r8)
+    RTX_PUSHS(r10)
+    RTX_PUSHS(r11)
+    RTX_SUB_RSP(8)
+    call rt_pl_alarm_ball; RTX_GVA_R9
+    PL_BALL_ARM(rax, rcx)
+    RTX_ADD_RSP(8)
+    RTX_POPS(r11)
+    RTX_POPS(r10)
+    RTX_POPS(r8)
+    RTX_POPS(rdi)
+    RTX_POPS(rsi)
+    RTX_POPS(rcx)
+    mov     eax, DT_FAIL
+    xor     edx, edx
+    ret
+RTX_ENDF(rt_pl_alarm_raise)
 RTX_FUNC(rt_pl_goal_resolve)
     RTX_SUB_RSP(24)
     mov     qword ptr [rsp + 8], 0

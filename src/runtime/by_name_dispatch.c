@@ -11889,6 +11889,7 @@ static int pl_alarm_take(pl_tr_ctx_t *cx) {
     DESCR_t a;
     if (!*d) return 0;
     *d = 0;
+    if (*(int64_t *)(pl_tr_base_of(cx->tr) + PL_TR_ALARM_DEADLINE_OFF) > 0) *(int64_t *)(pl_tr_base_of(cx->tr) + PL_TR_ALARM_DEADLINE_OFF) *= -1;
     a = pl_mk_atom("time_limit_exceeded");
     cx->ball = rt_pl_ball_make(&a, 1);
     return 1;
@@ -11927,7 +11928,7 @@ PL_CX_LEAF_HEAD(alarm_push, 2)
         char *h = pl_tr_base_of(cx->tr);
         DESCR_t t = rt_pl_deref_val(args[0]);
         double sec = t.v == (DTYPE_t)DT_I ? (double)t.i : t.v == (DTYPE_t)DT_R ? t.r : 0.0;
-        int64_t now = pl_mono_us(), prev = *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF), nw = now + (int64_t)(sec * 1e6), d = (prev && prev < nw) ? prev : nw;
+        int64_t now = pl_mono_us(), prev = *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF), nw = now + (int64_t)(sec * 1e6), d = (prev > 0 && prev < nw) ? prev : nw;
         *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF) = d;
         if (d - now <= 0) *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 1;
         else pl_alarm_arm(h, d - now);
@@ -11938,9 +11939,10 @@ PL_CX_LEAF_HEAD(alarm_pop, 1)
     {
         char *h = pl_tr_base_of(cx->tr);
         DESCR_t p = rt_pl_deref_val(args[0]);
-        int64_t prev = p.v == (DTYPE_t)DT_I ? (int64_t)p.i : 0, now = pl_mono_us();
-        *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF) = prev;
-        if (!prev) {
+        int64_t prev = p.v == (DTYPE_t)DT_I ? (int64_t)p.i : 0, now = pl_mono_us(), cur = *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF);
+        int fired = prev < 0 || (cur < 0 && -cur == prev);
+        *(int64_t *)(h + PL_TR_ALARM_DEADLINE_OFF) = (fired && prev > 0) ? -prev : prev;
+        if (!prev || fired) {
             pl_alarm_arm(h, 0);
             *(volatile int32_t *)(h + PL_TR_ALARM_DUE_OFF) = 0;
         } else if (prev <= now) {

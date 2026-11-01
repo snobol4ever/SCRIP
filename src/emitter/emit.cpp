@@ -3556,6 +3556,14 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     { extern std::string bb_zdp_origin(long); if (_pl->zdp_on) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     int _sigk = 0;
     if (xa_flat_class_c_pred()) { sig_prepare_chain(fam); xa_flat_chain_prologue(fam, &_sigk); }
+    if (!bare && alt_step_lbl && g_emit_cfg && g_emit_cfg->poll_alpha) {
+        bb_label_t * pa_ok = emit_label_alloc("%s_pa", fam);
+        bb_emit_x86(x86_pl_alarm_probe());
+        emit_jmp_label(pa_ok, JMP_JE);
+        bb_emit_x86(x86_alarm_raise_call());
+        emit_jmp_label(alt_step_lbl, JMP_JE);
+        emit_label_define_bb(pa_ok);
+    }
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build();
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +

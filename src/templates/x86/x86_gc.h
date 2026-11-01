@@ -15,6 +15,7 @@ std::string x86_gc_site(int kind);
 std::string x86_gc_site_raw(int kind, int rule, int depth);
 void x86_text_sites_scan(const std::string & r, bool real = true);
 std::string x86_cap_raise_call();
+std::string x86_alarm_raise_call();
 #define x86_cap_raise(fail) (x86_resumable_frame() ? x86_cap_raise_call() + (fail) : std::string())
 std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & raise = std::string());
 #define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)

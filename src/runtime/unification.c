@@ -3887,6 +3887,7 @@ void *rt_pl_cap_ball(void) {
     rt_gcheap_cap_raised();
     return b;
 }
+void *rt_pl_alarm_ball(void) { pl_cell_t *b = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t)); if (b) *b = pl_make_atom(prolog_atom_intern("time_limit_exceeded")); return (void *)b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_instantiation(void) {
     extern DESCR_t rt_pl_fresh_var_ref(uint64_t);
