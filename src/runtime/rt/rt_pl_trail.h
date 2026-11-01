@@ -2,7 +2,6 @@
 #define RT_PL_TRAIL_H
 #include <stdint.h>
 #include "ir/descr.h"
-#include "runtime/rt/pl_trail_layout.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

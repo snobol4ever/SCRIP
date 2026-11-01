@@ -257,6 +257,7 @@ int icn_builtin_arity(const char *name) {
     return ICN_ARITY_UNKNOWN;
 }
 #include "parsers/prolog/pl_cell.h"
+#include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "runtime/rt/pl_rational.h"
 static inline __attribute__((always_inline)) int plw_n_self(const DESCR_t *c) { return c->v == DT_N && c->slen == 1 && c->p == (void *)c; }

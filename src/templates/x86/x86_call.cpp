@@ -11,6 +11,7 @@
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
 #include "lower/lower_prolog.h"
+#include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_jump.h"

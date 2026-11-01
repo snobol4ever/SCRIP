@@ -36,6 +36,7 @@ extern "C++" int xa_flat_graph_holds_a_frame_retry(void);
 extern "C" {
 }
 #include "templates/bb/bb_templates.h"
+#include "runtime/rt/pl_trail_layout.h"
 #include "templates/bb/bb_pl_cell.h"
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);

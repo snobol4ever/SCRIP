@@ -20,6 +20,7 @@ void rt_pl_db_decls_install(const long *, void *);
 DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 #include "runtime/rt/gc_heap.h"
 }
+#include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_gc.h"

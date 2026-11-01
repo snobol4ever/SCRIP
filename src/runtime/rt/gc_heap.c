@@ -45,6 +45,7 @@ _Static_assert(GC_FREE_PCT == 15,
 #include "ir/descr.h"
 #include "ir/pin_va.h"
 #include "ir/gc_frame_map.h"
+#include "pl_trail_layout.h"
 #include "rt_pl_trail.h"
 #include "gc_audit_b.h"
 #include "gc_slot_table.h"

@@ -18,6 +18,7 @@ extern "C" {
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
+#include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "bb_pl_cell.h"
 #include "runtime/rt/gc_heap.h"

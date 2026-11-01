@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "pl_trail_layout.h"
 #include "rt_pl_trail.h"
 #include "runtime/core/g_runtime.h"
 #include "rt_slab.h"
