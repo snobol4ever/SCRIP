@@ -950,22 +950,54 @@ static psym_t *pe_find_fn(struct pty_state *s, const char *name) {
     for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 'f' && p->name && !strcmp(p->name, name)) return p;
     return NULL;
 }
+static int pt_sym_agg(const psym_t *p, long long *hi) {
+    const pty_t *t = p->t;
+    long long h;
+    *hi = -1;
+    if (p->k == 'f' || p->k == 'R') return t->k == PTK_ARRAY && t->dyn;
+    if (t->k == PTK_RECORD) { if (!t->lay || t->lay->nf <= 0) return 0; *hi = t->lay->nf - 1; return 1; }
+    if (t->k != PTK_ARRAY) return 0;
+    if (t->dyn || t->open) { *hi = 0; return 1; }
+    if (t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) { *hi = 0; return 1; }
+    h = t->ix[0]->hi;
+    if (t->nix == 2 && t->ix[1]) { if (!t->ix[1]->bounded) { *hi = 0; return 1; } h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; }
+    *hi = h;
+    return h >= 0;
+}
 int pty_name_agg(const char *name) {
     struct pty_state *s = pt_st();
+    long long h;
     if (!s || !s->ecur || !name) return -1;
     psym_t *p = pe_find(s, name);
-    const pty_t *t = p ? p->t : NULL;
-    int fn = !p || p->k == 'R';
+    if (!p) p = pe_find_fn(s, name);
+    if (!p || !p->t || p->t->k == PTK_UNKNOWN) return -1;
+    return pt_sym_agg(p, &h);
+}
+int pty_global_aggs(const char ***names, long long **his) {
+    struct pty_state *s = pt_st();
+    pscope_t *g = s ? s->cur : NULL;
+    long n = 0, m = 0;
     long long h;
-    if (!p) { p = pe_find_fn(s, name); t = p ? p->t : NULL; if (!t) return -1; }
-    if (!t || t->k == PTK_UNKNOWN) return -1;
-    if (fn) return t->k == PTK_ARRAY && t->dyn;
-    if (t->k == PTK_RECORD) return t->lay && t->lay->nf > 0;
-    if (t->k != PTK_ARRAY) return 0;
-    if (t->dyn || t->open || t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 1;
-    h = t->ix[0]->hi;
-    if (t->nix == 2 && t->ix[1]) { if (!t->ix[1]->bounded) return 1; h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; }
-    return h >= 0;
+    while (g && g->up) g = g->up;
+    for (psym_t *p = g ? g->s : NULL; p; p = p->next) n++;
+    *names = (const char **)ct_alloc((size_t)(n + 1) * sizeof **names);
+    *his = (long long *)ct_alloc((size_t)(n + 1) * sizeof **his);
+    for (psym_t *p = g ? g->s : NULL; p; p = p->next) if ((p->k == 'v' || p->k == 'f') && p->name && p->t && p->t->k != PTK_UNKNOWN && pt_sym_agg(p, &h)) { (*names)[m] = p->name; (*his)[m] = h; m++; }
+    for (long i = 0; i < m / 2; i++) {
+        const char *tn = (*names)[i];
+        long long th = (*his)[i];
+        (*names)[i] = (*names)[m - 1 - i];
+        (*his)[i] = (*his)[m - 1 - i];
+        (*names)[m - 1 - i] = tn;
+        (*his)[m - 1 - i] = th;
+    }
+    long k = 0;
+    for (long i = 0; i < m; i++) {
+        int dup = 0;
+        for (long j = 0; j < k && !dup; j++) dup = !strcmp((*names)[j], (*names)[i]) && (*his)[j] == -1 && (*his)[i] == -1;
+        if (!dup) { (*names)[k] = (*names)[i]; (*his)[k] = (*his)[i]; k++; }
+    }
+    return (int)k;
 }
 int pty_name_dyn(const char *name) {
     struct pty_state *s = pt_st();

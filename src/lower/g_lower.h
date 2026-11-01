@@ -109,9 +109,6 @@ typedef struct {
     int pas_sconsts_cap;
     int pas_nsconst;
     int pas_level;
-    struct { char *name; long long high; int is_param; int is_local; int isdyn; int uid; } *pas_arrays;
-    int pas_array_cap;
-    int pas_narray;
     long long pas_pend_arr_ncols;
     union { long long v[4]; struct { long long rlo, rhi, clo, chi; }; } pas_pend_dim2;
     struct { char *name; } *pas_assigned;

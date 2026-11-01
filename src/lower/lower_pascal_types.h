@@ -53,6 +53,7 @@ int pty_name_is(const char *name, pty_kind want);
 const pty_t *pty_name_type(const char *name);
 int pty_name_kind(const char *name);
 int pty_name_agg(const char *name);
+int pty_global_aggs(const char ***names, long long **his);
 int pty_name_dyn(const char *name);
 int pty_name_high(const char *name, long long *hi);
 int pty_name_dims(const char *name, long long *d2);
