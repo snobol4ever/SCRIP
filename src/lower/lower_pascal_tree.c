@@ -3652,6 +3652,11 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_QLIT && pas_var_string_kind(sel->v.sval) && pas_is_charexpr(rhs)) rhs = mk_chr_wrap(rhs);
     if (sel && sel->t == TT_IDX && sel->n == 2 && sel->c[0] && sel->c[0]->t == TT_VAR && pas_is_strelem_arr(sel->c[0]->v.sval) && rhs && rhs->t != TT_QLIT && pas_is_charexpr(rhs)) rhs =
         mk_chr_wrap(rhs);
+    if (sel && sel->t == TT_IDX && rhs && rhs->t != TT_QLIT && !(rhs->t == TT_FNC && rhs->n == 2 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "__pas_chr")) && pas_is_charexpr(rhs))
+        {
+        const pty_t *_st = pty_of_low(sel);
+        if (_st && _st->k == PTK_STRING) rhs = mk_chr_wrap(rhs);
+    }
     if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_QLIT && pas_func_returns_stringish(sel->c[0]->v.sval) &&
         pas_is_charexpr(rhs)) rhs = pas_concat_operand(rhs);
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval) && !pas_array_isdyn(sel->v.sval) && !pas_expr_is_real(rhs)) rhs =
@@ -5414,9 +5419,9 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
             *dv = y;
             return 1;
         }
-        static const char *const F[] = { "ord", "chr", "succ", "pred", "abs" };
+        static const char *const F[] = { "ord", "chr", "succ", "pred", "abs", "odd" };
         int fi = -1;
-        for (int j = 0; j < 5; j++) if (!strcmp(f, F[j])) fi = j;
+        for (int j = 0; j < 6; j++) if (!strcmp(f, F[j])) fi = j;
         int en = a && pas_const_isenum(a) && pas_const_get(a, iv);
         if (fi < 0 || (en ? (*k = 1, 0) : (!pas_fold_const(e->c[1], k, iv, dv, sv) || (*k != 1 && *k != 4)))) return 0;
         g_lower.pas.sem.pas_last_const_enum = en && (fi == 2 || fi == 3);
@@ -5424,7 +5429,7 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
         else if (fi == 1) *k = 4;
         else if (fi == 2) *iv += 1;
         else if (fi == 3) *iv -= 1;
-        else if (*iv < 0) *iv = -*iv;
+        else if (fi == 5) { *k = 1; *iv = (*iv % 2) != 0; } else if (*iv < 0) *iv = -*iv;
         return 1;
     }
     return 0;

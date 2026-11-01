@@ -207,6 +207,7 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
             if (!strcmp(f, "ord") || !strcmp(f, "chr")) { *v = a; return 1; }
             if (!strcmp(f, "succ")) { *v = a + 1; return 1; }
             if (!strcmp(f, "pred")) { *v = a - 1; return 1; }
+            if (!strcmp(f, "odd")) { *v = (a % 2) != 0; return 1; }
             return 0;
         }
         default:
