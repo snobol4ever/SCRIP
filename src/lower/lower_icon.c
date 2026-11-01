@@ -1057,6 +1057,52 @@ static int icn_op_hands_line(tree_e k) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pm_node(tree_e k, tree_t * a, tree_t * b, tree_t * c) { tree_t * n = ast_node_new(k); if (a) ast_push(n, a); if (b) ast_push(n, b); if (c) ast_push(n, c); return n; }
+static tree_t * pm_var(const char * nm) { tree_t * n = ast_node_new(TT_VAR); n->v.sval = (char *) nm; return n; }
+static tree_t * pm_int(int64_t v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
+static int pm_flatten(const tree_t * t, const tree_t ** out, int cap) {
+    if (t->t == TT_CAT && t->n == 2) { int a = pm_flatten(t->c[0], out, cap); return a < 0 ? a : (a + pm_flatten(t->c[1], out + a, cap - a)); }
+    if (cap < 1) return -1;
+    out[0] = t;
+    return 1;
+}
+static int pm_count(const tree_t * t) { return (t->t == TT_CAT && t->n == 2) ? pm_count(t->c[0]) + pm_count(t->c[1]) : 1; }
+static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
+    int ne = pm_count(pat);
+    const tree_t * el[ne];
+    IR_t * nd[ne];
+    pm_flatten(pat, el, ne);
+    for (int i = 0; i < ne; i++) {
+        const tree_t * e = el[i];
+        if (e->t == TT_QLIT) {
+            nd[i] = lc_build(cx->g, IR_MATCH_LIT, NULL, NULL);
+            IR_LIT(nd[i]).sval = e->v.sval ? e->v.sval : (char *) "";
+        } else if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->t == TT_VAR && !strcmp(e->c[0]->v.sval, "Arb")) nd[i] = lc_build(cx->g, IR_MATCH_ARB, NULL, NULL);
+        else { fprintf(stderr, "icon: line %d: this pattern element is not lowered yet (ARCH-UNICON step 4b stage B slice 1)\n", e->line); exit(1); }
+    }
+    for (int i = 0; i < ne; i++) { if (i + 1 < ne) lc_γ_to(nd[i], nd[i + 1]); else γ_to(nd[i], γ); if (i > 0) lc_ω_to_β(nd[i], nd[i - 1]); else ω_to(nd[i], ω); }
+    IR_t * g = build(cx, IR_GOTO, NULL, ω);
+    lc_γ_to_β(g, nd[ne - 1]);
+    cx->beta = g;
+    *res = nd[ne - 1];
+    return nd[0];
+}
+static IR_t * lower_pmatch(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (t->n == 1 && t->c[0]) return lower_pm_boxes(cx, t->c[0], γ, ω, res);
+    if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+    const char * nx = icn_synth_local(cx);
+    const char * si = icn_synth_local(cx);
+    const char * en = icn_synth_local(cx);
+    tree_t * to = pm_node(TT_TO, pm_var(nx), pm_node(TT_ADD, pm_node(TT_SIZE, pm_var("&subject"), NULL, NULL), pm_int(1), NULL), NULL);
+    tree_t * pass = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(si), to, NULL), pm_node(TT_ASSIGN, pm_var("&pos"), pm_var(si), NULL), pm_node(TT_PMATCH, (tree_t *) t->c[1], NULL, NULL));
+    ast_push(pass, pm_node(TT_ASSIGN, pm_var(en), pm_var("&pos"), NULL));
+    ast_push(pass, pm_node(TT_ASSIGN, pm_var(nx), pm_node(TT_IF, pm_node(TT_GT, pm_var(en), pm_var(si), NULL), pm_var(en), pm_node(TT_ADD, pm_var(si), pm_int(1), NULL)), NULL));
+    ast_push(pass, pm_node(TT_SECTION, pm_var("&subject"), pm_var(si), pm_var(en)));
+    tree_t * body = pm_node(TT_REPALT, pm_node(TT_LIMIT, pass, pm_int(1), NULL), NULL, NULL);
+    tree_t * all = pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(nx), pm_int(1), NULL), pm_node(TT_SCAN, (tree_t *) t->c[0], body, NULL), NULL);
+    return lower(cx, all, γ, ω, res);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * pl = cx->op_last;
     int pn = cx->op_line;
@@ -1223,6 +1269,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         case TT_NUL:
         { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
         case TT_PMATCH:
+        return lower_pmatch(cx, t, γ, ω, res);
         case TT_PAND:
         case TT_CAPT_COND_ASGN:
         case TT_CAPT_IMMED_ASGN:
