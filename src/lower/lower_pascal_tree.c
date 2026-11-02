@@ -436,6 +436,7 @@ static tree_t *pas_addr_of_cell(tree_t *e);
 static int pas_ptr_typed(const tree_t *low);
 static int pas_pchar_typed(const tree_t *low);
 static int pas_row_designator(const tree_t *e, long long *d2);
+static tree_t *pas_dense_sub(tree_t *i, long long lo);
 static tree_t *mk_row_call(const char *fn, const tree_t *e, const long long *d2, tree_t *row);
 static int pas_array_rows(const char *name, long long *rb);
 static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clause);
@@ -1653,8 +1654,11 @@ static tree_t *pas_ptr_arith(tree_e tt, tree_t *a, tree_t *b) {
 }
 static tree_t *pas_addr_of_cell(tree_t *e) {
     if (!e) return NULL;
-    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[1] && !(e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_var_string_kind(e->c[0]->v.sval)) && e->c[0]->t != TT_QLIT)
+    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[1] && !(e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_var_string_kind(e->c[0]->v.sval)) && e->c[0]->t != TT_QLIT) {
+        long long d2[4];
+        if (pas_row_designator(e, d2)) return mk_fnc2("__pas_addr", e->c[0], bin(TT_MUL, pas_dense_sub(e->c[1], d2[0]), ilit(d2[3] - d2[2] + 1)));
         return mk_fnc2("__pas_addr", e->c[0], e->c[1]);
+    }
     if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_deref")) return e->c[1];
     if (e->t == TT_VAR && e->v.sval) { int k = pty_name_kind(e->v.sval); if (k == 'v' || k == 'p' || k == 'r' || k == 'R') return mk_fnc1("__pas_addr_var", e); }
     return NULL;
