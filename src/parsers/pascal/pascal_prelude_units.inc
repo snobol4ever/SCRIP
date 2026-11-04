@@ -2126,6 +2126,14 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_10_SRC[] =
+    "{$mode objfpc}\n"
+    "unit sysgen;\n"
+    "interface\n"
+    "type\n"
+    "  generic TArray<T> = array of T;\n"
+    "implementation\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -2214,7 +2222,7 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -3065,7 +3073,7 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -3086,7 +3094,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -3123,9 +3131,10 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "sha1", PAS_PRELUDE_UNIT_7_SRC },
     { "strings", PAS_PRELUDE_UNIT_8_SRC },
     { "strutils", PAS_PRELUDE_UNIT_9_SRC },
-    { "system", PAS_PRELUDE_UNIT_10_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_11_SRC },
-    { "types", PAS_PRELUDE_UNIT_12_SRC },
-    { "unix", PAS_PRELUDE_UNIT_13_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_10_SRC },
+    { "system", PAS_PRELUDE_UNIT_11_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_12_SRC },
+    { "types", PAS_PRELUDE_UNIT_13_SRC },
+    { "unix", PAS_PRELUDE_UNIT_14_SRC },
     { 0, 0 }
 };

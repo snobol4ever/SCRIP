@@ -106,6 +106,13 @@ static int pas_names_system(const tree_t *t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_names_spec(const tree_t *t, const char *name) {
+    if (!t) return 0;
+    if (t->t == TT_DECL && t->v.sval && !strcmp(t->v.sval, "specialize") && t->n > 0 && t->c[0]->v.sval && !strcasecmp(t->c[0]->v.sval, name)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_names_spec(t->c[i], name)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_ioflow_in(const tree_t *t) {
     if (!t) return 0;
     if (t->t == TT_TRY) return 1;
@@ -142,7 +149,8 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
     const tree_t *uses = pas_uses_of(block);
     int ioflow = pas_ioflow_in(prog);
     int sys = pas_names_system(block) || (ioflow && !pas_uses_pull(uses));
-    if (!uses && !sys) return prog;
+    int gen = pas_names_spec(block, "tarray");
+    if (!uses && !sys && !gen) return prog;
     const char *slash = strrchr(filename, '/');
     size_t dl = slash ? (size_t)(slash - filename) : 1;
     char *dir = ct_alloc(dl + 1);
@@ -157,6 +165,12 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
         sn->v.sval = ct_strdup("system");
         ast_push(su, sn);
         if (!pas_units_visit(dir, filename, su, forest, visiting)) return NULL;
+    }
+    if (gen) {
+        tree_t *gu = ast_node_new(TT_VLIST), *gn = ast_node_new(TT_VAR);
+        gn->v.sval = ct_strdup("sysgen");
+        ast_push(gu, gn);
+        if (!pas_units_visit(dir, filename, gu, forest, visiting)) return NULL;
     }
     if (pas_su_closure(uses, forest)) {
         tree_t *iu = ast_node_new(TT_VLIST), *in = ast_node_new(TT_VAR);

@@ -4956,6 +4956,12 @@ static tree_t *pas_dynarr_append_src(const tree_t *lhs, const tree_t *set) {
     for (int i = 0; i < set->n; i++) ast_push(seq, bin(TT_ASSIGN, bin(TT_IDX, a, bin(TT_SUB, pas_src_call("length", a, NULL), ilit(set->n - i))), set->c[i]));
     return seq;
 }
+static tree_t *pas_dynarr_assign_src(const tree_t *lhs, const tree_t *set) {
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR), *a = (tree_t *)lhs;
+    ast_push(seq, pas_src_call("setlength", a, ilit(set->n)));
+    for (int i = 0; i < set->n; i++) ast_push(seq, bin(TT_ASSIGN, bin(TT_IDX, a, ilit(i)), set->c[i]));
+    return seq;
+}
 static tree_t *pas_pf_assign(const tree_t *n) {
     const char *nm = n->c[0]->v.sval;
     const PasDef *d = pas_pf_lookup(nm);
@@ -4979,6 +4985,8 @@ static pval E_assignment(const tree_t *n) {
         v[1] = E_selector(n->c[0]);
         if (n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && !strcmp(n->c[2]->v.sval, "+=") && IS(n->c[1], TT_SET) && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
             return E_compound_statement(pas_dynarr_append_src(n->c[0], n->c[1]));
+        if (n->n == 2 && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
+            return E_compound_statement(pas_dynarr_assign_src(n->c[0], n->c[1]));
         v[3] = E_expression(n->c[1]);
         if (n->n == 3 && n->c[2] && n->c[2]->t == TT_KEYWORD && n->c[2]->v.sval) {
             const char *op = n->c[2]->v.sval;
@@ -5166,6 +5174,12 @@ static pval E_call_with_args(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
+        if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "exit") && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && !pas_set_has_range(n->c[1]) && pas_curfunc_name() &&
+            pas_dyn_depth(E_selector(leaf_s(TT_VAR, "result")).node, NULL) > 0) {
+            tree_t *_seq = pas_dynarr_assign_src(leaf_s(TT_VAR, "result"), n->c[1]);
+            ast_push(_seq, mk_fnc0("exit"));
+            return E_compound_statement(_seq);
+        }
         if (n->n == 3 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "__pas_mptr")) {
             out.node = mk_fnc2("__pas_mptr", leaf_s(TT_QLIT, n->c[1]->v.sval), E_expression(n->c[2]).node);
             return out;
