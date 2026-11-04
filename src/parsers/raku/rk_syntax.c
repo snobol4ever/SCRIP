@@ -3973,7 +3973,7 @@ static int r_signature(RkP *p, int pos, int allow_invocant) {
         }
         int t = ws(p, q);
         if (ch(p, t) == ',' || (ch(p, t) == ':' && !is_space_cp(cp_at(p, t + 1)) && 0)) { q = ws(p, t + 1); continue; }
-        if (ch(p, t) == ':' && allow_invocant && !at_lit(p, t, "::")) { q = ws(p, t + 1); continue; }
+        if (ch(p, t) == ':' && allow_invocant && !at_lit(p, t, "::")) { if (S && S->n == 1) { tree_t *iv = param_var_of(S->c[0]); if (iv) iv->slen |= RK_PV_INV; } q = ws(p, t + 1); continue; }
         if (at_lit(p, t, ";;")) { q = ws(p, t + 2); continue; }
         if (ch(p, t) == ';') { q = ws(p, t + 1); continue; }
         q = t;

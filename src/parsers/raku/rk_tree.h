@@ -36,6 +36,7 @@ typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_OPT 16384
 #define RK_PV_RAW 32768
 #define RK_PV_ALIAS 65536
+#define RK_PV_INV 131072
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 struct RkDecl {

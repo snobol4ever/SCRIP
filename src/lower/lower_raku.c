@@ -105,6 +105,7 @@ static int rk_name_is_byref(rcx_t * cx, const char * name) {
 #define RK_PV_OPT 16384
 #define RK_PV_RAW 32768
 #define RK_PV_ALIAS 65536
+#define RK_PV_INV 131072
 #define RK_VAR_PKG 1048576
 #define RK_VAR_OUR 2097152
 static int rk_is_scalar_bind(const tree_t * t);
@@ -7261,6 +7262,47 @@ static void rk_bool_regexes(tree_t * t) {
     else if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "__rk_mkbool")) rk_bool_rx(&t->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_invocant_params(tree_t * t, const tree_t * pkg) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_invocant_params(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL ? t : NULL);
+    if (!pkg || t->t != TT_SUB_DECL || t->n < 2 || t->v.ival < 2) return;
+    tree_t * pv = t->c[1];
+    if (!pv || pv->t != TT_VAR || !(pv->slen & RK_PV_INV)) return;
+    const char * nm = pv->v.sval && pv->v.sval[0] && strcmp(pv->v.sval, "$") && strcmp(pv->v.sval, "self") ? pv->v.sval : NULL;
+    if (nm && (nm[0] == '@' || nm[0] == '%' || nm[0] == '&')) return;
+    const char * cap = NULL, * ty = NULL;
+    for (int k = 0; k < pv->n; k++) {
+        const tree_t * q = pv->c[k];
+        if (!q || q->t != TT_QLIT || !q->v.sval || !q->v.sval[0]) continue;
+        if (strncmp(q->v.sval, "::", 2)) ty = q->v.sval;
+        else if (q->v.sval[2] && q->v.sval[2] != '?') cap = q->v.sval + 2;
+    }
+    const char * tn = NULL;
+    if (ty && !strstr(ty, ":U")) {
+        char tb[strlen(ty) + 1];
+        snprintf(tb, sizeof tb, "%.*s", (int) strcspn(ty, ":"), ty);
+        if (tb[0] && !(pkg->n && pkg->c[0] && pkg->c[0]->v.sval && !strcmp(tb, pkg->c[0]->v.sval))) tn = intern(tb);
+    }
+    if (tn && !nm) nm = "__rk_inv";
+    memmove(t->c + 1, t->c + 2, (size_t) (t->n - 2) * sizeof(tree_t *));
+    t->n--;
+    t->v.ival--;
+    int at = (int) t->v.ival;
+    for (int k = 0; k < 2; k++) {
+        const char * who = k ? cap : nm;
+        if (!who) continue;
+        tree_t * as = ast_node_new(!k && tn ? TT_DECL : TT_ASSIGN), * dv = leaf_sval2(TT_VAR, who), * sv = leaf_sval2(TT_VAR, "self");
+        dv->slen |= 4;
+        if (!k && tn) ast_push(as, leaf_sval2(TT_VAR, tn));
+        ast_push(as, dv);
+        if (k) { tree_t * w = ast_node_new(TT_METHCALL); ast_push(w, sv); ast_push(w, leaf_sval2(TT_QLIT, "WHAT")); sv = w; }
+        ast_push(as, sv);
+        ast_push(t, as);
+        memmove(t->c + at + 1, t->c + at, (size_t) (t->n - 1 - at) * sizeof(tree_t *));
+        t->c[at++] = as;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_sub_topic(tree_t * t, int in_pkg) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_sub_topic(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
@@ -7292,6 +7334,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         int mcn = 0;
         { int anon = 0; rk_name_anon_subsig((tree_t *) prog, &anon); rk_subsig_blocks((tree_t *) prog, &anon); }
         rk_amp_methcalls(prog, (tree_t *) prog);
+        rk_invocant_params((tree_t *) prog, NULL);
         rk_shadow_rename((tree_t *) prog);
         rk_wrap_bodies((tree_t *) prog);
         { int pl = 0; rk_place_groups((tree_t *) prog, &pl); }
