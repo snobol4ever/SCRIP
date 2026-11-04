@@ -4339,7 +4339,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (!lp[i]) continue;
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) { pl_cv_add(referenced, "$phrase"); pl_cv_add(referenced, "$phrase_rt"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) pl_cv_add(referenced, "$pl_pp_pcheck");
-        if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
+        if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) { pl_cv_add(referenced, "$ssu_begin"); pl_cv_add(referenced, "$ssu_check"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
@@ -4747,7 +4747,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$meta_add");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
-    for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
+    for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "$ssu_begin"); pl_cv_add(&referenced, "$ssu_check"); break; }
     if (pl_cv_has(&referenced, "$tbl_call") || pl_cv_has(&referenced, "$tbl_mcall") || pl_cv_has(&referenced, "$tbl_icall") || pl_cv_has(&referenced, "$tbl_kcall") || pl_cv_has(&referenced, "$tbl_dchange") ||
         pl_word_referenced(user_src, "undefined")) {
         pl_cv_add(&referenced, "$tbl_call");

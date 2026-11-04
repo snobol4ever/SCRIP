@@ -26313,6 +26313,38 @@ DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
         }
     }
 }
+DESCR_t rt_pl_dop_ssu_begin_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    uint64_t w;
+    (void)root;
+    if (nargs != 1 || !cx || !cx->r14) return FAILDESCR;
+    w = *(const uint64_t *)(uintptr_t)(cx->r14 - PL_SERIAL_OFF);
+    return pl_trie_leaf_close(plw_unify_vals(args[0], INTVAL((int64_t)(w >> PL_SERIAL_SHIFT)), cx), cx);
+}
+static DESCR_t *pl_ssu_goal_cell(const char *mark, long i, uint64_t s) {
+    const pl_tr_entry_t *e = (const pl_tr_entry_t *)(mark + i * PL_TR_ENTRY_BYTES);
+    if (!e->cell || (int)e->old.v != DT_PLVAR || pl_var_serial(&e->old) >= s) return (DESCR_t *)0;
+    for (long j = 0; j < i; j++) if (((const pl_tr_entry_t *)(mark + j * PL_TR_ENTRY_BYTES))->cell == e->cell) return (DESCR_t *)0;
+    return e->cell;
+}
+DESCR_t rt_pl_dop_ssu_check_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    int64_t s0;
+    const char *mark;
+    long n;
+    (void)root;
+    if (nargs != 1 || !pl_trie_leaf_int(args[0], &s0) || !cx || !cx->b) return FAILDESCR;
+    mark = *(const char * const *)cx->b;
+    if (mark < pl_tr_base_of(cx->tr) + PL_TR_HEADER_BYTES || mark > cx->tr) return FAILDESCR;
+    n = (cx->tr - mark) / PL_TR_ENTRY_BYTES;
+    for (long i = 0; i < n; i++) {
+        DESCR_t *c = pl_ssu_goal_cell(mark, i, (uint64_t)s0), *d;
+        if (!c) continue;
+        d = plw_cell_deref(c);
+        if (!plw_unbound_tag(d)) return FAILDESCR;
+        if (d != c && pl_var_serial(d) < (uint64_t)s0) return FAILDESCR;
+        for (long j = 0; j < i; j++) { DESCR_t *c2 = pl_ssu_goal_cell(mark, j, (uint64_t)s0); if (c2 && plw_cell_deref(c2) == d) return FAILDESCR; }
+    }
+    return pl_ok();
+}
 DESCR_t rt_pl_dop_tbh_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     (void)args;
     if (nargs != 0) return FAILDESCR;

@@ -2673,6 +2673,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_dop_skip_list_c", GC_RET_DESCR },
     { "rt_pl_dop_sort", GC_RET_DESCR },
     { "rt_pl_dop_sort_c", GC_RET_DESCR },
+    { "rt_pl_dop_ssu_begin", GC_RET_DESCR },
+    { "rt_pl_dop_ssu_begin_c", GC_RET_DESCR },
     { "rt_pl_dop_stamp_date_time", GC_RET_DESCR },
     { "rt_pl_dop_stamp_date_time_c", GC_RET_DESCR },
     { "rt_pl_dop_stream_guard", GC_RET_DESCR },

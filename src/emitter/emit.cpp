@@ -4848,6 +4848,7 @@ DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t
 DESCR_t rt_pl_dop_trie_new(DESCR_t *, int); DESCR_t rt_pl_dop_trie_alive(DESCR_t *, int); DESCR_t rt_pl_dop_trie_destroy(DESCR_t *, int); DESCR_t rt_pl_dop_trie_insert(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entries(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entry_key(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
+DESCR_t rt_pl_dop_ssu_begin(DESCR_t *, int); DESCR_t rt_pl_dop_ssu_check(DESCR_t *, int);
 DESCR_t rt_pl_dop_tbh_close(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_park(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_sl(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_resume_all(DESCR_t *, int);
     DESCR_t rt_pl_dop_tbh_leading(DESCR_t *, int);
     DESCR_t rt_pl_dop_tbh_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_own(DESCR_t *, int);
@@ -5059,6 +5060,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$trie_entries", 2, "rt_pl_dop_trie_entries", rt_pl_dop_trie_entries }, { "$trie_entry_key", 3, "rt_pl_dop_trie_entry_key", rt_pl_dop_trie_entry_key },
         { "$trie_count", 2, "rt_pl_dop_trie_count", rt_pl_dop_trie_count }, { "$trie_meta_set", 3, "rt_pl_dop_trie_meta_set", rt_pl_dop_trie_meta_set },
         { "$trie_meta_get", 3, "rt_pl_dop_trie_meta_get", rt_pl_dop_trie_meta_get }, { "$tbl_vt", 1, "rt_pl_dop_tbl_vt", rt_pl_dop_tbl_vt },
+        { "$ssu_begin", 1, "rt_pl_dop_ssu_begin", rt_pl_dop_ssu_begin }, { "$ssu_check", 1, "rt_pl_dop_ssu_check", rt_pl_dop_ssu_check },
         { "$tbh_close", 0, "rt_pl_dop_tbh_close", rt_pl_dop_tbh_close }, { "$tbl_park", 1, "rt_pl_dop_tbl_park", rt_pl_dop_tbl_park }, { "$tbl_sl", 3, "rt_pl_dop_tbl_sl", rt_pl_dop_tbl_sl },
             { "$tbl_resume_all", 1, "rt_pl_dop_tbl_resume_all",
             rt_pl_dop_tbl_resume_all }, { "$tbh_leading", 0, "rt_pl_dop_tbh_leading", rt_pl_dop_tbh_leading },
