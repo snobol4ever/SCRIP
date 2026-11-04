@@ -96,16 +96,16 @@ extern "C" int zdp_seam_tier(const IR_t * nd);
 extern "C" long zw_node_k(const IR_t * nd);
 extern "C" int zls_g_vslot_count(const IR_graph_t *);
 extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
-static int pf_local_spine(const IR_graph_t * g, const char * nm) {
-    int nv = zls_g_vslot_count(g);
-    for (int k = 0; k < nv; k++) {
-        int o = -1;
-        const char * vn = zls_g_vslot_get(g, k, &o);
-        if (!vn || strcmp(vn, nm)) continue;
-        int cov = k < (int)g_planner.zst_vcov.size() ? g_planner.zst_vcov[(size_t)k] : 0, use = k < (int)g_planner.zst_vuse.size() ? g_planner.zst_vuse[(size_t)k] : -1;
-        return cov > 0 && cov == use;
-    }
-    return 0;
+static std::unordered_map<std::string, int> pf_vslot_index(const IR_graph_t * g) {
+    std::unordered_map<std::string, int> m;
+    for (int k = zls_g_vslot_count(g) - 1; k >= 0; k--) { int o = -1; const char * vn = zls_g_vslot_get(g, k, &o); if (vn) m[vn] = k; }
+    return m;
+}
+static int pf_local_spine(const std::unordered_map<std::string, int> & vsx, const char * nm) {
+    auto it = vsx.find(nm);
+    if (it == vsx.end()) return 0;
+    int k = it->second, cov = k < (int)g_planner.zst_vcov.size() ? g_planner.zst_vcov[(size_t)k] : 0, use = k < (int)g_planner.zst_vuse.size() ? g_planner.zst_vuse[(size_t)k] : -1;
+    return cov > 0 && cov == use;
 }
 extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);
 static void pf_rel(zeta_plan_t * rec, const IR_graph_t * g, const IR_t * sc, int kind) {
@@ -162,7 +162,7 @@ static void pf_blob_layout(zeta_plan_t * rec) {
         abort();
     }
 }
-static int pf_row(IR_t ** nodes, int n, const IR_t * x) { if (!x) return -1; for (int q = 0; q < n; q++) if (nodes[q] == x) return q; return -1; }
+static int pf_row(IR_t ** nodes, int n, const IR_t * x) { return nidx(nodes, n, x); }
 static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph_t * g, int djx) {
     IR_t * nd = nodes[i]; int N = (int)IR_LIT(nd).ival;
     int aok = djx && g_planner.g_zd_out_p && g_planner.g_zd_nodes_p == nodes;
@@ -308,8 +308,10 @@ static int pf_vs(const IR_graph_t * g, int i, const char * name) {
 }
 void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     struct pdef_scope { pdef_scope(const IR_graph_t * x) { planner_pdef_lock(x); } ~pdef_scope() { planner_pdef_unlock(); } } pds(g);
+    nidx_scope_guard nig(nodes, n);
     rec->v_lspine.assign((size_t)(g && g->lnames ? g->nlocals : 0), 0);
-    for (int i = 0; g && g->lnames && i < g->nlocals; i++) rec->v_lspine[(size_t)i] = (g->lnames[i] && pf_local_spine(g, g->lnames[i])) ? 1 : 0;
+    if (g && g->lnames && g->nlocals > 0) { std::unordered_map<std::string, int> vsx = pf_vslot_index(g);
+        for (int i = 0; i < g->nlocals; i++) rec->v_lspine[(size_t)i] = (g->lnames[i] && pf_local_spine(vsx, g->lnames[i])) ? 1 : 0; }
     rec->zn = (znode_t *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(znode_t));
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; znode_t * z = &rec->zn[i]; long k = 0; int op = (int)nd->op;
@@ -435,15 +437,17 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         int ta = (z->sdb == ti && !z->sdbb) ? rec->zn[ti].k : 0;
         z->suc = (bi + yd) - (bt + rec->out[ti] - ta);
     }
+    std::vector<int> ne2((size_t)(n > 0 ? n : 1), -1); std::vector<unsigned char> pb2((size_t)(n > 0 ? n : 1), 0);
+    for (int i = n - 2; i >= 0; i--) { int o = (int)nodes[i + 1]->op; ne2[(size_t)i] = o == IR_STATEMENT_BEGIN ? -1 : (o == IR_STATEMENT_END || o == IR_STATEMENT) ? i + 1 : ne2[(size_t)i + 1]; }
+    for (int i = 1; i < n; i++) { int o = (int)nodes[i - 1]->op; pb2[(size_t)i] = o == IR_STATEMENT_BEGIN ? 1 : (o == IR_STATEMENT_END || o == IR_STATEMENT) ? 0 : pb2[(size_t)i - 1]; }
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i]; znode_t * z = &rec->zn[i]; int op = (int)nd->op;
         if (op == IR_LIMIT && zls_g_home_frame(g)) for (int q = 2; q < nd->n_operands; q++) {
             IR_t * lg = nd->operands[q]; int x = (lg && lg->op == IR_LIMIT_GATE && zls_home_why(lg)) ? nidx(nodes, n, lg) : -1; if (x >= 0) z->lgx = x; }
         if (!rec->on[i] || rec->wp[i] <= 0 || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END) continue;
-        { int e2 = -1; for (int j = i + 1; j < n; j++) { if (nodes[j]->op == IR_STATEMENT_BEGIN) break; if (nodes[j]->op == IR_STATEMENT_END || nodes[j]->op == IR_STATEMENT) { e2 = j; break; } }
+        { int e2 = ne2[(size_t)i];
           if (e2 >= 0 && rec->gp[e2] == rec->wp[i] + z->k - zd_mframe_g(g, nd) && z->ot && z->ot == rec->zn[e2].gt) { int kf = nidx(nodes, n, z->ot); if (kf >= 0) { z->endj = e2; z->otx = kf; } } }
-        int bg = 0;
-        for (int j = i - 1; j >= 0; j--) { int o = (int)nodes[j]->op; if (o == IR_STATEMENT_BEGIN) { bg = 1; break; } if (o == IR_STATEMENT_END || o == IR_STATEMENT) break; }
+        int bg = pb2[(size_t)i];
         if (!bg || !z->ot) continue;
         for (int j = i - 1; j >= 0; j--) {
             int o = (int)nodes[j]->op; if (o == IR_STATEMENT_BEGIN || o == IR_STATEMENT_END || o == IR_STATEMENT) break;

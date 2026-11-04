@@ -14,5 +14,6 @@ void nidx_scope_open(nidx_scope_t * s, IR_t ** nodes, int n);
 void nidx_scope_close(const nidx_scope_t * s);
 #ifdef __cplusplus
 }
+struct nidx_scope_guard { nidx_scope_t s; nidx_scope_guard(IR_t ** nodes, int n) { nidx_scope_open(&s, nodes, n); } ~nidx_scope_guard() { nidx_scope_close(&s); } };
 #endif
 #endif

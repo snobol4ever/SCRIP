@@ -36,6 +36,8 @@ struct g_planner_t {
     std::unordered_map<const IR_t *, int> pdef_ix;
     std::unordered_map<const IR_t *, unsigned char> pdef_memo;
     std::vector<const char *> zst_name;
+    std::unordered_map<std::string, std::vector<int>> zst_nmap;
+    int zst_nmap_ok = 0;
     std::unordered_map<const IR_t *, int> zst_sm;
     int g_zd_cps = -1;
     int g_zd_cpd = -1;
@@ -59,6 +61,7 @@ struct g_planner_t {
     int g_zd_plan_n = 0;
     const IR_graph_t * g_act_g = (const IR_graph_t *)0;
     IR_t ** g_act_all = (IR_t **)0;
+    std::unordered_map<const IR_t *, int> g_act_pos;
     int g_act_n = -1, g_act_blob = -1, g_act_head = 0, g_act_blob_units = 0;
     std::vector<int> g_act_cls, g_act_cause, g_act_slot, g_act_units, g_act_extra, g_act_owner;
     int zd_map_on__m = -1;

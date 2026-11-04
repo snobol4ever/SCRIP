@@ -1040,6 +1040,49 @@ static int zls_node_var_names(const IR_t * nd, const char ** vns) {
     } else if (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE) vns[nvn++] = IR_LIT(nd).sval;
     return nvn;
 }
+typedef struct { const char ** key; int * head; int * tail; size_t cap; int * en; int * ex; int ne; } zls_nmix_t;
+int zls_home_local_kind(int lo);
+static int zls_hlt_ix(const zls_nmix_t * m, const IR_graph_t * g, const char * vn);
+static void zls_hld_ix(const zls_nmix_t * m, const IR_graph_t * g, const char * name, int why);
+static size_t zls_nmix_hash(const char * s) { size_t h = 1469598103934665603ULL; while (*s) h = (h ^ (unsigned char)*s++) * 1099511628211ULL; return h; }
+static int zls_nmix_slot(const zls_nmix_t * m, const char * s, int * found) {
+    size_t h = zls_nmix_hash(s) & (m->cap - 1);
+    while (m->key[h] && strcmp(m->key[h], s)) h = (h + 1) & (m->cap - 1);
+    *found = m->key[h] ? 1 : 0;
+    return (int)h;
+}
+static void zls_nmix_add(zls_nmix_t * m, const char * s, int node) {
+    int f, h = zls_nmix_slot(m, s, &f), e = m->ne++;
+    if (!f) { m->key[h] = s; m->head[h] = -1; m->tail[h] = -1; }
+    m->en[e] = node;
+    m->ex[e] = -1;
+    if (m->tail[h] >= 0) m->ex[m->tail[h]] = e;
+    else m->head[h] = e;
+    m->tail[h] = e;
+}
+static void zls_nmix_build(zls_nmix_t * m, const IR_graph_t * g, int rel) {
+    int n = g->n;
+    size_t cap = 16;
+    while (cap < (size_t)n * 4 + 4) cap <<= 1;
+    m->key = (const char **)ct_zalloc(cap, sizeof(*m->key));
+    m->head = (int *)ct_alloc(sizeof(int) * cap);
+    m->tail = (int *)ct_alloc(sizeof(int) * cap);
+    m->cap = cap;
+    m->en = (int *)ct_alloc(sizeof(int) * (size_t)(2 * n + 2));
+    m->ex = (int *)ct_alloc(sizeof(int) * (size_t)(2 * n + 2));
+    m->ne = 0;
+    for (int i = 0; i < n; i++) {
+        const IR_t * x = g->all[i];
+        if (!x) continue;
+        if (rel == 1) {
+            const char * vns[2];
+            int nv = zls_node_var_names(x, vns);
+            for (int q = 0; q < nv; q++) if (vns[q]) zls_nmix_add(m, vns[q], i);
+        } else if (zls_home_local_kind((int)x->op) && IR_LIT(x).sval) zls_nmix_add(m, IR_LIT(x).sval, i);
+    }
+}
+static int zls_nmix_head(const zls_nmix_t * m, const char * s) { int f, h = zls_nmix_slot(m, s, &f); return f ? m->head[h] : -1; }
+static void zls_nmix_drop(zls_nmix_t * m) { ct_drop(m->key); ct_drop(m->head); ct_drop(m->tail); ct_drop(m->en); ct_drop(m->ex); }
 typedef struct {
     int n;
     int nd;
@@ -1051,8 +1094,17 @@ typedef struct {
     int * ra;
     unsigned char * exc;
     unsigned char * seed;
-    unsigned char * mf;
-    unsigned char * mb;
+    unsigned char * sccx;
+    int * sl;
+    int ns;
+    int * ca;
+    int * co;
+    int * comp;
+    int * rank;
+    int * sf;
+    int * sb;
+    int * fl;
+    int cur;
     int * stk;
     zls_nidx_t nx;
 } zls_vflow_t;
@@ -1124,6 +1176,62 @@ static void zls_vflow_regions(zls_vflow_t * f, const IR_graph_t * g) {
     ct_drop(ps);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void zls_vflow_scc(zls_vflow_t * f) {
+    int n = f->n, nc = 0, ctr = 0, top = 0, cs = 0;
+    int * idx = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1)), * low = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1)), * st = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    int * cv = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1)), * ce = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    unsigned char * on = (unsigned char *)ct_zalloc((size_t)n + 1, 1);
+    f->comp = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    f->rank = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    for (int i = 0; i < n; i++) idx[i] = -1;
+    for (int s0 = 0; s0 < n; s0++) {
+        if (idx[s0] >= 0) continue;
+        idx[s0] = low[s0] = ctr++;
+        st[top++] = s0;
+        on[s0] = 1;
+        cv[0] = s0;
+        ce[0] = f->fo[s0];
+        cs = 1;
+        while (cs > 0) {
+            int v = cv[cs - 1];
+            if (ce[cs - 1] < f->fo[v + 1]) {
+                int w = f->fa[ce[cs - 1]++];
+                if (idx[w] < 0) { idx[w] = low[w] = ctr++; st[top++] = w; on[w] = 1; cv[cs] = w; ce[cs] = f->fo[w]; cs++; } else if (on[w] && idx[w] < low[v]) low[v] = idx[w];
+                continue;
+            }
+            cs--;
+            if (cs > 0 && low[v] < low[cv[cs - 1]]) low[cv[cs - 1]] = low[v];
+            if (low[v] == idx[v]) { int w; do { w = st[--top]; on[w] = 0; f->comp[w] = nc; } while (w != v); nc++; }
+        }
+    }
+    f->sccx = (unsigned char *)ct_zalloc((size_t)nc + 1, 1);
+    for (int i = 0; i < n; i++) { f->rank[i] = nc - 1 - f->comp[i]; if (f->exc[i]) f->sccx[f->comp[i]] = 1; }
+    ct_drop(idx);
+    ct_drop(low);
+    ct_drop(st);
+    ct_drop(cv);
+    ct_drop(ce);
+    ct_drop(on);
+}
+static void zls_vflow_cons(zls_vflow_t * f, const IR_graph_t * g) {
+    int n = f->n, m = 0;
+    f->ca = (int *)ct_zalloc((size_t)n + 2, sizeof(int));
+    for (int i = 0; i < n; i++) {
+        const IR_t * x = g->all[i];
+        for (int k = 0; x && k < x->n_operands; k++) { int j = x->operands[k] ? zls_reuse_index(&f->nx, x->operands[k]) : -1; if (j >= 0) { f->ca[j + 1]++; m++; } }
+    }
+    for (int i = 0; i < n; i++) f->ca[i + 1] += f->ca[i];
+    f->co = (int *)ct_alloc(sizeof(int) * (size_t)(m + 1));
+    {
+        int * fill = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+        for (int i = 0; i < n; i++) fill[i] = f->ca[i];
+        for (int i = 0; i < n; i++) {
+            const IR_t * x = g->all[i];
+            for (int k = 0; x && k < x->n_operands; k++) { int j = x->operands[k] ? zls_reuse_index(&f->nx, x->operands[k]) : -1; if (j >= 0) f->co[fill[j]++] = i; }
+        }
+        ct_drop(fill);
+    }
+}
 static void zls_vflow_build(zls_vflow_t * f, const IR_graph_t * g) {
     extern int planner_span_retains(const IR_graph_t *, int, int);
     int n = g->n, m = 0;
@@ -1132,9 +1240,13 @@ static void zls_vflow_build(zls_vflow_t * f, const IR_graph_t * g) {
     f->fo = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
     f->ro = (int *)ct_zalloc((size_t)(n + 2), sizeof(int));
     f->exc = (unsigned char *)ct_alloc((size_t)n);
-    f->seed = (unsigned char *)ct_alloc((size_t)n);
-    f->mf = (unsigned char *)ct_alloc((size_t)n);
-    f->mb = (unsigned char *)ct_alloc((size_t)n);
+    f->seed = (unsigned char *)ct_zalloc((size_t)n + 1, 1);
+    f->sl = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    f->ns = 0;
+    f->sf = (int *)ct_zalloc((size_t)n + 1, sizeof(int));
+    f->sb = (int *)ct_zalloc((size_t)n + 1, sizeof(int));
+    f->fl = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    f->cur = 0;
     f->stk = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
     for (int i = 0; i < n; i++) {
         f->fo[i] = m;
@@ -1153,6 +1265,8 @@ static void zls_vflow_build(zls_vflow_t * f, const IR_graph_t * g) {
         }
         ct_drop(fill);
     }
+    zls_vflow_scc(f);
+    zls_vflow_cons(f, g);
     zls_vflow_regions(f, g);
 }
 static void zls_vflow_drop(zls_vflow_t * f) {
@@ -1162,37 +1276,38 @@ static void zls_vflow_drop(zls_vflow_t * f) {
     ct_drop(f->ra);
     ct_drop(f->exc);
     ct_drop(f->seed);
-    ct_drop(f->mf);
-    ct_drop(f->mb);
+    ct_drop(f->sccx);
+    ct_drop(f->sl);
+    ct_drop(f->ca);
+    ct_drop(f->co);
+    ct_drop(f->comp);
+    ct_drop(f->rank);
+    ct_drop(f->sf);
+    ct_drop(f->sb);
+    ct_drop(f->fl);
     ct_drop(f->stk);
     ct_drop(f->dj);
     ct_drop(f->rg);
     ct_drop(f->nx.k);
     ct_drop(f->nx.v);
 }
-static void zls_vflow_close(const zls_vflow_t * f, const int * o, const int * a, unsigned char * mark) {
-    int top = 0;
-    memset(mark, 0, (size_t)f->n);
-    for (int i = 0; i < f->n; i++) if (f->seed[i]) { mark[i] = 1; f->stk[top++] = i; }
-    while (top > 0) { int x = f->stk[--top]; for (int e = o[x]; e < o[x + 1]; e++) { int y = a[e]; if (!mark[y]) { mark[y] = 1; f->stk[top++] = y; } } }
-}
-static int zls_var_span_retains(const IR_graph_t * g, const char * vn, zls_vflow_t * f) {
-    int n = g->n, any = 0;
-    memset(f->seed, 0, (size_t)n);
-    for (int j = 0; j < n; j++) {
-        const IR_t * x = g->all[j];
-        const char * xs[2];
-        int nx = x ? zls_node_var_names(x, xs) : 0;
-        for (int q = 0; q < nx; q++) if (xs[q] && !strcmp(xs[q], vn)) { f->seed[j] = 1; any = 1; }
+static int zls_var_span_retains(const IR_graph_t * g, const char * vn, zls_vflow_t * f, const zls_nmix_t * m) {
+    for (int q = 0; q < f->ns; q++) f->seed[f->sl[q]] = 0;
+    f->ns = 0;
+    for (int e = zls_nmix_head(m, vn); e >= 0; e = m->ex[e]) { int j = m->en[e]; if (!f->seed[j]) { f->seed[j] = 1; f->sl[f->ns++] = j; } }
+    if (f->ns == 0) return 0;
+    for (int q = 0; q < f->ns; q++) { int j = f->sl[q]; for (int e = f->ca[j]; e < f->ca[j + 1]; e++) if (f->exc[f->co[e]]) return 1; }
+    for (int q = 0; q < f->ns; q++) if (f->sccx[f->comp[f->sl[q]]]) return 1;
+    int lo = f->rank[f->sl[0]], hi = lo, top = 0, nf = 0, cur = ++f->cur;
+    for (int q = 0; q < f->ns; q++) { int r = f->rank[f->sl[q]]; if (r < lo) lo = r; if (r > hi) hi = r; }
+    for (int q = 0; q < f->ns; q++) { int j = f->sl[q]; f->sf[j] = cur; f->stk[top++] = j; f->fl[nf++] = j; }
+    while (top > 0) {
+        int x = f->stk[--top];
+        for (int e = f->fo[x]; e < f->fo[x + 1]; e++) { int y = f->fa[e]; if (f->sf[y] != cur && f->rank[y] <= hi) { f->sf[y] = cur; f->stk[top++] = y; f->fl[nf++] = y; } }
     }
-    if (!any) return 0;
-    for (int i = 0; i < n; i++) {
-        if (!f->exc[i]) continue;
-        for (int k = 0; k < g->all[i]->n_operands; k++) { int j = g->all[i]->operands[k] ? zls_reuse_index(&f->nx, g->all[i]->operands[k]) : -1; if (j >= 0 && f->seed[j]) return 1; }
-    }
-    zls_vflow_close(f, f->fo, f->fa, f->mf);
-    zls_vflow_close(f, f->ro, f->ra, f->mb);
-    for (int i = 0; i < n; i++) if (f->exc[i] && f->mf[i] && f->mb[i]) return 1;
+    for (int q = 0; q < f->ns; q++) { int j = f->sl[q]; f->sb[j] = cur; f->stk[top++] = j; }
+    while (top > 0) { int x = f->stk[--top]; for (int e = f->ro[x]; e < f->ro[x + 1]; e++) { int y = f->ra[e]; if (f->sb[y] != cur && f->rank[y] >= lo) { f->sb[y] = cur; f->stk[top++] = y; } } }
+    for (int i = 0; i < nf; i++) if (f->exc[f->fl[i]] && f->sb[f->fl[i]] == cur) return 1;
     return 0;
 }
 static int zls_var_arm_split(const zls_vflow_t * f) {
@@ -1200,7 +1315,7 @@ static int zls_var_arm_split(const zls_vflow_t * f) {
     for (int k = 0; k < f->nd; k++) {
         const unsigned long long * m = f->rg + (size_t)k * f->n;
         unsigned long long u = 0;
-        for (int j = 0; j < f->n; j++) if (f->seed[j]) u |= m[j] ? m[j] : oth;
+        for (int q = 0; q < f->ns; q++) u |= m[f->sl[q]] ? m[f->sl[q]] : oth;
         if ((u & arms) && !(u & bef) && __builtin_popcountll(u) >= 2) return 1;
     }
     return 0;
@@ -1225,7 +1340,8 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
     r->locals_off = base + k * 16;
     r->zeta_mark_off = -1;
     zls_vflow_t vf;
-    if (hf) zls_vflow_build(&vf, g);
+    zls_nmix_t nm1, nm2;
+    if (hf) { zls_vflow_build(&vf, g); zls_nmix_build(&nm1, g, 1); zls_nmix_build(&nm2, g, 2); }
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd || !rb[i]) continue;
@@ -1238,8 +1354,8 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
             if (*ns) continue;
             *ns = vn;
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
-            if (hf && !zls_home_local_test(g, vn) && (zls_var_span_retains(g, vn, &vf) || zls_var_arm_split(&vf))) zls_home_local_declare(g, vn, 8);
-            if (hf && !zls_home_local_test(g, vn)) { zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, -2 }; r->n_vslots++; continue; }
+            if (hf && !zls_hlt_ix(&nm2, g, vn) && (zls_var_span_retains(g, vn, &vf, &nm1) || zls_var_arm_split(&vf))) zls_hld_ix(&nm2, g, vn, 8);
+            if (hf && !zls_hlt_ix(&nm2, g, vn)) { zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, -2 }; r->n_vslots++; continue; }
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, base + k * 16 };
             r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
@@ -1270,7 +1386,7 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
             k++;
         }
     }
-    if (hf) zls_vflow_drop(&vf);
+    if (hf) { zls_vflow_drop(&vf); zls_nmix_drop(&nm1); zls_nmix_drop(&nm2); }
     return k;
 }
 static int zls_dl_place(int root, int base, int k, int dl_w) {
@@ -2172,7 +2288,7 @@ int zls_dj_cut_arm(const IR_graph_t * g, const IR_t * nd) {
     return hit;
 }
 int zls_frame_word_why(const IR_t * nd) { return zls_dj_retains(nd) ? 1 : (nd && nd->op == IR_TO && ir_range_kind_is(nd, "db")) ? 2 : 0; }
-static int zls_home_local_kind(int lo) {
+int zls_home_local_kind(int lo) {
     return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
         lo == IR_UNIFY_VALUE;
 }
@@ -2282,6 +2398,13 @@ void zls_home_local_declare(const IR_graph_t * g, const char * name, int why) {
         if (x && zls_home_local_kind((int)x->op) && IR_LIT(x).sval && !strcmp(IR_LIT(x).sval, name)) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = why; }
     }
 }
+static int zls_hlt_ix(const zls_nmix_t * m, const IR_graph_t * g, const char * vn) {
+    for (int e = zls_nmix_head(m, vn); e >= 0; e = m->ex[e]) { int w = zls_home_local_why(g->all[m->en[e]]); if (w) return w; }
+    return 0;
+}
+static void zls_hld_ix(const zls_nmix_t * m, const IR_graph_t * g, const char * name, int why) {
+    for (int e = zls_nmix_head(m, name); e >= 0; e = m->ex[e]) { fcn_t * t = fcn_get(g->all[m->en[e]]); t->fl |= FCN_LHOME; t->lw = why; }
+}
 int zls_home_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_HOME); return t ? t->hw : 0; }
 int zls_home_member(const IR_t * nd) { return (nd && zls_home_why(nd) && ir_node_produces_value(nd->op)) ? 1 : 0; }
 void zls_frame_resident_mark(const IR_t * nd) { fcn_flag(nd, FCN_RES); }
@@ -2357,12 +2480,15 @@ int zls_g_key_class(const IR_graph_t * g, int off) {
             int c = zf[f].nd ? (zls_frame_resident(zf[f].nd) ? 2 : 3) : 1;
             for (int u = zf[f].off / 8; u < (zf[f].off + zf[f].size + 7) / 8 && u < r->kmap_n; u++) if (!r->kmap[u] || c == 2 || (c == 3 && r->kmap[u] == 1)) r->kmap[u] = (unsigned char)c;
         }
+        zls_nmix_t nmk;
+        zls_nmix_build(&nmk, g, 2);
         for (int j = r->first_vslot; j >= 0 && j < r->first_vslot + r->n_vslots && j < g_lower.ir.zv_n; j++) {
             int par = 0;
             for (int q = 0; q < g->nparams && g->pnames && zv[j].name; q++) if (g->pnames[q] && !strcmp(g->pnames[q], zv[j].name)) par = 1;
-            int c = (par || zls_home_local_test(g, zv[j].name)) ? 2 : 3;
+            int c = (par || (zv[j].name && zls_hlt_ix(&nmk, g, zv[j].name))) ? 2 : 3;
             for (int u = zv[j].off / 8; u < (zv[j].off + 16) / 8 && u >= 0 && u < r->kmap_n; u++) r->kmap[u] = (unsigned char)c;
         }
+        zls_nmix_drop(&nmk);
         for (int u = region / 8; u < (region + 16) / 8 && u < r->kmap_n; u++) if (!r->kmap[u]) r->kmap[u] = 1;
     }
     return off / 8 < r->kmap_n ? r->kmap[off / 8] : 0;

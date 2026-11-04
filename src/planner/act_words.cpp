@@ -29,7 +29,12 @@ static int act_unbounded_kind(int o) {
     return o == IR_MATCH_DEFER || o == IR_MATCH_VALUE || o == IR_CALL || o == IR_CALL_VALUE || o == IR_MATCH_CALLOUT || o == IR_MATCH_ARBNO || o == IR_DISJUNCTION || o == IR_MATCH_ABORT ||
         o == IR_MATCH_TRAP;
 }
-static int act_idx(const IR_graph_t * g, const IR_t * nd) { if (!g || !nd) return -1; for (int j = 0; j < g->n; j++) if (g->all[j] == nd) return j; return -1; }
+static int act_idx(const IR_graph_t * g, const IR_t * nd) {
+    if (!g || !nd) return -1;
+    if (g == g_planner.g_act_g && g->all == g_planner.g_act_all && g->n == g_planner.g_act_n) { auto it = g_planner.g_act_pos.find(nd); return it == g_planner.g_act_pos.end() ? -1 : it->second; }
+    for (int j = 0; j < g->n; j++) if (g->all[j] == nd) return j;
+    return -1;
+}
 static int act_match_bare(const IR_t * nd) { return nd->op == IR_MATCH_FENCE1 && IR_LIT(nd).ival == SNO_FENCE_LIT_BARE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * planner_act_cause_name(int cause) {
@@ -137,6 +142,7 @@ extern "C" void planner_act_build(const IR_graph_t * g, int blob, int head) {
     if (g_planner.g_act_g == g && g_planner.g_act_all == g->all && g_planner.g_act_n == g->n && g_planner.g_act_blob == blob && g_planner.g_act_head == head) return;
     int n = g->n;
     g_planner.g_act_g = g; g_planner.g_act_all = g->all; g_planner.g_act_n = n; g_planner.g_act_blob = blob; g_planner.g_act_head = head; g_planner.g_act_blob_units = 0;
+    g_planner.g_act_pos.clear(); for (int j = 0; j < n; j++) if (g->all[j]) g_planner.g_act_pos.emplace(g->all[j], j);
     g_planner.g_act_cls.assign((size_t)n, 0); g_planner.g_act_cause.assign((size_t)n, 0); g_planner.g_act_slot.assign((size_t)n, -1); g_planner.g_act_units.assign((size_t)n, 0);
     g_planner.g_act_extra.assign((size_t)n, 32); g_planner.g_act_owner.assign((size_t)n, -1);
     std::vector<int> arm((size_t)n, -1), body((size_t)n, -1);
