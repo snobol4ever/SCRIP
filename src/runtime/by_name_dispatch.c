@@ -17414,6 +17414,7 @@ DESCR_t bt___rk_numify(DESCR_t *args, int nargs) {
     DESCR_t *const out = &_bo;
     if (nargs == 1) {
         *out = rk_is_range(args[0]) ? rk_range_numeric(args[0]) : args[0];
+        if (args[0].v == DT_A && args[0].arr && !rk_is_range(args[0]) && !rk_is_pair(args[0])) *out = INTVAL(rk_av(args[0]).n);
         if (IS_DATA_INST_fn(args[0]) && FIELD_GET_fn(args[0], "text").v != 0) {
             char nb[64];
             const char *t = to_cstring(FIELD_GET_fn(args[0], "text"), nb, sizeof nb);
