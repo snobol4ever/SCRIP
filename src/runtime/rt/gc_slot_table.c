@@ -132,8 +132,10 @@ static const gc_slot_row_t sr_iochan = { HB_IOCH, HB_IOCH, GR_TYPED, 0, (const g
 static const gc_slot_row_t sr_trce = { HB_TRCE, HB_TRCE, GR_TYPED, 0, (const gc_sfield_t *)0, &run_trce, "trace_ent_t[]" };
 static const gc_slot_row_t sr_proc = { HB_PROC, HB_PROC, GR_TYPED, 0, (const gc_sfield_t *)0, &run_proc, "rt_proc_t[]" };
 static const gc_slot_row_t sr_pseg = { HB_PSEG, HB_PSEG, GR_TYPED, sizeof ss_pseg / sizeof ss_pseg[0], ss_pseg, (const gc_run_t *)0, "rt_pseg_t" };
+static const gc_slot_row_t sr_rvec = { HB_RVEC, HB_RVEC, GR_TYPED, 0, (const gc_sfield_t *)0, (const gc_run_t *)0,
+    "RVEC: raw element bytes of a packed array, no DESCR and no heap pointer inside, never scanned" };
 static const gc_slot_row_t *const gc_slot_rows[] = { &sr_str, &sr_fill, &sr_zblk, &sr_wsc, &sr_aggv, &sr_aggp, &sr_aggt, &sr_aggb, &sr_arr, &sr_dinst, &sr_dvec, &sr_wsb, &sr_pvec, &sr_dtp, &sr_dtprcp,
-    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb, &sr_evch, &sr_lblt, &sr_iochan, &sr_trce, &sr_proc, &sr_pseg };
+    &sr_pldb, &sr_pldbs, &sr_pldbr, &sr_pldbk, &sr_trie, &sr_trien, &sr_nvar, &sr_fncb, &sr_datb, &sr_evch, &sr_lblt, &sr_iochan, &sr_trce, &sr_proc, &sr_pseg, &sr_rvec };
 const gc_slot_row_t *gc_slot_row_of(uint16_t type) {
     for (size_t i = 0; i < sizeof gc_slot_rows / sizeof gc_slot_rows[0]; i++) if (type >= gc_slot_rows[i]->lo && type <= gc_slot_rows[i]->hi) return gc_slot_rows[i];
     return (const gc_slot_row_t *)0;

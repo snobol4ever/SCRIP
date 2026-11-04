@@ -689,6 +689,26 @@ void *rt_ws_alloc_descr(size_t n) {
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *gc_rvec_refuse(uint64_t nbytes) {
+    extern void rt_heap_out_of_memory(unsigned, unsigned long long, long, long);
+    rt_heap_out_of_memory((unsigned)HB_RVEC, (unsigned long long)nbytes, (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (long)((g_hp_end - g_runtime.gc.hp_arena) >> 10));
+    abort();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_ws_alloc_raw(size_t nbytes) {
+#if RT_DIAG
+    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_RVEC, (uint64_t)nbytes);
+#endif
+    if ((uint64_t)nbytes > HB_PAYLOAD_MAX) return gc_rvec_refuse((uint64_t)nbytes);
+    return rt_gcheap_alloc((uint16_t)HB_RVEC, (uint64_t)(nbytes ? nbytes : 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_rvec_realloc(void *p, size_t nbytes) {
+    if ((uint64_t)nbytes > HB_PAYLOAD_MAX) return gc_rvec_refuse((uint64_t)nbytes);
+    if (!p) return rt_ws_alloc_raw(nbytes);
+    return rt_gcheap_grow_block(p, (uint16_t)HB_RVEC, (uint64_t)nbytes);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_heap_alloc_c(size_t n) {
 #if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSC, 0);
@@ -1372,6 +1392,9 @@ _Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_M
     GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18) | GC_MK_BIT(19) | GC_MK_BIT(20) | GC_MK_BIT(21) | GC_MK_BIT(22) | GC_MK_BIT(23) |
     GC_MK_BIT(24) | GC_MK_BIT(25) | GC_MK_BIT(26) | GC_MK_BIT(27)) == 0x807FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 28),
     "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x807FDE7, so every moving type lies in HB_AGGV..HB_AGGV+27 and the set reads as that mask");
+_Static_assert(!GC_TYPE_MOVES(HB_RVEC) && HB_RVEC - HB_AGGV > 27,
+    "HB_RVEC is raw element bytes with no interior to scan: it is outside the move list and outside the MK_MOVES mask, so rt_gc_mark_run (rtx_gc.s) marks it live,"
+    " records the slot that points at it and never reads inside it, and the compactor slides it with every other live run");
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
     size_t g = (size_t)((char *)h - g_runtime.gc.hp_arena) >> 4;

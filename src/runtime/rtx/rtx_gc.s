@@ -213,6 +213,7 @@
 #define HB_AGGB 211
 #define HB_ARR 212
 #define HB_PVEC 220
+#define HB_RVEC 234
 .macro MK_RAW loc
     MK_BLK_OF r10
     test    rax, rax
@@ -638,7 +639,13 @@ RTX_ENTRY(rt_gc_walk_words_a)
     test    ebp, 0x10
     jne     .Lmk_loop
     MK_DVEC_RANGE
+.Lmk_arr_raw:
+    MK_MARK_BLK
+    MK_SLOT rsi+32
+    jmp     .Lmk_loop
 .Lmk_arr_flat:
+    cmp     word ptr [rax + 12], HB_RVEC
+    je      .Lmk_arr_raw
     MK_MARK_BLK
     MK_SLOT rsi+32
 .Lmk_arr_elems:

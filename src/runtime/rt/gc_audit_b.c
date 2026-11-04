@@ -43,7 +43,7 @@ static void gc_audit_b_say(const char *fmt, ...) {
     { char ln[n + 1]; va_start(a, fmt); vsnprintf(ln, (size_t)n + 1, fmt, a); va_end(a); fputs(ln, stderr); gc_audit_b_log(ln); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int gc_audit_b_opaque(uint16_t t) { return (t == HB_WSB || t == HB_WSC || t == HB_ZBLK || t == HB_ZCOL || t == HB_AGGB) ? 1 : 0; }
+static int gc_audit_b_opaque(uint16_t t) { return (t == HB_WSB || t == HB_RVEC || t == HB_WSC || t == HB_ZBLK || t == HB_ZCOL || t == HB_AGGB) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *gc_audit_b_excluded(const gc_audit_b_t *v, const char *w) {
     long i;
