@@ -55,6 +55,7 @@ extern "C" int zls_redisp_off(const IR_t * nd);
 extern "C" int zls_frame_off(const IR_graph_t * g, const IR_t * nd);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 extern "C" int zls_g_generator_top(const IR_graph_t * g);
+extern "C" int zls_g_generator(const IR_graph_t * g);
 extern "C" int zls_act_off(const IR_t * nd);
 extern "C" int planner_call_spine_record(const IR_graph_t * cg, const IR_t * nd);
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
@@ -484,11 +485,21 @@ static int pf_blob_wire_clobber_scan(const IR_graph_t * g) {
 }
 static int pf_fence0_dyn_on() { if (g_planner.fence0_dyn_on_v < 0) { const char * e = getenv("SCRIP_FENCE0_DYNAMIC"); g_planner.fence0_dyn_on_v = (e && *e == '0') ? 0 : 1;
     } return g_planner.fence0_dyn_on_v; }
-static int pf_fence0_dyn_floor(const zeta_plan_t * rec, const IR_t * nd) {
+static int pf_retains_callee_block(const IR_graph_t * g, const IR_t * nd) { int r = planner_retains_g(g, nd);
+    int b = r == PR_COEXPR || r == PR_UNKNOWN_CALLEE || r == PR_GENERATOR_CALLEE || r == PR_RETAINING_CALLEE || r == PR_UNRESOLVED_CALLEE || r == PR_RETAINING_TARGET;
+    if (b && getenv("SCRIP_FZ_DIAG")) fprintf(stderr, "[FZ-DIAG] flush cut declined: %s reason %d\n", bb_op_name((IR_e)nd->op), r);
+    return b; }
+static int pf_fence0_flush_cut_floor(const zeta_plan_t * rec, const IR_t * nd, int i) {
+    const IR_graph_t * g = rec->cfg;
+    if (!pf_fence0_dyn_on() || !g || rec->scope || !rec->xb || !rec->on[i] || rec->xb[i] == INT_MIN || IR_LIT(nd).ival != SNO_FENCE_LIT_FLUSH) return 0;
+    for (int j = 0; j < g->n; j++) if (g->all[j] && (g->all[j]->op == IR_MATCH_BEGIN || pf_retains_callee_block(g, g->all[j]))) return 0;
+    return rec->xb[i] + rec->out[i] + ((zls_g_generator(g) && ir_graph_has_suspend(g)) ? g->pf.flat_gen_rbp : 0);
+}
+static int pf_fence0_dyn_floor(const zeta_plan_t * rec, const IR_t * nd, int i) {
     int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0; const IR_graph_t * g = rec->cfg;
     if (!pf_fence0_dyn_on()) return 0;
     if (!nd || !g || nd->op != IR_MATCH_FENCE0) return 0;
-    if (!rec->scope) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: not blob scope\n", (const void *)nd); return 0; }
+    if (!rec->scope) { int cut = pf_fence0_flush_cut_floor(rec, nd, i); if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: not blob scope, flush cut FLOOR=%d\n", (const void *)nd, cut); return cut; }
     int n = g->n; int guard = 0; IR_t * cur = zd_chase(nd->γ.node); const IR_t ** met = (const IR_t **)alloca(sizeof(IR_t *) * (size_t)(n + 1)); int nmet = 0;
     while (cur && guard++ <= n) { int mo = (int)ir_kind0(cur);
         if (mo == IR_MATCH_END) break;
@@ -524,7 +535,7 @@ void planner_blob_facts(zeta_plan_t * rec) {
         for (int p = rec->arm[i], gd = 0; p >= 0 && gd++ < 4096; p = rec->arm[p]) envb += nodes[p]->op == IR_MATCH_ALTERNATE ? 32 : nodes[p]->op == IR_MATCH_FENCE1 ?
             planner_fence_k(rec->cfg, nodes[p]) : 0;
         z->hrsp = (rec->sph > 0 && rec->on[i]) ? rec->out[i] + rec->sph - 8 + envb : -1;
-        z->f0f = nd->op == IR_MATCH_FENCE0 ? pf_fence0_dyn_floor(rec, nd) : 0;
+        z->f0f = nd->op == IR_MATCH_FENCE0 ? pf_fence0_dyn_floor(rec, nd, i) : 0;
         if (nd->op != IR_MATCH_DEFER && nd->op != IR_MATCH_TRAP) continue;
         for (int a = 0; a < nd->n_operands; a++) { IR_t * so = nd->operands[a];
             if (!so || !(so->op == IR_GOTO || so->op == IR_MATCH_ARBNO || so->op == IR_MATCH_ABORT)) continue;
