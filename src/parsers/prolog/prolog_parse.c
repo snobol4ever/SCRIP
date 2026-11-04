@@ -4159,7 +4159,12 @@ static void pl_libs_meta_specs(PlProgram *pre, cv_t *referenced) {
     if (mp) ct_drop(mp);
 }
 static int pl_tree_has_fn(const tree_t *t, const char *fn);
-static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) { return !strcmp(lib, "xsb_dialect") ? xsb : (swi || strcmp(lib, "listing")); }
+static int pl_lib_dialect_ok(const char *lib, int swi, int xsb) {
+    extern int prolog_dialect_gnu_selected(void);
+    if (!strcmp(lib, "xsb_dialect")) return xsb;
+    if (!strcmp(lib, "filesex")) return !prolog_dialect_gnu_selected();
+    return swi || strcmp(lib, "listing");
+}
 static size_t pl_lib_path_name(const tree_t *t, char *out);
 static int pl_clause_is_load_hook(const PlClause *cl) {
     const char *nm; int ar;
