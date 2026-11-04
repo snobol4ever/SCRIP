@@ -1034,7 +1034,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
     g_emit.op_own = _zn->owno; g_emit.op_kown = _zn->kown; g_emit.op_fres = _zn->fres; g_emit.op_xk = _zn->xk; g_emit.op_xw = _zn->xw; g_emit.op_xd = _zn->xd; g_emit.op_xa = _zn->xa;
     g_emit.op_xf_off = _zr->home[_ri]; g_emit.op_cft = _zn->cft; g_emit.op_zslid = _zr->slid ? _zr->slid[_ri] : 0;
-    g_emit.op_gcell = _zn->gcell; g_emit.op_bspk = _zn->bspk; g_emit.op_sprec = _zn->sprec; g_emit.op_actoff = _zn->actoff; g_emit.op_tret = _zn->tret;
+    g_emit.op_gcell = _zn->gcell; g_emit.op_bspk = _zn->bspk; g_emit.op_bxd = _zn->bxd; g_emit.op_sprec = _zn->sprec; g_emit.op_actoff = _zn->actoff; g_emit.op_tret = _zn->tret;
     for (int _zi = 0; _zi < nd->n_operands && _zi < g_emit.op_zcap; _zi++) g_emit.op_opvs[_zi] = zrow_opvs(nd, _zi);
     for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = _zi < _rdn ? &_rdp[_zi] : (const zrd_t *)0; if (_rd) { g_emit.op_zread_xf[_zi] = _rd->xf;
         g_emit.op_zkown[_zi] = _rd->kown; g_emit.op_zfres[_zi] = _rd->fres; } }

@@ -14,6 +14,9 @@ extern "C" {
 #define BND_BOMB() (_.op_off < 0)
 #define BND_PL() x86_resumable_frame()
 #define BND_SPINE_K() (_.op_bspk)
+#define BND_RSP_AT_DEPTH() x86("lea", "rsp", RDQ(x86_hb(), -_.op_bxd))
+#define BND_RSP_FROM_RECORD() x86("mov", "rsp", FRQ(_.op_off + 8))
+#define BND_RESTORE() ((_.op_bxd >= 0 && x86_hb_on()) ? BND_RSP_AT_DEPTH() : BND_RSP_FROM_RECORD())
 static std::string bound_unmark_cells() {
     _.op_zgpop = _.op_upost;
     return x86("comment", "IR_UNMARK cells arm -- restore rsp from BOUND frame slot (depth-immune FRQ)")
@@ -57,7 +60,7 @@ std::string bb_bound() {
          + x86("mov", "r13", FRQ(_.op_off + 16))
          + x86_pl_tr_tidy(400)
                + x86("comment", "then the frames themselves, off a FRAME-relative slot that stays readable across the move.")
-               + x86("mov", "rsp", FRQ(_.op_off + 8))
+               + BND_RESTORE()
                + x86_release_acts(true)
                + IF(BND_SPINE_K() > 0, x86("add", "rsp", (long)BND_SPINE_K()))
                + x86_gamma() + x86_beta_trampoline()
@@ -71,7 +74,7 @@ std::string bb_bound() {
                       x86("test", "r15", "r15") + x86_omega("jne"))
                + x86("note", "pl_choice_restore inline (D1): the condition failed, so the bound's header is no choice: B returns to the choice banked at the bound")
                + x86("mov", "r13", FRQ(_.op_off + 16))
-               + IF((_.op_ival & 4) != 0, x86("mov", "rsp", FRQ(_.op_off + 8))
+               + IF((_.op_ival & 4) != 0, BND_RESTORE()
                + x86_release_acts(true)
                + IF(BND_SPINE_K() > 0, x86("add", "rsp", (long)BND_SPINE_K())))
                + x86_gamma() + x86_beta_trampoline())

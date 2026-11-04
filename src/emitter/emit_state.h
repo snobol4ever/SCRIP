@@ -278,7 +278,7 @@ typedef struct {
     int op_head_rsp;
     int op_strict;
     int op_zgpop;
-    int op_gcell, op_bspk, op_sprec, op_actoff, op_tret;
+    int op_gcell, op_bspk, op_bxd, op_sprec, op_actoff, op_tret;
     int op_sig_ok, op_sig_np, op_sig_nf, op_sig_ns, op_sig_xt, op_sig_rg, op_sig_nnv, op_sig_gk_cap;
     long op_sig_T, op_sig_F;
     int * op_sig_gk;

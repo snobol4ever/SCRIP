@@ -348,6 +348,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->zabs = rec->on[i] ? rec->out[i] + ((rec->xb && rec->xb[i] != INT_MIN) ? rec->xb[i] : 0) : 0; z->zdef = (rec->xb && rec->xb[i] == INT_MIN) ? 0 : 1; z->zcut = rec->cut ? rec->cut[i] : -1;
         z->actoff = zls_act_off(nd); z->sprec = planner_call_spine_record(g, nd);
             z->bspk = (op == IR_UNMARK && o0 && planner_bound_spine(g, o0)) ? zd_k_own_g(g, o0) : 0;
+            { int b = (op == IR_UNMARK && o0 && o0->op == IR_BOUND) ? nidx(nodes, n, o0) : -1; z->bxd = (b >= 0 && rec->on[b] && rec->xb && rec->xb[b] != INT_MIN) ? rec->out[b] + rec->xb[b] : -1; }
         z->t0x = -1; z->t0p = 0; z->sdb = -2; z->sdbb = 0;
         z->asa = -1; z->asb = -1; z->dsusp = -1;
         if (op == IR_MATCH_ARBNO) { int wl = 0, wb = 0, mo = -1, sp = 0; planner_act_window(nd, &wl, &wb); z->awlo = wl; z->awb = wb;
