@@ -125,7 +125,10 @@ std::string x86_pl_tr_tidy(int l0) { return x86("note",
         "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, and above the activation's trail floor (the header word a resumed continuation sets: entries be"
             "low it are another owner's), every entry the trail test would not record under r13 is dropped, and an entry with a pad word "
             "(a global's restore, PL_TR_PAD_KEEP) is kept; "
-            "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset")
+            "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset; "
+            "the choice's own tidy watermark, the trail top after the last walk under it, kept as a DT_I in the old-value words of the choice's sentinel entry (the entry below its mark: "
+            "{0, HB, DT_I, watermark}, dead with the choice), starts the walk where the last one under this choice stopped when it still lies between the start and the top; a backtrack into "
+            "the choice unwinds below it and the next walk starts at the mark again; so a run of commits under one choice judges each entry once, not once per commit (CEO-2122)")
     + x86("test", "r13", "r13")
     + x86("je", L(l0 + 9))
     + x86("mov", "rax", "r12")
@@ -140,8 +143,22 @@ std::string x86_pl_tr_tidy(int l0) { return x86("note",
     + x86("jae", L(l0 + 5))
     + x86("mov", "rsi", "rcx")
     + x86("def", L(l0 + 5))
+    + x86("mov", "rcx", RDQ("r13", 0))
+    + x86("mov", "rdx", "rcx")
+    + x86("and", "rdx", (long)(-X86_PL_TR_ARENA_MASK - 1))
+    + x86("cmp", "rdx", X86_PL_TR_HEADER_BYTES + X86_PL_TR_ENTRY_BYTES)
+    + x86("jb", L(l0 + 6))
+    + x86("cmp", RDQ("rcx", -X86_PL_TR_ENTRY_BYTES), 0L)
+    + x86("jne", L(l0 + 6))
+    + x86("mov", "rdx", RDQ("rcx", 24 - X86_PL_TR_ENTRY_BYTES))
+    + x86("cmp", "rdx", "rsi")
+    + x86("jbe", L(l0 + 6))
+    + x86("cmp", "rdx", "r12")
+    + x86("ja", L(l0 + 6))
+    + x86("mov", "rsi", "rdx")
+    + x86("def", L(l0 + 6))
     + x86("cmp", "rsi", "r12")
-    + x86("jae", L(l0 + 9))
+    + x86("jae", L(l0 + 7))
     + x86("mov", "rdi", "rsi")
     + x86("def", L(l0))
     + x86("mov", "rax", RDQ("rsi", 0))
@@ -184,6 +201,16 @@ std::string x86_pl_tr_tidy(int l0) { return x86("note",
     + x86("jb", L(l0))
     + x86("mov", "r12", "rdi")
     + x86_pl_tr_top_sync()
+    + x86("def", L(l0 + 7))
+    + x86("mov", "rcx", RDQ("r13", 0))
+    + x86("mov", "rdx", "rcx")
+    + x86("and", "rdx", (long)(-X86_PL_TR_ARENA_MASK - 1))
+    + x86("cmp", "rdx", X86_PL_TR_HEADER_BYTES + X86_PL_TR_ENTRY_BYTES)
+    + x86("jb", L(l0 + 9))
+    + x86("cmp", RDQ("rcx", -X86_PL_TR_ENTRY_BYTES), 0L)
+    + x86("jne", L(l0 + 9))
+    + x86("mov", RDQ("rcx", 16 - X86_PL_TR_ENTRY_BYTES), (long)DT_I)
+    + x86("mov", RDQ("rcx", 24 - X86_PL_TR_ENTRY_BYTES), "r12")
     + x86("def", L(l0 + 9)); }
 std::string x86_pl_header_open(int hoff, int prev_off) { return x86("mov", "rax", "rsp")
     + x86_raw_pack("rax")
