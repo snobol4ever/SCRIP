@@ -112,6 +112,16 @@ static void pg_subst(tree_t *e, const tree_t *params, const tree_t *args) {
         pg_subst(c, params, args);
     }
 }
+static void pg_sh_rename(tree_t *e, const char *sfx) {
+    if (!e) return;
+    if (PG_IS(e, TT_VAR) && e->v.sval && !strncmp(e->v.sval, "__sh_", 5)) {
+        size_t n = strlen(e->v.sval) + strlen(sfx) + 2;
+        char *r = ct_alloc(n);
+        snprintf(r, n, "%s_%s", e->v.sval, sfx);
+        e->v.sval = r;
+    }
+    for (int i = 0; i < e->n; i++) pg_sh_rename(e->c[i], sfx);
+}
 static void pg_resolve(pg_ctx *x, tree_t *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pg_seen(const pg_tmpl *t, const char *mn) { for (int i = 0; i < t->ninst; i++) if (!strcmp(t->inst[i].key, mn)) return 1; return 0; }
@@ -140,6 +150,7 @@ static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
     if (pg_seen(t, mn)) return pg_var(mn);
     tree_t *body = pg_clone(t->body), *node;
     pg_subst(body, t->params, args);
+    pg_sh_rename(body, mn);
     if (t->kind == PG_ROUTINE) { body->c[0] = pg_var(mn); node = body; } else { node = ast_node_new(TT_DECL); node->v.sval = ct_strdup("type"); ast_push(node, pg_var(mn)); ast_push(node, body); }
     pg_record(t, mn, node);
     pg_resolve(x, node);
@@ -150,6 +161,7 @@ static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
         tree_t *mb = pg_clone(m->body);
         mb->c[0]->c[0] = pg_var(mn);
         pg_subst(mb, t->params, args);
+        pg_sh_rename(mb, mn);
         pg_record(m, mn, mb);
         pg_resolve(x, mb);
     }
@@ -178,20 +190,54 @@ static tree_t *pg_program_block(tree_t *prog) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pg_place_types(pg_ctx *x, tree_t *prog) {
-    tree_t *blk = pg_program_block(prog), *part = ast_node_new(TT_PART);
-    int total = 0, at = 0;
-    part->v.sval = ct_strdup("type");
-    for (int s = 1; s <= x->seq; s++) for (int i = 0; i < x->nt; i++) {
-        if (x->t[i].kind != PG_TYPE) continue;
-        for (int k = 0; k < x->t[i].ninst; k++) if (x->t[i].inst[k].seq == s) { ast_push(part, x->t[i].inst[k].node); total++; }
+static int pg_has_name(const tree_t *e, const char *name) {
+    if (!e || !name) return 0;
+    if (PG_IS(e, TT_VAR) && e->v.sval && !strcasecmp(e->v.sval, name)) return 1;
+    for (int i = 0; i < e->n; i++) if (pg_has_name(e->c[i], name)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pg_mentions(const pg_ctx *x, const tree_t *e) {
+    if (!e) return 0;
+    if (PG_IS(e, TT_VAR) && e->v.sval) for (int i = 0; i < x->nt; i++) if (x->t[i].kind == PG_TYPE) for (int k = 0; k < x->t[i].ninst; k++) if (!strcmp(x->t[i].inst[k].key, e->v.sval)) return 1;
+    for (int i = 0; i < e->n; i++) if (pg_mentions(x, e->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pg_insert_decl(tree_t *part, tree_t *node, const char *key) {
+    int first = -1, dep = -1;
+    for (int i = 0; i < part->n; i++) {
+        tree_t *d = part->c[i];
+        const tree_t *dn = PG_IS(d, TT_DECL) && d->n >= 2 ? d->c[0] : NULL;
+        if (first < 0 && pg_has_name(d, key)) first = i;
+        if (dn && dn->v.sval && !PG_IS(d->c[1], TT_CLASS_DECL) && pg_has_name(node->c[1], dn->v.sval)) dep = i;
     }
-    if (!total || !blk) return;
-    for (int i = 0; i < blk->n; i++)
-        if (PG_IS(blk->c[i], TT_PART) && blk->c[i]->v.sval && (!strcmp(blk->c[i]->v.sval, "type") || !strcmp(blk->c[i]->v.sval, "const") || !strcmp(blk->c[i]->v.sval, "label"))) at = i + 1;
-    ast_push(blk, NULL);
-    for (int i = blk->n - 1; i > at; i--) blk->c[i] = blk->c[i - 1];
-    blk->c[at] = part;
+    int pos = first >= 0 ? first : part->n;
+    if (dep >= pos) pos = dep + 1;
+    ast_push(part, NULL);
+    for (int i = part->n - 1; i > pos; i--) part->c[i] = part->c[i - 1];
+    part->c[pos] = node;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pg_place_types(pg_ctx *x, tree_t *prog) {
+    tree_t *blk = pg_program_block(prog), *part = NULL;
+    int total = 0, at = 0;
+    if (!blk) return;
+    for (int s = 1; s <= x->seq; s++) for (int i = 0; i < x->nt; i++) for (int k = 0; x->t[i].kind == PG_TYPE && k < x->t[i].ninst; k++) if (x->t[i].inst[k].seq == s) total++;
+    if (!total) return;
+    for (int i = 0; i < blk->n; i++) if (PG_IS(blk->c[i], TT_PART) && blk->c[i]->v.sval && !strcmp(blk->c[i]->v.sval, "type")) part = blk->c[i];
+    if (!part) {
+        part = ast_node_new(TT_PART);
+        part->v.sval = ct_strdup("type");
+        for (int i = 0; i < blk->n; i++) if (PG_IS(blk->c[i], TT_PART) && blk->c[i]->v.sval && (!strcmp(blk->c[i]->v.sval, "const") || !strcmp(blk->c[i]->v.sval, "label"))) at = i + 1;
+        for (int i = 0; i < at; i++) if (pg_mentions(x, blk->c[i])) { at = i; break; }
+        for (int i = at; i < blk->n; i++) if (pg_mentions(x, blk->c[i])) { at = at < i ? at : i; break; }
+        ast_push(blk, NULL);
+        for (int i = blk->n - 1; i > at; i--) blk->c[i] = blk->c[i - 1];
+        blk->c[at] = part;
+    }
+    for (int s = 1; s <= x->seq; s++) for (int i = 0; i < x->nt; i++) for (int k = 0; x->t[i].kind == PG_TYPE && k < x->t[i].ninst; k++) if (x->t[i].inst[k].seq == s)
+        pg_insert_decl(part, x->t[i].inst[k].node, x->t[i].inst[k].key);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *pas_generics_prepass(tree_t *prog) {

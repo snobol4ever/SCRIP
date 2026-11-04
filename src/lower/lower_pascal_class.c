@@ -320,6 +320,8 @@ static pc_ty pc_member_type(pc_ctx *x, pc_class *c, const char *n) {
     return r;
 }
 static pc_ty pc_type(pc_ctx *x, tree_t *e);
+static int pc_ident_is_member(pc_ctx *x, const char *n);
+static pc_class *pc_member_owner(pc_ctx *x, const char *member);
 static pc_ty pc_ident_type(pc_ctx *x, const char *n) {
     pc_ty r = { NULL, NULL, 0 };
     for (int i = x->nren - 1; i >= 0; i--) if (pc_eq(x->ren[i].from, n)) { n = x->ren[i].to; break; }
@@ -354,13 +356,17 @@ static pc_ty pc_type(pc_ctx *x, tree_t *e) {
     }
     if (PC_IS(e, TT_DEREF) && e->n == 1) { pc_ty b = pc_type(x, e->c[0]); if (PC_IS(b.t, TT_PTR_TYPE) && b.t->n > 0) return pc_resolve(x, b.t->c[0]); return r; }
     if (PC_IS(e, TT_IDX) && e->n >= 2) {
-        pc_ty b = pc_type(x, e->c[0]);
-        if (b.cls) { pc_prop *p = pc_find_default(b.cls); if (p) return pc_resolve(x, p->type); return r; }
         if (PC_IS(e->c[0], TT_FIELD) && e->c[0]->n == 2) {
             pc_ty bb = pc_type(x, e->c[0]->c[0]);
             pc_prop *p = bb.cls ? pc_find_prop(bb.cls, pc_sv(e->c[0]->c[1])) : NULL;
             if (p && p->ip) return pc_resolve(x, p->type);
         }
+        if (PC_IS(e->c[0], TT_VAR) && pc_ident_is_member(x, pc_sv(e->c[0]))) {
+            pc_prop *p = pc_find_prop(pc_member_owner(x, pc_sv(e->c[0])), pc_sv(e->c[0]));
+            if (p && p->ip) return pc_resolve(x, p->type);
+        }
+        pc_ty b = pc_type(x, e->c[0]);
+        if (b.cls) { pc_prop *p = pc_find_default(b.cls); if (p) return pc_resolve(x, p->type); return r; }
         int left = e->n - 1;
         tree_t *t = b.t;
         while (left > 0 && PC_IS(t, TT_ARRAY_TYPE) && t->n > 0) {
@@ -402,6 +408,7 @@ static int pc_argfit(pc_ctx *x, tree_t *pt, tree_t *arg) {
     pc_ty p = pc_resolve(x, pt), a = pc_type(x, arg);
     if (p.cls) return a.cls && !a.ref ? 3 : 0;
     if (PC_IS(p.t, TT_ARRAY_TYPE)) return pc_arraylike(x, arg) ? 3 : 0;
+    if (PC_IS(p.t, TT_SET_TYPE)) return PC_IS(arg, TT_SET) || PC_IS(a.t, TT_SET_TYPE) ? 3 : 0;
     return !a.cls && !pc_arraylike(x, arg) ? 1 : 0;
 }
 static pc_meth *pc_pick(pc_ctx *x, pc_class *c, const char *n, tree_t *call, int from) {
@@ -507,14 +514,14 @@ static tree_t *pc_inherited(pc_ctx *x, tree_t *k) {
     const char *mn = call ? pc_sv(call->c[0]) : x->curm->name;
     pc_meth *m = pc_find_meth(x->cur->parent, mn);
     if (!m) return ast_node_new(TT_SUCCEED);
-    if (call) return pc_mcall(x, pc_var("self"), m, call, 1, 1);
+    if (call) { pc_meth *pm = pc_pick(x, x->cur->parent, mn, call, 1); return pc_mcall(x, pc_var("self"), pm ? pm : m, call, 1, 1); }
     tree_t *args = ast_node_new(TT_VLIST);
     ast_push(args, NULL);
     for (int i = 0; x->curm->params && i < x->curm->params->n; i++) {
         tree_t *d = x->curm->params->c[i];
         if (PC_IS(d, TT_DECL) && d->n > 0 && PC_IS(d->c[0], TT_VLIST)) for (int j = 0; j < d->c[0]->n; j++) ast_push(args, pc_var(pc_sv(d->c[0]->c[j])));
     }
-    return pc_mcall(x, pc_var("self"), m, args, 1, 1);
+    { pc_meth *pm = pc_pick(x, x->cur->parent, mn, args, 1); return pc_mcall(x, pc_var("self"), pm ? pm : m, args, 1, 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
@@ -764,6 +771,23 @@ static tree_t *pc_stmt(pc_ctx *x, tree_t *s) {
         s->c[1] = pc_expr(x, s->c[1]);
         return s;
         case TT_FOR:
+        if (pc_eq(pc_sv(s), "in") && s->n == 3) {
+            pc_ty ft = pc_type(x, s->c[1]);
+            pc_meth *ge = ft.cls ? pc_find_meth(ft.cls, "getenumerator") : NULL;
+            if (ge && ge->isfunc && ge->rtype) {
+                const char *en = pc_tmp(x, "e");
+                tree_t *q = pc_seq(), *wh = ast_node_new(TT_WHILE), *bd = pc_seq();
+                pc_add_var(x, en, pc_clone(ge->rtype));
+                ast_push(q, pc_asg(pc_var(en), pc_n1(TT_FNC, pc_fld(s->c[1], "getenumerator"))));
+                ast_push(wh, pc_n1(TT_FNC, pc_fld(pc_var(en), "movenext")));
+                ast_push(bd, pc_asg(s->c[0], pc_fld(pc_var(en), "current")));
+                ast_push(bd, s->c[2]);
+                ast_push(wh, bd);
+                ast_push(q, wh);
+                ast_push(q, pc_n1(TT_FNC, pc_fld(pc_var(en), "free")));
+                return pc_stmt(x, q);
+            }
+        }
         for (int i = 1; i + 1 < s->n; i++) s->c[i] = pc_expr(x, s->c[i]);
         s->c[s->n - 1] = pc_stmt(x, s->c[s->n - 1]);
         return s;

@@ -166,7 +166,7 @@ static tree_t *pas_compose_units(tree_t *prog, const char *filename) {
         ast_push(su, sn);
         if (!pas_units_visit(dir, filename, su, forest, visiting)) return NULL;
     }
-    if (gen) {
+    if (gen || pas_names_spec(forest, "tarray")) {
         tree_t *gu = ast_node_new(TT_VLIST), *gn = ast_node_new(TT_VAR);
         gn->v.sval = ct_strdup("sysgen");
         ast_push(gu, gn);

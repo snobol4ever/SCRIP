@@ -272,6 +272,17 @@ static int pascal_oo_keyword(const char *w, int peek) {
     if (k == 9 || k == 10) { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = ct_strdup(K[k]); }
     return T[k];
 }
+static int pascal_gen_pending, pascal_gen_depth;
+static int pascal_gen_follows(const char *q) {
+    int depth = 1;
+    for (; *q && depth > 0; q++) {
+        if (*q == '<') depth++;
+        else if (*q == '>') depth--;
+        else if (!isalnum((unsigned char)*q) && *q != '_' && *q != '.' && *q != ',' && *q != ' ' && *q != '\t' && *q != '\n' && *q != '\r') return 0;
+    }
+    while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++;
+    return depth == 0 && (*q == '.' || *q == '(');
+}
 static int pascal_generic_keyword(const char *w, int peek, const char *rest) {
     int d = pascal_dialect();
     if ((d != PAS_DIALECT_OBJFPC && d != PAS_DIALECT_DELPHI) || !(isalpha(peek) || peek == '_')) return 0;
@@ -488,7 +499,7 @@ ALNUM    [A-Za-z0-9_]
                           return STRINGCONST; }
 {ALPHA}{ALNUM}*         { int kw = pascal_context_keyword(pascal_yytext);
                           if (kw) return kw;
-                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); if (!kw) kw = pascal_exports_keyword(pascal_yytext, pk); if (!kw) kw = pascal_generic_keyword(pascal_yytext, pk, q); }
+                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); if (!kw) kw = pascal_exports_keyword(pascal_yytext, pk); if (!kw) kw = pascal_generic_keyword(pascal_yytext, pk, q); if (!kw && pk == '<' && pascal_dialect() == PAS_DIALECT_DELPHI && pascal_gen_follows(q)) pascal_gen_pending = 1; }
                           if (kw) return kw;
                           pascal_last_ident_set(pascal_yytext, (int)pascal_yyleng);
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng);
@@ -500,8 +511,8 @@ ALNUM    [A-Za-z0-9_]
 "<="                    { return LEOP; }
 ">="                    { return GEOP; }
 "<>"                    { return NEOP; }
-"<"                     { return LTOP; }
-">"                     { return GTOP; }
+"<"                     { if (pascal_gen_pending) { pascal_gen_pending = 0; pascal_gen_depth = 1; return GENLT; } if (pascal_gen_depth > 0) { pascal_gen_depth++; return GENLT; } return LTOP; }
+">"                     { if (pascal_gen_depth > 0) { pascal_gen_depth--; return GENGT; } return GTOP; }
 "="                     { return EQOP; }
 "+="                    { return ADDBECOMES; }
 "-="                    { return SUBBECOMES; }
@@ -524,4 +535,4 @@ ALNUM    [A-Za-z0-9_]
 ":"                     { return COLON; }
 .                       { pascal_lex_error("invalid character"); return PASCAL_YYUNDEF; }
 %%
-void pascal_lex_reset(void) { pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }
+void pascal_lex_reset(void) { pascal_gen_pending = 0; pascal_gen_depth = 0; pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }

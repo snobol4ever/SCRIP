@@ -59,6 +59,14 @@ static tree_t *pt_sval(tree_t *n, const char *s) { if (n) n->v.sval = ct_strdup(
 static tree_t *pt_kw(const char *w) { return pt_sval(pt_new(TT_KEYWORD), w); }
 static tree_t *pt_part(const char *w, tree_t *first) { return pt_add(pt_sval(pt_new(TT_PART), w), first); }
 static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_add(pt_sval(pt_new(TT_DECL), w), a), b); }
+static tree_t *pt_dot(tree_t *a, tree_t *b) {
+    if (!a || !b || !a->v.sval || !b->v.sval) return a;
+    size_t n = strlen(a->v.sval) + strlen(b->v.sval) + 2;
+    char *j = ct_alloc(n);
+    snprintf(j, n, "%s.%s", a->v.sval, b->v.sval);
+    a->v.sval = j;
+    return a;
+}
 static tree_t *pt_spec(tree_t *name, tree_t *args) { return pt_add(pt_add(pt_sval(pt_new(TT_DECL), "specialize"), name), args); }
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
@@ -197,7 +205,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token <node> SHIFTOP XOROP
 %token POWOP
 %token <node> CLASSSY ISOP ASOP
-%token TRYSY EXCEPTSY FINALLYSY RAISESY INHERITEDSY CONSTRUCTORSY DESTRUCTORSY PROPERTYSY ONSY GENERICSY GENERICTSY SPECIALIZESY
+%token TRYSY EXCEPTSY FINALLYSY RAISESY INHERITEDSY CONSTRUCTORSY DESTRUCTORSY PROPERTYSY ONSY GENERICSY GENERICTSY SPECIALIZESY GENLT GENGT
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
@@ -209,7 +217,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> param_type result_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
 %type <node> program_name routine_directives power
-%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw class_parents parent_item
+%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw class_parents parent_item spec_gen spec_expr uses_list uses_name
 %start compilation_unit
 %%
 compilation_unit:
@@ -241,18 +249,18 @@ decl_part:
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
     |procedure_decl { $$ = $1; }
-    |USESSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
+    |USESSY uses_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
     |EXPORTSSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "exports"), $2); }
     ;
 unit:
-    UNITSY IDENT SEMICOLON INTERFACESY intf_part_list IMPLEMENTATIONSY decl_part_list init_opt fini_opt ENDSY PERIOD { $$ = pt_add(pt_add(pt_add(pt_add(pt_add(pt_new(TT_MODULE_DECL), $2), $5), pt_sval(pt_retag($7, TT_PART), "implementation")), $8), $9); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    UNITSY uses_name SEMICOLON INTERFACESY intf_part_list IMPLEMENTATIONSY decl_part_list init_opt fini_opt ENDSY PERIOD { $$ = pt_add(pt_add(pt_add(pt_add(pt_add(pt_new(TT_MODULE_DECL), $2), $5), pt_sval(pt_retag($7, TT_PART), "implementation")), $8), $9); pt_flush_pragmas($$); pascal_prog_result = $$; }
     ;
 intf_part_list:
     intf_part_list intf_part { $$ = pt_add($1, $2); }
     |{ $$ = pt_sval(pt_new(TT_PART), "interface"); }
     ;
 intf_part:
-    USESSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
+    USESSY uses_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
     |CONSTSY const_decl_list { $$ = $2; }
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
@@ -314,6 +322,21 @@ type_decl:
     |IDENT EQOP CLASSSY SEMICOLON { $$ = pt_decl("type", $1, pt_sval(pt_add(pt_new(TT_CLASS_DECL), $3), "forward")); }
     |IDENT EQOP CLASSSY LPARENT class_parents RPARENT SEMICOLON { $$ = pt_decl("type", $1, pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $3), pt_retag($5, TT_ARGS)), pt_new(TT_VLIST))); }
     ;
+uses_list:
+    uses_name { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    |uses_list COMMA uses_name { $$ = pt_add($1, $3); }
+    ;
+uses_name:
+    IDENT { $$ = $1; }
+    |uses_name PERIOD IDENT { $$ = pt_dot($1, $3); }
+    ;
+spec_gen:
+    IDENT GENLT type_arg_list GENGT { pascal_note_type_ident($1); $$ = pt_spec($1, $3); }
+    ;
+spec_expr:
+    spec_kw { $$ = $1; }
+    |spec_gen { $$ = $1; }
+    ;
 class_parents:
     parent_item { $$ = pt_add(pt_new(TT_VLIST), $1); }
     |class_parents COMMA parent_item { $$ = pt_add($1, $3); }
@@ -327,6 +350,7 @@ spec_kw:
     ;
 spec_ref:
     spec_kw { $$ = $1; }
+    |spec_gen { $$ = $1; }
     |IDENT LTOP type_arg_list GTOP { pascal_note_type_ident($1); $$ = pt_spec($1, $3); }
     ;
 type_arg_list:
@@ -370,7 +394,7 @@ class_member:
     |DESTRUCTORSY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "destructor"); }
     |CLASSSY PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $3), $5), "class"); }
     |CLASSSY FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "class"); }
-    |PROPERTYSY IDENT prop_index_opt COLON IDENT prop_specs SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_sval(pt_new(TT_DECL), "property"), $2), $5), $3), $6); }
+    |PROPERTYSY IDENT prop_index_opt COLON parent_item prop_specs SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_sval(pt_new(TT_DECL), "property"), $2), $5), $3), $6); }
     ;
 prop_index_opt:
     { $$ = NULL; }
@@ -617,19 +641,19 @@ inherited_call:
     ;
 call:
     IDENT { $$ = pt_add(pt_new(TT_FNC), $1); }
-    |spec_kw { $$ = pt_add(pt_new(TT_FNC), $1); }
+    |spec_expr { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args { $$ = $1; }
     ;
 recv_primary:
     STRINGCONST { $$ = $1; }
     |LPARENT expression RPARENT { $$ = $2; }
-    |spec_kw { $$ = $1; }
+    |spec_expr { $$ = $1; }
     ;
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
-    |spec_kw LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
-    |spec_kw LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
+    |spec_expr LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
+    |spec_expr LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     |selector PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }

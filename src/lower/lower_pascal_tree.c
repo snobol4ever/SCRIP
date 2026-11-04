@@ -4411,6 +4411,7 @@ static const char *pas_ov_argtype(tree_t *e) {
     if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL || e->t == TT_DIV || e->t == TT_MOD || e->t == TT_IDIV) && e->n == 2) return pas_ov_arith(e);
     if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_ov_arith(e);
     if (pas_expr_is_real(e)) return "double";
+    { const pty_t *_pt = pty_of_low(e); if (_pt && _pt->k == PTK_INT && _pt->name && _pt->name[0] != '$') return _pt->name; }
     return NULL;
 }
 static int pas_ov_cost(const char *a, const char *p) {
