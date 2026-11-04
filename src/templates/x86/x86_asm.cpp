@@ -12,7 +12,7 @@
 #include "emitter/emit_walk.h"
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
-#include "ir/cset_block.h"
+#include "ir/descr.h"
 #include "runtime/rtx/rtcc.h"
 #include "templates/x86/x86_arg_roles.h"
 #include "templates/x86/x86_call.h"

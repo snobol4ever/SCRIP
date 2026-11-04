@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "ir/descr.h"
+#include "ir/cset_block.h"
 #include "runtime/core/core.h"
 int rt_jct_relop(DESCR_t, DESCR_t, int);
 int c_rt_jct_relop(DESCR_t, DESCR_t, int);
@@ -86,6 +87,8 @@ static void check_vc(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     core_lib_init();
+    char cblk3[CSET_BLK_HDR + 4], cblk1[CSET_BLK_HDR + 2];
+    DESCR_t cabc = CSETVAL(cset_block_init(cblk3, "abc", 3)), cfive = CSETVAL(cset_block_init(cblk1, "5", 1));
     DESCR_t vals[] = { INTVAL(0), INTVAL(1), INTVAL(-1), INTVAL(5), INTVAL(-5), INTVAL(INT64_MAX), INTVAL(INT64_MIN), INTVAL((int64_t)1 << 53), INTVAL(((int64_t)1 << 53) + 1),
         INTVAL((int64_t)1 << 62), REALVAL(0.0), REALVAL(-0.0), REALVAL(1.5), REALVAL(-1.5), REALVAL(5.0), REALVAL(1e300), REALVAL(-1e300), REALVAL(INFINITY), REALVAL(-INFINITY), REALVAL(NAN),
         REALVAL(5e-324), REALVAL(9007199254740992.0), REALVAL(9007199254740994.0), STRVAL("5"), STRVAL("abc"), STRVAL(""), NULVCL };
@@ -94,13 +97,13 @@ int main(void) {
     for (unsigned k = 0; k < sizeof ops / sizeof ops[0]; k++) for (int i = 0; i < nv; i++) for (int j = 0; j < nv; j++) check(vals[i], vals[j], ops[k]);
     static char sa[] = "abc", sb[] = "abc", sc[] = "abd", sd[] = "ab\0c", se[] = "ab\0d", sf[] = "abcd", sg[] = "\003bc", sh[] = "\003bc", si[] = "";
     DESCR_t svals[] = { BSTRVAL(sa, 3), BSTRVAL(sb, 3), BSTRVAL(sc, 3), BSTRVAL(sa, 2), BSTRVAL(sf, 3), BSTRVAL(sf, 4), BSTRVAL(sd, 4), BSTRVAL(se, 4), BSTRVAL(sd, 2), BSTRVAL(sg, 3), BSTRVAL(sh, 3),
-        BSTRVAL(si, 0), BSTRVAL(sa, 0), CSETVAL("abc"), CSETVAL("abc"), NULVCL, INTVAL(3), REALVAL(3.0) };
+        BSTRVAL(si, 0), BSTRVAL(sa, 0), cabc, cabc, NULVCL, INTVAL(3), REALVAL(3.0) };
     int ns = (int)(sizeof svals / sizeof svals[0]);
     for (int k = 22; k <= 23; k++) for (int i = 0; i < ns; i++) for (int j = 0; j < ns; j++) check(svals[i], svals[j], k);
     static char n1[] = "123abc", n2[] = "1\0002", n3[] = " 42 x";
     DESCR_t nvals[] = { STRVAL("5"), STRVAL(" 5 "), STRVAL("-5"), STRVAL("+5"), STRVAL("007"), STRVAL("-0"), STRVAL("123456789012345678"), STRVAL("-123456789012345678"), STRVAL("999999999999999999"),
         STRVAL("1234567890123456789"), STRVAL("9223372036854775807"), STRVAL("5\t"), STRVAL("\t5"), STRVAL("5.0"), STRVAL("1e3"), STRVAL("   "), STRVAL("+"), STRVAL("-"), STRVAL("5 5"), STRVAL("- 5"),
-        STRVAL("+-5"), STRVAL("16r1F"), BSTRVAL(n1, 3), BSTRVAL(n1, 4), BSTRVAL(n1, 1), BSTRVAL(n2, 1), BSTRVAL(n2, 3), BSTRVAL(n3, 4), BSTRVAL(n3, 5), CSETVAL("5"), NULVCL, INTVAL(5), INTVAL(-5),
+        STRVAL("+-5"), STRVAL("16r1F"), BSTRVAL(n1, 3), BSTRVAL(n1, 4), BSTRVAL(n1, 1), BSTRVAL(n2, 1), BSTRVAL(n2, 3), BSTRVAL(n3, 4), BSTRVAL(n3, 5), cfive, NULVCL, INTVAL(5), INTVAL(-5),
         INTVAL(42), INTVAL(123456789012345678), INTVAL(INT64_MIN), REALVAL(5.0), REALVAL(-0.5), REALVAL(42.0000001), REALVAL(NAN), REALVAL(INFINITY) };
     int nn = (int)(sizeof nvals / sizeof nvals[0]);
     for (int k = 5; k <= 10; k++) for (int i = 0; i < nn; i++) for (int j = 0; j < nn; j++) check(nvals[i], nvals[j], k);

@@ -21501,8 +21501,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int n
         const char *a = lexical_text(lhs, num_text), *b = lexical_text(rhs, num_text);
         if (!a) a="";
         if (!b) b="";
-        size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);
-        size_t lb = IS_CSET_fn(rhs) ? (size_t)(kw_cset_len(b) >= 0 ? kw_cset_len(b) : (int)strlen(b)) : (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu) ? (size_t)rhs.slen : strlen(b);
+        size_t la = IS_CSET_fn(lhs) ? descr_slen(lhs) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);
+        size_t lb = IS_CSET_fn(rhs) ? descr_slen(rhs) : (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu) ? (size_t)rhs.slen : strlen(b);
         size_t lm = la < lb ? la : lb;
         int c = lm ? memcmp(a, b, lm) : 0;
         if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
@@ -21795,7 +21795,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av)) { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
-    if (IS_CSET_fn(av)) { if (av.s) { int _kl = kw_cset_len(av.s); fwrite(av.s, 1, (_kl >= 0) ? (size_t)_kl : strlen(av.s), dest); } return; }
+    if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, descr_slen(av), dest); return; }
     if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     if (av.v == DT_A && av.arr) { out_write_str(dest, use_gist ? rk_gist_str(av) : rk_arr_text(av)); return; }
@@ -21941,7 +21941,7 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
     if (v.v == DT_DATA) { int ln = 0; if (rt_lv_is_list(v, (DESCR_t **)0, &ln)) { *out = INTVAL(ln); return 1; } }
     if (v.v == DT_I) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
     if (v.v == DT_R) { char rb[40]; real_str(v.r, rb, (int)sizeof rb); *out = INTVAL((long)strlen(rb)); return 1; }
-    if (v.v == DT_S && v.slen == 0xFFFFFFFFu) { int klen = kw_cset_len(v.s); *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0)); return 1; }
+    if (v.v == DT_S && v.slen == 0xFFFFFFFFu) { *out = INTVAL((long)descr_slen(v)); return 1; }
     const char *s = VARVAL_fn(v);
     if (!s) { *out = INTVAL(0); return 1; }
     long len = v.slen > 0 ? v.slen : (long)strlen(s);
@@ -22285,7 +22285,6 @@ static int bn_icn_right(DESCR_t *args, int nargs, DESCR_t *out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern const unsigned char *kw_cset_bits(const char *);
 static int bn_scan_span(DESCR_t *args, int nargs, const char **s, int *i1, int *i2) {
     if (nargs < 2 || nargs > 3 || args[1].v != DT_S || !args[1].s || args[1].slen == 0xFFFFFFFFu || IS_CSET_fn(args[1])) return 0;
     long long slen = args[1].slen, pos = 1;
@@ -22355,8 +22354,8 @@ static int bn_icn_upto_resume(DESCR_t *args, int nargs, int64_t *resume, DESCR_t
     if (args[0].v != DT_S || !bn_scan_span(args, nargs, &s, &i1, &i2)) return 0;
     const char *cv = VARVAL_fn(args[0]);
     if (!cv) { *out = FAILDESCR; return 1; }
-    long cvn = (args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
-    const unsigned char *bits = kw_cset_bits(cv);
+    long cvn = IS_CSET_fn(args[0]) ? (long)descr_slen(args[0]) : (long)args[0].slen;
+    const unsigned char *bits = IS_CSET_fn(args[0]) ? cset_blk_bits(cv) : (const unsigned char *)0;
     int p = (*resume > i1) ? (int)*resume : i1;
     if (bits) while (p < i2 && !((bits[(unsigned char)s[p - 1] >> 3] >> ((unsigned char)s[p - 1] & 7)) & 1)) p++;
     else while (p < i2 && !rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
@@ -22368,7 +22367,7 @@ static int bn_icn_upto_resume(DESCR_t *args, int nargs, int64_t *resume, DESCR_t
 static int bn_icn_any(DESCR_t *args, int nargs, DESCR_t *out) {
     const char *cv = VARVAL_fn(args[0]);
     if (!cv) { *out = FAILDESCR; return 1; }
-    long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+    long cvn = IS_CSET_fn(args[0]) ? (long)descr_slen(args[0]) : (args[0].v == DT_S) ? (long)args[0].slen : -1;
     const char *s;
     int i1, i2;
     if (!bn_scan_span(args, nargs, &s, &i1, &i2) && !bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
@@ -22380,11 +22379,11 @@ static int bn_icn_any(DESCR_t *args, int nargs, DESCR_t *out) {
 static int bn_icn_many(DESCR_t *args, int nargs, DESCR_t *out) {
     const char *cv = VARVAL_fn(args[0]);
     if (!cv) { *out = FAILDESCR; return 1; }
-    long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+    long cvn = IS_CSET_fn(args[0]) ? (long)descr_slen(args[0]) : (args[0].v == DT_S) ? (long)args[0].slen : -1;
     const char *s;
     int i1, i2;
     if (!bn_scan_span(args, nargs, &s, &i1, &i2) && !bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
-    const unsigned char *bits = kw_cset_bits(cv);
+    const unsigned char *bits = IS_CSET_fn(args[0]) ? cset_blk_bits(cv) : (const unsigned char *)0;
     int p = i1;
     if (bits) while (p < i2 && ((bits[(unsigned char)s[p - 1] >> 3] >> ((unsigned char)s[p - 1] & 7)) & 1)) p++;
     else while (p < i2 && rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
@@ -22938,7 +22937,7 @@ static long icn_str_len_of(DESCR_t d) {
     if (IS_INT_fn(d)) return (long)snprintf(b, sizeof b, "%lld", (long long)d.i);
     if (IS_REAL_fn(d)) { icon_real_str(d.r, b, sizeof b); return (long)strlen(b); }
     if (d.v == DT_BIG) return 2;
-    if (IS_CSET_fn(d)) { extern int kw_cset_len(const char *); return d.s ? (long)kw_cset_len(d.s) : 0; }
+    if (IS_CSET_fn(d)) return (long)descr_slen(d);
     return d.s ? (long)descr_slen(d) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24637,10 +24636,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         }
         if (IS_CSET_fn(av)) {
             const char *cs = av.s ? av.s : "";
-            const char *kname = kw_cset_name(cs);
+            int cslen = (int)descr_slen(av);
+            const char *kname = kw_cset_name(cs, cslen);
             if (kname) { *out = STRVAL(kname); return 1; }
-            int _kl = kw_cset_len(cs);
-            int cslen = (_kl >= 0) ? _kl : (int)strlen(cs);
             char *outs = rt_heap_alloc_c(cslen * 4 + 3);
             int o = 0;
             outs[o++] = '\'';
@@ -25327,11 +25325,11 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_upto) && nargs >= 1) {
         const char *cv = VARVAL_fn(args[0]);
         if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+        long cvn = IS_CSET_fn(args[0]) ? (long)descr_slen(args[0]) : (args[0].v == DT_S) ? (long)args[0].slen : -1;
         const char *s;
         int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
-        const unsigned char *bits = kw_cset_bits(cv);
+        const unsigned char *bits = IS_CSET_fn(args[0]) ? cset_blk_bits(cv) : (const unsigned char *)0;
         int p = i1;
         if (bits) while (p < i2 && !((bits[(unsigned char)s[p - 1] >> 3] >> ((unsigned char)s[p - 1] & 7)) & 1)) p++;
         else while (p < i2 && !rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
@@ -26157,7 +26155,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 s=nb;
             } else {
                 s=VARVAL_fn(a);
-                if (IS_CSET_fn(a)) slen=kw_cset_len(s);
+                if (IS_CSET_fn(a)) slen=(int)descr_slen(a);
             }
             if(!s) s="";
             if (slen<0) slen=(int)strlen(s);
@@ -26240,21 +26238,22 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 ra=VARVAL_fn(r);
                 if(!ra) ra="";
             }
-            int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : (l.v == DT_S && l.slen) ? (int)l.slen : -1;
+            int lalen = IS_CSET_fn(l) ? (int)descr_slen(l) : (l.v == DT_S && l.slen) ? (int)l.slen : -1;
             if (lalen < 0) lalen = (int)strlen(la);
-            int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : (r.v == DT_S && r.slen) ? (int)r.slen : -1;
+            int ralen = IS_CSET_fn(r) ? (int)descr_slen(r) : (r.v == DT_S && r.slen) ? (int)r.slen : -1;
             if (ralen < 0) ralen = (int)strlen(ra);
+            int lblk = IS_CSET_fn(l) && l.s != NULL, rblk = IS_CSET_fn(r) && r.s != NULL;
             int outlen;
             const char *ur;
             if (fn[0]=='+') {
-                ur=cset_union(la,lalen,ra,ralen,&outlen);
-                *out=CSETVAL(cset_canonical(ur, outlen));
+                ur=cset_union(la,lalen,lblk,ra,ralen,rblk,&outlen);
+                *out=CSETVAL(outlen > 0 ? ur : kw_cset_empty());
             } else if (fn[1]=='-') {
-                ur=cset_diff(la,lalen,ra,ralen,&outlen);
-                *out=CSETVAL(cset_canonical(ur, outlen));
+                ur=cset_diff(la,lalen,lblk,ra,ralen,rblk,&outlen);
+                *out=CSETVAL(outlen > 0 ? ur : kw_cset_empty());
             } else {
-                ur=cset_inter(la,lalen,ra,ralen,&outlen);
-                *out=CSETVAL(cset_canonical(ur, outlen));
+                ur=cset_inter(la,lalen,lblk,ra,ralen,rblk,&outlen);
+                *out=CSETVAL(outlen > 0 ? ur : kw_cset_empty());
             }
             return 1;
         }

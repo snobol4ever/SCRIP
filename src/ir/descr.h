@@ -107,10 +107,16 @@ static inline __attribute__((always_inline)) int IS_PROCVAL_BUILTIN_fn(DESCR_t v
 #define PROCVAL_BUILTIN(name_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_BUILTIN_SLEN, .s = (char *)(name_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
-int kw_cset_len(const char *ptr);
 const char *kw_cset_empty(void);
+#define CSET_BLK_HDR 40
+#define CSET_BLK_LEN_OFF (-40)
+#define CSET_BLK_MAGIC_OFF (-36)
+#define CSET_BLK_BITS_OFF (-32)
+#define CSET_BLK_MAGIC 0xC5E7B175u
+static inline __attribute__((always_inline)) int cset_blk_len(const char *p) { int32_t n; __builtin_memcpy(&n, p + CSET_BLK_LEN_OFF, 4); return (int)n; }
+static inline __attribute__((always_inline)) const unsigned char *cset_blk_bits(const char *p) { return (const unsigned char *)(p + CSET_BLK_BITS_OFF); }
 static inline __attribute__((always_inline)) size_t descr_slen(DESCR_t d) {
-    if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); } return (size_t)d.slen; }
+    if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) return d.s ? (size_t)cset_blk_len(d.s) : 0; return (size_t)d.slen; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

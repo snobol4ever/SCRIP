@@ -12,7 +12,7 @@ typedef struct {
     int *kw_cset_hidx;
     int kw_cset_hcap;
     int *kw_cset_cidx;
-    long kw_cset_hidx_gen;
+    long kw_cset_gc_gen;
     const char *kw_cset_regc_ptr[64];
     int kw_cset_regc_len[64];
     int64_t kwb_own[8];

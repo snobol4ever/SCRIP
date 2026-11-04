@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "ir/descr.h"
+#include "ir/cset_block.h"
 #include "runtime/core/core.h"
 #include "runtime/rt/gc_heap.h"
 DESCR_t rt_subscript_val(DESCR_t, DESCR_t);
@@ -141,7 +142,8 @@ int main(void) {
             check("strict string, null index", sc, NULVCL, 0);
             check("strict empty string", es, INTVAL(1), 0);
             check("strict empty string, zero", es, INTVAL(0), 0);
-            check("strict cset base", CSETVAL("abc"), INTVAL(1), 0);
+            char cblk[CSET_BLK_HDR + 4];
+            check("strict cset base", CSETVAL(cset_block_init(cblk, "abc", 3)), INTVAL(1), 0);
             check("strict string with an embedded high byte", STRVAL("a\xe9z"), INTVAL(2), 1);
         }
         {

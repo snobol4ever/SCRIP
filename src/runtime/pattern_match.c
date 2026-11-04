@@ -405,7 +405,7 @@ static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
     if (arr.v == DT_I) { char ibuf[32]; snprintf(ibuf, sizeof ibuf, "%lld", (long long)arr.i); arr = STRVAL(rt_str_dup(ibuf)); }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
-        int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        int slen = IS_CSET_fn(arr) ? (int)descr_slen(arr) : -1;
         if (slen < 0 && arr.v == DT_S && arr.slen != 0xFFFFFFFFu) slen = (int)arr.slen;
         if (slen < 0) slen = (int)strlen(s);
         if (!icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
@@ -527,7 +527,7 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
     }
     if (arr.v == DT_S || (arr.v == DT_SNUL && arr.s)) {
         const char *s = arr.s ? arr.s : "";
-        int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        int slen = IS_CSET_fn(arr) ? (int)descr_slen(arr) : -1;
         if (slen < 0) slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
         if (!icn_section_operands_ok(arr, i, j, strict)) return FAILDESCR;
         int ii = (int)to_int(i), jj = (int)to_int(j);
@@ -1801,8 +1801,7 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
     if (IS_CSET_fn(arg)) {
         cv = arg.s;
         if (!cv) return 0;
-        int klen = kw_cset_len(cv);
-        clen = (klen >= 0) ? klen : (int)strlen(cv);
+        clen = (int)descr_slen(arg);
     } else {
         cv = VARVAL_fn(arg);
         if (!cv) return 0;

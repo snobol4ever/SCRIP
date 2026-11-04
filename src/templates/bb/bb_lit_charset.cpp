@@ -2,11 +2,9 @@
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"
-void rt_icn_cset_register(const char *ptr, int len);
 #include "ir/descr_tags.h"
 }
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -27,15 +25,6 @@ std::string bb_lit_charset() {
              + x86("mov", "rax", ROQ(0))
              + x86("note", ZRESN())
              + x86("mov", ls_rq(8), "rax")
-             + IF(_.op_a_node_kind >= 0,
-                   x86("push", "rax")
-                 + x86("push", "rdx")
-                 + x86("mov", "rdi", ROQ(0))
-                 + x86("mov", "rsi", (long)_.op_a_ival_sg)
-                 + x86("call", "rt_icn_cset_register", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_icn_cset_register)
-                 + x86("pop", "rdx")
-                 + x86("pop", "rax")
-                 + x86_rt_gc_poll())
              + x86_gamma()
              + x86_beta_trampoline()
              + x86(".quad_ro", L(0), LS(0), _.op_sval ? _.op_sval : "")

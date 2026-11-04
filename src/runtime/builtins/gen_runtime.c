@@ -58,11 +58,7 @@ ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    if (IS_CSET_fn(sv)) {
-        extern int kw_cset_len(const char *);
-        int kn = sv.s ? kw_cset_len(sv.s) : -1;
-        r.len = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
-    } else r.len = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    if (IS_CSET_fn(sv)) { r.len = (uint64_t)descr_slen(sv); } else r.len = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     r.ptr = (uint64_t)(uintptr_t)s;
     return r;
 }
@@ -78,11 +74,7 @@ ScanSubjRegs rt_icn_needle_coerce(uint64_t lo, uint64_t hi) {
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     uint64_t L;
-    if (IS_CSET_fn(sv)) {
-        extern int kw_cset_len(const char *);
-        int kn = sv.s ? kw_cset_len(sv.s) : -1;
-        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
-    } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    if (IS_CSET_fn(sv)) { L = (uint64_t)descr_slen(sv); } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
     r.len = L;

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "ir/descr.h"
+#include "ir/cset_block.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
@@ -61,6 +62,8 @@ int main(void) {
     static char big[600], big2[600];
     for (int i = 0; i < 599; i++) { big[i] = (char)('a' + (i % 26)); big2[i] = (char)('A' + (i % 26)); }
     big[599] = big2[599] = (char)0;
+    char cblk[CSET_BLK_HDR + 4];
+    DESCR_t cabc = CSETVAL(cset_block_init(cblk, "abc", 3));
     printf("RTX-3 STR differential battery (asm str_concat_d vs c_str_concat_d)\n");
     for (unsigned al = 1; al <= 70; al++) {
         for (unsigned bl = 1; bl <= 70; bl++) {
@@ -73,8 +76,8 @@ int main(void) {
     both("slen0 left (strlen path)", Sraw("hello", 0), S("world"));
     both("slen0 right", S("hello"), Sraw("world", 0));
     both("slen0 both", Sraw("hello", 0), Sraw("world", 0));
-    both("CSET left (slen ~0)", Sraw("abc", 0xFFFFFFFFu), S("d"));
-    both("CSET right", S("d"), Sraw("abc", 0xFFFFFFFFu));
+    both("CSET left (slen ~0)", cabc, S("d"));
+    both("CSET right", S("d"), cabc);
     both("null ptr left", Sraw((char *)0, 3), S("xyz"));
     both("null ptr right", S("xyz"), Sraw((char *)0, 3));
     both("SNUL left  (identity)", NUL(), S("kept"));
@@ -92,8 +95,8 @@ int main(void) {
     both("FAIL + SNUL (FAIL wins)", FL(), NUL());
     both("slen0 left + SNUL", Sraw("hello", 0), NUL());
     both("SNUL + slen0 right", NUL(), Sraw("hello", 0));
-    both("CSET + SNUL", Sraw("abc", 0xFFFFFFFFu), NUL());
-    both("SNUL + CSET", NUL(), Sraw("abc", 0xFFFFFFFFu));
+    both("CSET + SNUL", cabc, NUL());
+    both("SNUL + CSET", NUL(), cabc);
     {
         static const int64_t iv[] = { 0, 1, -1, 9, 10, 11, 99, 100, -10, -100, 65535, 1234567890123LL, 9223372036854775807LL, -9223372036854775807LL - 1 };
         for (unsigned i = 0; i < sizeof iv / sizeof iv[0]; i++) {

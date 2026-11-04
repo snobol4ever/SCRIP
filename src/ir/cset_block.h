@@ -2,11 +2,7 @@
 #define CSET_BLOCK_H
 #include <stdint.h>
 #include <string.h>
-#define CSET_BLK_HDR 40
-#define CSET_BLK_LEN_OFF (-40)
-#define CSET_BLK_MAGIC_OFF (-36)
-#define CSET_BLK_BITS_OFF (-32)
-#define CSET_BLK_MAGIC 0xC5E7B175u
+#include "ir/descr.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void cset_block_header(unsigned char * base, const char * chars, int len) {
     int32_t n = (int32_t) len;

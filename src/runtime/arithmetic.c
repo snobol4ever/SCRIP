@@ -621,8 +621,7 @@ static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
 }
 static const char *rt_cset_operand_chars(DESCR_t d, char *buf, int bufsz, int *len) {
     extern const char *icon_real_str(double r, char *buf, int bufsz);
-    extern int kw_cset_len(const char *);
-    if (IS_CSET_fn(d)) { const char *s = d.s ? d.s : ""; int kl = kw_cset_len(s); *len = kl >= 0 ? kl : (int)strlen(s); return s; }
+    if (IS_CSET_fn(d)) { *len = (int)descr_slen(d); return d.s ? d.s : ""; }
     if (d.v == DT_S || d.v == DT_SNUL) { *len = (int)descr_slen(d); return d.s ? d.s : ""; }
     if (IS_INT_fn(d)) { snprintf(buf, (size_t)bufsz, "%lld", (long long)d.i); *len = (int)strlen(buf); return buf; }
     if (IS_REAL_fn(d)) { icon_real_str(d.r, buf, bufsz); *len = (int)strlen(buf); return buf; }
@@ -642,16 +641,17 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
         if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
         if (!icn_cset_operand_ok(b)) {
             const char *cs = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen);
-            ur = cset_union(cs, aslen, "", 0, &outlen);
+            ur = cset_union(cs, aslen, IS_CSET_fn(a) && a.s != NULL, "", 0, 0, &outlen);
             core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : kw_cset_empty()), b);
             core_icn_error(120, b);
             return FAILDESCR;
         }
     }
     const char *as = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen), *bs = rt_cset_operand_chars(b, _bb, sizeof _bb, &bslen);
-    if (op == BINOP_CUNION) ur = cset_union(as, aslen, bs, bslen, &outlen);
-    else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);
-    else ur = cset_inter(as, aslen, bs, bslen, &outlen);
+    int ablk = IS_CSET_fn(a) && a.s != NULL, bblk = IS_CSET_fn(b) && b.s != NULL;
+    if (op == BINOP_CUNION) ur = cset_union(as, aslen, ablk, bs, bslen, bblk, &outlen);
+    else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, ablk, bs, bslen, bblk, &outlen);
+    else ur = cset_inter(as, aslen, ablk, bs, bslen, bblk, &outlen);
     return CSETVAL(outlen > 0 ? ur : kw_cset_empty());
 }
 static DESCR_t rt_int_neg_div(int64_t li, int strict) {

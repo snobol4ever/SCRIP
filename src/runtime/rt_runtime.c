@@ -445,7 +445,7 @@ int list_bang_at(DESCR_t obj, int64_t *cur, DESCR_t * out) {
         const char *s = sobj.s;
         int64_t slen;
         if (!s) slen = 0;
-        else if (IS_CSET_fn(sobj)) { extern int kw_cset_len(const char *); int kn = kw_cset_len(s); slen = (kn >= 0) ? (int64_t)kn : (int64_t)strlen(s); } else slen = (int64_t)descr_slen(sobj);
+        else slen = (int64_t)descr_slen(sobj);
         if (!s || idx >= slen) return 0;
         char *ch = rt_wsb_alloc(2);
         ch[0] = s[idx];

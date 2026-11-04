@@ -116,8 +116,6 @@ const char x86_argrole_blob[] =
     "needle\0"
     "len\0"
     "ch\0"
-    "rt_icn_cset_register\0"
-    "ptr\0"
     "rt_icn_zframe_args_install\0"
     "base_p\0"
     "nlocals\0"

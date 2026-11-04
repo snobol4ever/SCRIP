@@ -142,7 +142,7 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_rotl(unsign
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(const DESCR_t *k) { (void)k; return 0x2F1B3D5C7E9A11ull; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)__builtin_strlen(k->s) : 0u); }
+static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)cset_blk_len(k->s) : 0u); }
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_str(const DESCR_t *k) {
     const unsigned char *p = (const unsigned char *)(k->s ? k->s : "");
     unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;
@@ -189,7 +189,7 @@ static inline __attribute__((always_inline)) const void * _tbl_name_obj(const DE
     return k->ptr;
 }
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_name(const DESCR_t *k) {
-    if (k->slen == 0 && !IS_KWNAME_fn(*k)) { DESCR_t sk = *k; sk.v = DT_S; sk.slen = 0xFFFFFFFFu; return _tbl_h_str(&sk); }
+    if (k->slen == 0 && !IS_KWNAME_fn(*k)) { DESCR_t sk = *k; sk.v = DT_S; sk.slen = descr_cstrlen(sk.s); return _tbl_h_str(&sk); }
     return ((((unsigned long long)(uintptr_t)_tbl_name_obj(k) >> 4) ^ ((unsigned long long)k->slen << 40)) * 0xC2B2AE3D27D4EB4Full) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

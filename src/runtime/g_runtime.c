@@ -17,7 +17,7 @@ g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .misc = { .sn
     .bn = { .tweak_gen_bump = 0, .pl_edin_out_name = "", .pl_edin_in_name = "", .ctor_ic_site = 0, .main_args_n = -1, .bidprof_on = -1, .bidjmp_on = 1, }, .pas = { .pas_heap_ctr = 0, .pas_heap = 0,
     .pas_heap_cap = 0, .pas_heap_dead = 0, .pas_heap_free = 0, .pas_heap_nfree = 0, .pas_heap_freecap = 0, }, .coexpr = { .inited = 0, .coexp_stksize = 8L * 1024 * 1024, .co_main_set = 0,
     .coexpr_serial = 1, }, .kw = { .kwb_own = { 0, 0, 0, 0, 0, 0, 0, 1 }, .kw_maxint = 9223372036854775807LL, .lastfile = NULL, .sno_errtext = NULL, .kw_cset_names = NULL, .kw_cset_count = 0,
-    .kw_cset_cap = 0, .kw_cset_hidx = NULL, .kw_cset_hcap = 0, .kw_cset_cidx = NULL, .kw_cset_hidx_gen = -1, }, .rt = { .subject_dbg_base = 0, .subject_dbg_len = -1, .rt_gen_proc_count = 0,
+    .kw_cset_cap = 0, .kw_cset_hidx = NULL, .kw_cset_hcap = 0, .kw_cset_cidx = NULL, .kw_cset_gc_gen = -1, }, .rt = { .subject_dbg_base = 0, .subject_dbg_len = -1, .rt_gen_proc_count = 0,
     .rt_gen_proc_cap = 0, .proc_hsl = 0, .proc_hcap = 0, .gva_mapped = 0, }, .core = { .monitor_ack_fd = -1, .monitor_ready = 0, .trace_tap_off = 0, .trace_access_n = 0, .trace_recursion_depth = 0,
     .trace_depth_override = -1, .trace_stmt_seen = 0, .trace_stmt_gen = 0, .bin_names = NULL, .bin_name_lens = NULL, .bin_n_names = 0, .bin_names_cap = 0, .kw_fullscan = 0, .kw_maxlngth = 524288,
     .kw_trim = 0, .kw_code = 0, .host_u = NULL, .sw_stack_bytes = 0, .start_ns = -1, .setexit_resume = -1, .udef_types = NULL, .var_count = 0, .input_buf = NULL, .input_cap = 0, .input_rlen = 0,
