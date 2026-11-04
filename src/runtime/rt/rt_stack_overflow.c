@@ -92,7 +92,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_STACK_DEFAULT_BYTES (4L * 1024L * 1024L)
 _Static_assert(RT_STACK_DEFAULT_BYTES == 4194304L,
-    "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; ceo CEO-1261): sbl prints its "
+    "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; R-1261): sbl prints its "
     "option defaults as -d128m -i1m -m16m -s4m, so a program gets a 4 MB stack unless its -s switch or SCRIP_STACK says otherwise; the budget counts from the frame that applies it and mode 3 adds th"
     "e trampoline's reservation for the top-level slot region on top (rt_stack_budget_apply)");
 long rt_stack_budget_bytes(long sw_bytes) {
@@ -146,7 +146,7 @@ long rt_stack_stat(int which, const char *sp) {
 #define RT_STACK_HUGE (2UL * 1024UL * 1024UL)
 #define RT_STACK_TOP_SMALL (256UL * 1024UL)
 _Static_assert(RT_STACK_HUGE == 2097152UL,
-    "A COMPILED PROGRAM RUNS ON A STACK IT MAPS ITSELF (ceo 2026-09-25, CEO-1265; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faster than SPITBOL\")"
+    "A COMPILED PROGRAM RUNS ON A STACK IT MAPS ITSELF (2026-09-25, R-1265; Lon 2026-09-25 10:06, in-chat: \"continue getting all demos and benchmarks running faster than SPITBOL\")"
     ": the process stack grows down a 4 KB page at a time, each first touch a fault of about 11 K kernel cycles, and a growsdown mapping can never take a transparent huge page because its lower end "
     "is never 2 MB aligned -- the calculator demo touched 48 MB of stack in 12,312 faults, two thirds of its whole run. The emitted main calls rt_main_stack_adopt first: it maps the -s budget (SPITB"
     "OL's -s4m unless the command line or SCRIP_STACK says otherwise) rounded up to 2 MB at a 2 MB boundary, MADV_HUGEPAGE, one PROT_NONE guard page below it, and main moves rsp to its top and never"

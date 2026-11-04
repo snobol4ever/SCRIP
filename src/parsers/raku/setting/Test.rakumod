@@ -1,7 +1,7 @@
 unit module Test;
 # Copyright (C) 2007 - 2026 Yet Another Society
 # Rakudo's lib/Test.rakumod (rakudo 2026.05), Artistic License 2.0, adapted for SCRIP's Raku setting
-# (ARCH-RAKU-TO-100.md section 1.2 (c), CEO-2044): the nqp:: operations and the timing hooks are removed,
+# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): the nqp:: operations and the timing hooks are removed,
 # the multi candidates are one routine each, and the TAP it prints is Rakudo's byte for byte.
 
 my @vars;

@@ -1,5 +1,5 @@
 /*  pcre.pl -- SWI-Prolog's library(pcre) over a PCRE subset matched in Prolog (cfo 2026-10-11, row prolog-library-pcre-re-foldl-6-
-    and-re-split-3-are-missing-advent-demo, CEO-1660).  SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file -- swipl's
+    and-re-split-3-are-missing-advent-demo, R-1660).  SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file -- swipl's
     pcre.pl is a front for the C libpcre2 binding, and SCRIP links no foreign library (no allocator but its own).  The generator
     (util_gen_prolog_prelude_libs.py) embeds it in LOCAL mode: no SWI reader, no renames, its helpers '$re_'-named by hand.  It is
     parsed only when a program names one of its exports.

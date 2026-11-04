@@ -25,18 +25,18 @@
 #define GC_RESERVE_FLOOR_MB 512
 #define GC_HEAP_CAP_KB 131072
 _Static_assert(GC_HEAP_KB == 1024 && GC_HEAP_CAP_KB == 131072,
-    "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; ceo CEO-1261): sbl prints its "
+    "THE DEFAULTS ARE SPITBOL'S (Lon 2026-09-25, in-chat, verbatim: \"Let's set our default stack size and heap size for SCRIP to be the same as SPITBOL.\"; R-1261): sbl prints its "
     "option defaults as -d128m -i1m -m16m -s4m: the initial window is -i1m and the hard cap -d128m; the window is also the least each growth commits (rt_gcheap_grow), which is -i's second meaning; t"
-    "he 128 KB arena of CEO-1095 is the GC-testing instrument (make test-arena, SCRIP_HEAP_KB_TINY) and no longer the shipped default");
+    "he 128 KB arena of R-1095 is the GC-testing instrument (make test-arena, SCRIP_HEAP_KB_TINY) and no longer the shipped default");
 #define GC_HEAP_KB_FLOOR 64
 #define GC_ERR_RESERVE 4096u
 _Static_assert(GC_ERR_RESERVE == 4096u,
-    "THE ERROR RESERVE IS SPITBOL'S e_srs, HELD INSIDE THE CAP (ceo CEO-1704): sbl.min keeps e_srs = 30 words back at the end of storage and its alloc (alc3b) adds them ONCE before error 204, "
+    "THE ERROR RESERVE IS SPITBOL'S e_srs, HELD INSIDE THE CAP (R-1704): sbl.min keeps e_srs = 30 words back at the end of storage and its alloc (alc3b) adds them ONCE before error 204, "
     "so a SETEXIT handler can still allocate; SCRIP's heap commits by the 4 KB page, so the reserve is the cap's last page, rt_gcheap_grow never commits it, the exhausted allocator commits it once "
     "(released is g_hp_end == g_hp_cap_end) and the heap never passes its cap");
 #define GC_FREE_PCT 15
 _Static_assert(GC_FREE_PCT == 15,
-    "A WINDOW IS SPENT BEFORE IT IS COLLECTED, AS SPITBOL SPENDS ITS -i (ceo 2026-09-25, CEO-1264; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faste"
+    "A WINDOW IS SPENT BEFORE IT IS COLLECTED, AS SPITBOL SPENDS ITS -i (2026-09-25, R-1264; Lon 2026-09-25 10:06, in-chat: \"continue getting all demos and benchmarks running faste"
     "r than SPITBOL\"): SPITBOL's alloc (sbl.min aloc1..aloc4) collects only when an allocation does not fit its dynamic area and then, when less than e_fsp = 15 percent of the area is free after th"
     "e collection, asks sysmm for another -i increment; SCRIP collected at HALF its free window, so under the demo grid's -d512m -i64m treebank collected once (110 ms: 814,366 blocks, 193,546 live, "
     "mark 87 ms) where SPITBOL collected zero times. The line now leaves one sixteenth of the free window as burst room between polls (the allocator never collects, so a burst past the line is commi"
@@ -188,7 +188,7 @@ long rt_gcheap_verify(void) {
     }
     for (size_t w = 0; w < nw; w++) bits += __builtin_popcountll(w + 1 == nw && (topg & 63) ? g_runtime.abi.hp_fr.start[w] & ((1ull << (topg & 63)) - 1u) : g_runtime.abi.hp_fr.start[w]);
     if (bits != n) {
-        fprintf(stderr, "[ZHP] heap verify FAILED: %ld START bits below the top against %ld block headers -- a START bit that is no header (ARCH-GC section 15, CEO-1794)\n", bits, n);
+        fprintf(stderr, "[ZHP] heap verify FAILED: %ld START bits below the top against %ld block headers -- a START bit that is no header (ARCH-GC section 15, R-1794)\n", bits, n);
         abort();
     }
     {
@@ -239,7 +239,7 @@ unsigned long long rt_gcheap_cap_bytes(void) { return (g_runtime.gc.hp_cap_end &
 #endif
 _Static_assert(sizeof(long) == 8,
     "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap)"
-    ": the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until CEO-1264) at init, after every grow and after every collection -- a line f"
+    ": the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until R-1264) at init, after every grow and after every collection -- a line f"
     "ixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left th"
     "e window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
 void rt_gcheap_line_reset(long head);
@@ -278,12 +278,12 @@ int rt_gcheap_grow(uint64_t need) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(GC_ERR_RESERVE % 4096u == 0,
-    "ONE ROAD AND ONE ERROR AT THE CAP (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5; the cto's ruling (c) of 2026-10-22 under CEO-1895): where a catchable road is declared (hp_cap_road, set when "
+    "ONE ROAD AND ONE ERROR AT THE CAP (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5; the cto's ruling (c) of 2026-10-22 under R-1895): where a catchable road is declared (hp_cap_road, set when "
     "the Prolog trail that carries the ball is made), a request the cap refuses is served from the error reserve and the resource error is marked DUE (hp_cap_due 1) with the collection armed; t"
     "he poll that follows the allocating call collects, and a collection that leaves the reserve's page free above the compacted top re-arms the reserve and clears the mark, because the request "
     "then fit after a collection; a mark still due after it is RAISED by the poll's raise entry (rt_pl_cap_raise: the same error(resource_error(stack), _) the C road's size check raises, the bal"
     "l armed, the call's result made FAIL or the box's failure edge taken) and becomes 2 with a collection armed, so the first safe point after the flight reclaims what the flight released and re-"
-    "arms the reserve; a call that allocates past the reserve while the mark is due is REFUSED rc 2 naming the leaf, and a road never declared keeps the fatal of CEO-1704 exactly; a single requ"
+    "arms the reserve; a call that allocates past the reserve while the mark is due is REFUSED rc 2 naming the leaf, and a road never declared keeps the fatal of R-1704 exactly; a single requ"
     "est the cap can never hold is never made: its leaf asks the cap first (rt_pl_cap_refuses, heap_guard's rule) and marks the error REFUSED (hp_cap_due 3), which the poll raises as it raises a"
     " due mark and which no collection clears, because nothing was served");
 static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type);
@@ -298,9 +298,9 @@ static void gc_cap_rearm(void) {
 static void rt_gcheap_cap_hit(uint64_t need) {
     if (g_runtime.gc.hp_capped++) return;
     fprintf(stderr,
-        "[ZHP] HARD CAP REACHED: %ld KB is committed, THE CAP IS %ld KB AND THE HEAP DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat to the ceo, verbatim: \"Place a hard cap on the GC HEAP. Do not "
-        "extend it.\" and \"Do however use the lazy instantiation of memory as the heap grows.\"; ceo CEO-1101). Memory inside the cap is instantiated LAZILY, a page at a time, as the heap grows int"
-        "o it; there is NOTHING BEYOND THE CAP -- the old 8x reserve is what let a point DECLARED at 64 KB grow to 2 MB and read as a 2 MB measurement wearing a 64 KB label (ceo CEO-1100, coo COO-13"
+        "[ZHP] HARD CAP REACHED: %ld KB is committed, THE CAP IS %ld KB AND THE HEAP DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat, verbatim: \"Place a hard cap on the GC HEAP. Do not "
+        "extend it.\" and \"Do however use the lazy instantiation of memory as the heap grows.\"; R-1101). Memory inside the cap is instantiated LAZILY, a page at a time, as the heap grows int"
+        "o it; there is NOTHING BEYOND THE CAP -- the old 8x reserve is what let a point DECLARED at 64 KB grow to 2 MB and read as a 2 MB measurement wearing a 64 KB label (R-1100, coo COO-13"
         "9). A collection is ARMED for the next safe point and this request wanted %llu bytes; if the run now dies exhausted, read the distance to the next SAFE POINT before reading the size of the "
         "cap.\n", (long)((g_hp_end - g_runtime.gc.hp_arena) >> 10), (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (unsigned long long)need);
 }
@@ -350,7 +350,7 @@ static void rt_gcheap_init(void) {
             if (v < (long)GC_HEAP_KB_FLOOR || v > gc_box_kb()) {
                 fprintf(stderr,
                     "[ZHP] SCRIP_HEAP_KB=%ld is outside %d..%ld KB (this box's memory, at most the page map's 32 GB) and is REFUSED -- the window is not silently clamped, because a run that grades "
-                    "at a size it was not asked for is a false reading (ceo CEO-1095)\n", v, (int)GC_HEAP_KB_FLOOR, gc_box_kb());
+                    "at a size it was not asked for is a false reading (R-1095)\n", v, (int)GC_HEAP_KB_FLOOR, gc_box_kb());
                 abort();
             }
             kb = v;
@@ -364,7 +364,7 @@ static void rt_gcheap_init(void) {
         if (e && *e) {
             long v = atol(e);
             if (v < kb) {
-                fprintf(stderr, "[ZHP] SCRIP_HEAP_CAP_KB=%ld is BELOW the %ld KB window and is REFUSED -- a cap under its own window is not a smaller heap, it is an unstatable one (ceo CEO-1101)\n",
+                fprintf(stderr, "[ZHP] SCRIP_HEAP_CAP_KB=%ld is BELOW the %ld KB window and is REFUSED -- a cap under its own window is not a smaller heap, it is an unstatable one (ruling R-1101)\n",
                     v, kb);
                 abort();
             }
@@ -589,7 +589,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
         "lection moved asks for the world -- read the size FIRST), a MISSING SAFE POINT between this allocation and the last one (the collection is armed and never ran), or a live set that genuinely"
         " does not fit the window THIS RUN NAMED. SCRIP_HEAP_MAX_MB and SCRIP_HEAP_CAP_KB name the CAP ITSELF rather than a reserve above the window. \342\233\224 READ COLLECTIONS RUN FIRST: AN ABOR"
         "T WITH ZERO COLLECTIONS IS NEVER A CAPACITY VERDICT -- nothing was ever reclaimed, so the cap was never full of LIVE data, and the cause is a MISSING SAFE POINT between two allocations. Cap"
-        "acity means the collector RAN, reclaimed what it could, and the survivors still did not fit (ceo CEO-1101, the classification the coo's item-4 rail buckets on).\n",
+        "acity means the collector RAN, reclaimed what it could, and the survivors still did not fit (R-1101, the classification the coo's item-4 rail buckets on).\n",
         (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (long)((g_hp_end - g_runtime.gc.hp_arena) >> 10), g_hp_blocks, g_runtime.gc.hp_capped, rt_gc_runs_count(),
         (unsigned long long)payload_bytes, (unsigned long long)total, (unsigned)type);
 #endif
@@ -916,8 +916,8 @@ static size_t gc_pg(void) { static size_t pg = 0; if (!pg) { long v = sysconf(_S
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(sizeof(int) == 4,
-    "THE COLLECTOR'S SELF-CHECKS ARE DIAGNOSTICS AND ONE SWITCH TURNS THEM ALL OFF (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Why must there be a heap check at every collection? That seems to "
-    "be diagnostic. Can the be turned off by a switch?\" and \"For benchmarks turn off all diagnostic code.\"; ceo CEO-1262): SCRIP_DIAG=0 turns off the heap check at every collection (rt_gcheap_ver"
+    "THE COLLECTOR'S SELF-CHECKS ARE DIAGNOSTICS AND ONE SWITCH TURNS THEM ALL OFF (Lon 2026-09-25, in-chat, verbatim: \"Why must there be a heap check at every collection? That seems to "
+    "be diagnostic. Can the be turned off by a switch?\" and \"For benchmarks turn off all diagnostic code.\"; R-1262): SCRIP_DIAG=0 turns off the heap check at every collection (rt_gcheap_ver"
     "ify), the 0xDB poison of vacated ground, the stale-read quarantine and its ledger, and the compiled node-id stores; each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, S"
     "CRIP_DIAG_REGS), which wins when set; unset, every diagnostic stays on, so every test runs with them and every benchmark driver exports SCRIP_DIAG=0");
 #if RT_DIAG
@@ -932,7 +932,7 @@ static int gc_trap_on(void) { static int t = -1; if (t < 0) { const char *e = rt
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GC_QUAR_RELEASE_BYTES (256u * 1024u)
 _Static_assert((GC_QUAR_RELEASE_BYTES & (GC_QUAR_RELEASE_BYTES - 1)) == 0,
-    "THE QUARANTINE IS RELEASED IN POWER-OF-TWO CHUNKS AHEAD OF THE ALLOCATOR (ceo 2026-09-25, CEO-1253): a page-granular release cost porter 9136 mprotect calls and 19 ms at the 512 MB demo arena, "
+    "THE QUARANTINE IS RELEASED IN POWER-OF-TWO CHUNKS AHEAD OF THE ALLOCATOR (2026-09-25, R-1253): a page-granular release cost porter 9136 mprotect calls and 19 ms at the 512 MB demo arena, "
     "one per page the allocator advanced over vacated ground; the trap still faults on every stale read below the released chunk, and the released chunk is at most this many bytes of 0xDB poison ahe"
     "ad of the top");
 static void gc_quar_release(char *need_end) {
@@ -1951,7 +1951,7 @@ RT_ENTRY_DECL(rt_program_top_adopt_top, leaf, 0);
 void rt_program_top_adopt_top(char *top) { if (!gc_root_map() || !top || g_runtime.gc.gc_program_top) return; g_runtime.gc.gc_program_top = top; }
 char *rt_gc_program_stack_top(void) { return g_runtime.gc.gc_program_top ? g_runtime.gc.gc_program_top : gc_stack_top(); }
 _Static_assert(sizeof(void *) == 8,
-    "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law CEO-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rs"
+    "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law R-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rs"
     "p in park_sp before it posts the semaphore, every word of the mutator's lives at or above it, and the words below it are glibc's sem_wait frames -- the whole-mapping walk read those raw words a"
     "s cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression");
 static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
@@ -3856,7 +3856,7 @@ void rt_gc_ptr_fields_bad(void) { rt_bomb("rt_gc_run_ptr_fields: a run visits on
 void gc_shield_refuse(const char *w) {
     fprintf(stderr,
         "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor g_scan_subj, so this shield cannot reach it and honouring"
-        " the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this "
+        " the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (R-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this "
         "road.\n", (const void *)w);
     abort();
 }
@@ -4319,7 +4319,7 @@ long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi) {
             fprintf(stderr,
             "[ZGC-CB] %s:%d %ld raw arena word(s) live in an UNMAPPED C FRAME across a callback during which the collector ran %ld time(s). Lon 2026-09-21: a C function creates residue on the hardwa"
             "re stack; no compile-time frame map describes this frame, so these words were not updated and the collector could not have updated them without guessing (ARCH-GC section 7, section 9(ii"
-            ") as reversed at CEO-1090).\n", file ? file : "?", line, n, rt_gc_runs_count() - mark);
+            ") as reversed at R-1090).\n", file ? file : "?", line, n, rt_gc_runs_count() - mark);
         {
             static int fatal = -1;
             if (fatal < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_CB_FATAL"); fatal = (e && *e != '0') ? 1 : 0; }

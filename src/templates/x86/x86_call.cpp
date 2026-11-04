@@ -128,7 +128,7 @@ std::string x86_pl_tr_tidy(int l0) { return x86("note",
             "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset; "
             "the choice's own tidy watermark, the trail top after the last walk under it, kept as a DT_I in the old-value words of the choice's sentinel entry (the entry below its mark: "
             "{0, HB, DT_I, watermark}, dead with the choice), starts the walk where the last one under this choice stopped when it still lies between the start and the top; a backtrack into "
-            "the choice unwinds below it and the next walk starts at the mark again; so a run of commits under one choice judges each entry once, not once per commit (CEO-2122)")
+            "the choice unwinds below it and the next walk starts at the mark again; so a run of commits under one choice judges each entry once, not once per commit (R-2122)")
     + x86("test", "r13", "r13")
     + x86("je", L(l0 + 9))
     + x86("mov", "rax", "r12")

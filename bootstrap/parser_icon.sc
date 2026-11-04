@@ -521,7 +521,7 @@ Compiland = ( epsilon . *PushCounter()
             );
 /* ==================================================================================================================== */
 /* Preprocess: text to text. The macro pre-pass of the language (Icon: $define $undef $ifdef $ifndef $else $endif $include $line $error, */
-/* the table of ipp.icn, JCON's preprocessor) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483). */
+/* the table of ipp.icn, JCON's preprocessor) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, R-1483). */
 struct ppdef { pv }
 /* ==================================================================================================================== */
 /* the patterns are built the first time a source carries a directive: a program with none runs the Compiland alone, as before */

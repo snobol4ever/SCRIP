@@ -53,7 +53,7 @@ extern "C" {
     + x86("mov", RDQ("rsp", 72), 0L) \
 )
 static std::string cap_value_trace_plain() {
-    return x86("comment", "IR_MATCH_CAPTURE_IMM value trace: the leaf stored the value and found a trace armed; the box fills the pending record from the cell and runs the callback (CEO-1636)")
+    return x86("comment", "IR_MATCH_CAPTURE_IMM value trace: the leaf stored the value and found a trace armed; the box fills the pending record from the cell and runs the callback (R-1636)")
          + x86("sub", "rsp", 112L)
          + x86("mov", RDQ("rsp", 0), 0L)
          + x86("mov", RDQ("rsp", 8), 0L)

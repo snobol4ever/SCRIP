@@ -595,9 +595,9 @@ _Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_
     "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, whose own message says g_pcal"
     "l* went REGARDLESS OF CONSUMERS). The offset is TRUE and NO LIVE ASM READS THIS TABLE: grep of src/runtime/rtx/*.s and *.inc for rt_proc_t or PROC_DYN_SCOPE returns nothing. Do not read this as"
     "sert as evidence of an asm consumer. \u26d4 AND IT IS NOT THE C->BB DISPATCHER: rtx_plcall.S ported rt_proc_call_open_det, the PROLOG deterministic predicate-call open, and mentions rt_call_pro"
-    "c_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (ceo CEO-1085, correcting CEO-1085a)");
+    "c_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (R-1085, correcting R-1085a)");
 _Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48,
-    "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (ceo CEO-1085)");
+    "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (R-1085)");
 _Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36,
     "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.s/rtx_plcall"
     ".s read the wrong words");
@@ -1285,13 +1285,13 @@ static int proc_open_p_on(void);
 DESCR_t rt_call_proc_descr(const char *name, int nargs) { return rt_call_proc_descr_p(rt_proc_find(name), name, nargs); }
 static void rt_nsave_bomb(const char *site, const char *name) {
     fprintf(stderr,
-        "%s: the procedure %s reached the C name-save road, DELETED with the global stack it kept (RULES.md NO GLOBAL HOLDS A STACK, CEO-1543): a dyn-scope procedure runs only through its role-4 shi"
+        "%s: the procedure %s reached the C name-save road, DELETED with the global stack it kept (RULES.md NO GLOBAL HOLDS A STACK, R-1543): a dyn-scope procedure runs only through its role-4 shi"
         "m, compiled at its first open when no alpha cell is sealed\n", site, name ? name : "?");
     { volatile char *z = (volatile char *)0; (void)*z; }
 }
 DESCR_t rt_c2bb_bomb(const char *site, const char *name) {
     fprintf(stderr,
-        "%s: %s reached a C road into a box, DELETED (RULES.md FACT RULE ERADICATE C->BB->C->BB, CEO-1576, Lon 2026-10-09: no C function enters a box; the C function returns the address and the box "
+        "%s: %s reached a C road into a box, DELETED (RULES.md FACT RULE ERADICATE C->BB->C->BB, R-1576, Lon 2026-10-09: no C function enters a box; the C function returns the address and the box "
         "jumps, or the C is rewritten in asm)\n", site, name ? name : "?");
     { volatile char *z = (volatile char *)0; (void)*z; }
     return FAILDESCR;
@@ -1530,7 +1530,7 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registere
 static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r) {
     if (r->flags & SNO_DSTAR_THUNK) {
         if (r->pidx >= 0 && r->pidx < g_runtime.rt.rt_gen_proc_count) return &g_runtime.abi.rt_gen_procs[r->pidx];
-        fprintf(stderr, "rt_proc_of_rec: the thunk %s has no registry slot in its star record -- its startup record must write pidx, never a by-name lookup (CEO-1362 chunk 2b)\n", sno_dstar_star(r));
+        fprintf(stderr, "rt_proc_of_rec: the thunk %s has no registry slot in its star record -- its startup record must write pidx, never a by-name lookup (R-1362 chunk 2b)\n", sno_dstar_star(r));
         { volatile char *z = (volatile char *)0; (void)*z; }
     }
     rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_runtime.rt.rt_gen_proc_count && g_runtime.abi.rt_gen_procs[r->pidx].name && g_runtime.abi.rt_gen_procs[r->pidx].name[0] != 1) ?
@@ -1778,10 +1778,10 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
     if (hout) *hout = (void *)0;
     core_runtime_error(287,
         "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, th"
-        "en delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile"
+        "en delete the C code NOW'; R-1086 deleted the identical shape from rt_call_proc_descr; R-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile"
         "-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C "
         "survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN L"
-        "ANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own "
+        "ANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by its own "
         "SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry "
         "clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
     return FAILDESCR;
@@ -1933,7 +1933,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p) {
 }
 _Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4,
     "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per par"
-    "ameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
+    "ameter per call (2026-09-25, R-1257); the record is pinned at 128 bytes so the fact rides in a bit");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
@@ -2014,7 +2014,7 @@ static DESCR_t rt_proc_epilogue_idx(long idxw, int failed) {
 DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_idx(idx, 0); }
 DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx, 1); }
 _Static_assert(sizeof(long) == 8,
-    "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_runtime.abi.rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place"
+    "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (R-1263): g_runtime.abi.rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place"
     " -- so the i" "dx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8,
     "rt_proc_enter_named parks the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_runtime.abi.rt_gen_procs at the epilogue; par"
@@ -2139,7 +2139,7 @@ static long rt_proc_call_open_p(rt_proc_t **pp, int nargs) {
 static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs) {
     if (proc_open_p_on()) return rt_proc_call_open_p(pp, nargs);
     if (*pp && (*pp)->thunk && (*pp)->name == rt_proc_thunk_name) {
-        fprintf(stderr, "rt_proc_call_open_pn: a nameless thunk reached the by-name open (SCRIP_PROC_OPEN_P=0) -- it is opened by its registry slot only (CEO-1362 chunk 2b)\n");
+        fprintf(stderr, "rt_proc_call_open_pn: a nameless thunk reached the by-name open (SCRIP_PROC_OPEN_P=0) -- it is opened by its registry slot only (R-1362 chunk 2b)\n");
         abort();
     }
     long ix = (long)(*pp - g_runtime.abi.rt_gen_procs);

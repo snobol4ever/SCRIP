@@ -2540,7 +2540,7 @@ void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_blob_casmark(void) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
-    if (!r) { fprintf(stderr, "FATAL sn4_blob_casmark: no published plan record to read the blob CAS-mark switch from (ceo CEO-1990)\n"); abort(); }
+    if (!r) { fprintf(stderr, "FATAL sn4_blob_casmark: no published plan record to read the blob CAS-mark switch from (R-1990)\n"); abort(); }
     return r->casmark;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3235,7 +3235,7 @@ const znode_t * zrow(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     int ri = (r && nd && nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
     if (ri < 0) {
-        fprintf(stderr, "FATAL zrow: node %s reaches the emitter with no plan row to copy its facts from (ceo CEO-1990)\n", nd ? bb_op_name(nd->op) : "NONE");
+        fprintf(stderr, "FATAL zrow: node %s reaches the emitter with no plan row to copy its facts from (R-1990)\n", nd ? bb_op_name(nd->op) : "NONE");
         abort();
     }
     return &r->zn[ri];
@@ -3272,7 +3272,7 @@ extern "C" long emit_zsm_word(const IR_t * nd, int op_zres, int op_subj_cell, lo
 extern "C" int emit_zrow_release(int below, int kind, const int ** offs) {
     const znode_t * z = zrow(g_emit.node);
     int w = (below && kind == 5) ? 0 : (below && kind == 4) ? 1 : (!below && kind == 4) ? 2 : -1;
-    if (z->relo < 0 || w < 0) { fprintf(stderr, "FATAL emit_zrow_release: node %s has no release list %d/%d in its plan row (ceo CEO-1990)\n", bb_op_name(g_emit.node->op), below, kind); abort(); }
+    if (z->relo < 0 || w < 0) { fprintf(stderr, "FATAL emit_zrow_release: node %s has no release list %d/%d in its plan row (R-1990)\n", bb_op_name(g_emit.node->op), below, kind); abort(); }
     const int * v = g_planner.g_zd_rec_p->v_rel.data() + z->relo;
     for (int i = 0; i < w; i++) v += 1 + v[0];
     *offs = v + 1;

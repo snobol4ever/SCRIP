@@ -22,7 +22,7 @@ std::string bb_stmt_mark(long stno, long line) {
     x86_begin();
     return x86_alpha()
          + IF(_.op_seal == IR_SEAL_STMT_HOOK,
-               x86("comment", "IR_STMT_MARK stlimit hook: the leaf counts the statement and fills a pending KEYWORD trace; the box runs the callback (CEO-1635)")
+               x86("comment", "IR_STMT_MARK stlimit hook: the leaf counts the statement and fills a pending KEYWORD trace; the box runs the callback (R-1635)")
              + x86_align_enter()
              + x86("sub", "rsp", 112L)
              + x86("mov", RDQ("rsp", 0), 0L)
@@ -35,7 +35,7 @@ std::string bb_stmt_mark(long stno, long line) {
              + x86("add", "rsp", 112L)
              + x86_align_leave())
          + IF(_.op_seal == IR_SEAL_LABEL_HOOK,
-               x86("comment", "IR_STMT_MARK label hook: a transfer reached a traced label; the leaf fills a pending LABEL trace and the box runs the callback (CEO-1644)")
+               x86("comment", "IR_STMT_MARK label hook: a transfer reached a traced label; the leaf fills a pending LABEL trace and the box runs the callback (R-1644)")
              + x86_align_enter()
              + x86("sub", "rsp", 112L)
              + x86("mov", RDQ("rsp", 0), 0L)

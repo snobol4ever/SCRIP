@@ -4899,7 +4899,7 @@ DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DES
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bnd_tweak_cache_clear(void) { g_runtime.bn.tweak_gen_bump++; }
 _Static_assert((RT_TWEAK_IC_N & (RT_TWEAK_IC_N - 1)) == 0,
-    "THE CONSTRUCTOR HOOK CACHE (ceo 2026-09-25, CEO-1258): a type whose method-resolution chain carries no <type>__TWEAK procedure is remembered by its name pointer under a generation that moves wh"
+    "THE CONSTRUCTOR HOOK CACHE (2026-09-25, R-1258): a type whose method-resolution chain carries no <type>__TWEAK procedure is remembered by its name pointer under a generation that moves wh"
     "enever a procedure or a type is added or the procedure table is reset, so the check that cost every record constructor a formatted name, a proc-table scan and a hash lookup runs once per type p"
     "er generation");
 void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
@@ -21139,7 +21139,7 @@ static void rt_ctor_ic_note(const char *fn, void *dt) {
     }
 }
 _Static_assert((RT_CTOR_IC_N & (RT_CTOR_IC_N - 1)) == 0,
-    "THE RECORD-CONSTRUCTOR INLINE CACHE (ceo 2026-09-25, CEO-1258): a call site whose name the full by-name path resolved to a DATA type and constructed positionally is remembered by its na"
+    "THE RECORD-CONSTRUCTOR INLINE CACHE (2026-09-25, R-1258): a call site whose name the full by-name path resolved to a DATA type and constructed positionally is remembered by its na"
     "me pointer under a generation that moves whenever a procedure, a type, an EVAL'd procedure or the dtax cache changes, so the next call at that site constructs directly -- the same dat_c"
     "onstruct, the same TWEAK hook, without the 5,000 instructions of checks that precede the positional arm");
 static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq) {
@@ -21182,7 +21182,7 @@ DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidl
     }
 }
 _Static_assert((RT_FIELD_IC_N & (RT_FIELD_IC_N - 1)) == 0,
-    "THE FIELD-ACCESSOR INLINE CACHE (ceo 2026-09-25, CEO-1258): a call site's field name pointer and the instance's type pointer key a direct-mapped slot holding the field index; a hit is c"
+    "THE FIELD-ACCESSOR INLINE CACHE (2026-09-25, R-1258): a call site's field name pointer and the instance's type pointer key a direct-mapped slot holding the field index; a hit is c"
     "onfirmed by strcmp against the type's own field name, so a reused string address can never answer with another field's index, and the value is the instance's own cell, exactly what dat_"
     "field_get returns");
 static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb) __attribute__((always_inline));
@@ -23358,7 +23358,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen) { return try_call_builtin_by_name_bl_s(fn, args, nargs, out, bidlen, 0); }
 typedef struct { int (*fn)(DESCR_t *, int, DESCR_t *, int); int op; int _pad; } bn_direct_t;
-_Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (ceo 2026-09-25, CEO-1255)");
+_Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (2026-09-25, R-1255)");
 static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void)op; return nargs == 1 ? bn_sno_name(args, nargs, out) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_HOOK_GUARD(nm) do { if (g_runtime.abi.error != 0 || g_runtime.abi.kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)

@@ -1,5 +1,5 @@
 /*  dicts.pl -- SWI-Prolog 7's dicts as a Prolog layer (cfo 2026-10-11, row prolog-swi-dicts-and-their-functional-notation-d-get-
-    key-are-a-parse-error-advent-demo, CEO-1660; the class is the cfo's, CEO-1664).  SCRIP's own text, AGPL like the rest of SCRIP:
+    key-are-a-parse-error-advent-demo, R-1660; the class is the cfo's, R-1664).  SCRIP's own text, AGPL like the rest of SCRIP:
     not a vendored file.  The generator (util_gen_prolog_prelude_libs.py) embeds it in LOCAL mode: no SWI reader, no renames, its
     helpers '$dict_'-named by hand.  It is parsed only when a program names one of its exports -- or holds a dict dot, which the
     lowerer turns into a call of '$dict_eval'/3 (prolog_inject_prelude adds that key when the program holds one).
@@ -17,7 +17,7 @@
 
     MEASURED AGAINST swipl 9.0.4 (2026-10-11): printing and dict_pairs/3 order keys as here; get_dict/3 with an unbound key
     enumerates in SWI's internal atom order (a, z, m for z, a, m), here in standard order (a, m, z) -- the one named difference.
-    METHODS (cfo 2026-10-14, CEO-1709). Self.f() := V [:- Body] is lowered to '$dict_method'(Module, F, Self, V) :- Body (lower_prolog.c
+    METHODS (cfo 2026-10-14, R-1709). Self.f() := V [:- Body] is lowered to '$dict_method'(Module, F, Self, V) :- Body (lower_prolog.c
     pl_dict_method_clause; the module is the definition's own or an Other: on its head); a call Dict.f() carries the method key
     '$dict_m0'(f), Dict.f(Args) the compound, and '$dict_fn'/3 dispatches either on the dict's tag. select_dict/3, :< and >:< (the
     reader's 700 xfx operators), b_set_dict/3 and nb_set_dict/3 answer as swipl 9.0.4's.

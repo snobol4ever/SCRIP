@@ -418,7 +418,7 @@ static std::string bcps_det_arm() {
              + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     }
     return x86_alpha()
-         + x86_bomb("bb_call_proc_staged: bcps_det_arm flat twin (op_zres 0) retired by CEO-2002, no witness reached it; a program that gets here names itself");
+         + x86_bomb("bb_call_proc_staged: bcps_det_arm flat twin (op_zres 0) retired by R-2002, no witness reached it; a program that gets here names itself");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
@@ -1087,7 +1087,7 @@ static std::string bcps_spine_gen_arm() {
              "LANDING UNIT (cto, ARCH-GC section 13.2): the 16 bytes under the wire pair are a raw carve nothing reads; "
                  "nothing ever jumped to the L(7) they used to hold (plant over 1,800 programs, both modes).")) + IF(icn_gen_regime(),
          x86("note",
-             "CEO-483 (hq_U): NO PAD IN THE GENERATOR REGIME. The pad above is caller-side transient bookkeeping that had "
+             "R-483 (hq_U): NO PAD IN THE GENERATOR REGIME. The pad above is caller-side transient bookkeeping that had "
                  "drifted into the callee ENTRY FRAME as a sixth word, and hq_U FINDING-2026-09-09 measured that NOTHING READS "
                      "IT -- an injected 0x5EEDFACE store into [entry rsp+32] left parse byte-identical while the same store into "
                          "[entry rsp+0] SIGSEGVd, so the experiment had a positive control and the slot is padding. The comment that "
@@ -1211,7 +1211,7 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, long idx, int
         + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
     std::string s = x86_alpha() + x86_anchor_enter() + x86_rsp_mark_save()
          + x86("note",
-             "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block "
+             "the block protocol for a deterministic Pascal callee (R-1491): the two wire cells, then the argument block "
                  "on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
          + IF(wires, x86_lea_id("rcx", 4) + x86("push", "rcx"))
          + IF(wires, x86_lea_id("rcx", 3) + x86("push", "rcx"))

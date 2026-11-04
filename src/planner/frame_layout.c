@@ -435,7 +435,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_BOUND:
         zls_field(scope_id, off, 8, ZK_RAW, 0,
             "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd);
-        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd);
+        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, R-690)", nd);
         if (!zls_fence_widen(g)) return 1;
         zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE the header open makes B this bound -- the commit and the failure arm restore it (D1)", nd);
         zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd);
@@ -487,7 +487,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off + 48, 8, ZK_RAW, 0,
             "revswap.lhs cell pointer parked across the rhs NV_PTR_fn lookup (global operand only; a raw interior pointer into the name table, never a heap object -- ZK_RAW so GC does not trace it)",
             nd);
-        zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "revswap.pad (unused eighth quad of the 4-slot grant; registered CEO-820 so the frame map has no unmapped word)", nd);
+        zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "revswap.pad (unused eighth quad of the 4-slot grant; registered R-820 so the frame map has no unmapped word)", nd);
         return 4;
         case IR_KW_ICON:
         case IR_KW_ICON_GEN:
@@ -548,7 +548,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_GATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0,
             "gate.live arm index (+16 from box base; IR_GATE_ARM banks its own position in this gate's operand list at each arm's success, the box beta dispatches on it over compile-time wired ports"
-            "). NOT A CODE ADDRESS: the stored resume target this slot used to hold died with the two label ops on Lon's order 2026-09-13 (CEO-693, 'There are no labels'), and the field is ZK_RAW ra"
+            "). NOT A CODE ADDRESS: the stored resume target this slot used to hold died with the two label ops on Lon's order 2026-09-13 (R-693, 'There are no labels'), and the field is ZK_RAW ra"
             "ther than ZK_PTR_CODE for that reason -- a collector that sees a code pointer here is reading a small integer. Granted at rung 5 -- both templates had ALWAYS addressed [op_off+16], whic"
             "h is this field, while the kind fell through to default and was granted only its 16-byte result, so the gate write landed 8 bytes past the grant. Harmless with ONE such box live and a c"
             "ore dump with two, because the second box's region began where the first's gate was still being written", nd);
@@ -582,7 +582,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off + 16 * nd->n_operands, 8, zls_act_kind(g, nd), 0,
             "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a"
             " NON-RESUMABLE callee -- a plain procedure return"
-            "s once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 whe"
+            "s once and releases, so beta fails forward on 2 instead of resuming (2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 whe"
             "n the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp; an Icon value call's n2 road banks 3 | cells<<8 | ftc<<32 and turns"
             " it to 4 at its first gamma, its +8 then the callee's H -- bb_call_value.cpp)", nd);
         zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, zls_act8_kind(g, nd), 0,
@@ -597,7 +597,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
                 zls_field(scope_id, off, 8, zls_act_kind(g, nd), 0,
                     "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that "
                     "opened a NON-RESUMABLE callee -- a plain procedur"
-                    "e returns once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame bas"
+                    "e returns once and releases, so beta fails forward on 2 instead of resuming (2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame bas"
                     "e (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
                 zls_field(scope_id, off + 8, 8, zls_act8_kind(g, nd), 0,
                     "callgen.act +8 (WRITTEN, not a pad: ZK_PTR_FRAME_H on an Icon cells graph -- H, the callee's retained generator frame, and ZERO on every other landing and at alpha; else the cal"
@@ -1013,7 +1013,7 @@ static int zls_redisp_node(const IR_t * nd) {
     return (cmn && (!strcmp(cmn, "meth_call") || !strcmp(cmn, "callsame") || !strcmp(cmn, "nextsame") || !strcmp(cmn, "callwith") || !strcmp(cmn, "nextwith"))) ? 1 : 0;
 }
 static void zls_redisp_fields(int scope_id, int at, const IR_t * nd) {
-    zls_field(scope_id, at, 16, ZK_DESCR, 0, "redisp.self (the method call's redispatch record, CEO-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)",
+    zls_field(scope_id, at, 16, ZK_DESCR, 0, "redisp.self (the method call's redispatch record, R-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)",
         nd);
     zls_field(scope_id, at + 16, 16, ZK_DESCR, 0, "redisp.mname (the method name)", nd);
     zls_field(scope_id, at + 32, 8, ZK_RAW, 0, "redisp.prev (the chain link to the enclosing dispatch's record)", nd);

@@ -3,7 +3,7 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"
     "# Rakudo's lib/Test.rakumod (rakudo 2026.05), Artistic License 2.0, adapted for SCRIP's Raku setting\n"
-    "# (ARCH-RAKU-TO-100.md section 1.2 (c), CEO-2044): the nqp:: operations and the timing hooks are removed,\n"
+    "# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): the nqp:: operations and the timing hooks are removed,\n"
     "# the multi candidates are one routine each, and the TAP it prints is Rakudo's byte for byte.\n"
     "\n"
     "my @vars;\n"
@@ -518,7 +518,7 @@ static const char RK_SETTING_MODULE_0_SRC[] =
 static const char RK_SETTING_MODULE_1_SRC[] =
     "unit module Test::Util;\n"
     "# roast's packages/Test-Helpers/lib/Test/Util.rakumod, Artistic License 2.0, adapted for SCRIP's Raku setting\n"
-    "# (ARCH-RAKU-TO-100.md section 1.2 (c), CEO-2044): get_out runs the child through the __rk_run_child leaf\n"
+    "# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): get_out runs the child through the __rk_run_child leaf\n"
     "# (a process is a kernel entry, NOT-A-BOX), the multi candidates are one routine each.\n"
     "use Test;\n"
     "\n"

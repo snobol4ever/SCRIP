@@ -86,7 +86,7 @@ static void sc_module_run(sc_module_t *m) {
     int64_t s_anchor = g_runtime.misc.kw_anchor, s_trim = g_runtime.core.kw_trim, s_full = g_runtime.core.kw_fullscan, s_max = g_runtime.core.kw_maxlngth, s_stl = g_runtime.misc.kw_stlimit,
         s_stc = g_runtime.misc.kw_stcount, s_tr = g_runtime.misc.kw_trace, s_ftr = g_runtime.abi.kw_ftrace;
     char *save_top = rt_gc_program_top_get();
-    if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
+    if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (R-1749)\n"); abort(); }
     g_runtime.misc.kw_anchor = 0;
     g_runtime.core.kw_trim = 0;
     g_runtime.core.kw_fullscan = 1;

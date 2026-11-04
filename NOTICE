@@ -46,7 +46,7 @@ option) any later version, with this special exception, which each file's header
     Public License.
 
 SCRIP takes them under GPL version 3, which section 13 of the GNU Affero General Public License version 3 lets SCRIP combine
-with its own AGPL-3 code (ruled CEO-1973, 2026-10-25).  Each file, its SWI-Prolog path and its license:
+with its own AGPL-3 code (ruled R-1973, 2026-10-25).  Each file, its SWI-Prolog path and its license:
 
     clpq.pl             library/clp/clpq.pl                 GPL-2.0-or-later with the exception above
     bb_q.pl             library/clp/clpq/bb_q.pl            GPL-2.0-or-later with the exception above

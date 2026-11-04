@@ -2871,7 +2871,7 @@ static int plc_tv1_visit(pl_cell_t *d, void *ctx) {
 }
 PLR_WALK1(plc_tv1_walk, plc_tv1_visit, pl_deref)
     _Static_assert(PLR_VCOPY != (DTYPE_t)DT_PLVAR,
-    "TERM_VARIABLES IN ONE WALK (hq_runtime 2026-10-17, CEO-1682; hq_prolog's go): a variable is marked PLR_VCOPY the first time the walk meets it and its pointer word threads the variables found so"
+    "TERM_VARIABLES IN ONE WALK (hq_runtime 2026-10-17, R-1682; hq_prolog's go): a variable is marked PLR_VCOPY the first time the walk meets it and its pointer word threads the variables found so"
     " far"
     ", so the walk needs no pool, no counting walk to size one and no linear search to de-duplicate (det.pl spent 1.8 G instructions in those); copy_term's PLR_VCOPY marks never meet these, since ea"
     "ch runtime " "call restores its marks before it returns, and an unbound DT_SNUL or DT_FAIL cell, which carries no self pointer to restore, sends the call back to the pool road");

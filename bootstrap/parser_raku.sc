@@ -4,7 +4,7 @@
    Reduce at the token that completes it, children left to right, arity through PushCounter/IncCounter/PopCounter and nTop();
    this file defines no function, and no action but Shift, Reduce and the counters. A construct is recorded as
    it is spelled -- `x op= y` is TT_AUGOP, `x++` TT_POSTINC, `for l -> $a { }` TT_FOR, `.foo` a method call on $_ -- and the
-   lowerer places and desugars (CEO-1377/1378). The conditional actions are replayed at FLUSH, after each top-level statement,
+   lowerer places and desugars (R-1377/1378). The conditional actions are replayed at FLUSH, after each top-level statement,
    in recognition order (Lon 2026-09-30 16:2x): a Shift's value is always a `.`-capture on that same tape, never an immediate.
    Lookahead is a pattern, not a function: @q @r (X @r FAIL | epsilon) *EQ(r, q) succeeds when X does NOT match at the cursor
    and consumes nothing; *NE(r, q) when it does.

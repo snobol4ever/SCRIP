@@ -1,4 +1,4 @@
-/*  engines.pl -- SWI-Prolog's engines as a prelude library (hq_packages 2026-10-25, ceo CEO-1960/1964/1966; the cto's design: ARCH-PROLOG-THREADS.md sec 4; the handle and the reclamation: the cfo's ruling of 2026-10-25).  SCRIP's own text, AGPL like the rest,
+/*  engines.pl -- SWI-Prolog's engines as a prelude library (hq_packages 2026-10-25, R-1960/1964/1966; the cto's design: ARCH-PROLOG-THREADS.md sec 4; the handle and the reclamation: the cfo's ruling of 2026-10-25).  SCRIP's own text, AGPL like the rest,
     not a vendored file: no SWI reader, no renames, helpers '$eng_'-named by hand (the generator embeds it in LOCAL mode).  An engine IS a Prolog generator context: engine_create copies Templ-Goal and
     starts a coroutine whose body is '$engine_body'/2 on the generator road ('$co_*' road's cousin, rt_proc_call_gen_h), on its OWN trail arena, so a caller that backtracks never undoes an engine's
     bindings and an engine that backtracks into its goal never undoes the caller's.  THE HANDLE is an HB_DINST instance of the hidden datatype engine (rt_pl_engine.c), immutable and shared by copy_term and

@@ -50,7 +50,7 @@ const char * x86_zop(int off, int q, int bump) {
     if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
-            "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
+            "R-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
             off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? _.op_own : -1, _.node ? _.op_kown : -1);
             fprintf(stderr, "FATAL x86_zop: at node %s own=%d k_own=%d op_sa=%d op_off=%d\n", _.node ? bb_op_name(_.node->op) : "NONE", _.node ? _.op_own : -1, _.node ? _.op_kown : -1,
                 _.op_sa, _.op_off);

@@ -284,7 +284,7 @@ Compiland   =  epsilon . *PushCounter()
                . *PopCounter();
 /* ==================================================================================================================== */
 /* Preprocess: text to text. The macro pre-pass of the language (SNOBOL4: -INCLUDE and -COPY, as snobol4.l reads them) rewrites the compiland text; the  */
-/* Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483). -INCLUDE names a file once, -COPY every time; a name is tried as written,   */
+/* Compiland pattern above parses ONLY that text (Lon 2026-10-03, R-1483). -INCLUDE names a file once, -COPY every time; a name is tried as written,   */
 /* then in each directory of SNO_LIB (a linked module: of ModIncl), then in the directory of each file already included. It is a loop of statements at   */
 /* the label SnoPP in the driver below: pp_find finds the next directive line at or after the cursor pp_at, the line and its newline are REPLACED IN Src */
 /* by the file's text and the scan restarts at that line, so a nested include is reached when its line is reached; a file whose last line has no newline */

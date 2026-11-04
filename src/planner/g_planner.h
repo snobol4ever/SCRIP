@@ -1,7 +1,7 @@
 #ifndef G_PLANNER_H
 #define G_PLANNER_H
 #ifndef __cplusplus
-#error g_planner.h is C++ only (CEO-1575)
+#error g_planner.h is C++ only (R-1575)
 #endif
 #include <unordered_map>
 #include <string>

@@ -171,7 +171,7 @@ int main(void) {
     printf("RTX ARITH: %d cases, %d handled, %d declined, %d mismatches\n", n, handled, declined, fails);
     printf("RTX ARITH DECLINES overflow=%d real=%d data=%d other=%d (every arm the leaf hands the box, by family)\n", d_ovf, d_real, d_data, d_other);
     printf(
-        "RTX ARITH OWNABLE DECLINES overflow=%d real=%d other=%d (declines of arms a leaf can own: pure, non-allocating, no voice -- CEO-985 and the cto's ruling of 2026-10-17; integer overflow, a z"
+        "RTX ARITH OWNABLE DECLINES overflow=%d real=%d other=%d (declines of arms a leaf can own: pure, non-allocating, no voice -- R-985 and the cto's ruling of 2026-10-17; integer overflow, a z"
         "ero" " divisor, a string the leaf cannot read as an integer and a non-finite result stay the box's)\n", o_ovf, o_real, o_other);
     if (!handled || !declined) { printf("RTX ARITH UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
     printf("RTX ARITH UNIT: %s\n", fails ? "FAIL" : "PASS");

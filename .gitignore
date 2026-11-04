@@ -110,7 +110,7 @@ test-results/
 # tmp3 being ignored is exactly why nobody looked for tmp2 and tmp4.
 # ⛔ AND IT IS WORSE THAN A NUISANCE IN ONE SPECIFIC DIRECTION: handoff_status.sh says "commit them" about
 # untracked output, and the obvious reading is to COMMIT a 400KB generated artifact. tmp3 was committed by
-# accident once already and the ceo deleted it.
+# accident once already and the officer deleted it.
 # ⭐ WHAT THESE LINES ARE FOR, AND WHAT THEY ARE NOT: the SUITES no longer write here -- test_icon_all_rungs
 # runs from ICN_SCRATCH (2026-08-30) and test_icon_arizona_suite snapshots its test dirs and deletes what
 # appeared (2026-09-04). These four cover the HAND RUN, a human grading a program from the repo root, which

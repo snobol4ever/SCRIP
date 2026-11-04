@@ -620,7 +620,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     return eval_string_transient(s);
 }
 _Static_assert(sizeof(char) == 1,
-    "EVAL OF A STRING THAT CANNOT BE A NUMBER SKIPS THE NUMBER PARSES (ceo CEO-1263): a string whose first non-blank character is a letter is an expression, never a number literal, so it goes straig"
+    "EVAL OF A STRING THAT CANNOT BE A NUMBER SKIPS THE NUMBER PARSES (R-1263): a string whose first non-blank character is a letter is an expression, never a number literal, so it goes straig"
     "ht to the compiled-expression cache: three parses of 'X + 1' were 8% of the eval_fixed kernel, and strtod's inf/nan spellings made EVAL('INF') a real where SPITBOL evaluates the variable INF");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *sn4_unary_op_key(const char *op) {
@@ -1618,7 +1618,7 @@ _Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.s reads val at
 _Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.s reads failed at +16");
 typedef struct { rt_dfx_t d; eval_frame_t ev; } rt_dfxe_t;
 _Static_assert(sizeof(rt_dfxe_t) == 144 && __builtin_offsetof(rt_dfxe_t, ev) == 32,
-    "bb_match_defer.cpp carves DFX_RECORD_BYTES = 144: the 32-byte rt_dfx_t at +0 that rtx_match.s and the value box read, then the EVAL frame a CONVERT chain runs in (ceo C" "EO-1630)");
+    "bb_match_defer.cpp carves DFX_RECORD_BYTES = 144: the 32-byte rt_dfx_t at +0 that rtx_match.s and the value box read, then the EVAL frame a CONVERT chain runs in (C" "EO-1630)");
 _Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.s reads dtx_used at +20");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s assumes the 16-byte DESCR pair");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,6 +1,6 @@
 unit module Test::Util;
 # roast's packages/Test-Helpers/lib/Test/Util.rakumod, Artistic License 2.0, adapted for SCRIP's Raku setting
-# (ARCH-RAKU-TO-100.md section 1.2 (c), CEO-2044): get_out runs the child through the __rk_run_child leaf
+# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): get_out runs the child through the __rk_run_child leaf
 # (a process is a kernel entry, NOT-A-BOX), the multi candidates are one routine each.
 use Test;
 

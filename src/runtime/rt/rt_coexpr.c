@@ -233,7 +233,7 @@ __asm__(".text\n.globl rt_genp_spine_enter\n" "rt_genp_spine_enter:\n" "  pushq 
 _Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
 __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
     "  # N-2 ABI WORD, RUNTIME TWIN (row icon-generator-through-a-procedure-value-is-ungraded-at-the-intersection, hq_B): this reserve is the hand-written twin of bcps_spine_gen_arm's push block and"
-    " MUST hand the callee the same FIVE-word entry frame [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=ABI word, ANCHOR=[rsp+40] (CEO-483, hq_U 2026-09-10: the sixth word, the PL"
+    " MUST hand the callee the same FIVE-word entry frame [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=ABI word, ANCHOR=[rsp+40] (R-483, hq_U 2026-09-10: the sixth word, the PL"
     "-CALL-ALIGN pad, had NO READER -- poisoning [entry rsp+32] left parse byte-identical while the same poison at [entry rsp+0] SIGSEGVd -- and its 8 bytes moved across the call into the callee`s o"
     "wn carve in emit.cpp. ONE `pushq $0` was dropped HERE in the same landing, because this arm and bcps_spine_gen_arm are two hand-written copies of ONE ABI and the last time one grew without the "
     "other it took weeks to find. The `subq $16` above is NOT that pad: one of its words is the ABI word and the other is this path`s OWN parity correction, needed because this arm is entered by a C"

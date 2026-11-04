@@ -121,7 +121,7 @@ _Static_assert(DT_T == 0x18,
     "rtx_icnsub.s RTX-26 table arm guards on DT_T; descr.h drifted -- the arm would admit the wrong datatype and read a bucket vector out of a non-table, which links fine and corrupts silently");
 _Static_assert(sizeof(TBPAIR_t) == 40 && offsetof(TBPAIR_t, key_descr) == 0 && offsetof(TBPAIR_t, val) == 16 && offsetof(TBPAIR_t, hkey) == 32,
     "rtx_table.s (TBPAIR_KEYD_V 0, _SLEN 4, _VAL 8, _HKEY 32, _SIZE 40 -- the LIVE table lookup) and rtx_icnsub.s RTX-26 hardcode TBPAIR_t.key_descr/.val/.hkey; core.h drifted -- the bucket search w"
-    "ould compare the wrong bytes or name the wrong cell.  ⛔ .key RETIRED 2026-09-28 (CEO-1350, the cfo): the SOH-tagged key string is gone and the DESCR is the key, so the table fast path in rtx_"
+    "ould compare the wrong bytes or name the wrong cell.  ⛔ .key RETIRED 2026-09-28 (R-1350, the cfo): the SOH-tagged key string is gone and the DESCR is the key, so the table fast path in rtx_"
     "icnsub.s bails to C unconditionally at .Lsub_table (its string walk was reachable only for keys CONVERT or SORT had materialised) -- a TYPED fast path is the rtx's row.  ⛔ .next RETIRED s262:"
     " buckets are sorted contiguous arrays, and those 8 bytes now carry the (datatype,value) sort key");
 _Static_assert(offsetof(TBBLK_t, buckets) == 0 && offsetof(TBBLK_t, nbuck) == 8 && sizeof(TBBUCK_t *) == 8 && offsetof(TBBUCK_t, len) == 0 && offsetof(TBBUCK_t, cap) == 4 &&

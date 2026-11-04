@@ -62,7 +62,7 @@ std::string bb_match_fence1() {
          + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_fence_frame_off == -1 && _.op_fence_body_kk >= 0, fence_spine_arm())
          + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_fence_frame_off == -1 && _.op_fence_body_kk < 0,
                x86_alpha()
-             + x86_bomb("IR_MATCH_FENCE1: the body is indefinite and the planner granted no frame word (no enclosing match frame), CEO-1938")
+             + x86_bomb("IR_MATCH_FENCE1: the body is indefinite and the planner granted no frame word (no enclosing match frame), R-1938")
              + x86("def", PAIR(2))
              + x86("def", PAIR(3))
              + x86("def", PAIR(4))

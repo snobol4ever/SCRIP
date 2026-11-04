@@ -16,7 +16,7 @@
  *   global in a shared object goes through the GOT, so the dynamic linker resolves
  *   it at load time and a preloaded definition wins. The blob therefore calls US.
  *   ONLY in out/interposable/libscrip_rt.so: the shipped runtime binds its own
- *   functions (RT_BIND, Makefile; cto 2026-10-15, CEO-1795), so make that target
+ *   functions (RT_BIND, Makefile; cto 2026-10-15, R-1795), so make that target
  *   and run under LD_LIBRARY_PATH=out/interposable.
  *   (This is also why the count is trustworthy for mode 3 specifically.)
  *

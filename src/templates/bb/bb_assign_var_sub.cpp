@@ -20,7 +20,7 @@ extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 #include "templates/x86/x86_zeta.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string avs_base_deref() {
-    return x86("comment", "a base that is a variable reference (DT_N, one cell) is looked through for the table fast path; the slow road keeps the reference (CEO-1641)")
+    return x86("comment", "a base that is a variable reference (DT_N, one cell) is looked through for the table fast path; the slow road keeps the reference (R-1641)")
          + x86("cmp", "dil", (long)DT_N)
          + x86("jne", L(5))
          + x86("mov", "rax", "rdi")

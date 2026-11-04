@@ -1,5 +1,5 @@
 #  ipp.icn -- SCRIP's Icon pre-processor, the pre-step that generates the source SCRIP parses (Lon 2026-09-30, RULES.md
-#  FACT RULE SCRIP DOES NOT PREPROCESS, CEO-1366). The preprocessor proper is JCON's tran/preprocessor.icn (Todd A. Proebsting,
+#  FACT RULE SCRIP DOES NOT PREPROCESS, R-1366). The preprocessor proper is JCON's tran/preprocessor.icn (Todd A. Proebsting,
 #  Gregg M. Townsend and others, The University of Arizona; JCON's COPYRIGHT applies to that text), a complete Icon preprocessor
 #  written in Icon, taken verbatim but for: the JCON-only predefs()/preproc() entry (SCRIP's main() below builds the symbol table),
 #  LPATH split on ':' as well as ' ' (icont accepts both), and two string-literal cures measured on ipl/progs/xtable.icn (JCON under

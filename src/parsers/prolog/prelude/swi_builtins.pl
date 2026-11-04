@@ -128,7 +128,7 @@ copy_stream_data(I, O, N) :- ( var(N) -> throw(error(instantiation_error, contex
 '$swb_csdt'(I, O, N) :- get_char(I, C), ( C == end_of_file -> true ; put_char(O, C), N1 is N - 1, '$swb_csdt'(I, O, N1) ).
 '$swb_csdb'(_, _, 0) :- !.
 '$swb_csdb'(I, O, N) :- get_byte(I, C), ( C =:= -1 -> true ; put_byte(O, C), N1 is N - 1, '$swb_csdb'(I, O, N1) ).
-% expand_file_name/2 (hq_icon 2026-10-31, row prolog-swi-to-100-the-failing-cases-ceo-1930, files/test_glob): swipl 9.0.4's answers, measured on a scratch tree and graded by
+% expand_file_name/2 (hq_icon 2026-10-31, row prolog-swi-to-100-the-failing-cases-r-1930, files/test_glob): swipl 9.0.4's answers, measured on a scratch tree and graded by
 % test_gate_pl_swi_expand_file_name_answers_as_swipl.sh.  A name with no ? * [ { comes back as the one-element list it was (after $VAR and ~ expansion), existing or not; a name with one is
 % split at '/', each segment with a wildcard lists its directory (a leading '.' is matched only by a segment that starts with '.'; '.' and '..' are entries) and matches it with
 % wildcard_match/2, a literal segment after a wildcard must exist at the end, a trailing '/' is dropped, the whole strings are msort-ed, an unmatched [ or { raises syntax_error.

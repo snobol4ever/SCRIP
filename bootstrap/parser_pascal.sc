@@ -1,5 +1,5 @@
 /* parser_pascal.sc — the seventh self-hosted parser: ISO 7185 Pascal in Snocone.
-   Written 2026-09-16 by hq_snocone on Lon's order (CEO-770 row: all seven parser_*.sc
+   Written 2026-09-16 by hq_snocone on Lon's order (R-770 row: all seven parser_*.sc
    parse their language's corpus into a proper tree_t with proper TT_* types).
    THE TREE IS THE PRUNED PARSE TREE (RULES.md § FACT RULE, Lon 2026-10-03): source order, one node per rule that
    fires, built with Shift/Reduce and the Counter stack only, no desugaring.  The shapes are the C frontend's
@@ -91,7 +91,7 @@ $'record'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
 $'set'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
 $'type'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'type') epsilon . *PasDS()      *$' ';
 /* The lexer's pragma events (pascal.l pascal_event, pascal_leaf, pascal_flip_dialect): an event is queued where its source token is, and the next leaf made carries it as (TT_ATTR :pragma (TT_QLIT "event")). */
-/* Every action below runs in the order the tokens were matched, so the dialect and the pending list are the lexer's own. dialect is pascal.tab.h's enum as ONE global (CEO-1614, ruled by the cto): the null string is ISO_DEFAULT, then 'iso', 'fpc', 'objfpc', 'delphi'; an explicit 'iso' is sticky by being non-null.   */
+/* Every action below runs in the order the tokens were matched, so the dialect and the pending list are the lexer's own. dialect is pascal.tab.h's enum as ONE global (R-1614, ruled by the cto): the null string is ISO_DEFAULT, then 'iso', 'fpc', 'objfpc', 'delphi'; an explicit 'iso' is sticky by being non-null.   */
 function PasInit() {
     dialect = '';
     pas_ds = '';
@@ -779,7 +779,7 @@ CmdT['try'] = try_cmd_rest; CmdT['raise'] = raise_cmd_rest;
 CmdT['for'] = for_cmd_rest; CmdT['case'] = case_cmd_rest; CmdT['with'] = with_cmd_rest; CmdT['goto'] = goto_cmd_rest;
 /* ==================================================================================================================== */
 /* Preprocess: text to text. The conditional-compilation pass of FPC (define undef setc, ifdef ifndef if ifc ifopt elseif else elsec endif ifend endc, */
-/* include) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483; semantics answered by hq_pascal). */
+/* include) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, R-1483; semantics answered by hq_pascal). */
 /* Every other directive passes through as the comment it is. A dropped or consumed span keeps its newlines, so line numbers hold.               */
 struct ppdef { pv }
 /* ==================================================================================================================== */
@@ -1130,7 +1130,7 @@ function PPDir(tx, b, cmd, rest, sym, val, nm, t, sv, st, md, inc) {
     nreturn;
 }
 /* ==================================================================================================================== */
-/* The dialect of a mode directive is a fact of the text, set BEFORE the match (the cto's ruling, CEO-1614): the first {$mode X} ahead of the first of begin var const type procedure function (the window pascal.l's pascal_seen_decl_start gives pascal_mode_directive) and ahead of uses and unit, the only flips that can come first: past one the in-order deferred PasDir decides, so its seen_mode events keep the C order. PasDir's queued pragma events and every flip stay deferred. */
+/* The dialect of a mode directive is a fact of the text, set BEFORE the match (the cto's ruling, R-1614): the first {$mode X} ahead of the first of begin var const type procedure function (the window pascal.l's pascal_seen_decl_start gives pascal_mode_directive) and ahead of uses and unit, the only flips that can come first: past one the in-order deferred PasDir decides, so its seen_mode events keep the C order. PasDir's queued pragma events and every flip stay deferred. */
 PmKw = TABLE(8);
 PmKw['begin'] = 1; PmKw['var'] = 1; PmKw['const'] = 1; PmKw['type'] = 1; PmKw['procedure'] = 1; PmKw['function'] = 1; PmKw['uses'] = 1; PmKw['unit'] = 1;
 PmDia = TABLE(8);

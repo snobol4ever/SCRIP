@@ -1,7 +1,7 @@
 #ifndef G_EMITTER_H
 #define G_EMITTER_H
 #ifndef __cplusplus
-#error g_emitter.h is C++ only (CEO-1575)
+#error g_emitter.h is C++ only (R-1575)
 #endif
 #include <unordered_map>
 #include "ir/ct_arena.h"

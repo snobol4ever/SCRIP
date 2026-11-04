@@ -1795,8 +1795,8 @@ static long _sw_mem_arg(const char *t) {
     return *e ? -1 : v;
 }
 _Static_assert(sizeof(long) == 8,
-    "A COMPILED PROGRAM'S COMMAND LINE FOLLOWS THE STANDARD CONVENTION (Lon 2026-09-25, in-chat to the ceo, verbatim: \"You should fix the command-line switch processing in SCRIP if it is not standa"
-    "rd convention and is causing you problems.\"; ceo CEO-1261): the runtime consumes only WELL-FORMED switches of its own, -d -i -s -m with a size attached (-s4m) or following (-s 4m) and -u with "
+    "A COMPILED PROGRAM'S COMMAND LINE FOLLOWS THE STANDARD CONVENTION (Lon 2026-09-25, in-chat, verbatim: \"You should fix the command-line switch processing in SCRIP if it is not standa"
+    "rd convention and is causing you problems.\"; R-1261): the runtime consumes only WELL-FORMED switches of its own, -d -i -s -m with a size attached (-s4m) or following (-s 4m) and -u with "
     "its string, a -- ends them and is consumed, and the first token that is not one -- a program's own option included, textcvt's `-d -f` and datmerge's `-min` in the IPL -- is the program's first "
     "argument, never refused: a compiled program's argv is the program's; it used to skip every leading dash token, known or not, while the program still saw them all, and HOST(0) found -u only in t"
     "he first position");

@@ -1274,7 +1274,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d) {
     if (expr_d.v == DT_C) {
         if (expr_d.slen >= 3) {
             core_runtime_error(103,
-                "eval argument is not expression: EXPVAL of a CODE value is DELETED (ceo CEO-1094, Lon 2026-09-21: eradicate C->BB->C->BB, and a C function creates residue on the hardware stack). It"
+                "eval argument is not expression: EXPVAL of a CODE value is DELETED (R-1094, Lon 2026-09-21: eradicate C->BB->C->BB, and a C function creates residue on the hardware stack). It"
                 " entered the chain from a C frame through rt_chain_enter and returned NULVCL afterwards, so the C frame survived the transition. THE ORACLE REFUSES THIS ROAD TOO: sbl -bf raises ERR"
                 "OR 103 on EVAL of a CODE value, while this arm returned quietly. The sanctioned way to run a CODE value is the DIRECT GOTO :<C>, which is EMITTED and never enters a box from C.");
             return FAILDESCR;

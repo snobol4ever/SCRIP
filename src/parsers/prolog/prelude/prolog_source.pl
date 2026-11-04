@@ -1,5 +1,5 @@
 /*  prolog_source.pl -- the one predicate of SWI-Prolog's library(prolog_source) that read_term's subterm_positions feeds: valid_term_position/2
-    (hq_packages 2026-10-24, ceo CEO-1959, ARCH-PROLOG-DATABASE.md sec 11).  SCRIP's own text, the logic of swipl's library/prolog_source.pl
+    (hq_packages 2026-10-24, R-1959, ARCH-PROLOG-DATABASE.md sec 11).  SCRIP's own text, the logic of swipl's library/prolog_source.pl
     valid_term_position/2,4 line for line (its single-sided-unification rules, its SWI position vocabulary: From-To, string_position,
     brace_term_position, list_position, term_position, dict_position, key_value_position, parentheses_term_position, quasi_quotation_position)
     with the helpers renamed '$vtp_'-style by hand and the det/1 declarations dropped.  The rest of library(prolog_source) -- the source reader,

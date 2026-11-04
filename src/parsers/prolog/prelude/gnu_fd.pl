@@ -1,6 +1,6 @@
-/*  gnu_fd.pl -- GNU Prolog's FD spelling as a Prolog layer over library(clpfd) (cfo 2026-10-10, CEO-1596, ARCH-PROLOG-CLPFD.md
+/*  gnu_fd.pl -- GNU Prolog's FD spelling as a Prolog layer over library(clpfd) (cfo 2026-10-10, R-1596, ARCH-PROLOG-CLPFD.md
     section 5 point 3; row prolog-clpfd-the-gnu-fd-spelling-fd-domain-fd-labeling-fd-all-different-and-the-hash-hash-operators-
-    over-the-same-solver-equal-to-gprolog-ceo-1596).  SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file.  The
+    over-the-same-solver-equal-to-gprolog-r-1596).  SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file.  The
     generator (util_gen_prolog_prelude_libs.py) embeds it in LOCAL mode: no SWI reader, no renames, its helpers '$gnu_'-named by hand.
 
     THE SUPERSET.  A program in GNU spelling -- fd_domain/3, fd_labeling/1,2, fd_all_different/1, the full-lookahead operators

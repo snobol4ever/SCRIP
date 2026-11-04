@@ -73,7 +73,7 @@ ascii_table["''"] = 39;  ascii_table['\\'] = 92;  ascii_table["\'"] = 39;  ascii
 ascii_table['\n'] = 10;  ascii_table['\r'] = 13;   ascii_table['\t'] = 9;    ascii_table['\a'] = 7;    ascii_table['\b'] = 8;
 ascii_table['\f'] = 12;  ascii_table['\v'] = 11;   ascii_table['\0'] = 0;    ascii_table['\e'] = 27;   ascii_table['\s'] = 32;
 /* ==================================================================================================================== */
-/* THE TREE IS THE ONE RAW Shift AND Reduce BUILD, LEFT TO RIGHT, PROPERLY NESTED (Lon 2026-09-30 16:0x, CEO-1378), and it is */
+/* THE TREE IS THE ONE RAW Shift AND Reduce BUILD, LEFT TO RIGHT, PROPERLY NESTED (Lon 2026-09-30 16:0x, R-1378), and it is */
 /* the C parser's own term tree: every compound and every operator term is (TT_FNC name args...), an atom (TT_QLIT "a"), a    */
 /* variable (TT_VAR X), numbers TT_ILIT / TT_FLIT, a list (TT_MAKELIST elems... [tail]), the cut (TT_CUT), a conjunction the  */
 /* right-nested binary ','; a clause is (TT_CLAUSE head [body]), a directive (TT_CLAUSE (TT_NUL) body), a DCG rule a clause    */
@@ -120,8 +120,8 @@ QatomIn = FENCE( ( "''" *DIFFER((qacc = qacc "'") 'x')
                  | ((NOTANY("'\" CHAR(10)) FENCE(BREAK("'\" CHAR(10)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
                  ) *QatomIn | epsilon );
 Qatom   = ( "'" *DIFFER((qacc = '') 'x') ((*QatomIn) $ q_raw . q_txt *DIFFER((qesc[q_raw] = qacc) 'x')) "'" );
-/* a quoted atom as a term, and a double-quoted text as one TT_DQLIT node, are what the pattern reads (the ceo 2026-09-30 */
-/* 18:3x on Lon's law, CEO-1378; parser_raku.sc's shape): each literal run and each single-character escape (decoded by a     */
+/* a quoted atom as a term, and a double-quoted text as one TT_DQLIT node, are what the pattern reads (2026-09-30 */
+/* 18:3x on Lon's law, R-1378; parser_raku.sc's shape): each literal run and each single-character escape (decoded by a     */
 /* table) is Shifted as TT_QLIT, a doubled quote is one such piece, every piece after the first is joined by Reduce TT_CAT 2  */
 /* as it is read, a numeric escape is Shifted raw as TT_ESC, \c and a backslash-newline are no piece; the lowerer folds the   */
 /* pieces into one literal. A quoted name before ( stays the decoded name the compound carries as its value (Qatom above).   */

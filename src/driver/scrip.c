@@ -171,7 +171,7 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
 #define RT_OUTER_RESERVE_S "4194304"
 _Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0,
     "RT_OUTER_RESERVE_S is the same number spelled for the trampoline's asm: the mode-3 top-level slot region reserved above the program (9e6c187c8); the stack budget a mode-3 program is given adds "
-    "it on top of the program's own -s (ceo CEO-1261)");
+    "it on top of the program's own -s (R-1261)");
 __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n" "rt_outer_call:\n" "  push %r12\n" "  sub $" RT_OUTER_RESERVE_S ", %rsp\n" "  push %rdi\n" "  push %rsi\n" "  push %rdx\n"
     "  push %rcx\n" "  lea 16(%rsp), %rdi\n" "  call rt_program_top_adopt@PLT\n" "  pop %rcx\n" "  pop %rdx\n" "  pop %rsi\n" "  pop %rdi\n" "  mov %rdi, %rax\n" "  mov %rsi, %rdi\n"
     "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_runtime@GOTPCREL(%rip), %r10\n" "  cmpb $0, " GRT_S(G_RT_OFF_RTCC_ON)
@@ -1939,11 +1939,11 @@ int main(int argc, char **argv) {
             }
             if (sw == 'F') {
                 fprintf(stderr,
-                    "scrip: -F (fold source case) is refused: SNOBOL4 and Snocone are case-sensitive in SCRIP by law (2026-09-08) and SCRIP carries no compatibility switches; Lon 2026-09-23 (CEO-122"
+                    "scrip: -F (fold source case) is refused: SNOBOL4 and Snocone are case-sensitive in SCRIP by law (2026-09-08) and SCRIP carries no compatibility switches; Lon 2026-09-23 (R-122"
                     "7): reject -F with stated reason\n");
                 return 2;
             }
-            if (sw == 'y') { fprintf(stderr, "scrip: -y (write a save .spx file) is refused: SCRIP writes no save file; rejected for now (Lon 2026-09-23, CEO-1227)\n"); return 2; }
+            if (sw == 'y') { fprintf(stderr, "scrip: -y (write a save .spx file) is refused: SCRIP writes no save file; rejected for now (Lon 2026-09-23, R-1227)\n"); return 2; }
             if (sw == 'k') {
                 fprintf(stderr,
                     "scrip: -k (run with compilation errors) is refused: SCRIP compiles the whole program to machine code and does not run one that failed to compile; the switch is refused, not igno"
@@ -2050,7 +2050,7 @@ int main(int argc, char **argv) {
             "  --dump-plan      print the planner's table, one PLAN line per chain and one PLAN_ROW per node, on stdout (compiles to /dev/null)\n"
             "  --bench          print wall-clock time after execution\n"
             "  -S               Prolog: read the source as if it began with ':- use_subsumptive_tabling.', every table without an explicit mode subsumptive (XSB's -S, an entry's oracle switch carrie"
-            "d as its compile_args, CEO-2110)\n"
+            "d as its compile_args, R-2110)\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
             "ns. Prolog: gnu, xsb. Icon: unicon, read a source that carries no class, package or import marker as a Unicon program, as if it carried one (a UniTests entry's compile_args, CTO-473)\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
@@ -2063,7 +2063,7 @@ int main(int argc, char **argv) {
             "  -iN              initial heap and enlarge amount: the first committed window and the least each growth commits (SPITBOL -i#; default 1m, SPITBOL's)\n"
             "                   -d -i -s -m -u reach a compiled (--compile) program the same way, as leading well-formed switches on its own\n"
             "                   command line; -- ends them; the first token that is not one is the program's first argument, and the program\n"
-            "                   never sees the switches it consumed\n" "\n" "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
+            "                   never sees the switches it consumed\n" "\n" "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, R-1224/1227):\n"
             "  -n               compile, suppress execution (exit 231 as sbl does)\n"
             "  -u \"string\"      the string HOST(0) returns (null without -u; a compiled program takes a leading -u string too)\n"
             "  -r               INPUT reads the source file after the END statement\n" "  -T=file          TERMINAL output to the file\n"

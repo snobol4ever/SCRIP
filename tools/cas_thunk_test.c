@@ -1,5 +1,5 @@
 /* cas_thunk_test.c -- unit witness for the C.A.S. EXPRESSION-THUNK entry kind (row lang-lambda-pattern-primitives).
-   ⭐ UNIT AND NOT LANGUAGE-LEVEL ON PURPOSE: the lambda SURFACE is on hold while Lon redesigns it (ceo 2026-08-28),
+   ⭐ UNIT AND NOT LANGUAGE-LEVEL ON PURPOSE: the lambda SURFACE is on hold while Lon redesigns it (2026-08-28),
    so this drives the machinery through the runtime's own exported entry points instead of through a syntax that
    may still change. It proves the three properties Lon named -- push at cursor-pass, discard on backtrack, run at
    success -- for the new entry kind, and it keeps proving them whatever the surface turns out to be. */

@@ -58,7 +58,7 @@ template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_save(off) ( \
-      x86("comment", "&STNO SAVE (CEO-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back") \
+      x86("comment", "&STNO SAVE (R-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back") \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
     + x86("mov", "rax", RDQ("rax", GRT_AT(stno))) \
     + x86_rsp_store64((off), "rax") \
@@ -79,7 +79,7 @@ template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_restore(off) ( \
-      x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit") \
+      x86("comment", "&STNO RESTORE (R-1543): the caller's &STNO/&LINE come back from this activation's own frame unit") \
     + bb_stno_last_from_callee() \
     + x86_rsp_load64("r11", (off)) \
     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
@@ -193,7 +193,7 @@ static std::string shim_nvcells() {
          + x86("add", "rsi", (long)((_.op_sig_T + 16L * _.op_sig_nf) + 64));
 }
 static std::string shim_nvin() {
-    return IF(_.op_sig_nnv, x86("comment", "NV-ROAD NAMES (CEO-1543 chunk 2): a formal, local or result name with no island cell is swapped by a leaf into this frame's own cells, by name")
+    return IF(_.op_sig_nnv, x86("comment", "NV-ROAD NAMES (R-1543 chunk 2): a formal, local or result name with no island cell is swapped by a leaf into this frame's own cells, by name")
                           + shim_nvpush()
                           + x86("mov", "rdi", ROQ(232))
                           + shim_nvcells()

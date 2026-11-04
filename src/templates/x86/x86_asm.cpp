@@ -1029,7 +1029,7 @@ std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
         if (a.kind == XK_RSP64) return x86_reg_disp32_inc64("rsp", a.off);
         return x86_bomb(
             "x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator "
-            "graph; ceo s283)");
+            "graph; s283)");
     }
     if (X86_MEQ(mnem, "movabs")) {
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movabs_r64(a.txt, (uint64_t)b.imm);

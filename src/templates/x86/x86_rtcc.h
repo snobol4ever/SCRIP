@@ -43,9 +43,9 @@ static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR 
 static_assert(x86_rtcc_streq(PIN_FRONTIER_REG, "rbx"),
     "BLOB PIN DRIFT (ARCH-SNOBOL4-RTX section 2 REGISTER CONTRACT, which ARCH-ICON-RTX names as THE single source): rbx is the arena heap top, the DESCR mint pointer. This assert exists because that"
     " plane DID drift -- the frontier lived in the HEAP arm of the port selector the no-modes law deleted (that selector's identifiers are themselves forbidden under src/ by test_gate_no_zeta_frame_"
-    "switches.sh, CEO-448, so it is described here and never spelled), and rbx, preserved by SysV and therefore free-looking, was picked up as scratch by four sites for months. Nothing failed, becau"
+    "switches.sh, R-448, so it is described here and never spelled), and rbx, preserved by SysV and therefore free-looking, was picked up as scratch by four sites for months. Nothing failed, becau"
     "se a register plane written in a table and enforced nowhere cannot fail. r9 never drifted in the same years, and the only difference is the RTCC_GVA_REG assert above. One assert per pin is the "
-    "cure (cto 2026-09-20, row gc-rbx-is-the-bump-frontier step 3; ceo CEO-959).");
+    "cure (cto 2026-09-20, row gc-rbx-is-the-bump-frontier step 3; R-959).");
 static_assert(x86_rtcc_streq(PIN_CAS_TOP_REG, "r12"),
     "BLOB PIN DRIFT: r12 is the CONDITIONAL-ASSIGNMENT STACK TOP (Lon 2026-08-02, reinstated s23k; the CAS BASE is a MATCH_BEGIN frame slot and not a register). The C-to-BB trampolines seed it from "
     "the RT_DCAP_TOP cell and the match templates advance it by 24 per pended capture.");

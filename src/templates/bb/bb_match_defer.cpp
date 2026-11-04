@@ -324,7 +324,7 @@ std::string bb_match_defer() {
          + x86_rt_gc_poll_rec_sigma_pair(1, 53)
          + x86("jmp", "L2")
          + x86("def", L(61))
-         + x86("comment", "IR_MATCH_DEFER CONVERT chain: the box enters the compiled expression and lands its value (CEO-1630)")
+         + x86("comment", "IR_MATCH_DEFER CONVERT chain: the box enters the compiled expression and lands its value (R-1630)")
          + bb_glue_enter_chain_ret(62)
          + x86("mov", "rsi", "rsp")
          + x86("call", "rt_defer_land_chain", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(long, void *))rt_defer_land_chain)

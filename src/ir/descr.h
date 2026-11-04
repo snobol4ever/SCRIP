@@ -94,7 +94,7 @@ typedef struct _CVSPINE_t { long fn; long act0; } CVSPINE_t;
 DESCR_SASSERT(sizeof(CVSPINE_t) == 16,
     "CVSPINE_t is the two-register answer rt_call_value_spine_prep and rt_call_apply_spine_prep hand bb_call_value: fn in rax is the callee box entry and 0 declines, act0 in rdx is the word the box "
     "banks in callgen.act +0 BEFORE it transfers -- 0 when the callee may be re-driven on beta (a jmp-entry generator; the box still writes 1 at its first gamma, which is the pre-2026-09-19 behaviou"
-    "r unchanged) and 2 when it may not (a plain procedure returns once, so beta fails forward instead of resuming a frame the callee already released). MEASURED (ceo 2026-09-19, row gc-the-five-c-t"
+    "r unchanged) and 2 when it may not (a plain procedure returns once, so beta fails forward instead of resuming a frame the callee already released). MEASURED (2026-09-19, row gc-the-five-c-t"
     "o-bb-entries-outside-rt-c-go-to-zero): opening a plain procedure on the spine WITHOUT this word hangs every redo -- `every x := f()` and a failing comparison each loop forever at 10 s timeout i"
     "n both modes -- because beta's `cmp rax,1` cannot tell a suspended generator from a returned procedure, while a SINGLE call is byte-correct. That is why the old rt_proc_is_generator refusal was"
     " not a policy. Two longs so the pair rides rax:rdx with no memory traffic, the shape rt_call_next_t and rt_prim_next_t already use. 3 | cells<<8 | ftc<<32 is a region-frame (n2)"

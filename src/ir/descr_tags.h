@@ -29,7 +29,7 @@ DESCR_SASSERT(((DT_SNUL | DT_S) & (DT_NOTSTR_MASK & 0xFF)) == 0,
 DESCR_SASSERT((DT_I & (DT_NOTSTR_MASK & 0xFF)) && (DT_R & (DT_NOTSTR_MASK & 0xFF)), "numerics must NOT read as string under the 8-bit mask");
 DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF)), "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
 DESCR_SASSERT(!(DT_BOOL & DT_NUMERIC_BIT) && (DT_BOOL & (DT_NOTSTR_MASK & 0xFF)),
-    "DT_BOOL must read as neither numeric nor string under the 8-bit mask (ceo CEO-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
+    "DT_BOOL must read as neither numeric nor string under the 8-bit mask (R-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
 DESCR_SASSERT(!(DT_ORDER & DT_NUMERIC_BIT) && (DT_ORDER & (DT_NOTSTR_MASK & 0xFF)),
     "DT_ORDER must read as neither numeric nor string under the 8-bit mask, same shape as DT_BOOL above: a Raku Order renders Less/Same/More, and only a Raku-own arm may coerce it to -1/0/1");
 DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT), "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");

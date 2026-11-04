@@ -53,7 +53,7 @@ static std::string xa_flat_data_section_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void) {
-    bb_emit_x86(x86_bomb("xa_entry_dispatch: no lowerer constructs an XA_ENTRY_DISPATCH node (CEO-2009 under CEO-2002); a program that gets here names itself"));
+    bb_emit_x86(x86_bomb("xa_entry_dispatch: no lowerer constructs an XA_ENTRY_DISPATCH node (R-2009 under R-2002); a program that gets here names itself"));
 }
 static void xa_flat_emit_text(const std::string & s) { if (!s.empty()) emit_text_n(s.data(), s.size()); }
 extern "C" void xa_flat_data_section(void) { xa_flat_emit_text(xa_flat_data_section_str()); }

@@ -466,7 +466,7 @@ extern int rt_is_truthy(DESCR_t v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy) {
-    return x86("comment", "an infix multi on objects: rt_binop_overload_open returns the candidate's address and the box enters it (CEO-1576; armed programs only)")
+    return x86("comment", "an infix multi on objects: rt_binop_overload_open returns the candidate's address and the box enters it (R-1576; armed programs only)")
          + load
          + x86("mov", "r8d", op)
          + x86("call", "rt_binop_overload_open", (uint64_t)(uintptr_t)(void *)rt_binop_overload_open)
