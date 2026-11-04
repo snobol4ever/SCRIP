@@ -12,6 +12,7 @@
 #include "runtime/core/datatype.h"
 #include "runtime/core/array.h"
 #include "runtime/core/core_error.h"
+#include "runtime/snobol4_system_fns.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_print(DESCR_t *args, int nargs) { if (nargs == 0) { output_str(""); return NULVCL; } for (int i = 0; i < nargs; i++) output_val(args[i]); return NULVCL; }
 static cv_t dat_types_v;
@@ -593,16 +594,39 @@ DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dat_field_set(const char *fname, DESCR_t obj, DESCR_t val) { DESCR_t *cell = data_field_ptr(fname, obj); if (cell) { *cell = val; return val; } return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dat_spec_protected(const char *sp) {
+    const char *p = strchr(sp, '(');
+    if (!p || p == sp) return 0;
+    char tn[(size_t)(p - sp) + 1];
+    memcpy(tn, sp, (size_t)(p - sp));
+    tn[p - sp] = 0;
+    if (sn4_sysfn_protected(tn)) return 1;
+    const char *fs = p + 1;
+    const char *fe = strchr(fs, ')');
+    if (!fe) fe = fs + strlen(fs);
+    while (fs < fe) {
+        const char *cm = fs;
+        while (cm < fe && *cm != ',') cm++;
+        const char *b = fs;
+        while (b < cm && (*b == ' ' || *b == '\t')) b++;
+        const char *e2 = cm;
+        while (e2 > b && (e2[-1] == ' ' || e2[-1] == '\t')) e2--;
+        size_t fl = (size_t)(e2 - b);
+        if (fl > 0) { char fb[fl + 1]; memcpy(fb, b, fl); fb[fl] = 0; if (sn4_sysfn_protected(fb)) return 1; }
+        fs = (cm < fe) ? cm + 1 : fe;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     if (nargs < 1) return FAILDESCR;
     const char *raw_spec = VARVAL_fn(args[0]);
     if (!raw_spec || !*raw_spec) return FAILDESCR;
+    if (dat_spec_protected(raw_spec)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
     char *spec = rt_heap_strdup_c(raw_spec);
     DEFDAT_fn(spec);
     if (!dat_spec_is_current(spec)) dat_register(spec);
     { int k = 0; while (spec[k] && spec[k] != '(') k++; char nb[k + 1]; memcpy(nb, spec, (size_t)k); nb[k] = 0; if (nb[0]) dat_set_live(nb, 1); }
-    extern DESCR_t core_DATA_register(DESCR_t *a, int n);
-    core_DATA_register(args, nargs);
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

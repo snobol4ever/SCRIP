@@ -6,12 +6,7 @@
 #include <setjmp.h>
 #include "g_runtime_vec.h"
 #include "ir/ct_vec.h"
-#define DATA_MAX_TYPES 64
-#define DATA_MAX_FIELDS 16
-#define FIELD_ACCESSOR_MAX (DATA_MAX_TYPES * DATA_MAX_FIELDS)
 #define NV_MEMO_N 2048
-struct g_data_type { char *tname; int nfields; char *fields[DATA_MAX_FIELDS]; };
-struct g_facc_slot { int tidx; int fidx; };
 struct _VarEntry;
 struct _DATINST_tType;
 struct rt_slab;
@@ -42,8 +37,6 @@ typedef struct {
     int64_t start_ns;
     gv_t setexit_label;
     int setexit_resume;
-    int data_ntypes;
-    int facc_n;
     jmp_buf core_err_jmp;
     struct _DATINST_tType *udef_types;
     cv_t udef_nidx;
@@ -58,7 +51,5 @@ typedef struct {
     FILE *terminal_fp;
     int terminal_tried;
     int (*label_exists_hook)(const char *);
-    struct g_data_type data_types[DATA_MAX_TYPES];
-    struct g_facc_slot facc_slots[FIELD_ACCESSOR_MAX];
 } g_core_t;
 #endif
