@@ -3556,6 +3556,13 @@ static long long pas_wrap_mask_of_type(const char *t) {
     return 0;
 }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    if (!g_lower.pas.sem.pas_dialect_fpc && sel && sel->t == TT_IDX && sel->n >= 1 && sel->c[0] && sel->c[0]->t == TT_FNC && sel->c[0]->n >= 1 && sel->c[0]->c[0] && sel->c[0]->c[0]->t == TT_VAR &&
+        sel->c[0]->c[0]->v.sval && pas_curfunc_name() && !strcmp(sel->c[0]->c[0]->v.sval, pas_curfunc_name())) {
+        fprintf(stderr,
+            "pascal: ISO 7185 6.8.2.2 violation: a component of the function '%s' is assigned; an assignment-statement assigns a variable-access or the"
+            " function-identifier itself, never a component of the function's result\n", sel->c[0]->c[0]->v.sval);
+        g_lower.pas.sem.pas_iso_errors++;
+    }
     { long long _rd[4]; if (pas_row_designator(rhs, _rd)) rhs = mk_row_call("__pas_row_get", rhs, _rd, NULL); if (pas_row_designator(sel, _rd)) return mk_row_call("__pas_row_set", sel, _rd, rhs); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_ILIT && !pas_array_isdyn(sel->v.sval)) {
         long long _wm = pas_wrap_mask_of_type(pas_scalarvartype_get(sel->v.sval));
