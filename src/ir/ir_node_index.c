@@ -62,4 +62,29 @@ int nidx(IR_t ** nodes, int n, const IR_t * e) {
     while (g_lower.ir.nidx_keys[h]) { if (g_lower.ir.nidx_keys[h] == e) return g_lower.ir.nidx_vals[h]; h = (h + 1) & (g_lower.ir.nidx_cap - 1); }
     return -1;
 }
+void nidx_scope_open(nidx_scope_t * s, IR_t ** nodes, int n) {
+    s->own = !(nodes == g_lower.ir.nidx_nodes && n == g_lower.ir.nidx_n);
+    if (!s->own) return;
+    s->nodes = g_lower.ir.nidx_nodes;
+    s->n = g_lower.ir.nidx_n;
+    s->keys = g_lower.ir.nidx_keys;
+    s->vals = g_lower.ir.nidx_vals;
+    s->cap = g_lower.ir.nidx_cap;
+    g_lower.ir.nidx_keys = 0;
+    g_lower.ir.nidx_vals = 0;
+    g_lower.ir.nidx_cap = 0;
+    nidx_build(nodes, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void nidx_scope_close(const nidx_scope_t * s) {
+    if (!s->own) return;
+    ct_drop(g_lower.ir.nidx_keys);
+    ct_drop(g_lower.ir.nidx_vals);
+    g_lower.ir.nidx_nodes = s->nodes;
+    g_lower.ir.nidx_n = s->n;
+    g_lower.ir.nidx_keys = s->keys;
+    g_lower.ir.nidx_vals = s->vals;
+    g_lower.ir.nidx_cap = s->cap;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void nidx_reset(void) { g_lower.ir.nidx_nodes = 0; g_lower.ir.nidx_n = 0; }

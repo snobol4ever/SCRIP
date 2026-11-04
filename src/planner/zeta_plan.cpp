@@ -1149,6 +1149,7 @@ extern "C" void planner_mark_pass(const IR_graph_t * cg, unsigned char * ind) {
     int n = cg ? cg->n : 0; IR_t ** nodes = cg ? cg->all : (IR_t **)0;
     if (n > 0) memset(ind, 0, (size_t)n);
     if (!cg || n <= 0 || !planner_resumable_frame(cg)) return;
+    nidx_scope_t nix; nidx_scope_open(&nix, nodes, n);
     std::vector<int> wl, bl; std::vector<unsigned char> bseen((size_t)(n > 0 ? n : 1), 0); std::vector<int> gp1((size_t)(n > 0 ? n : 1), -1), gpn((size_t)(n > 0 ? n : 1), 0);
     for (int x = 0; x < n; x++) if (nodes[x] && !port_sz_beta(zd_edge_sz(nodes[x], 0))) { int t = zst_edge(nodes, n, x, 0); if (t >= 0 && t != x) { gpn[(size_t)t]++; gp1[(size_t)t] = x; } }
     for (int t = 0; t < n; t++) if (gpn[(size_t)t] != 1) gp1[(size_t)t] = -1;
@@ -1196,6 +1197,7 @@ extern "C" void planner_mark_pass(const IR_graph_t * cg, unsigned char * ind) {
             { fprintf(stderr, "[PL-INDEF] all=%d %s ind=%d a=%d r=%d ret=%d g=%d w=%d ops", i, bb_op_name(nodes[i]->op), ind[i], ia[(size_t)i], rch[(size_t)i],
             zd_edge_retains_g(cg, nodes[i]), nidx(nodes, n, zd_chase(nodes[i]->γ.node)), nidx(nodes, n, zd_chase(nodes[i]->ω.node)));
               for (int k = 0; k < nodes[i]->n_operands; k++) fprintf(stderr, " %d", nidx(nodes, n, zd_chase(nodes[i]->operands[k]))); fprintf(stderr, "\n"); } }
+    nidx_scope_close(&nix);
 }
 static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == PR_GATE_HOLDS || lw == PR_RETAINING_TARGET; }
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
