@@ -1678,6 +1678,7 @@ int main(int argc, char **argv) {
     int dump_transpile = 0;
     int opt_bench = 0;
     const char *opt_dialect = NULL;
+    int opt_unicon = 0;
     int opt_pl_subs = 0;
     int opt_pp_only = 0;
     const char * target_name = NULL;
@@ -1762,9 +1763,11 @@ int main(int argc, char **argv) {
             } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
                 if (!strcmp(argv[argi] + 10, "gnu")) prolog_select_dialect_gnu();
                 else if (!strcmp(argv[argi] + 10, "xsb")) prolog_select_dialect_xsb();
+                else if (!strcmp(argv[argi] + 10, "unicon")) opt_unicon = 1;
                 else if (pascal_dialect_directive(argv[argi] + 10)) opt_dialect = argv[argi] + 10;
                 else {
-                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu and xsb are the Prolog dialects and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n",
+                    fprintf(stderr,
+                        "scrip: --dialect=%s refused -- gnu and xsb are the Prolog dialects, unicon is the Icon one, and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n",
                         argv[argi] + 10);
                     return 2;
                 }
@@ -1943,7 +1946,7 @@ int main(int argc, char **argv) {
             "  -S               Prolog: read the source as if it began with ':- use_subsumptive_tabling.', every table without an explicit mode subsumptive (XSB's -S, an entry's oracle switch carrie"
             "d as its compile_args, CEO-2110)\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
-            "ns. Prolog: gnu\n"
+            "ns. Prolog: gnu, xsb. Icon: unicon, read a source that carries no class, package or import marker as a Unicon program, as if it carried one (a UniTests entry's compile_args, CTO-473)\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
             "e tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace im"
             "ply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n" "\n"
@@ -2111,7 +2114,7 @@ int main(int argc, char **argv) {
             src[flen + (long)plen] = '\0';
             fclose(f);
             tree_t *sub_ast = NULL;
-            if (lang_icon) icon_compile(src, input_path, &sub_ast);
+            if (lang_icon) icon_compile_as(src, input_path, &sub_ast, opt_unicon);
             else if (lang_raku) raku_compile(src, input_path, &sub_ast);
             else if (lang_prolog) prolog_compile(src, input_path, &sub_ast);
             else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);

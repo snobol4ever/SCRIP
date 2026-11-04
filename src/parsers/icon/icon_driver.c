@@ -208,14 +208,14 @@ void icn_prune_unreachable_procs(tree_t * prog) {
     prog->n = w; ct_drop(procs); ct_drop(keep); ct_drop(walked);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *icon_compile_parse(const char *source, const char *filename) {
+static void *icon_parse_dialect(const char *source, const char *filename, int unicon) {
     tree_t *ast = NULL;
     tree_t **out_ast = &ast;
     if (!filename) filename = "<stdin>";
     IcnLexer lx;
     icn_pp_set_source_path(filename);
     icn_lex_init(&lx, source);
-    lx.unicon = icn_source_is_unicon(source);
+    lx.unicon = unicon || icn_source_is_unicon(source);
     IcnParser parser;
     icn_parse_init(&parser, &lx);
     CODE_t *prog = icn_parse_file(&parser, out_ast);
@@ -227,15 +227,18 @@ void *icon_compile_parse(const char *source, const char *filename) {
     }
     if (lx.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in %s\n", lx.pp_fatals, lx.pp_fatals == 1 ? "" : "s", filename); exit(1); }
     (void)prog;
+    if (ast) ast->v.ival = lx.unicon;
     return ast;
 }
+void *icon_compile_parse(const char *source, const char *filename) { return icon_parse_dialect(source, filename, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile_finish(void *parsed, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
     if (out_ast) { *out_ast = (tree_t *)parsed; if (*out_ast) { icn_resolve_imports(*out_ast, filename); icn_resolve_links(*out_ast, filename); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
+void icon_compile_as(const char *source, const char *filename, tree_t **out_ast, int unicon) {
     if (out_ast) *out_ast = NULL;
-    icon_compile_finish(icon_compile_parse(source, filename), filename, out_ast);
+    icon_compile_finish(icon_parse_dialect(source, filename, unicon), filename, out_ast);
 }
+void icon_compile(const char *source, const char *filename, tree_t **out_ast) { icon_compile_as(source, filename, out_ast, 0); }

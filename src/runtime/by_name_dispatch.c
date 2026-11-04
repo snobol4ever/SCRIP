@@ -22935,6 +22935,38 @@ DESCR_t rt_ishift_d(DESCR_t *args, int nargs) {
     int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r;
     return INTVAL(b>=0?(b>=64?0:a<<b):(-b>=64?(a<0?-1:0):a>>(-b)));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_unicon_name(DESCR_t a, DESCR_t * out) {
+    if (a.v == DT_N && a.slen == 0 && a.s && *a.s) { *out = STRVAL(rt_heap_strdup_c(a.s)); return 1; }
+    *out = FAILDESCR;
+    if (!IS_NAMETRAP_fn(a) || !a.p) return 1;
+    VCELL_t * vc = (VCELL_t *) a.p;
+    if (vc->cellp && vc->key && IS_DATA_INST_fn(vc->sv) && vc->sv.u && vc->sv.u->type && vc->sv.u->fields && vc->cellp >= vc->sv.u->fields && vc->cellp < vc->sv.u->fields + vc->sv.u->type->nfields) {
+        const char * tn = vc->sv.u->type->name ? vc->sv.u->type->name : "", * fnm = vc->sv.u->type->fields[vc->cellp - vc->sv.u->fields] ? vc->sv.u->type->fields[vc->cellp - vc->sv.u->fields] : "";
+        *out = STRVAL(rt_heap_fmt("record %s_%ld.%s", tn, rt_record_image_id(vc->sv.u), fnm));
+        return 1;
+    }
+    if (vc->key && *vc->key) { *out = STRVAL(rt_heap_strdup_c(vc->key)); return 1; }
+    if (vc->tbl) {
+        DESCR_t kn;
+        int r = try_call_builtin_by_name("image", &vc->key_d, 1, &kn);
+        *out = STRVAL(rt_heap_fmt("table_%ld[%s]", vc->tbl->id, (r && kn.v == DT_S && kn.s) ? kn.s : ""));
+        return 1;
+    }
+    if (vc->cellp && vc->pos > 0 && vc->sv.v == DT_DATA && vc->sv.u) { *out = STRVAL(rt_heap_fmt("list_%ld[%ld]", rt_record_image_id(vc->sv.u), vc->pos)); return 1; }
+    if (vc->cellp && vc->pos < 0 && vc->sv.u && vc->sv.u->type && vc->sv.u->type->fields && -vc->pos <= vc->sv.u->type->nfields) {
+        const char * tn = vc->sv.u->type->name ? vc->sv.u->type->name : "", * fnm = vc->sv.u->type->fields[-vc->pos - 1] ? vc->sv.u->type->fields[-vc->pos - 1] : "";
+        *out = STRVAL(rt_heap_fmt("record %s_%ld.%s", tn, rt_record_image_id(vc->sv.u), fnm));
+        return 1;
+    }
+    if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
+        DESCR_t bn;
+        int r = icn_unicon_name(vc->sv, &bn);
+        *out = STRVAL(rt_heap_fmt("%s[%ld:%ld]", (r && bn.v == DT_S && bn.s) ? bn.s : "", vc->pos, vc->pos + vc->len));
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq) {
     if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type;
@@ -24639,6 +24671,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         }
         return bn_sno_name(args, nargs, out);
     }
+    if (!strcmp(fn, "ICN$UNAME") && nargs == 1) return icn_unicon_name(args[0], out);
     if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
         DESCR_t src = args[0];
         extern int core_icn_error(int code, DESCR_t val);

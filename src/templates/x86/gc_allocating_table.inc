@@ -737,6 +737,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "icn_tb_builtins_at", GC_RET_VOID },
     { "icn_tb_image", GC_RET_VOID },
     { "icn_true_len", GC_RET_OTHER },
+    { "icn_unicon_name", GC_RET_OTHER },
     { "icnx_extl_call", GC_RET_OTHER },
     { "icnx_lrgint_str", GC_RET_OTHER },
     { "icnx_to_double", GC_RET_OTHER },

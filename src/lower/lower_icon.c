@@ -540,7 +540,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         IR_t * ve = lower_lvalue_var(cx, na, ω, &vr);
         if (ve && vr) {
             IR_t * ncall = build(cx, IR_CALL, γ, ω);
-            IR_LIT(ncall).sval = (char *) name;
+            IR_LIT(ncall).sval = (char *) (cx->prog && cx->prog->v.ival ? "ICN$UNAME" : name);
             if (res) *res = ncall;
             IR_t * argβ = cx->beta;
             lc_γ_to(vr, ncall);

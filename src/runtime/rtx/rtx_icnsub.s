@@ -67,6 +67,8 @@ RTX_ENTRY(rt_subscript_var_strict)
     mov     [rsp + 16], rdx
     mov     [rsp + 24], rcx
     call    rt_deref
+    mov     [rsp + 56], rax
+    mov     [rsp + 64], rdx
     cmp     dword ptr [rsp + 16], DT_S
     je      .Lsub_table
     cmp     al, DT_S
@@ -144,8 +146,10 @@ RTX_ENTRY(rt_subscript_var_strict)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8
     mov     [rax + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL
-    mov     qword ptr [rax + VCELL_SV + 8], 0
+    mov     r8, [rsp + 56]
+    mov     r9, [rsp + 64]
+    mov     [rax + VCELL_SV], r8
+    mov     [rax + VCELL_SV + 8], r9
     movsxd  rcx, dword ptr [rsp + 48]
     mov     [rax + VCELL_POS], rcx
     mov     qword ptr [rax + VCELL_LEN], 0

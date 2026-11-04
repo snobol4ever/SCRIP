@@ -1958,7 +1958,7 @@ static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
             vc->tbl = 0;
             vc->key = 0;
             vc->key_d = idx;
-            vc->sv = FAILDESCR;
+            vc->sv = base;
             vc->pos = i;
             vc->len = 0;
             return NAMETRAP(vc);
@@ -2115,7 +2115,7 @@ static DESCR_t rt_field_var_cell(const char *fname, DESCR_t obj, DESCR_t *cell) 
     vc->tbl = 0;
     vc->key = 0;
     vc->key_d = FAILDESCR;
-    vc->sv = FAILDESCR;
+    vc->sv = obj;
     vc->pos = 0;
     vc->len = 0;
     {
