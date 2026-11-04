@@ -996,6 +996,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_xr_dispatch", GC_RET_OTHER },
     { "pas_xr_elab", GC_RET_OTHER },
     { "pas_xr_operand", GC_RET_OTHER },
+    { "pas_xr_str_d", GC_RET_DESCR },
     { "pas_xrf", GC_RET_VOID },
     { "pas_xrf_build", GC_RET_OTHER },
     { "pas_xrf_build_t", GC_RET_OTHER },

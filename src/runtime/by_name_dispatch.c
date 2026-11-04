@@ -18868,6 +18868,18 @@ static size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, s
                     add = nb;
                     break;
                 }
+                if (d && d->v == DT_XR && (fc == 'E' || fc == 'G')) {
+                    extern DESCR_t pas_xr_str_d(DESCR_t, long long, long long);
+                    DESCR_t xs = pas_xr_str_d(*d, (prec < 0 || prec > 17 ? 17 : prec) + 8, -1);
+                    size_t xl = xs.slen < (size_t)nbcap - 1 ? xs.slen : (size_t)nbcap - 1;
+                    memcpy(nb, xs.s, xl);
+                    nb[xl] = '\0';
+                    while (nb[0] == ' ') pas_fmt_del(nb, 0, 1);
+                    pas_fmt_float_shape(fc, nb);
+                    if (nb[0] == '-' && nb[1] && nb[strspn(nb + 1, "0.E+,") + 1] == '\0') pas_fmt_del(nb, 0, 1);
+                    add = nb;
+                    break;
+                }
                 pas_fmt_float(isreal ? d->r : d && d->v == DT_XR ? pas_xr_todouble(*d) : (double)iv, fc == 'M' ? 'F' : fc, prec, nb);
                 add = nb;
                 break;

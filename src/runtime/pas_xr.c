@@ -151,22 +151,22 @@ static DESCR_t xr_wrap(const char *t, int n, long long w) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t xr_str(long double x, long long w, long long p) {
-    int n, sig = 21, de = 0;
+    int n, sig = p < 0 && w >= 0 ? (w - 9 < 1 ? 1 : w - 9 > 20 ? 20 : (int)(w - 9)) + 1 : 21, de = 0;
     size_t pad;
     char *r;
     if (!isfinite(x)) { const char *t = isnan(x) ? "Nan" : x < 0 ? "-Inf" : "Inf"; return xr_wrap(t, (int)strlen(t), w); }
     char dg[sig + 1];
     long double ax = fabsl(x);
     if (p >= 0) {
-        if (ax != 0.0L) xr_digits(ax, sig, dg, &de);
-        if (ax != 0.0L && de + 1 + p >= sig) {
+        if (ax != 0.0L) xr_digits(ax, 21, dg, &de);
+        if (ax != 0.0L && de + 1 + p >= 21) {
             long long il = de >= 0 ? de + 1 : 1, fl = p;
             long long tot = (signbit(x) ? 1 : 0) + il + (fl > 0 ? 1 + fl : 0);
             char *o = (char *)rt_wsb_alloc((size_t)tot + 1), *q = o;
             if (signbit(x)) *q++ = '-';
             if (de < 0) *q++ = '0';
-            else for (int i = 0; i <= de; i++) *q++ = i < sig ? dg[i] : '0';
-            if (fl > 0) { *q++ = '.'; for (long long i = 0; i < fl; i++) { long long di = de >= 0 ? de + 1 + i : i - (-de - 1); *q++ = di >= 0 && di < sig ? dg[di] : '0'; } }
+            else for (int i = 0; i <= de; i++) *q++ = i < 21 ? dg[i] : '0';
+            if (fl > 0) { *q++ = '.'; for (long long i = 0; i < fl; i++) { long long di = de >= 0 ? de + 1 + i : i - (-de - 1); *q++ = di >= 0 && di < 21 ? dg[di] : '0'; } }
             *q = '\0';
             return xr_wrap(o, (int)tot, w);
         }
@@ -282,6 +282,8 @@ long double pas_xr_un_ld(long long op, long double x) { return xr_un(op, x); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long double pas_xr_bin_ld(long long op, long double x, long double y) { return xr_bin(op, x, y); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_xr_str_d(DESCR_t d, long long w, long long p) { return xr_str(xr_get(d), w, p); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);
 DESCR_t pas_xr_cvt_d(DESCR_t *a, int n) { DESCR_t o = INTVAL(0); pas_xr_dispatch(0, a, n, &o); return o; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -351,7 +353,7 @@ int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out) {
         }
     }
     if (fam == 3) { xr_chk(op, x); *out = xr_pack(xr_un(op, x)); return 1; }
-    if (fam == 4) { *out = xr_str(x, n > 2 && a[2].v == DT_I ? a[2].i : 0, n > 3 && a[3].v == DT_I ? a[3].i : -1); return 1; }
+    if (fam == 4) { *out = xr_str(x, n > 2 && a[2].v == DT_I ? a[2].i : -1, n > 3 && a[3].v == DT_I ? a[3].i : -1); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

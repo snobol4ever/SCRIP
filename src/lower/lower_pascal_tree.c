@@ -777,7 +777,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 ast_push(xs, leaf_s(TT_VAR, "__pas_xr_str"));
                 ast_push(xs, ilit(0));
                 ast_push(xs, v);
-                ast_push(xs, w && w->t == TT_ILIT && w->v.ival < 0 ? ilit(0) : w);
+                ast_push(xs, w && w->t == TT_ILIT && w->v.ival < 0 ? ilit(-1) : w);
                 ast_push(xs, p);
                 return mk_assign(dst, xs);
             }
@@ -1449,7 +1449,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     ast_push(_xs, leaf_s(TT_VAR, "__pas_xr_str"));
                     ast_push(_xs, ilit(0));
                     ast_push(_xs, val);
-                    ast_push(_xs, wid->t == TT_ILIT && wid->v.ival < 0 ? ilit(0) : wid);
+                    ast_push(_xs, wid->t == TT_ILIT && wid->v.ival < 0 ? ilit(-1) : wid);
                     ast_push(_xs, ilit(-1));
                     val = _xs;
                     wid = ilit(-1);

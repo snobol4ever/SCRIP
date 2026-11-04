@@ -224,26 +224,26 @@ DESCR_t neg(DESCR_t a) {
 DESCR_t pos(DESCR_t a) { if (IS_FAIL(a)) return FAILDESCR; if (IS_INT(a)) return a; if (IS_REAL(a)) return a; return INTVAL(to_int(a)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lt(DESCR_t a, DESCR_t b) {
-    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(8, a, b, &_x)) return (int)_x.i; }
     if (IS_INT(a) && IS_INT(b)) return a.i < b.i;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(8, a, b, &_x)) return (int)_x.i; }
     return to_real(a) < to_real(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int le(DESCR_t a, DESCR_t b) {
-    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(9, a, b, &_x)) return (int)_x.i; }
     if (IS_INT(a) && IS_INT(b)) return a.i <= b.i;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(9, a, b, &_x)) return (int)_x.i; }
     return to_real(a) <= to_real(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gt(DESCR_t a, DESCR_t b) {
-    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(10, a, b, &_x)) return (int)_x.i; }
     if (IS_INT(a) && IS_INT(b)) return a.i > b.i;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(10, a, b, &_x)) return (int)_x.i; }
     return to_real(a) > to_real(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ge(DESCR_t a, DESCR_t b) {
-    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(11, a, b, &_x)) return (int)_x.i; }
     if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(11, a, b, &_x)) return (int)_x.i; }
     return to_real(a) >= to_real(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
