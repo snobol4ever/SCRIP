@@ -38,7 +38,6 @@ typedef struct {
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
-static int pas_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 extern void global_register(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }
@@ -762,7 +761,7 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     ir_operand_push(inc_op, one);
     ir_operand_push(inc_asn, inc_op);
     IR_t * cont = iv;
-    if (pas_trace_wanted()) {
+    {
         IR_t * xt = build(cx, IR_BINOP_TEST, out, iv);
         IR_LIT(xt).ival = is_downto ? 6 : 8;
         IR_t * xi = lower_var(cx, vname, NULL, ω);
