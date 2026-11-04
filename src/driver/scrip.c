@@ -491,7 +491,8 @@ static const char *why_fmt(const char *fmt, ...) {
 }
 static int m4_icn_name_tables_data(int i, IR_graph_t *g);
 static int m4_icn_meta_present(stage2_t *s2);
-static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g);
+static int m4_icn_loc_row_wanted(IR_graph_t *g);
+static void m4_icn_loc_row(int i, const char *namelbl, IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable(stage2_t *s2, const char **why) { return graph_native_emittable_mode(s2, 0, why); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -938,6 +939,9 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
         emit_textf("%s:\n", mi_name);
         emit_textf("  sub rsp, 8\n");
+        int icn_ngn = 0, icn_root_row = 0;
+        char icn_loc_row[n_procs + 1];
+        memset(icn_loc_row, 0, sizeof icn_loc_row);
         {
             extern int dat_type_count(void);
             extern const char *dat_type_name(int);
@@ -1333,6 +1337,10 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
         {
             extern int rt_icn_global_count(void);
             extern const char *rt_icn_global_name(int);
+            extern void rt_icn_global_note(const char *);
+            extern const char ** lc_global_names(void);
+            extern int lc_global_count(void);
+            if (rt_icn_global_count() > 0) for (int _gi = 0; _gi < lc_global_count(); _gi++) if (lc_global_names()[_gi]) rt_icn_global_note(lc_global_names()[_gi]);
             int _gn = rt_icn_global_count();
             if (_gn > 0) {
                 emit_textf("  .section .rodata\n");
@@ -1343,8 +1351,11 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     x86_asm_str_escape_c(_gnk, _e, sizeof _e);
                     emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e);
                 }
+                emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .balign 8\n  .quad %llu\n  .quad %llu\n  .quad 0\n  .quad 0\n  .Lstartup_gnames:\n", (unsigned long long)CT_MAGIC_BIG,
+                    (unsigned long long)(CT_ALIGN + 8 * (size_t)_gn));
+                for (int _k = 0; _k < _gn; _k++) emit_textf("  .quad .Lstartup_ign%d\n", _k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                for (int _k = 0; _k < _gn; _k++) emit_textf("  lea rdi, [rip + .Lstartup_ign%d]\n  call rt_icn_global_note@PLT\n", _k);
+                icn_ngn = _gn;
             }
         }
         {
@@ -1355,7 +1366,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootnm: .string \"main\"\n");
                 m4_icn_name_tables_data(9000, _rg);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
+                icn_root_row = m4_icn_loc_row_wanted(_rg);
             }
         }
         int last_static = -1;
@@ -1449,7 +1460,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     emit_textf("  .intel_syntax noprefix\n");
                     emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
                     emit_textf("  call rt_proc_register_rec@PLT\n");
-                    { char _nl[64]; snprintf(_nl, sizeof _nl, ".Lstartup_pname%d", i); m4_icn_name_tables_calls(i, _nl, _ig); }
+                    icn_loc_row[i] = (char)m4_icn_loc_row_wanted(_ig);
                     {
                         extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *);
                         int _gpi = proc_pidx_buf[i];
@@ -1583,8 +1594,27 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
             }
         }
+        int icn_nrows = icn_root_row;
+        for (int i = 0; i < n_procs; i++) icn_nrows += icn_loc_row[i];
+        if (icn_ngn > 0 || icn_nrows > 0) {
+            emit_textf("  %s\n  mov esi, %d\n  %s\n  mov ecx, %d\n", icn_ngn > 0 ? "lea rdi, [rip + .Lstartup_gnames]" : "xor edi, edi", icn_ngn,
+                icn_nrows > 0 ? "lea rdx, [rip + .Lstartup_icn_loc]" : "xor edx, edx", icn_nrows);
+            emit_textf("  call rt_icn_tabs_install@PLT\n");
+        }
         emit_textf("  add rsp, 8\n");
         emit_textf("  ret\n");
+        if (icn_nrows > 0) {
+            emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .balign 8\n  .quad %llu\n  .quad %llu\n  .quad 0\n  .quad 0\n  .Lstartup_icn_loc:\n", (unsigned long long)CT_MAGIC_BIG,
+                (unsigned long long)(CT_ALIGN + 48 * (size_t)icn_nrows));
+            if (icn_root_row) { int _mx = polyglot_main_bb_idx(s2); m4_icn_loc_row(9000, ".Lstartup_rootnm", s2->bbp.table[_mx]); }
+            for (int i = 0; i < n_procs; i++) {
+                ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
+                char _nl[64];
+                snprintf(_nl, sizeof _nl, ".Lstartup_pname%d", i);
+                if (icn_loc_row[i]) m4_icn_loc_row(i, _nl, s2->bbp.table[pe->bb_idx]);
+            }
+            emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1630,16 +1660,14 @@ static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
     }
     return has_p;
 }
-static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g) {
-    if (!g || !g->cell_frame) return;
+static int m4_icn_loc_row_wanted(IR_graph_t *g) { return g && g->cell_frame && ((g->pnames && g->nparams > 0) || (g->lnames && g->nlocals > 0)); }
+static void m4_icn_loc_row(int i, const char *namelbl, IR_graph_t *g) {
     int hp = (g->pnames && g->nparams > 0), hl = (g->lnames && g->nlocals > 0);
-    if (!hp && !hl) return;
-    emit_textf("  lea rdi, [rip + %s]\n", namelbl);
-    if (hp) emit_textf("  lea rsi, [rip + .Lstartup_ipnames%d]\n  mov edx, %d\n", i, g->nparams);
-    else emit_textf("  xor esi, esi\n  xor edx, edx\n");
-    if (hl) emit_textf("  lea rcx, [rip + .Lstartup_ilnames%d]\n  mov r8d, %d\n  lea r9, [rip + .Lstartup_iloffs%d]\n", i, g->nlocals, i);
-    else emit_textf("  xor ecx, ecx\n  xor r8d, r8d\n  xor r9d, r9d\n");
-    emit_textf("  call rt_proc_loc_add@PLT\n");
+    emit_textf("  .quad %s\n", namelbl);
+    if (hl) emit_textf("  .quad .Lstartup_ilnames%d\n  .long %d\n  .long 0\n  .quad .Lstartup_iloffs%d\n", i, g->nlocals, i);
+    else emit_textf("  .quad 0\n  .long 0\n  .long 0\n  .quad 0\n");
+    if (hp) emit_textf("  .quad .Lstartup_ipnames%d\n  .long %d\n  .long 0\n", i, g->nparams);
+    else emit_textf("  .quad 0\n  .long 0\n  .long 0\n");
 }
 static void icn_register_locals(const char *pname, IR_graph_t *g) {
     extern void rt_proc_set_locals(const char *, const char **, int);

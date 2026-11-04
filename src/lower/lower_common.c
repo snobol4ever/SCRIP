@@ -300,8 +300,12 @@ int lc_global_count(void) { return g_lower.lc.global_count; }
 void global_reset(void) { gset_reset(&g_lower.lc.gnames); g_lower.lc.global_count = 0; }
 void global_register_copy(const char * name) { if (name && !gset_has(&g_lower.lc.gnames, name)) global_register(lp_strdup(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-RT_ENTRY_DECL(rt_icn_global_note, leaf, 0);
 void rt_icn_global_note(const char * name) { extern int rt_sc_module_busy(void); if (name && name[0] && !rt_sc_module_busy()) gset_add(&g_lower.lc.icn_gnames, name); }
+void rt_icn_global_install(const char * const * names, int n) {
+    cv_t * v = &g_lower.lc.icn_gnames.v;
+    if (v->len == 0) { v->p = (void *) names; v->len = (uint32_t) n; v->cap = (uint32_t) n; v->esz = (uint32_t) sizeof(const char *); return; }
+    for (int i = 0; i < n; i++) gset_add(&g_lower.lc.icn_gnames, names[i]);
+}
 int rt_icn_global_count(void) { return (int) g_lower.lc.icn_gnames.v.len; }
 const char * rt_icn_global_name(int k) { return (k >= 0 && (uint32_t) k < g_lower.lc.icn_gnames.v.len) ? CV_AT(g_lower.lc.icn_gnames.v, const char *, k) : (const char *) 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

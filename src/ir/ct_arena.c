@@ -8,11 +8,9 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#define CT_ALIGN ((size_t)32)
 #define CT_MIN_CLASS ((size_t)16)
 #define CT_CHUNK ((size_t)1 << 22)
 #define CT_MAGIC_BIN ((uint64_t)0x4354424c4f434b31ULL)
-#define CT_MAGIC_BIG ((uint64_t)0x4354424c4f434b32ULL)
 typedef struct ct_head { uint64_t magic; uint64_t size; struct ct_head *next; uint64_t pad; } ct_head_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_page(void) { long p = sysconf(_SC_PAGESIZE); return p > 0 ? (size_t)p : (size_t)4096; }

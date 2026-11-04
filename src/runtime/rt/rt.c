@@ -762,7 +762,6 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     int k0 = names ? 0 : n;
     while (k0 < n && !names[k0]) k0++;
     { extern long rt_sc_gva_reserve(void); extern void rt_sxt_gva_lo(int, int); long r = rt_sc_gva_reserve(); rt_sxt_gva_lo(g_runtime.misc.sc_mod.d ? 0 : (int)(r < k0 ? r : k0), 1); }
-    { extern void rt_icn_global_note(const char *); for (int k = k0; k < n; k++) if (names[k]) rt_icn_global_note(names[k]); }
     for (int k = k0; k < n; k++) { const char *nm = names[k]; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     {
         extern int rt_is_reassigned_builtin(const char *);
@@ -1006,10 +1005,21 @@ void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) 
     { int i = ploc_find(name); if (i >= 0) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_runtime.rt.proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; }
 }
-RT_ENTRY_DECL(rt_proc_loc_add, leaf, 0);
-void rt_proc_loc_add(const char *name, const char **pnames, int nparams, const char **lnames, int nlocals, const int *loffs) {
-    if (!name) return;
-    { rt_proc_loc_t *e = &CV_PUSH(g_runtime.rt.proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; e->lnames = lnames; e->nlocals = nlocals; e->loffs = loffs; }
+_Static_assert(sizeof(rt_proc_loc_t) == 48 && __builtin_offsetof(rt_proc_loc_t, nlocals) == 16 && __builtin_offsetof(rt_proc_loc_t, loffs) == 24 && __builtin_offsetof(rt_proc_loc_t, nparams) == 40,
+    "the emitted .Lstartup_icn_loc rows are 48 bytes: name lnames nlocals(+4) loffs pnames nparams(+4)");
+RT_ENTRY_DECL(rt_icn_tabs_install, leaf, 0);
+void rt_icn_tabs_install(const char *const *names, int nnames, const rt_proc_loc_t *rows, int nrows) {
+    extern void rt_icn_global_install(const char *const *, int);
+    if (names && nnames > 0) rt_icn_global_install(names, nnames);
+    if (!rows || nrows <= 0) return;
+    if (g_runtime.rt.proc_loc.len == 0) {
+        g_runtime.rt.proc_loc.p = (void *)rows;
+        g_runtime.rt.proc_loc.len = (uint32_t)nrows;
+        g_runtime.rt.proc_loc.cap = (uint32_t)nrows;
+        g_runtime.rt.proc_loc.esz = (uint32_t)sizeof(rt_proc_loc_t);
+        return;
+    }
+    for (int i = 0; i < nrows; i++) CV_PUSH(g_runtime.rt.proc_loc, rt_proc_loc_t) = rows[i];
 }
 const char *rt_proc_loc_pname(const char *name, int k) {
     if (!name || k < 0) return (const char *)0;
