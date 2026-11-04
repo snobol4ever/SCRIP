@@ -829,6 +829,7 @@ static void pc_block_syms(pc_ctx *x, tree_t *b) {
             if (pc_eq(pc_sv(p), "type") && d->n >= 2) {
                 pc_class *c = PC_IS(d->c[1], TT_CLASS_DECL) ? pc_class_named(x, pc_sv(d->c[0])) : NULL;
                 if (c || PC_IS(d->c[1], TT_CLASS_DECL)) { pc_sym_add(x, pc_sv(d->c[0]), 'k', NULL, c); continue; }
+                if (PC_IS(d->c[1], TT_VAR)) { pc_class *al = pc_class_named(x, pc_sv(d->c[1])); if (al) { pc_sym_add(x, pc_sv(d->c[0]), 'k', NULL, al); continue; } }
                 pc_sym_add(x, pc_sv(d->c[0]), 't', d->c[1], NULL);
             } else if (pc_eq(pc_sv(p), "var") && PC_IS(d->c[0], TT_VLIST)) {
                 for (int k = 0; k < d->c[0]->n; k++) pc_sym_add(x, pc_sv(d->c[0]->c[k]), 'v', d->n > 1 ? d->c[1] : NULL, NULL);

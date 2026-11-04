@@ -4972,7 +4972,7 @@ DESCR_t rt_pl_dop_ax_exp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fip(DESCR_t *, in
     int); DESCR_t rt_pl_dop_ax_e(DESCR_t *, int);
 }
 extern "C" {
-DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int); DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
+DESCR_t pas_xr_ev_d(DESCR_t *, int); DESCR_t pas_xr_cvt_d(DESCR_t *, int); DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int); DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
 DESCR_t rt_pas_ln(DESCR_t *, int); DESCR_t rt_pas_arctan(DESCR_t *, int); DESCR_t rt_pas_sqr(DESCR_t *, int);
 DESCR_t rt_rk_arr_at(DESCR_t *, int); DESCR_t rt_rk_arr_set(DESCR_t *, int); DESCR_t rt_rk_elem_put(DESCR_t *, int);
 DESCR_t rt_rk_param_check(DESCR_t *, int); DESCR_t rt_rk_assign_check(DESCR_t *, int); DESCR_t rt_rk_bindattr(DESCR_t *, int); DESCR_t rt_rk_box(DESCR_t *, int); DESCR_t rt_rk_blk_ref(DESCR_t *, int);
@@ -5197,7 +5197,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "__pas_iand", 2, "rt_iand_d", rt_iand_d }, { "__pas_ior", 2, "rt_ior_d", rt_ior_d }, { "__pas_ixor", 2, "rt_ixor_d", rt_ixor_d }, { "__pas_ishift", 2, "rt_ishift_d", rt_ishift_d },
         { "__pas_elem_ref", 3, "pas_elem_ref", pas_elem_ref }, { "__pas_ref_val", 1, "pas_ref_val", pas_ref_val },
         { "__pas_view", 4, "pas_view_make", pas_view_make },
-        { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
+        { "__pas_xr_ev", -1, "pas_xr_ev_d", pas_xr_ev_d }, { "__pas_xr_cvt", -1, "pas_xr_cvt_d", pas_xr_cvt_d }, { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
         { "__pas_exp", 1, "rt_pas_exp", rt_pas_exp }, { "__pas_sqrt", 1, "rt_pas_sqrt", rt_pas_sqrt }, { "__pas_ln", 1, "rt_pas_ln", rt_pas_ln }, { "__pas_arctan", 1, "rt_pas_arctan", rt_pas_arctan },
         { "__pas_sqr", 1, "rt_pas_sqr", rt_pas_sqr },
         { "__rk_arr_at", 2, "rt_rk_arr_at", rt_rk_arr_at }, { "__rk_arr_set", 3, "rt_rk_arr_set", rt_rk_arr_set }, { "__rk_elem_put", 4, "rt_rk_elem_put", rt_rk_elem_put },

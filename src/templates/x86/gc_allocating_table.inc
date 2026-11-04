@@ -977,6 +977,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_rpatch", GC_RET_DESCR },
     { "pas_stdout_fh", GC_RET_OTHER },
     { "pas_str_setch", GC_RET_DESCR },
+    { "pas_strhlp_eval", GC_RET_OTHER },
     { "pas_strview_store", GC_RET_VOID },
     { "pas_tf_read", GC_RET_OTHER },
     { "pas_tf_set", GC_RET_VOID },
@@ -990,6 +991,14 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_wput", GC_RET_VOID },
     { "pas_write_items", GC_RET_VOID },
     { "pas_writestr", GC_RET_DESCR },
+    { "pas_xr_call", GC_RET_OTHER },
+    { "pas_xr_cvt_d", GC_RET_DESCR },
+    { "pas_xr_dispatch", GC_RET_OTHER },
+    { "pas_xr_elab", GC_RET_OTHER },
+    { "pas_xr_operand", GC_RET_OTHER },
+    { "pas_xrf", GC_RET_VOID },
+    { "pas_xrf_build", GC_RET_OTHER },
+    { "pas_xrf_build_t", GC_RET_OTHER },
     { "pascal_register_program", GC_RET_VOID },
     { "pat_abort", GC_RET_DESCR },
     { "pat_alt", GC_RET_DESCR },
@@ -3223,6 +3232,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "user_op_add", GC_RET_VOID },
     { "walk_bb_node", GC_RET_OTHER },
     { "walk_bb_node_inner", GC_RET_OTHER },
+    { "xr_str", GC_RET_DESCR },
+    { "xr_wrap", GC_RET_DESCR },
 };
 #define GC_ALLOC_TAB_N ((int)(sizeof GC_ALLOC_TAB / sizeof GC_ALLOC_TAB[0]))
 #endif

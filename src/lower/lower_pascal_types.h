@@ -78,5 +78,6 @@ int pty_string_within(const tree_t *low, long long n);
 long long pty_sizeof_low(const tree_t *low);
 long long pty_sizeof_flat(const pty_t *t);
 long long pty_sizeof_name(const char *name);
+int pty_real_rank(const pty_t *t);
 void lower_pascal_dump_types_on(void);
 #endif

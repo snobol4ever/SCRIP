@@ -7331,6 +7331,8 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SP_NPROP 15
+int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);
+double pas_xr_todouble(DESCR_t d);
 void pas_file_err(const char *clause, const char *what, const char *proc) {
     fflush(stdout);
     fprintf(stderr, "scrip: pascal runtime error: ISO 7185 %s: %s", clause ? clause : "", what ? what : "");
@@ -18860,7 +18862,13 @@ static size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, s
                 case 'G':
                 case 'N':
                 case 'M':
-                pas_fmt_float(isreal ? d->r : (double)iv, fc == 'M' ? 'F' : fc, prec, nb);
+                if (d && d->v == DT_XR && (fc == 'F' || fc == 'M')) {
+                    extern void pas_xr_fixed(DESCR_t, int, char *, size_t);
+                    pas_xr_fixed(*d, prec < 0 ? 2 : prec, nb, (size_t)nbcap);
+                    add = nb;
+                    break;
+                }
+                pas_fmt_float(isreal ? d->r : d && d->v == DT_XR ? pas_xr_todouble(*d) : (double)iv, fc == 'M' ? 'F' : fc, prec, nb);
                 add = nb;
                 break;
                 case 'S':
@@ -20658,7 +20666,7 @@ static void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start)
         } else if (IS_REAL_fn(av)) {
             char _rb[64];
             int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-            pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4);
+            pas_real_str_exp(w == -5 ? (double)(float)av.r : av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4 || w == -5);
             int _pfmtlen = (int)strlen(_rb);
             int _signpad = (_rb[0] == '-') ? 0 : 1;
             int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
@@ -20739,6 +20747,24 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         return pas_pview(args, nargs);
         case PBI_pstrview:
         return pas_pstrview(args, nargs);
+        case PBI_xr_cvt:
+        if (pas_xr_dispatch(0, args, nargs, &out)) return out;
+        break;
+        case PBI_xr_bin:
+        if (pas_xr_dispatch(1, args, nargs, &out)) return out;
+        break;
+        case PBI_xr_cmp:
+        if (pas_xr_dispatch(2, args, nargs, &out)) return out;
+        break;
+        case PBI_xr_ev:
+        if (pas_xr_dispatch(5, args, nargs, &out)) return out;
+        break;
+        case PBI_xr_un:
+        if (pas_xr_dispatch(3, args, nargs, &out)) return out;
+        break;
+        case PBI_xr_str:
+        if (pas_xr_dispatch(4, args, nargs, &out)) return out;
+        break;
         case PBI_chr:
         if (pas_bi_chr(args, nargs, &out)) return out;
         break;
@@ -21374,6 +21400,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0, int num_text) {
     if (IS_FAIL_fn(lhs) || IS_FAIL_fn(rhs)) return 0;
+    if (lhs.v == DT_XR || rhs.v == DT_XR) { extern int pas_xr_binop(int, DESCR_t, DESCR_t, DESCR_t *); DESCR_t _xo; if (pas_xr_binop(op, lhs, rhs, &_xo)) return (int)_xo.i; }
     if (op == BINOP_EQV || op == BINOP_NEQV) return (op == BINOP_EQV) ? bn_identical(lhs, rhs) : !bn_identical(lhs, rhs);
     if (rk_match_is(lhs)) lhs = FIELD_GET_fn(lhs, "text");
     if (rk_match_is(rhs)) rhs = FIELD_GET_fn(rhs, "text");
@@ -22100,6 +22127,7 @@ static int bn_identical(DESCR_t a, DESCR_t b) {
     if (a.v == DT_I) return a.i == b.i;
     if (a.v == DT_R) return a.r == b.r;
     if (a.v == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(a, b); }
+    if (a.v == DT_XR) return 0;
     if (a.v != DT_S) return a.ptr == b.ptr;
     int acs = (a.slen == 0xFFFFFFFFu), bcs = (b.slen == 0xFFFFFFFFu);
     if (acs || bcs) { const char *ca, *cb; int la, lb; return acs && bcs && cset_resolve(a, &ca, &la) && cset_resolve(b, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }

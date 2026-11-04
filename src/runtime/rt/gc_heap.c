@@ -2174,7 +2174,7 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     g_runtime.gc.gc_spine_recn++;
 }
 #endif
-static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_RAW) || v == DT_PLATOM || v == DT_PCELL; }
+static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_RAW) || v == DT_PLATOM || v == DT_PCELL || v == DT_XR; }
 #if RT_DIAG
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h) {
     if (!gc_maps_on()) return;

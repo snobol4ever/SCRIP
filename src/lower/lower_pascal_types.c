@@ -25,7 +25,7 @@ struct pty_state {
     pty_t **pend;
     int npend, cpend;
     long *stats;
-    pty_t *tint, *tchar, *tbool, *treal, *tsingle, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
+    pty_t *tint, *tchar, *tbool, *treal, *tsingle, *textended, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
 static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
 static void pt_prag_apply(struct pty_state *s, pty_t *t, const tree_t *n);
@@ -482,7 +482,7 @@ static pty_t *pt_ident(struct pty_state *s, const char *nm) {
     if (!strcmp(nm, "true") || !strcmp(nm, "false")) return s->tbool;
     if (!strcmp(nm, "nil")) return s->tnil;
     if (!strcmp(nm, "maxint") || !strcmp(nm, "maxlongint") || !strcmp(nm, "maxsmallint") || !strcmp(nm, "paramcount")) return s->tint;
-    if (!strcmp(nm, "pi")) return s->treal;
+    if (!strcmp(nm, "pi")) return s->textended;
     if (!strcmp(nm, "input") || !strcmp(nm, "output") || !strcmp(nm, "stdout") || !strcmp(nm, "stderr") || !strcmp(nm, "erroutput")) return s->ttext;
     if (!strcmp(nm, "eof") || !strcmp(nm, "eoln")) return s->tbool;
     if (!strcmp(nm, "random")) return s->treal;
@@ -535,7 +535,8 @@ static pty_t *pt_routine_result(struct pty_state *s, const char *nm, int *found)
 }
 static pty_t *pt_builtin_call(struct pty_state *s, const char *f, const tree_t *n) {
     static const char *const toint[] = { "ord", "length", "pos", "round", "trunc", "sizeof", "ioresult", "paramcount", "strtoint", "bitsizeof", "ord64", "lo", "hi", 0 };
-    static const char *const toreal[] = { "sqrt", "sin", "cos", "arctan", "exp", "ln", "frac", "int", "pi", "tan", "arcsin", "arccos", "arctan2", "hypot", "power", "log10", "log2", "logn", 0 };
+    static const char *const toreal[] = { "sqrt", "sin", "cos", "arctan", "exp", "ln", "frac", "int", "pi", "tan", "arcsin", "arccos", "arctan2", "hypot", "power", "log10", "log2", "logn", "sinh",
+        "cosh", "tanh", "degtorad", "radtodeg", "cot", "cotan", 0 };
     static const char *const tostr[] = { "copy", "concat", "stringofchar", "format", "paramstr", "space", "dupestring", "inttostr", "trim", "trimleft", "trimright", "reversestring", 0 };
     static const char *const tobool[] = { "odd", "eof", "eoln", "assigned", "seekeof", "seekeoln", 0 };
     static const char *const same[] = { "abs", "sqr", "succ", "pred", "min", "max", 0 };
@@ -544,7 +545,19 @@ static pty_t *pt_builtin_call(struct pty_state *s, const char *f, const tree_t *
     const pty_t *a1 = n->n >= 2 ? pt_of_src_mut(s, n->c[1]) : NULL;
     int na = n->n - 1;
     if (pt_in(f, toint)) return s->tint;
-    if (pt_in(f, toreal)) return s->treal;
+    if (pt_in(f, toreal)) {
+        static const char *const keep[] = { "sqrt", 0 };
+        if (pt_in(f, keep)) {
+            double cx = 0;
+            if (a1 && a1->k == PTK_REAL && n->n == 2 && !ps_find_kind(s, f, 'f') && pt_rconst(s, n->c[1], &cx) && cx >= 0) {
+                long double cv = sqrtl((long double)cx);
+                if ((long double)(double)cv != cv) return s->textended;
+            }
+            return a1 && a1->k == PTK_REAL ? (pty_t *)a1 : s->textended;
+        }
+        if (!strcmp(f, "random")) return s->treal;
+        return s->textended;
+    }
     if (pt_in(f, tostr)) return s->tstr;
     if (pt_in(f, tobool)) return s->tbool;
     if (pt_in(f, tovoid)) return s->tvoid;
@@ -602,6 +615,20 @@ static pty_t *pt_catbound(struct pty_state *s, const pty_t *a, const pty_t *b) {
     t->cap = cap;
     return t;
 }
+int pty_real_rank(const pty_t *t) {
+    if (!t || t->k != PTK_REAL || !t->name) return -1;
+    if (!strcmp(t->name, "extended") || !strcmp(t->name, "valreal")) return 2;
+    return !strcmp(t->name, "single") ? 0 : 1;
+}
+static pty_t *pt_flit_type(struct pty_state *s, const tree_t *n) {
+    const char *tx = n->n > 0 && PT_IS(n->c[0], TT_QLIT) ? n->c[0]->v.sval : NULL;
+    double d = n->v.dval;
+    if (!tx || !*tx || !isfinite(d)) return s->treal;
+    long double e = strtold(tx, NULL);
+    if (e == (long double)(float)d) return s->treal;
+    return e == (long double)d ? s->treal : s->textended;
+}
+static pty_t *pt_real_join(struct pty_state *s, const pty_t *a, const pty_t *b) { if (pty_real_rank(a) == 2 || pty_real_rank(b) == 2) return s->textended; return s->treal; }
 static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {
     const pty_t *a = pt_expr(s, n->c[0]), *b = pt_expr(s, n->c[1]);
     if (!a || !b) return NULL;
@@ -609,7 +636,7 @@ static pty_t *pt_arith(struct pty_state *s, const tree_t *n) {
     if (n->t == TT_ADD && (a->k == PTK_STRING || b->k == PTK_STRING)) return pt_catbound(s, a, b);
     if (n->t == TT_ADD && a->k == PTK_CHAR && b->k == PTK_CHAR) return s->fpc ? pt_strbound(2) : NULL;
     if (a->k == PTK_POINTER && b->k == PTK_INT) return (pty_t *)a;
-    if (a->k == PTK_REAL || b->k == PTK_REAL) return (a->k == PTK_REAL || a->k == PTK_INT) && (b->k == PTK_REAL || b->k == PTK_INT) ? s->treal : NULL;
+    if (a->k == PTK_REAL || b->k == PTK_REAL) return (a->k == PTK_REAL || a->k == PTK_INT) && (b->k == PTK_REAL || b->k == PTK_INT) ? pt_real_join(s, a, b) : NULL;
     if (a->k == PTK_INT && b->k == PTK_INT) return (a->uns || b->uns) ? s->tqword : s->tint;
     return NULL;
 }
@@ -618,7 +645,7 @@ static pty_t *pt_expr1(struct pty_state *s, const tree_t *n) {
         case TT_ILIT:
         return s->tint;
         case TT_FLIT:
-        return s->treal;
+        return pt_flit_type(s, n);
         case TT_QLIT:
         return (n->v.sval && strlen(n->v.sval) == 1) ? s->tchar : pt_strbound(n->v.sval ? (long long)strlen(n->v.sval) : 0);
         case TT_CHRLIT:
@@ -644,8 +671,7 @@ static pty_t *pt_expr1(struct pty_state *s, const tree_t *n) {
         case TT_MUL:
         return n->n == 2 ? pt_arith(s, n) : NULL;
         case TT_DIV:
-        if (n->n == 2) { pt_expr(s, n->c[0]); pt_expr(s, n->c[1]); }
-        return s->treal;
+        { const pty_t *a = n->n == 2 ? pt_expr(s, n->c[0]) : NULL, *b = n->n == 2 ? pt_expr(s, n->c[1]) : NULL; return pt_real_join(s, a, b); }
         case TT_IDIV:
         case TT_MOD:
         { const pty_t *a = n->n == 2 ? pt_expr(s, n->c[0]) : NULL; if (n->n == 2) pt_expr(s, n->c[1]); return (a && a->uns) ? s->tqword : s->tint; }
@@ -894,6 +920,7 @@ void pty_run(tree_t *prog, int fpc) {
     s->tbool = pt_ord(PTK_BOOL, "boolean", 0, 1);
     s->treal = pt_new(PTK_REAL, "real");
     s->tsingle = pt_new(PTK_REAL, "single");
+    s->textended = pt_new(PTK_REAL, "extended");
     s->tstr = pt_new(PTK_STRING, "string");
     s->tshort = pt_new(PTK_STRING, "shortstring");
     s->tshort->strmax = 255;

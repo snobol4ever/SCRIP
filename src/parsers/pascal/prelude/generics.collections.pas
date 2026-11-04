@@ -131,6 +131,7 @@ type
     function Remove(const __sh_v: T): Integer;
     procedure Clear;
     procedure Reverse;
+    procedure Sort;
     function First: T;
     function Last: T;
     function GetEnumerator: specialize TEnumList<T>;
@@ -617,6 +618,19 @@ begin
     t := __sh_a[i];
     __sh_a[i] := __sh_a[__sh_n - 1 - i];
     __sh_a[__sh_n - 1 - i] := t;
+  end;
+end;
+procedure TList.Sort;
+var i, j: Integer; t: T;
+begin
+  for i := 1 to __sh_n - 1 do begin
+    t := __sh_a[i];
+    j := i - 1;
+    while (j >= 0) and (__sh_a[j] > t) do begin
+      __sh_a[j + 1] := __sh_a[j];
+      j := j - 1;
+    end;
+    __sh_a[j + 1] := t;
   end;
 end;
 function TList.First: T;

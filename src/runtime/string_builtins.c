@@ -177,6 +177,8 @@ int ident(DESCR_t a, DESCR_t b) {
         return a.r == b.r;
         case DT_DATA:
         return a.slen == b.slen && a.u == b.u;
+        case DT_XR:
+        return a.slen == b.slen && a.i == b.i;
         default:
         return a.ptr == b.ptr;
     }

@@ -285,6 +285,14 @@ static int pascal_gen_follows(const char *q) {
 }
 static int pascal_generic_keyword(const char *w, int peek, const char *rest) {
     int d = pascal_dialect();
+    while (peek == '{' && rest) {
+        const char *e = strchr(rest, '}');
+        if (!e) break;
+        rest = e + 1;
+        while (*rest == ' ' || *rest == '\t' || *rest == '\n' || *rest == '\r') rest++;
+        peek = (unsigned char)*rest;
+        if (*rest) rest++;
+    }
     if ((d != PAS_DIALECT_OBJFPC && d != PAS_DIALECT_DELPHI) || !(isalpha(peek) || peek == '_')) return 0;
     if (!strcasecmp(w, "specialize")) return SPECIALIZESY;
     if (strcasecmp(w, "generic")) return 0;
@@ -457,8 +465,8 @@ ALNUM    [A-Za-z0-9_]
 "and"                   { return ANDOP; }
 "or"                    { return OROP; }
 "in"                    { return INOP; }
-{DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?   { double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
-{DIGIT}+[eE][+-]?{DIGIT}+                 { double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
+{DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?   { double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; { tree_t *_q = pascal_leaf(TT_QLIT); _q->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); ast_push(pascal_yylval.node, _q); } return REALCONST; }
+{DIGIT}+[eE][+-]?{DIGIT}+                 { double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; { tree_t *_q = pascal_leaf(TT_QLIT); _q->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); ast_push(pascal_yylval.node, _q); } return REALCONST; }
 {DIGIT}+                { long long _i = pascal_int_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_ILIT); pascal_yylval.node->v.ival = _i; return INTCONST; }
 {DIGIT}+{ALPHA}{ALNUM}* { int nd = 0; while (isdigit((unsigned char)pascal_yytext[nd])) nd++;
                           fprintf(stderr, "pascal: ISO 7185 6.1.8 violation line %d: the unsigned-number '%.*s' is directly followed by '%s' -- a separator shall occur between them\n",

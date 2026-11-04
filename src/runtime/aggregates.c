@@ -249,6 +249,7 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
         case DT_T:
         return e->key_descr.tbl == k.tbl;
         case DT_DATA:
+        case DT_XR:
         return e->key_descr.slen == k.slen && e->key_descr.u == k.u;
         case DT_BIG:
         { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }

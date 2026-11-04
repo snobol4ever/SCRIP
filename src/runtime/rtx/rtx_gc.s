@@ -1463,6 +1463,8 @@ RTX_ENDF(rt_gc_mark_run)
 .byte 1
 .org .Lmk_known + DT_PCELL
 .byte 1
+.org .Lmk_known + DT_XR
+.byte 1
 .org .Lmk_known + 256
 .text
 .macro GC_POPCNT dst, src

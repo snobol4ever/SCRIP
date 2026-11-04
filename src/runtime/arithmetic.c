@@ -153,8 +153,10 @@ void c_rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
     *out = b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int pas_xr_arith(int op, DESCR_t a, DESCR_t b, DESCR_t *out);
 DESCR_t add(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(0, a, b, &_x)) return _x; }
     if (IS_NULL(a)) a = INTVAL(0);
     if (IS_NULL(b)) b = INTVAL(0);
     a = coerce_numeric(a);
@@ -165,6 +167,7 @@ DESCR_t add(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t sub(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(1, a, b, &_x)) return _x; }
     if (IS_NULL(a)) a = INTVAL(0);
     if (IS_NULL(b)) b = INTVAL(0);
     a = coerce_numeric(a);
@@ -175,6 +178,7 @@ DESCR_t sub(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t mul(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(2, a, b, &_x)) return _x; }
     a = coerce_numeric(a);
     b = coerce_numeric(b);
     if (IS_INT(a) && IS_INT(b)) return INTVAL(a.i * b.i);
@@ -183,6 +187,7 @@ DESCR_t mul(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DIVIDE_fn(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(3, a, b, &_x)) return _x; }
     if (IS_INT(a) && IS_INT(b)) { if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; } return INTVAL(a.i / b.i); }
     double denom = to_real(b);
     if (denom == 0.0) { core_runtime_error(2, NULL); return FAILDESCR; }
@@ -209,6 +214,7 @@ DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t neg(DESCR_t a) {
     if (IS_FAIL(a)) return FAILDESCR;
+    { DESCR_t _x; if (a.v == DT_XR && pas_xr_arith(6, a, a, &_x)) return _x; }
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (IS_INT(a)) return INTVAL(-a.i);
     if (IS_REAL(a)) return REALVAL(-a.r);
@@ -217,13 +223,29 @@ DESCR_t neg(DESCR_t a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pos(DESCR_t a) { if (IS_FAIL(a)) return FAILDESCR; if (IS_INT(a)) return a; if (IS_REAL(a)) return a; return INTVAL(to_int(a)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int lt(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i < b.i; return to_real(a) < to_real(b); }
+int lt(DESCR_t a, DESCR_t b) {
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(8, a, b, &_x)) return (int)_x.i; }
+    if (IS_INT(a) && IS_INT(b)) return a.i < b.i;
+    return to_real(a) < to_real(b);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int le(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i <= b.i; return to_real(a) <= to_real(b); }
+int le(DESCR_t a, DESCR_t b) {
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(9, a, b, &_x)) return (int)_x.i; }
+    if (IS_INT(a) && IS_INT(b)) return a.i <= b.i;
+    return to_real(a) <= to_real(b);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int gt(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i > b.i; return to_real(a) > to_real(b); }
+int gt(DESCR_t a, DESCR_t b) {
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(10, a, b, &_x)) return (int)_x.i; }
+    if (IS_INT(a) && IS_INT(b)) return a.i > b.i;
+    return to_real(a) > to_real(b);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int ge(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i >= b.i; return to_real(a) >= to_real(b); }
+int ge(DESCR_t a, DESCR_t b) {
+    { DESCR_t _x; if ((a.v == DT_XR || b.v == DT_XR) && pas_xr_arith(11, a, b, &_x)) return (int)_x.i; }
+    if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
+    return to_real(a) >= to_real(b);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op) {
     (void)ls;
@@ -591,6 +613,7 @@ static int icn_cset_operand_ok(DESCR_t v) { return IS_CSET_fn(v) || v.v == DT_S 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict);
 static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
+    if (a.v == DT_XR || b.v == DT_XR) { extern int pas_xr_binop(int, DESCR_t, DESCR_t, DESCR_t *); DESCR_t _xo; if (pas_xr_binop(op, a, b, &_xo)) return _xo; }
     core_icn_op_ctx(core_icn_binop_sym(op), 2, a, b);
     DESCR_t r = rt_num_arith_body(a, b, op, strict);
     core_icn_op_ctx_clear();

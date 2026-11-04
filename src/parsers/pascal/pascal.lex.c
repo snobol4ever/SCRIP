@@ -1608,6 +1608,14 @@ static int pascal_gen_follows(const char *q) {
 }
 static int pascal_generic_keyword(const char *w, int peek, const char *rest) {
     int d = pascal_dialect();
+    while (peek == '{' && rest) {
+        const char *e = strchr(rest, '}');
+        if (!e) break;
+        rest = e + 1;
+        while (*rest == ' ' || *rest == '\t' || *rest == '\n' || *rest == '\r') rest++;
+        peek = (unsigned char)*rest;
+        if (*rest) rest++;
+    }
     if ((d != PAS_DIALECT_OBJFPC && d != PAS_DIALECT_DELPHI) || !(isalpha(peek) || peek == '_')) return 0;
     if (!strcasecmp(w, "specialize")) return SPECIALIZESY;
     if (strcasecmp(w, "generic")) return 0;
@@ -2407,11 +2415,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 108:
 YY_RULE_SETUP
-{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
+{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; { tree_t *_q = pascal_leaf(TT_QLIT); _q->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); ast_push(pascal_yylval.node, _q); } return REALCONST; }
 	YY_BREAK
 case 109:
 YY_RULE_SETUP
-{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
+{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; { tree_t *_q = pascal_leaf(TT_QLIT); _q->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); ast_push(pascal_yylval.node, _q); } return REALCONST; }
 	YY_BREAK
 case 110:
 YY_RULE_SETUP

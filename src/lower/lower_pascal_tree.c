@@ -164,7 +164,12 @@ static tree_t *flit(double v) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = v
 static tree_t *bin(tree_e k, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(k); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *un(tree_e k, tree_t *a) { tree_t *e = ast_node_new(k); ast_push(e, a); return e; }
 static int pas_expr_is_real(tree_t *e);
-static tree_t *mk_neg(tree_t *a) { if (a && a->t == TT_FLIT) { a->v.dval = -a->v.dval; return a; } if (a && pas_expr_is_real(a)) return bin(TT_MUL, a, flit(-1.0)); return un(TT_MNS, a); }
+static char *pas_neg_text(const char *s) { size_t n = strlen(s); char *r = ct_alloc(n + 2); if (s[0] == '-') { memcpy(r, s + 1, n); return r; } r[0] = '-'; memcpy(r + 1, s, n + 1); return r; }
+static tree_t *mk_neg(tree_t *a) {
+    if (a && a->t == TT_FLIT) { a->v.dval = -a->v.dval; if (a->n > 0 && IS(a->c[0], TT_QLIT)) a->c[0]->v.sval = pas_neg_text(a->c[0]->v.sval); return a; }
+    if (a && pas_expr_is_real(a)) return bin(TT_MUL, a, flit(-1.0));
+    return un(TT_MNS, a);
+}
 static tree_t *prog_of(PNodeList *l) { tree_t *e = ast_node_new(TT_PROGRAM); if (l) for (int i = 0; i < l->count; i++) ast_push(e, l->items[i]); return e; }
 static tree_t *seq_of(PNodeList *l) { if (l && l->count == 1) return l->items[0]; tree_t *e = ast_node_new(TT_SEQ_EXPR); if (l) for (int i = 0; i < l->count; i++) ast_push(e, l->items[i]); return e; }
 static const char *map_io(const char *fn) {
@@ -312,6 +317,11 @@ static long long pas_cafield_hi_get(const tree_t *e);
 static tree_t *pas_trace_wrap_value(tree_t *val);
 static const char *pas_rectype_field_enum_by_index(const char *rn, long idx);
 static const char *pas_enumarr_get(const char *a);
+static int pas_xr_src(const tree_t *n);
+static int pas_xr_low(tree_t *e);
+static tree_t *pas_xr_operand(const tree_t *src);
+static tree_t *pas_xr_wrap(const tree_t *src, tree_t *e);
+static tree_t *pas_xr_cvtn(int kind, tree_t *x);
 static tree_t *pas_tree_clone(tree_t *e);
 static const char *pas_scalarvartype_get(const char *vn);
 static const char *pas_typealias_get(const char *n);
@@ -492,6 +502,11 @@ static int pas_expr_is_real(tree_t *e) {
     if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
         static const char *const rf[] = { "__pas_sin", "__pas_cos", "__pas_exp", "__pas_sqrt", "__pas_ln", "__pas_arctan", 0 };
         for (int i = 0; rf[i]; i++) if (!strcmp(e->c[0]->v.sval, rf[i])) return 1;
+    }
+    if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+        const char *fn = e->c[0]->v.sval;
+        if (!strcmp(fn, "__pas_xr_ev") || !strcmp(fn, "__pas_xr_un") || !strcmp(fn, "__pas_xr_bin")) return 1;
+        if (!strcmp(fn, "__pas_xr_cvt") && e->c[1] && e->c[1]->t == TT_ILIT) { long long kd = e->c[1]->v.ival; return kd <= 5 || kd == 10; }
     }
     if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL) && e->n == 2) return pas_expr_is_real(e->c[0]) || pas_expr_is_real(e->c[1]);
     if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_expr_is_real(e->c[0]);
@@ -755,6 +770,17 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         if (!strcmp(name, "stringofchar") && args && args->count >= 3) return mk_fnc2("__pas_stringofchar", args->items[0], args->items[2]);
         if (!strcmp(name, "str") && args && args->count >= 4) {
             tree_t *v = args->items[0], *w = args->items[1], *p = ilit(-1), *dst = args->items[args->count - 2];
+            if (v && IS(v, TT_FNC) && v->n >= 1 && IS(v->c[0], TT_VAR) && v->c[0]->v.sval && !strcmp(v->c[0]->v.sval, "__pas_xr_str")) return mk_assign(dst, v);
+            if (pas_xr_low(v)) {
+                if (w && w->t == TT_ILIT && w->v.ival == -3 && args->count >= 6) { w = args->items[2]; p = args->items[3]; }
+                tree_t *xs = ast_node_new(TT_FNC);
+                ast_push(xs, leaf_s(TT_VAR, "__pas_xr_str"));
+                ast_push(xs, ilit(0));
+                ast_push(xs, v);
+                ast_push(xs, w && w->t == TT_ILIT && w->v.ival < 0 ? ilit(0) : w);
+                ast_push(xs, p);
+                return mk_assign(dst, xs);
+            }
             if (w && w->t == TT_ILIT && w->v.ival == -3 && args->count >= 6) { w = args->items[2]; p = args->items[3]; }
             if (w && w->t == TT_ILIT && w->v.ival < 0 && w->v.ival != -3 && pas_is_qword(v) && v->t != TT_ILIT) return mk_assign(dst, mk_fnc1("__pas_ustr", v));
             tree_t *f = ast_node_new(TT_FNC);
@@ -1418,6 +1444,15 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     ast_push(_w, leaf_s(TT_QLIT, _fpcb ? "FALSE,TRUE" : "false,true"));
                     val = _w;
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(_fpcb ? -4 : 5);
+                } else if (pas_xr_low(val)) {
+                    tree_t *_xs = ast_node_new(TT_FNC);
+                    ast_push(_xs, leaf_s(TT_VAR, "__pas_xr_str"));
+                    ast_push(_xs, ilit(0));
+                    ast_push(_xs, val);
+                    ast_push(_xs, wid->t == TT_ILIT && wid->v.ival < 0 ? ilit(0) : wid);
+                    ast_push(_xs, ilit(-1));
+                    val = _xs;
+                    wid = ilit(-1);
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_singlevar(val->v.sval)) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5);
                 } else if (pas_is_currencyexpr(val)) {
@@ -1458,6 +1493,13 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             for (int i = 0; i < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 int _pidx = i / 2;
+                if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx)) {
+                    const pty_t *_xf = pty_formal_type(name, _pidx), *_xa = pty_of_low(val);
+                    int _fr = pty_real_rank(_xf), _ar = pty_real_rank(_xa);
+                    if (_fr == 2 && IS(val, TT_FLIT)) val = pas_xr_wrap(val, val);
+                    else if (_fr == 2 && _ar != 2 && (_ar >= 0 || (_xa && _xa->k == PTK_INT))) val = pas_xr_cvtn(2, val);
+                    else if (_fr >= 0 && _fr < 2 && _ar == 2) val = pas_xr_cvtn(_fr == 0 ? 5 : 4, val);
+                }
                 {
                     long long _rd[4];
                     if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx) && pas_row_designator(val, _rd)) val = mk_row_call("__pas_row_get", val, _rd, NULL);
@@ -4412,6 +4454,7 @@ static const char *pas_ov_argtype(tree_t *e) {
     if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_ov_arith(e);
     if (pas_expr_is_real(e)) return "double";
     { const pty_t *_pt = pty_of_low(e); if (_pt && _pt->k == PTK_INT && _pt->name && _pt->name[0] != '$') return _pt->name; }
+    { const pty_t *_pr = pty_of_low(e); if (_pr && _pr->k == PTK_REAL && pty_real_rank(_pr) == 2) return "extended"; }
     return NULL;
 }
 static int pas_ov_cost(const char *a, const char *p) {
@@ -4921,6 +4964,16 @@ static pval E_argument(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_FMT) && n->n >= 2 && pas_xr_src(n->c[0])) {
+        tree_t *e = ast_node_new(TT_FNC);
+        ast_push(e, leaf_s(TT_VAR, "__pas_xr_str"));
+        ast_push(e, ilit(0));
+        ast_push(e, pas_xr_operand(n->c[0]));
+        ast_push(e, E_expression(n->c[1]).node);
+        ast_push(e, n->n == 3 ? E_expression(n->c[2]).node : ilit(-1));
+        { PNodeList *_al = pnl_new(); pnl_push(_al, e); pnl_push(_al, ilit(-1)); out.list = _al; }
+        return out;
+    }
     if (IS(n, TT_FMT) && n->n == 2) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
@@ -4951,6 +5004,142 @@ static pval E_argument_list(const tree_t *n, int from, int to) {
 }
 static int pas_set_has_range(const tree_t *set) { for (int i = 0; i < set->n; i++) if (IS(set->c[i], TT_SUBRANGE)) return 1; return 0; }
 static tree_t *pas_src_call(const char *fn, tree_t *a, tree_t *b) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, fn)); ast_push(f, a); if (b) ast_push(f, b); return f; }
+static int pas_xr_src(const tree_t *n) { return n && pty_real_rank(pty_of_src(n)) == 2; }
+static int pas_xr_low(tree_t *e) { return e && pty_real_rank(pty_of_low(e)) == 2; }
+static int pas_xr_numeric(const tree_t *n) { const pty_t *t = n ? pty_of_src(n) : NULL; return t && (t->k == PTK_REAL || t->k == PTK_INT); }
+static tree_t *pas_xr_cvtn(int kind, tree_t *x) { return mk_fnc2("__pas_xr_cvt", ilit(kind), x); }
+static tree_t *pas_xr_imgnode(long double v) {
+    union { long double ld; struct { uint64_t m; uint16_t se; } f; } u;
+    memset(&u, 0, sizeof u);
+    u.ld = v;
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_xr_cvt"));
+    ast_push(e, ilit(10));
+    ast_push(e, ilit((long long)u.f.m));
+    ast_push(e, ilit((long long)u.f.se));
+    return e;
+}
+static long double pas_xr_litval(const char *text, double dv) { return text && strtod(text, NULL) == dv ? strtold(text, NULL) : (long double)dv; }
+static tree_t *pas_xr_litnode(const char *text, double dv) { return pas_xr_imgnode(pas_xr_litval(text, dv)); }
+static tree_t *pas_xr_wrap(const tree_t *src, tree_t *e) {
+    if (IS(src, TT_FLIT)) return pas_xr_litnode(src->n > 0 && IS(src->c[0], TT_QLIT) ? src->c[0]->v.sval : NULL, src->v.dval);
+    if (IS(src, TT_VAR) && src->v.sval && !strcasecmp(src->v.sval, "pi") && pas_xr_src(src) && !pas_is_func("pi")) return mk_fnc2("__pas_xr_un", ilit(19), ilit(0));
+    return pas_xr_src(src) ? e : pas_xr_cvtn(2, e);
+}
+static tree_t *pas_xr_operand(const tree_t *src) { return pas_xr_wrap(src, IS(src, TT_FLIT) ? NULL : E_expression(src).node); }
+typedef struct { char *c; int n, cap, sp, depth; PNodeList *lv; } pas_xrf_t;
+static void pas_xrf_ch(pas_xrf_t *f, char ch) { if (f->n + 1 >= f->cap) { f->cap = f->cap ? f->cap * 2 : 64; f->c = ct_grow(f->c, (size_t)f->cap); } f->c[f->n++] = ch; }
+static void pas_xrf_push(pas_xrf_t *f) { if (++f->sp > f->depth) f->depth = f->sp; }
+static int pas_xr_pi(const tree_t *n) { return IS(n, TT_VAR) && n->v.sval && !strcasecmp(n->v.sval, "pi") && pas_xr_src(n) && !pas_scope_uid("pi") && !pas_scalarvartype_get("pi"); }
+static int pas_xr_fn(const tree_t *n, int *bin, int *op) {
+    static const struct {
+        const char *nm;
+        int op;
+    } U[] = { {"sin", 4}, {"cos", 5}, {"tan", 6}, {"arctan", 7}, {"ln", 8}, {"exp", 9}, {"frac", 10}, {"int", 11}, {"arcsin", 12}, {"arccos", 13}, {"sinh", 14}, {"cosh", 15}, {"tanh", 16}, {"log10",
+        17}, {"log2", 18}, {"degtorad", 20}, {"radtodeg", 21}, {"sqrt", 3}, {"abs", 1}, {"sqr", 2}, {0, 0} };
+    static const struct { const char *nm; int op; } B[] = { {"arctan2", 4}, {"power", 5}, {"hypot", 6}, {"logn", 7}, {0, 0} };
+    const char *nm = IS(n, TT_FNC) && n->n >= 2 && IS(n->c[0], TT_VAR) ? n->c[0]->v.sval : NULL;
+    if (!nm || pas_is_func(nm) || pas_is_proc(nm) || !pas_xr_src(n)) return 0;
+    if (n->n == 2) for (int i = 0; U[i].nm; i++) if (!strcmp(nm, U[i].nm)) { *bin = 0; *op = U[i].op; return 1; }
+    if (n->n == 3) for (int i = 0; B[i].nm; i++) if (!strcmp(nm, B[i].nm)) { *bin = 1; *op = B[i].op; return 1; }
+    return 0;
+}
+extern long double pas_xr_un_ld(long long op, long double x);
+extern long double pas_xr_bin_ld(long long op, long double x, long double y);
+static int pas_xr_cval(const tree_t *n, long double *v) {
+    tree_e k = n->t;
+    long double a = 0, b = 0;
+    int bin = 0, op = 0;
+    if (IS(n, TT_ILIT)) { *v = (long double)n->v.ival; return 1; }
+    if (IS(n, TT_FLIT)) { *v = pas_xr_litval(n->n > 0 && IS(n->c[0], TT_QLIT) ? n->c[0]->v.sval : NULL, n->v.dval); return 1; }
+    if (pas_xr_pi(n)) { *v = pas_xr_un_ld(19, 0.0L); return 1; }
+    if (!pas_xr_src(n)) return 0;
+    if ((k == TT_ADD || k == TT_SUB || k == TT_MUL || k == TT_DIV) && n->n == 2) {
+        if (!pas_xr_cval(n->c[0], &a) || !pas_xr_cval(n->c[1], &b)) return 0;
+        *v = k == TT_ADD ? a + b : k == TT_SUB ? a - b : k == TT_MUL ? a * b : a / b;
+        return 1;
+    }
+    if (k == TT_MNS && n->n == 1) { if (!pas_xr_cval(n->c[0], &a)) return 0; *v = -a; return 1; }
+    if (pas_xr_fn(n, &bin, &op)) {
+        if (!pas_xr_cval(n->c[1], &a) || (bin && !pas_xr_cval(n->c[2], &b))) return 0;
+        if (!bin && ((op == 3 && a < 0) || (op == 8 && !(a > 0)))) return 0;
+        *v = bin ? pas_xr_bin_ld(op, a, b) : pas_xr_un_ld(op, a);
+        return 1;
+    }
+    return 0;
+}
+static void pas_xrf(const tree_t *n, pas_xrf_t *f) {
+    tree_e k = n->t;
+    int bin = 0, op = 0;
+    long double cv = 0;
+    if (IS(n, TT_FLIT) || (!IS(n, TT_ILIT) && !IS(n, TT_VAR) && pas_xr_cval(n, &cv))) {
+        tree_t *lit = IS(n, TT_FLIT) ? pas_xr_litnode(n->n > 0 && IS(n->c[0], TT_QLIT) ? n->c[0]->v.sval : NULL, n->v.dval) : pas_xr_imgnode(cv);
+        pnl_push(f->lv, lit->c[2]);
+        pnl_push(f->lv, lit->c[3]);
+        pas_xrf_ch(f, 'X');
+        pas_xrf_push(f);
+    } else if ((k == TT_ADD || k == TT_SUB || k == TT_MUL || k == TT_DIV) && n->n == 2 && pas_xr_src(n)) {
+        pas_xrf(n->c[0], f);
+        pas_xrf(n->c[1], f);
+        pas_xrf_ch(f, k == TT_ADD ? '+' : k == TT_SUB ? '-' : k == TT_MUL ? '*' : '/');
+        f->sp--;
+    } else if (k == TT_MNS && n->n == 1 && pas_xr_src(n)) {
+        pas_xrf(n->c[0], f);
+        pas_xrf_ch(f, 'n');
+    } else if (k == TT_PLS && n->n == 1 && pas_xr_src(n)) {
+        pas_xrf(n->c[0], f);
+    } else if (pas_xr_pi(n)) {
+        pas_xrf_ch(f, 'P');
+        pas_xrf_push(f);
+    } else if (pas_xr_fn(n, &bin, &op)) {
+        pas_xrf(n->c[1], f);
+        if (bin) pas_xrf(n->c[2], f);
+        pas_xrf_ch(f, bin ? 'b' : 'u');
+        pas_xrf_ch(f, (char)('A' + op));
+        if (bin) f->sp--;
+    } else {
+        pnl_push(f->lv, E_expression(n).node);
+        pas_xrf_ch(f, 'L');
+        pas_xrf_push(f);
+    }
+}
+static tree_t *pas_xrf_build_t(const tree_t *n, char tail) {
+    pas_xrf_t f;
+    memset(&f, 0, sizeof f);
+    f.lv = pnl_new();
+    pas_xrf(n, &f);
+    if (tail) pas_xrf_ch(&f, tail);
+    char *code = ct_alloc((size_t)f.n + 16);
+    int hl = sprintf(code, "%d;", f.depth);
+    memcpy(code + hl, f.c, (size_t)f.n);
+    code[hl + f.n] = '\0';
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_xr_ev"));
+    ast_push(e, leaf_s(TT_QLIT, code));
+    for (int i = 0; i < f.lv->count; i++) ast_push(e, f.lv->items[i]);
+    return e;
+}
+static tree_t *pas_xrf_build(const tree_t *n) { return pas_xrf_build_t(n, 0); }
+static int pas_xr_elab(const tree_t *n, pval *out) {
+    tree_e k = n->t;
+    if ((((k == TT_ADD || k == TT_SUB || k == TT_MUL || k == TT_DIV) && n->n == 2) || ((k == TT_MNS || k == TT_PLS) && n->n == 1)) && pas_xr_src(n)) { out->node = pas_xrf_build(n); return 1; }
+    if (pas_xr_pi(n)) { out->node = pas_xrf_build(n); return 1; }
+    if ((k == TT_LT || k == TT_LE || k == TT_GT || k == TT_GE || k == TT_EQ || k == TT_NE) && n->n == 2 && (pas_xr_src(n->c[0]) || pas_xr_src(n->c[1])) && pas_xr_numeric(n->c[0]) &&
+        pas_xr_numeric(n->c[1])) {
+        tree_t *a = pas_xr_operand(n->c[0]), *b = pas_xr_operand(n->c[1]);
+        out->node = bin(k, a, b);
+        return 1;
+    }
+    return 0;
+}
+static int pas_xr_call(const tree_t *n, pval *out) {
+    int bin = 0, op = 0;
+    const char *nm = IS(n, TT_FNC) && n->n >= 2 && IS(n->c[0], TT_VAR) ? n->c[0]->v.sval : NULL;
+    if (!nm || pas_is_func(nm) || pas_is_proc(nm)) return 0;
+    if (n->n == 2 && (!strcmp(nm, "trunc") || !strcmp(nm, "round")) && pas_xr_src(n->c[1])) { out->node = pas_xrf_build_t(n->c[1], nm[0] == 't' ? 't' : 'r'); return 1; }
+    if (pas_xr_fn(n, &bin, &op)) { out->node = pas_xrf_build(n); return 1; }
+    return 0;
+}
 static tree_t *pas_dynarr_append_src(const tree_t *lhs, const tree_t *set) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR), *a = (tree_t *)lhs;
     ast_push(seq, pas_src_call("setlength", a, bin(TT_ADD, pas_src_call("length", a, NULL), ilit(set->n))));
@@ -4989,11 +5178,21 @@ static pval E_assignment(const tree_t *n) {
         if (n->n == 2 && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
             return E_compound_statement(pas_dynarr_assign_src(n->c[0], n->c[1]));
         v[3] = E_expression(n->c[1]);
+        if (n->n == 2 && !IS(n->c[1], TT_SET)) {
+            const pty_t *_lt = pty_of_src(n->c[0]), *_rt = pty_of_src(n->c[1]);
+            int _tr = pty_real_rank(_lt), _rr = pty_real_rank(_rt);
+            if (_tr == 2 && (_rr != 2 || IS(n->c[1], TT_FLIT)) && (_rr >= 0 || (_rt && _rt->k == PTK_INT))) v[3].node = pas_xr_wrap(n->c[1], v[3].node);
+            else if (_tr >= 0 && _tr < 2 && _rr == 2) v[3].node = pas_xr_cvtn(_tr == 0 ? 5 : 4, v[3].node);
+        }
         if (n->n == 3 && n->c[2] && n->c[2]->t == TT_KEYWORD && n->c[2]->v.sval) {
             const char *op = n->c[2]->v.sval;
             tree_t *cur = E_expression(n->c[0]).node;
+            const pty_t *_clt = pty_of_src(n->c[0]), *_crt = pty_of_src(n->c[1]);
+            int _ctr = pty_real_rank(_clt), _crr = pty_real_rank(_crt);
+            if (_ctr == 2 && (_crr != 2 || IS(n->c[1], TT_FLIT)) && (_crr >= 0 || (_crt && _crt->k == PTK_INT))) v[3].node = pas_xr_wrap(n->c[1], v[3].node);
             v[3].node = op[0] == '+' ? pas_arith_or_set(TT_ADD, "__pas_setuni", cur, v[3].node) : op[0] == '-' ? pas_arith_or_set(TT_SUB, "__pas_setdif", cur, v[3].node) : op[0] == '*' ?
                 pas_arith_or_set(TT_MUL, "__pas_setint", cur, v[3].node) : pas_rdiv(cur, v[3].node);
+            if (_ctr >= 0 && _ctr < 2 && _crr == 2) v[3].node = pas_xr_cvtn(_ctr == 0 ? 5 : 4, v[3].node);
         }
         {
             if (v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval) {
@@ -5216,6 +5415,7 @@ static pval E_call_with_args(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (pas_xr_call(n, &out)) return out;
     if (IS(n, TT_FNC) && n->n == 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *_sh = pas_strhlp_prop(n->c[0]); if (_sh) return pas_strhlp_eval(_sh); }
     if (IS(n, TT_FNC)) {
         if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "exit") && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && !pas_set_has_range(n->c[1]) && pas_curfunc_name() &&
@@ -5617,6 +5817,7 @@ static pval E_expression_raw(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    { pval _xo; memset(&_xo, 0, sizeof _xo); if (pas_xr_elab(n, &_xo)) return _xo; }
     if ((IS(n, TT_EQ) || IS(n, TT_NE)) && n->n == 2) {
         int _ln = IS(n->c[1], TT_VAR) && n->c[1]->v.sval && !strcasecmp(n->c[1]->v.sval, "nil"), _rn = IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcasecmp(n->c[0]->v.sval, "nil");
         const tree_t *_x = _ln ? n->c[0] : _rn ? n->c[1] : NULL;
@@ -5718,7 +5919,7 @@ static pval E_expression_raw(const tree_t *n) {
     }
     if (IS(n, TT_FNC)) { v[1] = E_call_with_args(n); { out.node = v[1].node; } return out; }
     if (IS(n, TT_ILIT)) { v[1].ival = tok_i(n); { out.node = ilit(v[1].ival); } return out; }
-    if (IS(n, TT_FLIT)) { v[1].dval = tok_d(n); { out.node = flit(v[1].dval); } return out; }
+    if (IS(n, TT_FLIT)) { v[1].dval = tok_d(n); out.node = flit(v[1].dval); if (n->n > 0 && IS(n->c[0], TT_QLIT)) ast_push(out.node, leaf_s(TT_QLIT, n->c[0]->v.sval)); return out; }
     if (IS(n, TT_QLIT)) {
         v[1].str = tok_s(n);
         {
