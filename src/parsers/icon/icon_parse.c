@@ -649,7 +649,7 @@ static tree_t *parse_ctrl(IcnParser *p) {
         e->line = line;
         if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) &&
             !check(p, TK_EOF)  && !check(p, TK_THEN) &&
-            !check(p, TK_ELSE) && !check(p, TK_DO) && !check(p, TK_RBRACE))
+            !check(p, TK_ELSE) && !check(p, TK_DO) && !check(p, TK_RBRACE) && !check(p, TK_END))
             push_child(e, parse_expr(p));
         return e;
     }
