@@ -14564,6 +14564,8 @@ static int rk_qh_same(DESCR_t a, DESCR_t b) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_qh_accepts(DESCR_t q, DESCR_t o) { int st = rk_qh_setty(rk_qh_kind(q)); if (!rk_qh_is(o) || rk_qh_setty(rk_qh_kind(o)) != st) o = rk_qh_from(o, st ? 0 : 2, 1); return rk_qh_same(q, o); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_qh_pairs(DESCR_t q) {
     int n = rk_qh_n(q), kind = rk_qh_kind(q);
     DESCR_t *el = n ? (DESCR_t *) rt_ws_alloc_descr((size_t) n) : NULL;
@@ -14703,7 +14705,7 @@ static int rk_qh_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
         return 1;
     }
     for (int i = 0; rk_qh_names[i]; i++) if (!strcmp(m, rk_qh_names[i])) { *out = (i == kind && !rk_qh_mutable(kind)) ? q : rk_qh_from(q, i, 1); return 1; }
-    if (!strcmp(m, "ACCEPTS") && na >= 1) { *out = rk_qh_bool(rk_qh_is(a[0]) && rk_qh_same(a[0], q)); return 1; }
+    if (!strcmp(m, "ACCEPTS") && na >= 1) { *out = rk_qh_bool(rk_qh_accepts(q, a[0])); return 1; }
     if (!strcmp(m, "grab") || !strcmp(m, "pick") || !strcmp(m, "roll")) {
         if (m[0] == 'g' && !rk_qh_mutable(kind)) { rk_qh_refuse("Cannot call 'grab' on an immutable '%s'%s", rk_qh_names[kind], ""); *out = FAILDESCR; return 1; }
         *out = rk_qh_draw(q, m, a, na);
@@ -16651,6 +16653,7 @@ DESCR_t bt___rk_smartmatch(DESCR_t *args, int nargs) {
             return (DESCR_t){ .v = DT_BOOL, .i = found };
         }
         if (rk_typeobj_name(args[1])) { return (DESCR_t){ .v = DT_BOOL, .i = rk_type_isa(rk_value_type(args[0]), rk_typeobj_name(args[1])) ? 1 : 0 }; }
+        if (rk_qh_is(args[1])) { return rk_qh_bool(rk_qh_accepts(args[1], args[0])); }
         if (rk_is_code(args[1])) {
             rt_call_args_need(2);
             CALL_ARGS[0] = args[0];

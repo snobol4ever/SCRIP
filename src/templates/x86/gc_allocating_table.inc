@@ -1690,6 +1690,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_pre_env", GC_RET_DESCR },
     { "rk_pre_value", GC_RET_OTHER },
     { "rk_proc_descr_rq", GC_RET_DESCR },
+    { "rk_qh_accepts", GC_RET_OTHER },
     { "rk_qh_add", GC_RET_VOID },
     { "rk_qh_binop", GC_RET_DESCR },
     { "rk_qh_bump", GC_RET_VOID },
