@@ -18016,13 +18016,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!fn) return 0;
     extern int fh_capture_begin(char **, size_t *, int *);
     extern void fh_capture_end(int, int);
-    {
-        int _br = bt_row_of(BT_VOC_RK, fn, (unsigned)strlen(fn));
-        if (_br >= 0 && g_bt_leaf[_br]) {
-            const DESCR_t _bv = g_bt_leaf[_br](args, nargs);
-            if (_bv.v != RTX_NOT_HANDLED) { *out = _bv; return 1; }
-        } else if (_br >= 0 && g_bt_open[_br] && g_bt_open[_br](args, nargs, out, rq)) return 1;
-    }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
