@@ -13,6 +13,7 @@
 #include "lower/lower_pascal_tree.h"
 #include "g_lower.h"
 #include "lower_pascal_class.h"
+#include "lower_pascal_generics.h"
 #include "lower_pascal_types.h"
 #define IS(x, k) ((x) && (x)->t == (k))
 static void *pas_pool_grow(void *p, int *cap, size_t esz, int init) {
@@ -7862,6 +7863,8 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_iofull = _iofull;
     g_lower.pas.sem.pas_divchk = _su;
     g_lower.pas.sem.pas_ioflow = _iofull || _su;
+    pruned = pas_generics_prepass(pruned);
+    if (!pruned) return NULL;
     tree_t *flat = pas_flatten_units(pruned);
     pas_forin_types(flat, flat, NULL);
     pas_absolute_vars(flat);

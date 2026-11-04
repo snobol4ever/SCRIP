@@ -1595,6 +1595,15 @@ static int pascal_oo_keyword(const char *w, int peek) {
     if (k == 9 || k == 10) { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = ct_strdup(K[k]); }
     return T[k];
 }
+static int pascal_generic_keyword(const char *w, int peek, const char *rest) {
+    int d = pascal_dialect();
+    if ((d != PAS_DIALECT_OBJFPC && d != PAS_DIALECT_DELPHI) || !(isalpha(peek) || peek == '_')) return 0;
+    if (!strcasecmp(w, "specialize")) return SPECIALIZESY;
+    if (strcasecmp(w, "generic")) return 0;
+    char t[16] = { (char)peek };
+    strncpy(t + 1, rest, 14);
+    return (!strncasecmp(t, "procedure", 9) && !isalnum((unsigned char)t[9])) || (!strncasecmp(t, "function", 8) && !isalnum((unsigned char)t[8])) ? GENERICSY : GENERICTSY;
+}
 static int pascal_exports_keyword(const char *w, int peek) { return !strcasecmp(w, "exports") && pascal_last_tok() == SEMICOLON && pascal_dialect() != PAS_DIALECT_ISO && (isalpha(peek) || peek == '_') ? EXPORTSSY : 0; }
 static char pascal_modebuf[64];
 static int  pascal_modepos;
@@ -2458,7 +2467,7 @@ case 117:
 YY_RULE_SETUP
 { int kw = pascal_context_keyword(pascal_yytext);
                           if (kw) return kw;
-                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); if (!kw) kw = pascal_exports_keyword(pascal_yytext, pk); }
+                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); if (!kw) kw = pascal_exports_keyword(pascal_yytext, pk); if (!kw) kw = pascal_generic_keyword(pascal_yytext, pk, q); }
                           if (kw) return kw;
                           pascal_last_ident_set(pascal_yytext, (int)pascal_yyleng);
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng);

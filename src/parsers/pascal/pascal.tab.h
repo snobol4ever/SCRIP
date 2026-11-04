@@ -182,7 +182,10 @@ tree_t *pascal_last_ident_qlit(void);
     CONSTRUCTORSY = 343,           /* CONSTRUCTORSY  */
     DESTRUCTORSY = 344,            /* DESTRUCTORSY  */
     PROPERTYSY = 345,              /* PROPERTYSY  */
-    ONSY = 346                     /* ONSY  */
+    ONSY = 346,                    /* ONSY  */
+    GENERICSY = 347,               /* GENERICSY  */
+    GENERICTSY = 348,              /* GENERICTSY  */
+    SPECIALIZESY = 349             /* SPECIALIZESY  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -191,10 +194,10 @@ tree_t *pascal_last_ident_qlit(void);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 186 "pascal.y"
+#line 187 "pascal.y"
  tree_t *node; 
 
-#line 198 "pascal.tab.h"
+#line 201 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;
