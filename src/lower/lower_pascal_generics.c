@@ -11,9 +11,9 @@
 #define PG_TYPE 0
 #define PG_ROUTINE 1
 #define PG_METHOD 2
-typedef struct { const char *key; tree_t *node; } pg_inst;
+typedef struct { const char *key; tree_t *node; int seq; } pg_inst;
 typedef struct { const char *name; tree_t *params; tree_t *body; tree_t *holder; tree_t *parent; int kind; int owner; pg_inst *inst; int ninst, cinst; } pg_tmpl;
-typedef struct { pg_tmpl *t; int nt, ct; int fatal; } pg_ctx;
+typedef struct { pg_tmpl *t; int nt, ct; int fatal; int seq; } pg_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pg_clone(const tree_t *e) {
     if (!e) return NULL;
@@ -120,6 +120,7 @@ static tree_t *pg_record(pg_tmpl *t, const char *mn, tree_t *node) {
     if (t->ninst >= t->cinst) { t->cinst = t->cinst ? t->cinst * 2 : 4; t->inst = ct_grow(t->inst, (size_t)t->cinst * sizeof *t->inst); }
     t->inst[t->ninst].key = mn;
     t->inst[t->ninst].node = node;
+    t->inst[t->ninst].seq = -1;
     t->ninst++;
     return node;
 }
@@ -142,6 +143,7 @@ static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
     if (t->kind == PG_ROUTINE) { body->c[0] = pg_var(mn); node = body; } else { node = ast_node_new(TT_DECL); node->v.sval = ct_strdup("type"); ast_push(node, pg_var(mn)); ast_push(node, body); }
     pg_record(t, mn, node);
     pg_resolve(x, node);
+    t->inst[t->ninst - 1].seq = ++x->seq;
     for (int i = 0; t->kind == PG_TYPE && i < x->nt; i++) {
         pg_tmpl *m = &x->t[i];
         if (m->kind != PG_METHOD || m->owner != ti) continue;
@@ -161,13 +163,35 @@ static void pg_resolve(pg_ctx *x, tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_splice(pg_tmpl *t) {
     tree_t *p = t->parent;
-    int at = -1, old = p->n, extra = t->ninst - 1;
+    int at = -1, old = p->n, extra = t->kind == PG_TYPE ? -1 : t->ninst - 1;
     for (int i = 0; i < old; i++) if (p->c[i] == t->holder) at = i;
     if (at < 0) return;
     if (extra < 0) { for (int i = at; i + 1 < old; i++) p->c[i] = p->c[i + 1]; p->n = old - 1; return; }
     for (int k = 0; k < extra; k++) ast_push(p, NULL);
     for (int i = old - 1; i > at; i--) p->c[i + extra] = p->c[i];
     for (int k = 0; k < t->ninst; k++) p->c[at + k] = t->inst[k].node;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pg_program_block(tree_t *prog) {
+    if (PG_IS(prog, TT_BLOCK)) return prog;
+    for (int i = 0; PG_IS(prog, TT_PROGRAM) && i < prog->n; i++) if (PG_IS(prog->c[i], TT_BLOCK)) return prog->c[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pg_place_types(pg_ctx *x, tree_t *prog) {
+    tree_t *blk = pg_program_block(prog), *part = ast_node_new(TT_PART);
+    int total = 0, at = 0;
+    part->v.sval = ct_strdup("type");
+    for (int s = 1; s <= x->seq; s++) for (int i = 0; i < x->nt; i++) {
+        if (x->t[i].kind != PG_TYPE) continue;
+        for (int k = 0; k < x->t[i].ninst; k++) if (x->t[i].inst[k].seq == s) { ast_push(part, x->t[i].inst[k].node); total++; }
+    }
+    if (!total || !blk) return;
+    for (int i = 0; i < blk->n; i++)
+        if (PG_IS(blk->c[i], TT_PART) && blk->c[i]->v.sval && (!strcmp(blk->c[i]->v.sval, "type") || !strcmp(blk->c[i]->v.sval, "const") || !strcmp(blk->c[i]->v.sval, "label"))) at = i + 1;
+    ast_push(blk, NULL);
+    for (int i = blk->n - 1; i > at; i--) blk->c[i] = blk->c[i - 1];
+    blk->c[at] = part;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *pas_generics_prepass(tree_t *prog) {
@@ -178,5 +202,6 @@ tree_t *pas_generics_prepass(tree_t *prog) {
     pg_collect_methods(&x, prog);
     pg_resolve(&x, prog);
     for (int i = 0; i < x.nt; i++) pg_splice(&x.t[i]);
+    pg_place_types(&x, prog);
     return x.fatal ? NULL : prog;
 }

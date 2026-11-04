@@ -5087,11 +5087,14 @@ static pval E_body_stmt(const tree_t *n) {
     elab_bad("body_stmt", n);
     return out;
 }
+static tree_t *pas_strhlp_prop(const tree_t *n);
+static pval pas_strhlp_eval(tree_t *sh);
 static pval E_call(const tree_t *n) {
     pval v[4];
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_FNC) && n->n == 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *_sh = pas_strhlp_prop(n->c[0]); if (_sh) return pas_strhlp_eval(_sh); }
     if (IS(n, TT_FNC) && n->n == 1) {
         const char *src0 = tok_s(n->c[0]);
         v[1].str = pas_alias_resolve(src0);
@@ -5164,15 +5167,55 @@ static tree_t *pas_strhlp_call(const tree_t *n) {
         ast_push(c, seps);
         ast_push(c, cnt ? cnt : ilit(0));
         ast_push(c, opt ? opt : ilit(0));
+    } else if (rt && rt->k == PTK_STRING) {
+        static const char *const A1[] = { "contains", "startswith", "endswith", "indexof", 0 };
+        int hit = 0;
+        for (int i = 0; A1[i]; i++) if (na == 1 && !strcasecmp(m, A1[i])) hit = 1;
+        if (hit || (!strcasecmp(m, "replace") && (na == 2 || na == 3)) || (!strcasecmp(m, "substring") && (na == 1 || na == 2))) {
+            const char *fn = !strcasecmp(m, "substring") ? (na == 1 ? "__strhlp_substring" : "__strhlp_substring_r") : NULL;
+            char *nm = NULL;
+            if (!fn) { size_t ln = strlen(m) + 10; nm = (char *)ct_alloc(ln); snprintf(nm, ln, "__strhlp_%s", m); for (char *q = nm + 9; *q; q++) *q = (char)tolower((unsigned char)*q); fn = nm; }
+            c = ast_node_new(TT_FNC);
+            ast_push(c, leaf_s(TT_VAR, fn));
+            ast_push(c, (tree_t *)r);
+            for (int i = 1; i <= na; i++) ast_push(c, n->c[i]);
+            if (!strcasecmp(m, "replace") && na == 2) { tree_t *fl = ast_node_new(TT_SET); ast_push(fl, leaf_s(TT_VAR, "rfreplaceall")); ast_push(c, fl); }
+        }
     }
     if (c) c->line = n->line;
     return c;
+}
+static tree_t *pas_strhlp_prop(const tree_t *n) {
+    static const char *const Z[] = { "trim", "trimleft", "trimright", "toupper", "tolower", "length", 0 };
+    const tree_t *r = n->c[0], *mt = n->c[1];
+    const char *m = IS(mt, TT_VAR) ? mt->v.sval : NULL;
+    const pty_t *rt = r ? pty_of_src(r) : NULL;
+    if (!m || !rt || rt->k != PTK_STRING) return NULL;
+    for (int i = 0; Z[i]; i++) if (!strcasecmp(m, Z[i])) {
+        size_t ln = strlen(m) + 10;
+        char *nm = (char *)ct_alloc(ln);
+        snprintf(nm, ln, "__strhlp_%s", m);
+        for (char *q = nm + 9; *q; q++) *q = (char)tolower((unsigned char)*q);
+        tree_t *c = ast_node_new(TT_FNC);
+        ast_push(c, leaf_s(TT_VAR, nm));
+        ast_push(c, (tree_t *)r);
+        c->line = n->line;
+        return c;
+    }
+    return NULL;
+}
+static pval pas_strhlp_eval(tree_t *sh) {
+    pval o = E_call_with_args(sh);
+    const char *fn = IS(sh->c[0], TT_VAR) ? sh->c[0]->v.sval : NULL;
+    if (o.node && fn && (!strcmp(fn, "__strhlp_contains") || !strcmp(fn, "__strhlp_startswith") || !strcmp(fn, "__strhlp_endswith"))) pty_note_kind(o.node, PTK_BOOL);
+    return o;
 }
 static pval E_call_with_args(const tree_t *n) {
     pval v[7];
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_FNC) && n->n == 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *_sh = pas_strhlp_prop(n->c[0]); if (_sh) return pas_strhlp_eval(_sh); }
     if (IS(n, TT_FNC)) {
         if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "exit") && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && !pas_set_has_range(n->c[1]) && pas_curfunc_name() &&
             pas_dyn_depth(E_selector(leaf_s(TT_VAR, "result")).node, NULL) > 0) {
@@ -5184,7 +5227,7 @@ static pval E_call_with_args(const tree_t *n) {
             out.node = mk_fnc2("__pas_mptr", leaf_s(TT_QLIT, n->c[1]->v.sval), E_expression(n->c[2]).node);
             return out;
         }
-        if (n->n >= 2 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *sh = pas_strhlp_call(n); if (sh) return E_call_with_args(sh); }
+        if (n->n >= 2 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *sh = pas_strhlp_call(n); if (sh) return pas_strhlp_eval(sh); }
         const char *src0 = tok_s(n->c[0]);
         const char *dflt = NULL;
         int onp = 0;
@@ -5573,6 +5616,12 @@ static pval E_expression_raw(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if ((IS(n, TT_EQ) || IS(n, TT_NE)) && n->n == 2) {
+        int _ln = IS(n->c[1], TT_VAR) && n->c[1]->v.sval && !strcasecmp(n->c[1]->v.sval, "nil"), _rn = IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcasecmp(n->c[0]->v.sval, "nil");
+        const tree_t *_x = _ln ? n->c[0] : _rn ? n->c[1] : NULL;
+        const pty_t *_xt = _x ? pty_of_src(_x) : NULL;
+        if (_xt && _xt->k == PTK_ARRAY && _xt->dyn) return E_expression_raw(bin(IS(n, TT_EQ) ? TT_EQ : TT_NE, pas_src_call("length", (tree_t *)_x, NULL), ilit(0)));
+    }
     if (IS(n, TT_IN)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = mk_in(v[1].node, v[3].node); } return out; }
     if (IS(n, TT_LT)) {
         v[1] = E_expression(n->c[0]);
@@ -6425,6 +6474,7 @@ static pval E_selector_raw(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_FIELD) && n->n == 2) { tree_t *_sh = pas_strhlp_prop(n); if (_sh) return pas_strhlp_eval(_sh); }
     if (IS(n, TT_IDX) && n->n >= 3 && !(n->n == 3 && IS(n->c[0], TT_VAR) && pas_array_ncols(tok_s(n->c[0])) > 0) && !(n->n == 3 && pas_dense_src(n->c[0]))) {
         tree_t *inner = ast_node_new(TT_IDX);
         ast_push(inner, n->c[0]);

@@ -6,6 +6,8 @@ type
   TFileName = string;
   TStringSplitOptions = (None, ExcludeEmpty, ExcludeLastEmpty);
   TStringArray = array of string;
+  TReplaceFlag = (rfReplaceAll, rfIgnoreCase);
+  TReplaceFlags = set of TReplaceFlag;
   TSearchRec = record
     Time: LongInt;
     Size: Int64;
@@ -103,10 +105,111 @@ function EncodeTime(hour, minute, sec, msec: integer): double;
 procedure DecodeTime(dt: double; var hour, minute, sec, msec: word);
 function DayOfWeek(dt: double): integer;
 function FormatDateTime(fmt: string; dt: double): string;
+function StringReplace(const __sh_s, __sh_old, __sh_new: string; __sh_flags: TReplaceFlags): string;
+function __strhlp_replace(const __sh_s, __sh_old, __sh_new: string; __sh_flags: TReplaceFlags): string;
+function __strhlp_indexof(const __sh_s, __sh_sub: string): integer;
+function __strhlp_contains(const __sh_s, __sh_sub: string): boolean;
+function __strhlp_startswith(const __sh_s, __sh_sub: string): boolean;
+function __strhlp_endswith(const __sh_s, __sh_sub: string): boolean;
+function __strhlp_substring(const __sh_s: string; __sh_start: integer): string;
+function __strhlp_substring_r(const __sh_s: string; __sh_start, __sh_cnt: integer): string;
+function __strhlp_toupper(const __sh_s: string): string;
+function __strhlp_tolower(const __sh_s: string): string;
+function __strhlp_trim(const __sh_s: string): string;
+function __strhlp_trimleft(const __sh_s: string): string;
+function __strhlp_trimright(const __sh_s: string): string;
+function __strhlp_length(const __sh_s: string): integer;
 function __strhlp_split(const __sh_s: string; const __sh_seps: array of string; __sh_cnt: integer; __sh_opts: TStringSplitOptions): TStringArray;
 function __strhlp_join(const __sh_sep: string; const __sh_v: array of string): string;
 function __strhlp_join_r(const __sh_sep: string; const __sh_v: array of string; __sh_start, __sh_cnt: integer): string;
 implementation
+function StringReplace(const __sh_s, __sh_old, __sh_new: string; __sh_flags: TReplaceFlags): string;
+var __sh_hay, __sh_pat, __sh_out: string; __sh_i, __sh_n, __sh_m: integer; __sh_all: boolean;
+begin
+  __sh_n := length(__sh_s);
+  __sh_m := length(__sh_old);
+  __sh_all := rfReplaceAll in __sh_flags;
+  if rfIgnoreCase in __sh_flags then begin
+    __sh_hay := UpperCase(__sh_s);
+    __sh_pat := UpperCase(__sh_old);
+  end else begin
+    __sh_hay := __sh_s;
+    __sh_pat := __sh_old;
+  end;
+  __sh_out := '';
+  __sh_i := 1;
+  if __sh_m = 0 then begin
+    StringReplace := __sh_s;
+    exit;
+  end;
+  while __sh_i <= __sh_n do begin
+    if (__sh_i + __sh_m - 1 <= __sh_n) and (copy(__sh_hay, __sh_i, __sh_m) = __sh_pat) then begin
+      __sh_out := __sh_out + __sh_new;
+      __sh_i := __sh_i + __sh_m;
+      if not __sh_all then begin
+        __sh_out := __sh_out + copy(__sh_s, __sh_i, __sh_n - __sh_i + 1);
+        StringReplace := __sh_out;
+        exit;
+      end;
+    end else begin
+      __sh_out := __sh_out + __sh_s[__sh_i];
+      __sh_i := __sh_i + 1;
+    end;
+  end;
+  StringReplace := __sh_out;
+end;
+function __strhlp_replace(const __sh_s, __sh_old, __sh_new: string; __sh_flags: TReplaceFlags): string;
+begin
+  __strhlp_replace := StringReplace(__sh_s, __sh_old, __sh_new, __sh_flags);
+end;
+function __strhlp_indexof(const __sh_s, __sh_sub: string): integer;
+begin
+  __strhlp_indexof := pos(__sh_sub, __sh_s) - 1;
+end;
+function __strhlp_contains(const __sh_s, __sh_sub: string): boolean;
+begin
+  __strhlp_contains := pos(__sh_sub, __sh_s) > 0;
+end;
+function __strhlp_startswith(const __sh_s, __sh_sub: string): boolean;
+begin
+  __strhlp_startswith := copy(__sh_s, 1, length(__sh_sub)) = __sh_sub;
+end;
+function __strhlp_endswith(const __sh_s, __sh_sub: string): boolean;
+begin
+  __strhlp_endswith := (length(__sh_sub) <= length(__sh_s)) and (copy(__sh_s, length(__sh_s) - length(__sh_sub) + 1, length(__sh_sub)) = __sh_sub);
+end;
+function __strhlp_substring(const __sh_s: string; __sh_start: integer): string;
+begin
+  __strhlp_substring := copy(__sh_s, __sh_start + 1, length(__sh_s));
+end;
+function __strhlp_substring_r(const __sh_s: string; __sh_start, __sh_cnt: integer): string;
+begin
+  __strhlp_substring_r := copy(__sh_s, __sh_start + 1, __sh_cnt);
+end;
+function __strhlp_toupper(const __sh_s: string): string;
+begin
+  __strhlp_toupper := UpperCase(__sh_s);
+end;
+function __strhlp_tolower(const __sh_s: string): string;
+begin
+  __strhlp_tolower := LowerCase(__sh_s);
+end;
+function __strhlp_trim(const __sh_s: string): string;
+begin
+  __strhlp_trim := Trim(__sh_s);
+end;
+function __strhlp_trimleft(const __sh_s: string): string;
+begin
+  __strhlp_trimleft := TrimLeft(__sh_s);
+end;
+function __strhlp_trimright(const __sh_s: string): string;
+begin
+  __strhlp_trimright := TrimRight(__sh_s);
+end;
+function __strhlp_length(const __sh_s: string): integer;
+begin
+  __strhlp_length := length(__sh_s);
+end;
 function __strhlp_at(const __sh_s: string; __sh_i: integer; const __sh_sep: string): boolean;
 var __sh_j, __sh_n: integer; __sh_ok: boolean;
 begin
