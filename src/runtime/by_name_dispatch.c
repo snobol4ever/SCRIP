@@ -18710,6 +18710,10 @@ DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
 }
 DESCR_t pas_pchar_of(DESCR_t *args, int nargs) {
     (void) nargs;
+    if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i <= g_runtime.pas.pas_heap_ctr) {
+        DESCR_t *hc = pas_heap_cell(args[0].i, 0);
+        if (hc && hc->v == DT_A && hc->arr && ((ARBLK_t *) hc->arr)->data) return pas_pcell((void *) ((ARBLK_t *) hc->arr)->data, 0);
+    }
     if (args[0].v == DT_PCELL || IS_INT_fn(args[0])) return args[0];
     if (args[0].v == DT_A && args[0].arr) return pas_pcell((void *) ((ARBLK_t *) args[0].arr)->data, 0);
     const char *c = VARVAL_fn(args[0]);

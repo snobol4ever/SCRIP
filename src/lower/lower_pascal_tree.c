@@ -1696,7 +1696,7 @@ static tree_t *pas_addr_of_cell(tree_t *e) {
     if (e->t == TT_VAR && e->v.sval) { int k = pty_name_kind(e->v.sval); if (k == 'v' || k == 'p' || k == 'r' || k == 'R') return mk_fnc1("__pas_addr_var", e); }
     return NULL;
 }
-static tree_t *pas_addr_of(tree_t *e) { tree_t *c = pas_addr_of_cell(e); return c ? c : pas_addr_of_proc(e); }
+static tree_t *pas_addr_of(tree_t *e) { tree_t *c = pas_addr_of_cell(e); if (!c && g_lower.pas.sem.pas_ptrcell) c = pas_pchar_of_strelem(e); return c ? c : pas_addr_of_proc(e); }
 static int pas_view_kind(const pty_t *t, long long *w) {
     if (!t) return -1;
     *w = pty_sizeof_flat(t);
@@ -1735,6 +1735,7 @@ static tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
     if (w == W && ek == pk) return addr;
     return mk_fnc2("__pas_pview", addr, ilit(w | (W << 8) | ((long long)((ek & 3) | ((ek >> 2) << 2) | ((pk & 3) << 3) | ((pk >> 2) << 5)) << 16)));
 }
+static tree_t *pas_ptr_ord(tree_e tt, tree_t *a, tree_t *b) { return pas_ptr_typed(a) && pas_ptr_typed(b) ? bin(tt, mk_fnc2("__pas_ptr_diff", a, b), ilit(0)) : NULL; }
 static tree_t *pas_ptr_rel(tree_e tt, tree_t *a, tree_t *b) {
     if (!(pas_ptr_typed(a) || pas_ptr_typed(b)) || !pas_ptr_or_nil(a) || !pas_ptr_or_nil(b)) return NULL;
     return bin(tt == TT_EQ ? TT_NE : TT_EQ, mk_fnc2("__pas_ptr_eq", a, b), ilit(0));
@@ -3578,6 +3579,10 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         ast_push(pt, sel->c[4]);
         ast_push(pt, rhs);
         return mk_assign(e0, pt);
+    }
+    if (g_lower.pas.sem.pas_ptrcell && sel && rhs) {
+        const pty_t *_lt = pty_of_low(sel), *_rt = pty_of_low(rhs);
+        if (_lt && _lt->k == PTK_POINTER && _lt->base && _rt && _rt->k == PTK_POINTER && !_rt->base) rhs = mk_fnc1("__pas_pchar_of", rhs);
     }
     { tree_t *_pc = pas_pchar_assign(sel, rhs); if (_pc) return _pc; }
     rhs = pas_pun_view(sel, rhs);
@@ -5554,10 +5559,30 @@ static pval E_expression_raw(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_IN)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = mk_in(v[1].node, v[3].node); } return out; }
-    if (IS(n, TT_LT)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = pas_rel(TT_LT, v[1].node, v[3].node); } return out; }
-    if (IS(n, TT_LE)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = pas_rel_or_set(TT_LE, "__pas_subset", v[1].node, v[3].node); } return out; }
-    if (IS(n, TT_GT)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = pas_rel(TT_GT, v[1].node, v[3].node); } return out; }
-    if (IS(n, TT_GE)) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = pas_rel_or_set(TT_GE, "__pas_super", v[1].node, v[3].node); } return out; }
+    if (IS(n, TT_LT)) {
+        v[1] = E_expression(n->c[0]);
+        v[3] = E_expression(n->c[1]);
+        { out.node = pas_ptr_ord(TT_LT, v[1].node, v[3].node); if (!out.node) out.node = pas_rel(TT_LT, v[1].node, v[3].node); }
+        return out;
+    }
+    if (IS(n, TT_LE)) {
+        v[1] = E_expression(n->c[0]);
+        v[3] = E_expression(n->c[1]);
+        { out.node = pas_ptr_ord(TT_LE, v[1].node, v[3].node); if (!out.node) out.node = pas_rel_or_set(TT_LE, "__pas_subset", v[1].node, v[3].node); }
+        return out;
+    }
+    if (IS(n, TT_GT)) {
+        v[1] = E_expression(n->c[0]);
+        v[3] = E_expression(n->c[1]);
+        { out.node = pas_ptr_ord(TT_GT, v[1].node, v[3].node); if (!out.node) out.node = pas_rel(TT_GT, v[1].node, v[3].node); }
+        return out;
+    }
+    if (IS(n, TT_GE)) {
+        v[1] = E_expression(n->c[0]);
+        v[3] = E_expression(n->c[1]);
+        { out.node = pas_ptr_ord(TT_GE, v[1].node, v[3].node); if (!out.node) out.node = pas_rel_or_set(TT_GE, "__pas_super", v[1].node, v[3].node); }
+        return out;
+    }
     if (IS(n, TT_NE)) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
