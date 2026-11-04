@@ -1016,6 +1016,34 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dcap_marker_proc(const rt_dcf_t * c, const char ** pn, const char ** base) {
+    const rt_dcap_e * lo = (const rt_dcap_e *) g_runtime.misc.dcap_base, * q = (const rt_dcap_e *) c->cur;
+    *pn = *base = (const char *) 0;
+    if (!lo || c->cur >= c->top || q < lo) return 0;
+    while (q > lo && q->varname) q--;
+    if (q->varname || !q->len || !q->saved_delta) return 0;
+    *pn = (const char *) q->len;
+    *base = (const char *) q->saved_delta;
+    return 1;
+}
+int rt_icn_scan_proc(const char ** pn, const char ** base) {
+    const rt_dcap_e * lo = (const rt_dcap_e *) g_runtime.misc.dcap_base, * q = (const rt_dcap_e *) g_dcap_top;
+    *pn = *base = (const char *) 0;
+    if (!lo || !q) return 0;
+    for (q--; q >= lo; q--) if (!q->varname && q->len && q->saved_delta) { *pn = (const char *) q->len; *base = (const char *) q->saved_delta; return 1; }
+    return 0;
+}
+static DESCR_t * dcap_icn_cell(const char * name, const char * pn, const char * base) {
+    extern DESCR_t * rt_icn_local_cell(const char *, size_t);
+    extern DESCR_t * rt_icn_local_cell_in(const char *, size_t, const char *, char *);
+    extern int core_icn_act_top(void);
+    extern void * core_icn_act_base(int);
+    if (!pn) return rt_icn_local_cell(name, strlen(name));
+    DESCR_t * in = rt_icn_local_cell_in(name, strlen(name), pn, (char *) base);
+    if (in) return in;
+    return core_icn_act_base(core_icn_act_top()) == (void *) base ? rt_icn_local_cell(name, strlen(name)) : (DESCR_t *) 0;
+}
 __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
@@ -1035,15 +1063,29 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
 #else
     const int _fast_ok = rt_cap_slice_on();
 #endif
+    const char * mk_pn, * mk_base;
+    dcap_marker_proc(c, &mk_pn, &mk_base);
     while (c->cur < c->top) {
 #if RT_DIAG
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
-        if (_fast_ok && !_cva) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
+        if (_fast_ok && !mk_pn && !_cva) {
+            extern const char *rt_dcap_fast_run(const char *, const char *, const char *);
+            c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj);
+            if (c->cur >= c->top) break;
+        }
 #else
-        if (_fast_ok) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
+        if (_fast_ok && !mk_pn) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
+        if (e->varname[0] == 3) {
+            DESCR_t cp = (DESCR_t){ .v = DT_I, .i = (int64_t) e->saved_delta + 1 };
+            DESCR_t * cl = dcap_icn_cell(e->varname + 1, mk_pn, mk_base);
+            c->cur += sizeof(rt_dcap_e);
+            if (cl) *cl = cp;
+            else NV_SET_fn(e->varname + 1, cp);
+            continue;
+        }
         if (e->varname[0] == '*' && (unsigned char)e->varname[1] == 2) {
             const rt_dcap_e *e2 = e + 1;
             int elen = (int)e->len;
@@ -1162,8 +1204,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
             }
         }
         if (e->varname && e->varname[0]) {
-            extern DESCR_t *rt_icn_local_cell(const char *, size_t);
-            DESCR_t *icl = rt_icn_local_cell(e->varname, strlen(e->varname));
+            DESCR_t *icl = dcap_icn_cell(e->varname, mk_pn, mk_base);
             if (icl && IS_FH_fn(*icl)) { extern FILE *fh_get(int); FILE *fp = fh_get((int)icl->i); if (fp && d.v == DT_S) { fwrite(d.s, 1, d.slen, fp); fputc('\n', fp); } continue; }
             if (icl) { if (d.v == DT_S) rt_sxt_break_fast(d.s); *icl = d; continue; }
             DESCR_t *cell0;

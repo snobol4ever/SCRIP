@@ -1104,10 +1104,32 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         q->slen = (int) strlen(q->v.sval);
         tree_t * c3 = ast_node_new(TT_FNC);
         ast_push(c3, pm_var("SNO$PBC"));
-        ast_push(c3, pm_int((int64_t) t->t));
+        ast_push(c3, pm_int((int64_t) TT_CAPT_COND_ASGN));
         ast_push(c3, q);
         ast_push(c3, (tree_t *) t->c[0]);
+        if (t->t == TT_CAPT_IMMED_ASGN) return pm_node(TT_CAT, c3, pm_call("SNO$PB0", pm_int((int64_t) TT_FLUSH), NULL), NULL);
         return c3;
+    }
+    if (t->t == TT_CAPT_CURSOR && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
+        char nb[fmt_len("\003%s", t->c[0]->v.sval)];
+        snprintf(nb, sizeof nb, "\003%s", t->c[0]->v.sval);
+        tree_t * q = ast_node_new(TT_QLIT);
+        q->v.sval = lp_strdup(nb);
+        q->slen = (int) strlen(nb);
+        tree_t * c3 = ast_node_new(TT_FNC);
+        ast_push(c3, pm_var("SNO$PBC"));
+        ast_push(c3, pm_int((int64_t) TT_CAPT_COND_ASGN));
+        ast_push(c3, q);
+        ast_push(c3, pm_empty_str());
+        return pm_node(TT_CAT, c3, pm_call("SNO$PB0", pm_int((int64_t) TT_FLUSH), NULL), NULL);
+    }
+    if (t->t == TT_DEFER && t->v.sval) {
+        char nb[fmt_len("*%s", t->v.sval)];
+        snprintf(nb, sizeof nb, "*%s", t->v.sval);
+        tree_t * q = ast_node_new(TT_QLIT);
+        q->v.sval = lp_strdup(nb);
+        q->slen = (int) strlen(nb);
+        return pm_call("SNO$PDEF", q, NULL);
     }
     if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t != TT_FNC || t->n < 1 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval) return NULL;
@@ -1218,7 +1240,7 @@ static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     IR_t * fl = NULL;
     IR_t * sy = NULL;
     IR_t * pp = NULL;
-    if (commit) { cm = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL); IR_LIT(cm).ival = 0; ω_to(cm, ω); }
+    if (commit) { cm = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL); IR_LIT(cm).ival = 0; IR_LIT(cm).sval = (char *) (cx->pname ? cx->pname : ""); ω_to(cm, ω); }
     for (int i = 0; i < ne; i++) {
         if (!ag[i]) continue;
         IR_t * fb = ω;
@@ -1243,7 +1265,7 @@ static IR_t * lower_pm_boxes(icx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
         lc_ω_to_β(sy, nd[ne - 1]);
         γ_to(pp, γ);
         lc_ω_to_β(pp, fl);
-        lc_γ_to(cm, en[0]);
+        { IR_t * s0 = lc_build(cx->g, IR_MATCH_CASMARK, NULL, NULL); IR_LIT(s0).ival = 2; ω_to(s0, ω); lc_γ_to(cm, s0); lc_γ_to(s0, en[0]); }
     }
     for (int i = 0; i < ne; i++) {
         if (i + 1 < ne) lc_γ_to(nd[i], en[i + 1]);
@@ -3769,8 +3791,10 @@ static void icn_display_homes_every_local(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void icn_expand_classes(tree_t * prog);
+extern void icn_expand_deferred(tree_t * prog);
 stage2_t *lower_icon_stage2(const tree_t *prog) {
     icn_expand_classes((tree_t *) prog);
+    icn_expand_deferred((tree_t *) prog);
     icn_collect_reassigned_procs(prog);
     int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);

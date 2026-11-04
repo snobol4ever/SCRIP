@@ -9,6 +9,7 @@ extern "C" {
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rodata.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_casmark() {
     x86_begin();
@@ -19,8 +20,13 @@ std::string bb_match_casmark() {
                             + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGLEN, "Σlen")
                             + x86("mov", RDD("rcx", 0), "r15d"))
          + IF(_.op_ival == 0, x86("mov", RDQ("r12", 0), 0L)
-                            + x86("mov", RDQ("r12", 8), 0L)
-                            + x86("mov", RDQ("r12", 16), 0L)
+                            + IF(_.op_sval && _.op_sval[0],
+                                 x86("mov", RDQ("r12", 8), "rbp")
+                               + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
+                               + x86("mov", RDQ("r12", 16), "rax"))
+                            + IF(!(_.op_sval && _.op_sval[0]),
+                                 x86("mov", RDQ("r12", 8), 0L)
+                               + x86("mov", RDQ("r12", 16), 0L))
                             + x86("add", "r12", (long)24))
          + IF(_.op_ival == 1, x86("sub", "r12", (long)24))
          + x86_abs_disp32_store64(0x70000000L, "r12")

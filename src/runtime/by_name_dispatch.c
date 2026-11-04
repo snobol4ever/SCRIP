@@ -22841,6 +22841,29 @@ static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *rt_icn_local_cell(const char *name, size_t len) { DESCR_t nm = { .v = DT_S, .slen = (uint32_t) len, .s = (char *) name }; return icn_variable_frame_cell(nm, NULL, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *rt_icn_local_cell_in(const char *name, size_t len, const char *pn, char *base) {
+    extern int rt_proc_nlocals(const char *);
+    extern const char *rt_proc_lname(const char *, int);
+    extern int rt_proc_loff(const char *, int);
+    if (!name || !len || name[0] == 38 || !pn || !base) return (DESCR_t *) 0;
+    for (int k = 0, nl = rt_proc_nlocals(pn); k < nl; k++) {
+        const char * vn = rt_proc_lname(pn, k);
+        int off = rt_proc_loff(pn, k);
+        if (vn && off >= 0 && strlen(vn) == len && !memcmp(vn, name, len)) return (DESCR_t *) (base + off);
+    }
+    {
+        extern int rt_proc_nparams(const char *);
+        extern const char * rt_proc_pname(const char *, int);
+        extern long rt_icn_proc_args_off(const char *);
+        long ao = rt_icn_proc_args_off(pn);
+        for (int k = 0, np = rt_proc_nparams(pn); ao >= 0 && k < np; k++) {
+            const char * vn = rt_proc_pname(pn, k);
+            if (vn && strlen(vn) == len && !memcmp(vn, name, len)) return (DESCR_t *) (base + ao + 16 * k);
+        }
+    }
+    return (DESCR_t *) 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_rchar(int with_echo) {
     struct termios o, t;
     unsigned char c;
@@ -24672,6 +24695,16 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         return bn_sno_name(args, nargs, out);
     }
     if (!strcmp(fn, "ICN$UNAME") && nargs == 1) return icn_unicon_name(args[0], out);
+    if (!strcmp(fn, "ICN$UPVAR") && nargs == 1) {
+        extern int rt_icn_scan_proc(const char **, const char **);
+        const char * pn, * base;
+        *out = FAILDESCR;
+        if (args[0].v != DT_S || !args[0].s || args[0].slen == 0) return 1;
+        DESCR_t * cell = rt_icn_scan_proc(&pn, &base) ? rt_icn_local_cell_in(args[0].s, args[0].slen, pn, (char *) base) : (DESCR_t *) 0;
+        if (cell) { *out = rt_deref(*cell); return 1; }
+        { extern const char * NV_intern_name_n(const char *, size_t); const char * in = NV_intern_name_n(args[0].s, (size_t) args[0].slen); if (in && NV_EXISTS_fn(in)) *out = NV_GET_fn(in); }
+        return 1;
+    }
     if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
         DESCR_t src = args[0];
         extern int core_icn_error(int code, DESCR_t val);

@@ -2558,6 +2558,14 @@ long rt_icn_map_args_off(const gc_frame_map_t *m) {
     if (m->flags & GC_FRAME_MAP_GEN_ANCHOR) return (long)(((m->frame_bytes + 15u) & ~15u) + 72u);
     return (m->flags & GC_FRAME_MAP_ICN_BLOCK) ? (long)m->frame_bytes : 16L;
 }
+long rt_icn_proc_args_off(const char *pn) {
+    if (!pn) return -1;
+    for (int i = 0; i < g_runtime.gc.gc_sblk_n; i++) {
+        const gc_frame_map_t *m = g_runtime.gc.gc_sblk[i].map;
+        if (m && (m->flags & GC_FRAME_MAP_ICN_PROC) && !strcmp(rt_icn_map_proc_name(m), pn)) return rt_icn_map_args_off(m);
+    }
+    return -1;
+}
 typedef struct { uint64_t pc; const char *r, *rbp; int hit; } gc_uw_t;
 static _Unwind_Reason_Code gc_uw_step(struct _Unwind_Context *c, void *a) {
     gc_uw_t *u = (gc_uw_t *)a;
