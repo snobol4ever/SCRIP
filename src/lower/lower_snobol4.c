@@ -546,7 +546,7 @@ static const tree_t * sno_pat_valued(scx_t * cx, const tree_t ** subj, int has_r
 static int sno_tree_has_scan(const tree_t * n, int d) {
     if (!n || d > 24) return 0;
     if (n->t == TT_SCAN) return 1;
-    for (int i = 0; i < n->n; i++) if (sno_tree_has_scan(n->c[i], d + 1)) return 1;
+    for (int i = 0; i < n->n; i++) if (sno_tree_has_scan(n->c[i], (n->t == TT_SEQ || n->t == TT_CAT) ? d : d + 1)) return 1;
     return 0;
 }
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -2077,16 +2077,33 @@ static int sno_is_flush(const tree_t * t) { return t && sno_pat_eff_kind(t) == T
 static int sno_is_fence1(const tree_t * t) { return t && t->t == TT_FENCE && t->n > 0; }
 static int sno_is_fence0(const tree_t * t) { return sno_is_fence(t) && !sno_is_fence1(t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct sno_tvec_s { const tree_t ** v; int n, cap; } sno_tvec_t;
+typedef struct sno_tvec_s { const tree_t ** v; char * rc; int n, cap; } sno_tvec_t;
 static void sno_tvec_push(sno_tvec_t * e, const tree_t * t) {
     if (e->n >= e->cap) { e->cap = e->cap ? e->cap * 2 : 16; e->v = (const tree_t **) ct_grow((void *) e->v, (size_t) e->cap * sizeof *e->v); }
     e->v[e->n++] = t;
 }
-static void sno_seq_flatten_pat(const tree_t * t, sno_tvec_t * e) {
-    if (!t) return;
-    if (t->t == TT_SEQ) { sno_seq_flatten_pat((t->n > 0) ? t->c[0] : NULL, e); if (t->n > 1 && t->c[1]) sno_tvec_push(e, t->c[1]); return; }
-    sno_tvec_push(e, t);
+static void sno_tvec_push_rc(sno_tvec_t * e, const tree_t * t, int rc) {
+    if (e->n >= e->cap) {
+        e->cap = e->cap ? e->cap * 2 : 16;
+        e->v = (const tree_t **) ct_grow((void *) e->v, (size_t) e->cap * sizeof *e->v);
+        e->rc = (char *) ct_grow((void *) e->rc, (size_t) e->cap);
+    }
+    e->rc[e->n] = (char) rc;
+    e->v[e->n++] = t;
 }
+static void sno_seq_flatten_rc(const tree_t * t, int rc, int first, sno_tvec_t * e) {
+    if (!t) return;
+    if (t->t == TT_SEQ) {
+        for (int i = 0; i < t->n; i++) {
+            const tree_t * c = t->c[i];
+            if (c && c->t == TT_SEQ && i == 0 && !first) sno_tvec_push_rc(e, c, 0);
+            else sno_seq_flatten_rc(c, i > 0 && i == t->n - 1, first && i == 0, e);
+        }
+        return;
+    }
+    sno_tvec_push_rc(e, t, rc);
+}
+static void sno_seq_flatten_pat(const tree_t * t, sno_tvec_t * e) { sno_seq_flatten_rc(t, 1, 1, e); }
 static const tree_t * sno_const_pat(const char * ck);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_cset_fold(const tree_t * a) {
@@ -2560,7 +2577,7 @@ static int sno_pat_contains_fence0(const tree_t * t, int depth) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, const tree_t * last, IR_t * succ, IR_t * fail, IR_t ** out_rtail) {
+static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, const char * rc, int ne, IR_t * succ, IR_t * fail, IR_t ** out_rtail) {
     IR_graph_t * g = cx->g;
     IR_t * S = lc_build(g, IR_GOTO, succ, NULL);
     sno_ω_to(S, fail);
@@ -2569,7 +2586,7 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, const tree
     int * lo = (int *) ct_alloc((size_t) (ne > 0 ? ne : 1) * sizeof *lo);
     for (int i = 0; i < ne; i++) {
         int before = g->n;
-        cx->ppos = (elems[i] == last) ? 9 : 8;
+        cx->ppos = rc[i] ? 9 : 8;
         IR_t * ei = sno_pat_node(cx, elems[i], S, S);
         int _rb = before;
         while (_rb < g->n && g->all[_rb] && g->all[_rb]->op == IR_GOTO && g->all[_rb]->γ.node == S && g->all[_rb]->ω.node == S && g->all[_rb]->n_operands == 0) _rb++;
@@ -2695,8 +2712,9 @@ static IR_t * sno_capt_body(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fa
         int ne = ev.n;
         int nf = ne;
         for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { nf = i; break; }
-        if (nf == ne && ne > 1) { IR_t * rt = NULL; IR_t * pe = sno_seq_nary(cx, elems, ne, elems[ne - 1], succ, fail, &rt); ct_drop(ev.v); *out_itail = rt ? rt : pe; return pe; }
+        if (nf == ne && ne > 1) { IR_t * rt = NULL; IR_t * pe = sno_seq_nary(cx, elems, ev.rc, ne, succ, fail, &rt); ct_drop(ev.v); ct_drop(ev.rc); *out_itail = rt ? rt : pe; return pe; }
         ct_drop(ev.v);
+        ct_drop(ev.rc);
     }
     int before = g->n;
     IR_t * pe = sno_pat_node(cx, t, succ, fail);
@@ -2952,7 +2970,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             ir_operand_push(R, rl ? (rtl ? rtl : ei) : ri);
             if (rl) { char * vis = (char *) ct_zalloc((size_t)(g->n - before), 1); sno_emit_order_last(g, before, R, ei, vis, &rl); ct_drop(vis); }
             ir_operand_push(R, rl ? rl : ((g->n > before) ? g->all[g->n - 1] : ei));
-            { sno_tvec_t bv = {0}; sno_seq_flatten_pat(t->c[0], &bv); if (bv.n > 0 && sno_is_fence0(bv.v[bv.n - 1])) ir_operand_push(R, R); ct_drop(bv.v); }
+            { sno_tvec_t bv = {0}; sno_seq_flatten_pat(t->c[0], &bv); if (bv.n > 0 && sno_is_fence0(bv.v[bv.n - 1])) ir_operand_push(R, R); ct_drop(bv.v); ct_drop(bv.rc); }
             IR_LIT(R).ival = 1;
             return R;
         }
@@ -3053,8 +3071,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             for (int i = 0; i < ne; i++) if (sno_is_fence(elems[i])) { first_fence = i; break; }
             for (int i = 0; i < ne; i++) if (sno_is_fence0(elems[i])) { first_f0 = i; break; }
             if (first_fence == ne) {
-                IR_t * r0 = ne == 1 ? (cx->ppos = pp, sno_pat_node(cx, elems[0], succ, fail)) : sno_seq_nary(cx, elems, ne, elems[ne - 1], succ, fail, NULL);
+                IR_t * r0 = ne == 1 ? (cx->ppos = pp, sno_pat_node(cx, elems[0], succ, fail)) : sno_seq_nary(cx, elems, ev.rc, ne, succ, fail, NULL);
                 ct_drop(ev.v);
+                ct_drop(ev.rc);
                 return r0;
             }
             IR_t * cur_succ = succ;
@@ -3138,7 +3157,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 IR_t * fail_r = (j > first_f0) ? cx->pat_seal : fail;
                 int before_r = g->n;
                 IR_t * n_rt = NULL;
-                IR_t * re = (rn == 1) ? (cx->ppos = (j == ne - 1) ? 9 : 8, sno_pat_node(cx, elems[j], cur_succ, fail_r)) : sno_seq_nary(cx, elems + j, rn, elems[ne - 1], cur_succ, fail_r, &n_rt);
+                IR_t * re = (rn == 1) ? (cx->ppos = ev.rc[j] ? 9 : 8, sno_pat_node(cx, elems[j], cur_succ, fail_r)) : sno_seq_nary(cx, elems + j, ev.rc + j, rn, cur_succ, fail_r, &n_rt);
                 int _rb2 = before_r;
                 while (_rb2 < g->n && g->all[_rb2] && g->all[_rb2]->op == IR_GOTO && g->all[_rb2]->n_operands == 0) _rb2++;
                 IR_t * r_ti = NULL;
@@ -3155,6 +3174,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 i = j - 1;
             }
             ct_drop(ev.v);
+            ct_drop(ev.rc);
             cx->seq_rlast = rlast;
             cx->seq_rlast_for = cur_succ;
             cx->seq_rtail = rtail;
@@ -3374,10 +3394,16 @@ static int sno_is_pattern_rhs(const tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_null_lit(const tree_t * t) { return t && ((t->t == TT_QLIT && (!t->v.sval || !t->v.sval[0])) || t->t == TT_NUL); }
+static int sno_seq_is_chain(const tree_t * t) { return t && (t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1; }
+static const tree_t * sno_seq_last_leaf(const tree_t * t) { while (sno_seq_is_chain(t)) t = t->c[t->n - 1]; return t; }
+static int sno_seq_rtl(const tree_t * t, int first, int (*g)(const tree_t *)) {
+    if (sno_seq_is_chain(t)) { for (int i = t->n - 1; i >= 0; i--) { int r = sno_seq_rtl(t->c[i], first && i == 0, g); if (r >= 0) return r; } return -1; }
+    return (first || !sno_is_fence1(t)) ? g(t) : -1;
+}
 static int sno_mkpat_here(const tree_t * t) {
     if (g_lower.sno.sno_mkpat_here_on < 0) { const char * e = getenv("SCRIP_MKPAT_ANYWHERE"); g_lower.sno.sno_mkpat_here_on = (e && *e == '0') ? 0 : 1; }
     if (!g_lower.sno.sno_mkpat_here_on || !t || t->t == TT_VAR || t->t == TT_KEYWORD || t->t == TT_INDIRECT || t->t == TT_DEFER || !sno_is_pattern_rhs(t) || !sno_pat_supported(t)) return 0;
-    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1 && (sno_null_lit(t->c[0]) || sno_null_lit(t->c[1]))) return 0;
+    if (sno_seq_is_chain(t) && (sno_null_lit(sno_seq_last_leaf(t)) || (sno_null_lit(t->c[0]) && !sno_seq_is_chain(t->c[1])))) return 0;
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx;
     tx.g = tg;
@@ -3406,7 +3432,7 @@ static int sno_mkpat_here(const tree_t * t) {
 static int sno_pat_right_sealed(const tree_t * t) {
     if (!t) return 0;
     if (sno_is_fence(t)) return 1;
-    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_is_fence1(t->c[1]) ? sno_pat_right_sealed(t->c[0]) : sno_pat_right_sealed(t->c[1]);
+    if (sno_seq_is_chain(t)) return sno_seq_rtl(t, 1, sno_pat_right_sealed) > 0;
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0) return sno_pat_right_sealed(t->c[0]);
     return 0;
 }
@@ -4869,9 +4895,10 @@ static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, I
         px->seq_rlast = NULL;
         px->seq_rlast_for = NULL;
         px->seq_rtail = NULL;
-        pe = (sno_defer_resume() && fne > 1 && (!pfenced || (sno_fence_rtail() && !topf))) ? sno_seq_nary(px, fel, fne, fel[fne - 1], ok, no, out_brt) : sno_pat_node(px, pat, ok, no);
+        pe = (sno_defer_resume() && fne > 1 && (!pfenced || (sno_fence_rtail() && !topf))) ? sno_seq_nary(px, fel, fv.rc, fne, ok, no, out_brt) : sno_pat_node(px, pat, ok, no);
         if (topf && !*out_brt && px->seq_rlast_for == pe && px->seq_rtail) *out_brt = px->seq_rtail;
         ct_drop(fv.v);
+        ct_drop(fv.rc);
     }
     *out_pfenced = pfenced;
     return pe;
@@ -4880,7 +4907,7 @@ static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, I
 static int sno_pat_right_fence0(const tree_t * t) {
     if (!t) return 0;
     if (sno_is_fence0(t) || sno_is_flush(t)) return 1;
-    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_is_fence1(t->c[1]) ? sno_pat_right_fence0(t->c[0]) : sno_pat_right_fence0(t->c[1]);
+    if (sno_seq_is_chain(t)) return sno_seq_rtl(t, 1, sno_pat_right_fence0) > 0;
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0) return sno_pat_right_fence0(t->c[0]);
     return 0;
 }

@@ -112,7 +112,7 @@ $']'        =  *$' ' ']';
 /* ==================================================================================================================== */
 /* THE EXPRESSION, as src/parsers/snobol4/snobol4.y builds it (Lon 2026-09-30: the C tree is canonical, and "the tree is */
 /* built from tokens in the same order as they are recognized by the PATTERN ... directly and once only"): every left-     */
-/* associative level is a tail loop that reduces as each right operand is recognised; =, ^, @ and ~ are right-recursive.  */
+/* associative level is a tail loop that reduces as each right operand is recognised; =, blank, ^, @ and ~ are right-rec. */
 ArgTail     =  *$',' FENCE(*Expr | epsilon . *Reduce('TT_NUL', 0)) . *IncCounter() FENCE(*ArgTail | epsilon);
 ArgList     =  FENCE(*Expr . *IncCounter() FENCE(*ArgTail | epsilon) | epsilon . *Reduce('TT_NUL', 0) . *IncCounter() *ArgTail);
 Expr        =  *Expr0;
@@ -123,8 +123,7 @@ Expr2       =  *Expr3 *Expr2t;
 Expr2t      =  FENCE(*$'&' *Expr3 . *Reduce('TT_OPSYN', 2, '&') *Expr2t | epsilon);
 Expr3       =  *Expr4 *Expr3t;
 Expr3t      =  FENCE(*$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t | epsilon);
-Expr4       =  *Expr5 *Expr4t;
-Expr4t      =  FENCE(*$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t | epsilon);
+Expr4       =  *Expr5 FENCE(*$'  ' *Expr4 . *Reduce('TT_SEQ', 2) | epsilon);
 Expr5       =  *Expr6 FENCE(*$'@' *Expr5 . *Reduce('TT_OPSYN', 2, '@') | epsilon);
 Expr6       =  *Expr7 *Expr6t;
 Expr6t      =  FENCE(*$'  ' ('+' *$'  ' *Expr7 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr7 . *Reduce('TT_SUB', 2)) *Expr6t | epsilon);
@@ -209,7 +208,7 @@ GoInner     =  FENCE(  '$' '(' *$' ' *Expr *$' ' ')'
 GoV0        =  *Expr1 FENCE(*$'=' *Expr0 . *Reduce('TT_ASSIGN', 2) | *$'  ' '=' (epsilon) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ASSIGN', 2)) . *Reduce('TT_NAME', 1);
 GoV1        =  *Expr2 *$'?' *Expr2 . *Reduce('TT_SCAN', 2) *Expr1t . *Reduce('TT_NAME', 1);
 GoV3        =  *Expr4 *$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t . *Reduce('TT_NAME', 1);
-GoV4        =  *Expr5 *$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t . *Reduce('TT_NAME', 1);
+GoV4        =  *Expr5 *$'  ' *Expr4 . *Reduce('TT_SEQ', 2) . *Reduce('TT_NAME', 1);
 GoV6        =  *Expr7 *$'  ' ('+' *$'  ' *Expr7 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr7 . *Reduce('TT_SUB', 2)) *Expr6t . *Reduce('TT_NAME', 1);
 GoV8        =  *Expr9 *$'/' *Expr9 . *Reduce('TT_DIV', 2) *Expr8t . *Reduce('TT_NAME', 1);
 GoV9        =  *Expr10 *$'*' *Expr10 . *Reduce('TT_MUL', 2) *Expr9t . *Reduce('TT_NAME', 1);

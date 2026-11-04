@@ -38,6 +38,7 @@ const char *define_spec_from_expr(tree_t *subj) {
         flatbuf[0] = '\0';
         for (int i = 0; i < arg->n && pos < sizeof(flatbuf)-1; i++) {
             tree_t *c = arg->c[i];
+            if (c && (c->t == TT_CAT || c->t == TT_SEQ)) return NULL;
             if (c && c->t == TT_QLIT && c->v.sval) { size_t clen = strlen(c->v.sval); if (pos + clen >= sizeof(flatbuf)-1) break; memcpy(flatbuf + pos, c->v.sval, clen); pos += clen; }
         }
         flatbuf[pos] = '\0';
