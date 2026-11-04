@@ -26084,6 +26084,7 @@ extern char ** pl_tr_floor_slot(const char *);
 extern uint64_t g_rtccb[32];
 extern pl_trie_sl_t * rt_pl_trie_sl(void *, int64_t);
 extern int rt_pl_trie_count(void *, int64_t);
+extern int rt_pl_trie_nents(void *, int64_t);
 extern int64_t rt_pl_tbh_table(void *);
 extern int64_t rt_pl_tbl_chain_get(void *);
 extern int rt_pl_tbl_chain_set(void *, int64_t);
@@ -26109,7 +26110,7 @@ static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         if (!sl) break;
         {
-            int cnt = rt_pl_trie_count(root, x);
+            int cnt = rt_pl_trie_nents(root, x);
             for (DESCR_t cur = rt_pl_deref_val(neg ? sl->ncons : sl->pcons); cur.v == (DTYPE_t)DT_PLREF && plc_fid_arity(cur.slen) == 2; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
                 DESCR_t st = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
                 pl_pseg_t *b = pl_pseg_of(st);
