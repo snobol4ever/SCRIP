@@ -4940,6 +4940,7 @@ int rt_pl_trie_entry_key(void *root, int64_t id, int64_t ent, void *out_cell, pl
     return pl_trie_give(pl_trie_key_term(n), out_cell, cx);
 }
 int rt_pl_trie_count(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? t->nvals : -1; }
+int rt_pl_trie_nents(void *root, int64_t id) { pl_trie_t *t = pl_trie_at(root, id); return t ? t->nents : -1; }
 int rt_pl_trie_tbl_vt(void *root);
 int rt_pl_tbl_abolish_id(void *root, int64_t id) {
     pl_trie_t *t = pl_trie_at(root, id), *vt = pl_trie_at(root, rt_pl_trie_tbl_vt(root));

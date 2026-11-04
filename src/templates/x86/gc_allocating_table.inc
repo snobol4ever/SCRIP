@@ -2919,6 +2919,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_trie_lookup", GC_RET_OTHER },
     { "rt_pl_trie_meta_get", GC_RET_OTHER },
     { "rt_pl_trie_meta_set", GC_RET_OTHER },
+    { "rt_pl_trie_nents", GC_RET_OTHER },
     { "rt_pl_trie_new", GC_RET_OTHER },
     { "rt_pl_trie_sl", GC_RET_OTHER },
     { "rt_pl_trie_slice", GC_RET_OTHER },
