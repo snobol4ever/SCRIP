@@ -1922,6 +1922,15 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         case TT_INVOKE:
         {
+            const char * rn = cx->cur_proc_name;
+            if (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "&?ROUTINE") && rn && *rn && !strstr(rn, "__") && !strpbrk(rn, "$:<>")) {
+                tree_t * rc = ast_node_new(TT_FNC);
+                rc->line = t->line;
+                rc->v.sval = (char *) rn;
+                ast_push(rc, leaf_sval2(TT_VAR, rn));
+                for (int i = 1; i < t->n; i++) ast_push(rc, t->c[i]);
+                return lower_rv(cx, rc, γ, ω, res);
+            }
             tree_t * mc = ast_node_new(TT_FNC);
             mc->v.sval = (char *)"__blk_invoke";
             tree_t * nmv = ast_node_new(TT_VAR);
