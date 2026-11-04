@@ -342,6 +342,7 @@ int prolog_op_col_get(int atom, int fix, int *prec_out, int *type_out) {
 int prolog_op_col_user(int atom, int fix) { return (atom >= 0 && atom < g_runtime.atoms.opcols_cap && fix >= 0 && fix <= 2) ? op_col(&g_runtime.atoms.opcols[atom], fix)->u == 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_cols_ready(void) { return g_runtime.atoms.opcols_ready; }
+RT_ENTRY_DECL(prolog_op_cols_warm, leaf, 0);
 void prolog_op_cols_warm(void) { if (!g_runtime.atoms.opcols_ready) op_cols_fill(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_functor_table_install, leaf, 0);
