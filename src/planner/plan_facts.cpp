@@ -202,7 +202,9 @@ static void pf_gate(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gra
         if (rtgt && rtgt->op != IR_SUCCEED && rtgt->op != IR_FAIL) k = pf_row(nodes, n, rtgt);
         { int a = arm ? pf_row(nodes, n, arm) : -1; long r = 0;
             if (hold && k >= 0 && a >= 0 && zon[a] && zon[k] && zd_gate_pair_at_g(g, nodes, n, i, a, k, wantb, zon, zout, xb, &r)) { rec->v_gate.push_back((int)r); continue; } }
-        if (xb && k >= 0 && zon[i] && zon[k] && xb[i] != INT_MIN && xb[k] != INT_MIN) V = (xb[i] + zout[i]) - (xb[k] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])));
+        int sa = (k == i && arm) ? pf_row(nodes, n, arm) : -1;
+        if (sa >= 0 && zon[sa] && zon[i] && xb && rec->gp && xb[sa] != INT_MIN && xb[i] != INT_MIN) V = (xb[sa] + zout[sa] - rec->gp[sa]) - (xb[i] + zout[i] - zd_k_g(g, nd));
+        else if (xb && k >= 0 && zon[i] && zon[k] && xb[i] != INT_MIN && xb[k] != INT_MIN) V = (xb[i] + zout[i]) - (xb[k] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])));
         else if (xb && g_planner.g_zd_fam_p && g_planner.g_zd_claim_p && g_planner.g_zd_gp_p && g_planner.g_zd_nodes_p == nodes) {
             const int * cl = g_planner.g_zd_claim_p, * fm = g_planner.g_zd_fam_p, * fb = g_planner.g_zd_fbase_p;
             int a = arm ? pf_row(nodes, n, arm) : -1, lf = (a >= 0 && zon[a] && cl[a] >= 0) ? fm[cl[a]] : -1, kk = 0, kf = -1; long kd = 0;
