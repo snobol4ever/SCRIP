@@ -738,6 +738,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             return mk_assign(v, f);
         }
     }
+    if (name && !strcmp(name, "length") && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 1 && pas_pchar_typed(args->items[0])) return mk_fnc1("__pas_pstrlen", args->items[0]);
     if (name && !strcmp(name, "length") && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR) {
         long long d2[4];
         if (pas_array_dims(args->items[0]->v.sval, d2)) return ilit(d2[1] - d2[0] + 1);
@@ -1467,6 +1468,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                         char _cb[2] = { (char) val->c[1]->v.ival, 0 };
                         val = mk_fnc1("__pas_pchar_of", leaf_s(TT_QLIT, ct_strdup(_cb)));
                     } else if (_ft && pty_is_pchar(_ft) && (val->t == TT_QLIT || (_at && (_at->k == PTK_STRING || _at->k == PTK_ARRAY)))) val = mk_fnc1("__pas_pchar_of", val);
+                    else if (_ft && _ft->k == PTK_STRING && _at && pty_is_pchar(_at) && !pas_proc_param_is_var(name, _pidx)) val = mk_fnc1("__pas_pstr", val);
                 }
                 if (val && val->t == TT_SEQ_EXPR && val->n == 2 && val->c[0] && val->c[0]->t == TT_FNC && val->c[0]->c[0] && val->c[0]->c[0]->v.sval &&
                     !strcmp(val->c[0]->c[0]->v.sval, "__pas_tagwhole") && pas_proc_param_is_var(name, _pidx) && val->c[1] && val->c[1]->t == TT_FNC && val->c[1]->n == 2) {
