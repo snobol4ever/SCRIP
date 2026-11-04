@@ -5389,6 +5389,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_lower.sno.prescan_top = NULL;
     g_lower.sno.seal_enabled = 1;
     if (!prog || prog->t != TT_PROGRAM) return NULL;
+    g_stage2.ball_exit_by_code = 1;
     const tree_t * list_prog = prog;
     if (snobol4_noexec()) prog = sno_noexec_program(prog);
     for (int i = 0; i < prog->n; i++) sno_indirect_lit_to_var((tree_t *) prog->c[i]);

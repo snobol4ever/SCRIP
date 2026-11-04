@@ -2793,6 +2793,39 @@ void core_err_compat_map(int *code, const char **msg) {
 static const char *icn_errmsg(int n);
 int core_setexit_armed(void) { return core_setexit_on() && sxl_set(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_ball_rule_set(long by_code) { g_runtime.abi.ball_exit_by_code = by_code; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_root_ball_exit(void) {
+    extern void rt_kw_publish_error_at_exit(int code, const char *msg);
+    const rt_ball_t * b = &g_runtime.abi.ball;
+    if (b->form == RT_BALL_LINE) {
+        fflush(stdout);
+        fprintf(stderr, "%s\n", b->text ? b->text : "");
+        fflush(stderr);
+    } else {
+        core_error_voice((int)b->code, b->text, 1, b->value);
+        rt_kw_publish_error_at_exit((int)b->code, b->text);
+    }
+    fflush((FILE *)0);
+    exit((int)(b->exit_code >= 0 ? b->exit_code : g_runtime.abi.ball_exit_by_code ? g_runtime.core.kw_code : 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_ball_arm(long cls, long code, const char *text, long form, DESCR_t value, long exit_code) {
+    rt_ball_t * b = &g_runtime.abi.ball;
+    b->cls = cls;
+    b->code = code;
+    b->text = text;
+    b->form = form;
+    b->value = value;
+    b->src_node = (long)value.src_node0 | (long)value.src_node1 << 8 | (long)value.src_node2 << 16;
+    b->stno = g_runtime.abi.stno;
+    b->exit_code = exit_code;
+    if (cls == RT_BALL_FATAL) rt_root_ball_exit();
+    return FAILDESCR;
+}
+DESCR_t rt_raise(long cls, long code, const char *text, DESCR_t value, long exit_code) { return rt_ball_arm(cls, code, text, RT_BALL_VOICE, value, exit_code); }
+DESCR_t rt_raise_line(long cls, long code, const char *line, long exit_code) { return rt_ball_arm(cls, code, line, RT_BALL_LINE, FAILDESCR, exit_code); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_runtime_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
     if (!msg && code >= 1 && code <= 39) msg = core_err_msgs[code];
@@ -2842,11 +2875,7 @@ void core_runtime_error(int code, const char *msg) {
             return;
         }
     }
-    { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
-    { extern void rt_kw_publish_error_at_exit(int code, const char *msg); rt_kw_publish_error_at_exit(code, msg); }
-    if (core_err_is_terminal(code)) exit(1);
-    if (core_err_is_fatal(code)) exit(1);
-    exit(1);
+    rt_raise(RT_BALL_FATAL, code, msg, FAILDESCR, -1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_runtime_error_soft(int code, const char *msg) {
@@ -5270,6 +5299,7 @@ void core_gc_roots(void) {
         rt_gc_run_roots(&a);
     }
     rt_gc_visit_descr(&g_runtime.misc.icn_errvalue);
+    rt_gc_visit_descr(&g_runtime.abi.ball.value);
 #if RT_DIAG
     rt_gc_visit_descr(&g_icn_op.a);
     rt_gc_visit_descr(&g_icn_op.b);

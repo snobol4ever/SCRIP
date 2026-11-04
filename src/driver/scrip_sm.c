@@ -27,5 +27,6 @@ stage2_t *sm_preamble(const tree_t *ast_prog, const lower_seg_t *segs, int nsegs
     for (int i = 0; i < nsegs; i++) { if (!segs[i].fn || !segs[i].prog || !segs[i].fn(segs[i].prog)) s2 = NULL; }
     if (!s2) { fprintf(stderr, "scrip: sm_lower failed\n"); return NULL; }
     sm_resolve_proc_entry_pcs(s2);
+    { extern void rt_ball_rule_set(long); rt_ball_rule_set((long)s2->ball_exit_by_code); }
     return s2;
 }

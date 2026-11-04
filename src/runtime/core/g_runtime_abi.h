@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "g_runtime_vec.h"
+#include "ir/descr.h"
 #define RT_DCAP_NVCACHE_N 16
 struct DESCR_t;
 struct rt_hblk_t;
@@ -45,6 +46,13 @@ struct gc_mk_t {
     long hcap, hn, tb_h, code_unsorted, census, maps, diag, trap, plant, verify, telem, chain;
 };
 struct rt_proc_s;
+#define RT_BALL_NONE 0
+#define RT_BALL_FATAL 1
+#define RT_BALL_HANDLED 2
+#define RT_BALL_CONVERTED 3
+#define RT_BALL_VOICE 0
+#define RT_BALL_LINE 1
+typedef struct { long cls; long code; const char *text; long form; DESCR_t value; long src_node; long stno; long exit_code; } rt_ball_t;
 typedef struct {
     rt_hp_fr_t hp_fr;
     rt_sxt_fr_t sxt_fr;
@@ -96,5 +104,7 @@ typedef struct {
     unsigned char rtcc_on;
     struct rt_proc_s *rt_gen_procs;
     long gc_fast;
+    rt_ball_t ball;
+    long ball_exit_by_code;
 } g_abi_t;
 #endif

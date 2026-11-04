@@ -72,6 +72,7 @@ void stage2_reset(void) {
     memset(&g_stage2.resolve_pred_table, 0, sizeof g_stage2.resolve_pred_table);
     memset(&g_stage2.module_registry, 0, sizeof g_stage2.module_registry);
     g_stage2.module_registry.main_mod = -1;
+    g_stage2.ball_exit_by_code = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_delete_all(stage2_t *s2) { if (!s2) return; bb_program_free(&s2->bbp); for (int i = 0; i < s2->proc_count; i++) s2->proc_table[i].bb_idx = -1; }

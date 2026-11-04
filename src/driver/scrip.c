@@ -2669,6 +2669,7 @@ int main(int argc, char **argv) {
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
+            if (s2->ball_exit_by_code) emit_textf("  mov edi, %d\n  call rt_ball_rule_set@PLT\n", s2->ball_exit_by_code);
             if (_pl_atoms) {
                 emit_textf("  lea rdi, [rip + .Lpl_atom_tab]\n  call rt_pl_atom_table_install@PLT\n  lea rdi, [rip + .Lpl_functor_tab]\n  call rt_pl_functor_table_install@PLT\n");
                 emit_textf("  call prolog_op_cols_warm@PLT\n");

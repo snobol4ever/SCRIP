@@ -48,6 +48,8 @@ _Static_assert(offsetof(g_runtime_t, abi.maxlngth) == G_RT_OFF_MAXLNGTH, "abi.ma
 _Static_assert(offsetof(g_runtime_t, abi.rtcc_on) == G_RT_OFF_RTCC_ON, "abi.rtcc_on moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.rt_gen_procs) == G_RT_OFF_RT_GEN_PROCS, "abi.rt_gen_procs moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, abi.gc_fast) == G_RT_OFF_GC_FAST, "abi.gc_fast moved: run util_g_runtime_abi_offsets.py");
+_Static_assert(offsetof(g_runtime_t, abi.ball) == G_RT_OFF_BALL, "abi.ball moved: run util_g_runtime_abi_offsets.py");
+_Static_assert(offsetof(g_runtime_t, abi.ball_exit_by_code) == G_RT_OFF_BALL_EXIT_BY_CODE, "abi.ball_exit_by_code moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, gc.hp_arena) == G_RT_OFF_GC_HP_ARENA, "gc.hp_arena moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, gc.hp_win) == G_RT_OFF_GC_HP_WIN, "gc.hp_win moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, gc.hp_wend) == G_RT_OFF_GC_HP_WEND, "gc.hp_wend moved: run util_g_runtime_abi_offsets.py");

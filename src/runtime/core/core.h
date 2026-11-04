@@ -11,6 +11,10 @@ extern "C" {
 #endif
 char *VARVAL_fn(DESCR_t v);
 int lex_cmp_pair(DESCR_t a, DESCR_t b);
+DESCR_t rt_raise(long cls, long code, const char *text, DESCR_t value, long exit_code);
+DESCR_t rt_raise_line(long cls, long code, const char *line, long exit_code);
+void rt_root_ball_exit(void) __attribute__((noreturn));
+void rt_ball_rule_set(long by_code);
 void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 DESCR_t INVOKE_fn(const char *name, DESCR_t *args, int nargs);

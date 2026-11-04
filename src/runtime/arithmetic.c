@@ -473,14 +473,13 @@ RT_ENTRY_DECL(c_rt_mod_strict, leaf, 0);
 RT_BINOP_ENTRY(c_rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(c_rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_pas_div_error(int bcode, int fpc, DESCR_t a, DESCR_t b) {
-    extern void pas_file_err(const char *clause, const char *what, const char *proc);
     int real = a.v == DT_R || b.v == DT_R;
     int num_zero = a.v == DT_R ? a.r == 0.0 : a.i == 0;
     int code = !real ? 200 : num_zero ? 207 : 208;
-    if (!fpc) pas_file_err("6.7.2.2", real ? "x / y with y zero" : bcode == BINOP_MOD ? "i mod j with j zero" : "i div j with j zero", NULL);
-    fflush(NULL);
-    fprintf(stderr, "Runtime error %d at $0\n", code);
-    exit(code);
+    if (fpc) return rt_raise_line(RT_BALL_FATAL, code, code == 200 ? "Runtime error 200 at $0" : code == 207 ? "Runtime error 207 at $0" : "Runtime error 208 at $0", code);
+    if (real) return rt_raise_line(RT_BALL_FATAL, code, "scrip: pascal runtime error: ISO 7185 6.7.2.2: x / y with y zero", code);
+    return rt_raise_line(RT_BALL_FATAL, code,
+        bcode == BINOP_MOD ? "scrip: pascal runtime error: ISO 7185 6.7.2.2: i mod j with j zero" : "scrip: pascal runtime error: ISO 7185 6.7.2.2: i div j with j zero", code);
 }
 static int rt_pas_zero_divisor(DESCR_t b) { return (b.v == DT_I && b.i == 0) || (b.v == DT_R && b.r == 0.0); }
 RT_ENTRY_DECL(c_rt_div_diviso, leaf, 0);
