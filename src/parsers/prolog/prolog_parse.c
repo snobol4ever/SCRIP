@@ -3394,7 +3394,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_idx'([]).\n"
     "'$lfx_idx'([index|R]):-'$lfx_idx'(R).\n"
     "'$lfx_terms'([],_,_,_,_,[]).\n"
-    "'$lfx_terms'([T|Ts],M,Ks,Tb,A,Is):-'$xsb_psub'(M,T,T1),'$lfx_term'(T1,M,Ks,Tb,A,Is,I0),'$lfx_terms'(Ts,M,Ks,Tb,A,I0).\n"
+    "'$lfx_terms'([T|Ts],M,Ks,Tb,A,Is):-catch('$xsb_psub'(M,T,T1),error(existence_error(procedure,'$xsb_psub'/3),_),T1=T),'$lfx_term'(T1,M,Ks,Tb,A,Is,I0),'$lfx_terms'(Ts,M,Ks,Tb,A,I0).\n"
     "'$lfx_term'(T,_,_,_,_,I,I):-var(T),!.\n"
     "'$lfx_term'((:-initialization(G)),M,Ks,_,_,[G2|I0],I0):-!,'$lfx_body'(G,M,Ks,G2).\n"
     "'$lfx_term'((:-D),M,Ks,_,A,I,I):-!,'$lfx_dir'(D,M,Ks,A).\n"
