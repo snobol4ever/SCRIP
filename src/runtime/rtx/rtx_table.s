@@ -265,7 +265,7 @@ RTX_FUNC(rt_table_assign_fast)
     mov     r8, qword ptr [rsp + 8]
     mov     r9, qword ptr [rsp]
     RTX_ADD_RSP(16)
-    RTX_DECLINE
+    RTX_SLOW(c_rt_table_assign_fast)
 .Lta_arr:
     RTX_CFA(8)
     cmp     dword ptr [rsi + ARBLK_NDIM], 1
@@ -300,7 +300,7 @@ RTX_FUNC(rt_table_assign_fast)
     ret
 .Lta_c:
     RTX_CFA(8)
-    RTX_DECLINE
+    RTX_SLOW(c_rt_table_assign_fast)
 RTX_ENDF(rt_table_assign_fast)
 RTX_FUNC(table_find_pair_d)
     RTX_GATE(table, .Ltf_c)
@@ -872,9 +872,7 @@ RTX_FUNC(rt_subscript_val_strict)
     ret
 .Lsvs_c:
     RTX_CFA(8)
-    mov     eax, RTX_NOT_HANDLED
-    RTX_GVA_R9
-    ret
+    RTX_SLOW(c_rt_subscript_val_strict)
 RTX_ENDF(rt_subscript_val_strict)
 .section .rodata
 .Lsvco_empty:

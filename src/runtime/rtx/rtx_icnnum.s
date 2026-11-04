@@ -133,9 +133,7 @@ RTX_FUNC(rt_coerce_num2_d)
     RTX_GVA_R9
     ret
 .Lbail:
-    mov     eax, RTX_NOT_HANDLED
-    RTX_GVA_R9
-    ret
+    RTX_SLOW(c_rt_coerce_num2_d)
 RTX_ENDF(rt_coerce_num2_d)
 .section .note.GNU-stack,"",@progbits
 RTX_FUNC(core_icn_int_operand_ok)
@@ -148,5 +146,5 @@ RTX_FUNC(core_icn_int_operand_ok)
     mov     eax, 1
     ret
 .Lcio_c:
-    RTX_DECLINE_INT
+    RTX_SLOW(c_core_icn_int_operand_ok)
 RTX_ENDF(core_icn_int_operand_ok)

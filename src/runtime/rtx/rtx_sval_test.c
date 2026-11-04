@@ -5,6 +5,9 @@
 #include "ir/descr.h"
 #include "ir/cset_block.h"
 #include "runtime/core/core.h"
+#include "runtime/core/table.h"
+#include "runtime/core/array.h"
+#include "runtime/core/datatype.h"
 #include "runtime/rt/gc_heap.h"
 DESCR_t rt_subscript_val(DESCR_t, DESCR_t);
 DESCR_t c_rt_subscript_val(DESCR_t, DESCR_t);
@@ -13,7 +16,7 @@ DESCR_t c_rt_subscript_val_strict(DESCR_t, DESCR_t);
 typedef DESCR_t (*fn2_t)(DESCR_t, DESCR_t);
 static fn2_t g_leaf = rt_subscript_val, g_twin = c_rt_subscript_val;
 extern int g_gc_pending;
-static int fails = 0, ncase = 0, handled = 0, declined = 0;
+static int fails = 0, ncase = 0, handled = 0, declined = 0, g_total = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void words(DESCR_t d, uint64_t *w) { memcpy(&w[0], &d, 8); memcpy(&w[1], (char *)&d + 8, 8); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24,7 +27,7 @@ static int leaf(DESCR_t b, DESCR_t k, DESCR_t *out) {
     uint64_t rdi = wb[0], rsi = wb[1], rdx = wk[0], rcx = wk[1], rax;
     DESCR_t (*fp)(DESCR_t, DESCR_t) = g_leaf;
     __asm__ volatile ("leaq -128(%%rsp), %%rsp; call *%[fn]; leaq 128(%%rsp), %%rsp" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "=a"(rax) : [fn] "r"(fp) : "r8", "r9", "r10", "r11", "memory", "cc");
-    if ((uint8_t)rax == RTX_NOT_HANDLED) {
+    if (!g_total && (uint8_t)rax == RTX_NOT_HANDLED) {
         if (rdi != wb[0] || rsi != wb[1] || rdx != wk[0] || rcx != wk[1]) { fails++; printf("  FAIL case %d: declined with an argument register changed\n", ncase); }
         return 0;
     }
@@ -48,8 +51,9 @@ static void check(const char *what, DESCR_t base, DESCR_t idx, int expect) {
     g_gc_pending = 0;
     int h = leaf(base, idx, &r);
     if (h) { handled++; c = g_twin(base, idx); if (!same(r, c)) { fails++; printf("  FAIL %s: leaf %02x/%08x twin %02x/%08x\n", what, r.v & 0xff, r.slen, c.v & 0xff, c.slen); } } else declined++;
-    if (expect == 1 && !h) { fails++; printf("  FAIL %s: declined a read the leaf owns\n", what); }
-    if (expect == 0 && h) { fails++; printf("  FAIL %s: handled a read it must hand to the twin\n", what); }
+    if (g_total && !h) { fails++; printf("  FAIL %s: a total leaf declined\n", what); }
+    if (!g_total && expect == 1 && !h) { fails++; printf("  FAIL %s: declined a read the leaf owns\n", what); }
+    if (!g_total && expect == 0 && h) { fails++; printf("  FAIL %s: handled a read it must hand to the twin\n", what); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dtab(TBBLK_t *t) { DESCR_t d = { .v = DT_T }; d.tbl = t; return d; }
@@ -102,6 +106,7 @@ int main(void) {
     check("integer base", INTVAL(5), INTVAL(1), 0);
     check("null base", NULVCL, INTVAL(1), 0);
     g_leaf = rt_subscript_val_strict;
+    g_total = 1;
     g_twin = c_rt_subscript_val_strict;
     {
         DESCR_t cellt = dtab(t), cellp = darr(array_new(1, 6)), cellv = cell, celln = varref;

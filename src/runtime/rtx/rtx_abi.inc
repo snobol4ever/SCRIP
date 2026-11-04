@@ -23,6 +23,7 @@
 #define RTX_DECLINE mov eax, RTX_NOT_HANDLED; ret
 #define RTX_DECLINE_INT mov eax, RTX_NOT_HANDLED_INT; ret
 #define RTX_DECLINE_PTR mov rax, RTX_NOT_HANDLED_PTR; ret
+#define RTX_SLOW(twin) RTX_SUB_RSP(8); call twin@PLT; RTX_ADD_RSP(8); RTX_GVA_R9; ret
 #define RTX_CALL(fn) call qword ptr [rip + fn@GOTPCREL]
 #define RTX_JMP(fn) jmp qword ptr [rip + fn@GOTPCREL]
 #define RTX_GATE_DEF(fam) .data; .align 1; .globl rtx_gate_##fam; .hidden rtx_gate_##fam; .type rtx_gate_##fam,@object; .size rtx_gate_##fam,1; rtx_gate_##fam: .byte 0; .text

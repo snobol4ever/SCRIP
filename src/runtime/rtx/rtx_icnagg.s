@@ -77,7 +77,7 @@ RTX_FUNC(rt_size_d)
     mov     eax, DT_I
     ret
 .Lsz_c:
-    RTX_DECLINE
+    RTX_SLOW(c_rt_size_d)
 RTX_ENDF(rt_size_d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_list_bang_at)
@@ -366,6 +366,6 @@ RTX_FUNC(rt_field_var_strict_at)
     mov     rax, DT_NCELL_LO
     ret
 .Lfva_c:
-    RTX_DECLINE
+    RTX_SLOW(c_rt_field_var_strict_at)
 RTX_ENDF(rt_field_var_strict_at)
 .section .note.GNU-stack,"",@progbits

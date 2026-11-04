@@ -4,11 +4,13 @@
 #include <stdint.h>
 #include "ir/descr.h"
 #include "runtime/core/core.h"
+#include "runtime/core/table.h"
+#include "runtime/core/array.h"
 #include "runtime/rt/gc_heap.h"
 DESCR_t rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 DESCR_t c_rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 extern int g_gc_pending;
-static int fails = 0, nstep = 0, handled = 0, declined = 0, inserted = 0;
+static int fails = 0, nstep = 0, handled = 0, inserted = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void words(DESCR_t d, uint64_t *w) { memcpy(&w[0], &d, 8); memcpy(&w[1], (char *)&d + 8, 8); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23,10 +25,6 @@ static int leaf(DESCR_t b, DESCR_t k, DESCR_t v, DESCR_t *out) {
     DESCR_t (*fp)(DESCR_t, DESCR_t, DESCR_t) = rt_table_assign_fast;
     __asm__ volatile ("leaq -128(%%rsp), %%rsp; call *%[fn]; leaq 128(%%rsp), %%rsp" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "+r"(r8_), "+r"(r9_), "=a"(rax) : [fn] "r"(fp) : "r10", "r11",
         "memory", "cc");
-    if ((uint8_t)rax == RTX_NOT_HANDLED) {
-        if (rdi != wb[0] || rsi != wb[1] || rdx != wk[0] || rcx != wk[1] || r8_ != wv[0] || r9_ != wv[1]) { fails++; printf("  FAIL step %d: declined with an argument register changed\n", nstep); }
-        return 0;
-    }
     memcpy(out, &rax, 8);
     memcpy((char *)out + 8, &rdx, 8);
     return 1;
@@ -52,7 +50,9 @@ static void step(TBBLK_t *a, TBBLK_t *b, DESCR_t k, DESCR_t v, const char *what)
     nstep++;
     g_gc_pending = 0;
     unsigned before = (unsigned)a->size;
-    if (leaf(ba, k, v, &ra)) { handled++; if (a->size == (int)before + 1) inserted++; } else { declined++; ra = c_rt_table_assign_fast(ba, k, v); }
+    leaf(ba, k, v, &ra);
+    handled++;
+    if (a->size == (int)before + 1) inserted++;
     g_gc_pending = 0;
     rb = c_rt_table_assign_fast(bb, k, v);
     uint64_t wa[2], wb[2];
@@ -96,15 +96,15 @@ static void run(int init, const char *what) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int ahandled = 0, adeclined = 0;
+static int ahandled = 0;
 static void astep(ARBLK_t *a, ARBLK_t *b, DESCR_t k, DESCR_t v, const char *what) {
     DESCR_t ba = { .v = DT_A }, bb = { .v = DT_A }, ra, rb;
     ba.arr = a;
     bb.arr = b;
     nstep++;
     g_gc_pending = 0;
-    if (leaf(ba, k, v, &ra)) ahandled++;
-    else { adeclined++; ra = c_rt_table_assign_fast(ba, k, v); }
+    leaf(ba, k, v, &ra);
+    ahandled++;
     g_gc_pending = 0;
     rb = c_rt_table_assign_fast(bb, k, v);
     uint64_t wa[2], wb[2];
@@ -140,15 +140,15 @@ int main(void) {
     arun(1, 500, "ARRAY(500)");
     arun(-3, 10, "ARRAY('-3:10')");
     arun(0, 0, "ARRAY('0:0')");
-    if (ahandled < 500 || !adeclined) { printf("RTX TINS UNIT: FAIL -- the array arm saw only one verdict (%d handled, %d declined)\n", ahandled, adeclined); return 1; }
-    printf("RTX TINS arrays: %d handled by the leaf, %d declined to the twin\n", ahandled, adeclined);
+    if (ahandled < 500) { printf("RTX TINS UNIT: FAIL -- the array arm saw only %d steps\n", ahandled); return 1; }
+    printf("RTX TINS arrays: %d steps, the leaf answers every one and its slow path is the twin\n", ahandled);
     run(0, "default table");
     run(16, "TABLE(16)");
     run(64, "TABLE(64)");
     run(512, "TABLE(512)");
     run(5000, "TABLE(5000)");
-    printf("RTX TINS: %d steps, %d handled by the leaf (%d of them new-key insertions), %d declined to the twin, %d mismatches\n", nstep, handled, inserted, declined, fails);
-    if (inserted < 1000 || !declined) { printf("RTX TINS UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
+    printf("RTX TINS: %d steps, %d answered by the leaf (%d of them new-key insertions), %d mismatches against the twin\n", nstep, handled, inserted, fails);
+    if (inserted < 1000) { printf("RTX TINS UNIT: FAIL -- only %d insertions\n", inserted); return 1; }
     printf("RTX TINS UNIT: %s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }

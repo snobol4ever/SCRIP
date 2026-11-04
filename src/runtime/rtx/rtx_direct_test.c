@@ -9,6 +9,9 @@
 #include <sys/wait.h>
 #include "ir/descr.h"
 #include "runtime/core/core.h"
+#include "runtime/core/array.h"
+#include "runtime/core/table.h"
+#include "runtime/core/datatype.h"
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t rt_pas_resundef(DESCR_t *, int);
 DESCR_t rt_pas_sin(DESCR_t *, int);
@@ -112,6 +115,18 @@ static void fld_check(const char *what, int var, const char *f, DESCR_t o, long 
     DESCR_t (*twin)(const char *, DESCR_t, long) = var ? c_rt_field_var_strict_at : c_icn_field_get_at;
     int kept = 0;
     DESCR_t l = fld_call(leaf, f, o, at, &kept), c = twin(f, o, at);
+    if (var) {
+        fld_cases++;
+        ncase++;
+        int fresh = l.v == DT_N && c.v == DT_N && l.slen == 2 && c.slen == 2 && l.ptr && c.ptr && ((VCELL_t *)l.ptr)->cellp == ((VCELL_t *)c.ptr)->cellp &&
+            ((VCELL_t *)l.ptr)->tbl == ((VCELL_t *)c.ptr)->tbl;
+        if (!fresh && memcmp(&l, &c, sizeof l) != 0) {
+            fails++;
+            printf("  FAIL rt_field_var_strict_at %s: leaf %02x/%u/%p twin %02x/%u/%p\n", what, l.v, l.slen, l.ptr, c.v, c.slen, c.ptr);
+        } else if (l.v == RTX_NOT_HANDLED) fld_declines++;
+        else fld_hits++;
+        return;
+    }
     int ldecl = l.v == RTX_NOT_HANDLED, want = c.v == RTX_NOT_HANDLED || o.v == DT_N || (var && !(c.v == DT_N && c.slen == 1));
     fld_cases++;
     ncase++;

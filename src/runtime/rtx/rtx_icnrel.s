@@ -272,7 +272,7 @@ RTX_FUNC(rt_jct_relop)
     movq    rdx, xmm4
     movq    rcx, xmm5
 .Lbail:
-    RTX_DECLINE
+    RTX_SLOW(c_rt_jct_relop)
 RTX_ENDF(rt_jct_relop)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_str_coerce)
@@ -287,7 +287,7 @@ RTX_FUNC(rt_str_coerce)
     mov     rdx, rsi
     ret
 .Lsco_c:
-    RTX_DECLINE
+    RTX_SLOW(c_rt_str_coerce)
 RTX_ENDF(rt_str_coerce)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_relop_val_coerce)
@@ -326,6 +326,6 @@ RTX_FUNC(rt_relop_val_coerce)
     movq    rdx, xmm4
     movq    rcx, xmm5
 .Lvc_bail:
-    RTX_DECLINE
+    RTX_SLOW(c_rt_relop_val_coerce)
 RTX_ENDF(rt_relop_val_coerce)
 .section .note.GNU-stack,"",@progbits
