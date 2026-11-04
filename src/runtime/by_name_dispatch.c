@@ -15280,6 +15280,7 @@ DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
     long idx = rk_ival(args[1]);
     size_t clen = pas_slen(args[0], cur);
     if (idx == 0) return INTVAL((long long)(clen & 0xff));
+    if ((size_t)idx == clen + 1) return INTVAL(0);
     if (idx < 1 || (size_t)idx > clen) return FAILDESCR;
     return INTVAL((long long)(unsigned char)cur[idx - 1]);
 }
