@@ -303,6 +303,12 @@ DESCR_t pat_bal(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)d
 DESCR_t pat_epsilon(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit("", 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pat_cset_code(int tt) { return tt == TT_ANY ? 59 : tt == TT_NOTANY ? 151 : tt == TT_SPAN ? 188 : tt == TT_BREAK ? 69 : tt == TT_BREAKX ? 70 : 0; }
+const char *pat_cset_text(DESCR_t a) {
+    extern int rt_coerce_str_d(const DESCR_t *, DESCR_t *, long);
+    DESCR_t o;
+    if (a.v != DT_I && a.v != DT_R) return rt_cstr_d(a);
+    return rt_coerce_str_d(&a, &o, 0) ? "" : rt_cstr_d(o);
+}
 int pat_cset_arg_ok(int code, DESCR_t a) {
     extern int rt_coerce_str_d(const DESCR_t *, DESCR_t *, long);
     DESCR_t o;

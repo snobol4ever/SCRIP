@@ -1001,6 +1001,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pat_breakx", GC_RET_DESCR },
     { "pat_cat", GC_RET_DESCR },
     { "pat_cset_arg_ok", GC_RET_OTHER },
+    { "pat_cset_text", GC_RET_OTHER },
     { "pat_defer", GC_RET_DESCR },
     { "pat_epsilon", GC_RET_DESCR },
     { "pat_fail", GC_RET_DESCR },

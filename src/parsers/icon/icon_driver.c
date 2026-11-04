@@ -115,19 +115,22 @@ static int icn_pkg_file_is(const char * path, const char * pkg) {
     return ok;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * icn_dir_join(const char * d, const char * name, const char * ext) { size_t n = strlen(d) + strlen(name) + strlen(ext) + 2; char * s = (char *) ct_alloc(n); snprintf(s, n, "%s/%s%s", d, name, ext); return s; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_pkg_dir_files(const char * d, const char * pkg, char *** out, int * n, int * cap) {
-    char one[PATH_MAX + 64]; snprintf(one, sizeof one, "%s/%s.icn", d, pkg);
-    if (access(one, R_OK) == 0) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = ct_strdup(one); return; }
+    char * one = icn_dir_join(d, pkg, ".icn");
+    if (access(one, R_OK) == 0) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = one; return; }
+    ct_drop(one);
     DIR * dp = opendir(d);
     if (!dp) return;
     struct dirent * de;
     while ((de = readdir(dp))) {
         size_t l = strlen(de->d_name);
         if (l < 5 || strcmp(de->d_name + l - 4, ".icn")) continue;
-        snprintf(one, sizeof one, "%s/%s", d, de->d_name);
-        if (!icn_pkg_file_is(one, pkg)) continue;
+        one = icn_dir_join(d, de->d_name, "");
+        if (!icn_pkg_file_is(one, pkg)) { ct_drop(one); continue; }
         if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); }
-        (*out)[(*n)++] = ct_strdup(one);
+        (*out)[(*n)++] = one;
     }
     closedir(dp);
 }
