@@ -4482,7 +4482,7 @@ static char pas_pf_param(const char *sig, int idx, const char **fsig) {
 }
 static int pas_pf_nactuals(const char *sig) { int n = 0; const char *f; char k; for (int i = 0; (k = pas_pf_param(sig, i, &f)) != 0; i++) n += (k == 'P' || k == 'F') ? 4 : 1; return n; }
 static void pas_pf_candidate(const PasDef *d) {
-    for (int i = 0; i < g_lower.pas.sem.pas_scope.ncand; i++) if (g_lower.pas.sem.pas_scope.cand[i].rid == d->rid) return;
+    for (int i = 0; i < g_lower.pas.sem.pas_scope.ncand; i++) if (g_lower.pas.sem.pas_scope.cand[i].rid == d->rid && !strcmp(g_lower.pas.sem.pas_scope.cand[i].sig, d->sig)) return;
     PasDef *c = pas_scope_push(&g_lower.pas.sem.pas_scope.cand, &g_lower.pas.sem.pas_scope.ncand, &g_lower.pas.sem.pas_scope.ccand, d->name);
     c->sig = d->sig;
     c->depth = d->depth;
@@ -4491,6 +4491,12 @@ static void pas_pf_candidate(const PasDef *d) {
 static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const char *callee, int pos) {
     const char *nm = NULL;
     tree_t *obj = NULL;
+    int cast = 0;
+    if (g_lower.pas.sem.pas_dialect_fpc && a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval && a->c[1] && !pas_is_func(a->c[0]->v.sval) &&
+        !pas_is_proc(a->c[0]->v.sval)) {
+        const pty_t *ct = pty_type_by_name(a->c[0]->v.sval);
+        if (ct && ct->k == PTK_PROC) { a = a->c[1]; cast = 1; }
+    }
     if (a && a->t == TT_FNC && a->n == 3 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_mptr")) { nm = a->c[1]->v.sval; obj = a->c[2]; } else if (a && a->t == TT_VAR) nm = a->v.sval;
     else if (a && a->t == TT_FNC && a->n >= 1 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval) nm = (!strcmp(a->c[0]->v.sval, "__pas_pcall") && a->n == 4) ? a->c[1]->v.sval :
         (a->n == 1 ? a->c[0]->v.sval : NULL);
@@ -4504,7 +4510,7 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
     if (!d) {
         fprintf(stderr, "pascal: ISO 7185 6.6.3.4 violation: the actual-parameter %d of '%s' shall be a %s-identifier\n", pos, callee, *fsig == 'F' ? "function" : "procedure");
         g_lower.pas.sem.pas_iso_errors++;
-    } else if (strcmp(d->sig, fsig) && !(obj && pas_pf_no_self(d->sig) && !strcmp(pas_pf_no_self(d->sig), fsig))) {
+    } else if (!cast && strcmp(d->sig, fsig) && !(obj && pas_pf_no_self(d->sig) && !strcmp(pas_pf_no_self(d->sig), fsig))) {
         fprintf(stderr, "pascal: ISO 7185 6.6.3.6 violation: the actual-parameter %d of '%s' is '%s', whose heading %s is not congruous with the formal-parameter's %s\n", pos, callee, nm, d->sig,
             fsig);
         g_lower.pas.sem.pas_iso_errors++;
@@ -4520,7 +4526,7 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
         fprintf(stderr, "pascal: '%s' is declared at lexical level %d; passing a routine nested deeper than level 4 as an actual-parameter is not implemented\n", nm, lvl);
         g_lower.pas.sem.pas_iso_errors++;
     }
-    if (d) pas_pf_candidate(d);
+    if (d && cast) { PasDef dc = *d; dc.sig = fsig; pas_pf_candidate(&dc); } else if (d) pas_pf_candidate(d);
     pnl_push(out, ilit(d ? d->rid : 0));
     pnl_push(out, ilit(-1));
     for (int k = 1; k <= 3; k++) { pnl_push(out, (k == 1 && obj) ? obj : (k < lvl ? mk_fnc1("__pas_display_get", ilit(k)) : ilit(0))); pnl_push(out, ilit(-1)); }
