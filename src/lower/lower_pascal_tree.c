@@ -1644,6 +1644,8 @@ static int pas_ptr_typed(const tree_t *low) { const pty_t *t = g_lower.pas.sem.p
 static int pas_ptr_or_nil(const tree_t *low) { const pty_t *t = g_lower.pas.sem.pas_ptrcell && low ? pty_of_low(low) : NULL; return t && (t->k == PTK_POINTER || t->k == PTK_NIL); }
 static tree_t *pas_pchar_of_strelem(tree_t *e) {
     if (!e || e->t != TT_IDX || e->n != 2 || !e->c[0] || e->c[0]->t != TT_VAR || !e->c[0]->v.sval || !pas_var_string_kind(e->c[0]->v.sval)) return NULL;
+    tree_t *cell = pas_addr_of_cell(e->c[0]);
+    if (cell) return mk_fnc2("__pas_pstrview", cell, bin(TT_SUB, e->c[1], ilit(1)));
     return mk_fnc2("__pas_ptr_inc", mk_fnc1("__pas_pchar_of", e->c[0]), bin(TT_SUB, e->c[1], ilit(1)));
 }
 static int pas_pchar_typed(const tree_t *low) { const pty_t *t = g_lower.pas.sem.pas_ptrcell && low ? pty_of_low(low) : NULL; return t && pty_is_pchar(t); }

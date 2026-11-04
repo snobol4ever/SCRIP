@@ -4123,8 +4123,10 @@ static unsigned pas_mt_u32rand(void) {
     return r ^ (r >> 18);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PAS_VIEW_STR 64
 static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
+    if (p.v == DT_PCELL && (p.src_node2 & PAS_VIEW_STR)) pas_file_err("6.5.4", "a pointer into a string's characters denotes no variable cell", fn);
     if (p.v == DT_PCELL) { if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn); return (DESCR_t *) p.ptr + (int32_t) p.slen; }
     if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
     if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
@@ -18527,9 +18529,33 @@ static void pas_view_store(DESCR_t p, DESCR_t val) {
     uint64_t o = pas_view_img(b[e], f & 3, w), m = pas_view_mask(W) << (8 * bo);
     b[e] = pas_view_val((o & ~m) | ((v << (8 * bo)) & m), f & 3, (f >> 2) & 1, w);
 }
-DESCR_t pas_deref(DESCR_t *args, int nargs) { (void) nargs; if (args[0].v == DT_PCELL && args[0].src_node0) return pas_view_load(args[0]); return *pas_heap_ref(args[0], "__pas_deref"); }
+static DESCR_t *pas_strview_at(DESCR_t p, long long *off, long long *n) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", "__pas_deref");
+    DESCR_t *c = (DESCR_t *) p.ptr;
+    *off = (long long)(int32_t) p.slen;
+    *n = c->v == DT_S && c->s ? (long long) c->slen : 0;
+    return c;
+}
+static DESCR_t pas_strview_load(DESCR_t p) { long long off, n; DESCR_t *c = pas_strview_at(p, &off, &n); return INTVAL(off >= 0 && off < n ? (unsigned char) c->s[off] : 0); }
+static void pas_strview_store(DESCR_t p, DESCR_t val) {
+    void pas_file_err(const char *clause, const char *what, const char *proc);
+    long long off, n;
+    DESCR_t *c = pas_strview_at(p, &off, &n);
+    unsigned char ch = pas_ch_of(val);
+    if (off >= 0 && off < n) { c->s[off] = (char) ch; return; }
+    if (off == n && ch == 0) return;
+    pas_file_err("6.5.4", "a pointer into a string's characters is written outside the string", "__pas_deref_set");
+}
+DESCR_t pas_deref(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_STR)) return pas_strview_load(args[0]);
+    if (args[0].v == DT_PCELL && args[0].src_node0) return pas_view_load(args[0]);
+    return *pas_heap_ref(args[0], "__pas_deref");
+}
 DESCR_t pas_deref_set(DESCR_t *args, int nargs) {
     (void) nargs;
+    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_STR)) { pas_strview_store(args[0], args[1]); return args[1]; }
     if (args[0].v == DT_PCELL && args[0].src_node0) { pas_view_store(args[0], args[1]); return args[1]; }
     *pas_heap_ref(args[0], "__pas_deref_set") = args[1];
     return args[1];
@@ -18680,8 +18706,26 @@ DESCR_t pas_pchar_of(DESCR_t *args, int nargs) {
     d[n] = INTVAL(0);
     return pas_pcell((void *) d, 0);
 }
+DESCR_t pas_pstrview(DESCR_t *args, int nargs) {
+    (void) nargs;
+    if (args[0].v != DT_PCELL || !args[0].ptr || args[0].src_node0) return args[0];
+    DESCR_t *c = (DESCR_t *) args[0].ptr + (int32_t) args[0].slen;
+    if (c->v != DT_S) { DESCR_t a[2] = { pas_pchar_of(c, 1), args[1] }; return pas_ptr_inc(a, 2); }
+    long n = c->s ? (long) c->slen : 0;
+    char *o = rt_str_alloc(n);
+    if (n) memcpy(o, c->s, (size_t) n);
+    o[n] = '\0';
+    *c = BSTRVAL(o, n);
+    DESCR_t r = pas_pcell_at((void *) c, rk_ival(args[1]), "__pas_pstrview");
+    r.src_node0 = 1;
+    r.src_node1 = 1;
+    r.src_node2 = PAS_VIEW_STR;
+    return r;
+}
+static long pas_strview_len(DESCR_t p) { long long off, n; pas_strview_at(p, &off, &n); long k = 0; DESCR_t *c = (DESCR_t *) p.ptr; while (off + k < n && c->s[off + k]) k++; return k; }
 DESCR_t pas_pstrlen(DESCR_t *args, int nargs) {
     (void) nargs;
+    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_STR)) return INTVAL(pas_strview_len(args[0]));
     if (args[0].v != DT_PCELL || !args[0].ptr) return INTVAL(0);
     DESCR_t *c = (DESCR_t *) args[0].ptr + (int32_t) args[0].slen;
     long n = 0;
@@ -18690,6 +18734,13 @@ DESCR_t pas_pstrlen(DESCR_t *args, int nargs) {
 }
 DESCR_t pas_pstr(DESCR_t *args, int nargs) {
     if (args[0].v != DT_PCELL) return IS_INT_fn(args[0]) ? STRVAL(rt_wsb_alloc(1)) : args[0];
+    if (args[0].src_node2 & PAS_VIEW_STR) {
+        long n = pas_strview_len(args[0]);
+        char *o = rt_wsb_alloc((size_t) n + 1);
+        if (n) memcpy(o, ((DESCR_t *) args[0].ptr)->s + (int32_t) args[0].slen, (size_t) n);
+        o[n] = '\0';
+        return BSTRVAL(o, n);
+    }
     long n = pas_pstrlen(args, nargs).i;
     DESCR_t *c = (DESCR_t *) args[0].ptr + (int32_t) args[0].slen;
     char *o = rt_wsb_alloc((size_t) n + 1);
@@ -20248,6 +20299,8 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         return pas_writestr(args, nargs);
         case PBI_pview:
         return pas_pview(args, nargs);
+        case PBI_pstrview:
+        return pas_pstrview(args, nargs);
         case PBI_chr:
         if (pas_bi_chr(args, nargs, &out)) return out;
         break;
