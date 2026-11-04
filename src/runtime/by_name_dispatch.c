@@ -9454,7 +9454,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
         if (pg_out) *pg_out = pg;
         if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) { if (pg) vt->err = pg->synerr; return 0; }
         pl_vt_init(vt, pl_vt_occ(tr->c[0]));
-        *out = pl_tree_cell(tr->c[0], vt);
+        { extern const tree_t *pl_dict_place(const tree_t *); const tree_t *pv = pl_dict_place(tr->c[0]); *out = pl_tree_cell(tr->c[0], vt); if (pv != tr->c[0]) *out = pl_tree_cell(pv, vt); }
         vt->tr = tr->c[0];
         vt->src = text;
         vt->shift = 7;
@@ -9551,7 +9551,31 @@ static DESCR_t pl_pos_term(const pl_vtab_t *vt, const tree_t *n) {
         k[3] = n->v.ival ? pl_pos_term(vt, n->c[n->n - 1]) : pl_mk_atom("none");
         return pl_pos_cmp("list_position", 4, k);
     }
-    if (n->t == TT_FNC && n->v.sval && n->n >= 1 && strcmp(n->v.sval, "$pl_big") && strcmp(n->v.sval, "$dict_lit") && strcmp(n->v.sval, "$dot")) {
+    if (n->t == TT_FNC && n->v.sval && !strcmp(n->v.sval, "$dict_lit") && (n->n & 1)) {
+        int np = (n->n - 1) / 2;
+        DESCR_t kv[np > 0 ? np : 1];
+        for (int i = 0; i < np; i++) {
+            const tree_t *ky = n->c[1 + 2 * i], *vl = n->c[2 + 2 * i];
+            int ss = ky->end, se = ky->end;
+            if (!prolog_token_extent(vt->src, ky->end, 1, &ss, &se)) { ss = ky->end; se = ky->end; }
+            DESCR_t q[7];
+            q[0] = INTVAL((int64_t)pl_pos_off(vt, ky->start));
+            q[1] = INTVAL((int64_t)pl_pos_off(vt, vl->end));
+            q[2] = INTVAL((int64_t)pl_pos_off(vt, ss));
+            q[3] = INTVAL((int64_t)pl_pos_off(vt, se));
+            q[4] = pl_tree_cell(ky, (pl_vtab_t *)vt);
+            q[5] = pl_pos_term(vt, ky);
+            q[6] = pl_pos_term(vt, vl);
+            kv[i] = pl_pos_cmp("key_value_position", 7, q);
+        }
+        k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+        k[1] = INTVAL((int64_t)pl_pos_off(vt, b));
+        k[2] = INTVAL((int64_t)pl_pos_off(vt, n->c[0]->start));
+        k[3] = INTVAL((int64_t)pl_pos_off(vt, n->c[0]->end));
+        k[4] = pl_list_from_arr(kv, np);
+        return pl_pos_cmp("dict_position", 5, k);
+    }
+    if (n->t == TT_FNC && n->v.sval && (n->n >= 1 || strcmp(n->v.sval, "{}")) && strcmp(n->v.sval, "$pl_big") && strcmp(n->v.sval, "$dict_lit") && strcmp(n->v.sval, "$dot")) {
         if (!strcmp(n->v.sval, "{}") && n->n == 1) {
             k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
             k[1] = INTVAL((int64_t)pl_pos_off(vt, b));

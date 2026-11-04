@@ -879,7 +879,8 @@ static tree_t *pt_dict(Parser *p, TreeScope *ts, tree_t *tag, int ln) {
     tree_t *d = ast_node_new(TT_FNC);
     d->v.sval = ct_strdup("$dict_lit");
     ast_push(d, tag);
-    if (lexer_peek(&p->lx).kind == TK_RBRACE) { lexer_next(&p->lx); return pt_stamp(d, ln); }
+    d->start = tag ? tag->start : 0;
+    if (lexer_peek(&p->lx).kind == TK_RBRACE) { lexer_next(&p->lx); d->end = p->lx.last_end; return pt_stamp(d, ln); }
     p->in_args++;
     for (;;) {
         Token kt = lexer_next(&p->lx);
@@ -887,6 +888,8 @@ static tree_t *pt_dict(Parser *p, TreeScope *ts, tree_t *tag, int ln) {
         if (kt.kind == TK_ATOM) { k = ast_node_new(TT_QLIT); k->v.sval = ct_strdup(kt.text); }
         else if (kt.kind == TK_INT && !kt.big) { k = ast_node_new(TT_ILIT); k->v.ival = kt.ival; }
         else { perror_at(p, kt.line, "expected an atom or a small integer as a dict key"); break; }
+        k->start = kt.start;
+        k->end = kt.end;
         Token ct = lexer_next(&p->lx);
         if (ct.kind != TK_OP || strcmp(ct.text, ":")) { perror_at(p, ct.line, "expected : after a dict key"); break; }
         tree_t *v = pt_term(p, ts, 999);
@@ -899,6 +902,7 @@ static tree_t *pt_dict(Parser *p, TreeScope *ts, tree_t *tag, int ln) {
         break;
     }
     p->in_args--;
+    d->end = p->lx.last_end;
     return pt_stamp(d, ln);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

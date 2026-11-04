@@ -6241,6 +6241,7 @@ static tree_t * pl_dict_canon(const tree_t * t) {
     for (int i = 0; i < np; i++) { ast_push(d, c->c[2 + 2 * ord[i]]); ast_push(d, c->c[1 + 2 * ord[i]]); }
     return d;
 }
+const tree_t * pl_dict_place(const tree_t * t) { return pl_dict_any(t) ? pl_dict_canon(t) : t; }
 static tree_t * pl_dot_var(int k, int named) {
     if (!named) return pl_ssu_var(k);
     char b[32];
