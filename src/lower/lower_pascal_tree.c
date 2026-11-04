@@ -1251,6 +1251,35 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
             return f;
         }
     }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "move") && args && args->count >= 6 && args->items[0] && args->items[2]) {
+        tree_t *a[2] = { args->items[0], args->items[2] }, *base[2] = { NULL, NULL }, *idx[2] = { NULL, NULL };
+        int nderef = 0, narr = 0;
+        const char *arr = NULL;
+        for (int k = 0; k < 2; k++) {
+            tree_t *x = a[k];
+            if (x->t == TT_FNC && x->n == 2 && x->c[0] && x->c[0]->v.sval && !strcmp(x->c[0]->v.sval, "__pas_deref") && x->c[1]) { base[k] = x->c[1]; idx[k] = ilit(0); nderef++; continue; }
+            long long hi = 0;
+            if (x->t == TT_IDX && x->n == 2 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && !pas_var_string_kind(x->c[0]->v.sval) &&
+                (pas_array_isdyn(x->c[0]->v.sval) || pas_array_high_get(x->c[0]->v.sval, &hi))) {
+                base[k] = x->c[0];
+                idx[k] = x->c[1];
+                arr = x->c[0]->v.sval;
+                narr++;
+            }
+        }
+        if (nderef >= 1 && nderef + narr == 2 && arr) {
+            long long z = pas_elem_size(arr);
+            tree_t *f = ast_node_new(TT_FNC);
+            ast_push(f, leaf_s(TT_VAR, "__pas_move"));
+            ast_push(f, base[1]);
+            ast_push(f, idx[1]);
+            ast_push(f, base[0]);
+            ast_push(f, idx[0]);
+            ast_push(f, args->items[4]);
+            ast_push(f, ilit(z > 0 ? z : 0));
+            return f;
+        }
+    }
     if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "assignfile")) return mk_call("assign", args);
     if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "closefile")) return mk_call("close", args);
     if (name && !strcmp(name, "assign") && args && args->count >= 3) { tree_t *fv = args->items[0]; tree_t *nm = args->items[2]; return mk_assign(fv, mk_fnc1("__pas_fassign", pas_alpha_wrap(nm))); }

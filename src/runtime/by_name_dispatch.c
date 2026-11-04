@@ -4352,6 +4352,19 @@ static DESCR_t pas_str_setch(DESCR_t v, long eidx, unsigned char ch) {
     return BSTRVAL(o, nflen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_move_side(DESCR_t a, DESCR_t i, DESCR_t **base, long long *k, long long *len) {
+    if (a.v == DT_A && a.arr) {
+        ARBLK_t *b = (ARBLK_t *) a.arr;
+        if (b->ndim != 1 || !b->data) return 0;
+        *base = b->data;
+        *k = (IS_INT_fn(i) ? (long long) i.i : b->lo) - b->lo;
+        *len = (long long) b->hi - b->lo + 1;
+        return *k >= 0;
+    }
+    if (a.v == DT_PCELL && a.ptr && !a.src_node0) { *base = (DESCR_t *) a.ptr; *k = (int32_t) a.slen; *len = -1; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bnd_dat_need(const char *c, int what) {
     DatType *t = c ? dat_find_type(c) : (DatType *)0;
     int n = 0;
@@ -19400,18 +19413,15 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     L_pbi_198:
     ;
     if (id == PBI_move && nargs == 6) {
-        if (args[0].v == DT_A && args[0].arr && args[2].v == DT_A && args[2].arr) {
-            ARBLK_t *db = (ARBLK_t *) args[0].arr, *sb = (ARBLK_t *) args[2].arr;
-            long long dj = IS_INT_fn(args[1]) ? (long long)args[1].i : db->lo, si = IS_INT_fn(args[3]) ? (long long)args[3].i : sb->lo;
-            long long bytes = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, esz = IS_INT_fn(args[5]) ? (long long)args[5].i : 0;
-            long long n = esz > 0 ? bytes / esz : bytes, dk = dj - db->lo, sk = si - sb->lo;
-            long long dn = (long long)db->hi - db->lo + 1, sn = (long long)sb->hi - sb->lo + 1;
-            if (db->ndim == 1 && sb->ndim == 1 && dk >= 0 && sk >= 0) {
-                if (n > dn - dk) n = dn - dk;
-                if (n > sn - sk) n = sn - sk;
-                if (db == sb && dk > sk) for (long long t = n - 1; t >= 0; t--) db->data[dk + t] = pas_agg_copy(sb->data[sk + t]);
-                else for (long long t = 0; t < n; t++) db->data[dk + t] = pas_agg_copy(sb->data[sk + t]);
-            }
+        DESCR_t *dd = NULL, *sd = NULL;
+        long long dk = 0, sk = 0, dn = -1, sn = -1;
+        long long bytes = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, esz = IS_INT_fn(args[5]) ? (long long)args[5].i : 0;
+        long long n = esz > 0 ? bytes / esz : bytes;
+        if (pas_move_side(args[0], args[1], &dd, &dk, &dn) && pas_move_side(args[2], args[3], &sd, &sk, &sn)) {
+            if (dn >= 0 && n > dn - dk) n = dn - dk;
+            if (sn >= 0 && n > sn - sk) n = sn - sk;
+            if (dd == sd && dk > sk) for (long long t = n - 1; t >= 0; t--) dd[dk + t] = pas_agg_copy(sd[sk + t]);
+            else for (long long t = 0; t < n; t++) dd[dk + t] = pas_agg_copy(sd[sk + t]);
         }
         *out = args[0];
         return 1;
