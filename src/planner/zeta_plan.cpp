@@ -1201,6 +1201,44 @@ extern "C" void planner_mark_pass(const IR_graph_t * cg, unsigned char * ind) {
 }
 static int zst_excursion_why(int lw) { return lw == PR_UNKNOWN_CALLEE || lw == PR_RETAINING_CALLEE || lw == PR_UNRESOLVED_CALLEE || lw == PR_GATE_HOLDS || lw == PR_RETAINING_TARGET; }
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
+struct zst_dtree_t { std::vector<int> idom, depth, tin, tout, top; std::vector<unsigned char> univ; };
+static int zst_dt_meet(const std::vector<int> & idom, const std::vector<int> & po, int a, int b) {
+    while (a != b) { while (po[(size_t)a] < po[(size_t)b]) a = idom[(size_t)a]; while (po[(size_t)b] < po[(size_t)a]) b = idom[(size_t)b]; }
+    return a;
+}
+static int zst_dominates(const zst_dtree_t & t, int a, int v) {
+    return t.univ[(size_t)v] || (!t.univ[(size_t)a] && t.tin[(size_t)a] <= t.tin[(size_t)v] && t.tout[(size_t)v] <= t.tout[(size_t)a]);
+}
+static void zst_dtree_build(zst_dtree_t & t, int n, const std::vector<int> & pcnt, const std::vector<int> & preds, const std::vector<int> & scnt, const std::vector<int> & sd,
+    const std::vector<unsigned char> & isroot) {
+    const int S = n;
+    std::vector<int> po((size_t)n + 1, -1), order; std::vector<unsigned char> seen((size_t)n, 0); std::vector<std::pair<int,int>> cs;
+    order.reserve((size_t)n);
+    for (int r = 0; r < n; r++) { if (!isroot[(size_t)r]) continue; seen[(size_t)r] = 1; cs.push_back(std::make_pair(r, scnt[(size_t)r]));
+        while (!cs.empty()) { int v = cs.back().first; int & e = cs.back().second;
+            if (e < scnt[(size_t)v + 1]) { int w = sd[(size_t)e]; e++;
+                if (w >= 0 && !seen[(size_t)w] && !isroot[(size_t)w]) { seen[(size_t)w] = 1; cs.push_back(std::make_pair(w, scnt[(size_t)w])); } continue; }
+            po[(size_t)v] = (int)order.size(); order.push_back(v); cs.pop_back(); } }
+    po[(size_t)S] = (int)order.size();
+    t.idom.assign((size_t)n + 1, -1); t.idom[(size_t)S] = S;
+    for (int r = 0; r < n; r++) if (isroot[(size_t)r]) t.idom[(size_t)r] = S;
+    for (int ch = 1; ch; ) { ch = 0;
+        for (size_t k = order.size(); k-- > 0; ) { int v = order[k]; if (isroot[(size_t)v]) continue; int ni = -1;
+            for (int e = pcnt[(size_t)v]; e < pcnt[(size_t)v + 1]; e++) { int p = preds[(size_t)e]; if (!seen[(size_t)p] || t.idom[(size_t)p] < 0) continue;
+                ni = ni < 0 ? p : zst_dt_meet(t.idom, po, p, ni); }
+            if (ni >= 0 && ni != t.idom[(size_t)v]) { t.idom[(size_t)v] = ni; ch = 1; } } }
+    t.univ.assign((size_t)n, 1); for (size_t k = 0; k < order.size(); k++) t.univ[(size_t)order[k]] = 0;
+    std::vector<int> ccnt((size_t)n + 2, 0), kid(order.size() + 1, -1);
+    for (size_t k = 0; k < order.size(); k++) ccnt[(size_t)t.idom[(size_t)order[k]] + 1]++;
+    for (int i = 0; i <= n; i++) ccnt[(size_t)i + 1] += ccnt[(size_t)i];
+    { std::vector<int> f(ccnt); for (size_t k = 0; k < order.size(); k++) kid[(size_t)f[(size_t)t.idom[(size_t)order[k]]]++] = order[k]; }
+    t.depth.assign((size_t)n + 1, ((n + 63) / 64) * 64); t.tin.assign((size_t)n + 1, 0); t.tout.assign((size_t)n + 1, 0); t.top.assign((size_t)n + 1, -1);
+    int clk = 0; std::vector<std::pair<int,int>> ds; t.depth[(size_t)S] = 0; t.tin[(size_t)S] = clk++; ds.push_back(std::make_pair(S, ccnt[(size_t)S]));
+    while (!ds.empty()) { int v = ds.back().first; int & e = ds.back().second;
+        if (e < ccnt[(size_t)v + 1]) { int w = kid[(size_t)e]; e++; t.depth[(size_t)w] = t.depth[(size_t)v] + 1; t.top[(size_t)w] = v == S ? w : t.top[(size_t)v];
+            t.tin[(size_t)w] = clk++; ds.push_back(std::make_pair(w, ccnt[(size_t)w])); continue; }
+        t.tout[(size_t)v] = clk++; ds.pop_back(); }
+}
 static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
     g_planner.zst_nodes = nodes; g_planner.zst_n = n; g_planner.g_zd_cur = -1; g_planner.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_planner.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
     g_planner.zst_name.clear(); g_planner.zst_vroot.clear(); g_planner.zst_c.clear(); g_planner.zst_j.clear(); g_planner.zst_L.clear(); g_planner.zst_vuse.clear(); g_planner.zst_vcov.clear();
@@ -1217,24 +1255,15 @@ static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
     for (size_t k = 0; k < es.size(); k++) preds[(size_t)fill[(size_t)ed[k]]++] = es[k];
     std::vector<unsigned char> isroot((size_t)n, 0); isroot[0] = 1;
     for (int a = 0; g->alt_entry && a < g->n_alts; a++) if (g->alt_entry[a]) { int q = nidx(nodes, n, zd_chase(g->alt_entry[a])); if (q >= 0) isroot[(size_t)q] = 1; }
-    size_t W = ((size_t)n + 63) / 64;
-    std::vector<uint64_t> dom((size_t)n * W, ~0ull), tmp(W);
-    for (int v = 0; v < n; v++) if (isroot[(size_t)v]) { for (size_t w = 0; w < W; w++) dom[(size_t)v * W + w] = 0; dom[(size_t)v * W + (size_t)v / 64] |= 1ull << (v % 64); }
-    for (int pass = 0, changed = 1; changed && pass < 200; pass++) { changed = 0;
-        for (int v = 0; v < n; v++) { if (isroot[(size_t)v]) continue; int np = pcnt[(size_t)v + 1] - pcnt[(size_t)v]; if (np == 0) continue;
-            for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
-            for (int k = pcnt[(size_t)v]; k < pcnt[(size_t)v + 1]; k++) { int p = preds[(size_t)k]; for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)p * W + w]; }
-            tmp[(size_t)v / 64] |= 1ull << (v % 64);
-            for (size_t w = 0; w < W; w++) if (dom[(size_t)v * W + w] != tmp[w]) { dom[(size_t)v * W + w] = tmp[w]; changed = 1; } } }
-    std::vector<unsigned char> reach((size_t)n, 0);
-    for (int v = 0; v < n; v++) { int np = pcnt[(size_t)v + 1] - pcnt[(size_t)v]; reach[(size_t)v] = (unsigned char)(isroot[(size_t)v] || np > 0); }
-    for (int v = 0; v < n; v++) { if (!reach[(size_t)v]) continue; int r = -1, nr = 0;
-        for (int u = 0; u < n; u++) if (isroot[(size_t)u] && (dom[(size_t)v * W + (size_t)u / 64] >> (u % 64) & 1)) { r = u; nr++; }
-        g_planner.zst_root[(size_t)v] = nr == 1 ? r : -1; }
-    std::vector<int> idx((size_t)n, -1), low((size_t)n, 0), st; std::vector<unsigned char> on((size_t)n, 0), loop((size_t)n, 0); int ctr = 0;
     std::vector<int> scnt((size_t)n + 1, 0), ss, sd; for (size_t k = 0; k < es.size(); k++) scnt[(size_t)es[k] + 1]++;
     for (int i = 0; i < n; i++) scnt[(size_t)i + 1] += scnt[(size_t)i]; { std::vector<int> f2(scnt); sd.assign(es.size() + 1, -1);
         for (size_t k = 0; k < es.size(); k++) sd[(size_t)f2[(size_t)es[k]]++] = ed[k]; }
+    zst_dtree_t dt; zst_dtree_build(dt, n, pcnt, preds, scnt, sd, isroot);
+    int nroots = 0, lastroot = -1; for (int u = 0; u < n; u++) if (isroot[(size_t)u]) { nroots++; lastroot = u; }
+    for (int v = 0; v < n; v++) { if (!(isroot[(size_t)v] || pcnt[(size_t)v + 1] > pcnt[(size_t)v])) continue;
+        if (dt.univ[(size_t)v]) g_planner.zst_root[(size_t)v] = nroots == 1 ? lastroot : -1;
+        else g_planner.zst_root[(size_t)v] = isroot[(size_t)dt.top[(size_t)v]] ? dt.top[(size_t)v] : -1; }
+    std::vector<int> idx((size_t)n, -1), low((size_t)n, 0), st; std::vector<unsigned char> on((size_t)n, 0), loop((size_t)n, 0); int ctr = 0;
     for (int s0 = 0; s0 < n; s0++) { if (idx[(size_t)s0] >= 0) continue; std::vector<std::pair<int,int>> cs; cs.push_back(std::make_pair(s0, scnt[(size_t)s0]));
         idx[(size_t)s0] = low[(size_t)s0] = ctr++; st.push_back(s0); on[(size_t)s0] = 1;
         while (!cs.empty()) { int v = cs.back().first; int & e = cs.back().second;
@@ -1244,7 +1273,6 @@ static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
             cs.pop_back(); if (!cs.empty() && low[(size_t)v] < low[(size_t)cs.back().first]) low[(size_t)cs.back().first] = low[(size_t)v];
             if (low[(size_t)v] == idx[(size_t)v]) { std::vector<int> mem; int w; do { w = st.back(); st.pop_back(); on[(size_t)w] = 0; mem.push_back(w); } while (w != v);
                 if (mem.size() > 1) for (size_t m = 0; m < mem.size(); m++) loop[(size_t)mem[m]] = 1; } } }
-    std::vector<int> dsz((size_t)n, 0); for (int v = 0; v < n; v++) { int c = 0; for (size_t w = 0; w < W; w++) c += __builtin_popcountll(dom[(size_t)v * W + w]); dsz[(size_t)v] = c; }
     std::vector<unsigned char> indef0((size_t)n, 0);
     { std::vector<int> wl;
         for (int i = 0; i < n; i++) if (zd_edge_retains_g(cg, nodes[i])) { int q = zst_edge(nodes, n, i, 0);
@@ -1265,6 +1293,8 @@ static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
         while (!wl.empty()) { int v = wl.back(); wl.pop_back(); for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w >= 0 && !r[(size_t)w]) { r[(size_t)w] = 1;
             wl.push_back(w); } } }
         bnds.push_back(b); esc.push_back(r); }
+    std::vector<int> kown((size_t)n, INT_MIN);
+    auto kown_of = [&](int d) { if (kown[(size_t)d] == INT_MIN) kown[(size_t)d] = zd_k_own_g(cg, nodes[d]); return kown[(size_t)d]; };
     const char * nm[2];
     for (int k = 0; k < nv; k++) { int off = -1; const char * vn = zls_g_vslot_get(g, k, &off); if (!vn || vn[0] == '&' || zst_isparam(g, vn)) continue;
         std::vector<int> uses; for (int i = 0; i < n; i++) { int m = zst_names(nodes[i], nm); int hit = g->home_frame ? zst_dj_reads(nodes[i], vn) : 0;
@@ -1276,28 +1306,29 @@ static void zst_plan(const IR_graph_t * cg, IR_t ** nodes, int n) {
         std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_planner.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0;
             for (size_t t = 0; t < roots.size(); t++) if (roots[t] == r) seen = 1; if (!seen) roots.push_back(r); }
         g_planner.zst_vuse[(size_t)k] = (int)roots.size();
-        for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
-            for (size_t u = 0; u < uses.size(); u++) if (g_planner.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
+        for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; int nca = -1;
+            for (size_t u = 0; u < uses.size(); u++) { int a = uses[u]; if (g_planner.zst_root[(size_t)a] != r || dt.univ[(size_t)a]) continue;
+                if (nca < 0) nca = a; else while (nca < n && !zst_dominates(dt, nca, a)) nca = dt.idom[(size_t)nca]; }
             int best = -1, dfirst = 0;
             for (size_t u = 0; u < uses.size() && !dfirst && zls_key_unbacked(g, off); u++) { int a = uses[u];
                 if (g_planner.zst_root[(size_t)a] != r || nodes[a]->op != IR_ASSIGN) continue;
                 dfirst = 1;
                 for (size_t v = 0; v < uses.size() && dfirst; v++) { int x = uses[v];
-                    if (x != a && g_planner.zst_root[(size_t)x] == r && !(dom[(size_t)x * W + (size_t)a / 64] >> (a % 64) & 1)) dfirst = 0; } }
+                    if (x != a && g_planner.zst_root[(size_t)x] == r && !zst_dominates(dt, a, x)) dfirst = 0; } }
             const int bp = g->home_frame ? 2 : 1;
-            for (int pass = 0; pass < bp + dfirst && best < 0; pass++) for (int d = 0; d < n; d++) {
+            for (int pass = 0; pass < bp + dfirst && best < 0; pass++) {
                 const int fb = pass >= bp;
-                if (!(tmp[(size_t)d / 64] >> (d % 64) & 1) || (loop[(size_t)d] && !(fb || (pass && zd_pl_home(cg)))) || indef0[(size_t)d] ||
-                    nodes[d]->op == IR_DISJUNCTION || (zd_k_own_g(cg, nodes[d]) <= 0 && !(pass && !fb)))
-                    continue;
-                int inside = 0;
-                for (size_t bi = 0; bi < bnds.size() && !inside; bi++) {
-                    int b = bnds[bi];
-                    if (b == d || !(dom[(size_t)d * W + (size_t)b / 64] >> (b % 64) & 1) || esc[bi][(size_t)d]) continue;
-                    for (size_t u = 0; u < uses.size() && !inside; u++) if (g_planner.zst_root[(size_t)uses[u]] == r && esc[bi][(size_t)uses[u]]) inside = 1;
-                }
-                if (inside) continue;
-                if (best < 0 || dsz[(size_t)d] > dsz[(size_t)best]) best = d;
+                auto cand = [&](int d) {
+                    if ((loop[(size_t)d] && !(fb || (pass && zd_pl_home(cg)))) || indef0[(size_t)d] || nodes[d]->op == IR_DISJUNCTION || (kown_of(d) <= 0 && !(pass && !fb))) return 0;
+                    for (size_t bi = 0; bi < bnds.size(); bi++) {
+                        int b = bnds[bi];
+                        if (b == d || !zst_dominates(dt, b, d) || esc[bi][(size_t)d]) continue;
+                        for (size_t u = 0; u < uses.size(); u++) if (g_planner.zst_root[(size_t)uses[u]] == r && esc[bi][(size_t)uses[u]]) return 0;
+                    }
+                    return 1;
+                };
+                if (nca >= 0) { for (int d = nca; d < n && best < 0; d = dt.idom[(size_t)d]) if (cand(d)) best = d; }
+                else for (int d = 0; d < n; d++) if (cand(d) && (best < 0 || dt.depth[(size_t)d] > dt.depth[(size_t)best])) best = d;
             }
             if (best < 0) continue;
             g_planner.zst_name.push_back(vn); g_planner.zst_vroot.push_back(r); g_planner.zst_c.push_back(best); g_planner.zst_j.push_back(g_planner.zst_s[(size_t)best] / 16);
