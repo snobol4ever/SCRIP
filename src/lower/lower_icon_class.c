@@ -473,15 +473,31 @@ static void dq_upvars(tree_t * n, const tree_t * prog) {
     if (n->t == TT_FIELD && n->n > 1) { dq_upvars(n->c[0], prog); return; }
     for (int i = 0; i < n->n; i++) dq_upvars(n->c[i], prog);
 }
+static int dq_is_pat_fn(const char * nm) {
+    static const char * const f[] = { "Len", "Pos", "Rpos", "Tab", "Rtab", "Any", "NotAny", "Span", "Nspan", "Break", "Breakx" };
+    for (int i = 0; i < (int) (sizeof f / sizeof f[0]); i++) if (!strcmp(f[i], nm)) return 1;
+    return 0;
+}
 static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
     if (!n) return;
+    if (n->t == TT_FNC && n->n == 2 && n->c[0] && n->c[0]->t == TT_VAR && n->c[0]->v.sval && dq_is_pat_fn(n->c[0]->v.sval) && !dq_is_proc(prog, n->c[0]->v.sval) && n->c[1] && n->c[1]->t == TT_DEFER &&
+        n->c[1]->n == 1 && !n->c[1]->v.sval) {
+        tree_t * fn = ast_node_new(TT_FNC);
+        ast_push(fn, n->c[0]);
+        ast_push(fn, n->c[1]->c[0]);
+        n->c[0] = fn;
+        n->n = 1;
+        n->t = TT_DEFER;
+        n->v.sval = NULL;
+        n->slen = -2;
+    }
     for (int i = 0; i < n->n; i++) dq_walk(n->c[i], prog, pend, np);
     if (n->t == TT_PAND && n->n == 2) n->t = TT_CAT;
     if (n->t == TT_DEFER && n->n == 1 && n->c[0] && !n->v.sval) {
         char b[fmt_len("$df%d", g_lower.icn.pm_hidden_n + 1)];
         snprintf(b, sizeof b, "$df%d", ++g_lower.icn.pm_hidden_n);
         tree_t * inner = n->c[0];
-        int gate = inner->t == TT_FNC;
+        int gate = inner->t == TT_FNC && n->slen != -2;
         dq_upvars(inner, prog);
         if (gate) { tree_t * em = ast_node_new(TT_QLIT); em->v.sval = (char *) ""; inner = cx_bin(TT_CONJ, inner, em); }
         tree_t * body = ast_node_new(TT_PROGRAM);
@@ -493,18 +509,34 @@ static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
     }
 }
 static int dq_count(const tree_t * n) { int k = 0; if (!n) return 0; if (n->t == TT_DEFER) k++; for (int i = 0; i < n->n; i++) k += dq_count(n->c[i]); return k; }
+static int dq_has_imm(const tree_t * n) {
+    if (!n) return 0;
+    if (n->t == TT_CAPT_IMMED_ASGN || n->t == TT_CAPT_CURSOR) return 1;
+    for (int i = 0; i < n->n; i++) if (dq_has_imm(n->c[i])) return 1;
+    return 0;
+}
 void icn_expand_deferred(tree_t * prog) {
     if (!prog) return;
     int n0 = prog->n;
     int tot = 0;
-    for (int i = 0; i < n0; i++) tot += dq_count(prog->c[i]);
-    if (!tot) return;
-    tree_t ** pend = (tree_t **) ct_zalloc((size_t) tot, sizeof(tree_t *));
+    int imm = 0;
+    for (int i = 0; i < n0; i++) { tot += dq_count(prog->c[i]); imm = imm || dq_has_imm(prog->c[i]); }
+    if (!tot && !imm) return;
+    tree_t ** pend = (tree_t **) ct_zalloc((size_t) tot + 1, sizeof(tree_t *));
     int np = 0;
     for (int i = 0; i < n0; i++) {
         tree_t * s = prog->c[i];
         tree_t * d = (s && s->t == TT_STMT) ? (tree_t *) stmt_attr_expr(stmt_attr_find(s, ":subj")) : NULL;
         if (d && d->t == TT_PROC_DECL && d->n > 2) dq_walk(d->c[2], prog, pend, &np);
+    }
+    if (imm) {
+        tree_t * em = ast_node_new(TT_QLIT);
+        em->v.sval = (char *) "";
+        tree_t * ic = ast_node_new(TT_FNC);
+        ast_push(ic, cx_var("ICN$IMM"));
+        tree_t * body = ast_node_new(TT_PROGRAM);
+        ast_push(body, cx_un(TT_RETURN, cx_bin(TT_CONJ, ic, em)));
+        pend[np++] = cx_stmt(cx_proc("$imm", ast_node_new(TT_VLIST), 0, body));
     }
     for (int i = 0; i < np; i++) ast_push(prog, pend[i]);
 }

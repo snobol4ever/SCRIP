@@ -550,6 +550,8 @@ extern DESCR_t bt_rk_reverse(DESCR_t * args, int nargs) __attribute__((weak, vis
 extern DESCR_t bt_rk_open(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_rk_close(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_rk_x24system(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_ICNx24IMM(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_ICNx24UDIGITS(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, bt_x3C, bt_x3Cx3C, bt_x3Cx3Cx3D, bt_x3Cx3D, bt_x3D, bt_x3Dx3D, bt_x3Dx3Dx3D, bt_x3E, bt_x3Ex3D, bt_x3Ex3E, bt_x3Ex3Ex3D,
     0, 0, bt_ASGN, bt_CODE, 0, bt_DATA, bt_DATATYPE, 0, 0, 0, 0, bt_FAIL, bt_FIELD_GET, bt_FIELD_SET, bt_ICN_CASE_EQ, bt_ICN_NULL, bt_ICN_SCAN_POP, bt_ICN_SCAN_PUSH, bt_ICN_SWAP_TOP2, 0, bt_IDENTICAL,
     0, bt_ITEM, 0, bt_MAKELIST, bt_NONNULL, bt_OPSYN, 0, bt_RECORD_MAKE, bt_RECORD_REGISTER, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SNOx24NRET, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SUCCEED, 0, 0, 0,
@@ -601,7 +603,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24system, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, bt_x24tbl_hook, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24unify_lst, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_isNaN, bt___rk_unbase, 0, 0, 0, 0, 0, 0, bt_ICNx24UNAME,
-    bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek, bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, };
+    bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek, bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, bt_ICNx24IMM, bt_ICNx24UDIGITS, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
@@ -634,4 +636,4 @@ static const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };

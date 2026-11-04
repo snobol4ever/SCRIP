@@ -133,6 +133,7 @@ typedef enum {
     TK_PIMD,
     TK_PSETCUR,
     TK_PUNEVAL,
+    TK_PUNEVAL2,
     TK_COUNT
 } IcnTkKind;
 typedef union {

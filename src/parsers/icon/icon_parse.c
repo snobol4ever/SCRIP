@@ -72,7 +72,7 @@ static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_begins_nexpr(IcnTkKind k) {
     switch (k) {
-    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PSETCUR:
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PUNEVAL2: case TK_PSETCUR:
     case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
     case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
     case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
@@ -122,13 +122,13 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         return e_leaf_sval(TT_CSET, t.val.sval.data, (int)t.val.sval.len);
     }
-    if (t.kind == TK_PUNEVAL) {
+    if (t.kind == TK_PUNEVAL || t.kind == TK_PUNEVAL2) {
         advance(p);
         IcnLexer sub; icn_lex_init(&sub, t.val.sval.data ? t.val.sval.data : ""); sub.unicon = p->lex->unicon;
         IcnParser sp; icn_parse_init(&sp, &sub);
         tree_t * inner = parse_expr(&sp);
         if (sp.had_error || !inner) { parser_error(p, "expected an expression between backquotes"); return NULL; }
-        tree_t * df = ast_node_new(TT_DEFER); push_child(df, inner); df->line = t.line; return df;
+        tree_t * df = ast_node_new(TT_DEFER); push_child(df, inner); df->line = t.line; if (t.kind == TK_PUNEVAL2) df->slen = -2; return df;
     }
     if (t.kind == TK_COLONCOLON) {
         advance(p);

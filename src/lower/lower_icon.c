@@ -1091,6 +1091,7 @@ static void pm_retag_alpha(IR_graph_t * g, int from, IR_t * target) {
 static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, pm_var(fn)); if (a0) ast_push(c, a0); if (a1) ast_push(c, a1); return c; }
 static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
 static int pm_const_int(const tree_t * a, int64_t * v);
+static tree_t * pm_imm_commit(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) "*$imm"; q->slen = 5; return pm_call("SNO$PDEF", q, NULL); }
 static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     static const struct {
         const char * nm;
@@ -1100,20 +1101,23 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         'K'}, {"Break", TT_BREAK, 'K'}, {"Breakx", TT_BREAKX, 'K'}, {"Nspan", TT_SPAN, 'S'}, {"Arb", TT_ARB, '0'}, {"Rem", TT_REM, '0'}, {"Bal", TT_BAL, '0'}, {"Fail", TT_FAIL, '0'}, {"Succeed",
         TT_SUCCEED, '0'}, {"Abort", TT_ABORT, '0'}, {"Fence", TT_FENCE, 'F'}, {"Arbno", TT_ARBNO, 'A'} };
     if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n >= 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval) {
+        const int imm = t->t == TT_CAPT_IMMED_ASGN;
+        char nb[fmt_len("\005%s", t->c[1]->v.sval)];
+        snprintf(nb, sizeof nb, "\005%s", t->c[1]->v.sval);
         tree_t * q = ast_node_new(TT_QLIT);
-        q->v.sval = t->c[1]->v.sval;
+        q->v.sval = imm ? lp_strdup(nb) : t->c[1]->v.sval;
         q->slen = (int) strlen(q->v.sval);
         tree_t * c3 = ast_node_new(TT_FNC);
         ast_push(c3, pm_var("SNO$PBC"));
         ast_push(c3, pm_int((int64_t) TT_CAPT_COND_ASGN));
         ast_push(c3, q);
         ast_push(c3, (tree_t *) t->c[0]);
-        if (t->t == TT_CAPT_IMMED_ASGN) return pm_node(TT_CAT, c3, pm_call("SNO$PB0", pm_int((int64_t) TT_FLUSH), NULL), NULL);
+        if (imm) return pm_node(TT_CAT, c3, pm_imm_commit(), NULL);
         return c3;
     }
     if (t->t == TT_CAPT_CURSOR && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
-        char nb[fmt_len("\003%s", t->c[0]->v.sval)];
-        snprintf(nb, sizeof nb, "\003%s", t->c[0]->v.sval);
+        char nb[fmt_len("\005\003%s", t->c[0]->v.sval)];
+        snprintf(nb, sizeof nb, "\005\003%s", t->c[0]->v.sval);
         tree_t * q = ast_node_new(TT_QLIT);
         q->v.sval = lp_strdup(nb);
         q->slen = (int) strlen(nb);
@@ -1122,7 +1126,7 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         ast_push(c3, pm_int((int64_t) TT_CAPT_COND_ASGN));
         ast_push(c3, q);
         ast_push(c3, pm_empty_str());
-        return pm_node(TT_CAT, c3, pm_call("SNO$PB0", pm_int((int64_t) TT_FLUSH), NULL), NULL);
+        return pm_node(TT_CAT, c3, pm_imm_commit(), NULL);
     }
     if (t->t == TT_DEFER && t->v.sval) {
         char nb[fmt_len("*%s", t->v.sval)];
@@ -1145,6 +1149,10 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
             if (na == 1 && (pf[i].tt == TT_POS || pf[i].tt == TT_TAB)) {
                 int64_t pn1;
                 if (pm_const_int(t->c[1], &pn1)) return pm_call("SNO$PBN", pm_int((int64_t) (pn1 > 0 ? pf[i].tt : (pf[i].tt == TT_POS ? TT_RPOS : TT_RTAB))), pm_int(pn1 > 0 ? pn1 - 1 : -pn1));
+                const char * pnv = icn_synth_local(cx);
+                tree_t * fwd = pm_call("SNO$PBN", kt, pm_node(TT_SUB, pm_var(pnv), pm_int(1), NULL));
+                tree_t * bwd = pm_call("SNO$PBN", pm_int((int64_t) (pf[i].tt == TT_POS ? TT_RPOS : TT_RTAB)), pm_node(TT_MNS, pm_var(pnv), NULL, NULL));
+                return pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(pnv), (tree_t *) t->c[1], NULL), pm_node(TT_IF, pm_node(TT_GT, pm_var(pnv), pm_int(0), NULL), fwd, bwd), NULL);
             }
             return na == 1 ? pm_call("SNO$PBN", kt, (tree_t *) t->c[1]) : NULL;
             case 'K':
@@ -1532,6 +1540,23 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             if (!fn || icn_callee_is_name(cx, fn)) {
                 const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
                 cx->after_line = after_line;
+                if (fn && !strcmp(nm, "match") && t->n == 2 && t->c[1] && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_is_proc(nm) && !icn_builtin_reassigned(nm)) {
+                    const char * pv = t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] != '&' ? t->c[1]->v.sval : icn_synth_local(cx);
+                    const int pvar = pv == t->c[1]->v.sval;
+                    const char * sv = icn_synth_local(cx);
+                    const char * ev = icn_synth_local(cx);
+                    tree_t * pq = ast_node_new(TT_QLIT);
+                    pq->v.sval = (char *) "pattern";
+                    pq->slen = 7;
+                    tree_t * plain = pm_call("match", pm_var(pv), NULL);
+                    plain->slen = -5;
+                    tree_t * viap =
+                        pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(sv), pm_var("&pos"), NULL), pm_node(TT_PMATCH, pm_var(pv), NULL, NULL), pm_node(TT_ASSIGN, pm_var(ev), pm_var("&pos"), NULL));
+                    ast_push(viap, pm_node(TT_ASSIGN, pm_var("&pos"), pm_var(sv), NULL));
+                    ast_push(viap, pm_var(ev));
+                    tree_t * sel = pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", pm_var(pv), NULL), pq, NULL), pm_node(TT_LIMIT, viap, pm_int(1), NULL), plain);
+                    return lower(cx, pvar ? sel : pm_node(TT_CONJ, pm_node(TT_LIMIT, pm_node(TT_ASSIGN, pm_var(pv), (tree_t *) t->c[1], NULL), pm_int(1), NULL), sel, NULL), γ, ω, res);
+                }
                 int bal4 = fn && !strcmp(nm, "bal") && t->n >= 5 && t->n <= 7 && t->c[2] && t->c[3] && (t->c[2]->t == TT_CSET || t->c[2]->t == TT_QLIT) &&
                     (t->c[3]->t == TT_CSET || t->c[3]->t == TT_QLIT) && t->c[2]->v.sval && !strcmp(t->c[2]->v.sval, "(") && t->c[3]->v.sval && !strcmp(t->c[3]->v.sval, ")");
                 if (fn && (bal4 || (icn_scan_window_name(nm) && t->n >= 3 && t->n <= 5)) && t->c[1] && t->c[bal4 ? 4 : 2] && !icn_is_proc(nm) && !icn_builtin_reassigned(nm)) {
@@ -3452,6 +3477,14 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
             icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
         succ = entry;
         fail = entry;
+    }
+    if (cx->pname && !strcmp(cx->pname, "main") && cx->prog && cx->prog->v.ival) {
+        IR_t * dr = NULL;
+        tree_t * dv = pm_var("ICN$UDIGITS");
+        dv->slen = (int) strlen(dv->v.sval);
+        IR_t * dn = lower(cx, pm_node(TT_FNC, dv, pm_int(16), NULL), succ, succ, &dr);
+        if (dr && dr->γ.node == succ) lc_γ_to(dr, succ);
+        if (dn) succ = dn;
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }

@@ -25134,6 +25134,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         { extern const char * NV_intern_name_n(const char *, size_t); const char * in = NV_intern_name_n(args[0].s, (size_t) args[0].slen); if (in && NV_EXISTS_fn(in)) *out = NV_GET_fn(in); }
         return 1;
     }
+    if (!strcmp(fn, "ICN$IMM") && nargs == 0) { extern int rt_icn_imm_assign(void); *out = rt_icn_imm_assign() ? NULVCL : FAILDESCR; return 1; }
+    if (!strcmp(fn, "ICN$UDIGITS") && nargs == 1) { extern DESCR_t bt_ICNx24UDIGITS(DESCR_t *, int); *out = bt_ICNx24UDIGITS(args, nargs); return 1; }
     if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
         DESCR_t src = args[0];
         extern int core_icn_error(int code, DESCR_t val);

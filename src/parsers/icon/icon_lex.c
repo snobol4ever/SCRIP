@@ -561,11 +561,14 @@ static IcnToken lex_one(IcnLexer *lx) {
         case '`':
             {
                 char * bb = NULL; int bl = 0, bc = 0;
-                while (lex_cur(lx) && lex_cur(lx) != '`') buf_push(&bb, &bl, &bc, lex_advance(lx));
+                const int dbl = lex_cur(lx) == '`' && lx->unicon;
+                if (dbl) lex_advance(lx);
+                while (lex_cur(lx) && !(lex_cur(lx) == '`' && (!dbl || lex_peek1(lx) == '`'))) buf_push(&bb, &bl, &bc, lex_advance(lx));
                 if (lex_cur(lx) != '`') { lx->had_error = 1; snprintf(lx->errmsg, sizeof lx->errmsg, "line %d: unterminated ` expression", line); return make_tok(TK_ERROR, line, col); }
                 lex_advance(lx);
+                if (dbl) lex_advance(lx);
                 if (!bb) bb = ct_strdup("");
-                IcnToken bt = make_tok(TK_PUNEVAL, line, col); bt.val.sval.data = bb; bt.val.sval.len = (size_t) bl; return bt;
+                IcnToken bt = make_tok(dbl ? TK_PUNEVAL2 : TK_PUNEVAL, line, col); bt.val.sval.data = bb; bt.val.sval.len = (size_t) bl; return bt;
             }
             break;
         case '\\': return make_tok(TK_BACKSLASH, line, col);
@@ -1158,6 +1161,7 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_PIMD:      return "=>";
         case TK_PSETCUR:   return ".>";
         case TK_PUNEVAL:   return "`";
+        case TK_PUNEVAL2:  return "``";
         default:           return "???";
     }
 }

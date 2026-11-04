@@ -1077,7 +1077,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
         if (_fast_ok && !mk_pn) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
-        if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
+        if (!e->varname || e->varname[0] == 5) { c->cur += sizeof(rt_dcap_e); continue; }
         if (e->varname[0] == 3) {
             DESCR_t cp = (DESCR_t){ .v = DT_I, .i = (int64_t) e->saved_delta + 1 };
             DESCR_t * cl = dcap_icn_cell(e->varname + 1, mk_pn, mk_base);
@@ -1253,6 +1253,19 @@ rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const ch
     c->nhr_v = DT_I;
     c->wa_v = DT_I;
     return rt_dcap_pump(c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_icn_imm_assign(void) {
+    extern const char * Σ;
+    rt_dcf_t rec;
+    rt_dcap_e * top = (rt_dcap_e *) g_dcap_top, * lo = (rt_dcap_e *) g_runtime.misc.dcap_base, * e;
+    if (!top || !lo || top <= lo) return 0;
+    e = top - 1;
+    if (!e->varname || e->varname[0] != 5) return 0;
+    e->varname++;
+    rt_dcap_next_t n = c_rt_dcap_end_ok_open((const char *) e, (const char *) top, Σ, &rec);
+    e->varname--;
+    return !n.fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_dcap_land_γ, open, 1);

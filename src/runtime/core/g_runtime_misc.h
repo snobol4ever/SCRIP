@@ -30,6 +30,7 @@ typedef struct {
     int core_stack_floor_raised;
     int core_err_active;
     int kw_ctx;
+    int real_digits;
     long icn_errnumber;
     const char *icn_errtext;
     DESCR_t icn_errvalue;

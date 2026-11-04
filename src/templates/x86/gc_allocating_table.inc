@@ -2040,6 +2040,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_iand_d", GC_RET_DESCR },
     { "rt_icn_cset_member_n", GC_RET_OTHER },
     { "rt_icn_cset_register", GC_RET_VOID },
+    { "rt_icn_imm_assign", GC_RET_OTHER },
     { "rt_icn_lconcat_d", GC_RET_DESCR },
     { "rt_icn_needle_coerce", GC_RET_OTHER },
     { "rt_icn_subject_coerce", GC_RET_OTHER },
