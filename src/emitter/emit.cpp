@@ -3009,7 +3009,23 @@ static int emit_gc_site_mask(const gc_site_t * e, std::vector<uint64_t> & out) {
         if ((CV_AT(g_emitter.g_gc_sites_wk, uint64_t, e->wk_off + j / 64) >> (j % 64)) & 1ull) out[(size_t)(j + sh) / 64] |= 1ull << ((j + sh) % 64);
     return 1;
 }
-static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint64_t> & pool, std::unordered_map<std::string, uint64_t> & shared, std::vector<uint64_t> & mk) {
+typedef struct { uint64_t off; uint32_t nw; std::vector<uint64_t> w; } gc_mask_root_t;
+static uint64_t emit_gc_site_rule12_third(uint32_t nw, const std::vector<uint64_t> & mk, int n, std::vector<uint64_t> & pool, std::vector<gc_mask_root_t> & roots) {
+    size_t L = mk.size();
+    uint64_t low = (nw % 64) ? ((1ull << (nw % 64)) - 1ull) : ~0ull;
+    for (size_t r = 0; r < roots.size(); r++) {
+        const gc_mask_root_t & R = roots[r];
+        if (R.nw < nw || R.w.size() < L) continue;
+        size_t k = 0;
+        while (k + 1 < L && R.w[k] == mk[k]) k++;
+        if (k + 1 == L && (R.w[L - 1] & low) == mk[L - 1]) return R.off | ((uint64_t)nw << 32);
+    }
+    uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
+    pool.insert(pool.end(), mk.begin(), mk.end());
+    roots.push_back(gc_mask_root_t{ t, nw, mk });
+    return t | ((uint64_t)nw << 32);
+}
+static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint64_t> & pool, std::vector<gc_mask_root_t> & roots, std::vector<uint64_t> & mk) {
     if (((e->rule == 1 || e->rule == 2) && (e->kind & 255) != 1) || emit_gc_site_mask(e, mk) <= 0) return 0;
     if (e->rule == 0 || e->rule == 4) {
         if (e->depth <= 512) return mk[0];
@@ -3017,14 +3033,21 @@ static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint6
         pool.insert(pool.end(), mk.begin(), mk.end());
         return t;
     }
-    mk.insert(mk.begin(), (uint64_t)(e->dk / 8));
-    std::string key((const char *)mk.data(), mk.size() * sizeof(uint64_t));
-    std::unordered_map<std::string, uint64_t>::const_iterator it = shared.find(key);
-    if (it != shared.end()) return it->second;
-    uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
-    pool.insert(pool.end(), mk.begin(), mk.end());
-    shared.emplace(key, t);
-    return t;
+    return emit_gc_site_rule12_third((uint32_t)(e->dk / 8), mk, n, pool, roots);
+}
+static void emit_gc_site_thirds(int n, const int * ord, std::vector<uint64_t> & pool, std::vector<uint64_t> & thirds) {
+    std::vector<gc_mask_root_t> roots;
+    std::vector<uint64_t> mk;
+    int seq[n > 0 ? n : 1];
+    for (int k = 0; k < n; k++) seq[k] = ord[k];
+    std::stable_sort(seq, seq + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).dk > CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).dk; });
+    thirds.assign((size_t)(n > 0 ? n : 0), 0u);
+    for (int k = 0; k < n; k++) { int i = seq[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
+        thirds[(size_t)i] = emit_gc_site_third(e, n, pool, roots, mk);
+        if (thirds[(size_t)i] && gc_sites_report_on())
+            fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d known=%d arrival=%d pre=%d words=%zu mask0=%llx third=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i,
+                e->nd ? bb_op_name(e->nd->op) : "?",
+                (int)e->rule, (int)e->depth, (int)e->dk, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[0], (unsigned long long)thirds[(size_t)i]); }
 }
 static void emit_gc_sites_data(const char * fam, int frameless) {
      int n = (int)g_emitter.g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", g_emitter.emit_gc_sites_data_seq++);
@@ -3040,14 +3063,10 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         int ord[n > 0 ? n : 1];
         for (int i = 0; i < n; i++) ord[i] = i;
         std::stable_sort(ord, ord + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).pc < CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).pc; });
-        std::vector<uint64_t> pool, mk;
-        std::unordered_map<std::string, uint64_t> shared;
+        std::vector<uint64_t> pool, thirds;
+        emit_gc_site_thirds(n, ord, pool, thirds);
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
-            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = emit_gc_site_third(e, n, pool, shared, mk);
-            if (third && gc_sites_report_on())
-                fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d known=%d arrival=%d pre=%d words=%zu mask0=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i,
-                    e->nd ? bb_op_name(e->nd->op) : "?",
-                (int)e->rule, (int)e->depth, (int)e->dk, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[mk.size() > 1 && (e->rule == 1 || e->rule == 2) ? 1 : 0]);
+            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = thirds[(size_t)i];
             t = " .quad " + emit_gc_site_label(i) + (g_emit.gc_code_lbl.name ? std::string("-") + g_emit.gc_code_lbl.name : std::string()) + "\n .quad "
                 + std::to_string((unsigned long long)w) + "\n .quad " + std::to_string((unsigned long long)third) + "\n"; emit_text_n(t.data(), t.size()); }
         for (size_t q = 0; q < pool.size(); q++) { t = " .quad " + std::to_string((unsigned long long)pool[q]) + "\n"; emit_text_n(t.data(), t.size()); }
@@ -3061,10 +3080,12 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
             qsort(&CV_AT(g_emitter.g_gc_sites_v, gc_site_t, 0), (size_t)n, sizeof(gc_site_t), [](const void * a, const void * b) -> int { uint64_t x = ((const gc_site_t *)a)->pc,
                 y = ((const gc_site_t *)b)->pc;
             return (x > y) - (x < y); });
-        std::vector<uint64_t> pool, mk;
-        std::unordered_map<std::string, uint64_t> shared;
+        std::vector<uint64_t> pool, thirds;
+        int idn[n > 0 ? n : 1];
+        for (int i = 0; i < n; i++) idn[i] = i;
+        emit_gc_site_thirds(n, idn, pool, thirds);
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32),
-            third = emit_gc_site_third(e, n, pool, shared, mk);
+            third = thirds[(size_t)i];
             bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); bb_emit_u64(third); }
         for (size_t q = 0; q < pool.size(); q++) bb_emit_u64(pool[q]);
     }

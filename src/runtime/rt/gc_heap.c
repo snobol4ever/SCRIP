@@ -3062,11 +3062,11 @@ static long gc_told_search(const char *lo, const char *hi, uint8_t *acc) {
     return n;
 }
 static long gc_told_nw(const gc_site_ent_t *e, const gc_site_blk_t *b) {
-    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return e->mask ? (long)*(const uint64_t *)((const char *)b->tab + e->mask) : 0;
+    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return e->mask ? (long)(e->mask >> 32) : 0;
     return ((GC_SITE_RULE(e) == 0 || GC_SITE_RULE(e) == 4) && e->depth > 0) ? (long)e->depth / 8 : 0;
 }
 static int gc_told_bit(const gc_site_ent_t *e, const gc_site_blk_t *b, long j) {
-    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return (int)((((const uint64_t *)((const char *)b->tab + e->mask))[1 + (j >> 6)] >> (j & 63)) & 1u);
+    if (GC_SITE_RULE(e) == 1 || GC_SITE_RULE(e) == 2) return (int)((((const uint64_t *)((const char *)b->tab + (uint32_t)e->mask))[j >> 6] >> (j & 63)) & 1u);
     if (e->depth <= 512) return j < 64 ? (int)((e->mask >> j) & 1u) : 0;
     return (int)((((const uint64_t *)((const char *)b->tab + e->mask))[j >> 6] >> (j & 63)) & 1u);
 }
