@@ -1625,8 +1625,11 @@ void gc_visit_one(DESCR_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_pseg(rt_hblk_t *h);
+enum { GC_MK_WALK_OFF = __builtin_offsetof(struct gc_mk_t, draining), GC_MK_WALK_LEN = __builtin_offsetof(struct gc_mk_t, sw_hi) + sizeof(((struct gc_mk_t *)0)->sw_hi) - GC_MK_WALK_OFF };
+_Static_assert(GC_MK_WALK_OFF == 184 && GC_MK_WALK_LEN == 88 && __builtin_offsetof(struct gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(struct gc_mk_t, fc_kind) == 248 &&
+    __builtin_offsetof(struct gc_mk_t, sw_p) == 256, "rt_gc_walk_words_a and rt_gc_frame_cells_a (rtx_gc.s) keep a suspended scan's cursor in gc_mk at these offsets; a nested scan restores them");
 void gc_visit_mblk(rt_hblk_t *h) {
-    if (h->type == HB_PSEG) { gc_visit_pseg(h); return; }
+    if (h->type == HB_PSEG) { char sv[GC_MK_WALK_LEN], *mk = (char *)&g_runtime.abi.gc_mk + GC_MK_WALK_OFF; memcpy(sv, mk, GC_MK_WALK_LEN); gc_visit_pseg(h); memcpy(mk, sv, GC_MK_WALK_LEN); return; }
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
 #if RT_DIAG
