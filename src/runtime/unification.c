@@ -5029,14 +5029,20 @@ int rt_pl_tbh_open(void *root, void *arg, pl_tr_ctx_t *cx) {
         h[0] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)prev };
         for (int f = 1; f < PL_TBH_CELLS; f++) h[f] = (DESCR_t){ .v = DT_RAW, .i = (int64_t)(uintptr_t)pl_tbh_fwd(prev, f) };
         h[PL_TBH_CELLS + 1] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)cx->tr };
-        return k >= 0 && rt_pl_b_set(root, k, arg, cx);
+        return k >= 0 && rt_pl_b_set(root, k, arg, cx) && rt_pl_tbh_floor_sync(root, cx->tr);
     }
+}
+int rt_pl_tbh_floor_sync(void *root, char *tr) {
+    DESCR_t *h = pl_tbh_cur(root);
+    if (!tr) return 1;
+    *pl_tr_floor_slot(pl_tr_base_of(tr)) = (h && (int)h[PL_TBH_CELLS + 1].v == DT_I) ? (char *)(uintptr_t)h[PL_TBH_CELLS + 1].i : (char *)0;
+    return 1;
 }
 int rt_pl_tbh_close(void *root, pl_tr_ctx_t *cx) {
     DESCR_t *h = pl_tbh_cur(root);
     int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
     if (!h || k < 0) return 0;
-    { DESCR_t prev = (DESCR_t){ .v = DT_I, .i = h[0].i }; return rt_pl_b_set(root, k, (void *)&prev, cx); }
+    { DESCR_t prev = (DESCR_t){ .v = DT_I, .i = h[0].i }; return rt_pl_b_set(root, k, (void *)&prev, cx) && rt_pl_tbh_floor_sync(root, cx->tr); }
 }
 int rt_pl_tbh_leading(void *root) { return pl_tbh_cur(root) != (DESCR_t *)0; }
 DESCR_t * rt_pl_tbh_current(void *root) { return pl_tbh_cur(root); }

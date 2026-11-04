@@ -26045,6 +26045,9 @@ DESCR_t rt_pl_dop_tbl_open_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *ro
     { int ok = rt_pl_tbh_open(root, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
 extern DESCR_t * rt_pl_tbh_current(void *);
+extern int rt_pl_tbh_floor_sync(void *, char *);
+extern char * pl_tr_base_of(const char *);
+extern char ** pl_tr_floor_slot(const char *);
 extern uint64_t g_rtccb[32];
 extern pl_trie_sl_t * rt_pl_trie_sl(void *, int64_t);
 extern int rt_pl_trie_count(void *, int64_t);
@@ -26101,6 +26104,7 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
     if (!b) {
         pl_trie_sl_t *ls = rt_pl_trie_sl((void *)(uintptr_t)s->r14, s->leader);
         if (ls) ls->sched = 0;
+        rt_pl_tbh_floor_sync((void *)(uintptr_t)s->r14, (char *)(uintptr_t)s->r12);
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k];
         g_runtime.abi.rt_k_level = (int)s->k_level;
         return (pl_pseg_pair_t){ (void *)0, (void *)s };
@@ -26125,6 +26129,7 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
         if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * 15 <= hi) {
             DESCR_t *c = (DESCR_t *)(pl_pseg_bytes(b) + ((char *)(uintptr_t)b->hdr - b->orig_lo));
             c[12] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
+            *pl_tr_floor_slot(pl_tr_base_of(b->tbase)) = (char *)(uintptr_t)c[11].i;
             {
                 char *ra = (char *)(uintptr_t)c[13].i;
                 if (ra >= b->orig_lo && ra + 24 <= hi) {
@@ -26166,6 +26171,7 @@ void * rt_pl_pseg_ball_c(void *root, char *r12) {
     }
     if (!s) { fprintf(stderr, "FATAL rt_pl_pseg_ball: a ball left a generator with no resuming leader on the chain\n"); * (volatile char *) NULL; }
     { pl_pseg_t *b = pl_sched_resumed(s); if (b) { rt_pl_tr_unwind_to(r12, (char *)(uintptr_t)b->r12); pl_pseg_unrebind(b); b->sched = (pl_psched_t *)0; } }
+    rt_pl_tbh_floor_sync(root, r12);
     for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         int64_t nx;
@@ -26228,6 +26234,7 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
                 old->sched = (pl_psched_t *)0;
                 cx->tr = rt_pl_tr_unwind_to(cx->tr, (char *)(uintptr_t)old->r12);
                 pl_pseg_unrebind(old);
+                rt_pl_tbh_floor_sync((void *)(uintptr_t)cx->r14, cx->tr);
                 return (void *)s;
             }
             return (void *)0;
@@ -26291,7 +26298,16 @@ DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
             case 4:
             return sl->low >= sl->depth ? pl_ok() : FAILDESCR;
             case 5:
-            { int64_t p = rt_pl_tbh_table(root); pl_trie_sl_t *ps = p >= 0 ? rt_pl_trie_sl(root, p) : (pl_trie_sl_t *)0; if (ps && sl->low < ps->low) ps->low = sl->low; return pl_ok(); }
+            {
+                int64_t p = rt_pl_tbh_table(root);
+                pl_trie_sl_t *ps = p >= 0 ? rt_pl_trie_sl(root, p) : (pl_trie_sl_t *)0;
+                if (ps && sl->low < ps->low) ps->low = sl->low;
+                rt_pl_tbh_floor_sync(root, cx->tr);
+                return pl_ok();
+            }
+            case 8:
+            rt_pl_tbh_floor_sync(root, cx->tr);
+            return pl_ok();
             case 6:
             {
                 int n = 0, nn = 0;
@@ -26307,6 +26323,7 @@ DESCR_t rt_pl_dop_tbl_sl_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
                     if (x == t) { rt_pl_tbl_chain_set(root, xs->next); break; }
                     x = xs->next;
                 }
+                rt_pl_tbh_floor_sync(root, cx->tr);
                 return pl_trie_leaf_close(plw_unify_vals(args[2], pl_list_from_arr(ids, n), cx), cx);
             }
             default:

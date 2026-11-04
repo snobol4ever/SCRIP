@@ -2864,6 +2864,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_succ_plus_cell", GC_RET_OTHER },
     { "rt_pl_tbh_close", GC_RET_OTHER },
     { "rt_pl_tbh_current", GC_RET_OTHER },
+    { "rt_pl_tbh_floor_sync", GC_RET_OTHER },
     { "rt_pl_tbh_get", GC_RET_OTHER },
     { "rt_pl_tbh_leading", GC_RET_OTHER },
     { "rt_pl_tbh_open", GC_RET_OTHER },

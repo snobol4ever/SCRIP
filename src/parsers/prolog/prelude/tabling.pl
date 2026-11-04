@@ -19,7 +19,7 @@
 '$tbl_sl_get'(T,_,_,_,T).
 '$tbl_sl_run'(T):-('$tbl_sl_gen0'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T).
 '$tbl_sl_gen0'(T):-'$tbl_sl_gen'(T),fail.
-'$tbl_sl_gen'(T):-'$trie_meta_get'(T,1,d(G,I,_,_,_,_)),term_variables(G,Vs),Sk=..[ret|Vs],'$tbl_hdr','$tbh_own'(1,T),'$tbl_dlset'([]),call(I),'$tbl_dl'(D),'$tbh_get'(1,Tg),'$tbl_sl_ins'(Tg,Sk,D),fail.
+'$tbl_sl_gen'(T):-'$trie_meta_get'(T,1,d(G,I,_,_,_,_)),term_variables(G,Vs),Sk=..[ret|Vs],('$tbl_hdr','$tbh_own'(1,T),'$tbl_dlset'([]),call(I),'$tbl_dl'(D),'$tbh_get'(1,Tg),'$tbl_sl_ins'(Tg,Sk,D),fail;'$tbl_sl'(8,T,_),fail).
 '$tbl_sl_ins'(T,Sk,[]):-!,('$trie_lookup'(T,Sk,true)->true;'$tbl_chk'([Sk],T),'$trie_insert'(T,1,Sk,true,_),'$tbl_sl'(7,T,_)).
 '$tbl_sl_ins'(T,Sk,D0):-'$tbl_chk'([Sk],T),reverse(D0,D),('$trie_lookup'(T,Sk,V)->('$tbl_sl_hasd'(V,D)->true;V=u(P),'$trie_insert'(T,1,Sk,u([Sk-D|P]),_));'$trie_insert'(T,0,Sk,u([Sk-D]),_)).
 '$tbl_sl_hasd'(true,_):-!.
