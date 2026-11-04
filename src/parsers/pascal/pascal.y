@@ -209,7 +209,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> param_type result_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
 %type <node> program_name routine_directives power
-%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw
+%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw class_parents parent_item
 %start compilation_unit
 %%
 compilation_unit:
@@ -312,7 +312,15 @@ type_decl:
     |GENERICTSY IDENT LTOP id_list GTOP EQOP type SEMICOLON { pascal_note_type_decl($2); $$ = pt_add(pt_decl("gtype", $2, $7), $4); }
     |IDENT LTOP id_list GTOP EQOP type SEMICOLON { pascal_note_type_decl($1); $$ = pt_add(pt_decl("gtype", $1, $6), $3); }
     |IDENT EQOP CLASSSY SEMICOLON { $$ = pt_decl("type", $1, pt_sval(pt_add(pt_new(TT_CLASS_DECL), $3), "forward")); }
-    |IDENT EQOP CLASSSY LPARENT id_list RPARENT SEMICOLON { $$ = pt_decl("type", $1, pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $3), pt_retag($5, TT_ARGS)), pt_new(TT_VLIST))); }
+    |IDENT EQOP CLASSSY LPARENT class_parents RPARENT SEMICOLON { $$ = pt_decl("type", $1, pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $3), pt_retag($5, TT_ARGS)), pt_new(TT_VLIST))); }
+    ;
+class_parents:
+    parent_item { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    |class_parents COMMA parent_item { $$ = pt_add($1, $3); }
+    ;
+parent_item:
+    IDENT { $$ = $1; }
+    |spec_ref { $$ = $1; }
     ;
 spec_kw:
     SPECIALIZESY IDENT LTOP type_arg_list GTOP { pascal_note_type_ident($2); $$ = pt_spec($2, $4); }
@@ -341,7 +349,7 @@ type:
     |packed_opt FILESY { $$ = pt_add(pt_new(TT_FILE_TYPE), $1); }
     |packed_opt FILESY OFSY type { $$ = pt_add(pt_add(pt_new(TT_FILE_TYPE), $1), $4); }
     |CLASSSY class_members ENDSY { $$ = pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), $2); }
-    |CLASSSY LPARENT id_list RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
+    |CLASSSY LPARENT class_parents RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
     ;
 result_type:
     IDENT { $$ = $1; }
@@ -616,6 +624,7 @@ call:
 recv_primary:
     STRINGCONST { $$ = $1; }
     |LPARENT expression RPARENT { $$ = $2; }
+    |spec_kw { $$ = $1; }
     ;
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }

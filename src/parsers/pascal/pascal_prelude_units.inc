@@ -1135,6 +1135,138 @@ static const char PAS_PRELUDE_UNIT_3_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_4_SRC[] =
+    "{$mode objfpc}{$H+}\n"
+    "unit fgl;\n"
+    "interface\n"
+    "type\n"
+    "  generic TFPGListCompareFunc<T> = function(const __sh_a, __sh_b: T): Integer;\n"
+    "  generic TFPGList<T> = class\n"
+    "  private\n"
+    "    __sh_items: array of T;\n"
+    "    __sh_n: Integer;\n"
+    "    function GetItem(__sh_i: Integer): T;\n"
+    "    procedure PutItem(__sh_i: Integer; const __sh_v: T);\n"
+    "    procedure SetCount(__sh_c: Integer);\n"
+    "  public\n"
+    "    constructor Create;\n"
+    "    destructor Destroy; override;\n"
+    "    function Add(const __sh_v: T): Integer;\n"
+    "    procedure Insert(__sh_i: Integer; const __sh_v: T);\n"
+    "    procedure Delete(__sh_i: Integer);\n"
+    "    function Remove(const __sh_v: T): Integer;\n"
+    "    function IndexOf(const __sh_v: T): Integer;\n"
+    "    function Extract(const __sh_v: T): T;\n"
+    "    procedure Exchange(__sh_i, __sh_j: Integer);\n"
+    "    procedure Clear;\n"
+    "    function First: T;\n"
+    "    function Last: T;\n"
+    "    procedure Sort(__sh_cmp: specialize TFPGListCompareFunc<T>);\n"
+    "    property Count: Integer read __sh_n write SetCount;\n"
+    "    property Items[__sh_i: Integer]: T read GetItem write PutItem; default;\n"
+    "  end;\n"
+    "implementation\n"
+    "constructor TFPGList.Create;\n"
+    "begin\n"
+    "  inherited Create;\n"
+    "  __sh_n := 0;\n"
+    "end;\n"
+    "destructor TFPGList.Destroy;\n"
+    "begin\n"
+    "  Clear;\n"
+    "  inherited Destroy;\n"
+    "end;\n"
+    "function TFPGList.GetItem(__sh_i: Integer): T;\n"
+    "begin\n"
+    "  Result := __sh_items[__sh_i];\n"
+    "end;\n"
+    "procedure TFPGList.PutItem(__sh_i: Integer; const __sh_v: T);\n"
+    "begin\n"
+    "  __sh_items[__sh_i] := __sh_v;\n"
+    "end;\n"
+    "procedure TFPGList.SetCount(__sh_c: Integer);\n"
+    "begin\n"
+    "  if __sh_c > Length(__sh_items) then SetLength(__sh_items, __sh_c);\n"
+    "  __sh_n := __sh_c;\n"
+    "end;\n"
+    "function TFPGList.Add(const __sh_v: T): Integer;\n"
+    "begin\n"
+    "  if __sh_n >= Length(__sh_items) then SetLength(__sh_items, __sh_n * 2 + 4);\n"
+    "  __sh_items[__sh_n] := __sh_v;\n"
+    "  Result := __sh_n;\n"
+    "  Inc(__sh_n);\n"
+    "end;\n"
+    "procedure TFPGList.Insert(__sh_i: Integer; const __sh_v: T);\n"
+    "var k: Integer;\n"
+    "begin\n"
+    "  Add(__sh_v);\n"
+    "  for k := __sh_n - 1 downto __sh_i + 1 do __sh_items[k] := __sh_items[k - 1];\n"
+    "  __sh_items[__sh_i] := __sh_v;\n"
+    "end;\n"
+    "procedure TFPGList.Delete(__sh_i: Integer);\n"
+    "var k: Integer;\n"
+    "begin\n"
+    "  for k := __sh_i to __sh_n - 2 do __sh_items[k] := __sh_items[k + 1];\n"
+    "  Dec(__sh_n);\n"
+    "end;\n"
+    "function TFPGList.IndexOf(const __sh_v: T): Integer;\n"
+    "var k: Integer;\n"
+    "begin\n"
+    "  Result := -1;\n"
+    "  for k := 0 to __sh_n - 1 do\n"
+    "    if __sh_items[k] = __sh_v then begin\n"
+    "      Result := k;\n"
+    "      exit;\n"
+    "    end;\n"
+    "end;\n"
+    "function TFPGList.Remove(const __sh_v: T): Integer;\n"
+    "begin\n"
+    "  Result := IndexOf(__sh_v);\n"
+    "  if Result >= 0 then Delete(Result);\n"
+    "end;\n"
+    "function TFPGList.Extract(const __sh_v: T): T;\n"
+    "var k: Integer;\n"
+    "begin\n"
+    "  k := IndexOf(__sh_v);\n"
+    "  if k >= 0 then begin\n"
+    "    Result := __sh_items[k];\n"
+    "    Delete(k);\n"
+    "  end else Result := __sh_v;\n"
+    "end;\n"
+    "procedure TFPGList.Exchange(__sh_i, __sh_j: Integer);\n"
+    "var __sh_t: T;\n"
+    "begin\n"
+    "  __sh_t := __sh_items[__sh_i];\n"
+    "  __sh_items[__sh_i] := __sh_items[__sh_j];\n"
+    "  __sh_items[__sh_j] := __sh_t;\n"
+    "end;\n"
+    "procedure TFPGList.Clear;\n"
+    "begin\n"
+    "  SetLength(__sh_items, 0);\n"
+    "  __sh_n := 0;\n"
+    "end;\n"
+    "function TFPGList.First: T;\n"
+    "begin\n"
+    "  Result := __sh_items[0];\n"
+    "end;\n"
+    "function TFPGList.Last: T;\n"
+    "begin\n"
+    "  Result := __sh_items[__sh_n - 1];\n"
+    "end;\n"
+    "procedure TFPGList.Sort(__sh_cmp: specialize TFPGListCompareFunc<T>);\n"
+    "var i, j: Integer; __sh_t: T;\n"
+    "begin\n"
+    "  for i := 1 to __sh_n - 1 do begin\n"
+    "    __sh_t := __sh_items[i];\n"
+    "    j := i - 1;\n"
+    "    while (j >= 0) and (__sh_cmp(__sh_items[j], __sh_t) > 0) do begin\n"
+    "      __sh_items[j + 1] := __sh_items[j];\n"
+    "      j := j - 1;\n"
+    "    end;\n"
+    "    __sh_items[j + 1] := __sh_t;\n"
+    "  end;\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "{$H+}\n"
     "unit gmp;\n"
     "interface\n"
@@ -1729,7 +1861,7 @@ static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "  end\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_5_SRC[] =
+static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "{$H+}\n"
     "unit ioerr;\n"
     "interface\n"
@@ -1761,7 +1893,7 @@ static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "  __sh_rdiv := a / b\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_6_SRC[] =
+static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: real): real;\n"
@@ -1840,7 +1972,7 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_7_SRC[] =
+static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -1945,13 +2077,13 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_8_SRC[] =
+static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_9_SRC[] =
+static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -2125,7 +2257,7 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_10_SRC[] =
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -2133,7 +2265,7 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -2222,7 +2354,7 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -3073,7 +3205,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -3094,7 +3226,7 @@ static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_14_SRC[] =
+static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -3125,16 +3257,17 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "contnrs", PAS_PRELUDE_UNIT_1_SRC },
     { "crt", PAS_PRELUDE_UNIT_2_SRC },
     { "dos", PAS_PRELUDE_UNIT_3_SRC },
-    { "gmp", PAS_PRELUDE_UNIT_4_SRC },
-    { "ioerr", PAS_PRELUDE_UNIT_5_SRC },
-    { "math", PAS_PRELUDE_UNIT_6_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_7_SRC },
-    { "strings", PAS_PRELUDE_UNIT_8_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_9_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_10_SRC },
-    { "system", PAS_PRELUDE_UNIT_11_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_12_SRC },
-    { "types", PAS_PRELUDE_UNIT_13_SRC },
-    { "unix", PAS_PRELUDE_UNIT_14_SRC },
+    { "fgl", PAS_PRELUDE_UNIT_4_SRC },
+    { "gmp", PAS_PRELUDE_UNIT_5_SRC },
+    { "ioerr", PAS_PRELUDE_UNIT_6_SRC },
+    { "math", PAS_PRELUDE_UNIT_7_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_8_SRC },
+    { "strings", PAS_PRELUDE_UNIT_9_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_10_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_11_SRC },
+    { "system", PAS_PRELUDE_UNIT_12_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_13_SRC },
+    { "types", PAS_PRELUDE_UNIT_14_SRC },
+    { "unix", PAS_PRELUDE_UNIT_15_SRC },
     { 0, 0 }
 };

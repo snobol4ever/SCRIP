@@ -8,8 +8,11 @@
 #include "lower_pascal_generics.h"
 #define PG_IS(x, k) ((x) && (x)->t == (k))
 #define PG_KIND(x, s) (PG_IS(x, TT_DECL) && (x)->v.sval && !strcmp((x)->v.sval, (s)))
+#define PG_TYPE 0
+#define PG_ROUTINE 1
+#define PG_METHOD 2
 typedef struct { const char *key; tree_t *node; } pg_inst;
-typedef struct { const char *name; tree_t *params; tree_t *body; tree_t *holder; tree_t *parent; int routine; pg_inst *inst; int ninst, cinst; } pg_tmpl;
+typedef struct { const char *name; tree_t *params; tree_t *body; tree_t *holder; tree_t *parent; int kind; int owner; pg_inst *inst; int ninst, cinst; } pg_tmpl;
 typedef struct { pg_tmpl *t; int nt, ct; int fatal; } pg_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pg_clone(const tree_t *e) {
@@ -25,9 +28,9 @@ static tree_t *pg_clone(const tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pg_var(const char *name) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = ct_strdup(name); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static pg_tmpl *pg_find(pg_ctx *x, const char *name) { for (int i = 0; name && i < x->nt; i++) if (!strcasecmp(x->t[i].name, name)) return &x->t[i]; return NULL; }
+static int pg_find(pg_ctx *x, const char *name) { for (int i = 0; name && i < x->nt; i++) if (x->t[i].kind != PG_METHOD && !strcasecmp(x->t[i].name, name)) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pg_add(pg_ctx *x, const char *name, tree_t *params, tree_t *body, tree_t *holder, tree_t *parent, int routine) {
+static pg_tmpl *pg_add(pg_ctx *x, const char *name, tree_t *params, tree_t *body, tree_t *holder, tree_t *parent, int kind, int owner) {
     if (x->nt >= x->ct) { x->ct = x->ct ? x->ct * 2 : 16; x->t = ct_grow(x->t, (size_t)x->ct * sizeof *x->t); }
     pg_tmpl *t = &x->t[x->nt++];
     memset(t, 0, sizeof *t);
@@ -36,23 +39,42 @@ static void pg_add(pg_ctx *x, const char *name, tree_t *params, tree_t *body, tr
     t->body = body;
     t->holder = holder;
     t->parent = parent;
-    t->routine = routine;
+    t->kind = kind;
+    t->owner = owner;
+    return t;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pg_is_routine(const tree_t *c) { return PG_IS(c, TT_PROCEDURE) || PG_IS(c, TT_FUNCTION); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_collect(pg_ctx *x, tree_t *p) {
     if (!p) return;
     for (int i = 0; i < p->n; i++) {
         tree_t *c = p->c[i];
-        if (PG_KIND(c, "generic") && c->n >= 2 && (PG_IS(c->c[1], TT_PROCEDURE) || PG_IS(c->c[1], TT_FUNCTION)) && c->c[1]->n > 0 && c->c[1]->c[0]->v.sval) {
-            pg_add(x, c->c[1]->c[0]->v.sval, c->c[0], c->c[1], c, p, 1);
+        if (PG_KIND(c, "generic") && c->n >= 2 && pg_is_routine(c->c[1]) && c->c[1]->n > 0 && c->c[1]->c[0]->v.sval) {
+            pg_add(x, c->c[1]->c[0]->v.sval, c->c[0], c->c[1], c, p, PG_ROUTINE, -1);
             continue;
         }
         if (PG_IS(c, TT_PART) && c->v.sval && !strcmp(c->v.sval, "type")) {
-            for (int j = 0; j < c->n; j++) { tree_t *d = c->c[j]; if (PG_KIND(d, "gtype") && d->n >= 3 && d->c[0]->v.sval) pg_add(x, d->c[0]->v.sval, d->c[2], d->c[1], d, c, 0); }
+            for (int j = 0; j < c->n; j++) { tree_t *d = c->c[j]; if (PG_KIND(d, "gtype") && d->n >= 3 && d->c[0]->v.sval) pg_add(x, d->c[0]->v.sval, d->c[2], d->c[1], d, c, PG_TYPE, -1); }
         }
         if (!PG_KIND(c, "generic") && !PG_KIND(c, "gtype")) pg_collect(x, c);
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pg_collect_methods(pg_ctx *x, tree_t *p) {
+    if (!p) return;
+    for (int i = 0; i < p->n; i++) {
+        tree_t *c = p->c[i];
+        if (PG_KIND(c, "generic") || PG_KIND(c, "gtype")) continue;
+        if (pg_is_routine(c) && c->n > 0 && PG_IS(c->c[0], TT_FIELD) && c->c[0]->n == 2 && PG_IS(c->c[0]->c[0], TT_VAR) && c->c[0]->c[0]->v.sval) {
+            int o = pg_find(x, c->c[0]->c[0]->v.sval);
+            if (o >= 0 && x->t[o].kind == PG_TYPE) { pg_add(x, c->c[0]->c[0]->v.sval, x->t[o].params, c, c, p, PG_METHOD, o); continue; }
+        }
+        pg_collect_methods(x, c);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pg_is_template_node(pg_ctx *x, const tree_t *e) { for (int i = 0; i < x->nt; i++) if (x->t[i].holder == e) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_key(const tree_t *e, char **buf, size_t *len, size_t *cap) {
     char tmp[64];
@@ -62,17 +84,17 @@ static void pg_key(const tree_t *e, char **buf, size_t *len, size_t *cap) {
     else { snprintf(tmp, sizeof tmp, "t%d", (int)e->t); s = tmp; }
     size_t l = strlen(s) + 4;
     if (*len + l >= *cap) { *cap = (*cap + l) * 2; *buf = ct_grow(*buf, *cap); }
-    *len += (size_t)snprintf(*buf + *len, *cap - *len, "%s%s", *len ? "__" : "", s);
+    *len += (size_t)snprintf(*buf + *len, *cap - *len, "%s%s", *len ? "_" : "", s);
     if (!PG_IS(e, TT_VAR)) for (int i = 0; i < e->n; i++) pg_key(e->c[i], buf, len, cap);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pg_mangle(const char *name, const tree_t *args) {
     char *buf = NULL;
     size_t len = 0, cap = 0;
-    pg_key(args, &buf, &len, &cap);
+    for (int i = 0; i < args->n; i++) pg_key(args->c[i], &buf, &len, &cap);
     size_t n = strlen(name) + len + 8;
     char *out = ct_alloc(n);
-    snprintf(out, n, "%s__%s", name, buf ? buf : "");
+    snprintf(out, n, "%s_g_%s", name, buf ? buf : "");
     for (char *q = out; *q; q++) *q = isalnum((unsigned char)*q) ? (char)tolower((unsigned char)*q) : '_';
     return out;
 }
@@ -92,32 +114,49 @@ static void pg_subst(tree_t *e, const tree_t *params, const tree_t *args) {
 }
 static void pg_resolve(pg_ctx *x, tree_t *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pg_seen(const pg_tmpl *t, const char *mn) { for (int i = 0; i < t->ninst; i++) if (!strcmp(t->inst[i].key, mn)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pg_record(pg_tmpl *t, const char *mn, tree_t *node) {
+    if (t->ninst >= t->cinst) { t->cinst = t->cinst ? t->cinst * 2 : 4; t->inst = ct_grow(t->inst, (size_t)t->cinst * sizeof *t->inst); }
+    t->inst[t->ninst].key = mn;
+    t->inst[t->ninst].node = node;
+    t->ninst++;
+    return node;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
     tree_t *nm = spec->n > 0 ? spec->c[0] : NULL, *args = spec->n > 1 ? spec->c[1] : NULL;
-    pg_tmpl *t = nm && nm->v.sval ? pg_find(x, nm->v.sval) : NULL;
-    if (!t || !args) {
+    int ti = nm && nm->v.sval ? pg_find(x, nm->v.sval) : -1;
+    if (ti < 0 || !args) {
         fprintf(stderr, "pascal: specialize of '%s': no generic of that name\n", nm && nm->v.sval ? nm->v.sval : "?");
         x->fatal = 1;
         return pg_var(nm && nm->v.sval ? nm->v.sval : "?");
     }
     pg_resolve(x, args);
+    pg_tmpl *t = &x->t[ti];
     if (t->params->n != args->n) { fprintf(stderr, "pascal: specialize of '%s': %d type argument(s) given, %d expected\n", t->name, args->n, t->params->n); x->fatal = 1; return pg_var(t->name); }
     char *mn = pg_mangle(t->name, args);
-    for (int i = 0; i < t->ninst; i++) if (!strcmp(t->inst[i].key, mn)) return pg_var(mn);
-    if (t->ninst >= t->cinst) { t->cinst = t->cinst ? t->cinst * 2 : 4; t->inst = ct_grow(t->inst, (size_t)t->cinst * sizeof *t->inst); }
+    if (pg_seen(t, mn)) return pg_var(mn);
     tree_t *body = pg_clone(t->body), *node;
     pg_subst(body, t->params, args);
-    if (t->routine) { body->c[0] = pg_var(mn); node = body; } else { node = ast_node_new(TT_DECL); node->v.sval = ct_strdup("type"); ast_push(node, pg_var(mn)); ast_push(node, body); }
-    t->inst[t->ninst].key = mn;
-    t->inst[t->ninst].node = node;
-    t->ninst++;
+    if (t->kind == PG_ROUTINE) { body->c[0] = pg_var(mn); node = body; } else { node = ast_node_new(TT_DECL); node->v.sval = ct_strdup("type"); ast_push(node, pg_var(mn)); ast_push(node, body); }
+    pg_record(t, mn, node);
     pg_resolve(x, node);
+    for (int i = 0; t->kind == PG_TYPE && i < x->nt; i++) {
+        pg_tmpl *m = &x->t[i];
+        if (m->kind != PG_METHOD || m->owner != ti) continue;
+        tree_t *mb = pg_clone(m->body);
+        mb->c[0]->c[0] = pg_var(mn);
+        pg_subst(mb, t->params, args);
+        pg_record(m, mn, mb);
+        pg_resolve(x, mb);
+    }
     return pg_var(mn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_resolve(pg_ctx *x, tree_t *e) {
     if (!e || PG_KIND(e, "generic") || PG_KIND(e, "gtype")) return;
-    for (int i = 0; i < e->n; i++) { tree_t *c = e->c[i]; if (PG_KIND(c, "specialize")) { e->c[i] = pg_instantiate(x, c); continue; } pg_resolve(x, c); }
+    for (int i = 0; i < e->n; i++) { tree_t *c = e->c[i]; if (PG_KIND(c, "specialize")) { e->c[i] = pg_instantiate(x, c); continue; } if (pg_is_template_node(x, c)) continue; pg_resolve(x, c); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_splice(pg_tmpl *t) {
@@ -136,6 +175,7 @@ tree_t *pas_generics_prepass(tree_t *prog) {
     memset(&x, 0, sizeof x);
     pg_collect(&x, prog);
     if (!x.nt) return prog;
+    pg_collect_methods(&x, prog);
     pg_resolve(&x, prog);
     for (int i = 0; i < x.nt; i++) pg_splice(&x.t[i]);
     return x.fatal ? NULL : prog;
