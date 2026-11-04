@@ -5131,6 +5131,24 @@ void rt_pl_db_meta_decl(void *root, const char *name, int64_t arity, const char 
 int rt_pl_db_key_line(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return e ? e->line : 0; }
 int rt_pl_db_key_mf(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return e ? e->mf : 0; }
 int rt_pl_db_cells_base(void *root, int64_t n);
+RT_ENTRY_DECL(rt_pl_mkground, leaf, 0);
+static void rt_pl_mkground_at(const long long *tab, long e, DESCR_t *out) {
+    for (;;) {
+        uint64_t w0 = (uint64_t)tab[2 * e], w1 = (uint64_t)tab[2 * e + 1];
+        long n, a;
+        DESCR_t *blk;
+        if ((w0 & 0xFF) != DT_PLREF) { memcpy(out, &w0, 8); memcpy((char *)out + 8, &w1, 8); return; }
+        n = (long)(w1 >> 32);
+        a = (long)(uint32_t)w1;
+        blk = (DESCR_t *)rt_gcheap_alloc(HB_DVEC, (uint64_t)(16 * n));
+        memcpy(out, &w0, 8);
+        out->p = blk;
+        for (long i = 0; i + 1 < n; i++) rt_pl_mkground_at(tab, a + i, blk + i);
+        out = blk + n - 1;
+        e = a + n - 1;
+    }
+}
+void rt_pl_mkground(const long long *tab, DESCR_t *out) { rt_pl_mkground_at(tab, 0, out); }
 RT_ENTRY_DECL(rt_pl_db_decls_install, leaf, 0);
 void rt_pl_db_decls_install(const long *tab, void *root) {
     extern const char *prolog_atom_name(int);

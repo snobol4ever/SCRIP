@@ -73,6 +73,9 @@ typedef struct stage2_t {
     int rt_lowering;
     long long * db_decls_words;
     int db_decls_n;
+    long long * pl_ground_words;
+    int pl_ground_n;
+    int pl_ground_cap;
     cv_t pl_prelude_keys;
     cv_t pl_user_keys_files;
     cv_t pl_decl_multifile;

@@ -17,6 +17,7 @@ DESCR_t rt_pl_atop_cold(DESCR_t *, int, const char *);
 int rtx_pl_unify(DESCR_t *, DESCR_t *);
 void rt_pl_tr_refuse(const char *);
 void rt_pl_db_decls_install(const long *, void *);
+void rt_pl_mkground(const long long *, DESCR_t *);
 DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 #include "runtime/rt/gc_heap.h"
 }
@@ -399,6 +400,22 @@ static std::string pl_arm_dbdecls() {
              + PL_TRAMP());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_arm_mkground() {
+    return IF(_.op_pl_gw_n < 2 || !_.op_pl_gw, x86_bomb("$mkground: the ground term's cell table could not be read from the lowerer at emit time"))
+         + IF(!(_.op_pl_gw_n < 2 || !_.op_pl_gw),
+               x86("note", "a ground literal term: the lowerer's cells sit after the box as {tag word, value} pairs, a compound's value naming its argument run; the leaf builds them")
+             + x86_lea_id("rdi", 125) + x86("lea", "rsi", PLAQ(0))
+             + x86("call", "rt_pl_mkground", (uint64_t)(uintptr_t)(void *)rt_pl_mkground)
+             + x86_rt_gc_poll_or(PL_OMEGA("je"))
+             + x86("mov", "rax", PLAQ(0))
+             + x86("mov", "rdx", PLAQ(8))
+             + IF(!_.op_zres, pl_set("rax", "rdx"))
+             + PL_GAMMA()
+             + x86("def", L(125))
+             + FOR(0, _.op_pl_gw_n, [](int i) { return x86(".quad", (uint64_t)(int64_t)_.op_pl_gw[i]); })
+             + PL_TRAMP());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_unify() {
     return x86("lea", "rdi", PLAQ(0))
          + x86("lea", "rsi", PLAQ(16))
@@ -422,6 +439,7 @@ static std::string pl_arm_unify() {
 std::string pl_leaf_inline_arm() {
     return IF(PLK() == PLK_MKC, pl_arm_mkc())
          + IF(PLK() == PLK_DBDECLS, pl_arm_dbdecls())
+         + IF(PLK() == PLK_MKGROUND, pl_arm_mkground())
          + IF(PLK() == PLK_UNIFY, pl_arm_unify())
          + IF(PLK() == PLK_AX, pl_arm_ax())
          + IF(PLK() == PLK_CMP, pl_arm_cmp())

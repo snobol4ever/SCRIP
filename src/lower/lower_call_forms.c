@@ -102,6 +102,7 @@ int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     *op = 0;
     if (!fn || fn[0] != '$') return PLK_NONE;
     if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
+    if (!strcmp(fn, "$mkground")) return narg == 1 ? PLK_MKGROUND : PLK_NONE;
     if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
     if (!strcmp(fn, "$unify")) return narg == 2 ? PLK_UNIFY : PLK_NONE;
     if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;

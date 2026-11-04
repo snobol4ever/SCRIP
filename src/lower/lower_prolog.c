@@ -9,6 +9,7 @@
 #include "ir/ir_graph.h"
 #include "ir/ir_construct.h"
 #include "ir/stage2.h"
+#include "ir/descr_tags.h"
 #include "ir/ast.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_prolog_chr.h"
@@ -242,6 +243,88 @@ static const char * pl_atom_lit_sval(const tree_t * t) {
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_is_cmp(const tree_t * t) { return t && ((t->t == TT_MAKELIST && t->n > 0) || (t->t == TT_FNC && t->n > 0 && t->v.sval && !pl_tree_is_big(t) && !pl_tree_is_engine(t))); }
+static int pl_tree_ground(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_ILIT || t->t == TT_FLIT || (t->t == TT_MAKELIST && t->n == 0)) return 1;
+    if (t->t == TT_QLIT) return t->v.sval != NULL;
+    if (!pl_tree_is_cmp(t)) return 0;
+    for (int i = 0; i < t->n; i++) if (!pl_tree_ground(t->c[i])) return 0;
+    return 1;
+}
+static int pl_tree_ground_nested(const tree_t * t) {
+    if (!pl_tree_is_cmp(t) || !pl_tree_ground(t)) return 0;
+    if (t->t == TT_MAKELIST && (t->v.ival == 1 ? t->n - 1 : t->n) >= 2) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_is_cmp(t->c[i])) return 1;
+    return 0;
+}
+static int pl_ground_reserve(int n) {
+    int base = g_stage2.pl_ground_n;
+    if (base + n > g_stage2.pl_ground_cap) {
+        int cap = g_stage2.pl_ground_cap ? g_stage2.pl_ground_cap : 256;
+        while (cap < base + n) cap *= 2;
+        g_stage2.pl_ground_words = (long long *)(g_stage2.pl_ground_words ? ct_grow(g_stage2.pl_ground_words, (size_t)cap * 16) : ct_alloc((size_t)cap * 16));
+        g_stage2.pl_ground_cap = cap;
+    }
+    g_stage2.pl_ground_n = base + n;
+    return base;
+}
+static void pl_ground_put(int at, uint64_t w0, uint64_t w1) { g_stage2.pl_ground_words[2 * at] = (long long)w0; g_stage2.pl_ground_words[2 * at + 1] = (long long)w1; }
+static uint64_t pl_ground_fid(const char * nm, int n) {
+    extern int prolog_atom_intern(const char *);
+    extern int prolog_functor_intern(int, int);
+    return (uint64_t)(uint32_t)prolog_functor_intern(prolog_atom_intern(pl_list_fname(nm, n)), n);
+}
+static void pl_ground_fill(const tree_t * t, int at, int base) {
+    extern int prolog_atom_intern_lit(const char *);
+    for (;;) {
+        if (t->t == TT_ILIT) { pl_ground_put(at, (uint64_t)DT_I, (uint64_t)t->v.ival); return; }
+        if (t->t == TT_FLIT) { union { double d; uint64_t u; } b; b.d = t->v.dval; pl_ground_put(at, (uint64_t)DT_R, b.u); return; }
+        if (!pl_tree_is_cmp(t)) { pl_ground_put(at, (uint64_t)DT_PLATOM, (uint64_t)(uint32_t)prolog_atom_intern_lit(t->t == TT_QLIT ? pl_atom_lit_sval(t) : "[]")); return; }
+        if (t->t == TT_MAKELIST) {
+            int bar = (t->v.ival == 1 && t->n > 0), ne = bar ? t->n - 1 : t->n;
+            for (int i = 0; i < ne; i++) {
+                int a = pl_ground_reserve(2);
+                pl_ground_put(at, (uint64_t)DT_PLREF | (pl_ground_fid(".", 2) << 32), (2ull << 32) | (uint64_t)(a - base));
+                pl_ground_fill(t->c[i], a, base);
+                at = a + 1;
+            }
+            if (!bar) { pl_ground_put(at, (uint64_t)DT_PLATOM, (uint64_t)(uint32_t)prolog_atom_intern_lit("[]")); return; }
+            t = t->c[t->n - 1];
+        } else {
+            int n = t->n, a = pl_ground_reserve(n);
+            pl_ground_put(at, (uint64_t)DT_PLREF | (pl_ground_fid(t->v.sval, n) << 32), ((uint64_t)(uint32_t)n << 32) | (uint64_t)(a - base));
+            for (int i = 0; i + 1 < n; i++) pl_ground_fill(t->c[i], a + i, base);
+            at = a + n - 1;
+            t = t->c[n - 1];
+        }
+    }
+}
+static IR_t * mkground_node(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
+    int base = pl_ground_reserve(1);
+    IR_t * nd = build(cx, IR_CALL, NULL, cx->tω);
+    IR_t * id = build(cx, IR_LIT_INTEGER, NULL, cx->tω);
+    IR_LIT(nd).sval = "$mkground";
+    pl_ground_fill(t, base, base);
+    IR_LIT(id).ival = ((int64_t)(g_stage2.pl_ground_n - base) << 32) | (int64_t)base;
+    ir_operand_push(nd, id);
+    lc_γ_to(id, nd);
+    if (entry_out) *entry_out = id;
+    return nd;
+}
+int pl_ground_words(long long id, long long ** out) {
+    int base = (int)(id & 0xFFFFFFFFll), n = (int)(id >> 32);
+    *out = g_stage2.pl_ground_words ? g_stage2.pl_ground_words + 2 * base : (long long *)0;
+    return *out ? 2 * n : 0;
+}
+static int pl_mkground_functor_is(const IR_t * f, const char * nm, int ar) {
+    extern int prolog_functor_name(int);
+    extern const char * prolog_atom_name(int);
+    long long * w = 0;
+    if (!f || f->op != IR_LIT_INTEGER || pl_ground_words((long long)IR_LIT(f).ival, &w) < 2) return 0;
+    { const char * s = prolog_atom_name(prolog_functor_name((int)((uint64_t)w[0] >> 32))); return (int)((uint64_t)w[1] >> 32) == ar && s && !strcmp(s, nm); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return NULL;
@@ -264,6 +347,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         case TT_MAKELIST:
         {
             int bar = (t->v.ival == 1 && t->n > 0);
+            if (pl_tree_ground_nested(t)) return mkground_node(cx, t, entry_out);
             IR_t * prev;
             IR_t * prev_e = NULL;
             if (bar) prev = term_lval_e(cx, t->c[t->n - 1], &prev_e);
@@ -281,6 +365,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         case TT_FNC:
         {
             int nk = t->n;
+            if (pl_tree_ground_nested(t)) return mkground_node(cx, t, entry_out);
             if (pl_tree_is_big(t)) {
                 IR_t * nd = build(cx, IR_CALL, NULL, cx->tω);
                 IR_LIT(nd).sval = "$pl_big";
@@ -4342,6 +4427,7 @@ static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) 
         if (!gv) continue;
         if (ar == 0 && (gv->op == IR_LIT_STRING || gv->op == IR_LIT_ATOM) && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
         if (ar > 0 && ir_kind0(gv) == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1 && gv->operands[0] && pl_mkc_functor_is(gv->operands[0], nm)) return 1;
+        if (ar > 0 && ir_kind0(gv) == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkground") && gv->n_operands == 1 && pl_mkground_functor_is(gv->operands[0], nm, ar)) return 1;
     }
     return 0;
 }

@@ -5236,6 +5236,7 @@ static_assert(X86_PL_TR_WAKE_OFF == PL_TR_WAKE_OFF && X86_PL_TR_RESIDUE_OFF == P
 extern "C" int zls_argv_off(const IR_t *);
 extern "C" int zls_redisp_off(const IR_t *);
 extern "C" int pl_db_decls_words(long long ** out);
+extern "C" int pl_ground_words(long long id, long long ** out);
 extern "C" { typedef struct { long fn; long how; } call_next_rec_t; call_next_rec_t rt_call_arr_bl_try(const char *, DESCR_t *, long, DESCR_t *); call_next_rec_t rt_call_arr_bl_sn4_try(const char *,
     DESCR_t *, long, DESCR_t *); call_next_rec_t rk_callsame_open(DESCR_t *, int, void *); call_next_rec_t rk_callwith_open(DESCR_t *, int, void *); }
 static void call_margs_reserve(int n) { cv_reserve(&g_emit.op_marg, (uint32_t)sizeof(marg_t), (uint64_t)(n > 0 ? n : 1), "op_marg"); }
@@ -5279,6 +5280,7 @@ static void call_pl_prepare(IR_t * nd, const char * fn, int narg, int fnroute) {
     if (k == PLK_ANUM) g_emit.op_pl_rules = pl_anum_rules((a0 && a0->op == IR_LIT_STRING) ? IR_LIT(a0).sval : (const char *)0, narg - 1);
     if (k == PLK_MKC) { g_emit.op_pl_fid_ok = (a0 && a0->op == IR_LIT_INTEGER) ? 1 : 0; g_emit.op_pl_fid = g_emit.op_pl_fid_ok ? (long)IR_LIT(a0).ival : 0L; }
     if (k == PLK_DBDECLS) { long long * w = 0; int n = pl_db_decls_words(&w); g_emit.op_pl_db_words = w; g_emit.op_pl_db_n = n; }
+    if (k == PLK_MKGROUND) { long long * w = 0; int n = (a0 && a0->op == IR_LIT_INTEGER) ? pl_ground_words((long long)IR_LIT(a0).ival, &w) : 0; g_emit.op_pl_gw = w; g_emit.op_pl_gw_n = n; }
     if (k == PLK_AX || k == PLK_CMP || k == PLK_TYPE || k == PLK_ATOP) g_emit.op_pl_oplbl =
         call_cv_text(&g_emit.op_pl_oplbl_buf, std::string(".L") + x86_boxkind() + "_plop" + std::to_string(g_flat_node_id++));
 }
@@ -5293,7 +5295,7 @@ void call_prepare(IR_t * nd) {
     g_emit.op_call_genoff = -1; g_emit.op_call_dsave = -1; g_emit.op_call_scansync = 0; g_emit.op_call_curmov = 0; g_emit.op_call_elem_access = 0; g_emit.op_call_sb_exit = 0;
     g_emit.op_call_fnlbl_fresh = 0; g_emit.op_call_fnlbl = ""; g_emit.op_call_rec_addr = 0; g_emit.op_call_rec_lbl = ""; g_emit.op_marg_n = 0; g_emit.op_pl_kind = PLK_NONE; g_emit.op_pl_sub = 0;
     g_emit.op_pl_rat = 0; g_emit.op_pl_op = ""; g_emit.op_pl_tags = ""; g_emit.op_pl_jcc = "je"; g_emit.op_pl_oplbl = ""; g_emit.op_pl_rules = (const int *)0; g_emit.op_pl_fid_ok = 0;
-    g_emit.op_pl_fid = 0; g_emit.op_pl_db_words = (const long long *)0; g_emit.op_pl_db_n = 0;
+    g_emit.op_pl_fid = 0; g_emit.op_pl_db_words = (const long long *)0; g_emit.op_pl_db_n = 0; g_emit.op_pl_gw = (const long long *)0; g_emit.op_pl_gw_n = 0;
     if (!zd) {
         g_emit.op_call_resoff = fnroute ? bcfn_result_slot(nd) : zrow(nd)->loff;
         if (g_emit.op_call_resoff < 0) g_emit.op_call_refuse = CALL_REFUSE_NO_SLOT;

@@ -418,6 +418,8 @@ typedef struct {
     long op_pl_fid;
     const long long * op_pl_db_words;
     int op_pl_db_n;
+    const long long * op_pl_gw;
+    int op_pl_gw_n;
 } sm_emit_t;
 void sig_prepare(const char * fname, int nargs);
 void sig_prepare_define(const char * fname, const char * entry, int role);
