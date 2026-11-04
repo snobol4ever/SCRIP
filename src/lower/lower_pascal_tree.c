@@ -4043,8 +4043,8 @@ static tree_t *mk_rec_init_type_d(const char *rt, int depth) {
 static tree_t *mk_rec_init_type(const char *rt) { return mk_rec_init_type_d(rt, 0); }
 static tree_t *pas_new_target_init(const char *rt) {
     long long ah = pas_arrtype_high(rt);
-    if (ah >= 0 && !pas_arrtype_ischar(rt) && pas_arrtype_ncols(rt) < 0) return pas_rectype_nf(rt) > 0 ? mk_fnc3("__pas_arr_of", ilit(pas_arrtype_lo(rt)), ilit(ah), mk_rec_init_type(rt)) :
-        mk_fnc2("arr_make", ilit(pas_arrtype_lo(rt)), ilit(ah));
+    if (ah >= 0 && (!pas_arrtype_ischar(rt) || g_lower.pas.sem.pas_dialect_fpc) && pas_arrtype_ncols(rt) < 0) return pas_rectype_nf(rt) > 0 ?
+        mk_fnc3("__pas_arr_of", ilit(pas_arrtype_lo(rt)), ilit(ah), mk_rec_init_type(rt)) : mk_fnc2("arr_make", ilit(pas_arrtype_lo(rt)), ilit(ah));
     return pas_rectype_nf(rt) > 0 ? mk_rec_init_type(rt) : ilit(0);
 }
 static tree_t *mk_array_init(const char *name, long long high) {
