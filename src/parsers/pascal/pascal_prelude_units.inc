@@ -1842,11 +1842,116 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "end.\n";
 static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "{$H+}\n"
+    "unit sha1;\n"
+    "interface\n"
+    "type\n"
+    "  TSHA1Digest = array[0..19] of byte;\n"
+    "function SHA1String(const __sh_s: string): TSHA1Digest;\n"
+    "function SHA1Print(const __sh_d: TSHA1Digest): string;\n"
+    "function SHA1Match(const __sh_a, __sh_b: TSHA1Digest): boolean;\n"
+    "implementation\n"
+    "function __sh_rotl(x: int64; n: longint): int64;\n"
+    "begin\n"
+    "  __sh_rotl := ((x shl n) or (x shr (32 - n))) and $FFFFFFFF\n"
+    "end;\n"
+    "function SHA1String(const __sh_s: string): TSHA1Digest;\n"
+    "var\n"
+    "  __sh_w: array[0..79] of int64;\n"
+    "  __sh_m: array of byte;\n"
+    "  __sh_r: TSHA1Digest;\n"
+    "  n, total, blk, i, t, nb, k: longint;\n"
+    "  h0, h1, h2, h3, h4, a, b, c, d, e, f, tmp: int64;\n"
+    "  bits: int64;\n"
+    "begin\n"
+    "  n := length(__sh_s);\n"
+    "  total := ((n + 8) div 64 + 1) * 64;\n"
+    "  setlength(__sh_m, total);\n"
+    "  for i := 0 to total - 1 do __sh_m[i] := 0;\n"
+    "  for i := 1 to n do __sh_m[i - 1] := ord(__sh_s[i]);\n"
+    "  __sh_m[n] := 128;\n"
+    "  bits := n;\n"
+    "  bits := bits * 8;\n"
+    "  for i := 0 to 7 do begin\n"
+    "    __sh_m[total - 1 - i] := bits and 255;\n"
+    "    bits := bits shr 8\n"
+    "  end;\n"
+    "  h0 := $67452301;\n"
+    "  h1 := $EFCDAB89;\n"
+    "  h2 := $98BADCFE;\n"
+    "  h3 := $10325476;\n"
+    "  h4 := $C3D2E1F0;\n"
+    "  nb := total div 64;\n"
+    "  for blk := 0 to nb - 1 do begin\n"
+    "    for t := 0 to 15 do begin\n"
+    "      k := blk * 64 + t * 4;\n"
+    "      __sh_w[t] := ((__sh_m[k] * 256 + __sh_m[k + 1]) * 256 + __sh_m[k + 2]) * 256 + __sh_m[k + 3]\n"
+    "    end;\n"
+    "    for t := 16 to 79 do\n"
+    "      __sh_w[t] := __sh_rotl(__sh_w[t - 3] xor __sh_w[t - 8] xor __sh_w[t - 14] xor __sh_w[t - 16], 1);\n"
+    "    a := h0; b := h1; c := h2; d := h3; e := h4;\n"
+    "    for t := 0 to 79 do begin\n"
+    "      if t < 20 then begin\n"
+    "        f := (b and c) or ((b xor $FFFFFFFF) and d);\n"
+    "        k := $5A827999\n"
+    "      end else if t < 40 then begin\n"
+    "        f := b xor c xor d;\n"
+    "        k := $6ED9EBA1\n"
+    "      end else if t < 60 then begin\n"
+    "        f := (b and c) or (b and d) or (c and d);\n"
+    "        k := $8F1BBCDC\n"
+    "      end else begin\n"
+    "        f := b xor c xor d;\n"
+    "        k := $CA62C1D6\n"
+    "      end;\n"
+    "      tmp := (__sh_rotl(a, 5) + f + e + k + __sh_w[t]) and $FFFFFFFF;\n"
+    "      e := d;\n"
+    "      d := c;\n"
+    "      c := __sh_rotl(b, 30);\n"
+    "      b := a;\n"
+    "      a := tmp\n"
+    "    end;\n"
+    "    h0 := (h0 + a) and $FFFFFFFF;\n"
+    "    h1 := (h1 + b) and $FFFFFFFF;\n"
+    "    h2 := (h2 + c) and $FFFFFFFF;\n"
+    "    h3 := (h3 + d) and $FFFFFFFF;\n"
+    "    h4 := (h4 + e) and $FFFFFFFF\n"
+    "  end;\n"
+    "  for i := 0 to 3 do begin\n"
+    "    __sh_r[i] := (h0 shr (24 - 8 * i)) and 255;\n"
+    "    __sh_r[4 + i] := (h1 shr (24 - 8 * i)) and 255;\n"
+    "    __sh_r[8 + i] := (h2 shr (24 - 8 * i)) and 255;\n"
+    "    __sh_r[12 + i] := (h3 shr (24 - 8 * i)) and 255;\n"
+    "    __sh_r[16 + i] := (h4 shr (24 - 8 * i)) and 255\n"
+    "  end;\n"
+    "  SHA1String := __sh_r\n"
+    "end;\n"
+    "function SHA1Print(const __sh_d: TSHA1Digest): string;\n"
+    "var __sh_o: string; i: longint; v: longint;\n"
+    "begin\n"
+    "  __sh_o := '';\n"
+    "  for i := 0 to 19 do begin\n"
+    "    v := __sh_d[i] div 16;\n"
+    "    if v < 10 then __sh_o := __sh_o + chr(48 + v) else __sh_o := __sh_o + chr(87 + v);\n"
+    "    v := __sh_d[i] mod 16;\n"
+    "    if v < 10 then __sh_o := __sh_o + chr(48 + v) else __sh_o := __sh_o + chr(87 + v)\n"
+    "  end;\n"
+    "  SHA1Print := __sh_o\n"
+    "end;\n"
+    "function SHA1Match(const __sh_a, __sh_b: TSHA1Digest): boolean;\n"
+    "var i: longint; __sh_ok: boolean;\n"
+    "begin\n"
+    "  __sh_ok := true;\n"
+    "  for i := 0 to 19 do if __sh_a[i] <> __sh_b[i] then __sh_ok := false;\n"
+    "  SHA1Match := __sh_ok\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_8_SRC[] =
+    "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_8_SRC[] =
+static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -2020,7 +2125,7 @@ static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_9_SRC[] =
+static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -2109,7 +2214,7 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_10_SRC[] =
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -2960,7 +3065,7 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -2981,6 +3086,32 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
+    "{$H+}\n"
+    "unit unix;\n"
+    "interface\n"
+    "function GetHostName: string;\n"
+    "function GetDomainName: string;\n"
+    "implementation\n"
+    "function __sh_ukread(const __sh_p: string): string;\n"
+    "var __sh_f: text; __sh_l: string;\n"
+    "begin\n"
+    "  __sh_l := '';\n"
+    "  assign(__sh_f, __sh_p);\n"
+    "  reset(__sh_f);\n"
+    "  if not eof(__sh_f) then readln(__sh_f, __sh_l);\n"
+    "  close(__sh_f);\n"
+    "  __sh_ukread := __sh_l\n"
+    "end;\n"
+    "function GetHostName: string;\n"
+    "begin\n"
+    "  GetHostName := __sh_ukread('/proc/sys/kernel/hostname')\n"
+    "end;\n"
+    "function GetDomainName: string;\n"
+    "begin\n"
+    "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
+    "end;\n"
+    "end.\n";
 static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "classes", PAS_PRELUDE_UNIT_0_SRC },
     { "contnrs", PAS_PRELUDE_UNIT_1_SRC },
@@ -2989,10 +3120,12 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "gmp", PAS_PRELUDE_UNIT_4_SRC },
     { "ioerr", PAS_PRELUDE_UNIT_5_SRC },
     { "math", PAS_PRELUDE_UNIT_6_SRC },
-    { "strings", PAS_PRELUDE_UNIT_7_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_8_SRC },
-    { "system", PAS_PRELUDE_UNIT_9_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_10_SRC },
-    { "types", PAS_PRELUDE_UNIT_11_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_7_SRC },
+    { "strings", PAS_PRELUDE_UNIT_8_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_9_SRC },
+    { "system", PAS_PRELUDE_UNIT_10_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_11_SRC },
+    { "types", PAS_PRELUDE_UNIT_12_SRC },
+    { "unix", PAS_PRELUDE_UNIT_13_SRC },
     { 0, 0 }
 };
