@@ -26171,6 +26171,7 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
         pl_trie_sl_t *ls = rt_pl_trie_sl((void *)(uintptr_t)s->r14, s->leader);
         if (ls) ls->sched = 0;
         rt_pl_tbh_floor_sync((void *)(uintptr_t)s->r14, (char *)(uintptr_t)s->r12);
+        rt_pl_tr_gc_sync((const char *)(uintptr_t)s->r12);
         for (int k = 0; k < 4; k++) g_rtccb[5 + k] = s->planes[k];
         g_runtime.abi.rt_k_level = (int)s->k_level;
         return (pl_pseg_pair_t){ (void *)0, (void *)s };
@@ -26192,6 +26193,7 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
             memcpy((void *)e->cell, src + PL_TR_ENTRY_BYTES, sizeof(DESCR_t));
         }
         b->sched_t = (uint64_t)(uintptr_t)lo_t;
+        rt_pl_tr_gc_sync((const char *)(uintptr_t)b->r12);
         if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * 15 <= hi) {
             DESCR_t *c = (DESCR_t *)(pl_pseg_bytes(b) + ((char *)(uintptr_t)b->hdr - b->orig_lo));
             c[12] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
