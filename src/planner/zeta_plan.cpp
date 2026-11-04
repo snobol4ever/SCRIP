@@ -504,6 +504,15 @@ static const char * zd_edge_sz(IR_t * x, int v) {
 }
 static int zd_sz_sigma(const char * sz) { return (unsigned char)sz[0] == 0xcf && (unsigned char)sz[1] == 0x83 && sz[2] == 0; }
 static int zd_sz_phi(const char * sz) { return (unsigned char)sz[0] == 0xcf && (unsigned char)sz[1] == 0x86 && sz[2] == 0; }
+static int zd_pl_resume_depth(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * claim, const int * base, const unsigned char * known, int r) {
+    if (r < 0 || !zon[r] || nodes[r]->op != IR_CLEANUP || IR_LIT(nodes[r]).ival != CLEANUP_RESUME) return -1;
+    IR_t * t = zd_chase(nodes[r]->ω.node);
+    int j = t ? nidx(nodes, n, t) : -1;
+    if (j < 0 || j == r || !zon[j] || claim[j] < 0 || !known[claim[j]]) return -1;
+    const char * sz = zd_edge_sz(nodes[r], 1);
+    int beta = port_sz_beta(sz) || (zd_sz_phi(sz) && ir_glue_box(nodes[j], 1));
+    return base[claim[j]] + zout[j] - (beta ? 0 : zd_k_g(cg, nodes[j]));
+}
 static int zd_sz_alpha(const char * sz) { return (unsigned char)sz[0] == 0xce && (unsigned char)sz[1] == 0xb1 && sz[2] == 0; }
 static int zd_dj_anc(const int * zarm, int i, int q) { int g = 0; for (int p = zarm[i]; p >= 0 && g++ < 4096; p = zarm[p]) if (p == q) return 1; return 0; }
 extern "C" int planner_env_encloses(const int * zarm, int i, int q) { return (zarm && i >= 0 && q >= 0) ? zd_dj_anc(zarm, i, q) : 0; }
@@ -1031,6 +1040,7 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
             }
         }
         if (zcut) for (int i = 0; i < n; i++) zcut[i] = -1;
+        for (int r = 0; zcut && pl && r < n; r++) { int d = zd_pl_resume_depth(cg, nodes, n, zon, zout, claim, base, known, r); if (d >= 0) zcut[r] = d; }
         unsigned char * inp = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         for (int c = 0; c < n; c++) {
             if (!zon[c] || claim[c] < 0 || !zd_pl_cut(cg, nodes[c])) continue;
@@ -1801,7 +1811,9 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
             int cd = claim[dq];
             IR_t * t = zd_edge_retains_g(cg, nodes[dq]) ? zd_chase(nodes[dq]->γ.node) : (IR_t *)0;
             int q = t ? nidx(nodes, n, t) : -1;
-            if (known[ci] && known[cd]) zgpop[i] = base[ci] + zout[i] - (base[cd] + zout[dq]);
+            int rd = known[cd] ? -1 : zd_pl_resume_depth(cg, nodes, n, zon, zout, claim, base, known, dq);
+            if (known[ci] && rd >= 0) zgpop[i] = base[ci] + zout[i] - rd;
+            else if (known[ci] && known[cd]) zgpop[i] = base[ci] + zout[i] - (base[cd] + zout[dq]);
             else if (!known[ci] && q >= 0 && zon[q] && claim[q] >= 0 && !known[claim[q]] && fam[claim[q]] == fam[ci])
                 zgpop[i] = fbase[ci] + zout[i] - (fbase[claim[q]] + zout[q] - zd_k_g(cg, nodes[q]));
             else if (!known[ci] && !known[cd] && fam[cd] == fam[ci]) zgpop[i] = fbase[ci] + zout[i] - (fbase[cd] + zout[dq]);
@@ -2072,8 +2084,9 @@ void zd_check_g(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char 
             IR_t * rd = cg->alt_redo[k];
             int dq = (rd && cg->alt_ret[k] && zd_chase(cg->alt_ret[k]) == c) ? nidx(nodes, n, zd_chase(rd)) : -1;
             int expect;
-            if (dq < 0 || !zon[dq] || xb[dq] == INT_MIN) continue;
-            expect = xb[i] + zout[i] - (xb[dq] + zout[dq]);
+            int rdd = (dq >= 0 && zon[dq]) ? ((xb[dq] != INT_MIN) ? xb[dq] + zout[dq] : (zcut && zcut[dq] >= 0) ? zcut[dq] : INT_MIN) : INT_MIN;
+            if (rdd == INT_MIN) continue;
+            expect = xb[i] + zout[i] - rdd;
             if (ig && g_planner.g_zd_rec_p && nodes[i]->n_operands > 0) {
                 const int jg = nidx(nodes, n, ig);
                 IR_t * rt = nodes[i]->operands[0];

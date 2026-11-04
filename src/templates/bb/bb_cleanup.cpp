@@ -82,14 +82,16 @@ static std::string cl_open() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cl_resume() ( \
       x86("comment", \
-    "IR_CLEANUP resume: alpha concedes (the construct's failure exit); beta is its redo -- DONE concedes, otherwise ACTIVE again and G is retried, a ball in flight too, so G concedes into the ex" \
-    "haustion road") \
+    "IR_CLEANUP resume: alpha concedes (the construct's failure exit, rsp restored from the mark record's saved word, the depth of the box it concedes to); beta is its redo -- DONE concedes by t" \
+    "he same road, otherwise ACTIVE again and G is retried, a ball in flight too, so G concedes into the exhaustion road") \
      + x86_alpha() \
+     + x86("def", L(8)) \
+     + IF(_.op_sa >= 0, x86("mov", "rsp", FRQ(_.op_sa + 8))) \
      + x86_omega() \
      + x86_beta() \
      + x86("mov", "rax", CL_REC(CLEANUP_REC_STATE)) \
      + x86("cmp", "rax", (long)CLEANUP_PENDING) \
-     + x86_omega("jne") \
+     + x86("jne", L(8)) \
      + x86("mov32", "edx", (long)CLEANUP_ACTIVE) \
      + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx") \
      + x86("jmp", PAIR(0)) \

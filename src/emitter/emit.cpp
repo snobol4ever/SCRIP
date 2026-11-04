@@ -1589,8 +1589,10 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
         xa_pair_push(NULL, kx >= 0 ? lbls[kx] : node_ω);
     }
     g_emit.op_ival = kind;
+    g_emitter.g_zd_cutd = kind == CLEANUP_RESUME ? zrow(nd)->zcut : -1;
     g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? (open == nd ? zrow(nd)->loff : zrow(nd)->o0off) : -1);
     g_emit.op_sa = -1;
+    if (kind == CLEANUP_RESUME && nd->n_operands > 3 && nd->operands[3] && nd->operands[3]->op == IR_BOUND && nidx(nodes, n, nd->operands[3]) >= 0) g_emit.op_sa = zrow(nd->operands[3])->loff;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
     g_emit.op_sb = kind == CLEANUP_OPEN ? zread : -1;
     if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zrow(nd)->o0off;

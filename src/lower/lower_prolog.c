@@ -1565,6 +1565,7 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
     lc_γ_to(open, ge ? ge : gc);
     ir_operand_push(resume, gc);
     ir_operand_push(resume, drain);
+    ir_operand_push(resume, mark);
     {
         const tree_t * pre[2] = { pl_cc_fnc1("once", (tree_t *) S), vchk };
         IR_t * pe = NULL;
