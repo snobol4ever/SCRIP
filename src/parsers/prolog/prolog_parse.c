@@ -3624,8 +3624,49 @@ static const char * const PL_PRELUDE_SRC =
     "'$load_items'(T,U,P):-'$load_one'(T,U,P).\n"
     "'$load_one'((:-D),_,_):-!,'$consult_goal'(D).\n"
     "'$load_one'((H-->B),U,P):-!,dcg_translate_rule((H-->B),C),'$load_one'(C,U,P).\n"
-    "'$load_one'(C,U,_):-U\\==0,'$load_test'(C,N,O,B),!,assertz(pj_test(U,N,O,B)),assertz(C).\n"
-    "'$load_one'(C,_,F-L):-'$db_t_guard'(C,assertz),'$db_assertz_t'(C,F,L).\n"
+    "'$load_one'(C,U,_):-U\\==0,'$load_test'(C,N,O,B0),!,'$load_qb'(U,B0,B),assertz(pj_test(U,N,O,B)),assertz(C).\n"
+    "'$load_one'(C,_,F-L):-'$db_t_guard'(C,assertz),'$mu_clause'(C,C1),'$db_assertz_t'(C1,F,L).\n"
+    "'$load_qb'(U,B0,B):-(nonvar(B0),B0=_:_->B=B0;atom_concat(plunit_,U,M),B=M:B0).\n"
+    "'$mu_clause'(C,C1):-nonvar(C),C=(H:-B0),compound(H),H\\=(_:_),'$mu_unq'(B0,Q,B),'$mu_eqfirst'(B),current_prolog_flag('$dialect',swi),\\+predicate_property(H,dynamic),H=..[F|As],'$mu_flat'(B,Gs,[]),'$mu_ann'(Gs,As,0,[],Ann),Ann\\==[],!,'$mu_go'(F,As,Gs,Ann,H1,B1),'$mu_wrap'(Q,B1,B2),C1=(H1:-B2).\n"
+    "'$mu_unq'(B0,Q,B):-(nonvar(B0),B0=Q0:B1,atom(Q0)->Q=Q0,B=B1;Q=[],B=B0).\n"
+    "'$mu_wrap'(Q,B,B1):-(Q==[]->B1=B;B1=Q:B).\n"
+    "'$mu_clause'(C,C).\n"
+    "'$mu_eqfirst'(B):-nonvar(B),(B=(A,_)->'$mu_eqfirst'(A);B=(_=_)).\n"
+    "'$mu_flat'(G,L,T):-nonvar(G),G=(A,B),!,'$mu_flat'(A,L,M),'$mu_flat'(B,M,T).\n"
+    "'$mu_flat'(G,[G|T],T).\n"
+    "'$mu_ann'([],_,_,_,[]):-!.\n"
+    "'$mu_ann'([G|Gs],As,I,Sn,Ann):-nonvar(G),G=(L=R),!,I1 is I+1,('$mu_pick'(L,R,As,Sn,AI,V,T)->Ann=[a(I,AI,V,T)|Ann1],Sn1=[V|Sn];Ann=Ann1,Sn1=Sn),'$mu_ann'(Gs,As,I1,Sn1,Ann1).\n"
+    "'$mu_ann'([G|Gs],As,I,Sn,Ann):-G==true,!,I1 is I+1,'$mu_ann'(Gs,As,I1,Sn,Ann).\n"
+    "'$mu_ann'(_,_,_,_,[]).\n"
+    "'$mu_pick'(L,R,As,Sn,AI,V,T):-('$mu_try'(L,R,As,Sn,AI)->V=L,T=R;'$mu_try'(R,L,As,Sn,AI),V=R,T=L).\n"
+    "'$mu_try'(V,T,As,Sn,AI):-var(V),nonvar(T),\\+'$mu_memq'(V,Sn),'$mu_argidx'(As,V,0,AI).\n"
+    "'$mu_memq'(V,[X|Xs]):-(V==X->true;'$mu_memq'(V,Xs)).\n"
+    "'$mu_argidx'([A|As],V,I,AI):-(A==V->AI=I;I1 is I+1,'$mu_argidx'(As,V,I1,AI)).\n"
+    "'$mu_go'(F,As,Gs,Ann,H1,B1):-'$mu_split'(Ann,Ann,As,Gs,Mov,Kept,Idx),'$mu_repl'(As,Mov,0,As1),H1=..[F|As1],keysort(Kept,Ks),'$mu_vals'(Ks,KGs),'$mu_rest'(Gs,0,Idx,Rs),append(KGs,Rs,Gs1),'$mu_conj'(Gs1,B1).\n"
+    "'$mu_split'([],_,_,_,[],[],[]).\n"
+    "'$mu_split'([a(I,AI,V,T)|R],Ann,As,Gs,Mov,Kept,[I|Is]):-'$mu_acc'(As,AI,V,Gs,N),(N==0->Mov=[AI-T|Mov1],Kept=Kept1;('$mu_inner'(Ann,I,V)->G=(V=V);G=(V=T)),Mov=Mov1,Kept=[AI-G|Kept1]),'$mu_split'(R,Ann,As,Gs,Mov1,Kept1,Is).\n"
+    "'$mu_acc'(As,AI,V,Gs,N):-'$mu_hacc'(As,0,AI,V,0,N1),'$mu_gacc'(Gs,V,0,N2),N is N1+N2.\n"
+    "'$mu_hacc'([],_,_,_,N,N).\n"
+    "'$mu_hacc'([A|As],J,AI,V,N0,N):-(J==AI->N1=N0;'$mu_occ'(A,V,K),N1 is N0+K),J1 is J+1,'$mu_hacc'(As,J1,AI,V,N1,N).\n"
+    "'$mu_gacc'([],_,N,N).\n"
+    "'$mu_gacc'([G|Gs],V,N0,N):-'$mu_gocc'(G,V,K),N1 is N0+K,'$mu_gacc'(Gs,V,N1,N).\n"
+    "'$mu_gocc'(G,V,N):-nonvar(G),G=(A=B),(var(A),nonvar(B)->'$mu_occ'(B,V,N);var(B),nonvar(A)->'$mu_occ'(A,V,N);'$mu_occ'(A,V,N1),'$mu_occ'(B,V,N2),N is N1+N2),!.\n"
+    "'$mu_gocc'(G,V,N):-'$mu_occ'(G,V,N).\n"
+    "'$mu_inner'([a(I2,_,_,T2)|R],I,V):-(I2\==I,'$mu_occ'(T2,V,N),N>0->true;'$mu_inner'(R,I,V)).\n"
+    "'$mu_occ'(T,V,N):-var(T),!,(T==V->N=1;N=0).\n"
+    "'$mu_occ'(T,V,N):-compound(T),!,T=..[_|As],'$mu_occl'(As,V,0,N).\n"
+    "'$mu_occ'(_,_,0).\n"
+    "'$mu_occl'([],_,N,N).\n"
+    "'$mu_occl'([A|As],V,N0,N):-'$mu_occ'(A,V,N1),N2 is N0+N1,'$mu_occl'(As,V,N2,N).\n"
+    "'$mu_repl'([],_,_,[]).\n"
+    "'$mu_repl'([A|As],Mov,I,[B|Bs]):-(memberchk(I-T,Mov)->B=T;B=A),I1 is I+1,'$mu_repl'(As,Mov,I1,Bs).\n"
+    "'$mu_vals'([],[]).\n"
+    "'$mu_vals'([_-G|R],[G|Gs]):-'$mu_vals'(R,Gs).\n"
+    "'$mu_rest'([],_,_,[]).\n"
+    "'$mu_rest'([G|Gs],I,Idx,Rs):-I1 is I+1,(memberchk(I,Idx)->Rs=Rs1;Rs=[G|Rs1]),'$mu_rest'(Gs,I1,Idx,Rs1).\n"
+    "'$mu_conj'([],true).\n"
+    "'$mu_conj'([G],G):-!.\n"
+    "'$mu_conj'([G|Gs],(G,C)):-'$mu_conj'(Gs,C).\n"
     "'$load_test'((test(N):-B),N,[],B):-!.\n"
     "'$load_test'((test(N,O):-B),N,Os,B):-!,'$load_test_opts'(O,Os).\n"
     "'$load_test'(test(N),N,[],true):-!.\n"
@@ -4224,7 +4265,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     int hk = pl_libs_hook_lines(lp, nlibs, uprog);
     hk |= pl_libs_autoload_hook_lines(lp, nlibs, uprog);
-    if (hk) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
+    if (hk) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$pl_pp_pcheck"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         for (int j = 0; j < nlibs; j++) {
@@ -4743,7 +4784,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (PlClause *cl = prog->head; cl && !dot; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) dot = 1;
         if (dot) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); }
     }
-    if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
+    if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) { pl_cv_add(&referenced, "$load_item"); pl_cv_add(&referenced, "$pl_pp_pcheck"); }
     if (pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$meta_add");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }

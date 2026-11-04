@@ -1969,7 +1969,8 @@ static int pl_db_owned(const char * nm, int ar) {
     return pl_file_defines(nm, ar) ? 0 : 1;
 }
 static int pl_db_writable(const char * nm, int ar) { return pl_db_owned(nm, ar) || pl_rt_creatable(nm, ar); }
-static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar);
+static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar, int moved);
+static int pl_ssu_clause(const tree_t * cl, int ar);
 static IR_t * pl_db_leaf_seed(lcx_t * cx, int k, int i, const tree_t * arg, const tree_t * fl, const tree_t * ln, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static tree_t * pl_seed_file_term(const char * pf);
 static tree_t * pl_seed_line_term(const tree_t * cl);
@@ -1988,7 +1989,7 @@ static IR_t * pl_db_seed_file(lcx_t * cx, const char * pn, int ar, IR_t * next, 
             for (int i = n - 1; i >= 0; i--) {
                 const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
                 IR_t * se = NULL;
-                pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
+                pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar, 0), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
                 next = se;
                 first = se;
             }
@@ -2329,23 +2330,68 @@ static tree_t * pl_body_term(const tree_t * b) {
     return pl_tree_copy(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar) {
+static int pl_var_uses(const tree_t * t, long long k) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) return t->v.ival == k; for (int i = 0; i < t->n; i++) c += pl_var_uses(t->c[i], k); return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_uses(const tree_t * g, long long k) {
+    if (g->t == TT_FNC && g->n == 2 && g->v.sval && !strcmp(g->v.sval, "=") && (g->c[0]->t == TT_VAR) != (g->c[1]->t == TT_VAR)) return pl_var_uses(g->c[0]->t == TT_VAR ? g->c[1] : g->c[0], k);
+    return pl_var_uses(g, k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_true_goal(const tree_t * g) { return g && (g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "true"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_moved_unify(tree_t ** ha, int ar, tree_t ** gl, int ng) {
+    int gi[ng > 0 ? ng : 1], ai[ng > 0 ? ng : 1], na = 0, nn = 0;
+    char mv[ng > 0 ? ng : 1], qk[ng > 0 ? ng : 1], drop[ng > 0 ? ng : 1];
+    tree_t * tv[ng > 0 ? ng : 1];
+    tree_t * out[ng > 0 ? ng : 1];
+    memset(drop, 0, sizeof drop);
+    for (int i = 0; i < ng; i++) {
+        const tree_t * g = gl[i];
+        if (pl_true_goal(g)) continue;
+        if (!(g->t == TT_FNC && g->n == 2 && g->v.sval && !strcmp(g->v.sval, "="))) break;
+        for (int s = 0; s < 2; s++) {
+            const tree_t * v = g->c[s], * o = g->c[1 - s];
+            int a = -1;
+            if (v->t != TT_VAR || o->t == TT_VAR) continue;
+            for (int j = 0; j < ar && a < 0; j++) if (ha[j]->t == TT_VAR && ha[j]->v.ival == v->v.ival) a = j;
+            for (int q = 0; q < na && a >= 0; q++) if (ai[q] == a) a = -1;
+            if (a < 0) continue;
+            gi[na] = i;
+            ai[na] = a;
+            tv[na] = g->c[1 - s];
+            na++;
+            break;
+        }
+    }
+    if (!na) return ng;
+    for (int q = 0; q < na; q++) {
+        long long k = ha[ai[q]]->v.ival;
+        int uses = 0;
+        for (int j = 0; j < ar; j++) if (j != ai[q]) uses += pl_var_uses(ha[j], k);
+        for (int i = 0; i < ng; i++) uses += pl_goal_uses(gl[i], k);
+        mv[q] = uses == 0;
+        drop[gi[q]] = 1;
+    }
+    for (int q = 0; q < na; q++) { long long k = ha[ai[q]]->v.ival; qk[q] = 0; for (int r = 0; r < na; r++) if (r != q && pl_var_uses(tv[r], k)) qk[q] = 1; }
+    for (int q = 0; q < na; q++) if (mv[q]) ha[ai[q]] = tv[q];
+    for (int a = 0; a < ar; a++) for (int q = 0; q < na; q++) if (ai[q] == a && !mv[q]) out[nn++] = pl_cc_fnc2("=", pl_tree_copy(ha[a]), qk[q] ? pl_tree_copy(ha[a]) : tv[q]);
+    for (int i = 0; i < ng; i++) if (!drop[i]) out[nn++] = gl[i];
+    for (int i = 0; i < nn; i++) gl[i] = out[i];
+    return nn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar, int moved) {
     tree_t * h;
     tree_t * bt = NULL;
     int nc = (cl && cl->t == TT_CLAUSE) ? cl->n : 0;
-    if (ar > 0) {
-        h = ast_node_new(TT_FNC);
-        h->v.sval = ct_strdup(pn);
-        for (int i = 0; i < ar; i++) ast_push(h, (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_"));
-    } else {
-        h = ast_node_new(TT_QLIT);
-        h->v.sval = ct_strdup(pn);
-    }
-    for (int i = nc - 1; i >= ar; i--) {
-        tree_t * g = pl_body_term(cl->c[i]);
-        if (!bt) bt = g;
-        else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; }
-    }
+    int ng = nc > ar ? nc - ar : 0;
+    tree_t * ha[ar > 0 ? ar : 1];
+    tree_t * gl[ng > 0 ? ng : 1];
+    for (int i = 0; i < ar; i++) ha[i] = (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_");
+    for (int i = 0; i < ng; i++) gl[i] = pl_body_term(cl->c[ar + i]);
+    if (moved && ar > 0 && nc >= ar && g_stage2.pl_dialect == PL_DIALECT_SWI && !pl_ssu_clause(cl, ar)) ng = pl_moved_unify(ha, ar, gl, ng);
+    if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = ct_strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, ha[i]); } else { h = ast_node_new(TT_QLIT); h->v.sval = ct_strdup(pn); }
+    for (int i = ng - 1; i >= 0; i--) { tree_t * g = gl[i]; if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
     if (!bt) { bt = ast_node_new(TT_QLIT); bt->v.sval = (char *) "true"; }
     {
         tree_t * tg = pl_clause_target(h, bt);
@@ -3565,7 +3611,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         for (int i = n - 1; i >= 0; i--) {
                             const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
                             IR_t * se = NULL;
-                            pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
+                            pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar, 1), pl_seed_file_term(pl_pred_file(pn, ar)), pl_seed_line_term(cl), next, ωfail, &se);
                             next = se;
                             first = se;
                         }
@@ -4573,7 +4619,7 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
         g_lower.pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const tree_t * sc = ch->t == TT_CHOICE ? ch->c[i] : ch;
-            sg[m++] = pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(sc, nm, ar), pl_seed_file_term(pl_pred_file(nm, ar)), pl_seed_line_term(sc));
+            sg[m++] = pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(sc, nm, ar, 1), pl_seed_file_term(pl_pred_file(nm, ar)), pl_seed_line_term(sc));
         }
         g_lower.pl.seed_var_base = save_base;
         {
@@ -6064,7 +6110,7 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
         g_lower.pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const char * u = it[i].expand ? pl_load_unit_at(prog, it[i].file, it[i].line) : NULL;
-            tree_t * t = it[i].pn ? pl_static_clause_term(it[i].t, it[i].pn, it[i].ar) : pl_load_directive_term(it[i].t);
+            tree_t * t = it[i].pn ? pl_static_clause_term(it[i].t, it[i].pn, it[i].ar, 0) : pl_load_directive_term(it[i].t);
             if (it[i].pn && it[i].t->t == TT_CLAUSE && it[i].t->n <= it[i].ar && t->t == TT_FNC && t->n == 2) t = t->c[0];
             tree_t * g = pl_cc_fnc3("$load_item", t, pl_cc_ilit(it[i].line), u ? (tree_t *) pl_atom_goal(u) : pl_cc_ilit(0));
             ast_push(g, pl_cc_ilit(it[i].expand));
@@ -6554,7 +6600,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                     int n = ch ? ((ch->t == TT_CHOICE) ? ch->n : 1) : 0;
                     for (int i = 0; i < n; i++) {
                         const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch;
-                        seeds[nseed++] = pl_cc_fnc5("$db_seed_once", pl_cc_ilit(di), pl_cc_ilit(i), pl_static_clause_term(cl, dn, da), pl_seed_file_term(pl_pred_file(dn, da)), pl_seed_line_term(cl));
+                        seeds[nseed++] =
+                            pl_cc_fnc5("$db_seed_once", pl_cc_ilit(di), pl_cc_ilit(i), pl_static_clause_term(cl, dn, da, 0), pl_seed_file_term(pl_pred_file(dn, da)), pl_seed_line_term(cl));
                     }
                 }
             }
