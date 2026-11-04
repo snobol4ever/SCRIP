@@ -2132,6 +2132,7 @@ static int gc_sniff_would_take(const DESCR_t *d) {
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN) return gc_dvec_ref_ok(d);
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
     if (d->v == DT_BIG || d->v == DT_CPLX || d->v == DT_EXTL) { rt_hblk_t *nh = gc_blk_of((const char *)d->p); if (nh && (char *)d->p == (char *)(nh + 1)) return 1; }
+    if (d->v == DT_PCELL) { rt_hblk_t *ch = gc_blk_of(d->s); if (ch && d->s >= (char *)(ch + 1) && d->s < (char *)ch + ch->size) return 1; }
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { rt_hblk_t *ph = gc_blk_of((const char *)d->p); if (ph) return 1; }
     return 0;
 }
