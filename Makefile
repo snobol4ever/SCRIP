@@ -104,11 +104,16 @@ SCRIP_CC_BIN := $(ROOT)/scrip
 # FETCHED <key> and compiles nothing; on a miss or a dirty tree it builds as before and, when the tree is clean, publishes the entry for every other root. MEASURED before this: 19
 # roots rebuilt every landing (3,687 compiles waited for the 8 slots in one hour on 2026-10-31). `make scrip` and the other targets stay the raw build; S4E_NO_BUILD_CACHE=1 is the control arm.
 BUILD_CACHE := $(if $(wildcard $(ROOT)/../harness/scripts/util_build_cache.sh),bash $(abspath $(ROOT)/../harness/scripts/util_build_cache.sh),)
+# ⛔⭐ ONE BOX-WIDE COMPILE BUDGET (DESIGN-PLAN box-scheduler step 2, the cto CTO-496; Lon 2026-11-04, verbatim: "There has been talk, and only talk, about using industry
+# recognized ways of doing make and build load balancing and management."): `make` (any -j) runs build-all through harness/scripts/util_jobserver.sh make, which joins the
+# build to the one GNU make jobserver every root shares (the pipe /home/resources/progress/jobserver.fifo held by the unit s4e-jobserver, N tokens declared in
+# /home/resources/progress/JOBSERVER.tsv), so nineteen roots never run more than N+makes compiles at once, by mechanism; no holder, and it is the plain $(MAKE) as before.
+JS_MAKE := $(if $(wildcard $(ROOT)/../harness/scripts/util_jobserver.sh),bash $(abspath $(ROOT)/../harness/scripts/util_jobserver.sh) make,$(MAKE))
 all:
 ifneq ($(BUILD_CACHE),)
-	@if $(BUILD_CACHE) fetch --root $(ROOT) --tag $(RT_TAG); then :; else $(MAKE) --no-print-directory build-all && $(BUILD_CACHE) publish --root $(ROOT) --tag $(RT_TAG); fi
+	@if $(BUILD_CACHE) fetch --root $(ROOT) --tag $(RT_TAG); then :; else $(JS_MAKE) --no-print-directory build-all && $(BUILD_CACHE) publish --root $(ROOT) --tag $(RT_TAG); fi
 else
-	@$(MAKE) --no-print-directory build-all
+	@$(JS_MAKE) --no-print-directory build-all
 endif
 build-all: scrip out/scrip-ipp
 
