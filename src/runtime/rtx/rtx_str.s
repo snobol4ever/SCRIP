@@ -107,6 +107,7 @@ RTX_ENTRY(sno_concat_d)
     cmp     word ptr [rsi + 12], DT_S
     jne     .Lsc_ret
     mov     ecx, dword ptr [rsi + 8]
+    shl     rcx, 4
     add     rcx, rsi
     cmp     rcx, rdx
     jne     .Lsc_ret
@@ -246,6 +247,7 @@ RTX_ENTRY(sno_concat_d)
     cmp     word ptr [r10 + 12], DT_S
     jne     .Lsc_ext_bad
     mov     r11d, dword ptr [r10 + 8]
+    shl     r11, 4
     add     r11, r10
     mov     rdx, qword ptr [rip + g_runtime@GOTPCREL]
     cmp     r11, qword ptr [rdx + 0]
@@ -317,6 +319,7 @@ RTX_ENTRY(sno_concat_d)
     and     rdi, -16
     add     rdi, 16
     mov     r11d, dword ptr [r10 + 8]
+    shl     r11, 4
     cmp     rdi, r11
     jbe     .Lsc_ext_pad
     sub     r11, rdi
@@ -328,7 +331,9 @@ RTX_ENTRY(sno_concat_d)
     mov     qword ptr [rdx + 0], rax
     add     qword ptr [rdx + 56], r11
     add     qword ptr [rdx + 64], r11
-    mov     dword ptr [r10 + 8], edi
+    mov     r11, rdi
+    shr     r11, 4
+    mov     dword ptr [r10 + 8], r11d
 .Lsc_ext_pad:
     mov     r10, rsi
     mov     rdx, rdi

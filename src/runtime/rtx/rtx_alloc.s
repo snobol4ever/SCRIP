@@ -39,7 +39,9 @@ RTX_FUNC(rt_gcheap_alloc)
     add     qword ptr [rdx + 64], rcx
 .Lga_counted:
     mov     qword ptr [rsi + 0], 0
-    mov     dword ptr [rsi + 8], ecx
+    mov     rax, rcx
+    shr     rax, 4
+    mov     dword ptr [rsi + 8], eax
     movzx   eax, di
     or      eax, HBF_TTL << 16
     mov     dword ptr [rsi + 12], eax

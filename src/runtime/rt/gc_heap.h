@@ -63,8 +63,9 @@ static inline size_t rt_pseg_size(const char *orig_lo, uint64_t len, uint64_t tn
 #define HBF_ASSERT_DEAD 0x0004
 #define HBF_ASSERT_INST 0x0008
 #define HBF_VIS 0x0010
-#define HB_PAYLOAD_MAX 0xFFFFFFE0ull
-typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;
+typedef struct rt_hblk_t { uint64_t fwd; uint32_t gran; uint16_t type; uint16_t flags; } rt_hblk_t;
+#define HBLK_BYTES(h) ((uint64_t)(h)->gran << 4)
+#define HBLK_SET_BYTES(h, n) ((h)->gran = (uint32_t)((uint64_t)(n) >> 4))
 struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void rt_gcheap_warmup(void);

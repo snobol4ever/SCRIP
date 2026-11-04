@@ -1384,7 +1384,7 @@ static int rk_is_jct(DESCR_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
     int n = b->hi - b->lo + 1;
-    size_t cap = (((rt_hblk_t *) b->data - 1)->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t);
+    size_t cap = (HBLK_BYTES((rt_hblk_t *) b->data - 1) - sizeof(rt_hblk_t)) / sizeof(DESCR_t);
     if ((size_t) n + 1 > cap) { size_t nc = 2 * cap > (size_t) n + 1 ? 2 * cap : (size_t) n + 1; b->data = (DESCR_t *) rt_gcheap_grow_block(b->data, HB_DVEC, nc * sizeof(DESCR_t)); }
     b->data[n] = v;
     b->hi++;

@@ -9,7 +9,8 @@ struct rt_hblk_t;
 struct gc_frame_map_t;
 struct gc_site_blk;
 struct g_gc_ah_tab;
-struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; };
+struct gc_vac_t { char *at; char *fwd; uint32_t gran; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; };
+#define GC_VAC_BYTES(v) ((uint64_t)(v)->gran << 4)
 struct gc_walk_t {
     long frames, roots, nomap, notab, i_descr, i_heap, i_badtag, i_phase, i_ptr, i_ptr_heap, i_raw, i_raw_heap, i_gap, h_words, h_cell_heap, h_raw_heap, s_words, s_cell_heap, s_raw_heap, a_words,
         a_heap, ghost;

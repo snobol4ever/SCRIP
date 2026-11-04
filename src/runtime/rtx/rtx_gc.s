@@ -67,6 +67,7 @@
     shl     rdx, 4
     lea     rax, [r12 + rdx]
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     add     rdx, rax
     cmp     \p, rdx
     jb      309f
@@ -76,7 +77,6 @@
 .endm
 .macro MK_LIVE_SET
     mov     edx, dword ptr [rax + 8]
-    shr     edx, 4
     mov     ebp, 64
     sub     ebp, ecx
     cmp     edx, ebp
@@ -136,6 +136,7 @@
     MK_LIVE_SET
     inc     qword ptr [rdi + 152]
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     cmp     rdx, qword ptr [rdi + 160]
     jle     318f
     mov     qword ptr [rdi + 160], rdx
@@ -168,6 +169,7 @@
     MK_LIVE_SET
     inc     qword ptr [rdi + 152]
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     cmp     rdx, qword ptr [rdi + 160]
     jle     323f
     mov     qword ptr [rdi + 160], rdx
@@ -295,6 +297,7 @@
     lea     rdx, [rax + 16]
     mov     qword ptr [rdi + 104], rdx
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     sub     rdx, 16
     shr     rdx, 4
     mov     qword ptr [rdi + 112], rdx
@@ -510,6 +513,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     cmp     r10, rdx
     jb      .Lmk_pcell_bad
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     add     rdx, rax
     cmp     r10, rdx
     jae     .Lmk_pcell_bad
@@ -825,6 +829,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     jmp     .Lmk_loop
 .Lmk_m_pldbs:
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     sub     rdx, 16
     xor     ecx, ecx
     mov     rax, rdx
@@ -867,6 +872,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     jmp     .Lmk_loop
 .Lmk_m_pldbk:
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     sub     rdx, 16
     shr     rdx, 4
     mov     rax, rdx
@@ -945,6 +951,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     jmp     .Lmk_range
 .Lmk_m_pvec:
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     sub     rdx, 16
     shr     rdx, 3
     mov     rcx, qword ptr [rdi + 40]
@@ -984,6 +991,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     cmp     r10, rdx
     jb      .Lmk_loop
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     add     rdx, rax
     lea     rcx, [r10 + 16]
     cmp     rcx, rdx
@@ -1285,6 +1293,7 @@ RTX_ENTRY(rt_gc_walk_words_a)
     cmp     r10, rdx
     jb      .Lsw_reject
     mov     edx, dword ptr [rax + 8]
+    shl     rdx, 4
     add     rdx, rax
     lea     rcx, [r10 + 16]
     cmp     rcx, rdx

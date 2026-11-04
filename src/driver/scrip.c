@@ -934,8 +934,8 @@ static void m4_emit_proc_slot_keep(int i, const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int pn, nf, fb, fl, gft, fns, dl; } m4_sprow_t;
-_Static_assert(sizeof(rt_hblk_t) == 16 && __builtin_offsetof(rt_hblk_t, size) == 8 && __builtin_offsetof(rt_hblk_t, type) == 12 && __builtin_offsetof(rt_hblk_t, flags) == 14,
-    "the emitted block header before .Lstartup_procs and .Lstartup_phash is an rt_hblk_t: fwd, size, type, flags");
+_Static_assert(sizeof(rt_hblk_t) == 16 && __builtin_offsetof(rt_hblk_t, gran) == 8 && __builtin_offsetof(rt_hblk_t, type) == 12 && __builtin_offsetof(rt_hblk_t, flags) == 14,
+    "the emitted block header before .Lstartup_procs and .Lstartup_phash is an rt_hblk_t: fwd, gran, type, flags");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ProcEntry *m4_root_proc(stage2_t *s2) {
     int mx = polyglot_main_bb_idx(s2), mpi = -1;
@@ -984,14 +984,14 @@ static void m4_emit_proc_tables(stage2_t *s2, const char **names, int *nparams, 
     if (root) nm[n] = "main";
     rt_proc_hash_fill(nm, nrows, slots, cap);
     if (root) emit_textf("  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n");
-    emit_textf("  .section .data\n  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_procs:\n", (int)(sizeof(rt_hblk_t) + sizeof(rt_proc_t) * (size_t)nrows), HB_PROC);
+    emit_textf("  .section .data\n  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_procs:\n", (int)((sizeof(rt_hblk_t) + sizeof(rt_proc_t) * (size_t)nrows) >> 4), HB_PROC);
     for (int i = 0; i < n; i++) { ProcEntry *pe = &s2->proc_table[pidx[i]]; m4_emit_proc_row(i, names[i], nparams[i], &sp[i], pe->rest_kind, pe->named_rest); }
     if (root) {
         emit_textf("  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .long %d\n  .long -1\n  .long 0\n  .long -1\n  .quad 0\n", root->nparams);
         emit_textf("  .long 0\n  .long 0\n  .quad 0\n  .quad 0\n  .long 0\n  .long 0\n  .long 0\n  .long 0\n  .quad 0\n");
         emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long 1\n  .long 0\n  .long 0\n  .long 0\n  .long %d\n", root->is_variadic ? 1 : 0, root->rest_kind, root->named_rest, root->nformals);
     }
-    emit_textf("  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_phash:\n", (int)(sizeof(rt_hblk_t) + sizeof(int) * (size_t)cap), HB_WSB);
+    emit_textf("  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_phash:\n", (int)((sizeof(rt_hblk_t) + sizeof(int) * (size_t)cap) >> 4), HB_WSB);
     for (unsigned k = 0; k < cap; k++) emit_textf("  .long %d\n", slots[k]);
     emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_procs]\n  mov esi, %d\n  lea rdx, [rip + .Lstartup_phash]\n  mov ecx, %u\n", nrows, cap);
     emit_textf("  call rt_procs_install@PLT\n");

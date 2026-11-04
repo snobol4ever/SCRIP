@@ -26,7 +26,7 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 char *rt_str_alloc(long n);
 char *c_rt_str_alloc(long n);
-typedef struct { long dtop, dvirgin, dblocks, poff; unsigned long size, type, flags; } delta_t;
+typedef struct { long dtop, dvirgin, dblocks, poff; unsigned long gran, type, flags; } delta_t;
 static int fails = 0, n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static delta_t take(void *(*fn)(uint16_t, uint64_t), uint16_t ty, uint64_t pay) {
@@ -38,7 +38,7 @@ static delta_t take(void *(*fn)(uint16_t, uint64_t), uint16_t ty, uint64_t pay) 
     d.dvirgin = hpfr->virgin - v0;
     d.dblocks = hpfr->blocks - b0;
     d.poff = p - t0;
-    d.size = *(uint32_t *)(p - 8);
+    d.gran = *(uint32_t *)(p - 8);
     d.type = *(uint16_t *)(p - 4);
     d.flags = *(uint16_t *)(p - 2);
     return d;
@@ -48,8 +48,8 @@ static void cmp(const char *what, delta_t a, delta_t c) {
     n++;
     if (memcmp(&a, &c, sizeof a) == 0) return;
     fails++;
-    printf("  MISMATCH %-26s asm{top+%ld virgin+%ld blk+%ld poff=%ld sz=%lu ty=%lu fl=%lu}\n", what, a.dtop, a.dvirgin, a.dblocks, a.poff, a.size, a.type, a.flags);
-    printf("  %-35s   c{top+%ld virgin+%ld blk+%ld poff=%ld sz=%lu ty=%lu fl=%lu}\n", "", c.dtop, c.dvirgin, c.dblocks, c.poff, c.size, c.type, c.flags);
+    printf("  MISMATCH %-26s asm{top+%ld virgin+%ld blk+%ld poff=%ld gr=%lu ty=%lu fl=%lu}\n", what, a.dtop, a.dvirgin, a.dblocks, a.poff, a.gran, a.type, a.flags);
+    printf("  %-35s   c{top+%ld virgin+%ld blk+%ld poff=%ld gr=%lu ty=%lu fl=%lu}\n", "", c.dtop, c.dvirgin, c.dblocks, c.poff, c.gran, c.type, c.flags);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pair(const char *what, uint16_t ty, uint64_t pay) {
@@ -64,7 +64,7 @@ static void pair_str(const char *what, long len) {
     p = rt_str_alloc(len);
     a.dtop = hpfr->top - t0;
     a.poff = p - t0;
-    a.size = *(uint32_t *)(p - 8);
+    a.gran = *(uint32_t *)(p - 8);
     a.type = *(uint16_t *)(p - 4);
     a.flags = *(uint16_t *)(p - 2);
     a.dvirgin = a.dblocks = 0;
@@ -72,7 +72,7 @@ static void pair_str(const char *what, long len) {
     p = c_rt_str_alloc(len);
     c.dtop = hpfr->top - t0;
     c.poff = p - t0;
-    c.size = *(uint32_t *)(p - 8);
+    c.gran = *(uint32_t *)(p - 8);
     c.type = *(uint16_t *)(p - 4);
     c.flags = *(uint16_t *)(p - 2);
     c.dvirgin = c.dblocks = 0;

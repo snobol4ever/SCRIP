@@ -101,7 +101,7 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
             char bb[512];
             Dl_info di;
             const unsigned char *tb = (const unsigned char *)(h + 1);
-            long tn = (long)h->size - (long)sizeof(rt_hblk_t), tm = tn < 24 ? (tn > 0 ? tn : 0) : 24, j;
+            long tn = (long)HBLK_BYTES(h) - (long)sizeof(rt_hblk_t), tm = tn < 24 ? (tn > 0 ? tn : 0) : 24, j;
             int dl, hl;
             const char *sn, *df;
             unsigned long dof;

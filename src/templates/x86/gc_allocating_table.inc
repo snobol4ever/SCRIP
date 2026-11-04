@@ -709,7 +709,6 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "flat_drive_gate", GC_RET_VOID },
     { "flat_drive_match_alt", GC_RET_VOID },
     { "flat_drive_repalt", GC_RET_VOID },
-    { "gc_rvec_refuse", GC_RET_OTHER },
     { "ge", GC_RET_OTHER },
     { "getdbl", GC_RET_OTHER },
     { "goal", GC_RET_OTHER },
