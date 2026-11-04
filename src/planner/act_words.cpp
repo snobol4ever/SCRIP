@@ -26,7 +26,8 @@ extern "C" {
 extern "C" int fc_pair_extent(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int act_unbounded_kind(int o) {
-    return o == IR_MATCH_DEFER || o == IR_MATCH_VALUE || o == IR_CALL || o == IR_CALL_VALUE || o == IR_MATCH_CALLOUT || o == IR_MATCH_ARBNO || o == IR_DISJUNCTION || o == IR_MATCH_ABORT;
+    return o == IR_MATCH_DEFER || o == IR_MATCH_VALUE || o == IR_CALL || o == IR_CALL_VALUE || o == IR_MATCH_CALLOUT || o == IR_MATCH_ARBNO || o == IR_DISJUNCTION || o == IR_MATCH_ABORT ||
+        o == IR_MATCH_TRAP;
 }
 static int act_idx(const IR_graph_t * g, const IR_t * nd) { if (!g || !nd) return -1; for (int j = 0; j < g->n; j++) if (g->all[j] == nd) return j; return -1; }
 static int act_match_bare(const IR_t * nd) { return nd->op == IR_MATCH_FENCE1 && IR_LIT(nd).ival == SNO_FENCE_LIT_BARE; }

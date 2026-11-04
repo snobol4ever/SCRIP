@@ -1813,6 +1813,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_match_casmark.cpp \
     $(SRC)/templates/bb/bb_match_fence1.cpp \
     $(SRC)/templates/bb/bb_match_abort.cpp \
+    $(SRC)/templates/bb/bb_match_trap.cpp \
     $(SRC)/templates/bb/bb_zdp_anchor.cpp \
     $(SRC)/templates/bb/bb_match_begin.cpp \
     $(SRC)/templates/bb/bb_match_end.cpp \

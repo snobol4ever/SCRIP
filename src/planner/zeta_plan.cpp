@@ -1445,6 +1445,8 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
                         int ci = -1; { int k = nidx(nodes, n, c2); if (k >= 0) { ci = k; } }
                         if (ci < 0 || claim[ci] >= 0) break;
                         if (bb_src_of(nodes[ci]) || ir_floater_kind(nodes[ci])) { bad = 1; break; }
+                        { IR_t * tw = nodes[ci]->ω.node; int ti = (tw && tw->op == IR_MATCH_TRAP) ? nidx(nodes, n, tw) : -1;
+                            if (ti >= 0 && claim[ti] < 0) { run[rl] = ti; rpos[ti] = rl; claim[ti] = hi; zarm[ti] = ei; if (first) { aent[ti] = 1; first = 0; } rl++; } }
                         run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; zarm[ci] = ei; if (first) { aent[ci] = 1; first = 0; } rl++;
                         c2 = zd_chase(c2->γ.node);
                     }

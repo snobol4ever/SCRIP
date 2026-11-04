@@ -3840,7 +3840,7 @@ static IR_t * sx_assign(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     return sno_capt_prologue(cx, &apro, e, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
+static IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
     IR_graph_t * g = cx->g;
     cx->pat_fail = fJ;
     cx->pat_seal = fJ;
@@ -4078,6 +4078,40 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     if (splice) ir_operand_push(splice, subjval);
     if (lv_pro) { lc_γ_to(lv_pro, subj_entry); return lv_entry; }
     return subj_entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_prim_defer_named(const IR_t * x) {
+    switch (x->op) {
+        case IR_MATCH_ANY:
+        case IR_MATCH_NOTANY:
+        case IR_MATCH_SPAN:
+        case IR_MATCH_BREAK:
+        case IR_MATCH_BREAKX:
+        return x->pat_static && x->n_operands == 0 && IR_LIT(x).sval;
+        case IR_MATCH_TAB:
+        case IR_MATCH_RTAB:
+        case IR_MATCH_POS:
+        case IR_MATCH_RPOS:
+        case IR_MATCH_LEN:
+        return x->n_operands == 0 && (uintptr_t)IR_LIT(x).ival > (uintptr_t)0xFFFFU && IR_LIT(x).sval[0] == '*';
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
+    const int p0 = cx->g->n;
+    IR_t * e = sno_lower_match_body(cx, subj, repl_t, has_repl, sJ, fJ, out_land);
+    for (int q = p0; q < cx->g->n && cx->pat_seal; q++) {
+        IR_t * x = cx->g->all[q];
+        if (!x || !sno_prim_defer_named(x) || !x->ω.node || x->ω.node == cx->pat_seal) continue;
+        IR_t * tp = lc_build(cx->g, IR_MATCH_TRAP, NULL, NULL);
+        tp->γ = x->ω;
+        tp->ω = x->ω;
+        ir_operand_push(tp, cx->pat_seal);
+        lc_ω_to(x, tp);
+    }
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * fname) {

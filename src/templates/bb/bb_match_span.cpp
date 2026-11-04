@@ -90,6 +90,7 @@ std::string bb_match_span() {
              + x86_alpha()
              + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim(50, 0, 0, 8, 8, 56)
+             + bb_glue_prim_err(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "r8", LFDQ(0, 0))

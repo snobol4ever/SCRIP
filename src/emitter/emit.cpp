@@ -1295,6 +1295,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emit.op_fence_body_kk = _zn->fbody;
         g_emit.op_fence_frame_off = _zn->aslot; bb_emit_x86(bb_match_fence1()); } return 0;
     case IR_MATCH_ABORT: { bb_emit_x86(bb_match_abort()); } return 0;
+    case IR_MATCH_TRAP: { bb_prepare(nd); bb_emit_x86(bb_match_trap()); } return 0;
     case IR_SCAN_ALTERNATE: { bb_emit_x86(bb_scan_alternate()); } return 0;
     case IR_TO_BY: { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST: bb_emit_x86(bb_make_list()); return 0;
@@ -1993,6 +1994,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         break;
     }
     case IR_MATCH_ABORT: {
+        g_emit.op_off = -1; DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_MATCH_TRAP: {
         g_emit.op_off = -1; DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_ALTERNATE: case IR_MATCH_ARBNO: case IR_SCAN_ALTERNATE: {
@@ -3845,7 +3849,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         g_emitter.g_suspend_dobody_beta = NULL;
         if (_pl->zn[i].sdb == -1) g_emitter.g_suspend_dobody_beta = &lbl_ω;
         else if (_pl->zn[i].sdb >= 0) g_emitter.g_suspend_dobody_beta = _pl->zn[i].sdbb ? betas[_pl->zn[i].sdb] : lbls[_pl->zn[i].sdb];
-        if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
+        if (g_planner.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_DEFER || g_planner.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_TRAP) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
             { const znode_t * _t = &_pl->zn[i];
                 if (_t->dtk >= 0) { bb_label_t * _sl = (_t->dtph && na_fo[_t->dtk]) ? na_fo[_t->dtk] : betas[_t->dtk]; g_emit.lbl_t1_p = _sl;
                     if (_t->dtd < 0) g_emit.lbl_t1_p = (bb_label_t *)0;

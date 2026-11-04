@@ -39,6 +39,7 @@ std::string bb_match_any() {
              + x86_alpha()
              + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_member(50, 43)
+             + bb_glue_prim_err(50)
              + x86("cmp", "eax", 1L)
              + x86_omega("jne")
              + x86("add", "r14d", (long)1)

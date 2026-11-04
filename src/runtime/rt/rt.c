@@ -492,7 +492,7 @@ static long rt_pat_prim_int_error(int code) {
     extern void rt_setexit_continue_tramp(void);
     core_runtime_error(code, rt_coerce_errmsg(code));
     if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
-    return -1;
+    return -2;
 }
 RT_ENTRY_DECL(rt_pat_prim_int_take, leaf, 0);
 long rt_pat_prim_int_take(long code) {
@@ -520,7 +520,7 @@ long rt_pat_prim_member(int ch, long codes) {
         extern uint64_t g_rtccb[32];
         extern void rt_setexit_continue_tramp(void);
         if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
-        return -1;
+        return -2;
     }
     if (s.v != DT_S) return -1;
     if (ch < 0) return 2;
@@ -537,7 +537,7 @@ long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
         extern uint64_t g_rtccb[32];
         extern void rt_setexit_continue_tramp(void);
         if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
-        return -1;
+        return -2;
     }
     if (s.v != DT_S) return -1;
     *out_ptr = s.s ? s.s : "";

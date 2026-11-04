@@ -71,6 +71,7 @@ int zdp_scan_pure(const IR_t * nd) {
     if (!nd) return 0;
     switch (nd->op) {
         case IR_MATCH_LIT:
+        case IR_MATCH_TRAP:
         case IR_MATCH_LEN:
         case IR_MATCH_ANY:
         case IR_MATCH_NOTANY:

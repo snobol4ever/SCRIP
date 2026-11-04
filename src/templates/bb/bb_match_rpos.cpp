@@ -27,6 +27,7 @@ std::string bb_match_rpos() {
              + x86_alpha()
              + bb_glue_name_or_rec_lea(_.op_sval + 1)
              + bb_glue_prim_int(50, 52)
+             + bb_glue_prim_err(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "r15d")

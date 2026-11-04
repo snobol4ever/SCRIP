@@ -33,6 +33,7 @@ std::string bb_match_notany() {
              + x86_alpha()
              + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_member(50, 49)
+             + bb_glue_prim_err(50)
              + x86("test", "eax", "eax")
              + x86_omega("jne")
              + x86("add", "r14d", (long)1)

@@ -525,7 +525,7 @@ void planner_blob_facts(zeta_plan_t * rec) {
             planner_fence_k(rec->cfg, nodes[p]) : 0;
         z->hrsp = (rec->sph > 0 && rec->on[i]) ? rec->out[i] + rec->sph - 8 + envb : -1;
         z->f0f = nd->op == IR_MATCH_FENCE0 ? pf_fence0_dyn_floor(rec, nd) : 0;
-        if (nd->op != IR_MATCH_DEFER) continue;
+        if (nd->op != IR_MATCH_DEFER && nd->op != IR_MATCH_TRAP) continue;
         for (int a = 0; a < nd->n_operands; a++) { IR_t * so = nd->operands[a];
             if (!so || !(so->op == IR_GOTO || so->op == IR_MATCH_ARBNO || so->op == IR_MATCH_ABORT)) continue;
             int phi = 0, gg = 0; while (so && so->op == IR_GOTO && gg++ < 128) { if (!phi) phi = (so->γ.sz[0] == (char)0xcf && (unsigned char)so->γ.sz[1] == 0x86); so = so->γ.node; }

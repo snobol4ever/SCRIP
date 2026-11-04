@@ -13,6 +13,7 @@ static std::string bb_match_len_body() {
          + IF(_.op_sval != NULL,
                bb_glue_name_or_rec_lea(_.op_sval ? _.op_sval + 1 : "")
              + bb_glue_prim_int(50, 47)
+             + bb_glue_prim_err(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "eax"))
@@ -31,6 +32,7 @@ static std::string bb_match_len_body() {
          + IF(_.op_sval != NULL,
                bb_glue_name_or_rec_lea(_.op_sval ? _.op_sval + 1 : "")
              + bb_glue_prim_int(60, 47)
+             + bb_glue_prim_err(60)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "eax"))

@@ -450,6 +450,14 @@ std::string bb_glue_prim_rsp(int base, int ptr_off, int len_off, int code) {
                       x86_rt_gc_poll_rec_sigma(1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_prim_err(int base) {
+    return x86("cmp", "rax", -2L)
+         + x86_jcc_id("jne", base + 8)
+         + x86("mov", "r14d", -2L)
+         + x86_omega()
+         + x86_deflabel_id(base + 8);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
 extern rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op);
 extern DESCR_t rt_call_land_γ(DESCR_t frame0, long word);
