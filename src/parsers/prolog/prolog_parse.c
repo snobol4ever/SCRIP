@@ -2689,7 +2689,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$loc_merge'([O|Os],Ps0,Ps):-functor(O,Nm,1),functor(T,Nm,1),('$loc_del'(T,Ps0,Ps1)->true;Ps1=Ps0),'$loc_merge'(Os,[O|Ps1],Ps).\n"
     "'$loc_del'(T,[H|R],R):-H=T,!.\n"
     "'$loc_del'(T,[H|R],[H|R1]):-'$loc_del'(T,R,R1).\n"
-    "set_locale(L):-'$loc_resolve'(L,L1),nb_setval('$cur_locale',L1),'$loc_props'(L1,Ps),(memberchk(decimal_point(Dp),Ps)->true;Dp='.'),(memberchk(thousands_sep(Ts),Ps)->true;Ts=','),(memberchk(grouping(G),Ps)->true;G=[repeat(3)]),'$loc_gl'(G,Cs),atom_codes(Gs,Cs),'$create_prolog_flag'('$loc_dp',Dp),'$create_prolog_flag'('$loc_ts',Ts),'$create_prolog_flag'('$loc_grp',Gs).\n"
+    "set_locale(L):-'$loc_resolve'(L,L1),nb_setval('$cur_locale',L1),'$loc_props'(L1,Ps),(memberchk(decimal_point(Dp),Ps)->true;Dp='.'),(memberchk(thousands_sep(Ts),Ps)->true;Ts=','),(memberchk(grouping(G),Ps)->true;G=[repeat(3)]),'$loc_gl'(G,Cs),atom_codes(Gs,Cs),'$create_prolog_flag'('$loc_dp',Dp,none,write),'$create_prolog_flag'('$loc_ts',Ts,none,write),'$create_prolog_flag'('$loc_grp',Gs,none,write).\n"
     "'$loc_gl'([],[]).\n"
     "'$loc_gl'([repeat(N)|_],[114|Cs]):-!,number_codes(N,Cs).\n"
     "'$loc_gl'([N|T],Cs):-number_codes(N,C1),'$loc_gl'(T,C2),(C2==[]->Cs=C1;append(C1,[44|C2],Cs)).\n"
