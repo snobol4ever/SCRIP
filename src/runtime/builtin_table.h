@@ -1,8 +1,8 @@
 #ifndef BUILTIN_TABLE_H
 #define BUILTIN_TABLE_H
 #include <string.h>
-#define BT_ROWS 1248
-#define BT_BID_MAX 1258
+#define BT_ROWS 1249
+#define BT_BID_MAX 1259
 #define BT_LEGACY_LAST 190
 #define BT_LEGACY_TABSZ 1024
 #define BT_HASHSZ 4096
@@ -26,6 +26,7 @@ typedef struct {
     short op;
 } bt_row_t;
 extern const bt_row_t g_builtins[BT_ROWS];
+int bt_row_of(int vocab, const char * s, unsigned len);
 int bt_bid_of(int vocab, const char * s, unsigned len);
 static const struct {
     char nm[BT_LEGACY_W];

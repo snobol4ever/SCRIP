@@ -150,12 +150,12 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__pas_valcode", "", 373, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__pas_valval", "", 374, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128,
     -128, 0 }, { "__pas_vcheck", "", 375, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__pas_view", "pas_view_make", 376, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, 4, 4, 0 }, { "__pas_wide2s", "",
     377, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__blk_close", "bt___blk_close", 378, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__blk_invoke", "bt___blk_invoke", 379, BT_VOC_RK,
-    BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__blk_ref", "rt_rk_blk_ref", 380, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "__multi_call", "bt___multi_call", 381, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
+    BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "__blk_ref", "rt_rk_blk_ref", 380, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "__multi_call", "bt___multi_call", 381, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128,
     -128, 0 }, { "__param_check", "rt_rk_param_check", 382, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -1, 0 }, { "__rk_actions_plan", "bt___rk_actions_plan", 383, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "__rk_adjacent_pairs", "bt___rk_adjacent_pairs", 384, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_after", "bt___rk_after", 385, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "__rk_all_true", "bt___rk_all_true", 386, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_approx", "bt___rk_approx", 387, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr",
     "bt___rk_arr", 388, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_at", "rt_rk_arr_at", 389, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "__rk_arr_first", "bt___rk_arr_first", 390,
-    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_flat", "bt___rk_arr_flat", 391, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_grep", "bt___rk_arr_grep", 392, BT_VOC_RK,
+    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_flat", "bt___rk_flat", 391, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_grep", "bt___rk_arr_grep", 392, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_keys", "bt___rk_arr_keys", 393, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_kv", "bt___rk_arr_kv", 394, BT_VOC_RK, BT_CONV_LEAF, 0,
     1, -128, -128, 0 }, { "__rk_arr_lit", "bt___rk_arr_lit", 395, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_map", "bt___rk_arr_map", 396, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "__rk_arr_max", "bt___rk_arr_max", 397, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_arr_min", "bt___rk_arr_min", 398, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
@@ -175,12 +175,12 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     -128, 0 }, { "__rk_div", "bt___rk_div", 427, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_elem_bind", "bt___rk_elem_bind", 428, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "__rk_elem_put", "rt_rk_elem_put", 429, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 4, 4, 0 }, { "__rk_elem_ref", "bt___rk_elem_ref", 430, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_enum",
     "bt___rk_enum", 431, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_eqv", "bt___rk_eqv", 432, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_eval", "bt___rk_eval", 433,
-    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_exc_umeth", "bt___rk_exc_umeth", 434, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_exc_umsg", "bt___rk_exc_umsg", 435, BT_VOC_RK,
+    BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "__rk_exc_umeth", "bt___rk_exc_umeth", 434, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_exc_umsg", "bt___rk_exc_umsg", 435, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_exend", "bt___rk_exend", 436, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_exit", "bt___rk_exit", 437, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
     -128, 0 }, { "__rk_failure", "bt___rk_failure", 438, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_first_shape", "bt___rk_first_shape", 439, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "__rk_flat", "bt___rk_flat", 440, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_gcd", "bt___rk_gcd", 441, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_gist_capture",
     "bt___rk_gist_capture", 442, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_gist_named_capture", "bt___rk_gist_named_capture", 443, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
-    { "__rk_gist_pre", "bt___rk_gist_pre", 444, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_given_mod", "bt___rk_given_mod", 445, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
+    { "__rk_gist_pre", "bt___rk_gist_pre", 444, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "__rk_given_mod", "bt___rk_given_mod", 445, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "__rk_grep_append", "rt_rk_grep_append", 446, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "__rk_hash", "bt___rk_hash", 447, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_hkeys",
     "bt___rk_hkeys", 448, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_hyper_done", "bt___rk_hyper_done", 449, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_hyper_incdec",
     "bt___rk_hyper_incdec", 450, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_hyper_meth", "bt___rk_hyper_meth", 451, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_hyper_shape",
@@ -199,7 +199,7 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     -128, 0 }, { "__rk_materialize", "bt___rk_materialize", 478, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_max", "bt___rk_max", 479, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "__rk_min", "bt___rk_min", 480, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_mkbool", "bt___rk_mkbool", 481, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_mkcplx_i",
     "bt___rk_mkcplx_i", 482, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_mod", "bt___rk_mod", 483, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_named_call",
-    "bt___rk_named_call", 484, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_Bag", "bt___rk_new_Bag", 485, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_Mix",
+    "bt___rk_named_call", 484, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "__rk_new_Bag", "bt___rk_new_Bag", 485, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_Mix",
     "bt___rk_new_Mix", 486, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_Set", "bt___rk_new_Set", 487, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_alloc",
     "bt___rk_new_alloc", 488, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_check", "bt___rk_new_check", 489, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_new_defaults",
     "bt___rk_new_defaults", 490, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_not_smartmatch", "bt___rk_not_smartmatch", 491, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
@@ -237,14 +237,14 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     "bt___rk_set_uni", 556, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_shift_val", "bt___rk_shift_val", 557, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_sink", "bt___rk_sink",
     558, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_smartmatch", "bt___rk_smartmatch", 559, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_sort_by_keys", "bt___rk_sort_by_keys",
     560, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_sprintf", "bt___rk_sprintf", 561, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_sprintf_d", "bt___rk_sprintf_d", 562,
-    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_st", "bt___rk_st", 563, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_str", "bt___rk_str", 564, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
-    -128, -128, 0 }, { "__rk_str_pre", "bt___rk_str_pre", 565, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_subscr_adv", "bt___rk_subscr_adv", 566, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
+    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_st", "bt___rk_st", 563, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_str", "bt___rk_str", 564, BT_VOC_RK, BT_CONV_OPEN, 0, 1,
+    -128, -128, 0 }, { "__rk_str_pre", "bt___rk_str_pre", 565, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "__rk_subscr_adv", "bt___rk_subscr_adv", 566, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
     -128, 0 }, { "__rk_subst_close", "bt___rk_subst_close", 567, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_subst_next", "bt___rk_subst_next", 568, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
     -128, 0 }, { "__rk_subst_open", "bt___rk_subst_open", 569, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_subst_put", "bt___rk_subst_put", 570, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "__rk_substr_replace", "bt___rk_substr_replace", 571, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_take_dyn", "bt___rk_take_dyn", 572, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "__rk_tl_got", "bt___rk_tl_got", 582, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_to_array", "bt___rk_to_array", 583, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "__rk_to_hash", "bt___rk_to_hash", 584, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_typeobj", "bt___rk_typeobj", 585, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_unany",
-    "bt___rk_unany", 586, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_undef", "rt_rk_undef", 587, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 0, -1, 0 }, { "__rk_unicmp", "bt___rk_unicmp", 588,
+    "bt___rk_unany", 586, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_undef", "rt_rk_undef", 587, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 0, -1, 0 }, { "__rk_unicmp", "bt___rk_coll", 588,
     BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_unpack_named", "bt___rk_unpack_named", 589, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_unset", "bt___rk_unset", 590, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_when_match", "bt___rk_when_match", 591, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_where", "bt___rk_where", 592, BT_VOC_RK, BT_CONV_LEAF,
     0, 1, -128, -128, 0 }, { "__rk_with_mod", "bt___rk_with_mod", 593, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__rk_without_mod", "bt___rk_without_mod", 594, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
@@ -267,13 +267,13 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     -128, 0 }, { "hash_keys", "bt_hash_keys", 631, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "hash_kv", "bt_hash_kv", 632, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "hash_pairs",
     "bt_hash_pairs", 633, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "hash_set_pure", "bt_hash_set_pure", 634, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "hash_values", "bt_hash_values",
     635, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "head", "bt_head", 636, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "index", "bt_index", 637, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
-    -128, 0 }, { "join", "bt_join", 638, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "lc", "bt_lc", 639, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "length", "bt_length", 640, BT_VOC_RK,
+    -128, 0 }, { "join", "bt_join", 638, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "lc", "bt_lc", 639, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "length", "bt_chars", 640, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "lines", "bt_lines", 641, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "make-temp-dir", "bt_makex2Dtempx2Ddir", 642, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
     -128, -128, 0 }, { "make-temp-file", "bt_makex2Dtempx2Dfile", 643, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "meth_call", "bt_meth_call", 644, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128,
     0 }, { "nextsame", "bt_nextsame", 645, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "nfa_accepts", "bt_nfa_accepts", 646, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "note", "bt_note",
     647, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "nqp::bindattr", "rt_rk_bindattr", 648, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 4, 4, 0 }, { "nqp::bindattr_i", "rt_rk_bindattr", 649, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, 4, 4, 0 }, { "nqp::bindattr_n", "rt_rk_bindattr", 650, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 4, 4, 0 }, { "nqp::bindattr_s", "rt_rk_bindattr", 651, BT_VOC_RK, BT_CONV_LEAF, 0, 1, 4,
-    4, 0 }, { "nqp::create", "bt_nqpx3Ax3Acreate", 652, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "obj_new", "bt_obj_new", 653, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "pick",
+    4, 0 }, { "nqp::create", "bt_nqpx3Ax3Acreate", 652, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "obj_new", "bt_obj_new", 653, BT_VOC_RK, BT_CONV_OPEN, 0, 1, -128, -128, 0 }, { "pick",
     "bt_pick", 654, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "prepend_pure", "bt_prepend_pure", 655, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "print_fh", "bt_print_fh", 656,
     BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "printf", "bt_printf", 657, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "push_pure", "bt_push_pure", 658, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
     -128, -128, 0 }, { "re_capture", "bt_re_capture", 659, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "re_match", "bt_re_match", 660, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
@@ -286,11 +286,11 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     { "rk_until_cond", "bt_rk_until_cond", 674, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "rk_while_cond", "bt_rk_while_cond", 675, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "rk_write", "bt_rk_write", 676, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "rk_write_arr", "bt_rk_write_arr", 677, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "rk_write_list",
     "bt_rk_write_list", 678, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "rk_writes", "bt_rk_writes", 679, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "say_fh", "bt_say_fh", 680,
-    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "script_die", "bt_script_die", 681, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "sleep", "bt_sleep", 682, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
-    -128, -128, 0 }, { "slurp", "bt_slurp", 683, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "sprintf", "bt_sprintf", 684, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "spurt", "bt_spurt",
-    685, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "srand", "bt_srand", 686, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_index", "bt_str_index", 687, BT_VOC_RK, BT_CONV_LEAF, 0, 1,
-    -128, -128, 0 }, { "str_lc", "bt_str_lc", 688, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_rindex", "bt_str_rindex", 689, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_substr",
-    "bt_str_substr", 690, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_trim", "bt_str_trim", 691, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_uc", "bt_str_uc", 692, BT_VOC_RK,
+    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "script_die", "bt_die", 681, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "sleep", "bt_sleep", 682, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
+    -128, 0 }, { "slurp", "bt_slurp", 683, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "sprintf", "bt_sprintf", 684, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "spurt", "bt_spurt", 685,
+    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "srand", "bt_srand", 686, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_index", "bt_str_index", 687, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
+    -128, 0 }, { "str_lc", "bt_lc", 688, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_rindex", "bt_str_rindex", 689, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_substr",
+    "bt_str_substr", 690, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_trim", "bt_str_trim", 691, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "str_uc", "bt_uc", 692, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "substr", "bt_substr", 693, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "sum", "bt_sum", 694, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "syntax_error", "bt_syntax_error", 695, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "syntax_errors", "bt_syntax_errors", 696, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "tail",
     "bt_tail", 697, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "try_enter", "bt_try_enter", 698, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "try_exit", "bt_try_exit", 699, BT_VOC_RK,
@@ -539,7 +539,8 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     "bt___rk_unbase", 1250, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "__pas_writestr", "", 1251, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__pas_pview", "", 1252, BT_VOC_PAS,
     BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "__pas_pstrview", "", 1253, BT_VOC_PAS, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "$ssu_check", "rt_pl_dop_ssu_check", 1254, BT_VOC_PL, BT_CONV_LEAF, 0, 1,
     1, 1, 0 }, { "$ssu_begin", "rt_pl_dop_ssu_begin", 1255, BT_VOC_PL, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "$mkground", "", 1256, BT_VOC_PL, BT_CONV_INLINE, 0, 1, -128, -128, 0 }, { "ICN$UNAME",
-    "bt_ICNx24UNAME", 1257, BT_VOC_ICN, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "ICN$UPVAR", "bt_ICNx24UPVAR", 1258, BT_VOC_ICN, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, };
+    "bt_ICNx24UNAME", 1257, BT_VOC_ICN, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "ICN$UPVAR", "bt_ICNx24UPVAR", 1258, BT_VOC_ICN, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "__rk_inv", "bt___rk_inv", 1259, BT_VOC_RK,
+    BT_CONV_LEAF, 0, 1, -128, -128, 0 }, };
 static const unsigned short bt_hash_tab[BT_HASHSZ] = { 0,834,773,618,589,476,816,849,0,1142,0,0,0,0,0,938, 0,1203,132,0,69,0,1039,0,0,0,861,0,423,0,161,0, 0,349,0,0,328,0,436,0,1208,0,0,0,0,0,0,697,
     0,0,393,0,0,0,120,0,0,613,0,0,0,0,0,3, 45,26,211,456,470,778,1007,1021,0,0,0,782,0,0,0,0, 199,212,459,0,0,0,1087,0,0,0,0,0,0,0,0,0, 794,513,614,0,0,1128,910,0,0,0,0,756,1243,383,0,0, 85,0,0,0,0,0,
     0,0,0,1003,1092,236,0,0,601,0, 0,801,0,0,213,585,891,1175,0,0,30,0,0,274,0,0, 0,0,0,762,0,0,0,0,0,0,0,0,0,0,365,0, 0,64,244,0,0,293,0,0,0,0,0,0,0,0,656,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 118,0,
@@ -586,28 +587,29 @@ static const unsigned short bt_hash_tab[BT_HASHSZ] = { 0,834,773,618,589,476,816
     917,0, 426,819,0,0,0,0,0,0,0,0,0,0,966,0,675,0, 0,0,0,0,961,0,0,0,0,0,0,0,453,25,748,835, 1059,0,0,0,0,0,0,108,0,0,0,0,0,399,915,0, 0,0,401,465,0,0,0,0,0,556,0,125,0,0,0,0, 0,0,0,0,693,0,0,550,
     1232,471,754,0,594,0,0,837, 0,737,0,0,0,551,0,0,0,0,0,0,0,0,0,1014, 0,0,95,854,0,0,0,0,479,0,0,369,807,0,432,269, 0,804,0,0,0,0,0,0,0,0,1027,0,0,0,0,0, 765,0,0,0,0,0,0,0,858,742,0,0,361,702,137,
     1245, 0,0,80,105,0,0,559,718,0,0,0,1051,0,951,1168,356, 0,0,0,0,0,783,0,0,303,0,0,0,0,0,494,0, 366,967,1058,0,0,0,654,0,0,1170,1221,0,0,0,0,0, 0,0,0,792,926,1031,0,0,664,877,433,313,0,0,404,0,
-    588,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,271,0,0,0,52,0,0,0,0,0,661,391,0,0, 1173,0,0,0,0,0,0,335,0,0,0,586,0,0,0,0, 0,0,0,32,0,0,0,0,0,0,0,0,171,0,0,505, 0,0,0,0,0,0,0,0,0,0,417,0,1127,0,609,560,
-    0,0,1042,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,908,0,0,0,0,243,326,521,0,0,0,0,0, 0,943,0,0,971,1055,0,0,0,0,624,0,0,0,170,0, 0,131,0,0,714,0,0,431,0,1103,0,0,0,0,374,0, 1240,0,0,0,0,347,480,516,353,
-    266,24,0,763,523,267,0, 0,0,1071,0,180,0,0,0,0,996,452,1063,0,98,724,0, 677,0,352,0,0,1106,0,0,0,0,0,0,139,0,0,0, 0,0,0,264,0,0,0,0,867,0,0,0,868,0,0,0, 0,0,298,253,0,0,0,0,984,0,839,0,112,0,390,
-    978, 0,1161,856,0,0,0,0,50,886,1125,0,0,425,348,245,983, 992,0,0,0,0,84,1123,224,916,0,0,0,233,0,0,0, 957,0,0,376,1073,0,19,0,759,371,329,0,0,0,0,0, 0,980,0,0,0,0,372,0,0,0,597,0,0,0,0,0, 0,340,0,
-    1159,385,0,803,0,0,0,300,0,682,0,1018,0, 0,0,0,302,1094,1050,0,0,0,0,0,0,0,128,0,0, 1185,0,789,0,154,162,0,0,811,115,970,389,0,0,0,299, 0,430,483,0,0,698,1066,0,0,0,0,249,0,0,0,0, 0,0,0,0,0,0,0,
-    451,0,0,0,0,0,0,0,637, 958,318,428,743,732,0,0,0,0,1104,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,288,156,0,0,0,605,0,0,0,0,0,10,0,870,0, 0,738,973,0,1107,0,0,873,0,0,627,0,0,0,0,492, 1202,
-    0,731,574,0,0,0,0,0,534,0,847,644,0,0,1205, 499,0,71,0,0,0,373,0,0,0,384,0,0,1169,17,0, 953,776,0,0,312,466,1023,0,0,440,753,0,0,0,0,0, 0,0,0,231,0,0,1236,0,44,0,0,0,0,1176,0,692, 965,0,0,0,700,0,
-    0,0,0,0,0,0,0,1113,0,0, 716,0,63,0,0,0,0,0,0,0,0,0,0,0,403,0, 0,0,0,221,0,0,0,0,0,0,0,0,442,1078,0,39, 395,172,659,0,0,0,0,273,822,0,0,0,0,0,619,1046, 972,91,1047,1048,1139,0,0,0,0,0,669,1172,860,
-    0,0,0, 0,646,0,0,0,0,1164,696,0,0,217,0,0,0,1118,444, 0,0,0,0,0,0,0,0,0,0,0,1135,188,0,0,450, 735,1069,663,1126,712,0,0,1006,0,502,744,0,0,1001,281,0, 0,0,0,346,0,0,0,1198,745,0,1151,0,0,0,0,0, 0,
-    0,1183,0,0,0,0,208,0,0,0,0,0,0,0,1174, 0,178,0,0,0,412,0,394,0,0,902,83,413,0,0,1020, 0,0,0,0,0,152,420,935,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,727,0,0,982,0,209,1209,1111, 0,0,0,598,0,0,419,0,0,0,0,
-    0,210,0,0,813, 879,0,0,0,96,330,0,0,0,421,1225,620,0,1065,0,0, 0,0,0,0,0,1229,0,0,0,0,0,0,0,0,0,0, 0,796,0,0,1053,1177,0,0,0,1,0,0,0,1043,0,905, 0,47,0,0,1218,0,0,0,0,0,0,0,0,1224,0,0, 0,0,0,0,0,
-    0,0,0,0,0,0,2,0,0,0,0, };
-int bt_bid_of(int vocab, const char * s, unsigned len) {
+    588,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,271,0,0,0,52,0,0,0,0,0,661,391,0,0, 1173,0,0,0,0,0,0,335,0,0,0,586,0,0,0,0, 0,0,0,32,0,0,0,0,0,0,0,0,171,0,0,505, 1249,0,0,0,0,0,0,0,0,0,417,0,1127,0,609,
+    560, 0,0,1042,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,908,0,0,0,0,243,326,521,0,0,0,0,0, 0,943,0,0,971,1055,0,0,0,0,624,0,0,0,170,0, 0,131,0,0,714,0,0,431,0,1103,0,0,0,0,374,0, 1240,0,0,0,0,347,480,516,
+    353,266,24,0,763,523,267,0, 0,0,1071,0,180,0,0,0,0,996,452,1063,0,98,724,0, 677,0,352,0,0,1106,0,0,0,0,0,0,139,0,0,0, 0,0,0,264,0,0,0,0,867,0,0,0,868,0,0,0, 0,0,298,253,0,0,0,0,984,0,839,0,112,0,
+    390,978, 0,1161,856,0,0,0,0,50,886,1125,0,0,425,348,245,983, 992,0,0,0,0,84,1123,224,916,0,0,0,233,0,0,0, 957,0,0,376,1073,0,19,0,759,371,329,0,0,0,0,0, 0,980,0,0,0,0,372,0,0,0,597,0,0,0,0,0, 0,
+    340,0,1159,385,0,803,0,0,0,300,0,682,0,1018,0, 0,0,0,302,1094,1050,0,0,0,0,0,0,0,128,0,0, 1185,0,789,0,154,162,0,0,811,115,970,389,0,0,0,299, 0,430,483,0,0,698,1066,0,0,0,0,249,0,0,0,0, 0,0,0,0,0,
+    0,0,451,0,0,0,0,0,0,0,637, 958,318,428,743,732,0,0,0,0,1104,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,288,156,0,0,0,605,0,0,0,0,0,10,0,870,0, 0,738,973,0,1107,0,0,873,0,0,627,0,0,0,0,492,
+    1202,0,731,574,0,0,0,0,0,534,0,847,644,0,0,1205, 499,0,71,0,0,0,373,0,0,0,384,0,0,1169,17,0, 953,776,0,0,312,466,1023,0,0,440,753,0,0,0,0,0, 0,0,0,231,0,0,1236,0,44,0,0,0,0,1176,0,692, 965,0,0,0,
+    700,0,0,0,0,0,0,0,0,1113,0,0, 716,0,63,0,0,0,0,0,0,0,0,0,0,0,403,0, 0,0,0,221,0,0,0,0,0,0,0,0,442,1078,0,39, 395,172,659,0,0,0,0,273,822,0,0,0,0,0,619,1046, 972,91,1047,1048,1139,0,0,0,0,0,669,
+    1172,860,0,0,0, 0,646,0,0,0,0,1164,696,0,0,217,0,0,0,1118,444, 0,0,0,0,0,0,0,0,0,0,0,1135,188,0,0,450, 735,1069,663,1126,712,0,0,1006,0,502,744,0,0,1001,281,0, 0,0,0,346,0,0,0,1198,745,0,1151,0,0,
+    0,0,0, 0,0,1183,0,0,0,0,208,0,0,0,0,0,0,0,1174, 0,178,0,0,0,412,0,394,0,0,902,83,413,0,0,1020, 0,0,0,0,0,152,420,935,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,727,0,0,982,0,209,1209,1111, 0,0,0,598,0,0,
+    419,0,0,0,0,0,210,0,0,813, 879,0,0,0,96,330,0,0,0,421,1225,620,0,1065,0,0, 0,0,0,0,0,1229,0,0,0,0,0,0,0,0,0,0, 0,796,0,0,1053,1177,0,0,0,1,0,0,0,1043,0,905, 0,47,0,0,1218,0,0,0,0,0,0,0,0,1224,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0, };
+int bt_row_of(int vocab, const char * s, unsigned len) {
     unsigned hv = 5381u;
     unsigned i;
-    if (!s || !len) return 0;
+    if (!s || !len) return -1;
     for (i = 0; i < len; i++) hv = hv * 33u + (unsigned char)s[i];
     hv = (hv + (unsigned)vocab * 0x9E3779B1u) & (unsigned)(BT_HASHSZ - 1);
     for (;;) {
         unsigned k = bt_hash_tab[hv];
-        if (!k) return 0;
-        { const bt_row_t * r = &g_builtins[k - 1]; if (r->vocab == vocab && !strncmp(r->name, s, len) && !r->name[len]) return r->bid; }
+        if (!k) return -1;
+        { const bt_row_t * r = &g_builtins[k - 1]; if (r->vocab == vocab && !strncmp(r->name, s, len) && !r->name[len]) return (int)(k - 1); }
         hv = (hv + 1u) & (unsigned)(BT_HASHSZ - 1);
     }
 }
+int bt_bid_of(int vocab, const char * s, unsigned len) { int k = bt_row_of(vocab, s, len); return k < 0 ? 0 : g_builtins[k].bid; }
