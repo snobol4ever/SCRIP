@@ -2635,3 +2635,40 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
         if (r->flags & 32) p->pinned = 1;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(sizeof(rt_proc_t) == 128 && __builtin_offsetof(rt_proc_t, fn) == 8 && __builtin_offsetof(rt_proc_t, nparams) == 24 && __builtin_offsetof(rt_proc_t, frame_nslots) == 28 &&
+    __builtin_offsetof(rt_proc_t, decl_level) == 32 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36 && __builtin_offsetof(rt_proc_t, byref_mask) == 40 &&
+    __builtin_offsetof(rt_proc_t, frame_bytes) == 48, "the emitted .Lstartup_procs rows are rt_proc_t: name fn pnames nparams frame_nslots decl_level alpha_slot byref_mask frame_bytes");
+_Static_assert(__builtin_offsetof(rt_proc_t, gen_region_ft) == 52 && __builtin_offsetof(rt_proc_t, cells_done) == 72 && __builtin_offsetof(rt_proc_t, is_generator) == 76 &&
+    __builtin_offsetof(rt_proc_t, dyn_scope) == 80 && __builtin_offsetof(rt_proc_t, stage_var) == 84 && __builtin_offsetof(rt_proc_t, is_variadic) == 96 &&
+    __builtin_offsetof(rt_proc_t, rest_kind) == 100, "the emitted .Lstartup_procs rows are rt_proc_t: gen_region_ft cells_done is_generator dyn_scope stage_var is_variadic rest_kind");
+_Static_assert(__builtin_offsetof(rt_proc_t, named_rest) == 104 && __builtin_offsetof(rt_proc_t, jmp_entry) == 108 && __builtin_offsetof(rt_proc_t, zstatic) == 116 &&
+    __builtin_offsetof(rt_proc_t, pnames_owned) == 120 && __builtin_offsetof(rt_proc_t, nformals) == 124,
+    "the emitted .Lstartup_procs rows are rt_proc_t: named_rest jmp_entry the bit-field word at 112 (redefined 0-14, thunk 15, pinned 16-31) zstatic pnames_owned nformals");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_hash_fill(const char *const *names, int n, int *slots, unsigned cap) {
+    for (int i = 0; i < n; i++) { unsigned m = cap - 1, h = rt_proc_fnv(names[i]) & m; while (slots[h]) h = (h + 1) & m; slots[h] = i + 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_procs_install, leaf, 0);
+void rt_procs_install(rt_proc_t *rows, int n, int *hsl, unsigned hcap) {
+    if (!rows || n <= 0) return;
+    if (!g_runtime.rt.rt_gen_proc_count && !g_runtime.abi.rt_gen_procs && !g_runtime.rt.proc_hcap) {
+        g_runtime.abi.rt_gen_procs = rows;
+        g_runtime.rt.rt_gen_proc_count = n;
+        g_runtime.rt.rt_gen_proc_cap = n;
+        g_runtime.rt.proc_hsl = hsl;
+        g_runtime.rt.proc_hcap = hcap;
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        const rt_proc_t *s = &rows[i];
+        rt_proc_reg_rec_t r = { s->name, (void *)s->fn, (void *)0, (const char *)0, s->pnames, s->nparams, s->nformals, s->frame_bytes,
+            (s->zstatic ? 2 : 0) | (s->is_variadic ? 4 : 0) | (s->is_generator ? 8 : 0) | (s->jmp_entry ? 16 : 0) | (s->pinned ? 32 : 0), s->rest_kind, s->named_rest, (void *)0 };
+        rt_proc_register_rec(&r);
+        rt_proc_t *p = rt_proc_find(s->name);
+        if (!p) continue;
+        if (s->frame_nslots >= 0) { p->frame_nslots = s->frame_nslots; p->decl_level = s->decl_level; }
+        if (s->gen_region_ft > 0) p->gen_region_ft = s->gen_region_ft;
+    }
+}

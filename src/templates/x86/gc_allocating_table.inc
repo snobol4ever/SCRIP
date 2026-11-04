@@ -3148,6 +3148,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_proc_resolve_cells", GC_RET_VOID },
     { "rt_proc_resume_frame_h", GC_RET_DESCR },
     { "rt_proc_set_fn", GC_RET_VOID },
+    { "rt_procs_install", GC_RET_VOID },
     { "rt_pvec_alloc", GC_RET_OTHER },
     { "rt_pvec_realloc", GC_RET_OTHER },
     { "rt_raku_eval_compile", GC_RET_OTHER },

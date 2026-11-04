@@ -44,6 +44,8 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "lower/lower_icon.h"
 #include "lower/g_lower.h"
 #include "lower/lower_pascal.h"
+#include "runtime/rt/rt_proc_block.h"
+#include "runtime/rt/gc_heap.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_raku.h"
 #include "lower/lower_snocone.h"
@@ -931,6 +933,70 @@ static void m4_emit_proc_slot_keep(int i, const char *name) {
     emit_textf("  lea rdi, [rip + .Lstartup_pkeep%d]\n  xor esi, esi\n  xor edx, edx\n  call rt_proc_register@PLT\n", i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int pn, nf, fb, fl, gft, fns, dl; } m4_sprow_t;
+_Static_assert(sizeof(rt_hblk_t) == 16 && __builtin_offsetof(rt_hblk_t, size) == 8 && __builtin_offsetof(rt_hblk_t, type) == 12 && __builtin_offsetof(rt_hblk_t, flags) == 14,
+    "the emitted block header before .Lstartup_procs and .Lstartup_phash is an rt_hblk_t: fwd, size, type, flags");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ProcEntry *m4_root_proc(stage2_t *s2) {
+    int mx = polyglot_main_bb_idx(s2), mpi = -1;
+    IR_graph_t *rg = (mx >= 0 && mx < s2->bbp.count) ? s2->bbp.table[mx] : (IR_graph_t *)0;
+    for (int q = 0; q < s2->proc_count; q++) if (s2->proc_table[q].name && !strcmp(s2->proc_table[q].name, "main")) { mpi = q; break; }
+    return (mpi >= 0 && icn_main_callable(s2, rg)) ? &s2->proc_table[mpi] : (ProcEntry *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int m4_procs_static_ok(stage2_t *s2, const char **names, int *nparams, int *pidx, int *ispat, int n) {
+    extern int rt_pl_dc_ok(const char *, int);
+    const char *e = getenv("SCRIP_ONE_REG");
+    ProcEntry *root = m4_root_proc(s2);
+    if ((e && *e == '0') || n + (root ? 1 : 0) <= 0) return 0;
+    for (int i = 0; i < n; i++) {
+        ProcEntry *pe = &s2->proc_table[pidx[i]];
+        if (m4_proc_startup_skip(s2, pe, ispat ? ispat[i] : 0) || pe->dyn_scope || pe->thunk_kind != PROC_THUNK_NONE || !names[i] || !names[i][0] || !strncmp(names[i], "EXPR$", 5)) return 0;
+        if (rt_pl_dc_ok(names[i], nparams[i]) || (root && !strcmp(names[i], "main"))) return 0;
+        for (int j = 0; j < i; j++) if (!strcmp(names[j], names[i])) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m4_emit_proc_row(int i, const char *name, int nparams, const m4_sprow_t *r, int rest_kind, int named_rest) {
+    emit_textf("  .quad .Lstartup_pname%d\n", i);
+    if (strncmp(name, "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(name + 5));
+    else emit_textf("  .quad %s\n", asm_fn_sym(name));
+    if (r->pn == 2) emit_textf("  .quad .Lstartup_qparr%d\n", i);
+    else if (r->pn == 1) emit_textf("  .quad .Lstartup_ipnames%d\n", i);
+    else emit_textf("  .quad 0\n");
+    emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long -1\n  .quad 0\n", nparams, r->fns, r->dl);
+    emit_textf("  .long %d\n  .long %d\n  .quad 0\n  .quad 0\n", r->fb > 0 ? r->fb : 0, r->gft);
+    emit_textf("  .long 0\n  .long %d\n  .long 0\n  .long 0\n  .quad 0\n", (r->fl & 8) ? 1 : 0);
+    emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n", (r->fl & 4) ? 1 : 0, rest_kind, named_rest, (r->fl >> 4) & 1);
+    emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n", (r->fl & 32) ? (1 << 16) : 0, (r->fl & 2) ? 1 : 0, r->nf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m4_emit_proc_tables(stage2_t *s2, const char **names, int *nparams, int *pidx, const m4_sprow_t *sp, int n, ProcEntry *root) {
+    extern void rt_proc_hash_fill(const char *const *, int, int *, unsigned);
+    int nrows = n + (root ? 1 : 0);
+    unsigned cap = 64;
+    while ((unsigned)(nrows + 1) * 4 >= cap * 3) cap *= 2;
+    const char *nm[nrows + 1];
+    int slots[cap];
+    memset(slots, 0, sizeof slots);
+    for (int i = 0; i < n; i++) nm[i] = names[i];
+    if (root) nm[n] = "main";
+    rt_proc_hash_fill(nm, nrows, slots, cap);
+    if (root) emit_textf("  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n");
+    emit_textf("  .section .data\n  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_procs:\n", (int)(sizeof(rt_hblk_t) + sizeof(rt_proc_t) * (size_t)nrows), HB_PROC);
+    for (int i = 0; i < n; i++) { ProcEntry *pe = &s2->proc_table[pidx[i]]; m4_emit_proc_row(i, names[i], nparams[i], &sp[i], pe->rest_kind, pe->named_rest); }
+    if (root) {
+        emit_textf("  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .long %d\n  .long -1\n  .long 0\n  .long -1\n  .quad 0\n", root->nparams);
+        emit_textf("  .long 0\n  .long 0\n  .quad 0\n  .quad 0\n  .long 0\n  .long 0\n  .long 0\n  .long 0\n  .quad 0\n");
+        emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long 1\n  .long 0\n  .long 0\n  .long 0\n  .long %d\n", root->is_variadic ? 1 : 0, root->rest_kind, root->named_rest, root->nformals);
+    }
+    emit_textf("  .balign 16\n  .quad 0\n  .long %d\n  .short %d\n  .short 0\n  .Lstartup_phash:\n", (int)(sizeof(rt_hblk_t) + sizeof(int) * (size_t)cap), HB_WSB);
+    for (unsigned k = 0; k < cap; k++) emit_textf("  .long %d\n", slots[k]);
+    emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_procs]\n  mov esi, %d\n  lea rdx, [rip + .Lstartup_phash]\n  mov ecx, %u\n", nrows, cap);
+    emit_textf("  call rt_procs_install@PLT\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int dat_type_emits(int);
 extern int dat_type_emit_count(void);
 extern int dat_type_emit_ordinal(int);
@@ -1372,6 +1438,10 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
         int last_static = -1;
         for (int i = 0; i < n_procs; i++) if (!m4_proc_startup_skip(s2, &s2->proc_table[proc_pidx_buf[i]], proc_ispat_buf ? proc_ispat_buf[i] : 0)) last_static = i;
         { int _mx = polyglot_main_bb_idx(s2); if (_mx >= 0 && _mx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[_mx])) last_static = n_procs; }
+        ProcEntry *sp_root = m4_root_proc(s2);
+        int sp_on = m4_procs_static_ok(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_ispat_buf, n_procs);
+        m4_sprow_t sprow[n_procs + 1];
+        memset(sprow, 0, sizeof sprow);
         for (int i = 0; i < n_procs; i++) {
             ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
             int skip = m4_proc_startup_skip(s2, pe, proc_ispat_buf ? proc_ispat_buf[i] : 0);
@@ -1437,29 +1507,32 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc);
                         emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc);
                     }
-                    emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
-                    if (pe->thunk_kind == PROC_THUNK_NONE) emit_textf("  .quad .Lstartup_pname%d\n", i);
-                    else emit_textf("  .quad 0\n");
-                    if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5));
-                    else emit_textf("  .quad %s\n", asm_fn_sym(proc_names_buf[i]));
-                    if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i]));
-                    else emit_textf("  .quad 0\n");
-                    if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i);
-                    else emit_textf("  .quad 0\n");
-                    if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i);
-                    else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i);
-                    else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i);
-                    else emit_textf("  .quad 0\n");
-                    emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
-                    {
-                        extern const char *emit_thunk_star_label(const char *);
-                        if (pe->thunk_kind == PROC_THUNK_EXPR) emit_textf("  .quad %s\n", emit_thunk_star_label(pe->name));
+                    if (sp_on) sprow[i] = (m4_sprow_t){ _rkulex ? 2 : (_ihas_p ? 1 : 0), _nf, proc_fb_buf[i], _rkflags, 0, -1, 0 };
+                    else {
+                        emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
+                        if (pe->thunk_kind == PROC_THUNK_NONE) emit_textf("  .quad .Lstartup_pname%d\n", i);
                         else emit_textf("  .quad 0\n");
+                        if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5));
+                        else emit_textf("  .quad %s\n", asm_fn_sym(proc_names_buf[i]));
+                        if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i]));
+                        else emit_textf("  .quad 0\n");
+                        if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i);
+                        else emit_textf("  .quad 0\n");
+                        if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i);
+                        else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i);
+                        else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i);
+                        else emit_textf("  .quad 0\n");
+                        emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
+                        {
+                            extern const char *emit_thunk_star_label(const char *);
+                            if (pe->thunk_kind == PROC_THUNK_EXPR) emit_textf("  .quad %s\n", emit_thunk_star_label(pe->name));
+                            else emit_textf("  .quad 0\n");
+                        }
+                        emit_textf("  .section .text\n");
+                        emit_textf("  .intel_syntax noprefix\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
+                        emit_textf("  call rt_proc_register_rec@PLT\n");
                     }
-                    emit_textf("  .section .text\n");
-                    emit_textf("  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
-                    emit_textf("  call rt_proc_register_rec@PLT\n");
                     icn_loc_row[i] = (char)m4_icn_loc_row_wanted(_ig);
                     {
                         extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *);
@@ -1473,7 +1546,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                             fprintf(stderr, "FATAL mode-4 startup: the thunk %s has no name to set its generator region by\n", proc_names_buf[i]);
                             abort();
                         }
-                        if (_gft2 > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft2); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
+                        if (_gft2 > 0 && sp_on) sprow[i].gft = _gft2;
+                        else if (_gft2 > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft2); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
                     }
                 } else {
                     emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n");
@@ -1575,24 +1649,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     fprintf(stderr, "FATAL mode-4 startup: the thunk %s has no name to set its frame by\n", proc_names_buf[i]);
                     abort();
                 }
-                if (_cg && _cg->caller_frame && _cg->nslots > 0)
+                if (_cg && _cg->caller_frame && _cg->nslots > 0 && sp_on) {
+                    sprow[i].fns = _cg->nslots - 1;
+                    sprow[i].dl = pe->decl_level;
+                } else if (_cg && _cg->caller_frame && _cg->nslots > 0)
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level);
             }
         }
-        {
-            int _mx = polyglot_main_bb_idx(s2);
-            IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
-            int _mpi = -1;
-            for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, "main")) { _mpi = _q; break; }
-            if (_mpi >= 0 && icn_main_callable(s2, _rg)) {
-                ProcEntry *_mp = &s2->proc_table[_mpi];
-                emit_textf(
-                    "  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad "
-                    "0\n  .quad 0\n  .quad " "0\n");
-                emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
-                emit_textf("  .quad 0\n");
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
-            }
+        if (sp_on) m4_emit_proc_tables(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, sprow, n_procs, sp_root);
+        else if (sp_root) {
+            emit_textf(
+                "  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad "
+                "0\n  .quad 0\n  .quad " "0\n");
+            emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", sp_root->nparams, sp_root->nformals, (sp_root->is_variadic ? 4 : 0) | 16, sp_root->rest_kind,
+                sp_root->named_rest);
+            emit_textf("  .quad 0\n");
+            emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
         }
         int icn_nrows = icn_root_row;
         for (int i = 0; i < n_procs; i++) icn_nrows += icn_loc_row[i];
