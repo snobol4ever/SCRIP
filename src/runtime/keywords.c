@@ -1,7 +1,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/rt/rt_diag.h"
-#include "ir/ct_arena.h"
 #include "runtime/core/core.h"
 #include "emitter/sil_macros.h"
 #include "keywords.h"
@@ -68,14 +67,13 @@ static void kw_cset_hindex_refresh(void) {
     memset(g_runtime.kw.kw_cset_hidx, 0, (size_t)g_runtime.kw.kw_cset_hcap * sizeof(int));
     for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
 }
+static int *kw_cset_ints(int n) { int *p = (int *) rt_wsb_alloc((size_t)n * sizeof(int)); memset(p, 0, (size_t)n * sizeof(int)); return p; }
 static void kw_cset_hindex_rebuild(void) {
     int want = 64;
     while (want < g_runtime.kw.kw_cset_cap * 2) want <<= 1;
     if (want != g_runtime.kw.kw_cset_hcap) {
-        ct_drop(g_runtime.kw.kw_cset_hidx);
-        ct_drop(g_runtime.kw.kw_cset_cidx);
-        g_runtime.kw.kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int));
-        g_runtime.kw.kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int));
+        g_runtime.kw.kw_cset_hidx = kw_cset_ints(want);
+        g_runtime.kw.kw_cset_cidx = kw_cset_ints(want);
         g_runtime.kw.kw_cset_hcap = want;
     } else {
         memset(g_runtime.kw.kw_cset_hidx, 0, (size_t)want * sizeof(int));
@@ -92,7 +90,7 @@ static int kw_cset_find_ptr(const char *p) {
 static void kw_cset_grow(void) {
     if (g_runtime.kw.kw_cset_count < g_runtime.kw.kw_cset_cap) return;
     g_runtime.kw.kw_cset_cap = g_runtime.kw.kw_cset_cap ? g_runtime.kw.kw_cset_cap * 2 : 16;
-    g_runtime.kw.kw_cset_names = (kw_cset_ent_t *) ct_grow(g_runtime.kw.kw_cset_names, (size_t)g_runtime.kw.kw_cset_cap * sizeof(kw_cset_ent_t));
+    g_runtime.kw.kw_cset_names = (kw_cset_ent_t *) rt_wsb_realloc(g_runtime.kw.kw_cset_names,(size_t)g_runtime.kw.kw_cset_cap * sizeof(kw_cset_ent_t));
     kw_cset_hindex_rebuild();
 }
 static void kw_cset_bits_fill(kw_cset_ent_t *e) {
@@ -165,6 +163,8 @@ void kw_cset_gc_roots(void) {
     kw_errtext_gc_root();
     if (!g_runtime.kw.kw_cset_names) return;
     rt_gc_visit_raw((const char **)&g_runtime.kw.kw_cset_names);
+    rt_gc_visit_raw((const char **)&g_runtime.kw.kw_cset_hidx);
+    rt_gc_visit_raw((const char **)&g_runtime.kw.kw_cset_cidx);
     for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) {
         if (!g_runtime.kw.kw_cset_names[i].name) continue;
         if (g_runtime.kw.kw_cset_names[i].ptr) rt_gc_visit_raw(&g_runtime.kw.kw_cset_names[i].ptr);
