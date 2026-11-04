@@ -504,6 +504,7 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     int after_line = cx->after_line;
     cx->after_line = 0;
+    if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
     if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
@@ -3195,7 +3196,7 @@ static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     (void) nargs;
     IR_t * kg = build(cx, IR_ITERATE, γ, ω);
-    IR_LIT(kg).sval = "key";
+    IR_LIT(kg).sval = (char *) (cx->prog && cx->prog->v.ival ? "ukey" : "key");
     IR_t * orr = NULL;
     IR_t * ee = lower(cx, t->c[argbase], NULL, ω, &orr);
     ir_operand_push(kg, orr);

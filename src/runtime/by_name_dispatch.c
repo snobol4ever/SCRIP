@@ -25032,6 +25032,15 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         return bn_sno_name(args, nargs, out);
     }
     if (!strcmp(fn, "ICN$UNAME") && nargs == 1) return icn_unicon_name(args[0], out);
+    if (!strcmp(fn, "ICN$USYSTEM") && nargs == 1) {
+        const char * cmd = VARVAL_fn(args[0]);
+        int st;
+        if (!cmd) { *out = FAILDESCR; return 1; }
+        fflush(NULL);
+        st = system(cmd);
+        *out = INTVAL(st < 0 ? -1 : WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st));
+        return 1;
+    }
     if (!strcmp(fn, "ICN$UPVAR") && nargs == 1) {
         extern int rt_icn_scan_proc(const char **, const char **);
         const char * pn, * base;
