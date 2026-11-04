@@ -68,7 +68,7 @@
 '$tbl_sl_read'(T,G):-'$trie_meta_get'(T,0,S),(S==complete->'$tbl_sl_canswer'(T,G);'$tbl_sl_consume'(T,G)).
 '$tbl_sl_canswer'(T,G):-'$trie_meta_get'(T,1,d(Q0,_,_,_,_,_)),copy_term(Q0,Q),term_variables(Q,Vs),Sk=..[ret|Vs],Q=G,'$trie_entries'(T,L),member(e(_,Sk,V),L),'$tbl_sl_val'(V,T,Sk,G).
 '$tbl_sl_consume'(A,G):-'$trie_meta_get'(A,1,d(Q0,_,_,_,_,_)),copy_term(Q0,Q),term_variables(Q,Vs),Sk=..[ret|Vs],Q=G,St=st(0,A,0,0,0),'$tbl_sl'(2,A,St),repeat,('$tbl_sl_next'(A,St,Sk,V)->'$tbl_sl_val'(V,A,Sk,G);'$tbl_park'(St)->fail;!,fail).
-'$tbl_sl_next'(A,St,Sk,V):-arg(3,St,C),'$trie_count'(A,N),C<N,C1 is C+1,nb_setarg(3,St,C1),'$trie_entries'(A,L),nth0(C,L,e(_,K,V)),K=Sk.
+'$tbl_sl_next'(A,St,Sk,V):-arg(3,St,C),'$trie_count'(A,N),C<N,C1 is C+1,nb_setarg(3,St,C1),'$trie_slice'(A,C,C1,_-[e(_,K,V)]),K=Sk.
 '$tbl_sl_val'(true,_,_,_):-!.
 '$tbl_sl_val'(_,T,Sk,G):-copy_term(Sk,K),'$tbl_dlpush'(pos(T,K,G)).
 '$tbl_sl_tnot'(complete,T,G):-!,('$trie_count'(T,0)->true;'$tbl_sl_uncond'(T)->fail;'$tbl_dlpush'(tnot(G))).
