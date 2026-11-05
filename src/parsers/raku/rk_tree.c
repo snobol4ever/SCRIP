@@ -2220,6 +2220,7 @@ void rkb_method_term(RkB *b, RkTerm *it, RkPf *pf) {
     if (pf->k == 'M') { it->kind = TK_DOTTY; it->name = pf->txt; it->t = method_call(b, var_node(b, "$_"), pf); return; }
     if (pf->k == '[' && pf->inner) { tree_t *g = ast_node_new(TT_ARR_GET); ast_push(g, var_node(b, "$_")); ast_push(g, rkb_expr(b, pf->inner)); it->kind = TK_TREE; it->t = g; return; }
     if ((pf->k == '{' && pf->inner) || (pf->k == '<' && pf->txt)) { tree_t *g = ast_node_new(TT_HASH_GET); ast_push(g, var_node(b, "$_")); ast_push(g, pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner)); it->kind = TK_TREE; it->t = g; return; }
+    if (pf->k == '(') { tree_t *c = ast_node_new(TT_INVOKE); expr_add_child(c, var_node(b, "$_")); TL pos = { 0 }; arglist(b, pf->args, 0, &pos, NULL); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]); it->kind = TK_TREE; it->t = c; return; }
     it->kind = TK_TREE; it->t = ast_node_new(TT_NUL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

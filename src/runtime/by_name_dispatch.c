@@ -17044,6 +17044,7 @@ DESCR_t bt___rk_smartmatch(DESCR_t *args, int nargs) {
         }
         if (args[1].v == DT_BOOL) hit = args[1].i != 0;
         else if (rk_rat_cmp(args[0], args[1], &sm_c)) hit = sm_c == 0;
+        else if ((IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) && rk_is_code(args[0])) hit = 0;
         else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]) || (isnan(to_real(args[0])) && isnan(to_real(args[1])));
         else if (IS_DATA_INST_fn(args[0]) && IS_DATA_INST_fn(args[1])) {
             DESCR_t smi;
