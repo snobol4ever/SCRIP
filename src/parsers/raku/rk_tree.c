@@ -165,8 +165,10 @@ static const char *rk_multi_mangle(const char *base, TL *params, int kind) {
         tree_t *p = params->v[i];
         int named = nnamed && p && (p->slen & RK_PV_NAMED);
         if (named != pass) continue;
-        const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
+        const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : (p && p->v.sval && p->v.sval[0] == '@') ? "Positional" : (p && p->v.sval && p->v.sval[0] == '%') ? "Associative" : (p && p->v.sval && p->v.sval[0] == '&') ? "Callable" : "Any";
         if (!strcmp(ty, "*@") || !strcmp(ty, "**@") || !strcmp(ty, "+@") || !strcmp(ty, "+")) ty = "Slurpy";
+        if (!strcmp(ty, "@")) ty = "Positional";
+        else if (!strcmp(ty, "Any") && p && p->v.sval && strlen(p->v.sval) > 6 && !strcmp(p->v.sval + strlen(p->v.sval) - 6, "__code")) ty = "Callable";
         sb_c(&b, '$');
         if (named) { for (const char *c = fmt("N_%s_%c", p->v.sval ? p->v.sval : "", (p->slen & RK_PV_REQ) ? 'R' : 'O'); *c; c++) sb_c(&b, *c); continue; }
         for (const char *c = ty; *c; c++) sb_c(&b, (*c == ':') ? '_' : *c);

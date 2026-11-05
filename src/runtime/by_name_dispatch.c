@@ -2313,7 +2313,8 @@ static int rk_type_isa(const char *have, const char *want) {
     static const char *const up[][8] = { { "Bool", "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Order", "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Int", "Cool", "Any", "Numeric", "Real",
         0 }, { "Num", "Cool", "Any", "Numeric", "Real", 0 }, { "Rat", "Cool", "Any", "Numeric", "Real", "Rational", 0 }, { "FatRat", "Cool", "Any", "Numeric", "Real", "Rational", 0 }, { "Str", "Cool",
         "Any", "Stringy", 0 }, { "List", "Cool", "Any", "Positional", "Iterable", 0 }, { "Array", "List", "Cool", "Any", "Positional", "Iterable", 0 }, { "Range", "Cool", "Any", "Positional",
-        "Iterable", 0 }, { "Nil", "Cool", "Any", 0 }, { 0 } };
+        "Iterable", 0 }, { "Hash", "Map", "Cool", "Any", "Associative", "Iterable", 0 }, { "Map", "Cool", "Any", "Associative", "Iterable", 0 }, { "Sub", "Routine", "Code", "Callable", "Any", 0 },
+        { "Block", "Code", "Callable", "Any", 0 }, { "Code", "Callable", "Any", 0 }, { "Nil", "Cool", "Any", 0 }, { 0 } };
     if (!have || !want) return 0;
     if (!strcmp(have, want) || !strcmp(want, "Mu")) return 1;
     for (int i = 0; up[i][0]; i++) if (!strcmp(up[i][0], have)) { for (int j = 1; up[i][j]; j++) if (!strcmp(up[i][j], want)) return 1; return 0; }
@@ -4998,6 +4999,9 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_mc_type_name(DESCR_t d) {
     if (rk_typeobj_name(d)) return rk_typeobj_name(d);
+    if (d.v == DT_A && d.arr) return rk_is_range(d) ? "Range" : rk_is_pair(d) ? "Pair" : rk_is_seq(d) ? "Seq" : (rk_is_list(d) || rk_is_slip(d)) ? "List" : "Array";
+    if (d.v == DT_T && d.tbl) return "Hash";
+    if (rk_is_code(d)) return "Block";
     switch (d.v) {
         case DT_I:
         return "Int";
@@ -5021,6 +5025,14 @@ static int rt_mc_is_subtype(const char *a, const char *b) {
     if (!strcmp(b, "Any") || !strcmp(b, "Mu") || !strcmp(b, "Cool")) return 1;
     if (!strcmp(a, b)) return 1;
     int a_numleaf = (!strcmp(a, "Int") || !strcmp(a, "Num") || !strcmp(a, "Rat") || !strcmp(a, "FatRat"));
+    int a_pos = (!strcmp(a, "Array") || !strcmp(a, "List") || !strcmp(a, "Range") || !strcmp(a, "Seq")), a_ass = (!strcmp(a, "Hash") || !strcmp(a, "Map")),
+        a_code = (!strcmp(a, "Block") || !strcmp(a, "Sub") || !strcmp(a, "Code"));
+    if (!strcmp(b, "Positional") && a_pos) return 1;
+    if (!strcmp(b, "Associative") && a_ass) return 1;
+    if (!strcmp(b, "Iterable") && (a_pos || a_ass)) return 1;
+    if (!strcmp(b, "List") && !strcmp(a, "Array")) return 1;
+    if (!strcmp(b, "Map") && !strcmp(a, "Hash")) return 1;
+    if ((!strcmp(b, "Callable") || !strcmp(b, "Code")) && a_code) return 1;
     if ((!strcmp(b, "Numeric") || !strcmp(b, "Real")) && a_numleaf) return 1;
     {
         extern int dat_mro(const char *name, const char **out, int max);
@@ -5106,13 +5118,13 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     }
     char acc_types[nc + 1][8][32];
     const char *acc_pn[nc + 1];
+    int acc_var[nc + 1], acc_fixed[nc + 1];
     int nacc = 0;
     for (int cj = 0; cj < nc; cj++) {
         const char *pn = rt_proc_enum_name(cidx[cj]);
         const char *p = pn + cpl[cj];
         const char *e = strchr(p, '$');
         int arity = atoi(p);
-        if (arity != nm) continue;
         int nt = 0;
         const char *q = e ? e + 1 : (const char *)0;
         while (q && nt < 8) {
@@ -5125,20 +5137,26 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
             if (!nx) break;
             q = nx + 1;
         }
+        int isvar = (arity > 0 && arity <= nt && !strcmp(acc_types[nacc][arity - 1], "Slurpy"));
+        int fixed = isvar ? arity - 1 : arity;
+        if (isvar ? nm < fixed : arity != nm) continue;
         int ok = 1;
-        for (int i = 0; i < nm && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
+        for (int i = 0; i < fixed && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], ma[i])) { ok = 0; break; }
         if (!ok) continue;
         int dup = 0;
         for (int k = 0; k < nacc; k++) if (!strcmp(acc_pn[k], pn)) { dup = 1; break; }
         if (dup) continue;
         acc_pn[nacc] = pn;
+        acc_var[nacc] = isvar;
+        acc_fixed[nacc] = fixed;
         nacc++;
     }
     if (nacc == 0) return 0;
     int win = -1;
-    for (int i = 0; i < nacc; i++) {
+    for (int pass = 0; pass < 2 && win < 0; pass++) for (int i = 0; i < nacc; i++) {
         int beaten = 0;
-        for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], nm)) { beaten = 1; break; } }
+        if (acc_var[i] != pass) continue;
+        for (int j = 0; j < nacc; j++) { if (i == j || acc_var[j] != pass) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], acc_fixed[i])) { beaten = 1; break; } }
         if (!beaten) { win = i; break; }
     }
     if (win < 0) win = 0;
