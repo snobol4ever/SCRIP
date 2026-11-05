@@ -659,6 +659,8 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         ast_push(f, body);
         return f;
     }
+    if (name && !strcmp(name, "get") && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval && !strcmp(args->items[0]->v.sval, "input") &&
+        pas_is_stdstream("input") && !pas_ptrvar_target("input")) return mk_fnc0("__pas_read_c");
     if (name && (!strcmp(name, "get") || !strcmp(name, "put")) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval &&
         pas_is_filevar(args->items[0]->v.sval) && !pas_is_stdstream(args->items[0]->v.sval)) {
         return mk_fnc1(!strcmp(name, "get") ? "__pas_tget" : "__pas_tput", args->items[0]);
@@ -4089,13 +4091,27 @@ static tree_t *mk_rec_block(int nf, char *const *fldrec, const int *fldna, const
     }
     return e;
 }
+static tree_t *mk_row_value(const pty_t *t, int depth) {
+    long long lo, hi;
+    if (depth > 8 || !pty_array_bounds(t, &lo, &hi)) return NULL;
+    if (t->base && t->base->k == PTK_CHAR) return mk_fnc2("arr_make", ilit(lo), ilit(hi));
+    tree_t *sub = mk_row_value(t->base, depth + 1);
+    return sub ? mk_fnc3("__pas_arr_of", ilit(lo), ilit(hi), sub) : NULL;
+}
 static tree_t *mk_rec_block_of(const pty_t *r, int depth) {
     int nf = pty_rec_nf(r), m = nf > 0 ? nf : 1;
     const char *fr[m];
     int fn[m];
     long long lo[m], hi[m];
     for (int j = 0; j < nf; j++) { struct pty_fld f; pty_rec_fld(r, j, &f); fr[j] = pas_fld_rectype(&f); fn[j] = f.na != 0; lo[j] = f.nalo; hi[j] = f.nahi; }
-    return mk_rec_block(nf, (char *const *)fr, fn, lo, hi, depth);
+    tree_t *e = mk_rec_block(nf, (char *const *)fr, fn, lo, hi, depth);
+    for (int j = 0; j < nf; j++) {
+        struct pty_fld f;
+        pty_rec_fld(r, j, &f);
+        tree_t *row = f.ft && f.ft->k == PTK_ARRAY && f.ft->base && f.ft->base->k == PTK_ARRAY ? mk_row_value(f.ft, 0) : NULL;
+        if (row) e = mk_fnc3("arr_set_pure", e, ilit(j), row);
+    }
+    return e;
 }
 static tree_t *mk_rec_init_type_d(const char *rt, int depth) {
     const pty_t *t = rt ? pty_rec_by_name(rt) : NULL;
@@ -4114,6 +4130,12 @@ static tree_t *mk_array_init(const char *name, long long high) {
     if (pas_static_of_dyn(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_fnc2("arr_make", ilit(0), ilit(-1)));
     if (pas_rvt(name)) return mk_rec_block_of(pas_rvt(name), 0);
     if (pas_art(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_rec_block_of(pas_art(name), 0));
+    {
+        const pty_t *pt = name ? pty_name_type(name) : NULL;
+        long long blo, bhi;
+        tree_t *row = pt && pt->base && pt->base->k == PTK_ARRAY && pty_array_bounds(pt, &blo, &bhi) ? mk_row_value(pt->base, 0) : NULL;
+        if (row) return mk_fnc3("__pas_arr_of", ilit(blo), ilit(bhi), row);
+    }
     if (name && pas_is_strarr(name)) {
         const char *et = pas_scalarvartype_get(name);
         long long eh = et ? pas_arrtype_high(et) : -1;
