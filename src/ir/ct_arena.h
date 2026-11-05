@@ -17,6 +17,8 @@ void *ct_grow(void *p, size_t n);
 char *ct_strdup(const char *s);
 char *ct_strndup(const char *s, size_t n);
 void ct_drop(void *p);
+void *ct_mark(void);
+void ct_release(void *mark);
 size_t ct_arena_bytes(void);
 size_t ct_arena_mapped(void);
 long ct_arena_scan(const char *lo, const char *hi, void (*fn)(void *ctx, const char *plo, const char *phi), void *ctx);

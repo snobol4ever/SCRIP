@@ -449,6 +449,7 @@ typedef struct {
     int zzone_valid;
     zls_fct_t fct[64];
     struct ct_head * ct_bin[CT_BINS];
+    struct ct_head * ct_jhead;
     int ct_poison;
     uint8_t * ct_cur;
     uint8_t * ct_end;

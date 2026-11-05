@@ -11,7 +11,7 @@
 #define CT_MIN_CLASS ((size_t)16)
 #define CT_CHUNK ((size_t)1 << 22)
 #define CT_MAGIC_BIN ((uint64_t)0x4354424c4f434b31ULL)
-typedef struct ct_head { uint64_t magic; uint64_t size; struct ct_head *next; uint64_t pad; } ct_head_t;
+typedef struct ct_head { uint64_t magic; uint64_t size; struct ct_head *next; struct ct_head *older; } ct_head_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_page(void) { long p = sysconf(_SC_PAGESIZE); return p > 0 ? (size_t)p : (size_t)4096; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -27,6 +27,16 @@ static int ct_class_of(size_t n) { size_t cap = CT_MIN_CLASS; int i = 0; while (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_cap_of(int cls) { return CT_MIN_CLASS << (size_t)cls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *ct_jlink(ct_head_t *h) { h->older = g_lower.ir.ct_jhead; h->next = (ct_head_t *)0; if (h->older) h->older->next = h; g_lower.ir.ct_jhead = h; return (void *)((uint8_t *)h + CT_ALIGN); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ct_junlink(ct_head_t *h) {
+    if (h->older) h->older->next = h->next;
+    if (h->next) h->next->older = h->older;
+    else g_lower.ir.ct_jhead = h->older;
+    h->older = (ct_head_t *)0;
+    h->next = (ct_head_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *ct_alloc_in(size_t n, int soft) {
     int cls;
     size_t cap, need, pg;
@@ -41,7 +51,7 @@ static void *ct_alloc_in(size_t n, int soft) {
         h->magic = CT_MAGIC_BIG;
         h->size = need;
         g_lower.ir.ct_taken += need;
-        return (void *)((uint8_t *)h + CT_ALIGN);
+        return ct_jlink(h);
     }
     if (g_lower.ir.ct_bin[cls]) {
         h = g_lower.ir.ct_bin[cls];
@@ -50,7 +60,7 @@ static void *ct_alloc_in(size_t n, int soft) {
         h->size = ct_cap_of(cls);
         h->next = (ct_head_t *)0;
         g_lower.ir.ct_taken += h->size;
-        return (void *)((uint8_t *)h + CT_ALIGN);
+        return ct_jlink(h);
     }
     cap = ct_cap_of(cls);
     need = cap + CT_ALIGN;
@@ -66,7 +76,7 @@ static void *ct_alloc_in(size_t n, int soft) {
     h->magic = CT_MAGIC_BIN;
     h->size = cap;
     g_lower.ir.ct_taken += cap;
-    return (void *)((uint8_t *)h + CT_ALIGN);
+    return ct_jlink(h);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *ct_alloc(size_t n) { return ct_alloc_in(n, 0); }
@@ -102,12 +112,14 @@ void ct_drop(void *p) {
     int cls;
     if (!p) return;
     h = (ct_head_t *)((uint8_t *)p - CT_ALIGN);
+    if (h->magic != CT_MAGIC_BIN && h->magic != CT_MAGIC_BIG) return;
+    ct_junlink(h);
     if (h->magic == CT_MAGIC_BIN) {
         cls = ct_class_of((size_t)h->size);
         if (cls < 0) return;
         if (g_lower.ir.ct_poison < 0) g_lower.ir.ct_poison = (getenv("SCRIP_CT_POISON") ? 1 : 0) | (getenv("SCRIP_CT_NORECYCLE") ? 2 : 0);
         if (g_lower.ir.ct_poison & 1) memset(p, 0xDD, (size_t)h->size);
-        if (g_lower.ir.ct_poison & 2) { if (g_lower.ir.ct_poison & 1) h->magic = 0; return; }
+        if (g_lower.ir.ct_poison & 2) { h->magic = 0; return; }
         h->magic = 0;
         g_lower.ir.ct_taken -= (size_t)h->size;
         h->next = g_lower.ir.ct_bin[cls];
@@ -115,6 +127,20 @@ void ct_drop(void *p) {
         return;
     }
     if (h->magic == CT_MAGIC_BIG) { size_t len = (size_t)h->size; h->magic = 0; g_lower.ir.ct_taken -= len; munmap((void *)h, len); return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *ct_mark(void) { return ct_alloc(1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void ct_release(void *m) {
+    ct_head_t *stop;
+    ct_head_t *h;
+    if (!m) return;
+    stop = (ct_head_t *)((uint8_t *)m - CT_ALIGN);
+    h = g_lower.ir.ct_jhead;
+    while (h && h != stop) h = h->older;
+    if (!h) return;
+    while (g_lower.ir.ct_jhead != stop) ct_drop((uint8_t *)g_lower.ir.ct_jhead + CT_ALIGN);
+    ct_drop(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *ct_strdup(const char *s) { size_t n; char *q; if (!s) return (char *)0; n = strlen(s); q = (char *)ct_alloc(n + 1); memcpy(q, s, n + 1); return q; }

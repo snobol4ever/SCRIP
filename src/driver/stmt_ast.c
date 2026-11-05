@@ -171,6 +171,8 @@ void stmt_src_set_file(const char * path) {
     g_parser.stmt.src_lines = stmt_src_read(path, &g_parser.stmt.src_nlines);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void stmt_src_forget_includes(void) { g_parser.stmt.incs = (void *)0; g_parser.stmt.n_incs = 0; g_parser.stmt.cap_incs = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stmt_inc_t * stmt_inc_find(const char * name) {
     if (!name) return NULL;
     for (int i = 0; i < g_parser.stmt.n_incs; i++) if (strcmp(g_parser.stmt.incs[i].name, name) == 0) return &g_parser.stmt.incs[i];

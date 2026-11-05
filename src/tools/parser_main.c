@@ -50,6 +50,12 @@ static void * raku_compile_whole(const char * src, const char * name) { tree_t *
 #endif
 extern void ir_dump_tree(const tree_t * e, FILE * f);
 extern void stmt_src_set_file(const char * path);
+extern void stmt_src_forget_includes(void);
+#if defined(PARSER_LANG_SNOCONE)
+#define PARSER_PER_FILE 1
+#else
+#define PARSER_PER_FILE 0
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * slurp(FILE * f, size_t * len) {
     size_t cap = 1 << 16, n = 0;
@@ -165,7 +171,6 @@ static int parse_snobol4_program(char * src, size_t len, const char * path, int6
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int parse_and_dump(char * src, size_t len, const char * name, int64_t * pns, int hash) {
-    stmt_src_set_file(name);
 #if defined(PARSER_LANG_SNOBOL4)
     return parse_snobol4_program(src, len, name, pns, hash);
 #else
@@ -215,6 +220,8 @@ int main(int argc, char ** argv) {
             FILE * f = fopen(nm, "r");
             printf("== %s\n", nm);
             if (!f) { puts("Parse Error"); rc = 1; continue; }
+            stmt_src_set_file(nm);
+            void * mk = PARSER_PER_FILE ? ct_mark() : NULL;
             size_t len = 0;
             char * src = slurp(f, &len);
             fclose(f);
@@ -224,6 +231,7 @@ int main(int argc, char ** argv) {
             if (parse_and_dump(src, len, nm, &pns, hash)) rc = 1;
             fflush(stdout);
             if (++files == 1) pns1 = pns;
+            if (PARSER_PER_FILE) { ct_release(mk); stmt_src_forget_includes(); }
         }
         char lexm[256] = "";
         if (lex_clock_on()) {
@@ -244,5 +252,6 @@ int main(int argc, char ** argv) {
     if (path) fclose(f);
     if (!src) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
     int64_t pns = 0;
+    stmt_src_set_file(path ? path : "(stdin)");
     return parse_and_dump(src, len, path ? path : "(stdin)", &pns, hash);
 }
