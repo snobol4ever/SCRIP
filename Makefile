@@ -2119,7 +2119,7 @@ $(PARSER_SOS): out/libscrip_parser_%.so: out/libscrip_parser_%-$(RT_TAG).so FORC
 # is why it is a SEPARATE opt-in target and never wired into `scrip`/`libscrip_rt` above.
 $(RT_A): $(RT_PIC_OBJS)
 	@mkdir -p out
-	ar rcs $(RT_A) $(RT_PIC_OBJS)
+	rm -f $(RT_A) && ar rcs $(RT_A) $(RT_PIC_OBJS)
 	@echo "Built: $@   RT_OPT=$(RT_OPT)"
 # Same FORCE-copy-refresh reasoning as out/libscrip_rt.so above -- a stale copy surviving a
 # RT_TAG switch would silently statically-link the WRONG configuration.
