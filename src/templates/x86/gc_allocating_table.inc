@@ -1704,6 +1704,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_os_release", GC_RET_OTHER },
     { "rk_pair_text", GC_RET_OTHER },
     { "rk_param_ok", GC_RET_OTHER },
+    { "rk_paren", GC_RET_OTHER },
     { "rk_pre_args", GC_RET_DESCR },
     { "rk_pre_env", GC_RET_DESCR },
     { "rk_pre_value", GC_RET_OTHER },

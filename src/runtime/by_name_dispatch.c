@@ -2034,6 +2034,9 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_range_text(DESCR_t v);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_paren(const char *s) { size_t n = strlen(s); char *r = rt_wsb_alloc(n + 3); r[0] = '('; memcpy(r + 1, s, n); r[n + 1] = ')'; r[n + 2] = '\0'; return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_gist_str(DESCR_t v) {
     if (rk_seq_is_lazy(v)) return "(...)";
     rk_reify_deep(v, 0);
@@ -2062,7 +2065,7 @@ static const char *rk_gist_str(DESCR_t v) {
     }
     if (rk_is_pair(v)) {
         rk_av_t a = rk_av(v);
-        const char *kt = rk_av_text(a, 0), *vt = rk_gist_str(a.el[1]);
+        const char *kt = rk_is_pair(a.el[0]) ? rk_paren(rk_gist_str(a.el[0])) : rk_av_text(a, 0), *vt = rk_gist_str(a.el[1]);
         size_t kl = strlen(kt), vl = strlen(vt);
         char *ln = rt_wsb_alloc(kl + vl + 5);
         memcpy(ln, kt, kl);
@@ -2206,7 +2209,7 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
             ln[3 + kl + vl] = '\0';
             return ln;
         }
-        const char *kq = rk_raku_scalar(a.el[0]);
+        const char *kq = rk_is_pair(a.el[0]) ? rk_paren(rk_raku_str(a.el[0], 0)) : rk_raku_scalar(a.el[0]);
         size_t ql = strlen(kq);
         char *ln = rt_wsb_alloc(ql + vl + 5);
         memcpy(ln, kq, ql);
