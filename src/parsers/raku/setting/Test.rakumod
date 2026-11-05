@@ -152,6 +152,7 @@ sub cmp-ok(Mu $got, $op, Mu $expected, $desc = '') is export {
     elsif $op eq 'gt' { $test = $got gt $expected }
     elsif $op eq 'ge' { $test = $got ge $expected }
     elsif $op eq '===' { $test = $got === $expected }
+    elsif $op eq '=:=' { $test = $got =:= $expected }
     elsif $op eq 'eqv' { $test = $got eqv $expected }
     elsif $op eq '~~' { $test = ($got ~~ $expected) ?? True !! False }
     elsif $op eq '=~=' { $test = $got =~= $expected }

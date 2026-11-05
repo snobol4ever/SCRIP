@@ -154,6 +154,7 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "    elsif $op eq 'gt' { $test = $got gt $expected }\n"
     "    elsif $op eq 'ge' { $test = $got ge $expected }\n"
     "    elsif $op eq '===' { $test = $got === $expected }\n"
+    "    elsif $op eq '=:=' { $test = $got =:= $expected }\n"
     "    elsif $op eq 'eqv' { $test = $got eqv $expected }\n"
     "    elsif $op eq '~~' { $test = ($got ~~ $expected) ?\? True !! False }\n"
     "    elsif $op eq '=~=' { $test = $got =~= $expected }\n"

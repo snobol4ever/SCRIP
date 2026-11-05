@@ -1078,7 +1078,7 @@ static const char *const lv_cmp[] = { "==", "!=", "<", ">", "<=", ">=", "\xe2\x8
                                       "eq", "<=>", "cmp", "leg", "ne", "lt", "le", "gt", "ge", "~~",
                                       "\xe2\x88\x88", "\xe2\x88\x8a", "\xe2\x88\x89", "\xe2\x88\x8b", "\xe2\x88\x8d", "\xe2\x88\x8c", "(<)", "\xe2\x8a\x82", "\xe2\x8a\x84", "(>)", "\xe2\x8a\x83", "\xe2\x8a\x85",
                                       "(==)", "\xe2\x89\xa1", "\xe2\x89\xa2", "(<=)", "\xe2\x8a\x86", "\xe2\x8a\x88", "(>=)", "\xe2\x8a\x87", "\xe2\x8a\x89", "(<+)", "\xe2\x89\xbc", "(>+)", "\xe2\x89\xbd",
-                                      "\xe2\xa9\xb5", "\xe2\xa9\xb6", "\xe2\x89\x85", 0 };
+                                      "\xe2\xa9\xb5", "\xe2\xa9\xb6", "\xe2\x89\x85", "=:=", 0 };
 static const char *const lv_and[] = { "&&", 0 };
 static const char *const lv_or[] = { "||", "^^", "max", "min", 0 };
 static const char *const lv_pow[] = { "**", 0 };
@@ -1175,6 +1175,7 @@ static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     case 52: return rk_chain_cmp(nctx(b, l), TT_EQ, nctx(b, r));
     case 53: return call2("__rk_ident", l, r);
     case 54: return call2("__rk_approx", l, r);
+    case 55: return call2("__rk_ident", l, r);
     case 13: return call2("__rk_after", l, r);
     case 14: return call2("__rk_before", l, r);
     case 15: return call2("__rk_eqv", l, r);
