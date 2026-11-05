@@ -56,10 +56,12 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
     }
     { char exe[PATH_MAX];
       if (realpath("/proc/self/exe", exe)) { char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
-          snprintf(out, outsz, "%s/../corpus/packages/icon/ipl/procs/%s.icn", exe, nm);
-          icn_link_note(tried, triedsz, out);
-          src = icn_read_file(out);
-          if (src) return src; } } }
+          for (int k = 0; k < 2; k++) {
+              snprintf(out, outsz, "%s/../corpus/packages/icon/%s/%s.icn", exe, k ? "unicon_ipl/procs" : "ipl/procs", nm);
+              icn_link_note(tried, triedsz, out);
+              src = icn_read_file(out);
+              if (src) return src;
+          } } } }
     snprintf(out, outsz, "%s/%s.icn", dir, nm);
     icn_link_note(tried, triedsz, out);
     src = icn_read_file(out);

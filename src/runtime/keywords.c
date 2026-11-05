@@ -385,7 +385,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"x")) return FAILDESCR;
     if (!strcmp(kw,"y")) return FAILDESCR;
     { if (!strcmp(kw,"level")) return INTVAL(g_runtime.abi.rt_k_level); }
-    if (!strcmp(kw,"errno")) return INTVAL(0);
+    if (!strcmp(kw,"errno")) return INTVAL(g_runtime.misc.posix_errno);
     if (!strcmp(kw,"lpress")) return INTVAL(-1);
     if (!strcmp(kw,"mpress")) return INTVAL(-2);
     if (!strcmp(kw,"rpress")) return INTVAL(-3);

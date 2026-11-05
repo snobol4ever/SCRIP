@@ -266,11 +266,23 @@ static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_g
 static int icn_is_unicon_thread_name(const char * nm) {
     return nm && (!strncmp(nm, "ICN$", 4) || !strcmp(nm, "wait") || !strcmp(nm, "lock") || !strcmp(nm, "unlock") || !strcmp(nm, "trylock") || !strcmp(nm, "mutex") || !strcmp(nm, "spawn"));
 }
+static char * icn_unicon_row(const char * nm) {
+    extern int icn_builtin_is_leaf_row(const char *);
+    size_t n = strlen(nm);
+    char * u = (char *) ct_alloc(n + 6);
+    memcpy(u, "ICN$U", 5);
+    for (size_t i = 0; i <= n; i++) u[5 + i] = (char) toupper((unsigned char) nm[i]);
+    if (icn_builtin_is_leaf_row(u)) return u;
+    ct_drop(u);
+    return NULL;
+}
+static int icn_has_unicon_row(const char * nm) { char * u = nm ? icn_unicon_row(nm) : NULL; if (u) ct_drop(u); return u != NULL; }
 static int icn_callee_is_a_value(const char * nm) {
     extern int icn_builtin_is_known(const char *);
     extern void * dat_find_type(const char *);
     return nm && nm[0] != '&' &&
-        (icn_proc_reassigned(nm) || icn_record_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !icn_is_unicon_thread_name(nm) && !dat_find_type(nm)));
+        (icn_proc_reassigned(nm) || icn_record_reassigned(nm) ||
+        (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !icn_is_unicon_thread_name(nm) && !icn_has_unicon_row(nm) && !dat_find_type(nm)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
@@ -512,6 +524,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "wait") || !strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) &&
         icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
+    if (name && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && icn_callable_proc_index(name) < 0) { char * un = icn_unicon_row(name); if (un) name = un; }
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }

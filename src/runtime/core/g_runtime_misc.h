@@ -32,6 +32,7 @@ typedef struct {
     int kw_ctx;
     int real_digits;
     int mutex_serial;
+    int posix_errno;
     long icn_errnumber;
     const char *icn_errtext;
     DESCR_t icn_errvalue;

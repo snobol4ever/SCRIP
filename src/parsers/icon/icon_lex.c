@@ -787,8 +787,8 @@ static char *ipp_pathfind(IcnPp *pp, const char *name) {
         char *es = strrchr(exe, '/');
         if (es) {
             *es = '\0';
-            for (int k = 0; k < 2 && !hit; k++) {
-                const char *sub = k ? "../corpus/packages/icon/ipl/gincl" : "../corpus/packages/icon/ipl/incl";
+            for (int k = 0; k < 3 && !hit; k++) {
+                const char *sub = k == 2 ? "../corpus/packages/icon/unicon_ipl/incl" : k ? "../corpus/packages/icon/ipl/gincl" : "../corpus/packages/icon/ipl/incl";
                 size_t dl = strlen(exe) + strlen(sub) + 2; char *dir = (char *)ct_alloc(dl);
                 snprintf(dir, dl, "%s/%s", exe, sub); hit = ipp_tryfile(dir, name); ct_drop(dir);
             }
