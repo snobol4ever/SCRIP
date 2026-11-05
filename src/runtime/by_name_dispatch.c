@@ -1465,6 +1465,16 @@ static void rk_seq_reify(DESCR_t *sp, long need) {
     *sp = H.d[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_seq_done(DESCR_t list) {
+    DESCR_t sq = rk_mk_arr(NULL, 0);
+    rk_arr_append((ARBLK_t *) sq.arr, NULVCL);
+    rk_arr_append((ARBLK_t *) sq.arr, (DESCR_t){ .v = DT_RAW, .ptr = (void *) 0 });
+    rk_arr_append((ARBLK_t *) sq.arr, INTVAL(2));
+    rk_arr_append((ARBLK_t *) sq.arr, rk_mark_list(list));
+    ((ARBLK_t *) sq.arr)->proto = rk_proto_seq;
+    return sq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long mode, posv, xmin, xmax; const long *nth; int nnth; } RkRxOpt;
 static int rk_rx_cp_to_byte(const char *s, long cp) { int i = 0; while (cp > 0 && s[i]) { i++; while (((unsigned char) s[i] & 0xC0) == 0x80) i++; cp--; } return i; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3325,7 +3335,7 @@ static int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *m
             } else rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(v, k));
             a = rk_av(recv);
         }
-        *out = res;
+        *out = rk_seq_done(res);
         return 1;
     }
     if ((!strcmp(meth, "unique") || !strcmp(meth, "squish") || !strcmp(meth, "repeated")) && nmargs == 2 && IS_STR_fn(margs[0]) && !strcmp(rk_cstr(margs[0]), "as") && rk_is_code(margs[1])) {
