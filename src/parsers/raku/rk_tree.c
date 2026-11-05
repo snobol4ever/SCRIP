@@ -1669,10 +1669,17 @@ void rkb_contextualize(RkB *b, RkTerm *it, const char *meth) {
     it->kind = TK_TREE; it->t = c; it->in = NULL; it->cnt = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_if_value(RkB *b, tree_t *t) {
+    if (!t || (t->t != TT_IF && t->t != TT_UNLESS) || t->n < 2) return t;
+    tree_t *yes = t->c[1], *no = t->n > 2 ? t->c[2] : var_node(b, "Empty");
+    if (no && (no->t == TT_IF || no->t == TT_UNLESS)) no = rk_if_value(b, no);
+    return t->t == TT_IF ? rkb_ternary(b, t->c[0], yes, no) : rkb_ternary(b, t->c[0], no, yes);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_paren(RkB *b, RkList *L, int nstmts) {
     (void) nstmts;
     if (!L || !L->nitem) return make_call("__rk_arr");
-    if (L->n == 1 && !L->trailing) return el_tree(b, &L->v[0]);
+    if (L->n == 1 && !L->trailing) return rk_if_value(b, el_tree(b, &L->v[0]));
     tree_t *call = make_call("__rk_arr");
     for (int i = 0; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
     return call;

@@ -5015,7 +5015,7 @@ static int r_statement_control(RkP *p, int pos) {
         if (p->build) p->tv = rkb_unless(p->B, p->xb_cond, p->xb_blk, at_lit(p, pos, "without"));
         int t = ws(p, q);
         if (kw(p, t, "else") >= 0 || kw(p, t, "elsif") >= 0 || kw(p, t, "orwith") >= 0) panic_at(p, t, "\"%s\" does not take \"%.*s\", please rewrite using \"if\"", at_lit(p, pos,
-            "unless") ? "unless" : "without", 4, p->s + t);
+            "unless") ? "unless" : "without", kw(p, t, "else") >= 0 ? 4 : kw(p, t, "elsif") >= 0 ? 5 : 6, p->s + t);
         return q;
     }
     if ((e = kok(p, pos, "while")) >= 0 || (e = kok(p, pos, "until")) >= 0) {

@@ -15215,7 +15215,7 @@ static const struct {
     "X::Syntax::Malformed", "X::Syntax" }, { "Bogus statement", "X::Syntax::Malformed", "X::Syntax" }, { "Redeclaration of", "X::Redeclaration", "X::Comp" }, { "already has a method",
     "X::Redeclaration", "X::Comp" }, { "Cannot declare a match variable", "X::Syntax::Variable::Match", "X::Syntax" }, { "Cannot declare a numeric variable", "X::Syntax::Variable::Numeric",
     "X::Syntax" }, { "Name component may not be null", "X::Syntax::Name::Null", "X::Syntax" }, { "Cannot add tokens of category", "X::Syntax::Reserved", "X::Syntax" },
-    { "Opening bracket required for #`", "X::Syntax::Comment::Embedded", "X::Syntax" }, { "does not take \"elsi", "X::Syntax::UnlessElse", "X::Syntax" }, { "Non-variable $ must be backslashed",
+    { "Opening bracket required for #`", "X::Syntax::Comment::Embedded", "X::Syntax" }, { "please rewrite using \"if\"", "X::Syntax::UnlessElse", "X::Syntax" }, { "Non-variable $ must be backslashed",
     "X::Backslash::NonVariableDollar", "X::Syntax" }, { NULL, NULL, NULL } };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_init(void) {
@@ -15258,8 +15258,8 @@ static void rk_exc_init(void) {
     record_register("X::OutOfRange(message,what,got,range)");
     class_inherit("X::OutOfRange", "Exception");
     for (int i = 0; rk_comp_tab[i].cls; i++) {
-        char spec[strlen(rk_comp_tab[i].cls) + 16];
-        snprintf(spec, sizeof spec, "%s(message)", rk_comp_tab[i].cls);
+        char spec[strlen(rk_comp_tab[i].cls) + 32];
+        snprintf(spec, sizeof spec, "%s(message%s)", rk_comp_tab[i].cls, strcmp(rk_comp_tab[i].cls, "X::Syntax::UnlessElse") ? "" : ",keyword");
         record_register(spec);
         class_inherit(rk_comp_tab[i].cls, rk_comp_tab[i].parent);
     }
@@ -15310,8 +15310,18 @@ static const char *rk_exc_umsg(DESCR_t ex) {
     return meth_is_user_proc(proc) ? rmc : (const char *) 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_unless_else(const char *msg) {
+    const char *kq = strstr(msg, "does not take \""), *ks = kq ? kq + 15 : NULL, *ke = ks ? strchr(ks, '"') : NULL;
+    size_t kl = ke ? (size_t) (ke - ks) : 0;
+    char *kw = rt_wsb_alloc(kl + 1);
+    if (kl) memcpy(kw, ks, kl);
+    kw[kl] = 0;
+    return DATCON_fn("X::Syntax::UnlessElse", STRVAL(rt_heap_strdup_c(msg)), STRVAL(kw));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_exc_from_msg(const char *msg) {
     rk_exc_init();
+    if (strstr(msg, "does not take \"") && strstr(msg, "please rewrite using \"if\"")) return rk_unless_else(msg);
     for (int i = 0; rk_exc_tab[i].cls; i++) if (strstr(msg, rk_exc_tab[i].needle)) return DATCON_fn(rk_exc_tab[i].cls, STRVAL(rt_heap_strdup_c(msg)), NULVCL, NULVCL, NULVCL);
     return rk_exc_adhoc(STRVAL(rt_heap_strdup_c(msg)));
 }
@@ -17501,7 +17511,7 @@ int bt___rk_eval(DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
             const char *e0 = err ? err : "syntax error";
             const char *cls = strstr(e0, "Confused") ? "X::Syntax::Confused" : strstr(e0, "not declared") ? "X::Undeclared" : "X::Comp::AdHoc";
             for (int ci = 0; rk_comp_tab[ci].cls; ci++) if (strstr(e0, rk_comp_tab[ci].needle)) { cls = rk_comp_tab[ci].cls; break; }
-            rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(e0))));
+            rk_exc_throw(!strcmp(cls, "X::Syntax::UnlessElse") ? rk_unless_else(e0) : DATCON_fn(cls, STRVAL(rt_heap_strdup_c(e0))));
             *out = FAILDESCR;
             return 1;
         }

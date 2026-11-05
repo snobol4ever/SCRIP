@@ -1911,6 +1911,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_uni_new", GC_RET_DESCR },
     { "rk_uni_reg", GC_RET_VOID },
     { "rk_uni_str", GC_RET_OTHER },
+    { "rk_unless_else", GC_RET_DESCR },
     { "rk_xf_body", GC_RET_OTHER },
     { "rls", GC_RET_OTHER },
     { "rpad_fn", GC_RET_DESCR },
