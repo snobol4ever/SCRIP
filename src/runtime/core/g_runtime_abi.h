@@ -24,6 +24,7 @@ typedef struct rt_hp_fr_t {
     long ngran;
 } rt_hp_fr_t;
 typedef struct { char *owner; long len; int gva_n; int off; int gva_lo; int _pad; } rt_sxt_fr_t;
+struct gc_mk_walk_t { long draining; const char *fc_anchor; const void *fc_map; const char *fc_lo, *fc_hi; long fc_i; const char *fc_c, *fc_e; long fc_kind; const char *sw_p, *sw_hi; };
 struct gc_mk_t {
     struct DESCR_t **wl;
     long wln, wlcap;
@@ -34,14 +35,8 @@ struct gc_mk_t {
     uint64_t *live, *vis;
     struct rt_hblk_t *mhead;
     struct DESCR_t *rng_p;
-    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end, draining;
-    const char *fc_anchor;
-    const void *fc_map;
-    const char *fc_lo, *fc_hi;
-    long fc_i;
-    const char *fc_c, *fc_e;
-    long fc_kind;
-    const char *sw_p, *sw_hi;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end;
+    struct gc_mk_walk_t walk;
     void **hs;
     long hcap, hn, tb_h, code_unsorted, census, maps, diag, trap, plant, verify, telem, chain;
 };

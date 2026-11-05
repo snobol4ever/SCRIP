@@ -854,13 +854,13 @@ _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_
     __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
     __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
     __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
-    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184 &&
-    __builtin_offsetof(gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, fc_map) == 200 && __builtin_offsetof(gc_mk_t, fc_i) == 224 && __builtin_offsetof(gc_mk_t, fc_c) == 232 &&
-    __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && __builtin_offsetof(gc_mk_t, hs) == 272 &&
-    __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 && __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(gc_mk_t, code_unsorted) == 304 &&
-    __builtin_offsetof(gc_mk_t, census) == 312 && __builtin_offsetof(gc_mk_t, maps) == 320 && __builtin_offsetof(VCELL_t, cellp) == 0 && __builtin_offsetof(VCELL_t, tbl) == 8 &&
-    __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 && __builtin_offsetof(VCELL_t, sv) == 40 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 &&
-    GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, walk.draining) == 184 &&
+    __builtin_offsetof(gc_mk_t, walk.fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, walk.fc_map) == 200 && __builtin_offsetof(gc_mk_t, walk.fc_i) == 224 &&
+    __builtin_offsetof(gc_mk_t, walk.fc_c) == 232 && __builtin_offsetof(gc_mk_t, walk.fc_kind) == 248 && __builtin_offsetof(gc_mk_t, walk.sw_p) == 256 &&
+    __builtin_offsetof(gc_mk_t, walk.sw_hi) == 264 && __builtin_offsetof(gc_mk_t, hs) == 272 && __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 &&
+    __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(gc_mk_t, code_unsorted) == 304 && __builtin_offsetof(gc_mk_t, census) == 312 && __builtin_offsetof(gc_mk_t, maps) == 320 &&
+    __builtin_offsetof(VCELL_t, cellp) == 0 && __builtin_offsetof(VCELL_t, tbl) == 8 && __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 &&
+    __builtin_offsetof(VCELL_t, sv) == 40 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 && GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
     __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
     __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
@@ -1608,11 +1608,10 @@ void gc_visit_one(DESCR_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_pseg(rt_hblk_t *h);
-enum { GC_MK_WALK_OFF = __builtin_offsetof(struct gc_mk_t, draining), GC_MK_WALK_LEN = __builtin_offsetof(struct gc_mk_t, sw_hi) + sizeof(((struct gc_mk_t *)0)->sw_hi) - GC_MK_WALK_OFF };
-_Static_assert(GC_MK_WALK_OFF == 184 && GC_MK_WALK_LEN == 88 && __builtin_offsetof(struct gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(struct gc_mk_t, fc_kind) == 248 &&
-    __builtin_offsetof(struct gc_mk_t, sw_p) == 256, "rt_gc_walk_words_a and rt_gc_frame_cells_a (rtx_gc.s) keep a suspended scan's cursor in gc_mk at these offsets; a nested scan restores them");
+_Static_assert(__builtin_offsetof(struct gc_mk_t, walk) == 184 && sizeof(struct gc_mk_walk_t) == 88,
+    "rt_gc_walk_words_a and rt_gc_frame_cells_a (rtx_gc.s) keep a suspended scan's cursor in gc_mk at these offsets; a nested scan restores them");
 void gc_visit_mblk(rt_hblk_t *h) {
-    if (h->type == HB_PSEG) { char sv[GC_MK_WALK_LEN], *mk = (char *)&g_runtime.abi.gc_mk + GC_MK_WALK_OFF; memcpy(sv, mk, GC_MK_WALK_LEN); gc_visit_pseg(h); memcpy(mk, sv, GC_MK_WALK_LEN); return; }
+    if (h->type == HB_PSEG) { struct gc_mk_walk_t sv = g_runtime.abi.gc_mk.walk; gc_visit_pseg(h); g_runtime.abi.gc_mk.walk = sv; return; }
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
 #if RT_DIAG
@@ -3510,9 +3509,9 @@ static void gc_root_cas(void) {
 static void gc_root_gva(void) {
     g_runtime.abi.gc_mk.rng_p = (DESCR_t *)RT_GVA_VA;
     g_runtime.abi.gc_mk.rng_n = (long)g_sxt_gva_n;
-    g_runtime.abi.gc_mk.draining = 1;
+    g_runtime.abi.gc_mk.walk.draining = 1;
     gc_wl_drain();
-    g_runtime.abi.gc_mk.draining = 0;
+    g_runtime.abi.gc_mk.walk.draining = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
@@ -3952,14 +3951,14 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     g_runtime.abi.gc_mk.nslot = 0;
 #endif
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_runtime.gc.gc_rrng_n; i++) if (!g_runtime.gc.gc_rrng[i].hi) pl_tr_gc_root_ball(g_runtime.gc.gc_rrng[i].lo); }
-    g_runtime.abi.gc_mk.draining = 1;
+    g_runtime.abi.gc_mk.walk.draining = 1;
     {
         gc_trail_roots_args_t ta = { g_runtime.gc.gc_rrng, g_runtime.gc.gc_rrng_n, 0, (const char *)0, 0, (const char *)0 };
         extern long rt_gc_trail_roots_run(gc_trail_roots_args_t *);
         for (;;) { long r = rt_gc_trail_roots_run(&ta); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
         n_hb = ta.n_hb;
     }
-    g_runtime.abi.gc_mk.draining = 0;
+    g_runtime.abi.gc_mk.walk.draining = 0;
     gc_wl_drain();
 #if RT_DIAG
     gc_coexpr_records();
@@ -3968,7 +3967,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     gc_coexpr_records();
     gc_stack_segments(g_runtime.gc.gc_seam_sp ? g_runtime.gc.gc_seam_sp : &anchor, ent);
 #endif
-    g_runtime.abi.gc_mk.draining = 0;
+    g_runtime.abi.gc_mk.walk.draining = 0;
     gc_wl_drain();
     gc_root_cas();
     gc_root_gva();
@@ -4030,9 +4029,9 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
 #if RT_DIAG
                 rounds++;
 #endif
-                g_runtime.abi.gc_mk.draining = 1;
+                g_runtime.abi.gc_mk.walk.draining = 1;
                 gc_wl_drain();
-                g_runtime.abi.gc_mk.draining = 0;
+                g_runtime.abi.gc_mk.walk.draining = 0;
             }
         }
 #if RT_DIAG
