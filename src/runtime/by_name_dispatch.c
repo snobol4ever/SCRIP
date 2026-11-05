@@ -2138,6 +2138,7 @@ static int rk_ident_key(const char *k) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_raku_str(DESCR_t v, int in_hash) {
     rk_reify_deep(v, 0);
+    if (!in_hash && v.v == DT_A && v.arr && rk_is_slip(v) && rk_av(v).n == 0) return "Empty";
     if (rk_match_is(v)) {
         if (!(int) FIELD_GET_fn(v, "ok").i) return "Nil";
         DESCR_t pa = FIELD_GET_fn(v, "positional"), na = FIELD_GET_fn(v, "named");
