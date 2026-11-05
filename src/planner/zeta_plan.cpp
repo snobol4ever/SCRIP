@@ -1521,6 +1521,8 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
             { int back = 0;
               for (int u = 0; nodes[ci]->op == IR_BOUND && u < rl && !back; u++) back = nodes[run[u]]->op == IR_UNMARK && nodes[run[u]]->n_operands > 0 && nodes[run[u]]->operands[0] == nodes[ci];
               if (back) break; }
+            { IR_t * tw = nodes[ci]->ω.node; int ti = (rl > 0 && tw && tw->op == IR_MATCH_TRAP) ? nidx(nodes, n, tw) : -1;
+              if (ti >= 0 && claim[ti] < 0) { run[rl] = ti; rpos[ti] = rl; claim[ti] = hi; rl++; } }
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             if (zd_pl_cut(cg, nodes[ci])) break;
             if (zd_edge_retains_g(cg, nodes[ci])) break;
