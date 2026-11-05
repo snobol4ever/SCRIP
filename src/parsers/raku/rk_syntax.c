@@ -3551,6 +3551,11 @@ static int r_keyword_term(RkP *p, int pos) {
     if ((e = kw_end(p, pos, "self")) >= 0) { if (p->build) { rkb_var(p->B, &p->tm, pos, e, NULL, 0); p->tm.cls = 'S'; } return e; }
     if ((e = kw_end(p, pos, "now")) >= 0 && !is_name_n(p, "now", 3)) { if (p->build) rkb_name(p->B, &p->tm, pos, e, e - pos); return e; }
     if ((e = kw_end(p, pos, "time")) >= 0 && !is_name_n(p, "time", 4)) { if (p->build) rkb_name(p->B, &p->tm, pos, e, e - pos); return e; }
+    if (((e = kw_end(p, pos, "make-temp-file")) >= 0 && !is_name_n(p, "make-temp-file", 14)) || ((e = kw_end(p, pos, "make-temp-dir")) >= 0 && !is_name_n(p, "make-temp-dir", 13))) {
+        int ne = e; while (ch(p, ne) == ' ' || ch(p, ne) == '\t') ne++;
+        int nc = ch(p, ne);
+        if (nc == ';' || nc == ')' || nc == '}' || nc == ']' || nc == ',' || nc == '.' || nc == '\n' || nc == '\r' || nc == 0) { if (p->build) rkb_name(p->B, &p->tm, pos, e, e - pos); return e; }
+    }
     if ((e = kw(p, pos, "rand")) >= 0 && ch(p, e) != '-' && ch(p, e) != '\'') {
         int h = e; if (ch(p, h) == '(') h++; h = hs(p, h);
         if (is_digit_cp(cp_at(p, h)) || ch(p, h) == '$') panic_at(p, pos, "Unsupported use of rand(N); in Raku please use N.rand for Num or (^N).pick for Int result");
