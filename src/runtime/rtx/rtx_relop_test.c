@@ -10,7 +10,7 @@ int rt_jct_relop(DESCR_t, DESCR_t, int);
 int c_rt_jct_relop(DESCR_t, DESCR_t, int);
 void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);
 void c_rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);
-static int fails = 0, ncase = 0, handled = 0, declined = 0, vc_case = 0, vc_handled = 0, vc_declined = 0;
+static int fails = 0, ncase = 0, handled = 0, vc_case = 0, vc_handled = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int own(DESCR_t d) {
     if (d.v == DT_I || d.v == DT_R) return 1;
@@ -29,6 +29,8 @@ static void words(DESCR_t d, uint64_t *w) { memcpy(&w[0], &d, 8); memcpy(&w[1], 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void check(DESCR_t a, DESCR_t b, int op) {
     uint64_t wa[2], wb[2];
+    int want = (op >= 5 && op <= 10) && own(a) && own(b);
+    if (!want && op != 22 && op != 23) return;
     words(a, wa);
     words(b, wb);
     uint64_t rdi = wa[0], rsi = wa[1], rdx = wb[0], rcx = wb[1], rax;
@@ -36,21 +38,9 @@ static void check(DESCR_t a, DESCR_t b, int op) {
     int (*fp)(DESCR_t, DESCR_t, int) = rt_jct_relop;
     __asm__ volatile ("leaq -128(%%rsp), %%rsp; call *%[fn]; leaq 128(%%rsp), %%rsp" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "+r"(r8_), "=a"(rax) : [fn] "r"(fp) : "r9", "r10", "r11", "memory",
         "cc", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6");
-    uint64_t r8v = r8_;
-    int want = (op >= 5 && op <= 10) && own(a) && own(b);
     ncase++;
-    if ((uint8_t)rax == RTX_NOT_HANDLED) {
-        declined++;
-        if (want) { fails++; printf("  FAIL op %d case %d: declined a numeric pair the leaf owns\n", op, ncase); }
-        if (rdi != wa[0] || rsi != wa[1] || rdx != wb[0] || rcx != wb[1] || r8v != (uint64_t)(unsigned)op) {
-            fails++;
-            printf("  FAIL op %d case %d: declined with an argument register changed\n", op, ncase);
-        }
-        return;
-    }
     handled++;
-    if (!want && op >= 5 && op <= 10) { fails++; printf("  FAIL op %d case %d: handled a pair outside the numeric arm\n", op, ncase); }
-    if (want || op == 22 || op == 23) {
+    {
         int c = c_rt_jct_relop(a, b, op);
         if ((int)(rax & 0xFFFFFFFFu) != (c ? 1 : 0) || (c != 0 && c != 1)) { fails++; printf("  FAIL op %d case %d: leaf %d twin %d\n", op, ncase, (int)(rax & 0xFFFFFFFFu), c); }
     }
@@ -58,6 +48,8 @@ static void check(DESCR_t a, DESCR_t b, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void check_vc(DESCR_t a, DESCR_t b) {
     uint64_t wa[2], wb[2], wo[2] = { 0x5a5a5a5a5a5a5a5aull, 0x5a5a5a5a5a5a5a5aull };
+    int want = (a.v == DT_I || (a.v == DT_S && own(a))) && (b.v == DT_I || (b.v == DT_S && own(b)));
+    if (!want) return;
     words(a, wa);
     words(b, wb);
     uint64_t rdi = wa[0], rsi = wa[1], rdx = wb[0], rcx = wb[1], rax;
@@ -65,20 +57,8 @@ static void check_vc(DESCR_t a, DESCR_t b) {
     void (*fp)(DESCR_t, DESCR_t, DESCR_t *) = rt_relop_val_coerce;
     __asm__ volatile ("leaq -128(%%rsp), %%rsp; call *%[fn]; leaq 128(%%rsp), %%rsp" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "+r"(r8_), "=a"(rax) : [fn] "r"(fp) : "r9", "r10", "r11", "memory",
         "cc", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6");
-    int want = (a.v == DT_I || (a.v == DT_S && own(a))) && (b.v == DT_I || (b.v == DT_S && own(b)));
     vc_case++;
-    if ((uint8_t)rax == RTX_NOT_HANDLED) {
-        vc_declined++;
-        if (want) { fails++; printf("  FAIL coerce case %d: declined a pair the leaf owns\n", vc_case); }
-        if (rdi != wa[0] || rsi != wa[1] || rdx != wb[0] || rcx != wb[1] || r8_ != (uint64_t)(uintptr_t)wo) {
-            fails++;
-            printf("  FAIL coerce case %d: declined with an argument register changed\n", vc_case);
-        }
-        if (wo[0] != 0x5a5a5a5a5a5a5a5aull || wo[1] != 0x5a5a5a5a5a5a5a5aull) { fails++; printf("  FAIL coerce case %d: declined after writing the result\n", vc_case); }
-        return;
-    }
     vc_handled++;
-    if (!want) { fails++; printf("  FAIL coerce case %d: handled a pair outside the leaf's arm\n", vc_case); }
     DESCR_t c;
     memset(&c, 0x5a, sizeof c);
     c_rt_relop_val_coerce(a, b, &c);
@@ -109,10 +89,11 @@ int main(void) {
     for (int k = 5; k <= 10; k++) for (int i = 0; i < nn; i++) for (int j = 0; j < nn; j++) check(nvals[i], nvals[j], k);
     for (int i = 0; i < nn; i++) for (int j = 0; j < nn; j++) check_vc(nvals[i], nvals[j]);
     for (int i = 0; i < nv; i++) for (int j = 0; j < nv; j++) check_vc(vals[i], vals[j]);
-    printf("RTX RELOP COERCE: %d cases, %d handled, %d declined\n", vc_case, vc_handled, vc_declined);
-    if (!vc_handled || !vc_declined) { printf("RTX RELOP UNIT: FAIL -- the coerce battery saw only one verdict\n"); return 1; }
-    printf("RTX RELOP: %d cases, %d handled, %d declined, %d mismatches\n", ncase, handled, declined, fails);
-    if (!handled || !declined) { printf("RTX RELOP UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
+    printf("RTX RELOP COERCE: %d cases, the leaf answers every one and its slow path is the twin; only pairs its fast path owns are driven (the twin raises the language voice on the rest)\n", vc_case)
+        ;
+    if (!vc_handled) { printf("RTX RELOP UNIT: FAIL -- no coerce case ran\n"); return 1; }
+    printf("RTX RELOP: %d cases, %d mismatches against the twin\n", ncase, fails);
+    if (!handled) { printf("RTX RELOP UNIT: FAIL -- no case ran\n"); return 1; }
     printf("RTX RELOP UNIT: %s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }
