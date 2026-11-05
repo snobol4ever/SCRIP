@@ -16919,6 +16919,13 @@ DESCR_t bt___rk_smartmatch(DESCR_t *args, int nargs) {
                     rx_exec(hprog, kt, (int) strlen(kt), 0, 0, &hm);
                     found = hm.ok;
                 }
+            } else if (args[0].v == DT_A && args[0].arr && !rk_is_range(args[0]) && !rk_is_pair(args[0])) {
+                rk_av_t ka = rk_av(args[0]);
+                for (int ki = 0; ki < ka.n && !found; ki++) {
+                    char kb[64];
+                    const char * ks = to_cstring(ka.el[ki], kb, sizeof kb);
+                    found = table_find_pair_d(hb, ka.el[ki]) != NULL || table_find_pair_d(hb, STRVAL(rt_heap_strdup_c(ks ? ks : ""))) != NULL;
+                }
             } else {
                 char kb[64];
                 const char * ks = to_cstring(args[0], kb, sizeof kb);
