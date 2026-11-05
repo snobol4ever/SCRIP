@@ -2,59 +2,55 @@
 RTX_GATE_DEF(icnvar)
 #define VCELL_TBL        8
 #define VCELL_KEY_D      24
-RTX_FUNC(rt_assign_var)
-    RTX_GATE(icnvar, .Lav_c)
-    jmp     .Lav_go
-RTX_ENTRY(rt_assign_var_strict)
-    RTX_GATE(icnvar, .Lav_c)
-.Lav_go:
+.macro RTX_AV_BODY sfx, dec
+.Lav_go_\sfx:
     mov     rax, [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
-    jne     .Lav_c
+    jne     \dec
     cmp     dl, DT_S
-    je      .Lav_sxt
-.Lav_sxt_done:
+    je      .Lav_sxt_\sfx
+.Lav_sxt_done_\sfx:
     cmp     dil, DT_N
-    jne     .Lav_c
+    jne     \dec
     mov     rax, rdi
     shr     rax, 32
     cmp     eax, 1
-    je      .Lav_cell
+    je      .Lav_cell_\sfx
     test    eax, eax
-    je      .Lav_named
+    je      .Lav_named_\sfx
     cmp     eax, 2
-    je      .Lav_nametrap
-    jmp     .Lav_c
-.Lav_cell:
+    je      .Lav_nametrap_\sfx
+    jmp     \dec
+.Lav_cell_\sfx:
     test    rsi, rsi
-    je      .Lav_c
+    je      \dec
     mov     [rsi], rdx
     mov     [rsi + 8], rcx
     mov     rax, rdx
     mov     rdx, rcx
     ret
-.Lav_nametrap:
+.Lav_nametrap_\sfx:
     test    rsi, rsi
-    je      .Lav_c
+    je      \dec
 #if RT_DIAG
     mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
     cmp     dword ptr [rax + G_RT_OFF_SNO_ETRACE_N], 0
-    jne     .Lav_c
+    jne     \dec
 #endif
     mov     rax, [rsi]
     test    rax, rax
-    jne     .Lav_cellp_store
+    jne     .Lav_cellp_store_\sfx
     mov     rax, [rsi + VCELL_TBL]
     test    rax, rax
-    je      .Lav_c
-    jmp     .Lav_table_store
-.Lav_cellp_store:
+    je      \dec
+    jmp     .Lav_table_store_\sfx
+.Lav_cellp_store_\sfx:
     mov     [rax], rdx
     mov     [rax + 8], rcx
     mov     rax, rdx
     mov     rdx, rcx
     ret
-.Lav_table_store:
+.Lav_table_store_\sfx:
     RTX_CALL_ALIGN(8)
     RTX_PUSH_DYN(rdx, 16, 8)
     RTX_PUSH_DYN(rcx, 24, 8)
@@ -71,11 +67,11 @@ RTX_ENTRY(rt_assign_var_strict)
     mov     rax, rdx
     mov     rdx, rcx
     ret
-.Lav_named:
+.Lav_named_\sfx:
     test    rsi, rsi
-    je      .Lav_c
+    je      \dec
     cmp     byte ptr [rsi], 0
-    je      .Lav_c
+    je      \dec
     RTX_CALL_ALIGN(8)
     RTX_PUSH_DYN(rdx, 16, 8)
     RTX_PUSH_DYN(rcx, 24, 8)
@@ -88,7 +84,7 @@ RTX_ENTRY(rt_assign_var_strict)
     RTX_CALL_UNALIGN(8)
     RTX_GVA_R9
     ret
-.Lav_sxt:
+.Lav_sxt_\sfx:
     RTX_CALL_ALIGN(8)
     RTX_PUSH_DYN(rdi, 16, 8)
     RTX_PUSH_DYN(rsi, 24, 8)
@@ -102,8 +98,18 @@ RTX_ENTRY(rt_assign_var_strict)
     RTX_POP_DYN(rdi, 8, 8)
     RTX_CALL_UNALIGN(8)
     RTX_GVA_R9
-    jmp     .Lav_sxt_done
+    jmp     .Lav_sxt_done_\sfx
+.endm
+RTX_FUNC(rt_assign_var)
+    RTX_GATE(icnvar, .Lav_c)
+    RTX_AV_BODY a, .Lav_c
 .Lav_c:
     RTX_DECLINE
 RTX_ENDF(rt_assign_var)
+RTX_FUNC(rt_assign_var_strict)
+    RTX_GATE(icnvar, .Lavs_c)
+    RTX_AV_BODY s, .Lavs_c
+.Lavs_c:
+    RTX_SLOW(c_rt_assign_var_strict)
+RTX_ENDF(rt_assign_var_strict)
 .section .note.GNU-stack,"",@progbits

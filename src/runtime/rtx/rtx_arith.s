@@ -365,7 +365,6 @@ RTX_FUNC(rt_mul_sno)
     RTX_DECLINE
 RTX_ENDF(rt_mul_sno)
 RTX_FUNC(rt_div)
-RTX_ENTRY(rt_div_strict)
 RTX_ENTRY(rt_div_sno)
 RTX_ENTRY(rt_div_diviso)
 RTX_ENTRY(rt_div_divrc)
@@ -422,8 +421,61 @@ RTX_ENTRY(rt_div_divrc)
 .Ldiv_slow:
     RTX_DECLINE
 RTX_ENDF(rt_div)
+RTX_FUNC(rt_div_strict)
+    RTX_GATE(arith, .Ldivs_slow)
+    cmp     dil, DT_I
+    jne     .Ldivs_mixed
+    cmp     dl, DT_I
+    jne     .Ldivs_mixed
+    cmp     rcx, -1
+    je      .Ldivs_neg
+    test    rcx, rcx
+    je      .Ldivs_slow
+    mov     rax, rsi
+    cqo
+    idiv    rcx
+    mov     rdx, rax
+    mov     eax, DT_I
+    ret
+.Ldivs_neg:
+    mov     rax, rsi
+    neg     rax
+    jo      .Ldivs_slow
+    mov     rdx, rax
+    mov     eax, DT_I
+    ret
+.Ldivs_mixed:
+    cmp     dil, DT_R
+    je      .Ldivs_a_r
+    cmp     dil, DT_I
+    jne     .Ldivs_try
+    cvtsi2sd xmm0, rsi
+    jmp     .Ldivs_b
+.Ldivs_a_r:
+    movq    xmm0, rsi
+.Ldivs_b:
+    cmp     dl, DT_R
+    je      .Ldivs_b_r
+    cmp     dl, DT_I
+    jne     .Ldivs_try
+    cvtsi2sd xmm1, rcx
+    jmp     .Ldivs_go
+.Ldivs_b_r:
+    movq    xmm1, rcx
+.Ldivs_go:
+    xorpd   xmm2, xmm2
+    ucomisd xmm1, xmm2
+    je      .Ldivs_slow
+    divsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Ldivs_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+    RTX_ARITH_INTSTR_DIV(divs, 0)
+.Ldivs_slow:
+    RTX_SLOW(c_rt_div_strict)
+RTX_ENDF(rt_div_strict)
 RTX_FUNC(rt_mod)
-RTX_ENTRY(rt_mod_strict)
 RTX_ENTRY(rt_mod_sno)
 RTX_ENTRY(rt_mod_diviso)
 RTX_ENTRY(rt_mod_divrc)
@@ -489,4 +541,67 @@ RTX_ENTRY(rt_mod_divrc)
 .Lmod_slow:
     RTX_DECLINE
 RTX_ENDF(rt_mod)
+RTX_FUNC(rt_mod_strict)
+    RTX_GATE(arith, .Lmods_slow)
+    cmp     dil, DT_I
+    jne     .Lmods_mixed
+    cmp     dl, DT_I
+    jne     .Lmods_mixed
+    cmp     rcx, -1
+    je      .Lmods_m1
+    test    rcx, rcx
+    je      .Lmods_slow
+    mov     rax, rsi
+    cqo
+    idiv    rcx
+    mov     eax, DT_I
+    ret
+.Lmods_m1:
+    xor     edx, edx
+    mov     eax, DT_I
+    ret
+.Lmods_mixed:
+    cmp     dil, DT_R
+    je      .Lmods_a_r
+    cmp     dil, DT_I
+    jne     .Lmods_try
+    cvtsi2sd xmm0, rsi
+    jmp     .Lmods_b
+.Lmods_a_r:
+    movq    xmm0, rsi
+.Lmods_b:
+    cmp     dl, DT_R
+    je      .Lmods_b_r
+    cmp     dl, DT_I
+    jne     .Lmods_try
+    cvtsi2sd xmm1, rcx
+    jmp     .Lmods_go
+.Lmods_b_r:
+    movq    xmm1, rcx
+.Lmods_go:
+    xorpd   xmm2, xmm2
+    ucomisd xmm1, xmm2
+    je      .Lmods_slow
+    RTX_SUB_RSP(8)
+    movsd   qword ptr [rsp], xmm1
+    fld     qword ptr [rsp]
+    movsd   qword ptr [rsp], xmm0
+    fld     qword ptr [rsp]
+.Lmods_fprem:
+    fprem
+    fnstsw  ax
+    test    ah, 4
+    jnz     .Lmods_fprem
+    fstp    qword ptr [rsp]
+    fstp    st(0)
+    movsd   xmm0, qword ptr [rsp]
+    RTX_ADD_RSP(8)
+    RTX_REAL_FINITE_OR(.Lmods_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+    RTX_ARITH_INTSTR_DIV(mods, 1)
+.Lmods_slow:
+    RTX_SLOW(c_rt_mod_strict)
+RTX_ENDF(rt_mod_strict)
 .section .note.GNU-stack,"",@progbits
