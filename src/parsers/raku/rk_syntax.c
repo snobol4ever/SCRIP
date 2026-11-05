@@ -4400,7 +4400,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     int e, onlystar = 0;
     if (ch(p, q) == ';' && !is_method) {
         if (name_from < 0 || !(name_to - name_from == 4 && !memcmp(p->s + name_from, "MAIN", 4))) panic_at(p, q,
-            "A unit-scoped sub definition is not allowed except on a MAIN sub; please use the block form");
+            "A unit-scoped sub definition is not allowed except on a MAIN sub;\nPlease use the block form. If you did not mean to declare a unit-scoped sub,\nperhaps you accidentally placed a semicolon after routine's definition?");
         if (outer_depth != 1) panic_at(p, q, "A unit-scoped sub definition is not allowed in a subscope");
         e = r_statementlist(p, q + 1);
     }

@@ -15358,7 +15358,7 @@ static const struct {
     "X::Redeclaration", "X::Comp" }, { "Cannot declare a match variable", "X::Syntax::Variable::Match", "X::Syntax" }, { "Cannot declare a numeric variable", "X::Syntax::Variable::Numeric",
     "X::Syntax" }, { "Name component may not be null", "X::Syntax::Name::Null", "X::Syntax" }, { "Cannot add tokens of category", "X::Syntax::Reserved", "X::Syntax" },
     { "Opening bracket required for #`", "X::Syntax::Comment::Embedded", "X::Syntax" }, { "please rewrite using \"if\"", "X::Syntax::UnlessElse", "X::Syntax" }, { "Non-variable $ must be backslashed",
-    "X::Backslash::NonVariableDollar", "X::Syntax" }, { NULL, NULL, NULL } };
+    "X::Backslash::NonVariableDollar", "X::Syntax" }, { "A unit-scoped sub definition is not allowed except on", "X::UnitScope::Invalid", "X::Syntax" }, { NULL, NULL, NULL } };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_init(void) {
     static int rk_exc_reg = 0;
