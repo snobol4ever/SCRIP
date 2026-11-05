@@ -790,6 +790,7 @@ static void collect_conj(const tree_t * t, lc_vec * out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_goal_is_dollar(const tree_t * g);
 static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng, int k, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out);
+static int pl_undo_wrap(const lcx_t * cx, const tree_t * const * gl, int ng, const tree_t ** out);
 static void pl_kill_mark(lcx_t * cx, const tree_t * g, IR_t * nd) {
     int oi = -1;
     if (!cx->kill_gl || !g || !nd || nd->op != IR_CALL_PROC_STAGED || g->t != TT_FNC) return;
@@ -823,6 +824,8 @@ static void pl_kill_scan(const tree_t * t, int gi, int * first, int * last, int 
     for (int i = 0; i < t->n; i++) pl_kill_scan(t->c[i], gi, first, last, nv);
 }
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
+    const tree_t * gu[2 * (ng > 0 ? ng : 1)];
+    { int nu = pl_undo_wrap(cx, gl, ng, gu); if (nu > ng) { gl = gu; ng = nu; } }
     if (cx->cur_key && cx->cutω == cx->clause_cutω) for (int k = 0; k < ng; k++) if (pl_goal_is_dollar(gl[k]))
         return pl_lower_conj_guard(cx, gl, ng, k, γtail, ωbase, entry_out, redo_out, tail_out);
     const tree_t * gt[ng > 0 ? ng : 1];
@@ -1042,6 +1045,19 @@ static tree_t * pl_cc_fnc2(const char * f, tree_t * a0, tree_t * a1) { tree_t * 
 static tree_t * pl_meta_var(const char * nm) { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) nm; return v; }
 static tree_t * pl_cc_ilit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * pl_cc_ite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("->", c, th), el); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_undo_probe_tree(const tree_t * t) { return t && t->line == -2035; }
+static const tree_t * pl_undo_probe(void) {
+    tree_t * c = (tree_t *) pl_atom_goal("$undo_pending"), * th = (tree_t *) pl_atom_goal("$undo_run"), * el = (tree_t *) pl_atom_goal("true"), * ite = pl_cc_ite(c, th, el);
+    c->line = th->line = el->line = ite->line = ite->c[0]->line = -2035;
+    return ite;
+}
+static int pl_undo_wrap(const lcx_t * cx, const tree_t * const * gl, int ng, const tree_t ** out) {
+    int n = 0;
+    if (ng <= 0 || !g_stage2.pl_undo_armed || !cx->cur_key || cx->cur_key[0] == '$' || !strcmp(cx->cur_key, "undo/1")) return ng;
+    for (int k = 0; k < ng; k++) { if (!pl_undo_probe_tree(gl[k]) && !(k > 0 && pl_undo_probe_tree(gl[k - 1]))) out[n++] = pl_undo_probe(); out[n++] = gl[k]; }
+    return n;
+}
 static tree_t * pl_cc_scite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("*->", c, th), el); }
 static tree_t * pl_cc_pi(const char * nm) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(2)); }
 static tree_t * pl_cc_throw(tree_t * formal, const char * ctx_nm) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi(ctx_nm))); }
@@ -1738,7 +1754,8 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     { "set_stream", 2, "$set_stream" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2,
     "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "pipe", 2, "$pipe" }, { "open_null_stream", 1, "$open_null_stream" }, { "$gnu_environ_list", 1, "$gnu_environ_list" },
     { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { "$crv_enter", 1, "$crv_enter" }, { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect",
-    2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" }, { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { "", 0, "" } };
+    2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" }, { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { "$undo_push", 1,
+    "$undo_push" }, { "$undo_take", 1, "$undo_take" }, { "", 0, "" } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm[0]; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
@@ -3899,6 +3916,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
             if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
             if (!strcmp(nm, "$wake_pending")) { IR_t * wk = build(cx, IR_CLEANUP, γnext, ωfail); IR_LIT(wk).ival = CLEANUP_WAKE; return wk; }
+            if (!strcmp(nm, "$undo_pending")) { IR_t * uk = build(cx, IR_CLEANUP, γnext, ωfail); IR_LIT(uk).ival = CLEANUP_UNDO; return uk; }
             if (!strcmp(nm, "$tbl_hdr")) return build(cx, IR_TABLE_HDR, γnext, ωfail);
             if (!strcmp(nm, "nl")) {
                 IR_t * ne = NULL;
@@ -6486,6 +6504,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i], * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (pl_attv_is_key(subj, "$undo_run/0")) g_stage2.pl_undo_armed = 1;
+    }
     prog = pl_attv_rewrite(prog);
     if (!g_stage2.depth_counted && pl_names_depth_limit(prog)) g_stage2.depth_counted = 1;
     const tree_t * prog_src = prog;

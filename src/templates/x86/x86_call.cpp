@@ -278,7 +278,17 @@ std::string x86_pl_ball_rule_omega(int l_go) {
     return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +
         x86_omega("jae") + x86("def", L(l_go));
 }
-std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
+std::string x86_pl_tr_undo_prestep(int l_skip) { return x86("mov", "rax", "r12")
+    + x86("and", "rax", X86_PL_TR_ARENA_MASK)
+    + x86("note", "pl_tr_undo_prestep (CEO-2035 section 10.3): the first unwind since the last probe keeps UNDO_LIST as UNDO_PENDING; the unwind then restores UNDO_LIST to its tail at the mark")
+    + x86("cmp", RDQ("rax", X86_PL_TR_UNDO_PENDING_OFF), 0L)
+    + x86("jne", L(l_skip))
+    + x86("mov", "rcx", RDQ("rax", X86_PL_TR_UNDO_LIST_OFF))
+    + x86("mov", RDQ("rax", X86_PL_TR_UNDO_PENDING_OFF), "rcx")
+    + x86("mov", "rcx", RDQ("rax", X86_PL_TR_UNDO_LIST_OFF + 8))
+    + x86("mov", RDQ("rax", X86_PL_TR_UNDO_PENDING_OFF + 8), "rcx")
+    + x86("def", L(l_skip)); }
+std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86_pl_tr_undo_prestep(l_loop + 7) + x86("mov", "rsi", mark_mem) +
     x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_head() + x86("je", L(l_loop)) + x86_pl_tr_pop_restore() + x86("jmp", L(l_loop)) +
     x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN");

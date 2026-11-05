@@ -84,6 +84,7 @@ typedef struct stage2_t {
     int pl_dialect;
     int pl_scc_aux_n;
     int pl_attv_armed;
+    int pl_undo_armed;
     int depth_counted;
     int rk_infix_armed;
     int pl_apply_macros;

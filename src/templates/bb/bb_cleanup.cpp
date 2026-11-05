@@ -18,11 +18,11 @@ static_assert(PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40, "bb_cleanup re
     + x86("and", (r), X86_PL_TR_ARENA_MASK) \
 )
 #define CL_TERM(w) (_.op_sb >= 0 ? RDQ("rsp", _.op_sb + (w)) : FRQ(_.op_sa + (w)))
-#define CL_NOSLOT() (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE)
+#define CL_NOSLOT() (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE && _.op_ival != CLEANUP_UNDO)
 #define CL_LIVE() (!CL_NOSLOT() && x86_resumable_frame())
 #define CL_KIND() ((int)_.op_ival)
 #define CL_KNOWN() (CL_KIND() == CLEANUP_OPEN || CL_KIND() == CLEANUP_TEST || CL_KIND() == CLEANUP_POP || CL_KIND() == CLEANUP_RESUME \
-    || CL_KIND() == CLEANUP_PROBE || CL_KIND() == CLEANUP_WAKE || CL_KIND() == CLEANUP_DRAIN || CL_KIND() == CLEANUP_BANK || CL_KIND() == CLEANUP_DET)
+    || CL_KIND() == CLEANUP_PROBE || CL_KIND() == CLEANUP_WAKE || CL_KIND() == CLEANUP_UNDO || CL_KIND() == CLEANUP_DRAIN || CL_KIND() == CLEANUP_BANK || CL_KIND() == CLEANUP_DET)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cl_open() {
     return x86("comment", "IR_CLEANUP open: link this frame's setup_call_cleanup record under the trail header's cleanup cell, bank B_s, mark it ACTIVE, keep C")
@@ -130,6 +130,16 @@ static std::string cl_open() {
     + x86_beta_trampoline() \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define cl_undo() ( \
+      x86("comment", "IR_CLEANUP undo: an unwind since the last probe left UNDO_PENDING set (CEO-2035 section 10.4) -- gamma runs '$undo_run', omega goes on") \
+    + x86_alpha() \
+    + cl_hdr("rax") \
+    + x86("cmp", RDQ("rax", X86_PL_TR_UNDO_PENDING_OFF), 0L) \
+    + x86_omega("je") \
+    + x86_gamma() \
+    + x86_beta_trampoline() \
+)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cl_drain() ( \
       x86("comment", "IR_CLEANUP drain: the exhaustion road's head -- every younger record was resolved on the way here, so the record must be the youngest") \
     + x86_alpha() \
@@ -171,6 +181,7 @@ std::string bb_cleanup() {
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_RESUME, cl_resume())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_PROBE, cl_probe())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_WAKE, cl_wake())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_UNDO, cl_undo())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_DRAIN, cl_drain())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_BANK, cl_bank())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_DET, cl_det())

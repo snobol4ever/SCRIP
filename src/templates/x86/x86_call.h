@@ -26,6 +26,8 @@ std::string x86_pl_tr_top_sync();
 #define X86_PL_TR_WAKE_OFF 48L
 #define X86_PL_TR_RESIDUE_OFF 56L
 #define X86_PL_TR_FLOOR_OFF 64L
+#define X86_PL_TR_UNDO_LIST_OFF 80L
+#define X86_PL_TR_UNDO_PENDING_OFF 96L
 #define X86_PL_TR_CATCH_OFF 112L
 std::string x86_pl_choice_mark(const std::string & mark_mem, int l0);
 std::string x86_pl_tr_tidy(int l0);
@@ -39,6 +41,7 @@ std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok);
 std::string x86_pl_ball_rule(int l_go, int l_skip);
 std::string x86_pl_ball_rule_omega(int l_go);
 std::string x86_pl_alarm_probe();
+std::string x86_pl_tr_undo_prestep(int l_skip);
 std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done);
 int x86_trace_hooks_on();
 }

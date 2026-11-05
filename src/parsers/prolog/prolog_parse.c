@@ -1550,6 +1550,10 @@ static const char * const PL_PRELUDE_SRC =
     "'$nth_root_bs'(_,_,L,H,R):-H-L=<1,!,R=L.\n"
     "'$nth_root_bs'(N,I,L,H,R):-M is (L+H)//2,(M^N=<I->'$nth_root_bs'(N,I,M,H,R);'$nth_root_bs'(N,I,L,M,R)).\n"
     "call_residue_vars(G,Vs):-'$crv_enter'(M),'$crv_call'(G),'$crv_collect'(M,Vs).\n"
+    "undo(G):-copy_term(G,C),'$undo_push'(C).\n"
+    "'$undo_run':-'$undo_take'(Gs),'$undo_each'(Gs).\n"
+    "'$undo_each'([]).\n"
+    "'$undo_each'([G|Gs]):-(call(G)->true;true),'$undo_each'(Gs).\n"
     "'$crv_call'(G):-(true;'$crv_adj'(-1),fail),catch(G,E,('$crv_adj'(-1),throw(E))),('$crv_adj'(-1);'$crv_adj'(1),fail).\n"
     "term_attvars(T,Vs):-term_variables(T,V0),'$attv_filter'(V0,A0),'$ta_close'(A0,[],Vs).\n"
     "'$ta_close'([],Seen,Vs):-reverse(Seen,Vs).\n"
@@ -4804,6 +4808,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     if (pl_cv_has(&referenced, "@")) { pl_cv_add(&referenced, "$at_ctx"); pl_cv_add(&referenced, "$meta_add"); }
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
+    if (pl_cv_has(&referenced, "undo")) pl_cv_add(&referenced, "$undo_run");
     if (pl_cv_has(&referenced, "between")) { pl_cv_add(&referenced, "$between_test"); pl_cv_add(&referenced, "$between_big"); }
     if (pl_cv_has(&referenced, "with_output_to")) { pl_cv_add(&referenced, "$wot_stream_sink"); pl_cv_add(&referenced, "$wot_stream"); }
     {

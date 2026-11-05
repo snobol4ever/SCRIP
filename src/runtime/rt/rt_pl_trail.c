@@ -22,6 +22,7 @@ static char *pl_tr_arena_open(char *raw) {
     *pl_tr_wake_slot(base) = 0;
     *pl_tr_residue_slot(base) = 0;
     *pl_tr_floor_slot(base) = (char *)0;
+    memset(base + PL_TR_UNDO_LIST_OFF, 0, 2 * sizeof(DESCR_t));
     *(char **)(base + PL_TR_CATCH_OFF) = (char *)0;
     *(void **)(base + PL_TR_OVF_BALL_OFF) = (void *)0;
     memset(base + PL_TR_ALARM_DUE_OFF, 0, PL_TR_HEADER_BYTES - PL_TR_ALARM_DUE_OFF);
@@ -69,6 +70,9 @@ _Static_assert(PL_TR_HEADER_BYTES == 160 && PL_TR_FLOOR_OFF == 64 && PL_TR_FLOOR
 _Static_assert(PL_TR_ALARM_DUE_OFF == 128 && PL_TR_ALARM_DEADLINE_OFF == 136 && PL_TR_ALARM_TIMER_OFF == 144 && PL_TR_ALARM_MADE_OFF == 152 && sizeof(timer_t) <= 8 &&
     PL_TR_HEADER_BYTES == PL_TR_ALARM_MADE_OFF + 8,
     "the goal interrupt words (ARCH-PROLOG-DATABASE 19.2): DUE int32, DEADLINE monotonic microseconds, the timer, the timer-made word; the SIGALRM handler stores DUE through the timer value");
+_Static_assert(PL_TR_UNDO_LIST_OFF == 80 && PL_TR_UNDO_PENDING_OFF == PL_TR_UNDO_LIST_OFF + 16 && sizeof(DESCR_t) == 16 && PL_TR_UNDO_PENDING_OFF + 16 <= PL_TR_CATCH_OFF,
+    "undo/1 (CEO-2035 section 10.3): UNDO_LIST, the goals recorded and trailed as a binding of this header cell, and UNDO_PENDING, the list as the first unwind since the last probe found it; x86_cal"
+    "l.cpp spells both offsets");
 _Static_assert(PL_TR_CATCH_OFF == 112 && PL_TR_OVF_BALL_OFF == 120 && PL_TR_FLOOR_OFF + 8 <= PL_TR_CATCH_OFF && PL_TR_OVF_BALL_OFF + 8 <= PL_TR_ALARM_DUE_OFF,
     "the catch word (the innermost catch record, a frame address, never a heap pointer; CTO-508) and the prebuilt overflow ball (a heap pointer the trail root visits): bb_bound.cpp, bb_gate.cpp and "
     "rt_stack_overflow.c read them");
@@ -81,6 +85,7 @@ void pl_tr_gc_root_ball(const char *base) {
     if (*slot) rt_gc_visit_raw((const char **)slot);
     { void **ws = pl_tr_wslot_slot(base); if (*ws) rt_gc_visit_raw((const char **)ws); }
     { void **ob = (void **)((char *)base + PL_TR_OVF_BALL_OFF); if (*ob) rt_gc_visit_raw((const char **)ob); }
+    { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr((DESCR_t *)((char *)base + PL_TR_UNDO_LIST_OFF)); rt_gc_visit_descr((DESCR_t *)((char *)base + PL_TR_UNDO_PENDING_OFF)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_tr_refuse, leaf, 0);
@@ -107,7 +112,16 @@ void rt_pl_tr_freeze(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; if (e->cell) *e->cell = e->old; } } return tr; }
+static void pl_tr_undo_prestep(const char *tr) {
+    char *base = pl_tr_base_of(tr);
+    DESCR_t *pend = (DESCR_t *)(base + PL_TR_UNDO_PENDING_OFF);
+    if (!*(uint64_t *)pend) *pend = *(DESCR_t *)(base + PL_TR_UNDO_LIST_OFF);
+}
+char *rt_pl_tr_unwind_to(char *tr, char *mark) {
+    if (tr > mark) pl_tr_undo_prestep(tr);
+    while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; if (e->cell) *e->cell = e->old; } }
+    return tr;
+}
 char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
 void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
 void **pl_tr_wslot_slot(const char *base) { return (void **)((char *)base + PL_TR_WSLOT_OFF); }

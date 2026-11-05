@@ -1583,9 +1583,9 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
     IR_t *nd = nodes[i];
     int kind = (int) IR_LIT(nd).ival;
     IR_t *op0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
-    IR_t *open = kind == CLEANUP_OPEN ? nd : (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE) ? (IR_t *)0 : kind == CLEANUP_BANK ? nd : op0;
+    IR_t *open = kind == CLEANUP_OPEN ? nd : (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_UNDO) ? (IR_t *)0 : kind == CLEANUP_BANK ? nd : op0;
     g_emit.xa_bb_emit_pair_n = 0;
-    if (kind != CLEANUP_PROBE && kind != CLEANUP_WAKE && !emit_resumable_frame())
+    if (kind != CLEANUP_PROBE && kind != CLEANUP_WAKE && kind != CLEANUP_UNDO && !emit_resumable_frame())
         { fprintf(stderr, "FATAL emit: a setup_call_cleanup record (IR_CLEANUP kind %d) in a graph that is not a pinned RBP frame\n", kind); abort(); }
     if (kind == CLEANUP_RESUME) {
         IR_t *g = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
@@ -1596,7 +1596,7 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
     }
     g_emit.op_ival = kind;
     g_emitter.g_zd_cutd = kind == CLEANUP_RESUME ? zrow(nd)->zcut : -1;
-    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? (open == nd ? zrow(nd)->loff : zrow(nd)->o0off) : -1);
+    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_UNDO || kind == CLEANUP_DET) ? 0 : (open ? (open == nd ? zrow(nd)->loff : zrow(nd)->o0off) : -1);
     g_emit.op_sa = -1;
     if (kind == CLEANUP_RESUME && nd->n_operands > 3 && nd->operands[3] && nd->operands[3]->op == IR_BOUND && nidx(nodes, n, nd->operands[3]) >= 0) g_emit.op_sa = zrow(nd->operands[3])->loff;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
@@ -4078,7 +4078,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         bb_emit_x86(x86("test", "r15", "r15"));
         emit_jmp_label(pl_step_ball_lbl, JMP_JNE);
         bb_label_t * pl_uw_top = emit_label_alloc("%s_uw", fam), * pl_uw_done = emit_label_alloc("%s_uwd", fam);
-        bb_emit_x86(x86("mov", "rsi", RDQ(emit_pl_fb(), _kt0 - 64)));
+        bb_emit_x86(x86_pl_tr_undo_prestep(237) + x86("mov", "rsi", RDQ(emit_pl_fb(), _kt0 - 64)));
         emit_label_define_bb(pl_uw_top);
         bb_emit_x86(x86("cmp", "rsi", "r12"));
         emit_jmp_label(pl_uw_done, JMP_JGE);
@@ -4853,7 +4853,7 @@ DESCR_t rt_pl_dop_stamp_date_time(DESCR_t *, int); DESCR_t rt_pl_dop_date_time_s
     DESCR_t rt_pl_dop_create_prolog_flag(DESCR_t *, int);
     DESCR_t rt_pl_dop_flag_meta(DESCR_t *, int);
     DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
-    DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int);
+    DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int); DESCR_t rt_pl_dop_undo_push(DESCR_t *, int); DESCR_t rt_pl_dop_undo_take(DESCR_t *, int);
     DESCR_t rt_pl_dop_copy_keep(DESCR_t *, int); DESCR_t rt_pl_dop_factorize_term(DESCR_t *, int);
     DESCR_t rt_pl_dop_pl_backtrace(DESCR_t *, int);
 DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term_nat(DESCR_t *, int);
@@ -5039,7 +5039,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
         { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
         { "$crv_enter", 1, "rt_pl_dop_crv_enter", rt_pl_dop_crv_enter }, { "$crv_adj", 1, "rt_pl_dop_crv_adj", rt_pl_dop_crv_adj },
-        { "$crv_collect", 2, "rt_pl_dop_crv_collect", rt_pl_dop_crv_collect },
+        { "$crv_collect", 2, "rt_pl_dop_crv_collect", rt_pl_dop_crv_collect }, { "$undo_push", 1, "rt_pl_dop_undo_push", rt_pl_dop_undo_push },
+        { "$undo_take", 1, "rt_pl_dop_undo_take", rt_pl_dop_undo_take },
         { "$copy_keep", 4, "rt_pl_dop_copy_keep", rt_pl_dop_copy_keep }, { "$pl_backtrace", 2, "rt_pl_dop_pl_backtrace", rt_pl_dop_pl_backtrace }, { "$factorize_term", 3, "rt_pl_dop_factorize_term",
             rt_pl_dop_factorize_term },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },

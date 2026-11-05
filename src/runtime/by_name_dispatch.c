@@ -8569,6 +8569,24 @@ PL_CX_LEAF_HEAD(attv_take, 1) ok = rt_pl_attv_take_cell(&args[0], cx); PL_CX_LEA
 PL_CX_LEAF_HEAD(crv_enter, 1) ok = rt_pl_crv_enter_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(crv_adj, 1) ok = rt_pl_crv_adj_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(crv_collect, 2) ok = rt_pl_crv_collect_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_undo_push_cell(DESCR_t *ag, pl_tr_ctx_t *cx) {
+    char *base = pl_tr_base_of(cx->tr);
+    DESCR_t *list = (DESCR_t *)(base + PL_TR_UNDO_LIST_OFF), g = *plw_cell_deref(plw_entry(ag)), c;
+    c = pl_cons(g, *list);
+    pl_tr_push(cx, list);
+    *list = c;
+    return 1;
+}
+static int rt_pl_undo_take_cell(DESCR_t *av, pl_tr_ctx_t *cx) {
+    char *base = pl_tr_base_of(cx->tr);
+    DESCR_t *pend = (DESCR_t *)(base + PL_TR_UNDO_PENDING_OFF), *list = (DESCR_t *)(base + PL_TR_UNDO_LIST_OFF), nil = pl_nil(), head = nil, *tail = &head, l = *pend;
+    memset(pend, 0, sizeof *pend);
+    for (; l.v == (DTYPE_t)DT_PLREF && !(l.v == list->v && l.p == list->p); l = ((DESCR_t *)l.p)[1]) { *tail = pl_cons(((DESCR_t *)l.p)[0], nil); tail = &((DESCR_t *)tail->p)[1]; }
+    return plw_unify_cell_val(plw_entry(av), head, cx);
+}
+PL_CX_LEAF_HEAD(undo_push, 1) ok = rt_pl_undo_push_cell(&args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(undo_take, 1) ok = rt_pl_undo_take_cell(&args[0], cx); PL_CX_LEAF_TAIL
 static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t *cx, int trail) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
