@@ -18000,6 +18000,78 @@ DESCR_t bt___rk_gist_named_capture(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt___rk_say_capture(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_say_capture(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+extern int fh_capture_begin(char **, size_t *, int *);
+extern void fh_capture_end(int, int);
+DESCR_t bt___rk_undef(DESCR_t *args, int nargs) { { (void) args; (void) nargs; return NULVCL; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_arr_at(DESCR_t *args, int nargs) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if (nargs == 2) { rk_arr_at_impl(args, out); return _bo; }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt___rk_byref_assign(DESCR_t *args, int nargs) { if (nargs == 2) { return rk_byref_assign_impl(args); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_cell_of(DESCR_t *args, int nargs) { if (nargs == 1 && rk_is_cell(args[0])) { return args[0]; } if (nargs == 1) { return rk_box_impl(args); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_box(DESCR_t *args, int nargs) { if (nargs == 1) { return rk_box_impl(args); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___blk_ref(DESCR_t *args, int nargs) { if (nargs == 1) { return rk_blk_ref_impl(args); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___param_check(DESCR_t *args, int nargs) {
+    if (nargs >= 2) {
+        const char *ptype = VARVAL_fn(args[0]);
+        if (!ptype) ptype = "Any";
+        const char *pname = (nargs >= 3) ? VARVAL_fn(args[2]) : "?";
+        if (!pname) pname = "?";
+        if (!rk_param_ok(args)) {
+            extern void rt_script_die_surface(const char *msg);
+            char m[fmt_len("Type check failed in binding to parameter '$%s'; expected %s", pname, ptype)];
+            snprintf(m, sizeof m, "Type check failed in binding to parameter '$%s'; expected %s", pname, ptype);
+            rt_script_die_surface(m);
+            return FAILDESCR;
+        }
+        return args[1];
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt___rk_range_arr(DESCR_t *args, int nargs) {
+    if ((nargs == 2 || nargs == 3)) { return rk_range_arr_make_fl(args[0], args[1], nargs == 3 ? (int) args[2].i : 0); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt___rk_assign_check(DESCR_t *args, int nargs) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if (nargs == 4) {
+        const char *ty = rk_cstr(args[0]), *nm = rk_cstr(args[2]);
+        DESCR_t v = args[1];
+        *out = v;
+        if (rk_assign_ok(args)) return _bo;
+        const char *vt = rk_value_type(v);
+        rk_exc_init();
+        const char *got = rk_raku_str(v, 0);
+        int el = IS_INT_fn(args[3]) && args[3].i;
+        char *msg = el ? rt_heap_fmt("Type check failed for an element of %s; expected %s but got %s (%s)", nm, ty, vt, got) :
+            rt_heap_fmt("Type check failed in assignment to $%s; expected %s but got %s (%s)", nm, ty, vt, got);
+        rk_exc_throw(DATCON_fn("X::TypeCheck::Assignment", STRVAL(msg), STRVAL(rt_heap_strdup_c(vt)), STRVAL(rt_heap_strdup_c(ty)), STRVAL(rt_heap_strdup_c(nm))));
+        return FAILDESCR;
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt___rk_elem_put(DESCR_t *args, int nargs) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if (nargs == 4) { rk_elem_put_impl(args, out); return _bo; }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt___rk_iter_src(DESCR_t *args, int nargs) { if (nargs <= 1) { return rk_iter_src_impl(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static DESCR_t bta___rk_map_append(DESCR_t *args, int nargs, int _bop) { if (rk_append_ok(args, nargs)) { return rk_append_impl(args, (_bop == 0)); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_grep_append(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_map_append(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_map_append(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_map_append(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_arr_make(DESCR_t *args, int nargs) { if ((nargs == 1 || nargs == 2)) { return pas_arr_make(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_arr_get(DESCR_t *args, int nargs) { if (nargs == 2) { return pas_arr_get(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_arr_set(DESCR_t *args, int nargs) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if (nargs >= 3) { rk_arr_set_impl(args, out); return _bo; }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_arr_set_pure(DESCR_t *args, int nargs) { if (nargs >= 3) { return pas_arr_set(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (fn[0] == '_' && fn[1] == '_' && fn[2] == 'r' && fn[3] == 'k' && fn[4] == '_' && rk_fast_rat_builtin(fn, args, nargs, out)) return 1;
 #if RT_DIAG
@@ -18043,55 +18115,19 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     extern void fh_capture_end(int, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-    if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__rk_arr_at") && nargs == 2) { rk_arr_at_impl(args, out); return 1; }
-    if (!strcmp(fn, "__rk_byref_assign") && nargs == 2) { *out = rk_byref_assign_impl(args); return 1; }
-    if (!strcmp(fn, "__rk_cell_of") && nargs == 1 && rk_is_cell(args[0])) { *out = args[0]; return 1; }
-    if ((!strcmp(fn, "__rk_box") || !strcmp(fn, "__rk_cell_of")) && nargs == 1) { *out = rk_box_impl(args); return 1; }
-    if (!strcmp(fn, "__blk_ref") && nargs == 1) { *out = rk_blk_ref_impl(args); return 1; }
-    if (!strcmp(fn, "__param_check") && nargs >= 2) {
-        const char *ptype = VARVAL_fn(args[0]);
-        if (!ptype) ptype = "Any";
-        const char *pname = (nargs >= 3) ? VARVAL_fn(args[2]) : "?";
-        if (!pname) pname = "?";
-        if (!rk_param_ok(args)) {
-            extern void rt_script_die_surface(const char *msg);
-            char m[fmt_len("Type check failed in binding to parameter '$%s'; expected %s", pname, ptype)];
-            snprintf(m, sizeof m, "Type check failed in binding to parameter '$%s'; expected %s", pname, ptype);
-            rt_script_die_surface(m);
-            *out = FAILDESCR;
-            return 1;
-        }
-        *out = args[1];
-        return 1;
+    {
+        int _br = bt_row_of(BT_VOC_RK, fn, (unsigned)strlen(fn));
+        if (_br >= 0 && g_bt_leaf[_br]) {
+            const DESCR_t _bv = g_bt_leaf[_br](args, nargs);
+            if (_bv.v != RTX_NOT_HANDLED) { *out = _bv; return 1; }
+        } else if (_br >= 0 && g_bt_open[_br] && g_bt_open[_br](args, nargs, out, rq)) return 1;
     }
     if (fn[0] == '_' && fn[1] == '_' && fn[2] == 'p' && fn[3] == 'a' && fn[4] == 's' && fn[5] == '_' && pas_bi_chain(fn, args, nargs, out, rq)) return 1;
-    if (!strcmp(fn, "__rk_range_arr") && (nargs == 2 || nargs == 3)) { *out = rk_range_arr_make_fl(args[0], args[1], nargs == 3 ? (int) args[2].i : 0); return 1; }
-    if (!strcmp(fn, "__rk_assign_check") && nargs == 4) {
-        const char *ty = rk_cstr(args[0]), *nm = rk_cstr(args[2]);
-        DESCR_t v = args[1];
-        *out = v;
-        if (rk_assign_ok(args)) return 1;
-        const char *vt = rk_value_type(v);
-        rk_exc_init();
-        const char *got = rk_raku_str(v, 0);
-        int el = IS_INT_fn(args[3]) && args[3].i;
-        char *msg = el ? rt_heap_fmt("Type check failed for an element of %s; expected %s but got %s (%s)", nm, ty, vt, got) :
-            rt_heap_fmt("Type check failed in assignment to $%s; expected %s but got %s (%s)", nm, ty, vt, got);
-        rk_exc_throw(DATCON_fn("X::TypeCheck::Assignment", STRVAL(msg), STRVAL(rt_heap_strdup_c(vt)), STRVAL(rt_heap_strdup_c(ty)), STRVAL(rt_heap_strdup_c(nm))));
-        *out = FAILDESCR;
-        return 1;
-    }
-    if (!strcmp(fn, "__rk_elem_put") && nargs == 4) { rk_elem_put_impl(args, out); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if ((!strncmp(fn, "__rk_set_", 9) || !strncmp(fn, "__rk_bag_", 9)) && nargs == 2 && rk_qh_fn(fn, args, nargs, out)) return 1;
-    if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) { *out = rk_iter_src_impl(args, nargs); return 1; }
-    if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && rk_append_ok(args, nargs)) { *out = rk_append_impl(args, fn[5] == 'm'); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-    if (!strcmp(fn, "arr_make") && (nargs == 1 || nargs == 2)) { *out = pas_arr_make(args, nargs); return 1; }
-    if (!strcmp(fn, "arr_get") && nargs == 2) { *out = pas_arr_get(args, nargs); return 1; }
     if (!strcmp(fn, "__pas_elem_ref") && nargs == 3) { *out = pas_elem_ref(args, nargs); return 1; }
     if (!strcmp(fn, "__pas_ref_val") && nargs == 1) { *out = pas_ref_val(args, nargs); return 1; }
     if (!strcmp(fn, "str_substr") || (!strcmp(fn, "substr") && nargs >= 2)) {
@@ -18639,8 +18675,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "grammar_parse") && nargs == 2) { const char *gname = VARVAL_fn(args[0]); const char *subj = VARVAL_fn(args[1]); return grammar_parse_core(gname, subj, out, 0, (DESCR_t) { 0 }); }
-    if (!strcmp(fn, "__rk_arr_set") && nargs >= 3) { rk_arr_set_impl(args, out); return 1; }
-    if (!strcmp(fn, "arr_set_pure") && nargs >= 3) { *out = pas_arr_set(args, nargs); return 1; }
     if ((!strcmp(fn, "hash_get") || !strcmp(fn, "hash_exists") || !strcmp(fn, "hash_delete")) && nargs >= 2 && rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) {
         rk_av_t ks = rk_av(args[1]);
         DESCR_t *r = ks.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ks.n) : NULL;

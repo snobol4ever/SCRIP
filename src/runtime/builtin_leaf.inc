@@ -166,12 +166,15 @@ extern DESCR_t bt_system(DESCR_t * args, int nargs) __attribute__((weak, visibil
 extern DESCR_t bt_tan(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_where(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___blk_close(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___blk_ref(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___param_check(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_actions_plan(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_adjacent_pairs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_after(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_all_true(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_approx(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_arr_at(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_first(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_flat(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_grep(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -183,17 +186,21 @@ extern DESCR_t bt___rk_arr_max(DESCR_t * args, int nargs) __attribute__((weak, v
 extern DESCR_t bt___rk_arr_min(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_pick(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_reduce(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_arr_set(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_slice(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_slip(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_sort(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_spread(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_values(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_arr_xx(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_assign_check(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_bag_sub(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_bag_sup(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_before(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_bor(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_box(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_bxor(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_byref_assign(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_byval(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_cap_named(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_cap_pos(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -207,6 +214,7 @@ extern DESCR_t bt___rk_destructure(DESCR_t * args, int nargs) __attribute__((wea
 extern DESCR_t bt___rk_die_m(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_div(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_elem_bind(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_elem_put(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_elem_ref(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_enum(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_eqv(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -220,6 +228,7 @@ extern DESCR_t bt___rk_gcd(DESCR_t * args, int nargs) __attribute__((weak, visib
 extern DESCR_t bt___rk_gist_capture(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_gist_named_capture(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_given_mod(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_grep_append(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_hash(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_hkeys(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_hyper_done(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -235,6 +244,7 @@ extern DESCR_t bt___rk_is_code(DESCR_t * args, int nargs) __attribute__((weak, v
 extern DESCR_t bt___rk_item1(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_iter_done(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_iter_has(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_iter_src(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_jct_all(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_jct_any(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_jct_none(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -247,6 +257,7 @@ extern DESCR_t bt___rk_lbxor(DESCR_t * args, int nargs) __attribute__((weak, vis
 extern DESCR_t bt___rk_lcm(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_leg(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_make(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_map_append(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_match_clear(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_match_last(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_materialize(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -278,6 +289,7 @@ extern DESCR_t bt___rk_produce_last(DESCR_t * args, int nargs) __attribute__((we
 extern DESCR_t bt___rk_produce_step(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_radix_list(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_radix_str(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_range_arr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_range_val(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_ratlit(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_ratnew(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -345,6 +357,7 @@ extern DESCR_t bt___rk_to_array(DESCR_t * args, int nargs) __attribute__((weak, 
 extern DESCR_t bt___rk_to_hash(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_typeobj(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_unany(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_undef(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_unpack_named(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_unset(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___rk_when_match(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -359,8 +372,11 @@ extern DESCR_t bt___trace_stmt(DESCR_t * args, int nargs) __attribute__((weak, v
 extern DESCR_t bt___trace_tap_off(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt___trace_value(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_append_pure(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_arr_get(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_arr_init(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_arr_last(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_arr_make(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_arr_set_pure(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_arr_tail(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_array_reverse(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_array_sort(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -400,6 +416,10 @@ extern DESCR_t bt_meth_call(DESCR_t * args, int nargs) __attribute__((weak, visi
 extern DESCR_t bt_nextsame(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_nfa_accepts(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_note(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_nqpx3Ax3Abindattr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_nqpx3Ax3Abindattr_i(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_nqpx3Ax3Abindattr_n(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_nqpx3Ax3Abindattr_s(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_pick(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_prepend_pure(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_print_fh(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -564,46 +584,48 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     0, 0, 0, bt_x5Bx3Ax5D, bt_x5C, bt_x5Cx2B, bt_x5E, bt_x7C, bt_x7Cx7C, bt_x7Cx7Cx7C, bt_ICNx24REFRESH, bt_ICNx24VARNAME, bt_acos, bt_asin, bt_chdir, bt_cos, bt_delay, bt_display, bt_exp,
     bt_function, bt_getch, bt_getche, bt_kbhit, bt_loadfunc, bt_rename, bt_seek, 0, bt_sin, bt_system, bt_tan, bt_where, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___blk_close, 0, 0, 0, 0, bt___rk_actions_plan, bt___rk_adjacent_pairs, bt___rk_after,
-    bt___rk_all_true, bt___rk_approx, bt___rk_arr, 0, bt___rk_arr_first, bt___rk_flat, bt___rk_arr_grep, bt___rk_arr_keys, bt___rk_arr_kv, bt___rk_arr_lit, bt___rk_arr_map, bt___rk_arr_max,
-    bt___rk_arr_min, bt___rk_arr_pick, bt___rk_arr_reduce, 0, bt___rk_arr_slice, bt___rk_arr_slip, bt___rk_arr_sort, bt___rk_arr_spread, bt___rk_arr_values, bt___rk_arr_xx, 0, bt___rk_bag_sub,
-    bt___rk_bag_sup, bt___rk_before, bt___rk_bor, 0, bt___rk_bxor, 0, bt___rk_byval, bt___rk_cap_named, bt___rk_cap_pos, bt___rk_cell_of, bt___rk_cmp3, bt___rk_cmpg, bt___rk_coll, bt___rk_cross,
-    bt___rk_deref, bt___rk_destructure, bt___rk_die_m, bt___rk_div, bt___rk_elem_bind, 0, bt___rk_elem_ref, bt___rk_enum, bt___rk_eqv, 0, bt___rk_exc_umeth, bt___rk_exc_umsg, bt___rk_exend,
-    bt___rk_exit, bt___rk_failure, bt___rk_first_shape, bt___rk_flat, bt___rk_gcd, bt___rk_gist_capture, bt___rk_gist_named_capture, 0, bt___rk_given_mod, 0, bt___rk_hash, bt___rk_hkeys,
-    bt___rk_hyper_done, bt___rk_hyper_incdec, bt___rk_hyper_meth, bt___rk_hyper_shape, bt___rk_hyper_zip, bt___rk_ident, bt___rk_in_range, bt___rk_intdiv, bt___rk_io, bt___rk_is_code, bt___rk_item1,
-    bt___rk_iter_done, bt___rk_iter_has, 0, bt___rk_jct_all, bt___rk_jct_any, bt___rk_jct_none, bt___rk_jct_one, bt___rk_keyed_done, bt___rk_keyed_init, bt___rk_keyed_step, bt___rk_lbor,
-    bt___rk_lbxor, bt___rk_lcm, bt___rk_leg, bt___rk_make, 0, bt___rk_match_clear, bt___rk_match_last, bt___rk_materialize, bt___rk_max, bt___rk_min, bt___rk_mkbool, bt___rk_mkcplx_i, bt___rk_mod, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___blk_close, 0, bt___blk_ref, 0, bt___param_check, bt___rk_actions_plan,
+    bt___rk_adjacent_pairs, bt___rk_after, bt___rk_all_true, bt___rk_approx, bt___rk_arr, bt___rk_arr_at, bt___rk_arr_first, bt___rk_flat, bt___rk_arr_grep, bt___rk_arr_keys, bt___rk_arr_kv,
+    bt___rk_arr_lit, bt___rk_arr_map, bt___rk_arr_max, bt___rk_arr_min, bt___rk_arr_pick, bt___rk_arr_reduce, bt___rk_arr_set, bt___rk_arr_slice, bt___rk_arr_slip, bt___rk_arr_sort,
+    bt___rk_arr_spread, bt___rk_arr_values, bt___rk_arr_xx, bt___rk_assign_check, bt___rk_bag_sub, bt___rk_bag_sup, bt___rk_before, bt___rk_bor, bt___rk_box, bt___rk_bxor, bt___rk_byref_assign,
+    bt___rk_byval, bt___rk_cap_named, bt___rk_cap_pos, bt___rk_cell_of, bt___rk_cmp3, bt___rk_cmpg, bt___rk_coll, bt___rk_cross, bt___rk_deref, bt___rk_destructure, bt___rk_die_m, bt___rk_div,
+    bt___rk_elem_bind, bt___rk_elem_put, bt___rk_elem_ref, bt___rk_enum, bt___rk_eqv, 0, bt___rk_exc_umeth, bt___rk_exc_umsg, bt___rk_exend, bt___rk_exit, bt___rk_failure, bt___rk_first_shape,
+    bt___rk_flat, bt___rk_gcd, bt___rk_gist_capture, bt___rk_gist_named_capture, 0, bt___rk_given_mod, bt___rk_grep_append, bt___rk_hash, bt___rk_hkeys, bt___rk_hyper_done, bt___rk_hyper_incdec,
+    bt___rk_hyper_meth, bt___rk_hyper_shape, bt___rk_hyper_zip, bt___rk_ident, bt___rk_in_range, bt___rk_intdiv, bt___rk_io, bt___rk_is_code, bt___rk_item1, bt___rk_iter_done, bt___rk_iter_has,
+    bt___rk_iter_src, bt___rk_jct_all, bt___rk_jct_any, bt___rk_jct_none, bt___rk_jct_one, bt___rk_keyed_done, bt___rk_keyed_init, bt___rk_keyed_step, bt___rk_lbor, bt___rk_lbxor, bt___rk_lcm,
+    bt___rk_leg, bt___rk_make, bt___rk_map_append, bt___rk_match_clear, bt___rk_match_last, bt___rk_materialize, bt___rk_max, bt___rk_min, bt___rk_mkbool, bt___rk_mkcplx_i, bt___rk_mod, 0,
     bt___rk_new_Bag, bt___rk_new_Mix, bt___rk_new_Set, bt___rk_new_alloc, bt___rk_new_check, bt___rk_new_defaults, bt___rk_not_smartmatch, bt___rk_notbool, bt___rk_numify, bt___rk_pair,
     bt___rk_phaser_, bt___rk_phaser_do, bt___rk_pow, bt___rk_pre, bt___rk_pre_src, bt___rk_printf, bt___rk_printf_d, bt___rk_produce_done, bt___rk_produce_init, bt___rk_produce_last,
-    bt___rk_produce_step, bt___rk_radix_list, bt___rk_radix_str, 0, bt___rk_range_val, bt___rk_ratlit, bt___rk_ratnew, bt___rk_reduce_add, bt___rk_reduce_cat, bt___rk_reduce_max, bt___rk_reduce_min,
-    bt___rk_reduce_mul, bt___rk_reduce_sub, bt___rk_regex, bt___rk_rep, bt___rk_rethrow, bt___rk_run_child, bt___rk_rw_refuse, bt___rk_rxalt, bt___rk_rxq, bt___rk_rxsrc, bt___rk_rxsrcalt,
-    bt___rk_say_capture, bt___rk_say_named_capture, bt___rk_sband, bt___rk_sbor, bt___rk_seq, bt___rk_seq_arity, bt___rk_seq_new, bt___rk_seq_next, bt___rk_seq_plan, bt___rk_seq_stop,
-    bt___rk_set_cont, bt___rk_set_dif, bt___rk_set_elem, bt___rk_set_eq, bt___rk_set_int, bt___rk_set_mul, bt___rk_set_ncont, bt___rk_set_ne, bt___rk_set_nelem, bt___rk_set_npsub, bt___rk_set_npsup,
-    bt___rk_set_nsub, bt___rk_set_nsup, bt___rk_set_psub, bt___rk_set_psup, bt___rk_set_sub, bt___rk_set_sum, bt___rk_set_sup, bt___rk_set_sym, bt___rk_set_uni, bt___rk_shift_val, bt___rk_sink,
-    bt___rk_smartmatch, bt___rk_sort_by_keys, bt___rk_sprintf, bt___rk_sprintf_d, bt___rk_st, 0, 0, bt___rk_subscr_adv, bt___rk_subst_close, bt___rk_subst_next, bt___rk_subst_open, bt___rk_subst_put,
-    bt___rk_substr_replace, bt___rk_take_dyn, bt___rk_tl_got, bt___rk_to_array, bt___rk_to_hash, bt___rk_typeobj, bt___rk_unany, 0, bt___rk_coll, bt___rk_unpack_named, bt___rk_unset,
-    bt___rk_when_match, bt___rk_where, bt___rk_with_mod, bt___rk_without_mod, bt___rk_xor, bt___rk_zip, bt___trace_call, bt___trace_return, bt___trace_stmt, bt___trace_tap_off, bt___trace_value,
-    bt_append_pure, 0, bt_arr_init, bt_arr_last, 0, 0, bt_arr_tail, bt_array_reverse, bt_array_sort, bt_callsame, bt_callwith, bt_chars, bt_date, bt_die, bt_dir, bt_double_quotes, bt_elems,
-    bt_exc_check, bt_exc_clear, bt_exc_get, bt_fh_capture, bt_field_get_pub, bt_field_set, bt_field_set_pub, bt_grammar_parse, bt_grammar_register, bt_hash_delete, bt_hash_exists, bt_hash_get,
-    bt_hash_keys, bt_hash_kv, bt_hash_pairs, bt_hash_set_pure, bt_hash_values, bt_head, bt_index, bt_join, bt_lc, bt_chars, bt_lines, bt_makex2Dtempx2Ddir, bt_makex2Dtempx2Dfile, bt_meth_call,
-    bt_nextsame, bt_nfa_accepts, bt_note, 0, 0, 0, 0, 0, 0, bt_pick, bt_prepend_pure, bt_print_fh, bt_printf, bt_push_pure, bt_re_capture, bt_re_match, bt_re_match_global, bt_re_matchx,
-    bt_re_named_capture, bt_re_subst, bt_re_test, bt_re_testx, bt_re_trans, bt_rindex, bt_rk_cloop_cond, bt_rk_cloop_incr, bt_rk_loop_body, bt_rk_repeat_body, bt_rk_repeat_cond, bt_rk_until_cond,
-    bt_rk_while_cond, bt_rk_write, bt_rk_write_arr, bt_rk_write_list, bt_rk_writes, bt_say_fh, bt_die, bt_sleep, bt_slurp, bt_sprintf, bt_spurt, bt_srand, bt_str_index, bt_lc, bt_str_rindex,
-    bt_str_substr, bt_str_trim, bt_uc, bt_substr, bt_sum, bt_syntax_error, bt_syntax_errors, bt_tail, bt_try_enter, bt_try_exit, bt_uc, bt_unique, bt_unshift_pure, bt_user, bt_val, bt_wall_ms,
-    bt_wall_us, bt_Bool, bt_IO, bt_Int, bt_Num, bt_Numeric, bt_Real, bt_Str, bt_WHAT, bt_x5Ename, bt_abs, bt_all, bt_antipairs, bt_any, bt_atan2, bt_base, bt_batch, bt_ceiling, bt_chars, bt_chomp,
-    bt_chop, bt_chr, bt_chrs, bt_codes, bt_comb, bt_combinations, bt_contains, bt_cos, bt_cosec, bt_cotan, bt_defined, bt_elems, bt_endsx2Dwith, bt_exp, bt_fc, bt_flip, bt_floor, bt_fmt, bt_gist,
-    bt_hash, bt_index, bt_invert, bt_isx2Dlazy, bt_isx2Dprime, bt_item, bt_join, bt_key, bt_kv, bt_lc, bt_lines, bt_log, bt_maxpairs, bt_message, bt_minmax, bt_minpairs, bt_name, bt_none, bt_not,
-    bt_nude, bt_one, bt_ord, bt_ords, bt_pairs, bt_pairup, bt_parsex2Dbase, bt_payload, bt_perl, bt_permutations, bt_pick, bt_polymod, bt_pred, bt_produce, bt_raku, bt_rand, bt_repeated, bt_rindex,
-    bt_roll, bt_rotate, bt_rotor, bt_round, bt_samecase, bt_sec, bt_sign, bt_sin, bt_skip, bt_so, bt_split, bt_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_substr, bt_substrx2Drw, bt_succ, bt_sum,
-    bt_tail, bt_tan, bt_tc, bt_tclc, bt_trans, bt_trim, bt_trimx2Dleading, bt_trimx2Dtrailing, bt_truncate, bt_uc, bt_unique, bt_value, bt_wordcase, bt_words, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    bt___rk_produce_step, bt___rk_radix_list, bt___rk_radix_str, bt___rk_range_arr, bt___rk_range_val, bt___rk_ratlit, bt___rk_ratnew, bt___rk_reduce_add, bt___rk_reduce_cat, bt___rk_reduce_max,
+    bt___rk_reduce_min, bt___rk_reduce_mul, bt___rk_reduce_sub, bt___rk_regex, bt___rk_rep, bt___rk_rethrow, bt___rk_run_child, bt___rk_rw_refuse, bt___rk_rxalt, bt___rk_rxq, bt___rk_rxsrc,
+    bt___rk_rxsrcalt, bt___rk_say_capture, bt___rk_say_named_capture, bt___rk_sband, bt___rk_sbor, bt___rk_seq, bt___rk_seq_arity, bt___rk_seq_new, bt___rk_seq_next, bt___rk_seq_plan,
+    bt___rk_seq_stop, bt___rk_set_cont, bt___rk_set_dif, bt___rk_set_elem, bt___rk_set_eq, bt___rk_set_int, bt___rk_set_mul, bt___rk_set_ncont, bt___rk_set_ne, bt___rk_set_nelem, bt___rk_set_npsub,
+    bt___rk_set_npsup, bt___rk_set_nsub, bt___rk_set_nsup, bt___rk_set_psub, bt___rk_set_psup, bt___rk_set_sub, bt___rk_set_sum, bt___rk_set_sup, bt___rk_set_sym, bt___rk_set_uni, bt___rk_shift_val,
+    bt___rk_sink, bt___rk_smartmatch, bt___rk_sort_by_keys, bt___rk_sprintf, bt___rk_sprintf_d, bt___rk_st, 0, 0, bt___rk_subscr_adv, bt___rk_subst_close, bt___rk_subst_next, bt___rk_subst_open,
+    bt___rk_subst_put, bt___rk_substr_replace, bt___rk_take_dyn, bt___rk_tl_got, bt___rk_to_array, bt___rk_to_hash, bt___rk_typeobj, bt___rk_unany, bt___rk_undef, bt___rk_coll, bt___rk_unpack_named,
+    bt___rk_unset, bt___rk_when_match, bt___rk_where, bt___rk_with_mod, bt___rk_without_mod, bt___rk_xor, bt___rk_zip, bt___trace_call, bt___trace_return, bt___trace_stmt, bt___trace_tap_off,
+    bt___trace_value, bt_append_pure, bt_arr_get, bt_arr_init, bt_arr_last, bt_arr_make, bt_arr_set_pure, bt_arr_tail, bt_array_reverse, bt_array_sort, bt_callsame, bt_callwith, bt_chars, bt_date,
+    bt_die, bt_dir, bt_double_quotes, bt_elems, bt_exc_check, bt_exc_clear, bt_exc_get, bt_fh_capture, bt_field_get_pub, bt_field_set, bt_field_set_pub, bt_grammar_parse, bt_grammar_register,
+    bt_hash_delete, bt_hash_exists, bt_hash_get, bt_hash_keys, bt_hash_kv, bt_hash_pairs, bt_hash_set_pure, bt_hash_values, bt_head, bt_index, bt_join, bt_lc, bt_chars, bt_lines, bt_makex2Dtempx2Ddir,
+    bt_makex2Dtempx2Dfile, bt_meth_call, bt_nextsame, bt_nfa_accepts, bt_note, bt_nqpx3Ax3Abindattr, bt_nqpx3Ax3Abindattr_i, bt_nqpx3Ax3Abindattr_n, bt_nqpx3Ax3Abindattr_s, 0, 0, bt_pick,
+    bt_prepend_pure, bt_print_fh, bt_printf, bt_push_pure, bt_re_capture, bt_re_match, bt_re_match_global, bt_re_matchx, bt_re_named_capture, bt_re_subst, bt_re_test, bt_re_testx, bt_re_trans,
+    bt_rindex, bt_rk_cloop_cond, bt_rk_cloop_incr, bt_rk_loop_body, bt_rk_repeat_body, bt_rk_repeat_cond, bt_rk_until_cond, bt_rk_while_cond, bt_rk_write, bt_rk_write_arr, bt_rk_write_list,
+    bt_rk_writes, bt_say_fh, bt_die, bt_sleep, bt_slurp, bt_sprintf, bt_spurt, bt_srand, bt_str_index, bt_lc, bt_str_rindex, bt_str_substr, bt_str_trim, bt_uc, bt_substr, bt_sum, bt_syntax_error,
+    bt_syntax_errors, bt_tail, bt_try_enter, bt_try_exit, bt_uc, bt_unique, bt_unshift_pure, bt_user, bt_val, bt_wall_ms, bt_wall_us, bt_Bool, bt_IO, bt_Int, bt_Num, bt_Numeric, bt_Real, bt_Str,
+    bt_WHAT, bt_x5Ename, bt_abs, bt_all, bt_antipairs, bt_any, bt_atan2, bt_base, bt_batch, bt_ceiling, bt_chars, bt_chomp, bt_chop, bt_chr, bt_chrs, bt_codes, bt_comb, bt_combinations, bt_contains,
+    bt_cos, bt_cosec, bt_cotan, bt_defined, bt_elems, bt_endsx2Dwith, bt_exp, bt_fc, bt_flip, bt_floor, bt_fmt, bt_gist, bt_hash, bt_index, bt_invert, bt_isx2Dlazy, bt_isx2Dprime, bt_item, bt_join,
+    bt_key, bt_kv, bt_lc, bt_lines, bt_log, bt_maxpairs, bt_message, bt_minmax, bt_minpairs, bt_name, bt_none, bt_not, bt_nude, bt_one, bt_ord, bt_ords, bt_pairs, bt_pairup, bt_parsex2Dbase,
+    bt_payload, bt_perl, bt_permutations, bt_pick, bt_polymod, bt_pred, bt_produce, bt_raku, bt_rand, bt_repeated, bt_rindex, bt_roll, bt_rotate, bt_rotor, bt_round, bt_samecase, bt_sec, bt_sign,
+    bt_sin, bt_skip, bt_so, bt_split, bt_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_substr, bt_substrx2Drw, bt_succ, bt_sum, bt_tail, bt_tan, bt_tc, bt_tclc, bt_trans, bt_trim, bt_trimx2Dleading,
+    bt_trimx2Dtrailing, bt_truncate, bt_uc, bt_unique, bt_value, bt_wordcase, bt_words, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24ix_g, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    bt_x24ix_g, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24system, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, bt_x24tbl_hook, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24unify_lst, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_isNaN, bt___rk_unbase, 0, 0, 0, 0, 0, 0, bt_ICNx24UNAME,
-    bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek, bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, bt_ICNx24IMM, bt_ICNx24UDIGITS, 0, 0, 0, 0, 0, 0, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24system, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24tbl_hook, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24unify_lst, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_isNaN, bt___rk_unbase, 0, 0, 0, 0, 0, 0, bt_ICNx24UNAME, bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek,
+    bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, bt_ICNx24IMM, bt_ICNx24UDIGITS, 0, 0, 0, 0, 0, 0, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
