@@ -1236,7 +1236,9 @@ static int r_heredoc_bodies(RkP *p, int pos) {
         if (e < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
         int s = here_stopper(p, e, &L);
         if (s < 0) panic_at(p, pos, "Ending delimiter %s not found", h.delim);
-        if (p->build && h.node) rkb_heredoc_body(p->B, h.node, pos, e, NSPAN(p, e, ck(is_hspace_cp)) - e, L.sc || L.clos, p->qc, p->nqc);
+        int icols = 0;
+        if (p->build) for (int ic = e, ie = NSPAN(p, e, ck(is_hspace_cp)); ic < ie; ic++) icols = p->s[ic] == '\t' ? (icols / 8 + 1) * 8 : icols + 1;
+        if (p->build && h.node) rkb_heredoc_body(p->B, h.node, pos, e, icols, L.sc || L.clos, p->qc, p->nqc);
         p->qc = sq; p->nqc = sn; p->cqc = sc;
         pos = s;
     }

@@ -3471,7 +3471,7 @@ static void rk_dedent(tree_t *t, int indent, int *bol) {
     if (t->t != TT_QLIT || !t->v.sval) { *bol = 0; return; }
     SB out = { 0 };
     for (const char *c = t->v.sval; *c; c++) {
-        if (*bol) { int k = 0; while (k < indent && (*c == ' ' || *c == '\t')) { c++; k++; } *bol = 0; if (!*c) break; }
+        if (*bol) { int k = 0; while (k < indent && (*c == ' ' || *c == '\t')) { k = *c == '\t' ? (k / 8 + 1) * 8 : k + 1; c++; } *bol = 0; if (!*c) break; }
         sb_c(&out, *c);
         if (*c == '\n') *bol = 1;
     }

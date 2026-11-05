@@ -7850,7 +7850,7 @@ const char * lower_raku_eval_stage2(const tree_t * prog) {
         const tree_t * u = st;
         if (u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
         if (rk_eval_is_declaration(st)) ast_push(p2, st);
-        else { rk_wrap_bodies(st); ast_push(sd, i == lastb ? rk_tail_return((tree_t *) u) : st); }
+        else { rk_wrap_bodies(st); ast_push(sd, rk_ph_of(u) ? (tree_t *) u : i == lastb ? rk_tail_return((tree_t *) u) : st); }
     }
     ast_push(p2, sd);
     rk_stage2_core(p2, 0, 0);
