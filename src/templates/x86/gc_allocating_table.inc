@@ -1390,6 +1390,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_rat_scaled", GC_RET_DESCR },
     { "pl_rat_text", GC_RET_OTHER },
     { "pl_rat_unop", GC_RET_OTHER },
+    { "pl_rb_put", GC_RET_OTHER },
     { "pl_rb_room", GC_RET_OTHER },
     { "pl_rd_eintr", GC_RET_OTHER },
     { "pl_read_esc_body", GC_RET_OTHER },
