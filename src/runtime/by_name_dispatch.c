@@ -1934,7 +1934,7 @@ static DESCR_t rk_av_arith(rk_av_t a, int op) {
 static char *rk_av_joined(rk_av_t a, const char *sep, const char *open, const char *close) {
     size_t sl = strlen(sep), ol = strlen(open), cl = strlen(close), tot = ol + cl + 1;
     const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
-    for (int i = 0; i < a.n; i++) { tx[i] = rk_av_text(a, i); tot += strlen(tx[i]) + (i ? sl : 0); }
+    for (int i = 0; i < a.n; i++) { tx[i] = rk_typeobj_name(a.el[i]) ? "" : rk_av_text(a, i); tot += strlen(tx[i]) + (i ? sl : 0); }
     char *buf = rt_wsb_alloc(tot);
     size_t p = 0;
     memcpy(buf + p, open, ol);
