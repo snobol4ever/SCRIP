@@ -70,8 +70,39 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * const icn_posix_record_fns[] = { "stat", "lstat", "getpw", "getgr", "gettimeofday", "getrusage", "gethost", "getserv", "fcntl", "receive" };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_calls_posix_record(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval)
+        for (size_t i = 0; i < sizeof icn_posix_record_fns / sizeof *icn_posix_record_fns; i++) if (!strcmp(t->c[0]->v.sval, icn_posix_record_fns[i])) return 1;
+    for (int i = 0; i < t->n; i++) if (icn_calls_posix_record(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_has_link_to(const tree_t * prog, const char * nm) {
+    for (int s = 0; s < prog->n; s++) {
+        const tree_t * subj = icn_stmt_subject(prog->c[s]);
+        if (subj && subj->t == TT_LINK) for (int k = 0; k < subj->n; k++) if (subj->c[k] && subj->c[k]->v.sval && !strcmp(subj->c[k]->v.sval, nm)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_link_posix_implicitly(tree_t * prog) {
+    if (!prog->v.ival || !icn_calls_posix_record(prog) || icn_has_link_to(prog, "posix")) return;
+    tree_t * top = ast_node_new(TT_LINK), * v = ast_node_new(TT_VAR), * st = ast_stmt_new(TT_STMT);
+    v->v.sval = intern_n("posix", 5);
+    v->slen = 5;
+    ast_push(top, v);
+    ast_push(st, ast_attr_int(":line", 0));
+    ast_push(st, ast_attr_int(":stno", 0));
+    ast_push(st, ast_attr_expr(":subj", top));
+    ast_push(prog, st);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (!prog) return;
+    icn_link_posix_implicitly(prog);
     const char * slash = strrchr(filename, '/'); char dir[slash ? (size_t)(slash - filename) + 1 : 2];
     if (slash) { size_t dl = (size_t)(slash - filename); memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
     const char ** loaded = (const char **) ct_grow(NULL, 16 * sizeof *loaded); int nloaded = 0, nloadcap = 16;

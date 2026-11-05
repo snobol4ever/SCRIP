@@ -1934,6 +1934,9 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/pas_xr.c \
     $(SRC)/runtime/posix_leaves.c \
+    $(SRC)/runtime/posix_info.c \
+    $(SRC)/runtime/posix_files.c \
+    $(SRC)/runtime/posix_proc.c \
     $(SRC)/runtime/rt_dir_snapshot.c \
     $(SRC)/runtime/icn_extfn.c \
     $(SRC)/runtime/unification.c \

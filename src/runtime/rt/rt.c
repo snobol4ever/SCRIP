@@ -2527,6 +2527,10 @@ RT_ENTRY_DECL(rt_list_bang_ukey_at, leaf, 0);
 DESCR_t rt_list_bang_ukey_at(DESCR_t obj, int64_t *cur) {
     int ln = 0;
     if (IS_DATA_INST_fn(obj) && obj.u && rt_lv_is_list(obj, (DESCR_t **) 0, &ln)) { DESCR_t r = {0}; if (*cur >= ln) return FAILDESCR; r.v = DT_I; r.i = *cur + 1; return r; }
+    if (IS_DATA_INST_fn(obj) && obj.u && obj.u->type) {
+        extern char *rt_heap_strdup_c(const char *);
+        return *cur < obj.u->type->nfields ? STRVAL(rt_heap_strdup_c(obj.u->type->fields[*cur])) : FAILDESCR;
+    }
     return rt_list_bang_key_at(obj, cur);
 }
 extern int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);

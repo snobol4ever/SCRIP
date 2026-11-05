@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdlib.h>
@@ -7,13 +9,33 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "driver/driver_data.h"
 #include "ir/descr.h"
+#include "posix_leaves.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/rt/rt_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t px_fail(void) { g_runtime.misc.posix_errno = errno; return FAILDESCR; }
+void px_begin(void) { g_runtime.misc.posix_errno = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *px_str(DESCR_t d) { return d.v == DT_S ? rt_cstr_d(d) : NULL; }
+DESCR_t px_fail(void) { g_runtime.misc.posix_errno = errno; return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *px_str(DESCR_t d) { return d.v == DT_S ? rt_cstr_d(d) : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t px_rec(const char *tn, DESCR_t *f, int n) { DatType *t = dat_find_type(tn); return t ? dat_construct(t, f, n) : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t px_fmt(const char *fmt, ...) {
+    va_list a, b;
+    va_start(a, fmt);
+    va_copy(b, a);
+    int n = vsnprintf(NULL, 0, fmt, a);
+    char *s = (char *) rt_heap_alloc_c((size_t) n + 1);
+    va_end(a);
+    vsnprintf(s, (size_t) n + 1, fmt, b);
+    va_end(b);
+    return STRVAL(s);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t px_list(DESCR_t *f, int n) { extern DESCR_t rt_make_list(DESCR_t *, int); return rt_make_list(f, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t px_mask_str(mode_t perms) { char *s = rt_heap_strdup_c("---------"); for (int i = 0; i < 9; i++) if (perms & (0400 >> i)) s[i] = "rwxrwxrwx"[i]; return STRVAL(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -47,16 +69,18 @@ static int px_chmod_sym(const char *s, mode_t cur, mode_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UMKDIR(DESCR_t *args, int nargs) {
     const char *p = nargs >= 1 ? px_str(args[0]) : NULL;
+    px_begin();
     if (!p) return FAILDESCR;
     return mkdir(p, nargs >= 2 && args[1].v == DT_I ? (mode_t) args[1].i : 0777) == 0 ? NULVCL : px_fail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24URMDIR(DESCR_t *args, int nargs) { const char *p = nargs == 1 ? px_str(args[0]) : NULL; if (!p) return FAILDESCR; return rmdir(p) == 0 ? NULVCL : px_fail(); }
+DESCR_t bt_ICNx24URMDIR(DESCR_t *args, int nargs) { const char *p = nargs == 1 ? px_str(args[0]) : NULL; px_begin(); if (!p) return FAILDESCR; return rmdir(p) == 0 ? NULVCL : px_fail(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UCHMOD(DESCR_t *args, int nargs) {
     const char *p = nargs == 2 ? px_str(args[0]) : NULL;
     struct stat st;
     mode_t m = 0, perms;
+    px_begin();
     if (!p) return FAILDESCR;
     if (args[1].v == DT_I) m = (mode_t) args[1].i;
     else {
@@ -72,6 +96,7 @@ DESCR_t bt_ICNx24UCHMOD(DESCR_t *args, int nargs) {
 DESCR_t bt_ICNx24UUMASK(DESCR_t *args, int nargs) {
     mode_t cur = umask(0), perms;
     const char *s;
+    px_begin();
     umask(cur);
     if (nargs == 0) return px_mask_str(0777 & ~cur);
     s = px_str(args[0]);
@@ -82,16 +107,22 @@ DESCR_t bt_ICNx24UUMASK(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24USETENV(DESCR_t *args, int nargs) {
     const char *n = nargs == 2 ? px_str(args[0]) : NULL, *v = nargs == 2 ? px_str(args[1]) : NULL;
+    px_begin();
     if (!n || !v) return FAILDESCR;
     return setenv(n, v, 1) == 0 ? NULVCL : px_fail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t px_cwd(void) {
-    for (size_t n = 256; n < ((size_t) 1 << 30); n *= 2) { char *b = (char *) rt_wsb_alloc(n); if (getcwd(b, n)) return STRVAL(rt_heap_strdup_c(b)); if (errno != ERANGE) break; }
+    for (size_t n = 256; n < ((size_t) 1 << 30); n *= 2) { char *b = (char *) rt_heap_alloc_c(n); if (getcwd(b, n)) return STRVAL(rt_heap_strdup_c(b)); if (errno != ERANGE) break; }
     return px_fail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24UCHDIR(DESCR_t *args, int nargs) { const char *p = nargs == 1 ? px_str(args[0]) : NULL; if (nargs == 1 && (!p || chdir(p) != 0)) return p ? px_fail() : FAILDESCR; return px_cwd(); }
+DESCR_t bt_ICNx24UCHDIR(DESCR_t *args, int nargs) {
+    const char *p = nargs == 1 ? px_str(args[0]) : NULL;
+    px_begin();
+    if (nargs == 1 && (!p || chdir(p) != 0)) return p ? px_fail() : FAILDESCR;
+    return px_cwd();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24USYS_ERRSTR(DESCR_t *args, int nargs) { return nargs == 1 && args[0].v == DT_I ? STRVAL(rt_heap_strdup_c(strerror((int) args[0].i))) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

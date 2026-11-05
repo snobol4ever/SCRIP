@@ -522,8 +522,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int after_line = cx->after_line;
     cx->after_line = 0;
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
-    if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "wait") || !strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) &&
-        icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
+    if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) && icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
     if (name && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && icn_callable_proc_index(name) < 0) { char * un = icn_unicon_row(name); if (un) name = un; }
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
