@@ -68,7 +68,7 @@ static int rx_isdigit_u(unsigned c) {
 }
 static int rx_isalpha_u(const RxEnv *e, unsigned c) {
     if (c < 0x80) return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-    if (e && e->prop) { int r = e->prop(e->ud, "L", 1, c); if (r >= 0) return r; }
+    if (e && e->prop) { int r = e->prop(e->ud, "\001alpha", 6, c); if (r >= 0) return r; }
     if (c == 0xAA || c == 0xB5 || c == 0xBA) return 1;
     if (c < 0xC0) return 0;
     if (c == 0xD7 || c == 0xF7) return 0;

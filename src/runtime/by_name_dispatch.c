@@ -904,11 +904,45 @@ static const char *rk_rx_rule(void *ud, const char *name, int nlen, int *flags) 
     return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "rk_gencat_table.inc"
+static int rk_gc_of(unsigned c) {
+    int lo = 0, hi = rk_gc_nrng - 1;
+    while (lo <= hi) { int mid = (lo + hi) / 2; if (c < rk_gc_rng[mid][0]) hi = mid - 1; else if (c > rk_gc_rng[mid][1]) lo = mid + 1; else return (int) rk_gc_rng[mid][2]; }
+    return 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_gc_loose(const char *a, int al, const char *b) {
+    int i = 0, j = 0;
+    for (;;) {
+        while (i < al && (a[i] == '_' || a[i] == '-' || a[i] == ' ')) i++;
+        while (b[j] == '_' || b[j] == '-' || b[j] == ' ') j++;
+        if (i >= al || !b[j]) return i >= al && !b[j];
+        if (tolower((unsigned char) a[i]) != tolower((unsigned char) b[j])) return 0;
+        i++;
+        j++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_gc_named(const char *nm, int nl, unsigned c) {
+    const struct {
+        const char *n;
+        char c;
+    } gl[] = { { "Letter", 'L' }, { "Mark", 'M' }, { "Combining_Mark", 'M' }, { "Number", 'N' }, { "Punctuation", 'P' }, { "Symbol", 'S' }, { "Separator", 'Z' }, { "Other", 'C' }, { "L", 'L' }, { "M",
+        'M' }, { "N", 'N' }, { "P", 'P' }, { "S", 'S' }, { "Z", 'Z' }, { "C", 'C' }, { 0, 0 } };
+    int g = rk_gc_of(c);
+    for (int k = 0; k < 30; k++) if (rk_gc_loose(nm, nl, rk_gc_short[k]) || rk_gc_loose(nm, nl, rk_gc_long[k])) return g == k;
+    if (rk_gc_loose(nm, nl, "LC") || rk_gc_loose(nm, nl, "Cased_Letter")) return g == 5 || g == 8 || g == 9;
+    for (int k = 0; gl[k].n; k++) if (rk_gc_loose(nm, nl, gl[k].n)) return rk_gc_short[g][0] == gl[k].c;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_rx_prop(void *ud, const char *name, int nlen, unsigned cp) { (void) ud; return nlen > 0 ? rk_gc_named(name, nlen, cp) : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static RxProg *rk_rx_compile(RxEnv *env, const char *gname, const char *pat, int flags) {
     env->ud = (void *) gname;
     env->rule = rk_rx_rule;
     env->fold = NULL;
-    env->prop = NULL;
+    env->prop = rk_rx_prop;
     const char *err = NULL;
     RxProg *p = rx_compile(pat, flags, env, &err);
     if (!p) fprintf(stderr, "re: compile error: %s\n", err ? err : "?");
@@ -3801,16 +3835,16 @@ static int rk_isprime_big(DESCR_t n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_isprime_num(DESCR_t v, int *ok) {
     extern int rt_big_is(DESCR_t);
-    extern DESCR_t rt_big_from_str(const char *);
+    extern DESCR_t rt_big_shl(DESCR_t, int64_t);
     *ok = 1;
     if (IS_INT_fn(v)) return v.i >= 2 && rk_isprime64((unsigned long long) v.i);
     if (rt_big_is(v)) return rk_isprime_big(v);
     if (IS_REAL_fn(v)) {
         if (!isfinite(v.r) || v.r != floor(v.r) || v.r < 2.0) return 0;
         if (v.r < 9.2e18) return rk_isprime64((unsigned long long) v.r);
-        char nb[400];
-        snprintf(nb, sizeof nb, "%.0f", v.r);
-        return rk_isprime_big(rt_big_from_str(nb));
+        int ex;
+        double fr = frexp(v.r, &ex);
+        return rk_isprime_big(rt_big_shl(INTVAL((long long) ldexp(fr, 53)), ex - 53));
     }
     long long iv;
     if (v.v == DT_DATA && rk_int_exact(v, &iv)) return iv >= 2 && rk_isprime64((unsigned long long) iv);
@@ -29171,7 +29205,7 @@ static int rk_box_class_named(const char *nm, int nl, unsigned c) {
     if (nl == 5 && !strncmp(nm, "graph", 5)) return c > 32 && c != 127;
     if (nl == 5 && !strncmp(nm, "blank", 5)) return c == ' ' || c == 9;
     if (nl == 5 && !strncmp(nm, "ascii", 5)) return c < 0x80;
-    return 0;
+    return rk_gc_named(nm, nl, c) > 0;
 }
 static int rk_box_class_member(const char *p, unsigned c) {
     int in = (*p == '-') ? 1 : 0;
