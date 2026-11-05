@@ -16682,6 +16682,16 @@ DESCR_t bt_rk_write_arr(DESCR_t *args, int nargs) {
     if (nargs == 1) { DESCR_t tmp1 = STRVAL((char *) rk_gist_text(args[0], '[', ']')); return RT_GC_CALLBACK(rt_call_arr("write", &tmp1, 1)); }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
+static DESCR_t rk_dz_failure(DESCR_t a, int is_div) {
+    rk_exc_init();
+    char ab[64];
+    const char *as = IS_INT_fn(a) ? NULL : to_cstring(a, ab, sizeof ab);
+    char msg[160];
+    if (IS_INT_fn(a)) snprintf(msg, sizeof msg, "Attempt to divide %lld by zero using %s", (long long) a.i, is_div ? "div" : "%");
+    else snprintf(msg, sizeof msg, "Attempt to divide %s by zero using %s", as ? as : "", is_div ? "div" : "%");
+    return rk_failure_new(DATCON_fn("X::Numeric::DivideByZero", STRVAL(rt_heap_strdup_c(msg)), NULVCL, NULVCL, NULVCL));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t bta___rk_intdiv(DESCR_t *args, int nargs, int _bop) {
     DESCR_t _bo = FAILDESCR;
     DESCR_t *const out = &_bo;
@@ -16708,13 +16718,13 @@ static DESCR_t bta___rk_intdiv(DESCR_t *args, int nargs, int _bop) {
         if (!ai && !arl) { char sa[64]; const char *cs = to_cstring(a, sa, sizeof sa); ad = cs ? strtod(cs, (char **)0) : 0.0; }
         if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
         if (ai && bi) {
-            if (b.i == 0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); return FAILDESCR; }
+            if (b.i == 0) return rk_dz_failure(a, is_div);
             if (b.i == -1) { extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); return is_div ? rt_num_arith(a, b, BINOP_DIV) : INTVAL(0); }
             long long q = a.i / b.i, r = a.i % b.i;
             if (r != 0 && ((r < 0) != (b.i < 0))) { q -= 1; r += b.i; }
             return INTVAL(is_div ? q : r);
         }
-        if (bd == 0.0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); return FAILDESCR; }
+        if (bd == 0.0) return rk_dz_failure(a, is_div);
         double qf = floor(ad / bd);
         if (is_div) { return REALVAL(qf); }
         double rf = ad - bd * qf;

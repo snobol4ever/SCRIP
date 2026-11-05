@@ -2643,6 +2643,11 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
                 return lower_rv(cx, ar, γ, ω, res);
             }
+            if (cls && !rk_is_class_name(cls) && !strcmp(cls, "Failure") && t->n <= 2) {
+                tree_t * fc = rk_fnc2("__rk_failure", t->n == 2 ? t->c[1] : NULL, NULL);
+                fc->line = t->line;
+                return lower_rv(cx, fc, γ, ω, res);
+            }
             if (cls && !rk_is_class_name(cls) && !strcmp(cls, "Slip")) {
                 tree_t * ar = rk_fnc2("__rk_arr", NULL, NULL);
                 ar->line = t->line;
