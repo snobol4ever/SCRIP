@@ -1506,6 +1506,7 @@ static tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "?") || !strcmp(op, "so")) { tree_t *m = make_call("__rk_mkbool"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "!") || !strcmp(op, "not")) return expr_unary(TT_NOT, x);
     if (!strcmp(op, "~")) { tree_t *m = make_call("__rk_str"); expr_add_child(m, x); return m; }
+    if (!strcmp(op, "temp") && x) { tree_t *m = make_call("__rk_temp"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "^")) return rk_range_op(rk_ilit(0), x, 2);
     if (!strcmp(op, "|")) { tree_t *m = make_call("__rk_arr_slip"); expr_add_child(m, x); return m; }
     { int ui = rkb_user_op_find(b, 'p', op); if (ui >= 0) return rk_user_call1(b, ui, "prefix", x); }
@@ -2691,6 +2692,14 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (t0->kind == TK_DECL && !t0->npost && !t0->npre && e0->nitem == 1) return build_decl(b, t0->decl, L, 1);
+    if (op1 && !strcmp(op1, "=") && t0->kind == TK_VAR && t0->npre == 1 && t0->pre && !strcmp(t0->pre[0], "temp") && !t0->npost && t0->t && t0->t->t == TT_VAR && t0->t->v.sval) {
+        tree_t *vt = t0->t;
+        t0->npre = 0;
+        tree_t *ra = stmt_plain(b, L);
+        t0->npre = 1;
+        tree_t *m = make_call("__rk_temp"); expr_add_child(m, rk_tree_clone(vt)); expr_add_child(m, ra);
+        return m;
+    }
     if (op1 && !strcmp(op1, "=") && plain(t0, 'S') && L->n == 1) {
         tree_t *rhs = el_rest(b, e0);
         mark_arrlit(b, strip_sigil(t0->name), rhs);
@@ -2853,12 +2862,53 @@ void rkb_control(RkB *b, tree_t *list, int bk, int from, tree_t *t, int ns, int 
     if (semi && ns == 0) rkb_empty(b, list, bk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_temp_mark(const tree_t *m) { return m && m->t == TT_FNC && m->v.sval && !strcmp(m->v.sval, "__rk_temp") && m->n >= 2 && m->c[1] && m->c[1]->t == TT_VAR && m->c[1]->v.sval; }
+static int rk_has_return(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_RETURN) return 1;
+    if (t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return 0;
+    for (int i = 0; i < t->n; i++) if (rk_has_return(t->c[i])) return 1;
+    return 0;
+}
+static void rk_temp_expand(RkB *b, TL *st) {
+    for (int i = 0; i < st->n; i++) {
+        tree_t *m = st->v[i];
+        if (!rk_is_temp_mark(m)) continue;
+        tree_t *var = m->c[1], *as = m->n > 2 ? m->c[2] : NULL;
+        int uid = b->post_uid++;
+        const char *sg = var->v.sval[0] == '@' ? "@" : var->v.sval[0] == '%' ? "%" : "";
+        const char *tmp = fmt("%s__temp_%d", sg, uid), *rv = fmt("__temp_rv_%d", uid);
+        TL rest = { 0 }, out = { 0 };
+        for (int k = i + 1; k < st->n; k++) tl_add(&rest, st->v[k]);
+        for (int k = 0; k < i; k++) tl_add(&out, st->v[k]);
+        rk_temp_expand(b, &rest);
+        tree_t *last = rest.n ? rest.v[rest.n - 1] : NULL;
+        int rt = last && last->t == TT_RETURN && last->n >= 1, inner = rt && rk_has_return(last->c[0]);
+        for (int k = 0; k < rest.n - (rt ? 1 : 0); k++) if (rk_has_return(rest.v[k])) inner = 1;
+        if (inner) {
+            if (as) tl_add(&out, as);
+            for (int k = 0; k < rest.n; k++) tl_add(&out, rest.v[k]);
+            *st = out;
+            return;
+        }
+        tl_add(&out, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), rk_tree_clone(var)));
+        if (as) tl_add(&out, as);
+        if (rt) rest.v[rest.n - 1] = last->c[0];
+        if (rest.n) tl_add(&out, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, rv), make_seq(&rest)));
+        tl_add(&out, expr_binary(TT_ASSIGN, rk_tree_clone(var), leaf_sval(TT_VAR, tmp)));
+        if (rest.n && rt) { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, leaf_sval(TT_VAR, rv)); tl_add(&out, r); }
+        else if (rest.n) tl_add(&out, leaf_sval(TT_VAR, rv));
+        *st = out;
+        return;
+    }
+}
 tree_t *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada) {
     (void) yada;
     TL st = { 0 };
     for (int i = 0; list && i < list->n; i++) tl_add(&st, list->c[i]);
     tree_t *tail = NULL;
     if (b->tail_list == list && st.n && st.v[st.n - 1] == b->tail_tree) { tail = st.v[--st.n]; b->tail_list = NULL; }
+    { int ht = tail && rk_is_temp_mark(tail); for (int i = 0; i < st.n && !ht; i++) ht = rk_is_temp_mark(st.v[i]); if (ht) { if (tail) { tl_add(&st, tail); tail = NULL; } rk_temp_expand(b, &st); } }
     if (bk == BK_CLASS || bk == BK_GRAMMAR || bk == BK_MODULE) { if (tail) tl_add(&st, tail); return make_seq(&st); }
     if ((bk == BK_BLOCK || bk == BK_METHOD || bk == BK_CATCH || bk == BK_GIVEN) && tail && tail->t == TT_YADA && !st.n) { TL y = { 0 }; tl_add(&y, tail); return make_seq(&y); }
     if ((bk == BK_SUB || bk == BK_METHOD) && !tail) rk_tail_value(&st);
