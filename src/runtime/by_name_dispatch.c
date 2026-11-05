@@ -16991,7 +16991,14 @@ DESCR_t bt___rk_smartmatch(DESCR_t *args, int nargs) {
         if (args[1].v == DT_BOOL) hit = args[1].i != 0;
         else if (rk_rat_cmp(args[0], args[1], &sm_c)) hit = sm_c == 0;
         else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]) || (isnan(to_real(args[0])) && isnan(to_real(args[1])));
-        else { char s1[64], s2[64]; const char *x = to_cstring(args[0], s1, sizeof s1), *y = to_cstring(args[1], s2, sizeof s2); hit = !strcmp(x ? x : "", y ? y : ""); }
+        else if (IS_DATA_INST_fn(args[0]) && IS_DATA_INST_fn(args[1])) {
+            DESCR_t smi;
+            hit = script_try_call_builtin_by_name("__rk_ident", args, 2, &smi) ? (!IS_FAIL_fn(smi) && rk_is_truthy(smi)) : 0;
+        } else {
+            char s1[64], s2[64];
+            const char *x = to_cstring(args[0], s1, sizeof s1), *y = to_cstring(args[1], s2, sizeof s2);
+            hit = !strcmp(x ? x : "", y ? y : "");
+        }
         return (DESCR_t){ .v = DT_BOOL, .i = hit };
     }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };

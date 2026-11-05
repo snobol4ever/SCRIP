@@ -4943,19 +4943,28 @@ static void rk_new_build_walk(tree_t * prog, tree_t * t, int * seq) {
     ast_push(t, rk_tv(hname));
     for (int k = 0; k < nkv; k++) ast_push(t, vals[k]);
 }
+static int rk_mentions_topic(const tree_t * t) {
+    if (!t || t->t == TT_ANON_BLOCK) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "_")) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_mentions_topic(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_smartmatch_topic_walk(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_smartmatch_topic_walk(t->c[i]);
-    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "__rk_smartmatch") || t->n != 3) return;
+    if (t->t != TT_FNC || !t->v.sval || (strcmp(t->v.sval, "__rk_smartmatch") && strcmp(t->v.sval, "__rk_not_smartmatch")) || t->n != 3) return;
+    const char * fn = t->v.sval;
     tree_t * r = t->c[2];
-    if (!r || r->t != TT_METHCALL || r->n < 2 || !r->c[0] || r->c[0]->t != TT_VAR || !r->c[0]->v.sval || strcmp(r->c[0]->v.sval, "_")) return;
+    if (!r || r->t == TT_VAR || !rk_mentions_topic(r)) return;
+    if (t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "_")) return;
     char b[64];
     snprintf(b, sizeof b, "__smt%p", (const void *) t);
     const char * sv = ct_strdup(b);
     snprintf(b, sizeof b, "__smr%p", (const void *) t);
     const char * rs = ct_strdup(b);
     tree_t * lhs = t->c[1];
-    tree_t * inner = rk_fnc2("__rk_smartmatch", rk_tv("_"), r);
+    tree_t * inner = rk_fnc2(fn, rk_tv("_"), r);
     t->t = TT_SEQ_EXPR;
     t->v.sval = NULL;
     t->n = 0;
