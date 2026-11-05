@@ -2796,6 +2796,7 @@ void core_err_compat_map(int *code, const char **msg) {
 static const char *icn_errmsg(int n);
 int core_setexit_armed(void) { return core_setexit_on() && sxl_set(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_ball_rule_set, leaf, 0);
 void rt_ball_rule_set(long by_code) { g_runtime.abi.ball_exit_by_code = by_code; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_root_ball_exit(void) {
