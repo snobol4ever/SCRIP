@@ -115,33 +115,15 @@ static void fld_check(const char *what, int var, const char *f, DESCR_t o, long 
     DESCR_t (*twin)(const char *, DESCR_t, long) = var ? c_rt_field_var_strict_at : c_icn_field_get_at;
     int kept = 0;
     DESCR_t l = fld_call(leaf, f, o, at, &kept), c = twin(f, o, at);
-    if (var) {
-        fld_cases++;
-        ncase++;
-        int fresh = l.v == DT_N && c.v == DT_N && l.slen == 2 && c.slen == 2 && l.ptr && c.ptr && ((VCELL_t *)l.ptr)->cellp == ((VCELL_t *)c.ptr)->cellp &&
-            ((VCELL_t *)l.ptr)->tbl == ((VCELL_t *)c.ptr)->tbl;
-        if (!fresh && memcmp(&l, &c, sizeof l) != 0) {
-            fails++;
-            printf("  FAIL rt_field_var_strict_at %s: leaf %02x/%u/%p twin %02x/%u/%p\n", what, l.v, l.slen, l.ptr, c.v, c.slen, c.ptr);
-        } else if (l.v == RTX_NOT_HANDLED) fld_declines++;
-        else fld_hits++;
-        return;
-    }
-    int ldecl = l.v == RTX_NOT_HANDLED, want = c.v == RTX_NOT_HANDLED || o.v == DT_N || (var && !(c.v == DT_N && c.slen == 1));
     fld_cases++;
     ncase++;
-    if (ldecl) fld_declines++;
-    else fld_hits++;
-    if (ldecl != want) {
-        fails++;
-        printf("  FAIL %s %s: the leaf %s and the twin answered %02x/%u\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what, ldecl ? "declined" : "answered", c.v, c.slen);
-        return;
-    }
-    if (ldecl && !kept) { fails++; printf("  FAIL %s %s: the decline did not hand back rdi rsi rdx rcx as received\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what); return; }
-    if (!ldecl && memcmp(&l, &c, sizeof l) != 0) {
+    int fresh = var && l.v == DT_N && c.v == DT_N && l.slen == 2 && c.slen == 2 && l.ptr && c.ptr && ((VCELL_t *)l.ptr)->cellp == ((VCELL_t *)c.ptr)->cellp &&
+        ((VCELL_t *)l.ptr)->tbl == ((VCELL_t *)c.ptr)->tbl;
+    if (!fresh && memcmp(&l, &c, sizeof l) != 0) {
         fails++;
         printf("  FAIL %s %s: leaf %02x/%u/%p twin %02x/%u/%p\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what, l.v, l.slen, l.ptr, c.v, c.slen, c.ptr);
-    }
+    } else if (l.v == RTX_NOT_HANDLED) fld_declines++;
+    else fld_hits++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_cases = 0;

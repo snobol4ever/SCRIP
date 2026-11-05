@@ -304,7 +304,7 @@ RTX_FUNC(icn_field_get_at)
     mov     rdx, [r10 + 8]
     ret
 .Lfga_c:
-    RTX_DECLINE
+    RTX_SLOW(c_icn_field_get_at)
 RTX_ENDF(icn_field_get_at)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_field_var_strict_at)

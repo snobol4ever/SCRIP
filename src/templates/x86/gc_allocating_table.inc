@@ -766,6 +766,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "icn_extfn_marshal_out", GC_RET_DESCR },
     { "icn_extfn_unprovided", GC_RET_VOID },
     { "icn_field_get", GC_RET_DESCR },
+    { "icn_field_get_at", GC_RET_DESCR },
     { "icn_index_operand_ok", GC_RET_OTHER },
     { "icn_math1", GC_RET_OTHER },
     { "icn_math_arg", GC_RET_OTHER },

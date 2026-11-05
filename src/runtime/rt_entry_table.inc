@@ -30,7 +30,7 @@ static const rt_entry_t g_rt_entries[RT_ENTRIES] = { { "NV_GET_fn", RT_CONV_LEAF
     RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "dop_pl_told", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "dop_pl_write_canonical", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "dop_pl_writeln", RT_CONV_LEAF,
     RT_RC_DESCR, 1, 0, 0 }, { "dop_pl_writeq", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "dop_write", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "dtp_fn_of", RT_CONV_OPEN, RT_RC_OTHER, 1, 0, 1 }, { "exit",
     RT_CONV_LEAF, RT_RC_NONE, 0, 0, -1 }, { "gc_collect_ex", RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 }, { "gc_run_verdicts", RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 }, { "gc_wl_drain", RT_CONV_ASM, RT_RC_NONE,
-    0, 29, -1 }, { "gva_register", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "icn_field_get", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "icn_field_get_at", RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 },
+    0, 29, -1 }, { "gva_register", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "icn_field_get", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "icn_field_get_at", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
     { "memcmp", RT_CONV_LEAF, RT_RC_NONE, 0, 0, -1 }, { "pas_arr_get", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "pas_arr_make", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "pas_arr_set", RT_CONV_LEAF,
     RT_RC_DESCR, 1, 0, 0 }, { "prolog_atom_init", RT_CONV_LEAF, RT_RC_VOID, 1, 0, 0 }, { "prolog_atom_intern", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "prolog_op_cols_warm", RT_CONV_LEAF, RT_RC_VOID,
     1, 0, 0 }, { "prolog_op_table_add", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "record_register", RT_CONV_LEAF, RT_RC_VOID, 1, 0, 0 }, { "rk_box_back", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 },
