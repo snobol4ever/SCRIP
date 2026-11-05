@@ -2869,11 +2869,11 @@ static void rk_items_set(RkList *L, tree_t *t) {
 }
 void rkb_items_for(RkB *b, RkList *L, int nmods, const char **modk, RkList **modx) {
     if (!L || !L->nitem || !L->n || nmods != 1) return;
-    int isif = !strcmp(modk[0], "if"), isun = !strcmp(modk[0], "unless"), isw = !strcmp(modk[0], "with"), isno = !strcmp(modk[0], "without");
-    if (!isif && !isun && !isw && !isno && strcmp(modk[0], "for")) return;
+    int isif = !strcmp(modk[0], "if"), isun = !strcmp(modk[0], "unless"), isw = !strcmp(modk[0], "with"), isno = !strcmp(modk[0], "without"), isg = !strcmp(modk[0], "given");
+    if (!isif && !isun && !isw && !isno && !isg && strcmp(modk[0], "for")) return;
     tree_t *tr = assign_forms(b, L, 0, BK_MAIN);
     if (!tr) tr = el_tree(b, &L->v[0]);
-    if (isw || isno) {
+    if (isw || isno || isg) {
         if (L->n > 1 || L->trailing) { tree_t *call = make_call("__rk_arr"); for (int i = 0; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i])); tr = call; }
         tree_t *cond = rkb_expr(b, modx[0]), *dt = make_call("__rk_defined");
         expr_add_child(dt, leaf_sval(TT_VAR, "_"));
@@ -2882,7 +2882,7 @@ void rkb_items_for(RkB *b, RkList *L, int nmods, const char **modk, RkList **mod
         tree_t *seq = ast_node_new(TT_SEQ_EXPR);
         expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, sv), leaf_sval(TT_VAR, "_")));
         expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, "_"), cond));
-        expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, rv), isw ? rkb_ternary(b, dt, tr, var_node(b, "Empty")) : rkb_ternary(b, dt, var_node(b, "Empty"), tr)));
+        expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, rv), isg ? tr : isw ? rkb_ternary(b, dt, tr, var_node(b, "Empty")) : rkb_ternary(b, dt, var_node(b, "Empty"), tr)));
         expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, "_"), leaf_sval(TT_VAR, sv)));
         expr_add_child(seq, leaf_sval(TT_VAR, rv));
         rk_items_set(L, seq);
