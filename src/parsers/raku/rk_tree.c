@@ -557,6 +557,7 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
         else { sb_c(&lit, s[i]); i++; }
     }
     if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; }
+    if (result && result->t != TT_CAT && result->t != TT_QLIT) result = expr_binary(TT_CAT, leaf_sval(TT_QLIT, ""), result);
     return result ? result : leaf_sval(TT_QLIT, "");
 }
 /*====================================================================================================================================================================================================*/
