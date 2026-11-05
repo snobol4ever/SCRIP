@@ -48,7 +48,7 @@ static eval_cframe_t *g_eval_cfr = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *eval_tmp_name(void) {
     static int m = -1;
-    if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; }
+    if (m < 0) { const char *e = rt_scrip_getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; }
     return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -149,7 +149,7 @@ static int eval_thunks_emit_from(int pc0) {
     int ga = g_gen_proc_active;
     g_runtime.eval.rt_fragment_emit = 1;
     int b1c = 1;
-    { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
+    { const char *_be = rt_scrip_getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
@@ -295,7 +295,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     ast_push(st, ast_attr_int(":line", 1));
     ast_push(st, ast_attr_int(":evalstmt", 1));
 #if RT_DIAG
-    { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; } ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
+    { static int _cs = -1; if (_cs < 0) { const char * e = rt_scrip_getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; } ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
 #else
     ast_push(st, ast_attr_int(":stno", 0));
 #endif
@@ -344,13 +344,13 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_c2bb_hit(const char *site, const char *name);
 extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
-__attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_runtime.eval.eval_ret_v = (e && *e == '0') ? 0 : 1; }
+__attribute__((constructor)) static void eval_ret_init(void) { const char *e = rt_scrip_getenv("SCRIP_EVAL_RET"); g_runtime.eval.eval_ret_v = (e && *e == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
+static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int eval_guard_on(void) { static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; } return _ef; }
+static int eval_guard_on(void) { static int _ef = -1; if (_ef < 0) { const char *e = rt_scrip_getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; } return _ef; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int eval_open_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_OPEN"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int eval_open_on(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_EVAL_OPEN"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern int g_core_errjmp_n;
@@ -993,7 +993,7 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
     extern IR_graph_t *g_emit_cfg;
     extern int g_gen_proc_active;
     static int diag = -1;
-    if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+    if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
     (void)pv;
     if (!name || !*name || rt_proc_is_generator(name) || rt_proc_is_variadic(name)) { if (diag) fprintf(stderr, "[SHIM] %s: refused (generator or variadic)\n", name ? name : "?"); return (void *)0; }
     {
@@ -1221,7 +1221,7 @@ DESCR_t code_at(const char *src, long base, long endline) {
     }
     {
         int patn = sno_pat_count();
-        const char *ks = getenv("SCRIP_CODE_THUNKS");
+        const char *ks = rt_scrip_getenv("SCRIP_CODE_THUNKS");
         if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
         if (patn > pat0) sno_pat_thunks_build(pat0);
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }

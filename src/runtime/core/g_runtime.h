@@ -40,12 +40,14 @@ typedef struct {
     g_pasrnd_t pasrnd;
     g_atag_t atag;
     g_pasio_t pasio;
+    int scrip_env;
 } g_runtime_t;
 #define GRT_AT(m) ((long)offsetof(g_runtime_t, abi.m))
 #ifdef __cplusplus
 extern "C" {
 #endif
 extern g_runtime_t g_runtime;
+const char *rt_scrip_getenv(const char *name);
 #ifdef __cplusplus
 }
 #endif

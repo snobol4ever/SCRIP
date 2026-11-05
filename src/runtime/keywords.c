@@ -502,7 +502,7 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_file_init(const char *file) { g_runtime.abi.file = file; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_stmt_seed_code_fragment_statement_hooks(void) { setenv("SCRIP_SNO_STMTKW", "1", 1); }
+static void rt_stmt_seed_code_fragment_statement_hooks(void) { setenv("SCRIP_SNO_STMTKW", "1", 1); g_runtime.scrip_env = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter(long stno, long line) {
     g_runtime.abi.lastno = g_runtime.abi.stno;

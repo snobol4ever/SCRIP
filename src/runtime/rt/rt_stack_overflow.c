@@ -97,7 +97,7 @@ _Static_assert(RT_STACK_DEFAULT_BYTES == 4194304L,
     "e trampoline's reservation for the top-level slot region on top (rt_stack_budget_apply)");
 long rt_stack_budget_bytes(long sw_bytes) {
     long b = RT_STACK_DEFAULT_BYTES;
-    const char *e = getenv("SCRIP_STACK");
+    const char *e = rt_scrip_getenv("SCRIP_STACK");
     if (e && e[0]) {
         char *ep = NULL;
         long ev = strtol(e, &ep, 10);

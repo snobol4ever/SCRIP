@@ -12306,6 +12306,7 @@ PL_CX_LEAF_HEAD(proc_create, 7)
                 if (cw && *cw && chdir(cw) != 0) _exit(127);
                 if (rep) execve(path, (char *const *)argv, (char *const *)envv);
                 for (int i = 0; i < ne; i++) putenv((char *)envv[i]);
+                g_runtime.scrip_env = 0;
                 execv(path, (char *const *)argv);
                 _exit(127);
             }
@@ -12514,6 +12515,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
         } else if (!strcmp(op, "setenv") || !strcmp(op, "unsetenv")) {
             const char *nm = pl_atom_str(a), *vv = pl_atom_str(b);
             ok = nm && (op[0] == 'u' ? unsetenv(nm) == 0 : (vv && setenv(nm, vv, 1) == 0));
+            g_runtime.scrip_env = 0;
         } else if (!strcmp(op, "hostname")) {
             char h[256];
             if (gethostname(h, sizeof h) != 0) ok = pl_gnu_os_fail(cx);

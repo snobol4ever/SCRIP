@@ -64,7 +64,7 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const vo
 #define trace_tab ((trace_ent_t *)g_runtime.core.g_trace_tab.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
-    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = rt_scrip_getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     return !g_runtime.abi.comm_dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace == 0;
 }
 int rt_trace_idle(void) { return trace_idle(); }
@@ -1462,7 +1462,7 @@ static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
 #if RT_DIAG
 static int mon_synth_name(const char *n) {
     static int keep = -1;
-    if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; }
+    if (keep < 0) { const char *e = rt_scrip_getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; }
     return keep ? 0 : mon_name_is_internal(n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1483,7 +1483,7 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
     if (g_runtime.misc.monitor_quiet_depth > 0) return;
-    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = rt_scrip_getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_runtime.abi.comm_dbg;
     if (!dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0) return;
     if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, g_runtime.core.trace_recursion_depth);
@@ -1971,6 +1971,7 @@ static void _io_prebind_take(void) {
         int i = _io_slot(unit, 1);
         _io_chan[i].prebind = path;
         unsetenv(k);
+        g_runtime.scrip_env = 0;
         e = environ - 1;
     }
 }
@@ -1980,6 +1981,7 @@ void rt_io_chan_prebind(int ch, const char *path) {
     char k[fmt_len("SCRIP_IO_PREBIND_%d", ch)];
     snprintf(k, sizeof k, "SCRIP_IO_PREBIND_%d", ch);
     setenv(k, path, 1);
+    g_runtime.scrip_env = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch);
@@ -2397,7 +2399,7 @@ extern int g_core_errjmp_n;
 static void core_errjmp_throw(int k, int v) __attribute__((noreturn));
 static void core_errjmp_throw(int k, int v) { core_errjmp_t *t = core_errjmp_at(k); extern void rt_eval_unwind_to(const void *); rt_eval_unwind_to((const void *)t); longjmp(t->jb, v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
+static int core_setexit_on(void) { const char *e = rt_scrip_getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on_end(void) { return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2517,7 +2519,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     char ebuf[en > 0 ? en : 1];
     const char *varname = (en > 0 && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
-    if (getenv("SCRIP_DEBUG_TRACE")) fprintf(stderr, "[scrip-trace] _TRACE_ entry n=%d varname=%s\n", n, varname);
+    if (rt_scrip_getenv("SCRIP_DEBUG_TRACE")) fprintf(stderr, "[scrip-trace] _TRACE_ entry n=%d varname=%s\n", n, varname);
     const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
     int kind = trace_type_parse(type);
     if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
@@ -2630,6 +2632,7 @@ int rt_environ_has(const char *prefix) {
     for (char **v = environ; v && *v; v++) if ((*v)[0] == prefix[0] && strncmp(*v, prefix, n) == 0) return 1;
     return 0;
 }
+const char *rt_scrip_getenv(const char *name) { if (!g_runtime.scrip_env) g_runtime.scrip_env = rt_environ_has("SCRIP_") ? 2 : 1; return g_runtime.scrip_env == 1 ? (const char *)0 : getenv(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(core_lib_init, leaf, 0);
 void core_lib_init(void) {
@@ -2662,13 +2665,13 @@ void core_lib_init(void) {
             if (mon && mon[0] == '1') g_runtime.abi.monitor_fd = 2;
         }
         {
-            const char *ev_ftr = getenv("SCRIP_FTRACE");
+            const char *ev_ftr = rt_scrip_getenv("SCRIP_FTRACE");
             if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_runtime.abi.kw_ftrace = v; }
-            const char *ev_tr = getenv("SCRIP_TRACE");
+            const char *ev_tr = rt_scrip_getenv("SCRIP_TRACE");
             if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_runtime.misc.kw_trace = v; }
-            const char *ev_rktr = getenv("SCRIP_TRACE");
+            const char *ev_rktr = rt_scrip_getenv("SCRIP_TRACE");
             if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_runtime.abi.trace_budget = v; }
-            if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+            if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = rt_scrip_getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
         }
         { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
     }
@@ -2761,7 +2764,7 @@ const char *rt_sno_indirect_name(DESCR_t v) {
         DESCR_t s = VARVAL_d_fn(v);
         size_t n = descr_slen(s);
         int refused = (s.v == DT_FAIL || s.v == DT_SNUL || (s.v == DT_S && n == 0));
-        const char *ks = refused ? getenv("SCRIP_IND_NAME") : 0;
+        const char *ks = refused ? rt_scrip_getenv("SCRIP_IND_NAME") : 0;
         if (refused && !(ks && *ks == '0')) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); return 0; }
         if (s.v == DT_S && s.s) return rt_cstr_d(s);
     }
@@ -3402,12 +3405,12 @@ int mon_cell_is_named(void *cellp) {
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (g_runtime.abi.monitor_fd < 0 || !cellp) return;
     for (unsigned h = 0; h < g_runtime.abi.var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
-        if (getenv("SCRIP_TAP_DBG"))
+        if (rt_scrip_getenv("SCRIP_TAP_DBG"))
             fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, g_runtime.core.monitor_ready, g_runtime.misc.monitor_quiet_depth, (long long)g_runtime.misc.kw_trace);
         comm_var(e->name, val, stmt_src_get_file(), 0, 0);
         return;
     }
-    if (getenv("SCRIP_TAP_DBG")) {
+    if (rt_scrip_getenv("SCRIP_TAP_DBG")) {
         DESCR_t *c = (DESCR_t *)cellp;
         fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0,
             (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?");
@@ -3455,7 +3458,7 @@ static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
 }
 static NV_t *_var_bucket_find(const char *name) { for (NV_t *e = VBR(_var_hash(name)); e; e = e->next) if (nv_key_c(e, name)) return e; return (NV_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
+static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
 static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *name) {
     unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
     if (g_runtime.core.nv_memo_key[i] == name && g_runtime.core.nv_memo_seen[i] == g_runtime.abi.nv_memo_gen) { NV_t *c = g_runtime.core.nv_memo_val[i]; if (c && nv_key_c(c, name)) return c; }
@@ -3475,7 +3478,7 @@ static void _io_var_refresh(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_memo_invalidate(void) { g_runtime.abi.nv_memo_gen++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
+static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = rt_scrip_getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
 static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
@@ -3565,7 +3568,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     {
         static int _xd = -1;
         if (_xd) {
-            if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0;
+            if (_xd < 0) _xd = rt_scrip_getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0;
             if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') {
                 extern int rt_g_ret_by_name, rt_g_want_name;
                 fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name);
@@ -3629,7 +3632,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
 #if RT_DIAG
     {
         static long _nvc = -1;
-        if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; }
+        if (_nvc == -1) { const char *ev = rt_scrip_getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; }
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
@@ -3761,7 +3764,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
 #if RT_DIAG
     {
         static long _nvc = -1;
-        if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; }
+        if (_nvc == -1) { const char *ev = rt_scrip_getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; }
         if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); }
     }
 #endif
@@ -4729,7 +4732,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
     { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
     if (g_runtime.misc.user_call_hook) { DESCR_t r = g_runtime.misc.user_call_hook(name, args, nargs, rq); if ((rq && rq[0]) || !IS_FAIL_fn(r)) return r; }
 #if RT_DIAG
-    if (getenv("SCRIP_DEBUG_APPLY")) fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
+    if (rt_scrip_getenv("SCRIP_DEBUG_APPLY")) fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
 #endif
     core_undefined_call_error(name);
     return FAILDESCR;

@@ -94,7 +94,7 @@ static int gc_walk_census_on(void);
 typedef struct gc_vac_t gc_vac_t;
 static gc_vac_t *gc_vac_ledger(void);
 static int gc_birth_on(void);
-static int gc_plant_flip(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_FLIP"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+static int gc_plant_flip(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_PLANT_FLIP"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 static void gc_quar_release(char *need_end);
 static void gc_quar_arm(char *lo);
 static void gc_fr_line_sync(void) { g_runtime.abi.hp_fr.line = (g_runtime.gc.hp_qlo && g_runtime.gc.hp_qlo < g_runtime.abi.hp_gcline) ? g_runtime.gc.hp_qlo : g_runtime.abi.hp_gcline; }
@@ -115,7 +115,7 @@ rt_sxt_fr_t * const rt_sxt_fr_p = &g_runtime.abi.sxt_fr;
 #define g_sxt_gva_n (g_runtime.abi.sxt_fr.gva_n)
 #define g_sxt_gva_lo (g_runtime.abi.sxt_fr.gva_lo)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_line_mb(void) { const char *e = getenv("SCRIP_GC_LINE_MB"); long v = e ? atol(e) : 128; return v < 0 ? 0 : v; }
+static long gc_line_mb(void) { const char *e = rt_scrip_getenv("SCRIP_GC_LINE_MB"); long v = e ? atol(e) : 128; return v < 0 ? 0 : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
 int rt_sxt_gva_count_get(void) { return g_sxt_gva_n; }
@@ -208,8 +208,8 @@ static void rt_gcheap_report(void) {
     long win_mb = (long)(g_runtime.gc.hp_chunk >> 20), rsv_mb = (g_runtime.gc.hp_cap_end && g_runtime.gc.hp_arena) ? (long)((size_t)(g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 20) : 0L;
     long win_kb = (long)(g_runtime.gc.hp_chunk >> 10);
     {
-        const char *x = getenv("SCRIP_GC_EXERCISE");
-        const char *st = getenv("SCRIP_GC_STRESS");
+        const char *x = rt_scrip_getenv("SCRIP_GC_EXERCISE");
+        const char *st = rt_scrip_getenv("SCRIP_GC_STRESS");
         if (x && *x && *x != '0')
             fprintf(stderr,
             "[GC-EXERCISE] arena_kb=%ld arena_mb=%ld reserve_mb=%ld stress=%s collections=%ld blocks=%ld bytes=%ld capped=%ld grew=%ld cap_kb=%ld grows=%ld flips=%ld flip_declined=%ld\n", win_kb,
@@ -217,7 +217,7 @@ static void rt_gcheap_report(void) {
             (long)(g_runtime.gc.hp_grown >> 10), (g_runtime.gc.hp_cap_end && g_runtime.gc.hp_arena) ? (long)((size_t)(g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10) : 0L,
             g_runtime.gc.hp_grows, g_runtime.gc.gc_flips, g_runtime.gc.gc_flip_declined);
     }
-    if (!getenv("SCRIP_ZETA_TELEM")) return;
+    if (!rt_scrip_getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
     fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB grows=%ld verify=OK\n", win_kb, rsv_mb,
         rt_gc_runs_count(), g_hp_blocks, live, g_runtime.gc.hp_arena ? (long)(g_hp_top - g_runtime.gc.hp_arena) : 0L, g_runtime.gc.hp_capped, (long)(g_runtime.gc.hp_grown >> 10),
@@ -228,7 +228,7 @@ long rt_gcheap_verify(void) { return 0; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_huge_advise(char *a0, char *e0) {
-    const char *nh = getenv("SCRIP_NOHUGE");
+    const char *nh = rt_scrip_getenv("SCRIP_NOHUGE");
     if (nh && *nh && *nh != '0') return;
     { uintptr_t a = ((uintptr_t)a0 + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)e0) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); }
 }
@@ -269,7 +269,7 @@ int rt_gcheap_grow(uint64_t need) {
 #endif
         rt_gcheap_line_reset(0);
 #if RT_DIAG
-        if (getenv("SCRIP_ZETA_TELEM"))
+        if (rt_scrip_getenv("SCRIP_ZETA_TELEM"))
             fprintf(stderr, "[ZHP] lazy commit -> %ld KB of a %ld KB hard cap (committed %ld KB total)\n", (long)((g_hp_end - g_runtime.gc.hp_arena) >> 10),
             (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (long)(g_runtime.gc.hp_grown >> 10));
 #endif
@@ -342,9 +342,9 @@ static void rt_gcheap_init(void) {
     extern int rt_environ_has(const char *);
     int senv = rt_environ_has("SCRIP_");
     { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
-    { const char *e = (senv ? getenv("SCRIP_HEAP_MB") : (const char *)0); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
+    { const char *e = (senv ? rt_scrip_getenv("SCRIP_HEAP_MB") : (const char *)0); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
     {
-        const char *e = (senv ? getenv("SCRIP_HEAP_KB") : (const char *)0);
+        const char *e = (senv ? rt_scrip_getenv("SCRIP_HEAP_KB") : (const char *)0);
         if (e && *e) {
             long v = atol(e);
             if (v < (long)GC_HEAP_KB_FLOOR || v > gc_box_kb()) {
@@ -358,9 +358,9 @@ static void rt_gcheap_init(void) {
     }
     cap_kb = (long)GC_HEAP_CAP_KB;
     if (cap_kb < kb) cap_kb = kb;
-    { const char *e = (senv ? getenv("SCRIP_HEAP_MAX_MB") : (const char *)0); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
+    { const char *e = (senv ? rt_scrip_getenv("SCRIP_HEAP_MAX_MB") : (const char *)0); if (e && *e) { long v = atol(e); cap_kb = (v * 1024L >= kb) ? v * 1024L : kb; } }
     {
-        const char *e = (senv ? getenv("SCRIP_HEAP_CAP_KB") : (const char *)0);
+        const char *e = (senv ? rt_scrip_getenv("SCRIP_HEAP_CAP_KB") : (const char *)0);
         if (e && *e) {
             long v = atol(e);
             if (v < kb) {
@@ -416,7 +416,7 @@ static void rt_gcheap_init(void) {
     rt_gcheap_line_reset(0);
     gc_static_segs_init();
 #if RT_DIAG
-    { const char *b = senv ? getenv("SCRIP_GC_BIRTH_LEDGER") : (const char *)0; if (b && *b && *b != '0') (void)gc_vac_ledger(); }
+    { const char *b = senv ? rt_scrip_getenv("SCRIP_GC_BIRTH_LEDGER") : (const char *)0; if (b && *b && *b != '0') (void)gc_vac_ledger(); }
 #endif
     (void)gc_stack_top();
 }
@@ -466,7 +466,7 @@ static void rt_alloc_hist_report(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int rt_alloc_hist_on(void) {
     if (g_runtime.gc.ah_on < 0) {
-        const char *e = getenv("SCRIP_ALLOC_HIST");
+        const char *e = rt_scrip_getenv("SCRIP_ALLOC_HIST");
         g_runtime.gc.ah_on = (e && *e && *e != '0') ? 1 : 0;
         if (g_runtime.gc.ah_on && !g_runtime.gc.ah_reg) { g_runtime.gc.ah_reg = 1; atexit(rt_alloc_hist_report); }
     }
@@ -531,11 +531,11 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
 #endif
     if (!g_runtime.gc.hp_arena) rt_gcheap_init();
 #if RT_DIAG
-    if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
+    if (stress_n < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
     if (stress_n > 0 && ++stress_c >= stress_n) { stress_c = 0; g_gc_pending = 1; }
     {
         static long since = 0, budget = -1;
-        if (budget < 0) { const char *e = getenv("SCRIP_GC_BUDGET_MB"); long mb = e ? atol(e) : 0; budget = mb > 0 ? (mb << 20) : 0; }
+        if (budget < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_BUDGET_MB"); long mb = e ? atol(e) : 0; budget = mb > 0 ? (mb << 20) : 0; }
         if (!g_runtime.gc.alloc_detax) g_runtime.gc.alloc_detax = (stress_n == 0 && budget == 0 && g_runtime.gc.ah_on <= 0 && !gc_birth_on() && g_runtime.gc.hp_arena && g_runtime.gc.hp_report_reg) ?
             1 : -1;
         g_runtime.abi.hp_fr.armed = (g_runtime.gc.alloc_detax == 1 && g_runtime.gc.ah_on <= 0 && !gc_birth_on()) ? 1 : 0;
@@ -751,7 +751,7 @@ void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n) {
         uint64_t old = (uint64_t)HBLK_BYTES(h) - sizeof(rt_hblk_t);
         if (n <= old) return p;
 #if RT_DIAG
-        if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
+        if (stress_n < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
 #endif
         {
             uint64_t total = sizeof(rt_hblk_t) + ((n + 15u) & ~15ull);
@@ -921,14 +921,14 @@ _Static_assert(sizeof(int) == 4,
     "ify), the 0xDB poison of vacated ground, the stale-read quarantine and its ledger, and the compiled node-id stores; each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, S"
     "CRIP_DIAG_REGS), which wins when set; unset, every diagnostic stays on, so every test runs with them and every benchmark driver exports SCRIP_DIAG=0");
 #if RT_DIAG
-static int gc_diag_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DIAG"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int gc_diag_on(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_DIAG"); v = (e && *e == '0') ? 0 : 1; } return v; }
 #else
 static int gc_diag_on(void) { return 0; }
 #endif
 #if RT_DIAG
-static int gc_verify_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_VERIFY"); v = (e && *e) ? (*e != '0') : gc_diag_on(); } return v; }
-static int gc_telem_on(void) { static int v = -1; if (v < 0) v = getenv("SCRIP_ZETA_TELEM") ? 1 : 0; return v; }
-static int gc_trap_on(void) { static int t = -1; if (t < 0) { const char *e = getenv("SCRIP_GC_TRAP"); t = (e && *e) ? (*e != '0') : gc_diag_on(); } return t; }
+static int gc_verify_on(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_VERIFY"); v = (e && *e) ? (*e != '0') : gc_diag_on(); } return v; }
+static int gc_telem_on(void) { static int v = -1; if (v < 0) v = rt_scrip_getenv("SCRIP_ZETA_TELEM") ? 1 : 0; return v; }
+static int gc_trap_on(void) { static int t = -1; if (t < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_TRAP"); t = (e && *e) ? (*e != '0') : gc_diag_on(); } return t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GC_QUAR_RELEASE_BYTES (256u * 1024u)
 _Static_assert((GC_QUAR_RELEASE_BYTES & (GC_QUAR_RELEASE_BYTES - 1)) == 0,
@@ -991,8 +991,8 @@ static int gc_birth_on(void) { return (g_runtime.gc.gc_vac && g_runtime.gc.gc_va
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static gc_vac_t *gc_vac_ledger(void) {
     if (!g_runtime.gc.gc_vac) {
-        const char *e = getenv("SCRIP_GC_TRAP_LEDGER");
-        const char *k = getenv("SCRIP_GC_BIRTH_LEDGER");
+        const char *e = rt_scrip_getenv("SCRIP_GC_TRAP_LEDGER");
+        const char *k = rt_scrip_getenv("SCRIP_GC_BIRTH_LEDGER");
         long c = e && *e ? atol(e) : 65536;
         long b = k && *k ? atol(k) : 0;
         if (c < 64) c = 64;
@@ -1657,7 +1657,7 @@ static void gc_frame_maps_dump_atexit(void);
 static int gc_frame_map_registered(const gc_frame_map_t *m) { for (int i = 0; i < g_runtime.gc.gc_maps_n; i++) if (g_runtime.gc.gc_maps[i] == m) return 1; return 0; }
 void rt_gc_frame_maps_add(const gc_frame_map_t *m) {
 #if RT_DIAG
-    { static int dreg = 0; if (!dreg) { const char *e = getenv("SCRIP_GC_MAPS_DUMP"); dreg = 1; if (e && *e == '1') atexit(gc_frame_maps_dump_atexit); } }
+    { static int dreg = 0; if (!dreg) { const char *e = rt_scrip_getenv("SCRIP_GC_MAPS_DUMP"); dreg = 1; if (e && *e == '1') atexit(gc_frame_maps_dump_atexit); } }
 #endif
     if (!m || gc_frame_map_registered(m)) return;
     if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_add: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
@@ -2060,14 +2060,14 @@ long rt_gc_bytes_in_use(void) {
 #if RT_DIAG
 static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };
 static int gc_maps_on(void) {
-    if (g_runtime.gc.gc_maps_rep < 0) { const char *e = getenv("SCRIP_GC_MAPS"); g_runtime.gc.gc_maps_rep = (e && *e && *e != '0') ? 1 : 0; }
+    if (g_runtime.gc.gc_maps_rep < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_MAPS"); g_runtime.gc.gc_maps_rep = (e && *e && *e != '0') ? 1 : 0; }
     return g_runtime.gc.gc_maps_rep;
 }
-static int gc_maps_verbose(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_MAPS"); v = (e && *e >= '2' && *e <= '9') ? 1 : 0; } return v; }
+static int gc_maps_verbose(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_MAPS"); v = (e && *e >= '2' && *e <= '9') ? 1 : 0; } return v; }
 static FILE *gc_maps_log(void) {
     static FILE *f = (FILE *)0;
     static int tried = 0;
-    if (!tried) { const char *e = getenv("SCRIP_GC_MAPS_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } }
+    if (!tried) { const char *e = rt_scrip_getenv("SCRIP_GC_MAPS_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } }
     return f ? f : stderr;
 }
 static int gc_type_says_ref(const DESCR_t *d) {
@@ -2180,7 +2180,7 @@ static void gc_walk_badtag(const char *graph, long off, const DESCR_t *d) {
     fprintf(stderr, "[GC-WALK-BADTAG] pop=%s graph=%s off=%ld v=0x%02x slen=%u p=%p\n", g_gc_rep_popname[g_runtime.gc.gc_rep_pop], graph ? graph : "-", off, (unsigned)d->v, (unsigned)d->slen,
         (const void *)d->p) ;
 }
-static int gc_maps_dump(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_MAPS"); v = (e && *e >= '3' && *e <= '9') ? 1 : 0; } return v; }
+static int gc_maps_dump(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_MAPS"); v = (e && *e >= '3' && *e <= '9') ? 1 : 0; } return v; }
 #define GC_WALK_DUMP_CAP 6
 static int gc_code_range(const char *w) {
     static unsigned long *xr;
@@ -2253,7 +2253,7 @@ static int gc_cell_ok(const DESCR_t *d) {
 }
 static int gc_cell_visit(DESCR_t *d) { if (!gc_cell_ok(d)) return 0; rt_gc_visit_descr(d); return 1; }
 #if RT_DIAG
-static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int gc_walk_census_on(void) { return gc_diag_on() || gc_maps_on() || gc_nospine_cell(); }
 #endif
 #if RT_DIAG
@@ -2377,7 +2377,7 @@ typedef struct { const char *olo, *ohi; long bias; } gc_seg_tr_t;
 static inline const char *gc_seg_ptr(const gc_seg_tr_t *t, const char *w) { if (!t || !t->olo) return w; return (w >= t->olo && w < t->ohi) ? w + t->bias : (const char *)0; }
 typedef struct { int st; uint64_t pc; const gc_site_ent_t *e; const gc_site_blk_t *b; const char *base, *r, *rbp; gc_seg_tr_t tr; } gc_chx_t;
 static int gc_chain_check_on(void) {
-    if (g_runtime.gc.gc_chain_knob < 0) { const char *e = getenv("SCRIP_GC_CHAIN_CHECK"); g_runtime.gc.gc_chain_knob = (e && *e >= '1' && *e <= '3') ? (*e - '0') : 0; }
+    if (g_runtime.gc.gc_chain_knob < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_CHAIN_CHECK"); g_runtime.gc.gc_chain_knob = (e && *e >= '1' && *e <= '3') ? (*e - '0') : 0; }
     return g_runtime.gc.gc_chain_knob;
 }
 extern char rt_tge_gamma_ret[], rt_tge_omega_ret[];
@@ -2797,7 +2797,7 @@ static int gc_chw_line(char *buf, size_t sz) {
 }
 static long gc_cmdline_len(void) { char ch; long n = 0; int c = open("/proc/self/cmdline", O_RDONLY); if (c < 0) return 0; while (read(c, &ch, 1) == 1) n++; close(c); return n; }
 static void gc_chain_walk_report_atexit(void) {
-    const char *lg = getenv("SCRIP_GC_CHAIN_LOG");
+    const char *lg = rt_scrip_getenv("SCRIP_GC_CHAIN_LOG");
     int n = gc_chw_line((char *)0, 0);
     char line[n + 1];
     gc_chw_line(line, (size_t)n + 1);
@@ -3688,7 +3688,7 @@ static long gc_audit_b_shim(char *floor) {
 #endif
 #if RT_DIAG
 static void gc_assert_report_done(void) {
-    const char *e = getenv("SCRIP_GC_ASSERT_FATAL");
+    const char *e = rt_scrip_getenv("SCRIP_GC_ASSERT_FATAL");
     if (e && *e == '1') { fprintf(stderr, "[ZGC-ASSERT] SCRIP_GC_ASSERT_FATAL=1: aborting on the first violated assertion.\n"); abort(); }
 }
 static void gc_assert_check(void) {
@@ -3848,7 +3848,7 @@ static void gc_validate_heap(void) {
         st.expired + st.badhead + st.nostart + st.shortblk + st.refused, st.laid, st.heap, st.expired, st.badhead, st.nostart, st.shortblk, st.refused);
 }
 #endif
-static int gc_validate_on(void) { static int vld = -1; if (vld < 0) { const char *e = getenv("SCRIP_GC_VALIDATE"); vld = (e && *e == '1') ? 1 : 0; } return vld; }
+static int gc_validate_on(void) { static int vld = -1; if (vld < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_VALIDATE"); vld = (e && *e == '1') ? 1 : 0; } return vld; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ptr_fields_bad(void) { rt_bomb("rt_gc_run_ptr_fields: a run visits one to five pointer fields per entry"); }
 void gc_shield_refuse(const char *w) {
@@ -3932,7 +3932,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
 #if RT_DIAG
     if (g_runtime.abi.gc_mk.diag || g_runtime.abi.gc_mk.trap || w_tel || g_runtime.abi.gc_mk.plant) gc_index_c();
 #ifdef SCRIP_GC_AUDIT_B
-    if (!g_runtime.gc.gc_idx && getenv("SCRIP_GC_AUDIT_B")) gc_index_c();
+    if (!g_runtime.gc.gc_idx && rt_scrip_getenv("SCRIP_GC_AUDIT_B")) gc_index_c();
 #endif
 #endif
 #if RT_DIAG
@@ -4061,7 +4061,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     if (g_runtime.abi.gc_mk.diag) gc_assert_check();
     {
         static int cov = -1;
-        if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
+        if (cov < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
         if (cov)
             fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld program_top=%p\n", g_runtime.gc.gc_rrng_n, g_runtime.gc.gc_cas_bytes, words, interior,
             (void *)g_runtime.gc.gc_program_top);
@@ -4194,7 +4194,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     }
     {
         static int psn = -1;
-        if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : g_runtime.abi.gc_mk.diag; }
+        if (psn < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : g_runtime.abi.gc_mk.diag; }
         if (psn) {
             char *ot = g_runtime.gc.hp_arena + before_b;
             long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0;
@@ -4312,7 +4312,7 @@ long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi) {
     { char **w = (char **)((((uintptr_t)lo) + 7u) & ~(uintptr_t)7u); for (; (char *)(w + 1) <= (char *)hi; w++) { char *v = *w; if (v > g_runtime.gc.hp_arena && v < g_hp_top) n++; } }
     if (n) {
         static int loud = -1;
-        if (loud < 0) { const char *e = getenv("SCRIP_GC_CB_REPORT"); loud = (e && *e != '0') ? 1 : 0; }
+        if (loud < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_CB_REPORT"); loud = (e && *e != '0') ? 1 : 0; }
         if (loud)
             fprintf(stderr,
             "[ZGC-CB] %s:%d %ld raw arena word(s) live in an UNMAPPED C FRAME across a callback during which the collector ran %ld time(s). Lon 2026-09-21: a C function creates residue on the hardwa"
@@ -4320,7 +4320,7 @@ long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi) {
             ") as reversed at CEO-1090).\n", file ? file : "?", line, n, rt_gc_runs_count() - mark);
         {
             static int fatal = -1;
-            if (fatal < 0) { const char *e = getenv("SCRIP_GC_CB_FATAL"); fatal = (e && *e != '0') ? 1 : 0; }
+            if (fatal < 0) { const char *e = rt_scrip_getenv("SCRIP_GC_CB_FATAL"); fatal = (e && *e != '0') ? 1 : 0; }
             if (fatal) { fprintf(stderr, "[ZGC-CB] SCRIP_GC_CB_FATAL is set: aborting on the first Rule 4 violation.\n"); abort(); }
         }
     }

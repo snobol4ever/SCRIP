@@ -1859,6 +1859,7 @@ int main(int argc, char **argv) {
                 argi++;
             } else if (strcmp(argv[argi], "--stlimit") == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
+                g_runtime.scrip_env = 0;
                 argi++;
             } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
                 if (!strcmp(argv[argi] + 10, "gnu")) prolog_select_dialect_gnu();
@@ -1878,17 +1879,20 @@ int main(int argc, char **argv) {
             } else if (strcmp(argv[argi], "--monitor") == 0) {
                 g_runtime.abi.monitor_bin = 1;
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
+                g_runtime.scrip_env = 0;
                 argi++;
             } else if (strcmp(argv[argi], "--no-monitor") == 0) {
                 g_runtime.abi.monitor_bin = 0;
                 argi++;
             } else if (strcmp(argv[argi], "--trace") == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
+                g_runtime.scrip_env = 0;
                 g_runtime.abi.trace_budget = 2000000000L;
                 g_runtime.misc.kw_trace = 2000000000L;
                 argi++;
             } else if (strncmp(argv[argi], "--trace=", 8) == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
+                g_runtime.scrip_env = 0;
                 g_runtime.abi.trace_budget = atol(argv[argi] + 8);
                 g_runtime.misc.kw_trace = (int64_t) g_runtime.abi.trace_budget;
                 argi++;
@@ -1904,7 +1908,7 @@ int main(int argc, char **argv) {
             char sw = argv[argi][1];
             const char *rest = argv[argi] + 2;
             long v;
-            if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
+            if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); g_runtime.scrip_env = 0; argi++; continue; }
             if (sw == 'o') return refuse_dash_o();
             if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
             if (sw == 'S' && *rest == '\0') { opt_pl_subs = 1; argi++; continue; }

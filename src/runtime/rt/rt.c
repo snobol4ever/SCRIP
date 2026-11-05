@@ -44,7 +44,7 @@ extern int Σlen;
 void rt_c2bb_hit(const char *site, const char *name) {
     static int on = -1;
     static const char *path;
-    if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; }
+    if (on < 0) { path = rt_scrip_getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; }
     if (!on) return;
     {
         const char *w1 = "?", *w2 = "?";
@@ -776,7 +776,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     }
     {
         static int _b1cg = -1;
-        if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
+        if (_b1cg < 0) { const char *_e = rt_scrip_getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
         extern int gva_count(void);
         extern int gva_collect_var(const char *);
         extern int gva_collect_reserve(void);
@@ -1271,7 +1271,7 @@ static void **rt_alpha_cell_of(rt_proc_t *p, const char *name) {
     return (void **)bb_ab_cell_at(p->alpha_slot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_dyn_alpha_live(void) { static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; } return live; }
+static int rt_dyn_alpha_live(void) { static int live = -1; if (live < 0) { const char *e = rt_scrip_getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; } return live; }
 static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback) {
     if (!rt_dyn_alpha_live() || !name) return fallback;
     if (!p) { extern void *rt_dyn_alpha_fn(const char *, void *); return rt_dyn_alpha_fn(name, fallback); }
@@ -1563,7 +1563,7 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback) {
         size_t nl = strlen(name);
         char cn[nl + 7];
         static int fastcat = -1;
-        if (fastcat < 0) { const char *e = getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
+        if (fastcat < 0) { const char *e = rt_scrip_getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
         if (fastcat) { memcpy(cn, "alpha$", 6); memcpy(cn + 6, name, nl + 1); } else snprintf(cn, sizeof cn, "alpha$%s", name);
         { void **cell = (void **)bb_ab_fn_cell_ptr(cn); return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
     }
@@ -1617,7 +1617,7 @@ void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char
                 rt_shim_cell_set(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm, arg);
                 {
                     static int diag = -1;
-                    if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+                    if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
                     if (diag)
                         fprintf(stderr, "[NVIN] %s.%s cells=%p j=%d old.v=%d arg.v=%d nargs=%d nf=%d off=%ld\n", proc, nm, (void *)cells, j, (int)cells[j].v, (int)arg.v, nargs, nf,
                         (k < nargs) ? sig[3 + k] : -1L);
@@ -1640,7 +1640,7 @@ static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells) {
         j--;
         {
             static int diag = -1;
-            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
             if (diag) fprintf(stderr, "[NVOUT] %s.%s cells=%p j=%d old.v=%d\n", p->name ? p->name : "?", nm, (void *)cells, j, (int)cells[j].v);
         }
         rt_shim_cell_set(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm, cells[j]);
@@ -1954,7 +1954,7 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); } }
-static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
+static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = rt_scrip_getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     rt_proc_t *p = *pp;
     long ix = (long)(p - g_runtime.abi.rt_gen_procs);
@@ -2041,7 +2041,7 @@ void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dc_ok(const char *name, int nargs) {
     static int off = -1;
-    if (off < 0) { const char *e = getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
+    if (off < 0) { const char *e = rt_scrip_getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
     if (off) return 0;
     if (name && strncmp(name, "LBL__", 5) == 0) return 0;
     if (name && strcmp(name, "main") == 0) return 0;
@@ -2095,7 +2095,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
     { int _np = p->nparams; rt_call_args_need(_np > nargs ? _np : nargs); for (int i = nargs; i < _np; i++) CALL_ARGS[i] = NULVCL; }
     {
         static int _va = -1;
-        if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
+        if (_va < 0) { const char *_e = rt_scrip_getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
         if (_va && p->is_variadic && p->jmp_entry) {
             int npc = p->nparams;
             if (npc > 0) {
@@ -2124,7 +2124,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_proc_call_open_p(rt_proc_t **pp, int nargs) {
     rt_proc_t *p = *pp;
@@ -2225,7 +2225,7 @@ RT_ENTRY_DECL(rt_jmp_frame_lexprep2, leaf, 0);
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes) { (void)suffix_off; memset(fb, 0, (size_t)region_bytes); }
 void *rt_frame_prep(void *fb, long fbytes) { (void)fb; (void)fbytes; return (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_byname_alpha_on(void) { static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_BYNAME_ALPHA"); live = (e && e[0] == '0') ? 0 : 1; } return live; }
+static int rt_byname_alpha_on(void) { static int live = -1; if (live < 0) { const char *e = rt_scrip_getenv("SCRIP_BYNAME_ALPHA"); live = (e && e[0] == '0') ? 0 : 1; } return live; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs) { (void)args; (void)nargs; return rt_c2bb_bomb("rt_call_named_proc", name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2276,7 +2276,7 @@ void rt_define_bind_entry(const char *fname, const char *entry) {
         void *fn = rt_entry_resolve(entry, &frag);
         {
             static int diag = -1;
-            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
             if (diag) fprintf(stderr, "[DEFSITE-BIND] %s -> %s fn=%p frag=%d\n", fname, entry, fn, frag);
         }
         if (!fn) return;
@@ -2344,7 +2344,7 @@ void rt_define_site(const char *name, const char *params_csv, int nparams, int n
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     {
         static int diag = -1;
-        if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+        if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
         if (diag)
             fprintf(stderr, "[DEFSITE] %s (%s) fn=%p p=%p pfn=%p sealed=%p\n", name ? name : "?", params_csv ? params_csv : "", fn, (void *)p, p ? (void *)p->fn : (void *)0,
             p ? rt_dyn_alpha_fn_p(p, name, (void *)0) : (void *)0);
@@ -2410,7 +2410,7 @@ void rt_define_site_entry(const char *name, const char *entry) {
         rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0;
         {
             static int diag = -1;
-            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag < 0) { const char *e = rt_scrip_getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
             if (diag) fprintf(stderr, "[DEFSITE-ENTRY] %s -> %s fn=%p frag=%d p=%p\n", name, entry, fn, frag, (void *)p);
         }
         if (!p) return;
