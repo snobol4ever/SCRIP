@@ -1467,7 +1467,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     val = _xs;
                     wid = ilit(-1);
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_singlevar(val->v.sval)) {
-                    if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5);
+                    if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(g_lower.pas.sem.pas_seen_mode_directive ? -5 : -12);
                 } else if (pas_is_currencyexpr(val)) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6);
                 } else if (pas_is_qword(val) && val->t != TT_ILIT) {

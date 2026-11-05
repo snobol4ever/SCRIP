@@ -21332,7 +21332,8 @@ static void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start)
     for (int _pi = start; _pi + 1 < nargs; _pi += 2) {
         DESCR_t av = args[_pi];
         DESCR_t aw = args[_pi + 1];
-        int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i >= 0 ? (int)aw.i : -1))))))) : -1;
+        int w = IS_INT_fn(aw) ?
+            (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i == -12 ? -12 : (aw.i >= 0 ? (int)aw.i : -1)))))))) : -1;
         int _upper = 0, _uns = 0;
         if (IS_INT_fn(aw) && aw.i == -11 && _pi + 3 < nargs) { _uns = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
         if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
@@ -21366,11 +21367,12 @@ static void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start)
             pas_put_rjust(k, _pbq, _pfmtlen, _fw);
         } else if (IS_REAL_fn(av)) {
             char _rb[64];
-            int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-            pas_real_str_exp(w == -5 ? (double)(float)av.r : av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4 || w == -5);
+            int _sgl = w == -5 || w == -12;
+            int _prec = _sgl ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
+            pas_real_str_exp(_sgl ? (double)(float)av.r : av.r, _rb, sizeof _rb, _prec, _sgl ? 2 : 3, _upper || w == -4 || w == -5);
             int _pfmtlen = (int)strlen(_rb);
             int _signpad = (_rb[0] == '-') ? 0 : 1;
-            int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;
+            int _basew = _sgl ? 0 : (w < 0) ? 20 : w;
             int _fw = (_pfmtlen + _signpad > _basew) ? _pfmtlen + _signpad : _basew;
             pas_put_rjust(k, _rb, _pfmtlen, _fw);
         } else {
