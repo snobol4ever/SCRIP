@@ -2628,6 +2628,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
                 return lower_rv(cx, ar, γ, ω, res);
             }
+            if (cls && !rk_is_class_name(cls) && !strcmp(cls, "Slip")) {
+                tree_t * ar = rk_fnc2("__rk_arr", NULL, NULL);
+                ar->line = t->line;
+                for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
+                return lower_rv(cx, rk_fnc2("__rk_arr_slip", ar, NULL), γ, ω, res);
+            }
             if (cls && !rk_is_class_name(cls) && !strcmp(cls, "Hash") && t->n == 1) { tree_t * h = rk_fnc2("__rk_hash", NULL, NULL); return lower_rv(cx, h, γ, ω, res); }
             if (cls && (t->n == 3 || t->n == 1) && !rk_is_class_name(cls) && (!strcmp(cls, "Rat") || !strcmp(cls, "FatRat"))) {
                 tree_t * rn = ast_node_new(TT_FNC);
@@ -7181,13 +7187,20 @@ static void rk_pl_enum(tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_pl_modifier(tree_t * t, int kind) {
-    tree_t * stmt = t->c[1], * cond = t->c[2], * topic = rk_t2(TT_ASSIGN, leaf_sval2(TT_VAR, "_"), cond);
+    tree_t * stmt = t->c[1], * cond = t->c[2];
+    char sv[48];
+    snprintf(sv, sizeof sv, "__modsv_%p", (void *) t);
+    const char * svn = lp_strdup(sv);
+    tree_t * save = rk_t2(TT_ASSIGN, leaf_sval2(TT_VAR, svn), leaf_sval2(TT_VAR, "_")), * topic = rk_t2(TT_ASSIGN, leaf_sval2(TT_VAR, "_"), cond),
+        * back = rk_t2(TT_ASSIGN, leaf_sval2(TT_VAR, "_"), leaf_sval2(TT_VAR, svn));
     t->t = TT_SEQ_EXPR;
     t->v.sval = NULL;
     t->n = 0;
+    ast_push(t, save);
     ast_push(t, topic);
-    if (kind == 2) { ast_push(t, stmt); return; }
-    ast_push(t, rk_t2(kind ? TT_UNLESS : TT_IF, rk_fnc2("__rk_defined", leaf_sval2(TT_VAR, "_"), NULL), rk_sq_seq1(stmt)));
+    if (kind == 2) ast_push(t, stmt);
+    else ast_push(t, rk_t2(kind ? TT_UNLESS : TT_IF, rk_fnc2("__rk_defined", leaf_sval2(TT_VAR, "_"), NULL), rk_sq_seq1(stmt)));
+    ast_push(t, back);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_place_groups(tree_t * t, int * uid) {

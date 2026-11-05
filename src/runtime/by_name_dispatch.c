@@ -2238,9 +2238,9 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
         rk_av_t a = rk_av(v);
         const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
         for (int i = 0; i < a.n; i++) tx[i] = rk_raku_str(a.el[i], 0);
-        int sq = rk_is_seq(v), lst = sq || rk_is_list(v) || rk_is_slip(v);
-        if (lst && a.n == 1) { const char *one = tx[0]; size_t L = strlen(one); char *b = rt_wsb_alloc(L + 8); snprintf(b, L + 8, "(%s,)%s", one, sq ? ".Seq" : ""); return b; }
-        const char *body = rk_join_gists(tx, a.n, ", ", lst ? "(" : "[", lst ? ")" : "]");
+        int sq = rk_is_seq(v), lst = sq || rk_is_list(v) || rk_is_slip(v), sl = !sq && rk_is_slip(v);
+        if (lst && a.n == 1) { const char *one = tx[0]; size_t L = strlen(one); char *b = rt_wsb_alloc(L + 16); snprintf(b, L + 16, "%s(%s,)%s", sl ? "slip" : "", one, sq ? ".Seq" : ""); return b; }
+        const char *body = rk_join_gists(tx, a.n, ", ", sl ? "slip(" : lst ? "(" : "[", lst ? ")" : "]");
         if (sq) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 5); snprintf(b, L + 5, "%s.Seq", body); return b; }
         if (in_hash && !lst) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 2); b[0] = '$'; memcpy(b + 1, body, L + 1); return b; }
         return body;
