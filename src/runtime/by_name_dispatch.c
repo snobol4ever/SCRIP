@@ -3856,6 +3856,133 @@ DESCR_t bt_fmt(DESCR_t *args, int nargs) {
     }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
+static DESCR_t bta_split(DESCR_t *args, int nargs, int _bop) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1 && rk_rx_pat(args[1 + (0)])) {
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(args[1 + (0)]), 0);
+        if (!prog) { return FAILDESCR; }
+        int split = (_bop == 0);
+        const char **tx = (const char **) rt_pvec_alloc(n + 2);
+        size_t *ln = (size_t *) rt_wsb_alloc((n + 2) * sizeof(size_t));
+        size_t seg = 0, pos = 0;
+        int nel = 0;
+        while (pos <= n) {
+            RxMatch rm;
+            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
+            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
+            if (me == ms) { pos = ms + 1; continue; }
+            if (split) { tx[nel] = s + seg; ln[nel] = ms - seg; seg = me; } else { tx[nel] = s + ms; ln[nel] = me - ms; }
+            nel++;
+            pos = me;
+        }
+        if (split) { tx[nel] = s + seg; ln[nel] = n - seg; nel++; }
+        return rk_arr_of_texts(tx, ln, nel);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_comb(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { const DESCR_t _r = bta_split(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; }
+    if ((nargs - 1) == 1 && IS_INT_fn(args[1 + (0)]) && args[1 + (0)].i > 0) {
+        long cn = (long) args[1 + (0)].i;
+        const char **tx = (const char **) rt_pvec_alloc(n + 1);
+        size_t *ln = (size_t *) rt_wsb_alloc((n + 1) * sizeof(size_t));
+        int c = 0;
+        for (size_t i = 0; i < n; ) {
+            size_t b = i;
+            for (long k = 0; k < cn && i < n; k++) { int cl = utf8_seqlen((unsigned char) s[i]); for (int q = 0; q < cl && i < n; q++) i++; }
+            tx[c] = s + b;
+            ln[c] = i - b;
+            c++;
+        }
+        return rk_arr_of_texts(tx, ln, c);
+    }
+    {
+        const char **tx = (const char **) rt_pvec_alloc(n + 1);
+        size_t *ln = (size_t *) rt_wsb_alloc((n + 1) * sizeof(size_t));
+        int c = 0;
+        for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); size_t b = i; for (int k = 0; k < cl && i < n; k++) i++; tx[c] = s + b; ln[c] = i - b; c++; }
+        return rk_arr_of_texts(tx, ln, c);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_split(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { const DESCR_t _r = bta_split(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; }
+    if ((nargs - 1) >= 1) {
+        char sept[64];
+        const char *sep = to_cstring(args[1 + (0)], sept, sizeof sept);
+        if (!sep) sep = "";
+        size_t sl = strlen(sep);
+        const char **tx = (const char **) rt_pvec_alloc(n + 2);
+        size_t *ln = (size_t *) rt_wsb_alloc((n + 2) * sizeof(size_t));
+        int c = 0;
+        if (sl == 0) {
+            for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); size_t b = i; for (int k = 0; k < cl && i < n; k++) i++; tx[c] = s + b; ln[c] = i - b; c++; }
+        } else {
+            const char *p = s, *hit;
+            while ((hit = strstr(p, sep)) != NULL) { tx[c] = p; ln[c] = (size_t)(hit - p); c++; p = hit + sl; }
+            tx[c] = p;
+            ln[c] = strlen(p);
+            c++;
+        }
+        return rk_arr_of_texts(tx, ln, c);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+static DESCR_t bta_index(DESCR_t *args, int nargs, int _bop) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1) {
+        char nb[64];
+        const char *nd = to_cstring(args[1 + (0)], nb, sizeof nb);
+        if (!nd) nd = "";
+        int rev = (_bop == 1);
+        size_t nl = strlen(nd);
+        long nch = (long)utf8_strlen(s);
+        long pos = (nargs - 1) >= 2 ? (IS_INT_fn(args[1 + (1)]) ? (long)args[1 + (1)].i : IS_REAL_fn(args[1 + (1)]) ? (long)args[1 + (1)].r : atol(to_cstring(args[1 + (1)], sb, sizeof sb))) :
+            (rev ? nch : 0);
+        long found = -1;
+        size_t b = 0;
+        for (long c = 0; c <= nch; c++) {
+            if (b + nl <= n && memcmp(s + b, nd, nl) == 0) { if (rev) { if (c <= pos) found = c; } else if (c >= pos) { found = c; break; } }
+            if (b >= n) break;
+            b++;
+            while (b < n && ((unsigned char)s[b] & 0xC0) == 0x80) b++;
+        }
+        return found >= 0 ? INTVAL(found) : NULVCL;
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_rindex(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_index(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_m_index(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_index(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static DESCR_t bta_succ(DESCR_t *args, int nargs, int _bop) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if ((IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) { int d = (_bop == 0) ? 1 : -1; if (IS_INT_fn(args[0])) *out = INTVAL((long)args[0].i + d); else *out = REALVAL(args[0].r + d); return _bo; }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_succ(DESCR_t *args, int nargs) {
+    if (!IS_INT_fn(args[0]) && !IS_REAL_fn(args[0]) && IS_STR_fn(args[0]) && !rk_typeobj_name(args[0])) {
+        const char *sv = rk_cstr(args[0]);
+        return STRVAL(rk_str_succ_buf(sv, (char *)rt_heap_alloc_c(strlen(sv) + 2)));
+    }
+    { const DESCR_t _r = bta_succ(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_pred(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_succ(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     if ((recv.v == DT_DATA || recv.v == DT_I || recv.v == DT_BIG || recv.v == DT_R || recv.v == DT_S) && (meth[0] == 'R' || meth[0] == 'F' || meth[0] == 'n' || meth[0] == 'd' || recv.v == DT_DATA) &&
@@ -3980,27 +4107,15 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     const char *s = recv.v == DT_A ? rk_av_joined(rk_av(recv), " ", "", "") : IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb);
     if (!s) s = "";
     size_t n = strlen(s);
-    if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
-        RxEnv renv;
-        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(margs[0]), 0);
-        if (!prog) { *out = FAILDESCR; return 1; }
-        int split = meth[0] == 's';
-        const char **tx = (const char **) rt_pvec_alloc(n + 2);
-        size_t *ln = (size_t *) rt_wsb_alloc((n + 2) * sizeof(size_t));
-        size_t seg = 0, pos = 0;
-        int nel = 0;
-        while (pos <= n) {
-            RxMatch rm;
-            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
-            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
-            if (me == ms) { pos = ms + 1; continue; }
-            if (split) { tx[nel] = s + seg; ln[nel] = ms - seg; seg = me; } else { tx[nel] = s + ms; ln[nel] = me - ms; }
-            nel++;
-            pos = me;
+    {
+        int _br = bt_row_of(BT_VOC_RKM, meth, (unsigned)strlen(meth));
+        if (_br >= 0 && g_bt_leaf[_br]) {
+            DESCR_t _av[1 + nmargs];
+            _av[0] = recv;
+            for (int _i = 0; _i < nmargs; _i++) _av[1 + _i] = margs[_i];
+            const DESCR_t _bv = g_bt_leaf[_br](_av, 1 + nmargs);
+            if (_bv.v != RTX_NOT_HANDLED) { *out = _bv; return 1; }
         }
-        if (split) { tx[nel] = s + seg; ln[nel] = n - seg; nel++; }
-        *out = rk_arr_of_texts(tx, ln, nel);
-        return 1;
     }
     if (!strcmp(meth, "trim-leading") || !strcmp(meth, "trim-trailing")) {
         size_t a = 0, b = n;
@@ -4026,25 +4141,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         }
         if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; }
         *out = INTVAL((long)atoll(s));
-        return 1;
-    }
-    if ((!strcmp(meth, "index") || !strcmp(meth, "rindex")) && nmargs >= 1) {
-        char nb[64];
-        const char *nd = to_cstring(margs[0], nb, sizeof nb);
-        if (!nd) nd = "";
-        int rev = meth[0] == 'r';
-        size_t nl = strlen(nd);
-        long nch = (long)utf8_strlen(s);
-        long pos = nmargs >= 2 ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : IS_REAL_fn(margs[1]) ? (long)margs[1].r : atol(to_cstring(margs[1], sb, sizeof sb))) : (rev ? nch : 0);
-        long found = -1;
-        size_t b = 0;
-        for (long c = 0; c <= nch; c++) {
-            if (b + nl <= n && memcmp(s + b, nd, nl) == 0) { if (rev) { if (c <= pos) found = c; } else if (c >= pos) { found = c; break; } }
-            if (b >= n) break;
-            b++;
-            while (b < n && ((unsigned char)s[b] & 0xC0) == 0x80) b++;
-        }
-        *out = found >= 0 ? INTVAL(found) : NULVCL;
         return 1;
     }
     if (!strcmp(meth, "chrs") && nmargs == 0 && recv.v != DT_A) { *out = recv; return 1; }
@@ -4126,65 +4222,11 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL((char *) rk_raku_scalar(recv));
         return 1;
     }
-    if (!strcmp(meth, "succ") && !IS_INT_fn(recv) && !IS_REAL_fn(recv) && IS_STR_fn(recv) && !rk_typeobj_name(recv)) {
-        const char *sv = rk_cstr(recv);
-        *out = STRVAL(rk_str_succ_buf(sv, (char *)rt_heap_alloc_c(strlen(sv) + 2)));
-        return 1;
-    }
-    if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) {
-        int d = !strcmp(meth, "succ") ? 1 : -1;
-        if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d);
-        else *out = REALVAL(recv.r + d);
-        return 1;
-    }
     if ((!strcmp(meth, "Num") || !strcmp(meth, "Numeric")) && nmargs == 0 && recv.v != DT_A && !IS_INT_fn(recv) && !IS_REAL_fn(recv)) {
         char *ep;
         double dv = strtod(s, &ep);
         while (*ep == ' ') ep++;
         if (*s && (*ep == '\0')) { long lv = (long) dv; *out = (!strcmp(meth, "Numeric") && (double) lv == dv && !strpbrk(s, ".eEnN")) ? INTVAL(lv) : REALVAL(dv); return 1; }
-    }
-    if (!strcmp(meth, "comb") && nmargs == 1 && IS_INT_fn(margs[0]) && margs[0].i > 0) {
-        long cn = (long) margs[0].i;
-        const char **tx = (const char **) rt_pvec_alloc(n + 1);
-        size_t *ln = (size_t *) rt_wsb_alloc((n + 1) * sizeof(size_t));
-        int c = 0;
-        for (size_t i = 0; i < n; ) {
-            size_t b = i;
-            for (long k = 0; k < cn && i < n; k++) { int cl = utf8_seqlen((unsigned char) s[i]); for (int q = 0; q < cl && i < n; q++) i++; }
-            tx[c] = s + b;
-            ln[c] = i - b;
-            c++;
-        }
-        *out = rk_arr_of_texts(tx, ln, c);
-        return 1;
-    }
-    if (!strcmp(meth, "comb")) {
-        const char **tx = (const char **) rt_pvec_alloc(n + 1);
-        size_t *ln = (size_t *) rt_wsb_alloc((n + 1) * sizeof(size_t));
-        int c = 0;
-        for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); size_t b = i; for (int k = 0; k < cl && i < n; k++) i++; tx[c] = s + b; ln[c] = i - b; c++; }
-        *out = rk_arr_of_texts(tx, ln, c);
-        return 1;
-    }
-    if (!strcmp(meth, "split") && nmargs >= 1) {
-        char sept[64];
-        const char *sep = to_cstring(margs[0], sept, sizeof sept);
-        if (!sep) sep = "";
-        size_t sl = strlen(sep);
-        const char **tx = (const char **) rt_pvec_alloc(n + 2);
-        size_t *ln = (size_t *) rt_wsb_alloc((n + 2) * sizeof(size_t));
-        int c = 0;
-        if (sl == 0) {
-            for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); size_t b = i; for (int k = 0; k < cl && i < n; k++) i++; tx[c] = s + b; ln[c] = i - b; c++; }
-        } else {
-            const char *p = s, *hit;
-            while ((hit = strstr(p, sep)) != NULL) { tx[c] = p; ln[c] = (size_t)(hit - p); c++; p = hit + sl; }
-            tx[c] = p;
-            ln[c] = strlen(p);
-            c++;
-        }
-        *out = rk_arr_of_texts(tx, ln, c);
-        return 1;
     }
     if (!strcmp(meth, "elems")) { *out = INTVAL(s[0] ? 1 : 0); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
