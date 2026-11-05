@@ -1198,7 +1198,7 @@ void prolog_dcg_expand(PlClause *cl) {
     dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const PlClause *head; const PlClause *stop; int swi; Parser *p; int lineno; } pl_ifcx_t;
+typedef struct { const PlClause *head; const PlClause *stop; int swi; Parser *p; int lineno; int defer; const tree_t *dcond; } pl_ifcx_t;
 static int pl_if_defines(const pl_ifcx_t *x, const char *nm, const tree_t *ar) {
     for (const PlClause *c = x->head; c && c != x->stop; c = c->next) {
         const tree_t *h = (c->tr && c->tr->t == TT_CLAUSE && c->tr->n >= 1) ? c->tr->c[0] : (const tree_t *)0;
@@ -1242,13 +1242,23 @@ static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
     int arity = cond->t == TT_FNC ? cond->n : 0;
     if (cond->t == TT_QLIT && !strcmp(fn, "true")) return 1;
     if (cond->t == TT_QLIT && (!strcmp(fn, "fail") || !strcmp(fn, "false"))) return 0;
-    if ((!strcmp(fn, "\\+") || !strcmp(fn, "not")) && arity == 1) return !eval_if_condition_tree(cond->c[0], x);
-    if (!strcmp(fn, ",") && arity == 2) return eval_if_condition_tree(cond->c[0], x) && eval_if_condition_tree(cond->c[1], x);
-    if (!strcmp(fn, "->") && arity == 2) return eval_if_condition_tree(cond->c[0], x) && eval_if_condition_tree(cond->c[1], x);
+    if ((!strcmp(fn, "\\+") || !strcmp(fn, "not")) && arity == 1) { int v = eval_if_condition_tree(cond->c[0], x); return v < 0 ? -1 : !v; }
+    if ((!strcmp(fn, ",") || !strcmp(fn, "->")) && arity == 2) {
+        int l = eval_if_condition_tree(cond->c[0], x);
+        if (l == 0) return 0;
+        int r = eval_if_condition_tree(cond->c[1], x);
+        return r == 0 ? 0 : (l < 0 || r < 0) ? -1 : 1;
+    }
     if (!strcmp(fn, ";") && arity == 2) {
         const tree_t *l = cond->c[0];
-        if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "->") && l->n == 2) return eval_if_condition_tree(l->c[0], x) ? eval_if_condition_tree(l->c[1], x) : eval_if_condition_tree(cond->c[1], x);
-        return eval_if_condition_tree(l, x) || eval_if_condition_tree(cond->c[1], x);
+        if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "->") && l->n == 2) {
+            int c = eval_if_condition_tree(l->c[0], x);
+            return c < 0 ? -1 : c ? eval_if_condition_tree(l->c[1], x) : eval_if_condition_tree(cond->c[1], x);
+        }
+        int a = eval_if_condition_tree(l, x);
+        if (a == 1) return 1;
+        int b = eval_if_condition_tree(cond->c[1], x);
+        return b == 1 ? 1 : (a < 0 || b < 0) ? -1 : 0;
     }
     if (!strcmp(fn, "current_prolog_flag") && arity == 2) return pl_if_flag(cond->c[0], cond->c[1], x->swi);
     if (!strcmp(fn, "current_predicate") && arity == 1) {
@@ -1270,7 +1280,14 @@ static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
         int k = pl_prelude_lib_spec_known(cond->c[0]->c[0]);
         if (k >= 0) return k;
     }
-    if (!x->p->quiet) fprintf(stderr, "%s:%d: warning: the :- if condition %s/%d has no read-time evaluator in SCRIP, so it reads as false\n", x->p->filename, x->lineno, fn, arity);
+    return -1;
+}
+static int pl_if_verdict(const tree_t *cond, pl_ifcx_t *x) {
+    int v = eval_if_condition_tree(cond, x);
+    if (v >= 0) return v;
+    if (x->defer >= 0) { x->defer = 1; x->dcond = cond; return 0; }
+    const char *fn = cond && (cond->t == TT_QLIT || cond->t == TT_FNC) && cond->v.sval ? cond->v.sval : "";
+    if (!x->p->quiet) fprintf(stderr, "%s:%d: warning: the :- if condition %s/%d has no read-time evaluator in SCRIP, so it reads as false\n", x->p->filename, x->lineno, fn, cond && cond->t == TT_FNC ? cond->n : 0);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1294,7 +1311,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno, pl_
     if (!fn) return 0;
     if (strcmp(fn, "if") == 0 && arity == 1) {
         int parent_active = if_currently_active(p);
-        int verdict = parent_active ? eval_if_condition_tree(arg0, x) : 0;
+        int verdict = parent_active ? pl_if_verdict(arg0, x) : 0;
         int active = parent_active && (verdict != 0);
         IfFrame nf; nf.active = 0; nf.taken = 0; nf.parent_active = 0; nf.line = 0; CV_PUSH(p->ifst, IfFrame) = nf;
         IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst.len - 1);
@@ -1313,7 +1330,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno, pl_
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
-            int verdict = eval_if_condition_tree(arg0, x);
+            int verdict = pl_if_verdict(arg0, x);
             int active  = (verdict != 0);
             f->active = active;
             if (active) f->taken = 1;
@@ -1360,7 +1377,14 @@ static void xsb_directive(Parser *p, const tree_t *goal) {
     else if (!strcmp(f, "index") && goal->n >= 2 && goal->n <= 3) p->xsb = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static PlClause *parse_clause0(Parser *p);
 static PlClause *parse_clause(Parser *p) {
+    int s = lexer_peek(&p->lx).start;
+    PlClause *cl = parse_clause0(p);
+    if (cl) { cl->sstart = s; cl->send = p->lx.last_end; }
+    return cl;
+}
+static PlClause *parse_clause0(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
     TreeScope *ts = &p->ts; ts->e.len = 0;
@@ -3071,6 +3095,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n"
     "consult(F):- current_prolog_flag('$dialect',gnu),!,(atom(F),F\\==[]->'$gnu_consult'(F);'$gnu_atom_list'(F,consult/1),'$gnu_consult_list'(F)).\n"
     "consult(F):- current_prolog_flag('$dialect',xsb),!,'$xsb_consult'(F).\n"
+    "'$cc_chain'(M,U,Bs):-'$cc_pick'(Bs,M,T),!,'$cc_consult'(T,M,U).\n"
+    "'$cc_chain'(_,_,_).\n"
+    "'$cc_pick'([C-T|_],M,T):-catch(M:C,_,fail),!.\n"
+    "'$cc_pick'([_|R],M,T):-'$cc_pick'(R,M,T).\n"
+    "'$cc_consult'(T,M,U):-(U=='[]'->T1=T;format(atom(T1),':- begin_tests(~q).~n~w~n:- end_tests(~q).~n',[U,T,U])),(M==user->T2=T1;format(atom(T2),':- ''$set_source_module''(~q).~n~w~n:- ''$set_source_module''(user).~n',[M,T1])),"
+        "open_string(T2,S),catch('$consult_loop'(S,'$cc_text',Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
     "consult(F):-'$consult_path'(F,P),absolute_file_name(P,A),open(P,read,S),catch('$consult_loop'(S,A,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
     "clause_property(R,_):-var(R),!,throw(error(instantiation_error,context(clause_property/2,_))).\n"
     "clause_property(R,P):-'$clprop'(R,P).\n"
@@ -4661,6 +4691,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     pl_module_imports_referenced(prog, &referenced, &modimp);
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
+    if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
@@ -5049,8 +5080,28 @@ static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
     }
     return 1;
 }
+static tree_t *pl_cc_qlit(const char *s, int n) {
+    tree_t *a = ast_node_new(TT_QLIT);
+    char *b = ct_zalloc((size_t)n + 1, 1);
+    memcpy(b, s, (size_t)n);
+    a->v.sval = b;
+    return a;
+}
+static const char *pl_cc_dname(const tree_t *t, int *ar) {
+    const tree_t *g = (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL) ? t->c[1] : (const tree_t *)0;
+    *ar = g && g->t == TT_FNC ? g->n : 0;
+    return g && (g->t == TT_FNC || g->t == TT_QLIT) && g->v.sval ? g->v.sval : "";
+}
+static void pl_cc_branch(tree_t *dl, const tree_t *cond, const char *src, int a, int b) {
+    tree_t *e = ast_node_new(TT_FNC);
+    e->v.sval = ct_strdup("-");
+    ast_push(e, (tree_t *)cond);
+    ast_push(e, pl_cc_qlit(src + a, b > a ? b - a : 0));
+    ast_push(dl, e);
+}
 static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
     Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
+    int dfr = 0, dnest = 0, dstart = 0; const tree_t *dcond = (const tree_t *)0; tree_t *dl = (tree_t *)0; const char *dmod = "user", *dunit = (const char *)0, *cur_unit = (const char *)0;
     if (!prog) return;
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
     memset(&ix, 0, sizeof ix); ix.swi = swi;
@@ -5058,8 +5109,48 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
     while (cl) {
         PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
         prolog_fold_pieces(cl->tr);
+        if (dfr) {
+            int da, keep = 0; const char *dn = pl_cc_dname(t, &da);
+            int is_if = !strcmp(dn, "if") && da == 1, is_end = !strcmp(dn, "endif") && da == 0;
+            int is_el = ((!strcmp(dn, "elif") || !strcmp(dn, "elseif")) && da == 1) || (!strcmp(dn, "else") && da == 0);
+            if (is_if) dnest++;
+            else if (is_end && dnest) dnest--;
+            else if (!dnest && (is_el || is_end)) {
+                pl_cc_branch(dl, dcond, prog->src, dstart, cl->sstart);
+                if (is_end) {
+                    tree_t *g = ast_node_new(TT_FNC), *cc = ast_node_new(TT_CLAUSE);
+                    g->v.sval = ct_strdup("$cc_chain");
+                    ast_push(g, pl_cc_qlit(dmod, (int)strlen(dmod)));
+                    ast_push(g, pl_cc_qlit(dunit ? dunit : "[]", (int)strlen(dunit ? dunit : "[]")));
+                    ast_push(g, dl);
+                    ast_push(cc, ast_node_new(TT_NUL));
+                    ast_push(cc, g);
+                    cl->tr = cc;
+                    if (q.ifst.len) q.ifst.len--;
+                    dfr = 0;
+                    keep = 1;
+                } else {
+                    if (strcmp(dn, "else")) dcond = t->c[1]->c[0];
+                    else { tree_t *tr = ast_node_new(TT_QLIT); tr->v.sval = ct_strdup("true"); dcond = tr; }
+                    dstart = cl->send;
+                }
+            }
+            if (keep) prev = cl;
+            else { if (prev) prev->next = next; else prog->head = next; prog->nclauses--; }
+            cl = next;
+            continue;
+        }
+        if (if_currently_active(&q)) {
+            int ba; const char *bn = pl_cc_dname(t, &ba);
+            if (!strcmp(bn, "begin_tests") && (ba == 1 || ba == 2) && t->c[1]->c[0] && t->c[1]->c[0]->v.sval) cur_unit = t->c[1]->c[0]->v.sval;
+            else if (!strcmp(bn, "end_tests")) cur_unit = (const char *)0;
+        }
+        ix.defer = (prog->src && cl->send > cl->sstart) ? 0 : -1;
         { const char *mn = pl_module_directive_name(t); if (mn) cur_mod = mn; }
-        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && pl_if_ctx_at(&ix, prog, cl) && try_handle_if_directive_tree(&q, t->c[1], cl->lineno, &ix)) drop = 1;
+        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && pl_if_ctx_at(&ix, prog, cl) && try_handle_if_directive_tree(&q, t->c[1], cl->lineno, &ix)) {
+            drop = 1;
+            if (ix.defer == 1) { dfr = 1; dnest = 0; dcond = ix.dcond; dstart = cl->send; dl = ast_node_new(TT_MAKELIST); dmod = cur_mod; dunit = cur_unit; }
+        }
         else if (!if_currently_active(&q)) drop = 1;
         else if (pl_clause_is_eof(t)) {
             for (PlClause *r = cl; r; r = r->next) prog->nclauses--;
