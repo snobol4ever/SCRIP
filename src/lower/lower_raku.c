@@ -1210,9 +1210,10 @@ static tree_t * rk_fnc2(const char * nm, const tree_t * a, const tree_t * b) {
     return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const tree_t * rk_numctx(tree_e k, const tree_t * x) {
+static const tree_t * rk_numctx(tree_e k, const tree_t * x, const tree_t * o) {
     int num = k == TT_LT || k == TT_LE || k == TT_GT || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_ADD || k == TT_SUB || k == TT_MUL || k == TT_POW;
-    return num && rk_yields_list(x) ? rk_fnc2("__rk_numify", x, NULL) : x;
+    int plus0 = k == TT_ADD && o && o->t == TT_ILIT && o->v.ival == 0 && x && x->t != TT_ILIT && x->t != TT_FLIT && x->t != TT_QLIT;
+    return num && (plus0 || rk_yields_list(x)) ? rk_fnc2("__rk_numify", x, NULL) : x;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_closure_block(const tree_t * t) {
@@ -1487,8 +1488,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω);
         rk_relop_code(op, t->t);
         IR_t * lr = NULL, * rr = NULL;
-        IR_t * ea = lower_rv(cx, rk_numctx(t->t, t->c[0]), NULL, ω, &lr);
-        IR_t * eb = lower_rv(cx, rk_numctx(t->t, t->c[1]), op, ω, &rr);
+        IR_t * ea = lower_rv(cx, rk_numctx(t->t, t->c[0], t->c[1]), NULL, ω, &lr);
+        IR_t * eb = lower_rv(cx, rk_numctx(t->t, t->c[1], t->c[0]), op, ω, &rr);
         γ_to(lr, eb);
         ir_operand_push(op, lr);
         ir_operand_push(op, rr);
@@ -1507,8 +1508,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             ea = rk_lower_str_operand(cx, t->c[0], NULL, ω, &lr);
             eb = rk_lower_str_operand(cx, t->c[1], op, ω, &rr);
         } else {
-            ea = lower_rv(cx, rk_numctx(t->t, t->c[0]), NULL, ω, &lr);
-            eb = lower_rv(cx, rk_numctx(t->t, t->c[1]), op, ω, &rr);
+            ea = lower_rv(cx, rk_numctx(t->t, t->c[0], t->c[1]), NULL, ω, &lr);
+            eb = lower_rv(cx, rk_numctx(t->t, t->c[1], t->c[0]), op, ω, &rr);
         }
         γ_to(lr, eb);
         ir_operand_push(op, lr);
