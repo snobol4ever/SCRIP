@@ -278,13 +278,15 @@ static std::string x86_lit_bytes(const std::string & b) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-struct bb_label_t * x86_label_for(int id, bb_label_t * internal, char (* inm)[8]) {
+struct bb_label_t * x86_label_for(int id, std::vector<bb_label_t> & internal, std::vector<std::array<char, 16>> & inm) {
     if (id == X86T_TGT0) return _.lbl_t0_p;
     if (id == X86T_TGT1) return _.lbl_t1_p;
     if (id < X86_INTERNAL_BASE) return x86_portlbl(id);
-    if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX);
+    if ((size_t)(id - X86_INTERNAL_BASE) >= internal.size())
+        { fprintf(stderr, "FATAL bb_emit_x86: record label id %d is past the prepass's %zu internal labels -- the prepass and the emit pass disagree\n", id, internal.size());
         abort(); }
-    { int k = id - X86_INTERNAL_BASE; bb_label_t * l = &internal[k]; if (l->name[0] == '\0') { snprintf(inm[k], sizeof inm[k], ".Lxi%d", k); l->name = inm[k]; } return l; }
+    { int k = id - X86_INTERNAL_BASE; bb_label_t * l = &internal[(size_t)k]; if (l->name[0] == '\0') { snprintf(inm[(size_t)k].data(), inm[(size_t)k].size(), ".Lxi%d", k);
+        l->name = inm[(size_t)k].data(); } return l; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string x86_internal_resolve(const std::string & s) {

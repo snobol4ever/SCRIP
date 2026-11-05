@@ -1273,15 +1273,15 @@ void bb_emit_x86(const std::string & s) {
         else if (tag == 'Z') { S.aligned = 0; S.delta = S.before; }
         else break; }
       x86_rsp_prepass_commit(before); }
-    bb_label_t internal[X86_INTERNAL_MAX]; char inm[X86_INTERNAL_MAX][8];
-    for (int k = 0; k <= hi_internal && k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
+    std::vector<bb_label_t> internal((size_t)(hi_internal + 1)); std::vector<std::array<char, 16>> inm(internal.size());
+    for (size_t k = 0; k < internal.size(); k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
     size_t i = 0, n = s.size(); x86_rsp_st_t & RS = x86_rsp_S();
     while (i < n) {
         char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; bb_emit_bytes((const uint8_t *)s.data() + i, (size_t)k); i += (size_t)k; if (k > 0) RS.dead = 0; }
         else if (tag == 'J') { int id = x86_rec_id(s, i); x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
         else if (tag == 'D') { int id = x86_rec_id(s, i);
-            if (id >= X86_INTERNAL_BASE && id - X86_INTERNAL_BASE < X86_INTERNAL_MAX && internal[id - X86_INTERNAL_BASE].offset != BB_LABEL_UNRESOLVED)
+            if (id >= X86_INTERNAL_BASE && (size_t)(id - X86_INTERNAL_BASE) < internal.size() && internal[(size_t)(id - X86_INTERNAL_BASE)].offset != BB_LABEL_UNRESOLVED)
             { fprintf(stderr, "FATAL bb_emit_x86: internal label L(%d) defined twice in one %s box\n", id - X86_INTERNAL_BASE, x86_boxkind()); abort(); }
             if (id == X86P_ALPHA) { RS.delta = 0; RS.dead = 0; RS.unknown = 0;
             } else if (id == X86P_BETA) { RS.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; RS.dead = 0; RS.unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
