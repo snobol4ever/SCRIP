@@ -3031,6 +3031,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_type_cold", GC_RET_DESCR },
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
+    { "rt_pl_undo_goal_copy", GC_RET_VOID },
     { "rt_pl_undo_push_cell", GC_RET_OTHER },
     { "rt_pl_undo_take_cell", GC_RET_OTHER },
     { "rt_pl_unifiable_cell", GC_RET_OTHER },

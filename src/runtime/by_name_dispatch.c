@@ -8571,8 +8571,10 @@ PL_CX_LEAF_HEAD(crv_adj, 1) ok = rt_pl_crv_adj_cell(&args[0], cx); PL_CX_LEAF_TA
 PL_CX_LEAF_HEAD(crv_collect, 2) ok = rt_pl_crv_collect_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_undo_push_cell(DESCR_t *ag, pl_tr_ctx_t *cx) {
+    extern void rt_pl_undo_goal_copy(DESCR_t *, DESCR_t *, pl_tr_ctx_t *);
     char *base = pl_tr_base_of(cx->tr);
-    DESCR_t *list = (DESCR_t *)(base + PL_TR_UNDO_LIST_OFF), g = *plw_cell_deref(plw_entry(ag)), c;
+    DESCR_t *list = (DESCR_t *)(base + PL_TR_UNDO_LIST_OFF), g, c;
+    rt_pl_undo_goal_copy(plw_cell_deref(plw_entry(ag)), &g, cx);
     c = pl_cons(g, *list);
     pl_tr_push(cx, list);
     *list = c;

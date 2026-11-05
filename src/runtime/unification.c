@@ -3959,6 +3959,7 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }
     return 1;
 }
+void rt_pl_undo_goal_copy(DESCR_t *g, DESCR_t *out, pl_tr_ctx_t *cx) { *out = plc_copy_cx((pl_cell_t *)g, 1, cx); }
 void rt_pl_residue_recopy(DESCR_t *el, int n, pl_tr_ctx_t *cx) { if (pl_tr_residue_on(cx)) for (int i = 0; i < n; i++) el[i] = plc_copy_cx((pl_cell_t *)&el[i], 1, cx); }
 int rt_pl_copy_term_share_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     if (!rt_pl_dialect_swi()) return rt_pl_copy_term_cell(term_cell, copy_cell, cx);
