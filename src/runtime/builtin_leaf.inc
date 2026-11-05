@@ -479,6 +479,7 @@ extern DESCR_t bt_Real(DESCR_t * args, int nargs) __attribute__((weak, visibilit
 extern DESCR_t bt_Str(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_WHAT(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_x5Ename(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_abs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_all(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_antipairs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_any(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -486,37 +487,49 @@ extern DESCR_t bt_atan2(DESCR_t * args, int nargs) __attribute__((weak, visibili
 extern DESCR_t bt_base(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_batch(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ceiling(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_chars(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_chomp(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_chop(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_chr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_chrs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_codes(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_comb(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_combinations(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_contains(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_cos(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_cosec(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_cotan(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_defined(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_elems(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_endsx2Dwith(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_exp(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_fc(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_flip(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_floor(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_fmt(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_gist(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_hash(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_index(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_invert(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_isx2Dlazy(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_isx2Dprime(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_item(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_join(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_key(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_kv(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_lc(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_lines(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_log(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_maxpairs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_message(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_minmax(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_minpairs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_name(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_none(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_not(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_nude(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_one(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_ord(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ords(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_pairs(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_pairup(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -524,12 +537,14 @@ extern DESCR_t bt_parsex2Dbase(DESCR_t * args, int nargs) __attribute__((weak, v
 extern DESCR_t bt_payload(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_perl(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_permutations(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_pick(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_polymod(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_pred(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_produce(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_raku(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_rand(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_repeated(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_rindex(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_roll(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_rotate(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_rotor(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -537,20 +552,29 @@ extern DESCR_t bt_round(DESCR_t * args, int nargs) __attribute__((weak, visibili
 extern DESCR_t bt_samecase(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_sec(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_sign(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_sin(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_skip(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_so(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_split(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_sqrt(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_squish(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_startsx2Dwith(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_subst(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_substr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_substrx2Drw(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_succ(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_sum(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_tail(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_tan(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_tc(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_tclc(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_trans(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_trim(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_trimx2Dleading(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_trimx2Dtrailing(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_truncate(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_uc(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_m_unique(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_value(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_wordcase(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_words(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -614,20 +638,21 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_rindex, bt_rk_cloop_cond, bt_rk_cloop_incr, bt_rk_loop_body, bt_rk_repeat_body, bt_rk_repeat_cond, bt_rk_until_cond, bt_rk_while_cond, bt_rk_write, bt_rk_write_arr, bt_rk_write_list,
     bt_rk_writes, bt_say_fh, bt_die, bt_sleep, bt_slurp, bt_sprintf, bt_spurt, bt_srand, bt_str_index, bt_lc, bt_str_rindex, bt_str_substr, bt_str_trim, bt_uc, bt_substr, bt_sum, bt_syntax_error,
     bt_syntax_errors, bt_tail, bt_try_enter, bt_try_exit, bt_uc, bt_unique, bt_unshift_pure, bt_user, bt_val, bt_wall_ms, bt_wall_us, bt_Bool, bt_IO, bt_Int, bt_Num, bt_Numeric, bt_Real, bt_Str,
-    bt_WHAT, bt_x5Ename, bt_abs, bt_all, bt_antipairs, bt_any, bt_atan2, bt_base, bt_batch, bt_ceiling, bt_chars, bt_chomp, bt_chop, bt_chr, bt_chrs, bt_codes, bt_comb, bt_combinations, bt_contains,
-    bt_cos, bt_cosec, bt_cotan, bt_defined, bt_elems, bt_endsx2Dwith, bt_exp, bt_fc, bt_flip, bt_floor, bt_fmt, bt_gist, bt_hash, bt_index, bt_invert, bt_isx2Dlazy, bt_isx2Dprime, bt_item, bt_join,
-    bt_key, bt_kv, bt_lc, bt_lines, bt_log, bt_maxpairs, bt_message, bt_minmax, bt_minpairs, bt_name, bt_none, bt_not, bt_nude, bt_one, bt_ord, bt_ords, bt_pairs, bt_pairup, bt_parsex2Dbase,
-    bt_payload, bt_perl, bt_permutations, bt_pick, bt_polymod, bt_pred, bt_produce, bt_raku, bt_rand, bt_repeated, bt_rindex, bt_roll, bt_rotate, bt_rotor, bt_round, bt_samecase, bt_sec, bt_sign,
-    bt_sin, bt_skip, bt_so, bt_split, bt_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_substr, bt_substrx2Drw, bt_succ, bt_sum, bt_tail, bt_tan, bt_tc, bt_tclc, bt_trans, bt_trim, bt_trimx2Dleading,
-    bt_trimx2Dtrailing, bt_truncate, bt_uc, bt_unique, bt_value, bt_wordcase, bt_words, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    bt_WHAT, bt_x5Ename, bt_m_abs, bt_all, bt_antipairs, bt_any, bt_atan2, bt_base, bt_batch, bt_ceiling, bt_m_chars, bt_chomp, bt_chop, bt_m_chr, bt_chrs, bt_codes, bt_comb, bt_combinations,
+    bt_contains, bt_m_cos, bt_cosec, bt_cotan, bt_defined, bt_m_elems, bt_endsx2Dwith, bt_m_exp, bt_fc, bt_flip, bt_floor, bt_fmt, bt_gist, bt_hash, bt_m_index, bt_invert, bt_isx2Dlazy, bt_isx2Dprime,
+    bt_item, bt_m_join, bt_key, bt_kv, bt_m_lc, bt_m_lines, bt_m_log, bt_maxpairs, bt_message, bt_minmax, bt_minpairs, bt_m_name, bt_none, bt_not, bt_nude, bt_one, bt_m_ord, bt_ords, bt_pairs,
+    bt_pairup, bt_parsex2Dbase, bt_payload, bt_perl, bt_permutations, bt_m_pick, bt_polymod, bt_pred, bt_produce, bt_raku, bt_rand, bt_repeated, bt_m_rindex, bt_roll, bt_rotate, bt_rotor, bt_round,
+    bt_samecase, bt_sec, bt_sign, bt_m_sin, bt_skip, bt_so, bt_split, bt_m_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_m_substr, bt_substrx2Drw, bt_succ, bt_m_sum, bt_m_tail, bt_m_tan, bt_tc,
+    bt_tclc, bt_trans, bt_m_trim, bt_trimx2Dleading, bt_trimx2Dtrailing, bt_truncate, bt_m_uc, bt_m_unique, bt_value, bt_wordcase, bt_words, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24ix_g, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24ix_g, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24system, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24tbl_hook, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24unify_lst, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_isNaN, bt___rk_unbase, 0, 0, 0, 0, 0, 0, bt_ICNx24UNAME, bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek,
-    bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, bt_ICNx24IMM, bt_ICNx24UDIGITS, 0, 0, 0, 0, 0, 0, bt_ICNx24UIDENT, bt_ICNx24UMUTEX, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24system, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    bt_x24tbl_hook, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_x24unify_lst, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_isNaN, bt___rk_unbase, 0, 0, 0, 0, 0, 0, bt_ICNx24UNAME,
+    bt_ICNx24UPVAR, bt___rk_inv, bt_ICNx24USYSTEM, bt_rk_where, bt_rk_seek, bt_rk_reverse, bt_rk_open, bt_rk_close, bt_str_trim, bt_rk_x24system, bt_ICNx24IMM, bt_ICNx24UDIGITS, 0, 0, 0, 0, 0, 0,
+    bt_ICNx24UIDENT, bt_ICNx24UMUTEX, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
