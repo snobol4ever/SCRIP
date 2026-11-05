@@ -14165,6 +14165,13 @@ static DESCR_t rk_io_mk(const char *path) { char *cw = rt_wsb_alloc(4096); if (!
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_io_arg(DESCR_t d) { return rk_io_is(d) ? rk_io_pathstr(d) : rk_cstr(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_cool_str(const char *m) {
+    static const char *const cm[] = { "chars", "codes", "lc", "uc", "tc", "fc", "tclc", "flip", "chop", "chomp", "trim", "trim-leading", "trim-trailing", "wordcase", "ord", "ords", "contains",
+        "starts-with", "ends-with", "index", "rindex", "indices", "substr", "samecase", "samemark", "samespace", "subst", "trans", "parse-base", "encode", "indent", "wrap", NULL };
+    for (int i = 0; cm[i]; i++) if (!strcmp(m, cm[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_io_abs(DESCR_t d) {
     const char *p = rk_io_pathstr(d);
     if (p[0] == '/') return p;
@@ -18198,7 +18205,7 @@ DESCR_t bt___rk_arr_map(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___r
 DESCR_t bt___rk_arr_grep(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_arr_map(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_str_trim(DESCR_t *args, int nargs) {
     if (nargs == 1) {
-        const char *s = VARVAL_fn(args[0]);
+        const char *s = rk_io_is(args[0]) ? rk_io_pathstr(args[0]) : VARVAL_fn(args[0]);
         if (!s) s = "";
         while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
         size_t n = strlen(s);
@@ -18775,6 +18782,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (mname0 && (args[0].v == DT_DATA || args[0].v == DT_BIG || args[0].v == DT_I) && nargs >= 2 && rk_rat_dispatch(mname0, &args[0], nargs > 2 ? &args[2] : NULL, nargs - 2, out)) return 1;
         if (mname0 && rk_qh_hook(mname0, args, nargs, out)) return 1;
         if (mname0 && rk_io_is(args[0]) && rk_io_path_method(mname0, args, nargs, out)) return 1;
+        if (mname0 && rk_io_is(args[0]) && rk_io_cool_str(mname0) && rt_str_method(mname0, STRVAL(rt_heap_strdup_c(rk_io_pathstr(args[0]))), nargs > 2 ? &args[2] : NULL, nargs - 2, out)) return 1;
         if (mname0 && IS_FH_fn(args[0]) && rk_io_fh_method(mname0, args, nargs, out)) return 1;
         if (mname0 && nargs >= 2 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0])) &&
             (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "splice"))) {
