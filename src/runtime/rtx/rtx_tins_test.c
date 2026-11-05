@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "ir/descr.h"
+#include "ir/cset_block.h"
 #include "runtime/core/core.h"
 #include "runtime/core/table.h"
 #include "runtime/core/array.h"
@@ -69,7 +70,14 @@ static void step(TBBLK_t *a, TBBLK_t *b, DESCR_t k, DESCR_t v, const char *what)
 static uint64_t lcg(uint64_t *s) { *s = *s * 6364136223846793005ull + 1442695040888963407ull; return *s >> 33; }
 static char kbuf[4096][24];
 static char vbuf[64][8];
-static DESCR_t ks(int i, int mode) { DESCR_t d; snprintf(kbuf[i & 4095], sizeof kbuf[0], "k%d_key", i); d = STRVAL(kbuf[i & 4095]); if (mode == 1) d.slen = 0xFFFFFFFFu; return d; }
+static char kblk[4096][CSET_BLK_HDR + 24];
+static DESCR_t ks(int i, int mode) {
+    DESCR_t d;
+    snprintf(kbuf[i & 4095], sizeof kbuf[0], "k%d_key", i);
+    d = STRVAL(kbuf[i & 4095]);
+    if (mode == 1) d = CSETVAL(cset_block_init(kblk[i & 4095], kbuf[i & 4095], (int)strlen(kbuf[i & 4095])));
+    return d;
+}
 static DESCR_t kv(int i) { if (i % 5 == 0) { snprintf(vbuf[i & 63], sizeof vbuf[0], "v%d", i); return STRVAL(vbuf[i & 63]); } return INTVAL(i * 3 - 7); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void run(int init, const char *what) {
