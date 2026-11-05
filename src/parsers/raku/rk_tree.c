@@ -2453,6 +2453,13 @@ static tree_t *paren_hash(RkB *b, RkList *in) {
     return h;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *brace_hash(RkB *b, RkList *in) {
+    if (!in || in->n < 2 || !pair_seg(&in->v[0])) return NULL;
+    tree_t *h = make_call("__rk_hash");
+    for (int i = 0; i < in->n; i++) { if (pair_seg(&in->v[i])) pair_add(b, h, &in->v[i]); else expr_add_child(h, el_tree(b, &in->v[i])); }
+    return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *hash_pairs(RkB *b, RkEl **rs, int nrs) {
     if (nrs == 1 && rs[0]->nitem == 1 && rs[0]->t0.kind == TK_PAREN) return paren_hash(b, rs[0]->t0.in);
     for (int i = 0; i < nrs; i++) if (!pair_seg(rs[i])) return NULL;
@@ -2866,7 +2873,7 @@ static int rk_uses_topic(const tree_t *t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkList *last, int nstmts) {
     memset(it, 0, sizeof *it); it->kind = TK_BLOCK; it->from = from; it->to = it->core_to = to; it->val = (sig || sub) ? NULL : seq; it->lop = rkb_paren(b, last, nstmts);
-    if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h && !rk_uses_topic(h)) { it->kind = TK_TREE; it->t = h; return; } }
+    if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (!h) h = brace_hash(b, last); if (h && !rk_uses_topic(h)) { it->kind = TK_TREE; it->t = h; return; } }
     rk_pcv_release(b, sig);
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     a->slen = sub ? 1 : 0;
