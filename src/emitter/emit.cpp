@@ -4096,11 +4096,13 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         for (int _ak = 1; _ak < n_alt; _ak++) {
             int _kt = g_emit.flat_frame_bytes;
             emit_sep_rule('-'); emit_label_define_bb(g_emitter.codegen_flat_chain_body_alt_tr[_ak]);
+            if (getenv("SCRIP_ZD_RTCHECK")) {
+                bb_label_t _sk; emit_label_initf(&_sk, "%s_stepck", g_emitter.codegen_flat_chain_body_alt_tr[_ak]->name);
+                bb_emit_x86(x86("cmp", "rsp", emit_pl_fb())); emit_jmp_label(&_sk, JMP_JE); bb_emit_x86(x86_step_zchk()); emit_label_define_bb(&_sk);
+            }
             bb_emit_x86(x86("comment",
                 "PL ALTERNATIVE TRAMPOLINE (rung 2, Jcon ir_MoveLabel): advance F.CUR to the NEXT alternative, or zero it on the last one so the step concedes, then enter this clause head unificatio"
                 "n.")
-                      + x86("note", "a clause retry starts at the frame base: the failed clause may concede from a claim whose depth the plan cannot know, so rsp is re-established, not trusted")
-                      + x86("mov", "rsp", emit_pl_fb())
                       + pl_clause_zero(_ak)
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emitter.codegen_flat_chain_body_alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
                       + x86("mov", RDQ(emit_pl_fb(), _kt - 56), "rax")

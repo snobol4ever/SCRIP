@@ -9,6 +9,7 @@ std::string x86_zdp_rbp_at(int port);
 std::string x86_zdp_rbp_pre_alpha();
 std::string x86_alpha_zchk();
 std::string x86_beta_zchk();
+std::string x86_step_zchk();
 int x86_key_unbacked(int off);
 int x86_zop_regime(int off);
 const char * x86_zref(int off, int q);

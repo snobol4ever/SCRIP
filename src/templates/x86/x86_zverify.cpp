@@ -188,3 +188,4 @@ std::string x86_alpha_zchk() {
     int e = emit_zrow_zchk(_.node); if (e == (-2147483647 - 1)) return std::string();
     return x86("lea", "r11", RDQ("rbp", -e)) + x86("cmp", "rsp", "r11") + x86("je", L(987)) + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n") + x86("def", L(987));
 }
+std::string x86_step_zchk() { return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n"; }
