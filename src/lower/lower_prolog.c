@@ -2743,6 +2743,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * load = pl_cc_ite(beside, pl_cc_fnc1("ensure_loaded", (tree_t *) t->c[0]), (tree_t *) pl_atom_goal("true"));
                 return goal(cx, pl_cc_fnc2(",", load, pl_cc_fnc2("$xsb_q", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
             }
+            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user") && t->c[1] && t->c[1]->t == TT_VAR &&
+                g_stage2.pl_dialect != PL_DIALECT_XSB) return goal(cx, pl_cc_fnc2("$mod_call", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
             if ((!strcmp(nm, ":") || !strcmp(nm, "$xsb_q")) && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) {
                 const char * sv = cx->umod;
                 IR_t * qr;

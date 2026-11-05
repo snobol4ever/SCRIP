@@ -971,6 +971,8 @@ static tree_t *pl_mod_qualify(const char *mod, tree_t *a) {
     ast_push(w, a);
     return w;
 }
+static int pl_mod_var_wraps(const char *m1, const tree_t *a, const tree_t *ctx) { return !ctx && a && a->t == TT_VAR && m1 && strcmp(m1, "user") && strncmp(m1, "plunit_", 7); }
+static tree_t *pl_mod_var_wrap(const char *m1, int trans, tree_t *a) { tree_t *w = ast_node_new(TT_FNC); w->v.sval = ct_strdup(":"); ast_push(w, pl_mod_ctx_node(m1, trans)); ast_push(w, a); return w; }
 static tree_t *pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t *a, int extra, int declared) {
     const char *nm = (const char *)0, *q;
     int ar = extra;
@@ -999,9 +1001,13 @@ static void pl_mod_args(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
             if (ds && ds->t == TT_ILIT && ds->v.ival >= 0 && ds->v.ival <= 9) k = (char)('0' + ds->v.ival);
             else if (ds && pl_mod_atomish(ds) && (!strcmp(ds->v.sval, ":") || !strcmp(ds->v.sval, "^"))) k = ds->v.sval[0];
         } else k = spec[i];
-        if (k == '0') { pl_mod_goal(ms, m1, m2, g->c[i], trans); if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) g->c[i] = pl_mod_qualify(m1, g->c[i]); }
+        if (k == '0') {
+            pl_mod_goal(ms, m1, m2, g->c[i], trans);
+            if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) g->c[i] = pl_mod_qualify(m1, g->c[i]);
+            else if (pl_mod_var_wraps(m1, g->c[i], ctx)) g->c[i] = pl_mod_var_wrap(m1, trans, g->c[i]);
+        }
         else if (k == '^') { tree_t *a = g->c[i]; while (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) a = a->c[1]; pl_mod_goal(ms, m1, m2, a, trans); }
-        else if (k >= '1' && k <= '9') g->c[i] = pl_mod_closure(ms, m1, m2, g->c[i], k - '0', declared);
+        else if (k >= '1' && k <= '9') g->c[i] = pl_mod_var_wraps(m1, g->c[i], ctx) ? pl_mod_var_wrap(m1, trans, g->c[i]) : pl_mod_closure(ms, m1, m2, g->c[i], k - '0', declared);
         else if (k == ':' && g->c[i] && (ctx || g->c[i]->t != TT_VAR) && !(g->c[i]->t == TT_FNC && g->c[i]->v.sval && !strcmp(g->c[i]->v.sval, ":") && g->c[i]->n == 2)
             && (ctx || (m1 && strcmp(m1, "user")))) {
             tree_t *w = ast_node_new(TT_FNC);
@@ -1162,6 +1168,35 @@ static void pl_mod_strip_head(PlClause *cl) {
     if (in->t == TT_FNC && in->n == 2 && (!strcmp(in->v.sval, ":-") || !strcmp(in->v.sval, ",") || !strcmp(in->v.sval, ";") || !strcmp(in->v.sval, "->") || !strcmp(in->v.sval, ":"))) return;
     cl->tr->c[0] = in;
 }
+static PlClause *pl_mod_import_facts(PlProgram *pl_prog, pl_mods_t *ms, PlClause *last) {
+    for (uint32_t i = 0; i + 1 < ms->imps.len && last; i += 2) {
+        const pl_mkey_t *e = &CV_AT(ms->imps, pl_mkey_t, i);
+        const char *k = pl_mod_lib_private(CV_AT(ms->imps, pl_mkey_t, i + 1).mod, e->name, e->ar);
+        PlClause *w;
+        tree_t *cl, *hd, *a[4];
+        if (!k) continue;
+        w = ct_zalloc(1, sizeof(PlClause));
+        cl = ast_node_new(TT_CLAUSE);
+        hd = ast_node_new(TT_FNC);
+        hd->v.sval = ct_strdup("$mod_imp");
+        for (int j = 0; j < 4; j++) a[j] = ast_node_new(j == 2 ? TT_ILIT : TT_QLIT);
+        a[0]->v.sval = ct_strdup(e->mod);
+        a[1]->v.sval = ct_strdup(e->name);
+        a[2]->v.ival = e->ar;
+        a[3]->v.sval = ct_strdup(k);
+        for (int j = 0; j < 4; j++) ast_push(hd, a[j]);
+        ast_push(cl, hd);
+        w->tr = cl;
+        w->lineno = last->lineno > 0 ? last->lineno : 1;
+        w->next = last->next;
+        last->next = w;
+        if (pl_prog->tail == last) pl_prog->tail = w;
+        last = w;
+        pl_prog->nclauses++;
+    }
+    return last;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_module_flatten(PlProgram *pl_prog) {
     pl_mods_t ms;
     cv_t udefs = { 0 };
@@ -1354,6 +1389,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             }
         }
     }
+    last = pl_mod_import_facts(pl_prog, &ms, last);
     for (uint32_t i = 0; i < ms.trans.len && last; i++) {
         const pl_mkey_t *e = &CV_AT(ms.trans, pl_mkey_t, i);
         PlClause *w = ct_zalloc(1, sizeof(PlClause));
