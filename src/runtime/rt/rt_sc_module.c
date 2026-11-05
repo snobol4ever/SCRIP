@@ -14,7 +14,8 @@
 enum { SC_GVA_RESERVE = 741 };
 #include "runtime/rtx/rtcc.h"
 extern void core_lib_init(void);
-extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
+extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n, int first);
+extern int rt_gva_first_named(const char **names, int n);
 extern DESCR_t *rt_gva_island(int n);
 extern void rt_ab_cell_bind_table(void **tab);
 extern void rt_gc_frame_maps_install_counted(const void *tab);
@@ -123,7 +124,7 @@ static void sc_module_init(sc_module_t *m) {
     { extern int rt_sxt_gva_count_get(void); if (rt_sxt_gva_count_get() < (int)d->n_gva) rt_gva_island((int)d->n_gva); }
     if (d->module_init) ((void (*)(void))d->module_init)();
     if (d->proc_tab && d->proc_names && d->n_proc > 0) rt_proc_table_fill(d->proc_tab, d->proc_names, (int)d->n_proc);
-    gva_register(d->gva_names, m->base, (int)d->n_gva);
+    gva_register(d->gva_names, m->base, (int)d->n_gva, rt_gva_first_named(d->gva_names, (int)d->n_gva));
     if (d->alpha_tab) rt_ab_cell_bind_table(d->alpha_tab);
     if (!m->inited && d->gc_maps) rt_gc_frame_maps_install_counted(d->gc_maps);
     if (!m->inited && d->gc_sites) rt_gc_frame_sites_install_counted(d->gc_sites);

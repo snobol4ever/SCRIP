@@ -339,8 +339,7 @@ static long gc_box_kb(void) {
 static void rt_gcheap_init(void) {
     gc_knobs_hoist();
     long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
-    extern int rt_environ_has(const char *);
-    int senv = rt_environ_has("SCRIP_");
+    int senv = (rt_scrip_env_bits() & 2) != 0;
     { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
     { const char *e = (senv ? rt_scrip_getenv("SCRIP_HEAP_MB") : (const char *)0); if (e && *e) { long v = atol(e); if (v >= 1 && v * 1024L <= gc_box_kb()) { mb = v; kb = v * 1024L; } } }
     {

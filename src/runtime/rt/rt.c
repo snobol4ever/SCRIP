@@ -757,10 +757,14 @@ RT_ENTRY_DECL(rt_ab_undef_fn_fail, leaf, 0);
 void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function called"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(gva_register, leaf, 0);
-DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
+int rt_gva_first_named(const char **names, int n) { int k = 0; while (names && k < n && !names[k]) k++; return names ? k : n; }
+DESCR_t *gva_register(const char **names, DESCR_t *cells, int n, int first) {
     if (!cells) return cells;
-    int k0 = names ? 0 : n;
-    while (k0 < n && !names[k0]) k0++;
+    int k0 = names ? first : n;
+    if (names && (first < 0 || first > n || (first > 0 && names[first - 1]) || (first < n && !names[first]))) {
+        fprintf(stderr, "gva_register: first named slot %d of %d does not match the name table\n", first, n);
+        abort();
+    }
     { extern long rt_sc_gva_reserve(void); extern void rt_sxt_gva_lo(int, int); long r = rt_sc_gva_reserve(); rt_sxt_gva_lo(g_runtime.misc.sc_mod.d ? 0 : (int)(r < k0 ? r : k0), 1); }
     for (int k = k0; k < n; k++) { const char *nm = names[k]; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     {

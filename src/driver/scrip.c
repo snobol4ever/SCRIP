@@ -2693,8 +2693,12 @@ int main(int argc, char **argv) {
             {
                 extern int gva_trace_demoted(void);
                 int n_gva_tab = gva_trace_demoted() ? 0 : gva_count();
-                if (n_gva_tab > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_tab, n_gva_tab)
-                    ;
+                extern const char *gva_note(int);
+                int gva_first = 0;
+                while (gva_first < n_gva_tab && !*gva_note(gva_first)) gva_first++;
+                if (n_gva_tab > 0)
+                    emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  mov ecx, %d\n  call gva_register@PLT\n", n_gva_tab, n_gva_tab,
+                    gva_first) ;
             }
             emit_textf("  lea rdi, [rip + __alpha_cellp_tab]\n  call rt_ab_cell_bind_table@PLT\n");
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
@@ -2924,7 +2928,7 @@ int main(int argc, char **argv) {
                         int _k = gva_index_of(s2->proc_table[_tq].name);
                         if (_k >= 0 && _k < n_gva_m3) m3_gva_nms[_k] = (const char *)0;
                     }
-                    if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
+                    if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3, rt_gva_first_named(m3_gva_nms, n_gva_m3)); g_gva_active = 1; }
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }

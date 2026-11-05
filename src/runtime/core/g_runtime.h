@@ -48,6 +48,7 @@ extern "C" {
 #endif
 extern g_runtime_t g_runtime;
 const char *rt_scrip_getenv(const char *name);
+int rt_scrip_env_bits(void);
 #ifdef __cplusplus
 }
 #endif

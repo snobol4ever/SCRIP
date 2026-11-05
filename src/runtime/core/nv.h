@@ -44,7 +44,8 @@ int NV_EXISTS_fn(const char *name);
 DESCR_t NV_KW_GET_fn(const char *name);
 DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);
 int NV_CONST_ASSIGNED_fn(const char *name);
-DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
+DESCR_t *gva_register(const char **names, DESCR_t *cells, int n, int first);
+int rt_gva_first_named(const char **names, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
 #ifdef __cplusplus
 }

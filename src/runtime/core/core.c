@@ -2557,6 +2557,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) { (void)a; (void)n; return NULVCL; }
 static DESCR_t _STOPTR_(DESCR_t *a, int n) { (void)a; (void)n; return NULVCL; }
 #endif
 static DATBLK_t *_udef_lookup(const char *name);
+static int udef_install_static(DATBLK_t *t);
 static int fn_has_builtin(const char *name);
 static void _func_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2626,15 +2627,21 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 }
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return g_runtime.core.sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_environ_has(const char *prefix) {
+int rt_scrip_env_bits(void) {
     extern char **environ;
-    size_t n = strlen(prefix);
-    for (char **v = environ; v && *v; v++) if ((*v)[0] == prefix[0] && strncmp(*v, prefix, n) == 0) return 1;
-    return 0;
+    if (!g_runtime.scrip_env) {
+        int b = 1;
+        for (char **v = environ; v && *v; v++) { const char *e = *v; if (e[0] == 'S' && strncmp(e, "SCRIP_", 6) == 0) b |= 2; else if (e[0] == 'M' && strncmp(e, "MONITOR", 7) == 0) b |= 4; }
+        g_runtime.scrip_env = b;
+    }
+    return g_runtime.scrip_env;
 }
-const char *rt_scrip_getenv(const char *name) { if (!g_runtime.scrip_env) g_runtime.scrip_env = rt_environ_has("SCRIP_") ? 2 : 1; return g_runtime.scrip_env == 1 ? (const char *)0 : getenv(name); }
+const char *rt_scrip_getenv(const char *name) { return (rt_scrip_env_bits() & 2) ? getenv(name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_list_type_install(void);
+static char dt_name[] = "tree", dt_ft[] = "t", dt_fv[] = "v", dt_fn[] = "n", dt_fc[] = "c";
+static char *dt_fields[] = { dt_ft, dt_fv, dt_fn, dt_fc };
+static DATBLK_t dt_tree = { dt_name, 4, dt_fields, (struct _DATINST_tType *)0, 1 };
 RT_ENTRY_DECL(core_lib_init, leaf, 0);
 void core_lib_init(void) {
     static int core_lib_inited = 0;
@@ -2650,7 +2657,7 @@ void core_lib_init(void) {
     if (!g_runtime.misc.user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_runtime.misc.user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); g_runtime.core.start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
 #if RT_DIAG
-    if (!rt_environ_has("SCRIP_") && !rt_environ_has("MONITOR")) {
+    if (!(rt_scrip_env_bits() & 6)) {
         if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = 0;
     } else {
         const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -2688,8 +2695,8 @@ void core_lib_init(void) {
 #if RT_DIAG
     g_runtime.core.monitor_ready = 1;
 #endif
+    if (!udef_install_static(&dt_tree)) DEFDAT_fn("tree(t,v,n,c)");
     rt_list_type_install();
-    DEFDAT_fn("tree(t,v,n,c)");
     g_runtime.abi.protected_pat_vars_armed = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3347,6 +3354,13 @@ static void rt_list_type_install(void) {
     udef_nidx_put(&g_rt_list_type);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int udef_install_static(DATBLK_t *t) {
+    if (g_runtime.core.udef_types || _udef_lookup(t->name)) return 0;
+    t->next = (struct _DATINST_tType *)0;
+    g_runtime.core.udef_types = t;
+    udef_nidx_put(t);
+    return 1;
+}
 static DATBLK_t *_udef_lookup(const char *name) {
     DATBLK_t **sl = (DATBLK_t **)g_runtime.core.udef_nidx.p;
     unsigned m, h;
