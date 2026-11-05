@@ -16338,6 +16338,61 @@ DESCR_t bt___rk_slurp(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bt___rk_meth_nc(DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
+    if (nargs < 4) return 0;
+    extern const char *rt_proc_pname(const char *name, int k);
+    extern int rt_proc_named_rest(const char *name);
+    extern int rt_proc_is_variadic(const char *name);
+    DESCR_t inv = args[0];
+    char mb[256];
+    const char *mname = to_cstring(args[1], mb, sizeof mb);
+    int npos = IS_INT_fn(args[2]) ? (int) args[2].i : 0;
+    int nold = IS_INT_fn(args[3]) ? (int) args[3].i : 0;
+    if (npos < 0 || 4 + npos > nargs) npos = 0;
+    int nnm = (nargs - 4 - npos) / 2;
+    if (nold < 0 || nold > nnm) nold = nnm;
+    const char *cname = (IS_DATA_INST_fn(inv) && inv.u && inv.u->type) ? inv.u->type->name : (IS_STR_fn(inv) && inv.s && dat_find_type(inv.s)) ? inv.s : NULL;
+    if (cname && mname) {
+        const char *rmc = resolve_method_chain(cname, mname, NULL);
+        char proc[fmt_len("%s__%s", rmc, mname)];
+        snprintf(proc, sizeof proc, "%s__%s", rmc, mname);
+        if (meth_is_user_proc(proc) && !rt_proc_is_variadic(proc)) {
+            int np = 0;
+            while (rt_proc_pname(proc, np)) np++;
+            int nrest = rt_proc_named_rest(proc), nrx = nrest > 0 ? nrest - 1 : -1;
+            int nsl = 1 + npos > np ? 1 + npos : np;
+            if (nrx + 1 > nsl) nsl = nrx + 1;
+            DESCR_t slots[nsl];
+            for (int i = 0; i < nsl; i++) slots[i] = NULVCL;
+            slots[0] = inv;
+            int maxslot = 1;
+            DESCR_t hh = NULVCL;
+            for (int i = 0; i < npos; i++) { slots[1 + i] = args[4 + i]; if (2 + i > maxslot) maxslot = 2 + i; }
+            for (int i = 0; i < nnm; i++) {
+                DESCR_t kd = args[4 + npos + 2 * i], vd = args[4 + npos + 2 * i + 1];
+                char kb[128];
+                const char *k = to_cstring(kd, kb, sizeof kb);
+                int found = -1;
+                for (int sl = 1; sl < np; sl++) { if (sl == nrx) continue; const char *pn = rt_proc_pname(proc, sl); if (pn && k && !strcmp(pn, k)) { found = sl; break; } }
+                if (found < 0) { if (nrx >= 0) hh = rk_hash_store(hh, kd, vd); continue; }
+                slots[found] = vd;
+                if (found + 1 > maxslot) maxslot = found + 1;
+            }
+            if (nrx >= 0) { slots[nrx] = hh.v == DT_T ? hh : TABLE_VAL(table_new()); if (nrx + 1 > maxslot) maxslot = nrx + 1; }
+            *out = invoke_method_proc_rq(proc, slots, np > maxslot ? np : maxslot, rq);
+            return 1;
+        }
+    }
+    extern int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
+    DESCR_t fwd[nargs];
+    int fn = 0;
+    fwd[fn++] = inv;
+    fwd[fn++] = args[1];
+    for (int i = 0; i < npos; i++) fwd[fn++] = args[4 + i];
+    for (int i = 0; i < nnm; i++) { if (i < nold) fwd[fn++] = args[4 + npos + 2 * i]; fwd[fn++] = args[4 + npos + 2 * i + 1]; }
+    return script_try_call_builtin_by_name_rq("meth_call", fwd, fn, out, rq);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bt___rk_named_call(DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (nargs >= 2) {
         extern const char *rt_proc_pname(const char *name, int k);
@@ -21346,8 +21401,8 @@ DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r) {
 static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq);
 int rt_builtin_tail_may_open(const char *fn) {
     return fn &&
-        (!strcmp(fn, "__blk_invoke") || !strcmp(fn, "__multi_call") || !strcmp(fn, "obj_new") || !strcmp(fn, "__rk_named_call") || !strcmp(fn, "meth_call") || !strcmp(fn, "__rk_str") ||
-        !strcmp(fn, "__rk_gist_pre") || !strcmp(fn, "__rk_str_pre") || !strcmp(fn, "__rk_eval"));
+        (!strcmp(fn, "__blk_invoke") || !strcmp(fn, "__multi_call") || !strcmp(fn, "obj_new") || !strcmp(fn, "__rk_named_call") || !strcmp(fn, "__rk_meth_nc") || !strcmp(fn, "meth_call") ||
+        !strcmp(fn, "__rk_str") || !strcmp(fn, "__rk_gist_pre") || !strcmp(fn, "__rk_str_pre") || !strcmp(fn, "__rk_eval"));
 }
 RT_ENTRY_DECL(rt_call_arr_bl_try, open, 1);
 rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {

@@ -1721,8 +1721,15 @@ static int arglist(RkB *b, RkList *L, int ctx, TL *pos, TL *named) {
     if (!L) return 0;
     for (int i = 0; i < L->n; i++) {
         RkEl *e = &L->v[i];
+        int boolform = e->t0.kind == TK_CP && (e->t0.ck == 'n' || e->t0.ck == '!');
         int can = ctx == 1 || ((ctx == 2 || ctx == 3) && (i == 0 || innamed));
-        if (named && can && e->nitem == 1 && named_form(&e->t0, 1)) { innamed = 1; add_named(&e->t0, named); continue; }
+        int relaxed = !can && ctx == 2 && !boolform;
+        if (named && (can || relaxed) && e->nitem == 1 && named_form(&e->t0, 1)) {
+            if (can) innamed = 1;
+            add_named(&e->t0, named);
+            if (relaxed && named->n >= 2 && named->v[named->n - 2] && named->v[named->n - 2]->t == TT_QLIT) named->v[named->n - 2]->slen = 0x4E42;
+            continue;
+        }
         tl_add(pos, pos_arg(b, e, ctx == 8));
     }
     return innamed;
@@ -2214,7 +2221,7 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
         if (isio) for (int i = 0; i < pos.n; i++) { tree_t *a = pos.v[i];
             if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_mkbool") && a->n >= 3 && a->c[2] && a->c[2]->t == TT_QLIT) { tree_t *pc = make_call("__rk_pair"); expr_add_child(pc, a->c[2]); tree_t *bv = rk_adverb_bool(a->c[1] && a->c[1]->v.ival ? 1 : 0); expr_add_child(pc, bv); pos.v[i] = pc; } }
         for (int i = 0; i < pos.n; i++) ast_push(c, pos.v[i]);
-        for (int i = 0; i < named.n; i++) ast_push(c, named.v[i]);
+        for (int i = 0; i < named.n; i++) { if ((i & 1) == 0 && named.v[i] && named.v[i]->t == TT_QLIT && !named.v[i]->slen) named.v[i]->slen = 0x4E41; ast_push(c, named.v[i]); }
     }
     return c;
 }

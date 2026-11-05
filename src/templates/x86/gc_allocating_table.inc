@@ -371,6 +371,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt___rk_match_last", GC_RET_DESCR },
     { "bt___rk_materialize", GC_RET_DESCR },
     { "bt___rk_max", GC_RET_DESCR },
+    { "bt___rk_meth_nc", GC_RET_OTHER },
     { "bt___rk_min", GC_RET_DESCR },
     { "bt___rk_mkbool", GC_RET_DESCR },
     { "bt___rk_mkcplx_i", GC_RET_DESCR },

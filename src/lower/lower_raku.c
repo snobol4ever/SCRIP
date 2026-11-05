@@ -1192,6 +1192,21 @@ static int rk_proc_nparams(const char * name) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_user_meth_has_named(const char * m) {
+    size_t L = strlen(m);
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        const char * n = g_stage2.proc_table[i].name;
+        const tree_t * pr = g_stage2.proc_table[i].proc;
+        size_t nl = n ? strlen(n) : 0;
+        if (!pr || nl <= L + 2 || !strncmp(n, "__", 2) || strcmp(n + nl - L, m) || n[nl - L - 1] != '_' || n[nl - L - 2] != '_') continue;
+        for (int k = 1; k < pr->n && k <= g_stage2.proc_table[i].nparams; k++) {
+            const tree_t * pv = pr->c[k];
+            if (pv && ((pv->slen & RK_PV_NAMED) || (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strcmp(pv->c[0]->v.sval, "*%")))) return 1;
+        }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_user_meth_named(const char * m) {
     size_t L = strlen(m);
     for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -7391,7 +7406,60 @@ static void rk_sub_topic(tree_t * t, int in_pkg) {
     t->c[body] = as;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_relaxed_collect(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
+        for (int k = 1; k < t->n && k <= (int) t->v.ival; k++) {
+            const tree_t * pv = t->c[k];
+            if (pv && ((pv->slen & RK_PV_NAMED) || (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strcmp(pv->c[0]->v.sval, "*%")))) {
+                const char * nm = t->c[0]->v.sval;
+                const char * dl = strchr(nm, '$');
+                char b[strlen(nm) + 1];
+                snprintf(b, sizeof b, "%.*s", dl ? (int) (dl - nm) : (int) strlen(nm), nm);
+                rk_ns_add(out, lp_strdup(b));
+                break;
+            }
+        }
+    }
+    for (int i = 0; i < t->n; i++) rk_relaxed_collect(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_relaxed_walk(tree_t * t, const rk_ns_t * set) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_relaxed_walk(t->c[i], set);
+    if (t->t != TT_METHCALL || t->n < 3 || !t->c[1] || t->c[1]->t != TT_QLIT || !t->c[1]->v.sval) return;
+    int first = -1;
+    for (int i = 2; i < t->n && first < 0; i++) if (t->c[i] && t->c[i]->t == TT_QLIT && (t->c[i]->slen == 0x4E41 || t->c[i]->slen == 0x4E42)) first = i;
+    if (first < 0) return;
+    int n = t->n;
+    tree_t ** old = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) n);
+    for (int i = 0; i < n; i++) old[i] = t->c[i];
+    const char * mn = old[1]->v.sval;
+    if (rk_ns_has(set, mn) || rk_user_meth_has_named(mn)) {
+        int nold = 0;
+        for (int i = first; i < n; i += 2) if (old[i] && old[i]->t == TT_QLIT && old[i]->slen == 0x4E41) nold++;
+        t->t = TT_FNC;
+        t->v.sval = (char *) "__rk_meth_nc";
+        t->n = 0;
+        ast_push(t, leaf_sval2(TT_VAR, "__rk_meth_nc"));
+        ast_push(t, old[0]);
+        ast_push(t, old[1]);
+        ast_push(t, rk_ti(first - 2));
+        ast_push(t, rk_ti(nold));
+        for (int i = 2; i < n; i++) ast_push(t, old[i]);
+        return;
+    }
+    t->n = 0;
+    for (int i = 0; i < n; i++) {
+        int mk = (i >= 2 && old[i] && old[i]->t == TT_QLIT) ? old[i]->slen : 0;
+        if (mk == 0x4E42) { if (++i < n) ast_push(t, old[i]); continue; }
+        if (mk == 0x4E41) old[i]->slen = 0;
+        ast_push(t, old[i]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
+    { rk_ns_t rns = { 0 }; rk_relaxed_collect(prog, &rns); rk_relaxed_walk((tree_t *) prog, &rns); }
     {
         rk_ns_t ss = { 0 }, cls = { 0 };
         int mcn = 0;
