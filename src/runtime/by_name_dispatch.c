@@ -15221,6 +15221,8 @@ static void rk_exc_init(void) {
     class_inherit("X::TypeCheck::Assignment", "X::TypeCheck");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
     class_inherit("X::Method::NotFound", "Exception");
+    record_register("X::OutOfRange(message,what,got,range)");
+    class_inherit("X::OutOfRange", "Exception");
     for (int i = 0; rk_comp_tab[i].cls; i++) {
         char spec[strlen(rk_comp_tab[i].cls) + 16];
         snprintf(spec, sizeof spec, "%s(message)", rk_comp_tab[i].cls);
@@ -15228,7 +15230,7 @@ static void rk_exc_init(void) {
         class_inherit(rk_comp_tab[i].cls, rk_comp_tab[i].parent);
     }
     for (int i = 0; rk_exc_tab[i].cls; i++) {
-        if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound") || !strcmp(rk_exc_tab[i].cls, "X::TypeCheck::Assignment")) continue;
+        if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound") || !strcmp(rk_exc_tab[i].cls, "X::TypeCheck::Assignment") || !strcmp(rk_exc_tab[i].cls, "X::OutOfRange")) continue;
         char spec[strlen(rk_exc_tab[i].cls) + 16];
         snprintf(spec, sizeof spec, "%s(message)", rk_exc_tab[i].cls);
         record_register(spec);
@@ -15276,7 +15278,7 @@ static const char *rk_exc_umsg(DESCR_t ex) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_exc_from_msg(const char *msg) {
     rk_exc_init();
-    for (int i = 0; rk_exc_tab[i].cls; i++) if (strstr(msg, rk_exc_tab[i].needle)) return DATCON_fn(rk_exc_tab[i].cls, STRVAL(rt_heap_strdup_c(msg)));
+    for (int i = 0; rk_exc_tab[i].cls; i++) if (strstr(msg, rk_exc_tab[i].needle)) return DATCON_fn(rk_exc_tab[i].cls, STRVAL(rt_heap_strdup_c(msg)), NULVCL, NULVCL, NULVCL);
     return rk_exc_adhoc(STRVAL(rt_heap_strdup_c(msg)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -15923,6 +15925,7 @@ static void rk_elem_put_impl(DESCR_t *args, DESCR_t *out) {
 DESCR_t rt_rk_elem_put(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_elem_put_impl(args, &out); return out; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_arr_at_impl(DESCR_t *args, DESCR_t *out) {
+    if (rk_failure_is(args[0])) { *out = args[0]; return; }
     if (rk_is_seq(args[0])) {
         long need = -1L;
         if (IS_INT_fn(args[1])) need = args[1].i >= 0 ? (long) args[1].i + 1 : -1L;
@@ -15952,6 +15955,13 @@ static void rk_arr_at_impl(DESCR_t *args, DESCR_t *out) {
     if (args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
         long i = rk_ival(args[1]);
+        if (i < 0) {
+            rk_exc_init();
+            *out =
+                rk_failure_new(DATCON_fn("X::OutOfRange", STRVAL(rt_heap_fmt("Index out of range. Is: %ld, should be in 0..^Inf", i)), STRVAL(rt_heap_strdup_c("Index")), INTVAL(i),
+                STRVAL(rt_heap_strdup_c("0..^Inf"))));
+            return;
+        }
         if (i < b->lo || i > b->hi) { *out = rk_typeobj("Any"); return; }
         *out = rk_slot(b, i - b->lo);
         return;
