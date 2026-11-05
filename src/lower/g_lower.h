@@ -112,9 +112,6 @@ typedef struct {
     int pas_enumnames_cap;
     int pas_nenumname;
     char *pas_pend_enum_names;
-    struct { char *aname; char *etype; } *pas_enumarrs;
-    int pas_enumarrs_cap;
-    int pas_nenumarr;
     struct { char *name; long long low; long long high; int isenum; } *pas_subtypes;
     int pas_subtypes_cap;
     int pas_nsubtype;

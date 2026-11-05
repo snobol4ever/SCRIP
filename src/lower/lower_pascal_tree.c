@@ -318,7 +318,7 @@ static long long pas_cafield_lo_get(const tree_t *e);
 static long long pas_cafield_hi_get(const tree_t *e);
 static tree_t *pas_trace_wrap_value(tree_t *val);
 static const char *pas_rectype_field_enum_by_index(const char *rn, long idx);
-static const char *pas_enumarr_get(const char *a);
+static const char *pas_enumarr_of(const tree_t *n);
 static int pas_xr_src(const tree_t *n);
 static int pas_xr_low(tree_t *e);
 static tree_t *pas_xr_operand(const tree_t *src);
@@ -384,7 +384,7 @@ static tree_t *pas_trace_wrap_value(tree_t *val) {
     if (!_enm && val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[1]) {
         const char *_et = NULL, *_rt = (val->c[1]->t == TT_ILIT) ? pas_with_sel_rtype(val->c[0]) : NULL;
         if (_rt) _et = pas_rectype_field_enum_by_index(_rt, (long)val->c[1]->v.ival);
-        if (!_et && val->c[0]->t == TT_VAR && val->c[0]->v.sval) _et = pas_enumarr_get(val->c[0]->v.sval);
+        if (!_et && val->c[0]->t == TT_VAR && val->c[0]->v.sval) _et = pas_enumarr_of(val->c[0]);
         if (_et) _enm = pas_enumnames_by_idx(pas_enumnames_idx(_et));
     }
     if (_enm) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, _enm)); return _w; }
@@ -2190,19 +2190,11 @@ static int pas_enumnames_idx(const char *tn) {
     return -1;
 }
 static const char *pas_enumnames_by_idx(int i) { return (i >= 0 && i < g_lower.pas.sem.pas_nenumname) ? g_lower.pas.sem.pas_enumnames[i].names : NULL; }
-static void pas_enumarr_add(const char *a, const char *et) {
-    if (a && et) {
-        if (g_lower.pas.sem.pas_nenumarr >= g_lower.pas.sem.pas_enumarrs_cap) g_lower.pas.sem.pas_enumarrs =
-            pas_pool_grow(g_lower.pas.sem.pas_enumarrs, &g_lower.pas.sem.pas_enumarrs_cap, sizeof *g_lower.pas.sem.pas_enumarrs, 16);
-        g_lower.pas.sem.pas_enumarrs[g_lower.pas.sem.pas_nenumarr].aname = ct_strdup(a);
-        g_lower.pas.sem.pas_enumarrs[g_lower.pas.sem.pas_nenumarr].etype = ct_strdup(et);
-        g_lower.pas.sem.pas_nenumarr++;
-    }
-}
-static const char *pas_enumarr_get(const char *a) {
-    if (!a) return NULL;
-    for (int i = 0; i < g_lower.pas.sem.pas_nenumarr; i++) if (g_lower.pas.sem.pas_enumarrs[i].aname && !strcmp(g_lower.pas.sem.pas_enumarrs[i].aname, a)) return g_lower.pas.sem.pas_enumarrs[i].etype;
-    return NULL;
+static const char *pas_enumarr_of(const tree_t *n) {
+    const pty_t *t = n ? pty_of_low(n) : NULL;
+    if (!t || t->k != PTK_ARRAY) return NULL;
+    while (t && t->k == PTK_ARRAY) t = t->base;
+    return t && t->k == PTK_ENUM ? pty_name_of(t) : NULL;
 }
 static void pas_subtype_add(const char *n, long long lo, long long hi) {
     if (n) {
@@ -4061,7 +4053,7 @@ static tree_t *pas_str_padded(const char *s, long long n) {
 static int pas_array_is_pure_num(const char *name) { if (!name) return 0; if (pas_is_chararr(name)) return 0; if (pas_arrrec_find(name, NULL) > 0) return 0; if (pas_rvt(name)) return 0; return 1; }
 static int pas_array_is_real(const char *name) {
     if (pas_array_is_pure_num(name)) return 1;
-    if (!name || pas_is_chararr(name) || pas_enumarr_get(name) || pas_arrrec_find(name, NULL) <= 0) return 0;
+    if (!name || pas_is_chararr(name) || pas_arrrec_find(name, NULL) <= 0) return 0;
     if (pas_rvt(name)) return 0;
     return 1;
 }
@@ -6995,7 +6987,7 @@ static pval E_selector_raw(const tree_t *n) {
                     bin(TT_ADD, v[3].list->items[i], ilit(1)) : v[3].list->items[i]);
             }
             if (e && v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval) {
-                const char *_et = pas_enumarr_get(v[1].node->v.sval);
+                const char *_et = pas_enumarr_of(v[1].node);
                 if (_et) { int _ei = pas_enumnames_idx(_et); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); }
             }
             out.node = _rg ? _rg : e;
@@ -7611,8 +7603,7 @@ static pval E_var_decl(const tree_t *n) {
                                     pas_chararr_shape(id->v.sval,
                                         (g_lower.pas.sem.pas_pend_arr_ischar & PAS_CA_NOSTR) || (g_lower.pas.sem.pas_pend_typename && pas_arrtype_nostr(g_lower.pas.sem.pas_pend_typename)),
                                         g_lower.pas.sem.pas_pend_arr_ischar ? g_lower.pas.sem.pas_pend_sub_high : pas_arrtype_high(g_lower.pas.sem.pas_pend_typename));
-                                } else if (g_lower.pas.sem.pas_pend_typename && pas_enumnames_idx(g_lower.pas.sem.pas_pend_typename) >= 0)
-                                    pas_enumarr_add(id->v.sval, g_lower.pas.sem.pas_pend_typename);
+                                }
                             }
                         }
                         if (_ty3 < 0 && g_lower.pas.sem.pas_pend_istfile) {
