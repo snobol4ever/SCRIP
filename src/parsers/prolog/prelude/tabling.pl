@@ -469,8 +469,12 @@ abolish_all_tables:-'$tbl_vt'(VT),'$trie_entries'(VT,L),'$tbl_drop_all'(L),'$tri
 '$tbl_drop_all'([e(_,_,T)|L]):-'$trie_destroy'(T),'$tbl_drop_all'(L).
 '$tbl_local_variant_table'('$trie'(VT)):-'$tbl_vt'(VT).
 current_table(MV,T):-'$tbl_strip'(MV,M,V),'$tbl_vt'(VT),(nonvar(V)->'$tbl_lookup'(VT,M,V,I);'$trie_entries'(VT,L),member(e(_,QV,I),L),'$tbl_unqual'(QV,M,V)),T='$trie'(I).
-'$tbl_strip'(MV,M,V):-nonvar(MV),MV=M0:V0,!,(var(M)->M=M0;true),'$tbl_strip'(V0,M,V).
-'$tbl_strip'(MV,M,V):-nonvar(MV),MV='$lfx_mc'(M0,V0),!,(var(M)->M=M0;true),'$tbl_strip'(V0,M,V).
+'$tbl_strip'(MV,M,V):-nonvar(MV),MV=M0:V0,!,'$tbl_strip_in'(V0,M0,M1,V),(var(M)->M=M1;true).
+'$tbl_strip'(MV,M,V):-nonvar(MV),MV='$lfx_mc'(M0,V0),!,'$tbl_strip_in'(V0,M0,M1,V),(var(M)->M=M1;true).
+'$tbl_strip_in'(MV,_,M,V):-nonvar(MV),MV=M0:V0,!,'$tbl_strip_in'(V0,M0,M,V).
+'$tbl_strip_in'(MV,_,M,V):-nonvar(MV),MV='$lfx_mc'(M0,V0),!,'$tbl_strip_in'(V0,M0,M,V).
+'$tbl_strip_in'(MV,_,M,V):-callable(MV),MV=..[QF|_],atom(QF),sub_atom(QF,B,1,_,':'),B>0,!,'$tbl_unqual'(MV,M,V).
+'$tbl_strip_in'(V,M,M,V).
 '$tbl_strip'(MV,M,V):-callable(MV),MV=..[QF|_],atom(QF),sub_atom(QF,B,1,_,':'),B>0,!,'$tbl_unqual'(MV,M0,V0),(var(M)->M=M0;true),V=V0.
 '$tbl_strip'(V,_,V).
 '$tbl_lookup'(VT,M,V,I):-atom(M),M\==user,'$tbl_qual'(M,V,QV),'$trie_lookup'(VT,QV,I),!.
