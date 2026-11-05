@@ -2312,6 +2312,16 @@ static tree_t *x_unary(RkP *p, RkX *x) {
     }
     if (x_in(p, x, LV_POW) >= 0) { int rv = x->rev, hy = x->hyper; x_take(p, x); tree_t *r = x_unary(p, x); if (p->build) base = hy ? rkb_hyper(p->B, LV_POW, 0, hy, base, r) : rv ? rkb_binop(p->B, LV_POW, 0, r, base) : rkb_binop(p->B, LV_POW, 0, base, r); x->lastcls = 0; }
     if (p->build) for (int i = np - 1; i >= (loose ? 1 : 0); i--) base = rkb_prefix_apply(p->B, t->pre[i], base);
+    while (x_peek(p, x) && (x->pk_o.flags & OF_DOTTY) && !strcmp(x->pk_txt, ".")) {
+        int nops0 = x->nops; const char *op10 = x->L->op1, *elop10 = x->el->op1;
+        x_take(p, x);
+        x->nops = nops0; x->L->op1 = op10; x->el->op1 = elop10;
+        RkTerm dt;
+        if (!x_term(p, x, &dt)) break;
+        x->nterm--; x->L->nitem--;
+        if (p->build && dt.kind == TK_DOTTY && dt.t && dt.t->t == TT_METHCALL && dt.t->n > 0) { dt.t->c[0] = base; base = dt.t; }
+        x->lastcls = 0;
+    }
     if (loose) {
         RkTerm lt; memset(&lt, 0, sizeof lt); lt.kind = TK_TREE; lt.t = base; lt.from = t->from; lt.to = lt.core_to = t->to;
         x->pend = &lt; x->lastcls = 0;
