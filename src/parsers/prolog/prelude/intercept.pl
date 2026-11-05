@@ -1,4 +1,4 @@
-/*  intercept.pl -- SWI-Prolog's library(intercept) as a prelude library (hq_prolog 2026-11-04, row prolog-swi-to-100-the-failing-cases-ceo-1930, swi_tests library/test_intercept). SCRIP's own text, AGPL like the rest of
+/*  intercept.pl -- SWI-Prolog's library(intercept) as a prelude library (hq_prolog 2026-11-04, row prolog-swi-to-100-the-failing-cases-r-1930, swi_tests library/test_intercept). SCRIP's own text, AGPL like the rest of
     SCRIP: not a vendored file (no SWI reader, no renames, helpers '$icpt_'-named by hand; the generator embeds it in LOCAL mode). swipl's send_signal/1 finds its interceptor by walking the call stack with
     prolog_frame_attribute(Frame, parent_goal(_), intercept:do_intercept(...)); SCRIP has no frame visitor, so the active interceptors are a backtrackable global variable, a list with the innermost first.
     '$icpt_do'/4 pushes i(Ball, Handler, Context) with b_setval, runs Goal and pops with b_setval: the interceptor is visible exactly while Goal runs, is visible again when backtracking re-enters Goal, and an

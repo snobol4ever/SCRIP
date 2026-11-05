@@ -179,7 +179,7 @@ long rt_gcheap_verify(void) {
             abort();
         }
         if (!((g_runtime.abi.hp_fr.start[g >> 6] >> (g & 63)) & 1u)) {
-            fprintf(stderr, "[ZHP] heap verify FAILED at +%ld: a block header without its START bit (size=%lu type=%u) -- the START map is exact or it is nothing (ARCH-GC section 15, CEO-1794)\n",
+            fprintf(stderr, "[ZHP] heap verify FAILED at +%ld: a block header without its START bit (size=%lu type=%u) -- the START map is exact or it is nothing (ARCH-GC section 15, R-1794)\n",
                 (long)(p - g_runtime.gc.hp_arena), (unsigned long)HBLK_BYTES(h), (unsigned)h->type);
             abort();
         }
