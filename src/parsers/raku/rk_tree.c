@@ -2765,6 +2765,7 @@ static tree_t *stmt_tail(RkB *b, RkList *L, int bk) {
     if (!L->n) return ast_node_new(TT_NUL);
     tree_t *a = assign_forms(b, L, 1, bk);
     if (!a && L->nitem > 1 && L->op1 && (!strcmp(L->op1, ".=") || (!strcmp(L->op1, "=") && L->v[0].t0.kind == TK_PAREN && !L->v[0].t0.npost && !L->v[0].t0.npre))) a = stmt_plain(b, L);
+    if (!a && L->nitem > 1 && L->op1 && !strcmp(L->op1, "=") && (plain(&L->v[0].t0, 'H') || plain(&L->v[0].t0, 'U') || plain(&L->v[0].t0, 'W'))) a = stmt_plain(b, L);
     if (a) { if (bk == BK_SUB || bk == BK_METHOD) { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, a); return r; } return a; }
     RkTerm *t0 = &L->v[0].t0;
     int clv0, ck0, asg = L->nitem > 1 && L->op1 && (!strcmp(L->op1, "=") || rkb_compound_base(L->op1, &clv0, &ck0));
