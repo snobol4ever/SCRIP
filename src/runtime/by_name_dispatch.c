@@ -4659,6 +4659,14 @@ typedef struct rk_redisp_t { DESCR_t self; DESCR_t mname; struct rk_redisp_t *pr
 _Static_assert(sizeof(rk_redisp_t) == RK_REDISP_REC_BYTES,
     "the redispatch record is RK_REDISP_REC_BYTES of the meth_call node's frame grant (frame_layout.c grants RK_REDISP_REC_SLOTS slots after the argv)");
 static rk_redisp_t *g_redisp_cur = (rk_redisp_t *)0;
+static int rk_class_user_meth(DESCR_t d, const char *m) {
+    if (!m || !IS_STR_fn(d) || !d.s || !dat_find_type(d.s)) return 0;
+    const char *rmc = resolve_method_chain(d.s, m, NULL);
+    char proc[fmt_len("%s__%s", rmc, m)];
+    snprintf(proc, sizeof proc, "%s__%s", rmc, m);
+    return meth_is_user_proc(proc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_strmeth_open(DESCR_t d, int use_gist, long *rq, DESCR_t *out);
 static DESCR_t rd_arg(const rk_redisp_t *r, int k) { return r->skip_mname == 2 ? (k == 0 ? r->self : r->args[k - 1]) : (r->skip_mname && k > 0) ? r->args[1 + k] : r->args[k]; }
 static int rd_mro_len(const char *cname) {
@@ -18875,7 +18883,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (nargs == 2 && (!strcmp(mname0, "item") || !strcmp(mname0, "self"))) { *out = _recv0; return 1; }
             _recv0 = rk_hash_list(_recv0, 'p');
         }
-        if (nargs >= 2 && _recv0.v != DT_DATA && rt_str_method(mname0, _recv0, &args[2], nargs - 2, out)) return 1;
+        if (nargs >= 2 && _recv0.v != DT_DATA && !rk_class_user_meth(_recv0, mname0) && rt_str_method(mname0, _recv0, &args[2], nargs - 2, out)) return 1;
         if (_recv0.v != DT_DATA && mname0) {
             const char *rtn = VARVAL_fn(_recv0);
             int is_dat_recv = (rtn && dat_find_type(rtn));
