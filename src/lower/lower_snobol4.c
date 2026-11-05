@@ -223,6 +223,10 @@ int sno_predef_pattern_name(const char * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_csetcode(tree_e k) { return k == TT_ANY ? 59 : k == TT_NOTANY ? 151 : k == TT_SPAN ? 188 : k == TT_BREAK ? 69 : k == TT_BREAKX ? 70 : 0; }
 static int sno_pe_intcode(tree_e k) { return k == TT_LEN ? 120 : k == TT_POS ? 162 : k == TT_RPOS ? 185 : k == TT_TAB ? 183 : k == TT_RTAB ? 181 : 0; }
+static tree_e sno_pe_fnkind(const char * s) {
+    return !s ? TT_VAR : !strcmp(s, "LEN") ? TT_LEN : !strcmp(s, "POS") ? TT_POS : !strcmp(s, "RPOS") ? TT_RPOS : !strcmp(s, "TAB") ? TT_TAB : !strcmp(s, "RTAB") ? TT_RTAB : !strcmp(s, "SPAN") ?
+        TT_SPAN : !strcmp(s, "BREAK") ? TT_BREAK : !strcmp(s, "BREAKX") ? TT_BREAKX : !strcmp(s, "ANY") ? TT_ANY : !strcmp(s, "NOTANY") ? TT_NOTANY : TT_VAR;
+}
 static const char * sno_lead_name(const char * lead, const char * nm);
 static int sno_pe_patfn(tree_e k) {
     return k == TT_ANY || k == TT_NOTANY || k == TT_SPAN || k == TT_BREAK || k == TT_BREAKX || k == TT_LEN || k == TT_POS || k == TT_RPOS || k == TT_TAB || k == TT_RTAB || k == TT_ARBNO ||
@@ -425,6 +429,8 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
         case TT_FNC:
         {
             DESCR_t fa[t->n > 0 ? t->n : 1];
+            tree_e pk = sno_pe_fnkind(t->v.sval);
+            if (pk != TT_VAR) { tree_t pt = *t; pt.t = pk; sno_pe_walk(&pt, &a, e); if (e->code) return 0; }
             for (k = 0, all = sno_pe_valfn(t->v.sval); k < t->n; k++) all = sno_pe_walk(t->c[k], &fa[k], e) && fa[k].v != DT_P && fa[k].v != DT_E && all;
             if (!all || e->code) return 0;
             return sno_pe_op(TT_FNC, t->v.sval, fa, t->n, v, e);
@@ -440,6 +446,12 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
             extern int rt_name_textless(DESCR_t);
             if (pc && t->n == 1 && (IS_NULL_fn(a) || a.v == DT_P || rt_name_textless(a))) { e->code = pc; e->msg = rt_coerce_errtext(pc); return 0; }
             if (ic && t->n == 1 && a.v == DT_N) { e->code = ic; e->msg = rt_coerce_errtext(ic); return 0; }
+            if (ic && t->n == 1 && a.v != DT_E && a.v != DT_P) {
+                extern int rt_num_arg_d(const DESCR_t *, int64_t *);
+                int64_t n = 0;
+                if (!rt_num_arg_d(&a, &n)) { e->code = ic; e->msg = rt_coerce_errtext(ic); return 0; }
+                if (n < 0 || n > 16777216) { e->code = ic + 1; e->msg = rt_coerce_errtext(ic + 1); return 0; }
+            }
         }
         *v = (DESCR_t){ .v = DT_P };
         return 1;
