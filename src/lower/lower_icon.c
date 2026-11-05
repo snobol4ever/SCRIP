@@ -263,10 +263,14 @@ static int icn_proc_is_generator(const char * name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "key") || !strcmp(name, "seq")); }
+static int icn_is_unicon_thread_name(const char * nm) {
+    return nm && (!strncmp(nm, "ICN$", 4) || !strcmp(nm, "wait") || !strcmp(nm, "lock") || !strcmp(nm, "unlock") || !strcmp(nm, "trylock") || !strcmp(nm, "mutex") || !strcmp(nm, "spawn"));
+}
 static int icn_callee_is_a_value(const char * nm) {
     extern int icn_builtin_is_known(const char *);
     extern void * dat_find_type(const char *);
-    return nm && nm[0] != '&' && (icn_proc_reassigned(nm) || icn_record_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !dat_find_type(nm)));
+    return nm && nm[0] != '&' &&
+        (icn_proc_reassigned(nm) || icn_record_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !icn_is_unicon_thread_name(nm) && !dat_find_type(nm)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
@@ -369,6 +373,7 @@ static int is_resumable(const tree_t * t) {
     if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (t->t == TT_FNC) {
         const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL;
+        if (nm && !strcmp(nm, "ICN$CRIT") && t->n == 3) return is_resumable(t->c[1]);
         if (!nm || icn_call_allow_gen(nm) || icn_callee_is_a_value(nm)) return 1;
         for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1;
         return 0;
@@ -505,6 +510,9 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int after_line = cx->after_line;
     cx->after_line = 0;
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
+    if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "wait") || !strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) &&
+        icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
+    if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
     if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
@@ -1092,6 +1100,33 @@ static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c 
 static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
 static int pm_const_int(const tree_t * a, int64_t * v);
 static tree_t * pm_imm_commit(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) "*$imm"; q->slen = 5; return pm_call("SNO$PDEF", q, NULL); }
+static tree_t * th_var(const char * nm) { tree_t * v = pm_var(nm); v->slen = (int) strlen(nm); return v; }
+static tree_t * th_call(const char * fn, tree_t * a) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, th_var(fn)); ast_push(c, a); return c; }
+static tree_t * th_form(icx_t * cx, const tree_t * t) {
+    const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
+    if (!fn || fn->t != TT_VAR || !fn->v.sval || !cx->prog || !cx->prog->v.ival) return NULL;
+    if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t == TT_CREATE && !icn_is_proc("spawn")) {
+        const char * tv = icn_synth_local(cx);
+        tree_t * cj = ast_node_new(TT_CONJ);
+        ast_push(cj, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL));
+        ast_push(cj, pm_node(TT_EVERY, pm_node(TT_ACTIVATE, th_var(tv), NULL, NULL), NULL, NULL));
+        ast_push(cj, th_var(tv));
+        return cj;
+    }
+    if (!strcmp(fn->v.sval, "ICN$CRIT") && t->n == 3) {
+        const char * mv = icn_synth_local(cx), * rv = icn_synth_local(cx);
+        tree_t * bad = pm_node(TT_CONJ, th_call("ICN$UIDENT", th_var(mv)), icn_variable_lit_tree("&fail"), NULL);
+        tree_t * body = pm_node(TT_ALTERNATE, pm_node(TT_ASSIGN, th_var(rv), pm_node(TT_LIMIT, (tree_t *) t->c[2], pm_int(1), NULL), NULL), bad, NULL);
+        tree_t * cj = ast_node_new(TT_CONJ);
+        ast_push(cj, pm_node(TT_ASSIGN, th_var(mv), (tree_t *) t->c[1], NULL));
+        ast_push(cj, th_call("ICN$UIDENT", th_var(mv)));
+        ast_push(cj, body);
+        ast_push(cj, th_call("ICN$UIDENT", th_var(mv)));
+        ast_push(cj, th_var(rv));
+        return cj;
+    }
+    return NULL;
+}
 static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     static const struct {
         const char * nm;
@@ -1528,6 +1563,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         {
             const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
             { tree_t * pw = pm_patfn(cx, t); if (pw) return lower(cx, pw, γ, ω, res); }
+            { tree_t * thf = th_form(cx, t); if (thf) return lower(cx, thf, γ, ω, res); }
             {
                 const char * vn = icn_variable_lit(cx, t);
                 if (vn) {

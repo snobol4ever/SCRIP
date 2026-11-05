@@ -25242,6 +25242,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     if (!strcmp(fn, "ICN$IMM") && nargs == 0) { extern int rt_icn_imm_assign(void); *out = rt_icn_imm_assign() ? NULVCL : FAILDESCR; return 1; }
     if (!strcmp(fn, "ICN$UDIGITS") && nargs == 1) { extern DESCR_t bt_ICNx24UDIGITS(DESCR_t *, int); *out = bt_ICNx24UDIGITS(args, nargs); return 1; }
+    if (!strcmp(fn, "ICN$UIDENT") && nargs == 1) { extern DESCR_t bt_ICNx24UIDENT(DESCR_t *, int); *out = bt_ICNx24UIDENT(args, nargs); return 1; }
+    if (!strcmp(fn, "ICN$UMUTEX") && nargs <= 1) { extern DESCR_t bt_ICNx24UMUTEX(DESCR_t *, int); *out = bt_ICNx24UMUTEX(args, nargs); return 1; }
     if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
         DESCR_t src = args[0];
         extern int core_icn_error(int code, DESCR_t val);

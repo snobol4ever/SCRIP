@@ -81,7 +81,7 @@ static int icn_begins_nexpr(IcnTkKind k) {
     case TK_LPAREN: case TK_LBRACE: case TK_LBRACK:
     case TK_IF: case TK_CASE: case TK_WHILE: case TK_UNTIL: case TK_REPEAT:
     case TK_EVERY: case TK_SUSPEND: case TK_RETURN: case TK_FAIL: case TK_BREAK:
-    case TK_NEXT: case TK_NOT: case TK_CREATE:
+    case TK_NEXT: case TK_NOT: case TK_CREATE: case TK_THREAD: case TK_CRITICAL:
         return 1;
     default:
         return 0;
@@ -218,7 +218,7 @@ static tree_t *parse_primary(IcnParser *p) {
     }
     if (t.kind == TK_CASE   || t.kind == TK_RETURN || t.kind == TK_SUSPEND ||
         t.kind == TK_IF     || t.kind == TK_EVERY  || t.kind == TK_WHILE   ||
-        t.kind == TK_UNTIL  || t.kind == TK_REPEAT || t.kind == TK_CREATE) {
+        t.kind == TK_UNTIL  || t.kind == TK_REPEAT || t.kind == TK_CREATE || t.kind == TK_THREAD || t.kind == TK_CRITICAL) {
         return parse_ctrl(p);
     }
     if (t.kind == TK_LBRACE) {
@@ -721,6 +721,24 @@ static tree_t *parse_ctrl(IcnParser *p) {
         tree_t *e = ast_node_new(TT_CREATE);
         push_child(e, parse_expr(p));
         return e;
+    }
+    if (check(p, TK_THREAD)) {
+        advance(p);
+        tree_t *cr = ast_node_new(TT_CREATE);
+        push_child(cr, parse_expr(p));
+        tree_t *sp = ast_node_new(TT_FNC);
+        push_child(sp, e_leaf_sval(TT_VAR, "spawn", -1));
+        push_child(sp, cr);
+        return sp;
+    }
+    if (check(p, TK_CRITICAL)) {
+        advance(p);
+        tree_t *cs = ast_node_new(TT_FNC);
+        push_child(cs, e_leaf_sval(TT_VAR, "ICN$CRIT", -1));
+        push_child(cs, parse_unary(p));
+        expect(p, TK_COLON, "critical region");
+        push_child(cs, parse_expr(p));
+        return cs;
     }
     if (check(p, TK_CASE)) {
         advance(p);
