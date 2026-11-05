@@ -19084,7 +19084,30 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         int _was_list_recv = 0;
         { DESCR_t *_lva = 0; int _lvn = 0; if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) { _recv0 = rk_mark_list(rt_make_item_agg(_lva, _lvn)); _was_list_recv = 1; } }
         if (_recv0.v == DT_A && _recv0.arr && mname0 && nargs >= 2 && !rk_is_pair(_recv0) && !rk_is_jct(_recv0) &&
-            (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "pop") || !strcmp(mname0, "shift"))) {
+            (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "pop") || !strcmp(mname0, "shift") ||
+            !strcmp(mname0, "splice"))) {
+            if (!strcmp(mname0, "splice")) {
+                ARBLK_t *sb = (ARBLK_t *) _recv0.arr;
+                int sn = sb->hi - sb->lo + 1;
+                if (sn < 0) sn = 0;
+                long st = nargs > 2 && IS_INT_fn(args[2]) ? (long) args[2].i : 0, cnt = nargs > 3 && IS_INT_fn(args[3]) ? (long) args[3].i : (long) sn - st;
+                if ((nargs > 2 && !IS_INT_fn(args[2])) || (nargs > 3 && !IS_INT_fn(args[3])) || st < 0 || st > sn || cnt < 0) return 0;
+                if (st + cnt > sn) cnt = sn - st;
+                int add = 0;
+                for (int k = 4; k < nargs; k++) add += rk_spill_count(args[k]);
+                DESCR_t *nw = add ? (DESCR_t *) rt_ws_alloc_descr((size_t) add) : NULL, *old = sn ? (DESCR_t *) rt_ws_alloc_descr((size_t) sn) : NULL;
+                int c = 0;
+                for (int k = 4; k < nargs; k++) c = rk_spill(nw, c, args[k]);
+                for (int k = 0; k < sn; k++) old[k] = sb->data[k];
+                DESCR_t *rem = cnt ? (DESCR_t *) rt_ws_alloc_descr((size_t) cnt) : NULL;
+                for (long k = 0; k < cnt; k++) rem[k] = old[st + k];
+                sb->hi = sb->lo - 1;
+                for (long k = 0; k < st; k++) rk_arr_append(sb, old[k]);
+                for (int k = 0; k < c; k++) rk_arr_append(sb, nw[k]);
+                for (long k = st + cnt; k < sn; k++) rk_arr_append(sb, old[k]);
+                *out = rk_unmark(rk_mk_arr(rem, (int) cnt));
+                return 1;
+            }
             if ((!strcmp(mname0, "pop") || !strcmp(mname0, "shift")) && nargs > 2) {
                 char xm[96];
                 extern void rt_script_die_surface(const char *msg);
