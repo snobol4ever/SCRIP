@@ -7015,6 +7015,20 @@ PLR_WALK2(plu_walk, plu_leaf, plw_cell_deref) int rt_pl_unify_deep_c(DESCR_t *a,
     return plu_walk(a, b, (void *)&k, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_deep_top_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_cap_error(void);
+    int arm = !g_runtime.misc.stack_refuse_armed, ok;
+    if (arm) g_runtime.misc.stack_refuse_armed = 1;
+    ok = rt_pl_unify_deep_c(a, b, cx);
+    cx->ball = (void *)0;
+    if (!arm) return ok;
+    g_runtime.misc.stack_refuse_armed = 0;
+    if (!g_runtime.misc.stack_refused) return ok;
+    g_runtime.misc.stack_refused = 0;
+    cx->ball = rt_pl_cap_error();
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs != 2) return FAILDESCR;
     {

@@ -121,7 +121,7 @@ void rt_stack_budget_apply(long budget, long extra) {
         if (getrlimit(RLIMIT_STACK, &rl) != 0) return;
         if (rl.rlim_max != RLIM_INFINITY && (rlim_t)want > rl.rlim_max) want = (long)rl.rlim_max;
         rl.rlim_cur = (rlim_t)want;
-        (void)setrlimit(RLIMIT_STACK, &rl);
+        if (setrlimit(RLIMIT_STACK, &rl) == 0) { g_runtime.misc.stack_floor = (char *)(hi - (uintptr_t)want); g_runtime.misc.stack_ceil = (char *)hi; }
         (void)here;
     }
 }
@@ -170,8 +170,21 @@ char *rt_main_stack_adopt(void) {
         (void)madvise(lo, (size_t)(top - lo), MADV_HUGEPAGE);
         rt_gc_stack_top_adopt(top);
         g_runtime.misc.core_stack_floor_raised = 1;
+        g_runtime.misc.stack_floor = lo;
+        g_runtime.misc.stack_ceil = top;
         return top - 8;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_STACK_REFUSE_MARGIN (64L * 1024L)
+int rt_stack_refuses(long bytes) {
+    char here = 0;
+    if (!g_runtime.misc.stack_refuse_armed) return 0;
+    if (g_runtime.misc.stack_refused) return 1;
+    if (!g_runtime.misc.stack_floor || &here < g_runtime.misc.stack_floor || &here >= g_runtime.misc.stack_ceil) return 0;
+    if ((long)(&here - g_runtime.misc.stack_floor) > bytes + RT_STACK_REFUSE_MARGIN) return 0;
+    g_runtime.misc.stack_refused = 1;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_stack_overflow_init(void) {

@@ -325,10 +325,16 @@ RTX_ENDF(rt_pl_dop_clause_unify)
 RTX_FUNC(rt_pl_unify_deep)
     RTX_SUB_RSP(CTX_FRAME)
     CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
     mov     rdx, rsp
-    call rt_pl_unify_deep_c; RTX_GVA_R9
+    call rt_pl_unify_deep_top_c; RTX_GVA_R9
     mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
     RTX_ADD_RSP(CTX_FRAME)
+    test    rcx, rcx
+    jz      .Lud_ret
+    PL_BALL_ARM(rcx, rdx)
+.Lud_ret:
     ret
 RTX_ENDF(rt_pl_unify_deep)
 RTX_FUNC(rtx_pl_unify)

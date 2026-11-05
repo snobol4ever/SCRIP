@@ -53,6 +53,11 @@ static inline void plr_link(plr_stk_t *s, plr_seg_t *g, plr_ent_t *e, long cap) 
     if (s->want < PLR_SEGMAX) s->want *= 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((unused)) int plr_refuses(const plr_stk_t *a, const plr_stk_t *b) {
+    extern int rt_stack_refuses(long bytes);
+    long na = !plr_room(a) ? a->want : 0, nb = !plr_room(b) ? b->want : 0;
+    return rt_stack_refuses((na + nb) * (long)sizeof(plr_ent_t) + 2 * (long)sizeof(plr_seg_t));
+}
 static inline __attribute__((unused)) int plr_more(plr_stk_t *a, plr_stk_t *b, plr_run_t run, void *w) {
     long na = !plr_room(a) ? a->want : 0, nb = !plr_room(b) ? b->want : 0;
     plr_ent_t ea[na > 0 ? na : 1], eb[nb > 0 ? nb : 1];
@@ -62,15 +67,16 @@ static inline __attribute__((unused)) int plr_more(plr_stk_t *a, plr_stk_t *b, p
     return run(w);
 }
 #define PLR_WALK2(NAME, LEAF, DEREF) static int NAME##_run(void *wv) { plr_w2_t *w = (plr_w2_t *)wv; int r; for (;;) { DESCR_t *A = plr_resolve(DEREF(w->a)), *B = plr_resolve(DEREF(w->b)); if (A != \
-    B) { r = LEAF(A, B, w->ctx); if (r == PLR_DESCEND) { int ar = plc_fid_arity(A->slen); if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, NAME##_run, w); \
-    plr_push(&w->lg, A, A->p, 0); if (ar > 0) plr_push(&w->ag, A->p, B->p, (uint64_t)ar); A->v = PLR_LINK; A->p = (void *)B; } else if (r != w->cont) break; } r = w->cont; if (plr_empty(&w->ag)) \
-    break; { plr_ent_t *t = plr_peek(&w->ag); w->a = (DESCR_t *)t->x; w->b = (DESCR_t *)t->y; t->x = (void *)(w->a + 1); t->y = (void *)(w->b + 1); if (!--t->n) plr_drop(&w->ag); } } for (plr_seg_t \
-    *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; ) { DESCR_t *c = (DESCR_t *)g->e[i].x; c->v = (DTYPE_t)DT_PLREF; c->p = g->e[i].y; } return r; } static int NAME(DESCR_t *a, DESCR_t \
-    *b, void *ctx, int cont) { plr_w2_t w; plr_stk_init(&w.ag); plr_stk_init(&w.lg); w.ctx = ctx; w.a = a; w.b = b; w.cont = cont; return NAME##_run(&w); }
+    B) { r = LEAF(A, B, w->ctx); if (r == PLR_DESCEND) { int ar = plc_fid_arity(A->slen); if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) { if (plr_refuses(&w->ag, &w->lg)) { r = !w->cont; \
+    break; } return plr_more(&w->ag, &w->lg, NAME##_run, w); } plr_push(&w->lg, A, A->p, 0); if (ar > 0) plr_push(&w->ag, A->p, B->p, (uint64_t)ar); A->v = PLR_LINK; A->p = (void *)B; } else if (r \
+    != w->cont) break; } r = w->cont; if (plr_empty(&w->ag)) break; { plr_ent_t *t = plr_peek(&w->ag); w->a = (DESCR_t *)t->x; w->b = (DESCR_t *)t->y; t->x = (void *)(w->a + 1); t->y = (void *)(w->b \
+    + 1); if (!--t->n) plr_drop(&w->ag); } } for (plr_seg_t *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; ) { DESCR_t *c = (DESCR_t *)g->e[i].x; c->v = (DTYPE_t)DT_PLREF; c->p = g->e[ \
+    i].y; } return r; } static int NAME(DESCR_t *a, DESCR_t *b, void *ctx, int cont) { plr_w2_t w; plr_stk_init(&w.ag); plr_stk_init(&w.lg); w.ctx = ctx; w.a = a; w.b = b; w.cont = cont; return NAME \
+    ##_run(&w); }
 #define PLR_WALK1(NAME, VISIT, DEREF) static int NAME##_run(void *wv) { plr_w1_t *w = (plr_w1_t *)wv; int r = 0; for (;;) { DESCR_t *d = plr_resolve(DEREF(w->c)); if (d->v != PLR_SEEN) { int ar = d \
-    ->v == (DTYPE_t)DT_PLREF ? plc_fid_arity(d->slen) : 0; if (ar > 0 && (!plr_room(&w->lg) || !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, NAME##_run, w); r = VISIT(d, w->ctx); if (r == \
-    PLR_V_STOP) break; if (r == PLR_V_GO && ar > 0) { plr_push(&w->lg, d, (void *)0, 0); plr_push(&w->ag, d->p, (void *)0, (uint64_t)ar); d->v = PLR_SEEN; } r = 0; } if (plr_empty(&w->ag)) break; { \
-    plr_ent_t *t = plr_peek(&w->ag); w->c = (DESCR_t *)t->x; t->x = (void *)(w->c + 1); if (!--t->n) plr_drop(&w->ag); } } for (plr_seg_t *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; \
-    ) ((DESCR_t *)g->e[i].x)->v = (DTYPE_t)DT_PLREF; return r == PLR_V_STOP; } static int NAME(DESCR_t *c, void *ctx) { plr_w1_t w; plr_stk_init(&w.ag); plr_stk_init(&w.lg); w.ctx = ctx; w.c = c; \
-    return NAME##_run(&w); }
+    ->v == (DTYPE_t)DT_PLREF ? plc_fid_arity(d->slen) : 0; if (ar > 0 && (!plr_room(&w->lg) || !plr_room(&w->ag))) { if (plr_refuses(&w->ag, &w->lg)) { r = PLR_V_STOP; break; } return plr_more(&w-> \
+    ag, &w->lg, NAME##_run, w); } r = VISIT(d, w->ctx); if (r == PLR_V_STOP) break; if (r == PLR_V_GO && ar > 0) { plr_push(&w->lg, d, (void *)0, 0); plr_push(&w->ag, d->p, (void *)0, (uint64_t)ar); \
+    d->v = PLR_SEEN; } r = 0; } if (plr_empty(&w->ag)) break; { plr_ent_t *t = plr_peek(&w->ag); w->c = (DESCR_t *)t->x; t->x = (void *)(w->c + 1); if (!--t->n) plr_drop(&w->ag); } } for (plr_seg_t \
+    *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; ) ((DESCR_t *)g->e[i].x)->v = (DTYPE_t)DT_PLREF; return r == PLR_V_STOP; } static int NAME(DESCR_t *c, void *ctx) { plr_w1_t w; \
+    plr_stk_init(&w.ag); plr_stk_init(&w.lg); w.ctx = ctx; w.c = c; return NAME##_run(&w); }
 #endif

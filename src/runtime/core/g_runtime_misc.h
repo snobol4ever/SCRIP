@@ -70,5 +70,9 @@ typedef struct {
     long zsite_kgw[ZSM_N / 32][3];
     long zsite_to[ZSM_N / 32];
     long zsm_follow;
+    int stack_refuse_armed;
+    int stack_refused;
+    char *stack_floor;
+    char *stack_ceil;
 } g_misc_t;
 #endif
