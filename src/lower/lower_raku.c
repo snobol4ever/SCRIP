@@ -450,6 +450,7 @@ static int rk_is_relop(tree_e tt) {
     switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_LEQ: case TT_LNE: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: return 1; default: return 0; }
 }
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static tree_t * rk_clone_tree(const tree_t * t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * entry; IR_t * tail; } rkrx_t;
 typedef struct { int maxp; int nnamed; const char ** named; } rkrx_groups_t;
@@ -2086,6 +2087,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ast_push(mc, basq);
                 for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
                 return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res);
+            }
+            if (nm && t->n == 2 && !strcmp(nm, "undefine") && !rk_proc_known(nm) && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] != '&') {
+                char sg = t->c[1]->v.sval[0];
+                tree_t * as = ast_node_new(TT_ASSIGN);
+                as->line = t->line;
+                ast_push(as, rk_clone_tree(t->c[1]));
+                ast_push(as, sg == '@' ? rk_fnc2("__rk_arr", NULL, NULL) : sg == '%' ? rk_fnc2("__rk_hash", NULL, NULL) : rk_typeobj_tree("Any"));
+                return lower_rv(cx, as, γ, ω, res);
             }
             if (nm && t->n > 1 && rk_is_str_subform(nm) && !rk_proc_known(nm)) {
                 tree_t * mc = ast_node_new(TT_METHCALL);
