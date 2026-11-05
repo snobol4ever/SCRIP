@@ -10967,13 +10967,17 @@ static char *pl_gnu_cwd(void) {
     return (char *)0;
 }
 static char *pl_gnu_abs_path(const char *src) {
+    extern int rt_pl_dialect_swi(void);
+    extern const char *rt_pl_flag_text(const char *);
+    const char *fv = rt_pl_flag_text("file_name_variables");
+    int ex = !rt_pl_dialect_swi() || (fv && !strcmp(fv, "true"));
     size_t need = 1, k = 0;
     char *a = (char *)0, *out;
     size_t o = 0, n;
     for (int pass = 0; pass < 2; pass++) {
         if (pass) { a = (char *)rt_wsb_alloc(need); k = 0; }
         for (const char *p = src; *p; ) {
-            if (*p == '$') {
+            if (ex && *p == '$') {
                 const char *q = p + 1;
                 while (isalnum((unsigned char)*q) || *q == '_') q++;
                 if (q > p + 1) {
@@ -10991,7 +10995,11 @@ static char *pl_gnu_abs_path(const char *src) {
         }
         if (pass) a[k] = 0;
     }
-    if (a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); if (!h) return (char *)0; a = pl_gnu_cat3(h, "/", a + 1); } else if (a[0] == '~') return (char *)0;
+    if (ex && a[0] == '~' && (a[1] == '/' || a[1] == 0)) {
+        const char *h = getenv("HOME");
+        if (!h) return (char *)0;
+        a = pl_gnu_cat3(h, "/", a + 1);
+    } else if (ex && a[0] == '~') return (char *)0;
     if (!strcmp(a, "user")) return a;
     if (!a[0]) return (char *)0;
     if (a[0] != '/') { char *cwd = pl_gnu_cwd(); if (!cwd) return (char *)0; a = pl_gnu_cat3(cwd, "/", a); }
@@ -11018,6 +11026,7 @@ PL_CX_LEAF_HEAD(gnu_absolute_file_name, 2)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
+        extern int rt_pl_dialect_swi(void);
         DESCR_t f = rt_pl_deref_val(args[0]);
         const char *nm = pl_atom_str(f);
         char *ab;
@@ -11025,7 +11034,10 @@ PL_CX_LEAF_HEAD(gnu_absolute_file_name, 2)
         if (pl_val_unbound(f)) cx->ball = rt_pl_ball_instantiation();
         else if (!nm) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
         else if (!(ab = pl_gnu_abs_path(nm))) cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f);
-        else ok = plw_unify_vals(args[1], pl_mk_atom_dup(ab, strlen(ab)), cx);
+        else {
+            if (rt_pl_dialect_swi() && nm[0] && nm[strlen(nm) - 1] == '/' && strcmp(ab, "/") && ab[strlen(ab) - 1] != '/') ab = pl_gnu_cat3(ab, "/", "");
+            ok = plw_unify_vals(args[1], pl_mk_atom_dup(ab, strlen(ab)), cx);
+        }
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_prolog_file_name, 2)
