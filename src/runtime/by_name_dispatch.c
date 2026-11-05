@@ -3737,13 +3737,121 @@ DESCR_t bt_sign(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt_isNaN(DESCR_t *args, int nargs) { if ((nargs - 1) == 0 && IS_REAL_fn(args[0])) { return (DESCR_t){ .v = DT_BOOL, .i = isnan(args[0].r) }; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
-DESCR_t bt_isx2Dprime(DESCR_t *args, int nargs) {
-    if ((nargs - 1) == 0 && IS_INT_fn(args[0])) {
-        long long v = args[0].i;
-        int pr = v >= 2;
-        for (long long d = 2; pr && d * d <= v; d++) if (v % d == 0) pr = 0;
-        return (DESCR_t){ .v = DT_BOOL, .i = pr };
+static unsigned long long rk_mulmod64(unsigned long long a, unsigned long long b, unsigned long long m) { return (unsigned long long) ((unsigned __int128) a * b % m); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned long long rk_powmod64(unsigned long long a, unsigned long long e, unsigned long long m) {
+    unsigned long long r = 1;
+    for (a %= m; e; e >>= 1) { if (e & 1) r = rk_mulmod64(r, a, m); a = rk_mulmod64(a, a, m); }
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_isprime64(unsigned long long n) {
+    const unsigned char *sp = (const unsigned char *) "\2\3\5\7\13\15\21\23\27\35\37\45";
+    if (n < 2) return 0;
+    for (int i = 0; i < 12; i++) { if (n == sp[i]) return 1; if (n % sp[i] == 0) return 0; }
+    unsigned long long d = n - 1;
+    int s = 0;
+    while (!(d & 1)) { d >>= 1; s++; }
+    for (int i = 0; i < 12; i++) {
+        unsigned long long x = rk_powmod64(sp[i], d, n);
+        int comp = x != 1 && x != n - 1;
+        for (int r = 1; r < s && comp; r++) { x = rk_mulmod64(x, x, n); if (x == n - 1) comp = 0; }
+        if (comp) return 0;
     }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_bpowmod(DESCR_t a, DESCR_t e, DESCR_t m) {
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_mod(DESCR_t, DESCR_t);
+    extern int rt_big_cmp(DESCR_t, DESCR_t);
+    extern int rt_big_is_odd(DESCR_t);
+    DESCR_t r = INTVAL(1);
+    a = rt_big_mod(a, m);
+    while (rt_big_cmp(e, INTVAL(0)) > 0) {
+        if (rt_big_is_odd(e)) r = rt_big_mod(rt_big_mul(r, a), m);
+        e = rt_big_div(e, INTVAL(2));
+        if (rt_big_cmp(e, INTVAL(0)) > 0) a = rt_big_mod(rt_big_mul(a, a), m);
+    }
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_isprime_big(DESCR_t n) {
+    extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_mod(DESCR_t, DESCR_t);
+    extern int rt_big_cmp(DESCR_t, DESCR_t);
+    extern int rt_big_is_odd(DESCR_t);
+    const unsigned char *sp = (const unsigned char *) "\2\3\5\7\13\15\21\23\27\35\37\45";
+    if (rt_big_cmp(n, INTVAL(2)) < 0) return 0;
+    for (int i = 0; i < 12; i++) if (rt_big_cmp(rt_big_mod(n, INTVAL(sp[i])), INTVAL(0)) == 0) return 0;
+    DESCR_t nm1 = rt_big_sub(n, INTVAL(1)), d = nm1;
+    int s = 0;
+    while (!rt_big_is_odd(d)) { d = rt_big_div(d, INTVAL(2)); s++; }
+    for (int i = 0; i < 12; i++) {
+        DESCR_t x = rk_bpowmod(INTVAL(sp[i]), d, n);
+        int comp = rt_big_cmp(x, INTVAL(1)) != 0 && rt_big_cmp(x, nm1) != 0;
+        extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+        for (int r = 1; r < s && comp; r++) { x = rt_big_mod(rt_big_mul(x, x), n); if (rt_big_cmp(x, nm1) == 0) comp = 0; }
+        if (comp) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_isprime_num(DESCR_t v, int *ok) {
+    extern int rt_big_is(DESCR_t);
+    extern DESCR_t rt_big_from_str(const char *);
+    *ok = 1;
+    if (IS_INT_fn(v)) return v.i >= 2 && rk_isprime64((unsigned long long) v.i);
+    if (rt_big_is(v)) return rk_isprime_big(v);
+    if (IS_REAL_fn(v)) {
+        if (!isfinite(v.r) || v.r != floor(v.r) || v.r < 2.0) return 0;
+        if (v.r < 9.2e18) return rk_isprime64((unsigned long long) v.r);
+        char nb[400];
+        snprintf(nb, sizeof nb, "%.0f", v.r);
+        return rk_isprime_big(rt_big_from_str(nb));
+    }
+    long long iv;
+    if (v.v == DT_DATA && rk_int_exact(v, &iv)) return iv >= 2 && rk_isprime64((unsigned long long) iv);
+    if (v.v == DT_DATA && rk_rat_is(v)) return 0;
+    *ok = 0;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_isprime_str(DESCR_t s, int *ok) {
+    extern int rk_rat_str_method(const char *, DESCR_t, DESCR_t *);
+    const char *t = rk_cstr(s);
+    while (*t == ' ' || *t == '\t' || *t == '\n') t++;
+    char b[strlen(t) + 2];
+    if (!strncmp(t, "\xe2\x88\x92", 3)) { b[0] = '-'; strcpy(b + 1, t + 3); } else strcpy(b, t);
+    DESCR_t r;
+    *ok = 1;
+    if (!*b) return 0;
+    size_t bl = strlen(b);
+    if (bl > 1 && b[bl - 1] == 'i') {
+        size_t k = bl - 2;
+        while (k > 0 && !((b[k] == '+' || b[k] == '-') && b[k - 1] != 'e' && b[k - 1] != 'E')) k--;
+        if (strtod(b + k, NULL) != 0.0) {
+            extern void rt_script_die_surface(const char *msg);
+            char msg[bl + 64];
+            snprintf(msg, sizeof msg, "Cannot convert %s to Real: imaginary part not zero", b);
+            rt_script_die_surface(msg);
+            *ok = 2;
+            return 0;
+        }
+        b[k] = 0;
+        if (!*b) return 0;
+    }
+    if (!rk_rat_str_method("Rat", STRVAL(b), &r)) { *ok = 0; return 0; }
+    return rk_isprime_num(r, ok);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_isx2Dprime(DESCR_t *args, int nargs) {
+    int ok = 0, pr = 0;
+    if ((nargs - 1) == 0) pr = IS_STR_fn(args[0]) ? rk_isprime_str(args[0], &ok) : rk_isprime_num(args[0], &ok);
+    if (ok == 2) return FAILDESCR;
+    if (ok) return (DESCR_t){ .v = DT_BOOL, .i = pr };
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt_parsex2Dbase(DESCR_t *args, int nargs) {
@@ -15206,8 +15314,8 @@ static const struct {
 } rk_exc_tab[] = { { "Attempt to divide by zero", "X::Numeric::DivideByZero", "Exception" }, { "Cannot resolve caller", "X::Multi::NoMatch", "Exception" }, { "Type check failed in binding",
     "X::TypeCheck::Binding", "X::TypeCheck" }, { "Type check failed in assignment", "X::TypeCheck::Assignment", "X::TypeCheck" }, { "Cannot modify an immutable", "X::Assignment::RO", "Exception" },
     { "No such method", "X::Method::NotFound", "Exception" }, { "out of range", "X::OutOfRange", "Exception" }, { "Cannot convert string to number", "X::Str::Numeric", "Exception" },
-    { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "numeric expected", "X::Str::Numeric", "Exception" }, { "must be resolved by class", "X::Role::Composition",
-    "Exception" }, { NULL, NULL, NULL } };
+    { "imaginary part not zero", "X::Numeric::Real", "Exception" }, { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "numeric expected", "X::Str::Numeric", "Exception" },
+    { "must be resolved by class", "X::Role::Composition", "Exception" }, { NULL, NULL, NULL } };
 static const struct {
     const char *needle, *cls, *parent;
 } rk_comp_tab[] = { { "Unsupported use of", "X::Obsolete", "X::Comp" }, { "Quantifier quantifies nothing", "X::Syntax::Regex::SolitaryQuantifier", "X::Syntax" }, { "Null regex not allowed",

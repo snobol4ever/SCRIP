@@ -1226,10 +1226,16 @@ static tree_t * rk_fnc2(const char * nm, const tree_t * a, const tree_t * b) {
     return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_arr_operand(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_ASSIGN && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] == '@') return 1;
+    return t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_arr");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_numctx(tree_e k, const tree_t * x, const tree_t * o) {
     int num = k == TT_LT || k == TT_LE || k == TT_GT || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_ADD || k == TT_SUB || k == TT_MUL || k == TT_POW;
     int plus0 = k == TT_ADD && o && o->t == TT_ILIT && o->v.ival == 0 && x && x->t != TT_ILIT && x->t != TT_FLIT && x->t != TT_QLIT;
-    return num && (plus0 || rk_yields_list(x)) ? rk_fnc2("__rk_numify", x, NULL) : x;
+    return num && (plus0 || rk_yields_list(x) || rk_arr_operand(x)) ? rk_fnc2("__rk_numify", x, NULL) : x;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_closure_block(const tree_t * t) {

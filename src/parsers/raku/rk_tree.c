@@ -2526,7 +2526,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
         return expr_binary(TT_ASSIGN, var, make_call("__rk_undef"));
     }
     if (!strcmp(d->init_op, ":=")) {
-        tree_t *e = el_tree(b, rs[0]);
+        tree_t *e = nrs > 1 || (d->init ? d->init->trailing : outer && outer->trailing) ? rs_list(b, rs, nrs) : el_tree(b, rs[0]);
         tree_t *var = var_node(b, name);
         if (sig != '$') return rk_container_bind(var, e);
         tree_t *bd = rk_bind(var, rk_scalar_rhs(e));
