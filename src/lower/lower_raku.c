@@ -2763,7 +2763,10 @@ static void rk_reclassify_calls(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_register_proc(const tree_t * proc, const char * name, int nparams) {
+static void rk_register_proc_at(const tree_t * proc, const char * name, int nparams, int lastix);
+static void rk_register_proc(const tree_t * proc, const char * name, int nparams) { rk_register_proc_at(proc, name, nparams, nparams); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_register_proc_at(const tree_t * proc, const char * name, int nparams, int lastix) {
     int pi = stage2_proc_grow(&g_stage2);
     g_stage2.proc_table[pi].name = lp_strdup(name);
     g_stage2.proc_table[pi].proc = (tree_t *)(intptr_t) proc;
@@ -2772,7 +2775,7 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
     g_stage2.proc_table[pi].nparams = nparams;
     g_stage2.proc_table[pi].byref_mask = rk_param_byref_mask(proc, nparams);
     {
-        const tree_t * lp = (proc && nparams > 0 && nparams < proc->n) ? proc->c[nparams] : (const tree_t *)0;
+        const tree_t * lp = (proc && lastix > 0 && lastix < proc->n) ? proc->c[lastix] : (const tree_t *)0;
         if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*@")) {
             g_stage2.proc_table[pi].is_variadic = 1;
             g_stage2.proc_table[pi].rest_kind = 1;
@@ -2788,11 +2791,11 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
         } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*%")) {
             g_stage2.proc_table[pi].named_rest = nparams;
         }
-        for (int k = 1; proc && k < nparams && k < proc->n; k++) {
+        for (int k = 1; proc && k < lastix && k < proc->n; k++) {
             const tree_t * sp = proc->c[k];
             const char * sq = (sp && sp->n > 0 && sp->c[0] && sp->c[0]->t == TT_QLIT) ? sp->c[0]->v.sval : NULL;
             int kd = !sq ? 0 : !strcmp(sq, "*@") ? 1 : !strcmp(sq, "**@") ? 2 : !strcmp(sq, "+@") ? 3 : !strcmp(sq, "+") ? 4 : 0;
-            if (kd) { g_stage2.proc_table[pi].rest_kind = kd + 16 * k; break; }
+            if (kd) { g_stage2.proc_table[pi].rest_kind = kd + 16 * (k + (lastix < nparams ? 1 : 0)); break; }
         }
     }
 }
@@ -3062,7 +3065,7 @@ static void rk_discover_procs(const tree_t * prog) {
                 char qname[fmt_len("%s__%s", cname, mname)];
                 snprintf(qname, sizeof qname, "%s__%s", cname, mname);
                 int np = (int) ch->v.ival;
-                rk_register_proc(ch, qname, np);
+                rk_register_proc_at(ch, qname, np, np - 1);
             }
         } else if (d->t == TT_MODULE_DECL) {
             for (int j = 1; j < d->n; j++) {
