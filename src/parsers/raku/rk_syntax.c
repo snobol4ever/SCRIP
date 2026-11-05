@@ -59,6 +59,7 @@ typedef struct RkP {
     RkPkg *roledb; int nroledb; int croledb;
     RkStrs exported; RkStrs exported_from;
     char **exports; int nexports; int cexports;
+    RkMyst *core_uses; int ncore_uses; int ccore_uses; int core_imported;
     int build; RkB *B;
     tree_t *tv; RkList *lst; RkTerm tm; RkPf pf; int args_form;
     tree_t *cur_list; int bk; int next_bk; int xb_bk;
@@ -485,7 +486,10 @@ static int routine_visible(RkP *p, const char *s, int n) {
     return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void note_core_use(RkP *p, int pos, int len);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_mystery(RkP *p, int pos, int len) {
+    note_core_use(p, pos, len);
     int c0 = cp_at(p, pos);
     if (p->myst_off || routine_visible(p, p->s + pos, len) || !is_alpha_cp(c0) || is_numeric_other_cp(c0) || (c0 >= 0x80 && cp_len(p, pos) == len)) return;
     if (len == 9 && !memcmp(p->s + pos, "GLOBALish", 9)) return;
@@ -493,6 +497,25 @@ static void add_mystery(RkP *p, int pos, int len) {
     RK_GROW(p->myst, p->nmyst, p->cmyst, RkMyst);
     p->myst[p->nmyst].pos = pos; p->myst[p->nmyst].len = len; p->myst[p->nmyst].depth = p->depth;
     p->nmyst++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_export_has(const char *s, int n) {
+    for (int i = 0; RK_SETTING_MODULES[i].name; i++) if (!strcmp(RK_SETTING_MODULES[i].name, "CORE")) {
+        const char *e = RK_SETTING_MODULES[i].exports;
+        for (int k = 0; e[k];) {
+            int j = k; while (e[j] && e[j] != ' ') j++;
+            if (j - k == n && !memcmp(e + k, s, (size_t) n)) return 1;
+            k = e[j] ? j + 1 : j;
+        }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void note_core_use(RkP *p, int pos, int len) {
+    if (!core_export_has(p->s + pos, len)) return;
+    RK_GROW(p->core_uses, p->ncore_uses, p->ccore_uses, RkMyst);
+    p->core_uses[p->ncore_uses].pos = pos; p->core_uses[p->ncore_uses].len = len; p->core_uses[p->ncore_uses].depth = 0;
+    p->ncore_uses++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void resolve_mysteries(RkP *p, int depth) {
@@ -5142,6 +5165,20 @@ static int r_statement_control(RkP *p, int pos) {
     return -1;
 }
 /*====================================================================================================================================================================================================*/
+static int core_name_declared(RkP *p, const char *s, int n) {
+    char *buf = (char *) ct_alloc((size_t) n + 2); buf[0] = '&'; memcpy(buf + 1, s, (size_t) n);
+    return user_name_index(p, buf, n + 1) >= 0 || user_name_index(p, s, n) >= 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void import_core_used(RkP *p) {
+    if (p->core_imported || !p->ncore_uses || !strncmp(p->file, "<setting>/", 10)) return;
+    for (int i = 0; i < p->ncore_uses; i++) if (!core_name_declared(p, p->s + p->core_uses[i].pos, p->core_uses[i].len)) {
+        p->core_imported = 1;
+        import_module(p, "CORE");
+        return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_comp_unit(RkP *p) {
     int q = 0;
     if (at_lit(p, 0, "\xef\xbb\xbf")) q = 3;
@@ -5173,6 +5210,7 @@ static int r_comp_unit(RkP *p) {
     }
     if (p->nhere) panic_at(p, p->n, "Ending delimiter %s not found", p->here[0].delim);
     while (p->npkgs) package_close(p);
+    import_core_used(p);
     resolve_mysteries(p, 0);
     int setting = !strncmp(p->file, "<setting>/", 10);
     for (int i = 0; !p->myst_off && i < p->nmyst; i++) {

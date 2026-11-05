@@ -1,5 +1,16 @@
-typedef struct { const char *name; const char *src; } rk_setting_module_t;
+typedef struct { const char *name; const char *src; const char *exports; } rk_setting_module_t;
 static const char RK_SETTING_MODULE_0_SRC[] =
+    "sub squish(+values, |c) { values.squish(|c) }\n"
+    "sub unique(+values, |c) { values.unique(|c) }\n"
+    "multi sub permutations(Int $n) { (^$n).permutations }\n"
+    "multi sub permutations(Iterable \\n) { n.permutations }\n"
+    "multi sub combinations(Int $n, Int $k) { (^$n).combinations($k) }\n"
+    "multi sub combinations(Iterable \\n, Int $k) { n.combinations($k) }\n"
+    "sub sech($x) { 1e0 / cosh($x) }\n"
+    "sub cosech($x) { 1e0 / sinh($x) }\n"
+    "sub cotanh($x) { 1e0 / tanh($x) }\n"
+    "sub lines($what, |c) { $what.lines(|c) }\n";
+static const char RK_SETTING_MODULE_1_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"
     "# Rakudo's lib/Test.rakumod (rakudo 2026.05), Artistic License 2.0, adapted for SCRIP's Raku setting\n"
@@ -516,7 +527,7 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "    exit($num_of_tests_failed min 254) if $num_of_tests_failed > 0;\n"
     "    exit(255) if !$no_plan && ($num_of_tests_planned or $num_of_tests_run) && $num_of_tests_planned != $num_of_tests_run;\n"
     "}\n";
-static const char RK_SETTING_MODULE_1_SRC[] =
+static const char RK_SETTING_MODULE_2_SRC[] =
     "unit module Test::Util;\n"
     "# roast's packages/Test-Helpers/lib/Test/Util.rakumod, Artistic License 2.0, adapted for SCRIP's Raku setting\n"
     "# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): get_out runs the child through the __rk_run_child leaf\n"
@@ -587,7 +598,8 @@ static const char RK_SETTING_MODULE_1_SRC[] =
     "    subtest $desc, { plan $plan; $tests() };\n"
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
-    { "Test", RK_SETTING_MODULE_0_SRC },
-    { "Test::Util", RK_SETTING_MODULE_1_SRC },
-    { 0, 0 }
+    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines " },
+    { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
+    { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of " },
+    { 0, 0, 0 }
 };
