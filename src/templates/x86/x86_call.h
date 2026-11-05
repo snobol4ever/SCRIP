@@ -26,9 +26,13 @@ std::string x86_pl_tr_top_sync();
 #define X86_PL_TR_WAKE_OFF 48L
 #define X86_PL_TR_RESIDUE_OFF 56L
 #define X86_PL_TR_FLOOR_OFF 64L
+#define X86_PL_TR_CATCH_OFF 112L
 std::string x86_pl_choice_mark(const std::string & mark_mem, int l0);
 std::string x86_pl_tr_tidy(int l0);
 std::string x86_pl_header_open(int hoff, int prev_off);
+std::string x86_pl_catch_link(int rec);
+std::string x86_pl_catch_open(int rec, struct bb_label_t * resume);
+std::string x86_pl_catch_unlink(int rec);
 std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done, int l_mark);
 std::string x86_release_acts(bool below_rsp, int kind = 4);
 std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok);

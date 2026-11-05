@@ -13,6 +13,8 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <dlfcn.h>
+#include <link.h>
+#include "pl_trail_layout.h"
 #include <stdio.h>
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -44,6 +46,29 @@ static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_overflow_pc_emitted(uintptr_t ip) {
+    if (ip >= (uintptr_t)bb_pool_base() && ip < (uintptr_t)bb_pool_base() + bb_pool_used()) return 1;
+    return g_runtime.misc.emitted_text_lo && ip >= (uintptr_t)g_runtime.misc.emitted_text_lo && ip < (uintptr_t)g_runtime.misc.emitted_text_hi;
+}
+static int rt_overflow_resume_at_catch(ucontext_t *uc) {
+    uintptr_t r12 = (uintptr_t)uc->uc_mcontext.gregs[REG_R12], base = r12 & ~(PL_TR_ARENA_BYTES - 1), *rec;
+    void *ball;
+    int live = 0;
+    for (long i = 0; i < g_runtime.gc.gc_rrng_n && !live; i++) if (!g_runtime.gc.gc_rrng[i].hi && (uintptr_t)g_runtime.gc.gc_rrng[i].lo == base) live = 1;
+    if (!live || r12 < base + PL_TR_HEADER_BYTES) return 0;
+    rec = *(uintptr_t **)(base + PL_TR_CATCH_OFF);
+    ball = *(void **)(base + PL_TR_OVF_BALL_OFF);
+    if (!rec || !ball || !rt_overflow_pc_emitted((uintptr_t)uc->uc_mcontext.gregs[REG_RIP])) return 0;
+    uc->uc_mcontext.gregs[REG_RBP] = (greg_t)rec[2];
+    uc->uc_mcontext.gregs[REG_RBX] = (greg_t)rec[3];
+    uc->uc_mcontext.gregs[REG_R14] = (greg_t)rec[4];
+    uc->uc_mcontext.gregs[REG_R13] = (greg_t)rec[-4];
+    uc->uc_mcontext.gregs[REG_RSP] = (greg_t)rec[2];
+    uc->uc_mcontext.gregs[REG_RIP] = (greg_t)rec[1];
+    uc->uc_mcontext.gregs[REG_R15] = (greg_t)(uintptr_t)ball;
+    *(void **)(base + PL_TR_BALL_OFF) = ball;
+    return 1;
+}
 static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx) {
     ucontext_t *uc = (ucontext_t *)uctx;
     uintptr_t fault = (uintptr_t)si->si_addr, rsp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP];
@@ -77,6 +102,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx) {
     if (have) {
         uintptr_t lo = (uintptr_t)lo_p, hi = lo + (uintptr_t)sz, guard = 16UL * 1024 * 1024;
         if (fault < lo && fault + guard >= lo && rsp + guard >= lo && rsp <= hi) {
+            if (rt_overflow_resume_at_catch(uc)) return;
             static const char msg[] = "scrip: runtime error: ERROR 246 -- stack overflow (unbounded or too-deep recursion exhausted the call stack)\n";
             fflush(stdout);
             write(2, msg, sizeof msg - 1);
@@ -154,6 +180,17 @@ _Static_assert(RT_STACK_HUGE == 2097152UL,
     "ger raises RLIMIT_STACK for a program that adopted. Measured: calculator-1 58 ms -> 33 ms, 13,675 faults -> 1,459, output unchanged. A failed map returns 0 and the program stays on the stack it"
     " was given. THE TOP 256 KB SITS ABOVE THE LAST 2 MB BOUNDARY (cto 2026-10-17): a partial chunk can never take a huge page, so a program whose stack stays shallow never zero-fills 2 MB at its fi"
     "rst touch (an Icon hello's resident set 6,916 -> about 4,900 KB), and a deep one pays 64 small faults before the huge-page region");
+static int rt_emitted_text_phdr(struct dl_phdr_info *info, size_t size, void *data) {
+    uintptr_t pc = (uintptr_t)data;
+    (void)size;
+    for (int i = 0; i < info->dlpi_phnum; i++) {
+        const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
+        uintptr_t lo = (uintptr_t)info->dlpi_addr + (uintptr_t)ph->p_vaddr, hi = lo + (uintptr_t)ph->p_memsz;
+        if (ph->p_type == PT_LOAD && (ph->p_flags & PF_X) && pc >= lo && pc < hi) { g_runtime.misc.emitted_text_lo = (char *)lo; g_runtime.misc.emitted_text_hi = (char *)hi; return 1; }
+    }
+    return 0;
+}
+static void rt_emitted_text_note(void *caller) { (void)dl_iterate_phdr(rt_emitted_text_phdr, caller); }
 RT_ENTRY_DECL(rt_main_stack_adopt, leaf, 0);
 char *rt_main_stack_adopt(void) {
     extern long rt_sw_stack_bytes(void);
@@ -169,6 +206,7 @@ char *rt_main_stack_adopt(void) {
         if (end > top) munmap(top, (size_t)(end - top));
         (void)madvise(lo, (size_t)(top - lo), MADV_HUGEPAGE);
         rt_gc_stack_top_adopt(top);
+        rt_emitted_text_note(__builtin_return_address(0));
         g_runtime.misc.core_stack_floor_raised = 1;
         g_runtime.misc.stack_floor = lo;
         g_runtime.misc.stack_ceil = top;

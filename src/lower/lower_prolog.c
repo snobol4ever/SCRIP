@@ -1579,6 +1579,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     cx->g->keeps_choice = 1;
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
+    IR_LIT(mark).ival = 64;
     IR_t * unmk = build(cx, IR_UNMARK, NULL, ig);
     ir_operand_push(unmk, mark);
     IR_LIT(unmk).ival = 4;

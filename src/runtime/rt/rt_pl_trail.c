@@ -22,16 +22,25 @@ static char *pl_tr_arena_open(char *raw) {
     *pl_tr_wake_slot(base) = 0;
     *pl_tr_residue_slot(base) = 0;
     *pl_tr_floor_slot(base) = (char *)0;
+    *(char **)(base + PL_TR_CATCH_OFF) = (char *)0;
+    *(void **)(base + PL_TR_OVF_BALL_OFF) = (void *)0;
     memset(base + PL_TR_ALARM_DUE_OFF, 0, PL_TR_HEADER_BYTES - PL_TR_ALARM_DUE_OFF);
     rt_gc_root_range_add_topword(base);
     return tr;
 }
-void *rt_pl_tr_init(void) { char *tr = pl_tr_arena_open((char *)rt_slab_region((size_t)PL_TR_ARENA_BYTES * 2u)); rt_gcheap_cap_road(); return (void *)tr; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_tr_ovf_ball_make(char *tr) {
+    extern void *rt_pl_cap_error(void);
+    extern void prolog_atom_init(void);
+    if (g_runtime.atoms.atom_dot < 0) prolog_atom_init();
+    *(void **)(pl_tr_base_of(tr) + PL_TR_OVF_BALL_OFF) = rt_pl_cap_error();
+}
+void *rt_pl_tr_init(void) { char *tr = pl_tr_arena_open((char *)rt_slab_region((size_t)PL_TR_ARENA_BYTES * 2u)); rt_gcheap_cap_road(); pl_tr_ovf_ball_make(tr); return (void *)tr; }
 void *rt_pl_tr_new_arena(void **slab_out) {
     rt_slab_t *s = rt_slab_try_get((size_t)PL_TR_ARENA_BYTES * 2u);
     if (!s) return (void *)0;
     *slab_out = (void *)s;
-    return (void *)pl_tr_arena_open((char *)RT_SLAB_BASE(s));
+    { char *tr = pl_tr_arena_open((char *)RT_SLAB_BASE(s)); pl_tr_ovf_ball_make(tr); return (void *)tr; }
 }
 void rt_pl_tr_free_arena(const char *tr, void *slab) {
     extern void rt_gc_root_range_del(const char *lo);
@@ -60,6 +69,9 @@ _Static_assert(PL_TR_HEADER_BYTES == 160 && PL_TR_FLOOR_OFF == 64 && PL_TR_FLOOR
 _Static_assert(PL_TR_ALARM_DUE_OFF == 128 && PL_TR_ALARM_DEADLINE_OFF == 136 && PL_TR_ALARM_TIMER_OFF == 144 && PL_TR_ALARM_MADE_OFF == 152 && sizeof(timer_t) <= 8 &&
     PL_TR_HEADER_BYTES == PL_TR_ALARM_MADE_OFF + 8,
     "the goal interrupt words (ARCH-PROLOG-DATABASE 19.2): DUE int32, DEADLINE monotonic microseconds, the timer, the timer-made word; the SIGALRM handler stores DUE through the timer value");
+_Static_assert(PL_TR_CATCH_OFF == 112 && PL_TR_OVF_BALL_OFF == 120 && PL_TR_FLOOR_OFF + 8 <= PL_TR_CATCH_OFF && PL_TR_OVF_BALL_OFF + 8 <= PL_TR_ALARM_DUE_OFF,
+    "the catch word (the innermost catch record, a frame address, never a heap pointer; CTO-508) and the prebuilt overflow ball (a heap pointer the trail root visits): bb_bound.cpp, bb_gate.cpp and "
+    "rt_stack_overflow.c read them");
 _Static_assert(PL_TR_WSLOT_OFF != PL_TR_BALL_OFF && PL_TR_WSLOT_OFF >= 8 && PL_TR_HEADER_BYTES >= PL_TR_WSLOT_OFF + 8,
     "the writer's slot-vector word must fit inside the trail header, apart from the top word and the ball (the cfo's condition c)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -68,6 +80,7 @@ void pl_tr_gc_root_ball(const char *base) {
     void **slot = pl_tr_ball_slot(base);
     if (*slot) rt_gc_visit_raw((const char **)slot);
     { void **ws = pl_tr_wslot_slot(base); if (*ws) rt_gc_visit_raw((const char **)ws); }
+    { void **ob = (void **)((char *)base + PL_TR_OVF_BALL_OFF); if (*ob) rt_gc_visit_raw((const char **)ob); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_tr_refuse, leaf, 0);

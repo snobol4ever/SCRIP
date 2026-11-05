@@ -1339,8 +1339,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (g_emit.icn_line_cur > 0) emit_stno_row(0, (int32_t)g_emit.icn_line_cur, g_emit.icn_file_cur); bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
     case IR_STATEMENT: { g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); } return 0;
-    case IR_BOUND: { g_emit.op_sb = 1; g_emit.op_off = _zn->loff; g_emit.op_fc_bytes = g_emit.op_zres ? g_emitter.g_zd_k : 0; bb_emit_x86(bb_bound()); } return 0;
+    case IR_BOUND: { g_emit.op_sb = 1; g_emit.op_catch = (IR_LIT(nd).ival & 64) && g_emit.op_catch_resume_p; g_emit.op_off = _zn->loff; g_emit.op_fc_bytes = g_emit.op_zres ? g_emitter.g_zd_k : 0; bb_emit_x86(bb_bound()); } return 0;
     case IR_UNMARK: { g_emit.op_sb = 0; g_emit.op_off = _zn->o0off; g_emit.op_fc_bytes = 0;
+        { const IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_catch = _mk && _mk->op == IR_BOUND && (IR_LIT(_mk).ival & 64) && (IR_LIT(nd).ival == 4 || IR_LIT(nd).ival == 8); }
         g_emit.op_unmark_chain = g_emit.op_zres && g_emit.op_zf_unpinned; g_emit.op_upost = _zn->upost;
         g_emit.op_ival = IR_LIT(nd).ival; bb_emit_x86(bb_bound()); } return 0;
     case IR_SUBSCRIPT: g_emit.op_seal = nd->seal; bb_emit_x86(nd->n_operands == 2 ? (IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "lv-check", 8) ? bb_subscript_lvck() : bb_subscript())
@@ -1377,7 +1378,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CORET: bb_emit_x86(bb_coret()); return 0;
     case IR_COFAIL: bb_emit_x86(bb_cofail()); return 0;
     case IR_GATE_ARM: bb_emit_x86(bb_gate_arm()); return 0;
-    case IR_GATE: bb_emit_x86(bb_gate()); return 0;
+    case IR_GATE: { g_emit.op_catch = 0; g_emit.op_catch_off = -1;
+        for (int _q = 0; _q < g_planner.g_zd_n && !g_emit.op_catch; _q++) { const IR_t * _b = g_planner.codegen_flat_chain_body_nodes[_q];
+            if (_b && _b->op == IR_BOUND && (IR_LIT(_b).ival & 64) && _b->ω.node == nd && zrow(_b)->loff >= 0) { g_emit.op_catch = 1; g_emit.op_catch_off = zrow(_b)->loff; } }
+        bb_emit_x86(bb_gate()); } return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { if (_zn->fcg > 0) { g_emit.op_fc_bytes = _zn->fcg; g_emit.op_fc_base = g_emit.op_off; } }
         if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = _zn->kown; g_emit.op_fc_base = g_emit.op_off;
             } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && _zn->vdj;
@@ -4019,6 +4023,9 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
               if (_wd > 0) { int _k = 0; while (_k < _wpn && _wpd[_k] != _wd) _k++; if (_k == _wpn) { _wpd[_wpn] = _wd; _wpl[_wpn++] = emit_label_alloc("%s_\xcf\x89%d", prefix, _wd);
                   } node_ω = _wpl[_k]; } }
           g_emit.op_head_spine = _sph > 0; g_emit.op_head_rsp = _pl->zn[i].hrsp;
+                  { IR_t * _cb = g_planner.codegen_flat_chain_body_nodes[i]; g_emit.op_catch_resume_p = (bb_label_t *)0;
+                    if (_cb->op == IR_BOUND && (IR_LIT(_cb).ival & 64)) for (int _q = 0; _q < n && !g_emit.op_catch_resume_p; _q++) { IR_t * _u = g_planner.codegen_flat_chain_body_nodes[_q];
+                        if (_u->op == IR_UNMARK && IR_LIT(_u).ival == 4 && _u->n_operands > 0 && _u->operands[0] == _cb) g_emit.op_catch_resume_p = lbls[_q]; } }
                   emit_drive(g_planner.codegen_flat_chain_body_nodes[i], lbls[i], node_γ, node_ω, betas[i]);
               g_emit.op_head_spine = 0;
           if (_zw5_saved_omega) node_ω = _zw5_saved_omega;

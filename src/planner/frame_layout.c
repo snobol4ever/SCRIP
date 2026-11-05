@@ -441,7 +441,14 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd);
         zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "bound.boundary (D1: rsp at the open as a packed RAW word, the header's +32 the trail test reads through B)", nd);
         zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "bound.pad2 (unused)", nd);
-        return 3;
+        if (!(IR_LIT(nd).ival & 64)) return 3;
+        zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "bound.catch record prev (CTO-508: the trail header's catch word links the innermost catch's record)", nd);
+        zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "bound.catch record resume_pc (a code pointer: the goal arm's omega UNMARK alpha)", nd);
+        zls_field(scope_id, off + 64, 8, ZK_RAW, 0, "bound.catch record rbp", nd);
+        zls_field(scope_id, off + 72, 8, ZK_RAW, 0, "bound.catch record rbx", nd);
+        zls_field(scope_id, off + 80, 8, ZK_RAW, 0, "bound.catch record r14", nd);
+        zls_field(scope_id, off + 88, 8, ZK_RAW, 0, "bound.catch record pad (unused)", nd);
+        return 6;
         case IR_SCAN_UPTO:
         case IR_SCAN_FIND:
         case IR_SCAN_MATCH:

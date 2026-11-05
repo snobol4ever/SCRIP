@@ -44,6 +44,8 @@ typedef struct {
     const char * op_activate_proc;
     int op_sa;
     int op_sb;
+    int op_catch;
+    int op_catch_off;
     int op_sc;
     int op_wi;
     int op_wj;
@@ -130,6 +132,7 @@ typedef struct {
     struct bb_label_t * lbl_β_p;
     struct bb_label_t * lbl_t0_p;
     struct bb_label_t * lbl_t1_p;
+    struct bb_label_t * op_catch_resume_p;
     struct bb_label_t * lbl_t0o_p;
     void * child_fn;
     const char * op_name1;

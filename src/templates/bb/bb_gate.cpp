@@ -35,6 +35,12 @@ static std::string gate_ball_self_road(int n) {
                                        : std::string(); })
          + x86("def", L(69));
 }
+static std::string gate_catch_relink() {
+    return x86("test", "eax", "eax")
+         + x86("jne", L(90))
+         + x86_pl_catch_link(_.op_catch_off + 48)
+         + x86("def", L(90));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gate() {
     x86_begin();
@@ -45,6 +51,7 @@ std::string bb_gate() {
              + x86_beta()
              + IF(x86_resumable_frame(), x86_pl_ball_rule_omega(30))
              + x86("mov", "eax", RDD("rsp", 8))
+             + IF(_.op_catch, gate_catch_relink())
              + gate_dispatch_chain((int) _.op_ival)
              + x86_omega())
          + IF(!_.op_gcell && _.op_off < 0,
@@ -58,6 +65,7 @@ std::string bb_gate() {
          + IF(x86_resumable_frame() && gate_ball_self_arms((int) _.op_ival), gate_ball_self_road((int) _.op_ival))
          + IF(x86_resumable_frame(), x86_pl_ball_rule_omega(30))
          + x86("mov", "eax", FR(_.op_off + 16))
+         + IF(_.op_catch, gate_catch_relink())
          + gate_dispatch_chain((int) _.op_ival)
          + x86_omega());
 }

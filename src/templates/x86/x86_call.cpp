@@ -218,6 +218,25 @@ std::string x86_pl_header_open(int hoff, int prev_off) { return x86("mov", "rax"
     + (prev_off >= 0 ? x86("mov", FRQ(prev_off), "r13") : std::string())
     + x86("note", "pl_header_open inline (D1): the construct's own choice header in its op slots, its mark at +0 and rsp at the open at +32; B is banked, then B := the header")
     + x86("lea", "r13", FRQ(hoff)); }
+std::string x86_pl_catch_link(int rec) { return x86("mov", "rdx", "r12")
+    + x86("and", "rdx", X86_PL_TR_ARENA_MASK)
+    + x86("mov", "rcx", RDQ("rdx", X86_PL_TR_CATCH_OFF))
+    + x86("mov", FRQ(rec), "rcx")
+    + x86("note", "pl_catch_link (CTO-508): the catch record becomes the innermost, its prev the record the trail header's catch word held")
+    + x86("lea", "rcx", FRQ(rec))
+    + x86("mov", RDQ("rdx", X86_PL_TR_CATCH_OFF), "rcx"); }
+std::string x86_pl_catch_open(int rec, struct bb_label_t * resume) { return x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)resume)
+    + x86("mov", FRQ(rec + 8), "rax")
+    + x86("note", "pl_catch_open (CTO-508): resume_pc is the goal arm's omega UNMARK alpha; rbp, rbx and r14 as the construct entered, no rsp word (R-C)")
+    + x86("mov", FRQ(rec + 16), "rbp")
+    + x86("mov", FRQ(rec + 24), "rbx")
+    + x86("mov", FRQ(rec + 32), "r14")
+    + x86_pl_catch_link(rec); }
+std::string x86_pl_catch_unlink(int rec) { return x86("mov", "rdx", "r12")
+    + x86("and", "rdx", X86_PL_TR_ARENA_MASK)
+    + x86("note", "pl_catch_unlink (CTO-508): the goal arm exits, the trail header's catch word returns to this record's prev")
+    + x86("mov", "rcx", FRQ(rec))
+    + x86("mov", RDQ("rdx", X86_PL_TR_CATCH_OFF), "rcx"); }
 std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done, int l_mark) { return x86("note",
         "pl_frame_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
     + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +

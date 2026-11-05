@@ -74,5 +74,7 @@ typedef struct {
     int stack_refused;
     char *stack_floor;
     char *stack_ceil;
+    char *emitted_text_lo;
+    char *emitted_text_hi;
 } g_misc_t;
 #endif
