@@ -2385,6 +2385,15 @@ void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
                 add = zwk_norm(bl, add);
                 if (zwk_join(bl, in[(size_t)y], add)) ch = 1;
             }
+            IR_t * wt = nodes[j]->ω.node ? zd_chase(nodes[j]->ω.node) : (IR_t *)0;
+            int wy = wt ? nidx(nodes, n, wt) : -1;
+            if (wy >= 0 && E[(size_t)wy] >= 0) {
+                int lim = E[(size_t)wy] / 8 < E[(size_t)j] / 8 ? E[(size_t)wy] / 8 : E[(size_t)j] / 8;
+                zwk_st_t add = in[(size_t)j];
+                if (add.len > lim) add.len = lim;
+                add = zwk_norm(bl, add);
+                if (zwk_join(bl, in[(size_t)wy], add)) ch = 1;
+            }
         }
     }
     std::vector<int> bofs(bl.size(), -1);
