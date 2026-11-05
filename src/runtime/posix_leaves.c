@@ -47,24 +47,73 @@ static int px_mask_parse(const char *s, mode_t *perms) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int px_chmod_sym(const char *s, mode_t cur, mode_t *out) {
-    mode_t m = cur, um = umask(0);
-    umask(um);
-    for (;;) {
-        mode_t who = 0, bits = 0;
-        char op;
-        for (; *s == 'u' || *s == 'g' || *s == 'o' || *s == 'a'; s++) who |= *s == 'u' ? 0700 : *s == 'g' ? 070 : *s == 'o' ? 07 : 0777;
-        if (*s != '+' && *s != '-' && *s != '=') return 0;
-        op = *s++;
-        for (; *s && *s != ','; s++) { if (*s == 'r') bits |= 0444; else if (*s == 'w') bits |= 0222; else if (*s == 'x') bits |= 0111; else return 0; }
-        if (!who) who = 0777 & ~um;
-        bits &= who;
-        m = op == '+' ? (m | bits) : op == '-' ? (m & ~bits) : ((m & ~who) | bits);
-        if (*s != ',') break;
-        s++;
+static int px_newmode(const char *mode0, int oldmode) {
+    char *mode = rt_heap_strdup_c(mode0), *p = mode, op;
+    const char *fields = "ogua", *q;
+    int which = 0, do_umask, retmode = oldmode & 07777, mlen = (int) strlen(mode), i;
+    if (mlen == 9 || (mlen == 10 && strchr("-ldcb|s", mode[0]))) {
+        char *m = mlen == 10 ? mode + 1 : mode;
+        int hb = 0, cm = 0;
+        if (m[2] == 's' || m[2] == 'S') { hb |= 1; m[2] = m[2] == 's' ? 'x' : '-'; }
+        hb <<= 1;
+        if (m[5] == 's' || m[5] == 'S') { hb |= 1; m[5] = m[5] == 's' ? 'x' : '-'; }
+        hb <<= 1;
+        if (m[8] == 't' || m[8] == 'T') { hb |= 1; m[8] = m[8] == 't' ? 'x' : '-'; }
+        for (i = 0; i < 9; i++) { cm <<= 1; if (m[i] == '-') cm |= 1; else if (m[i] != "rwxrwxrwx"[i]) break; }
+        if (i == 9) return cm | hb << 9;
     }
-    *out = m;
-    return 1;
+    for (; (q = strchr(fields, *p)); p++) { if (!*p) return -2; which = *p == 'a' ? 7 : which | 1 << (q - fields); }
+    if (!strchr("+=-", *p)) return -2;
+    if ((do_umask = which == 0)) which = 7;
+    op = *p++;
+    if (op == '=') { for (i = 0; i < 3; i++) if (which & (1 << i)) retmode &= ~(7 << (i * 3)) & ~(1 << (i + 9)); op = '+'; }
+    while (*p) {
+        int value = 0;
+        switch (*p++) {
+            case 'r':
+            value = 4;
+            break;
+            case 'w':
+            value = 2;
+            break;
+            case 'x':
+            value = 1;
+            break;
+            case 'R':
+            if (oldmode & 0444) value = 4;
+            break;
+            case 'W':
+            if (oldmode & 0222) value = 2;
+            break;
+            case 'X':
+            if (oldmode & 0111) value = 1;
+            break;
+            case 'u':
+            value = (oldmode & 0700) >> 6;
+            break;
+            case 'g':
+            value = (oldmode & 0070) >> 3;
+            break;
+            case 'o':
+            value = oldmode & 0007;
+            break;
+            case 's':
+            value = ((which & 4) ? 04000 : 0) | ((which & 2) ? 02000 : 0);
+            retmode |= value;
+            continue;
+            case 't':
+            if (which & 1) retmode |= 01000;
+            continue;
+            default:
+            return -2;
+        }
+        for (i = 0; i < 3; i++) {
+            int nvalue = value;
+            if (which & (1 << i)) { if (do_umask) { mode_t u = umask(0); umask(u); nvalue = value & ~(int) u; } if (op == '-') retmode &= ~nvalue; else if (op == '+') retmode |= nvalue; }
+            value <<= 3;
+        }
+    }
+    return retmode;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UMKDIR(DESCR_t *args, int nargs) {
@@ -79,17 +128,11 @@ DESCR_t bt_ICNx24URMDIR(DESCR_t *args, int nargs) { const char *p = nargs == 1 ?
 DESCR_t bt_ICNx24UCHMOD(DESCR_t *args, int nargs) {
     const char *p = nargs == 2 ? px_str(args[0]) : NULL;
     struct stat st;
-    mode_t m = 0, perms;
+    mode_t m = 0;
     px_begin();
     if (!p) return FAILDESCR;
     if (args[1].v == DT_I) m = (mode_t) args[1].i;
-    else {
-        const char *spec = px_str(args[1]);
-        if (!spec) return FAILDESCR;
-        if (stat(p, &st) != 0) return px_fail();
-        if (px_mask_parse(spec, &perms)) m = perms;
-        else if (!px_chmod_sym(spec, st.st_mode & 07777, &m)) return FAILDESCR;
-    }
+    else { const char *spec = px_str(args[1]); if (!spec) return FAILDESCR; int nm = px_newmode(spec, stat(p, &st) == 0 ? (int) st.st_mode : 0); if (nm < 0) return FAILDESCR; m = (mode_t) nm; }
     return chmod(p, m) == 0 ? NULVCL : px_fail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

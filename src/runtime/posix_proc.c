@@ -27,7 +27,16 @@ int px_signal_number(DESCR_t d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *px_signal_name(int sig) { for (size_t i = 0; i < sizeof px_sigs / sizeof *px_sigs; i++) if (px_sigs[i].sig == sig) return px_sigs[i].name; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24UFORK(DESCR_t *args, int nargs) { pid_t p; (void) args; px_begin(); if (nargs != 0) return FAILDESCR; fflush(NULL); p = fork(); return p < 0 ? px_fail() : INTVAL((int64_t) p); }
+DESCR_t bt_ICNx24UFORK(DESCR_t *args, int nargs) {
+    pid_t p;
+    (void) args;
+    px_begin();
+    if (nargs != 0) return FAILDESCR;
+    fflush(NULL);
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    p = fork();
+    return p < 0 ? px_fail() : INTVAL((int64_t) p);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UWAIT(DESCR_t *args, int nargs) {
     int st = 0, opt = 0;
@@ -61,6 +70,7 @@ DESCR_t bt_ICNx24UEXEC(DESCR_t *args, int nargs) {
     for (int i = 1; i < nargs; i++) { if (args[i].v != DT_S) return FAILDESCR; av[i - 1] = (char *) rt_cstr_d(args[i]); }
     av[nargs > 0 ? nargs - 1 : 0] = NULL;
     fflush(NULL);
+    setvbuf(stdout, NULL, _IOLBF, 0);
     execvp(f, av);
     return px_fail();
 }
@@ -99,6 +109,7 @@ DESCR_t bt_ICNx24USYSTEM(DESCR_t *args, int nargs) {
         if (!pp_redir(d, i > 0, &fd[i], &own[i])) { for (int j = 0; j < i; j++) if (own[j]) close(fd[j]); return px_fail(); }
     }
     fflush(NULL);
+    setvbuf(stdout, NULL, _IOLBF, 0);
     pid = fork();
     if (pid == 0) {
         for (int i = 0; i < 3; i++) if (fd[i] >= 0 && fd[i] != i) dup2(fd[i], i);
