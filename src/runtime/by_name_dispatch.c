@@ -19159,6 +19159,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (!strcmp(mname0, "values")) { *out = rk_hash_list(_recv0, 'v'); return 1; }
             if (!strcmp(mname0, "pairs")) { *out = rk_hash_list(_recv0, 'p'); return 1; }
             if (!strcmp(mname0, "kv")) { *out = rk_hash_list(_recv0, 'w'); return 1; }
+            if (!strcmp(mname0, "antipairs")) {
+                rk_av_t ps = rk_av(rk_hash_list(_recv0, 'p'));
+                DESCR_t res = rk_mk_arr(NULL, 0);
+                for (int i = 0; i < ps.n; i++) { rk_av_t pa = rk_av(ps.el[i]); rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(pa.el[1], pa.el[0])); }
+                *out = rk_seq_done(res);
+                return 1;
+            }
             if (!strcmp(mname0, "Bool") || !strcmp(mname0, "so") || !strcmp(mname0, "defined")) { *out = (DESCR_t){ .v = DT_BOOL, .i = _recv0.tbl->size > 0 || mname0[0] == 'd' }; return 1; }
             if (!strcmp(mname0, "not")) { *out = (DESCR_t){ .v = DT_BOOL, .i = _recv0.tbl->size == 0 }; return 1; }
             if (!strcmp(mname0, "gist")) { *out = STRVAL((char *) rk_gist_str(_recv0)); return 1; }
