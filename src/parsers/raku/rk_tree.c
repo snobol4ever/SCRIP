@@ -2627,6 +2627,27 @@ static tree_t *wrap_mod(RkB *b, const char *k, RkList *cx, tree_t *base) {
     return call2("__rk_given_mod", base, cond);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_has_placeholder(const tree_t *t) {
+    if (!t || t->t == TT_ANON_BLOCK) return 0;
+    if (t->t == TT_VAR && t->v.sval && t->v.sval[0] == '^') return 1;
+    for (int i = 0; i < t->n; i++) if (rk_has_placeholder(t->c[i])) return 1;
+    return 0;
+}
+static tree_t *rk_mod_invoke(RkB *b, const char *k, RkList *cx, tree_t *blk) {
+    if (strcmp(k, "if") && strcmp(k, "unless") && strcmp(k, "with") && strcmp(k, "without") && strcmp(k, "given")) return wrap_mod(b, k, cx, blk);
+    tree_t *cond = rkb_expr(b, cx);
+    const char *tmp = fmt("__modv_%d", b->post_uid++);
+    tree_t *inv = ast_node_new(TT_INVOKE); expr_add_child(inv, blk); expr_add_child(inv, leaf_sval(TT_VAR, tmp));
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, inv);
+    tree_t *out = ast_node_new(TT_SEQ_EXPR); expr_add_child(out, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), cond));
+    if (!strcmp(k, "given")) { expr_add_child(out, inv); return out; }
+    tree_t *test = leaf_sval(TT_VAR, tmp);
+    if (!strcmp(k, "with") || !strcmp(k, "without")) { test = make_call("__rk_defined"); expr_add_child(test, leaf_sval(TT_VAR, tmp)); }
+    tree_t *e = ast_node_new(!strcmp(k, "if") || !strcmp(k, "with") ? TT_IF : TT_UNLESS); expr_add_child(e, test); expr_add_child(e, seq);
+    expr_add_child(out, e);
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     (void) tail; (void) bk;
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
@@ -2813,7 +2834,12 @@ void rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L, in
     }
     int tail = !semi && last && (bk == BK_BLOCK || bk == BK_SUB || bk == BK_METHOD || bk == BK_CATCH || bk == BK_GIVEN);
     tree_t *tr;
-    if (nmods) { tr = assign_forms(b, L, 0, BK_MAIN); if (!tr) tr = (single && t0->kind == TK_BLOCK && t0->val && !t0->npre && !t0->npost) ? t0->val : el_tree(b, e0); for (int i = 0; i < nmods; i++) tr = wrap_mod(b, modk[i], modx[i], tr); }
+    if (nmods) {
+        tr = assign_forms(b, L, 0, BK_MAIN);
+        tree_t *pblk = (!tr && single && t0->kind == TK_BLOCK && t0->t && t0->t->t == TT_ANON_BLOCK && t0->t->n >= 1 && rk_has_placeholder(t0->t->c[0]) && !t0->npre && !t0->npost) ? t0->t : NULL;
+        if (!tr) tr = pblk ? pblk : (single && t0->kind == TK_BLOCK && t0->val && !t0->npre && !t0->npost) ? t0->val : el_tree(b, e0);
+        for (int i = 0; i < nmods; i++) tr = pblk ? rk_mod_invoke(b, modk[i], modx[i], tr) : wrap_mod(b, modk[i], modx[i], tr);
+    }
     else if (tail) tr = stmt_tail(b, L, bk);
     else tr = stmt_plain(b, L);
     app(b, list, tr, from);
