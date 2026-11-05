@@ -29228,11 +29228,18 @@ static int rk_box_class_member(const char *p, unsigned c) {
     }
     return in;
 }
+static int rk_box_mid(const char *subj, long delta) {
+    if (delta <= 0 || ((unsigned char) subj[delta] & 0xC0) != 0x80) return 0;
+    for (int j = 1; j <= 3 && delta - j >= 0; j++) { unsigned char b = (unsigned char) subj[delta - j]; if ((b & 0xC0) == 0x80) continue; return b >= 0xC0 && j < (b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2); }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rk_box_step, leaf, 0);
 long rk_box_step(const char *subj, long delta, long end, const char *blob) {
     const char *spec = blob ? strchr(blob, ';') : (const char *) 0;
     if (!spec) return -1;
     spec++;
+    if (blob[0] != 'L' && delta < end && rk_box_mid(subj, delta)) return -1;
     if (blob[0] == 'L') { long k = (long) strlen(spec); return (delta + k <= end && !memcmp(subj + delta, spec, (size_t) k)) ? delta + k : -1; }
     if (blob[0] == 'A') { int l; if (delta >= end) return -1; rk_box_cp(subj, delta, end, &l); return delta + l; }
     if (blob[0] == 'C') { int l; unsigned c; if (delta >= end) return -1; c = rk_box_cp(subj, delta, end, &l); return rk_box_class_member(spec, c) ? delta + l : -1; }
