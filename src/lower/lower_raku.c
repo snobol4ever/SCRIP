@@ -7260,6 +7260,7 @@ static void rk_nsub_walk(tree_t * t, const rk_nsb_t * env, const rk_ns_t * dup, 
         if (to) t->v.sval = (char *) to;
     }
     if (e && t->t == TT_VAR) { const char * to = rk_nsub_amp(e, t->v.sval); if (to) t->v.sval = (char *) to; }
+    if (e && t->t == TT_VAR && (t->slen & 1) && t->v.sval) { const char * to = rk_nsub_find(e, t->v.sval); if (to) t->v.sval = (char *) to; }
     for (int i = 0; i < t->n; i++) rk_nsub_walk(t->c[i], e, dup, ctr, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
