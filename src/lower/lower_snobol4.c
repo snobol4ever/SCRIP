@@ -4125,18 +4125,22 @@ static int sno_prim_defer_named(const IR_t * x) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_match_traps_insert(IR_graph_t * g, int p0, IR_t * seal) {
+    for (int q = p0; q < g->n && seal; q++) {
+        IR_t * x = g->all[q];
+        if (!x || !sno_prim_defer_named(x) || !x->ω.node || x->ω.node == seal) continue;
+        IR_t * tp = lc_build(g, IR_MATCH_TRAP, NULL, NULL);
+        tp->γ = x->ω;
+        tp->ω = x->ω;
+        ir_operand_push(tp, seal);
+        lc_ω_to(x, tp);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {
     const int p0 = cx->g->n;
     IR_t * e = sno_lower_match_body(cx, subj, repl_t, has_repl, sJ, fJ, out_land);
-    for (int q = p0; q < cx->g->n && cx->pat_seal; q++) {
-        IR_t * x = cx->g->all[q];
-        if (!x || !sno_prim_defer_named(x) || !x->ω.node || x->ω.node == cx->pat_seal) continue;
-        IR_t * tp = lc_build(cx->g, IR_MATCH_TRAP, NULL, NULL);
-        tp->γ = x->ω;
-        tp->ω = x->ω;
-        ir_operand_push(tp, cx->pat_seal);
-        lc_ω_to(x, tp);
-    }
+    sno_match_traps_insert(cx->g, p0, cx->pat_seal);
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5001,6 +5005,7 @@ void sno_pat_thunks_build(int p0) {
         }
         gp->entry = pe;
         gp->resumable_callable = 1;
+        sno_match_traps_insert(gp, before_pat, px.pat_seal);
         sno_pat_publish_body_root(gp, before_pat, CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).pat, brt, pfenced, CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, px.pat_seal);
         int ppi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[ppi].name = CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name;
