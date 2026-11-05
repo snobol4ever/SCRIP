@@ -491,6 +491,16 @@ static int pas_dyn_depth(tree_t *e, const char **elem) {
     int d = pas_dyn_depth(e->c[0], elem);
     return d > 1 ? d - 1 : 0;
 }
+static int pas_ty_dyn_depth(tree_t *v, const pty_t **leaf) { const pty_t *t = pty_of_low(v); int d = 0; while (t && t->k == PTK_ARRAY && t->dyn) { d++; t = t->base; } if (leaf) *leaf = t; return d; }
+static tree_t *pas_ty_dyn_proto(const pty_t *q) {
+    const char *qn = q ? pty_name_of(q) : NULL;
+    if (!q) return ilit(0);
+    if (q->k == PTK_REAL) return flit(0.0);
+    if (q->k == PTK_STRING) return leaf_s(TT_QLIT, "");
+    if (q->k == PTK_CHAR) return mk_chrlit(ilit(0));
+    if (q->k == PTK_RECORD && qn && pas_rectype_nf(qn) > 0) return mk_rec_init_type(qn);
+    return ilit(0);
+}
 static int pas_dyn_elem_is_string(tree_t *base) {
     const char *el = NULL;
     return base && base->t == TT_IDX && pas_dyn_depth(base, &el) == 1 && el && (pas_string_type_kind(el) || !strcmp(el, "string"));
@@ -737,11 +747,12 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "setlength") && args && args->count >= 4 && args->items[0] && args->items[0]->t == TT_IDX) {
         tree_t *v = args->items[0];
         const char *et = NULL;
-        int depth = pas_dyn_depth(v, &et);
-        if (depth > 0) {
+        const pty_t *tl = NULL;
+        int depth = pas_dyn_depth(v, &et), tdepth = depth > 0 ? 0 : pas_ty_dyn_depth(v, &tl);
+        if (depth > 0 || tdepth > 0) {
             for (int g = 0; et && pas_arrtype_isdyn(et) && pas_arrtype_elem(et) && g < 8; g++) et = pas_arrtype_elem(et);
             tree_t *proto = ilit(0);
-            if (et && pas_rectype_nf(et) > 0) proto = mk_rec_init_type(et);
+            if (tdepth > 0) { proto = pas_ty_dyn_proto(tl); depth = tdepth; } else if (et && pas_rectype_nf(et) > 0) proto = mk_rec_init_type(et);
             else if (et && pas_is_realtypename(et)) proto = flit(0.0);
             else if (et && (pas_string_type_kind(et) || !strcmp(et, "string"))) proto = leaf_s(TT_QLIT, "");
             else if (et && !strcmp(et, "char")) proto = mk_chrlit(ilit(0));
@@ -2115,6 +2126,7 @@ static int pas_arrtype_isdyn(const char *name) { return pty_tn_dyn(name); }
 static const char *pas_arrtype_elem(const char *name) { return pty_tn_elem(name); }
 static int pas_is_dynexpr(const tree_t *e) {
     if (!e) return 0;
+    if (e->t == TT_IDX) { const pty_t *dt = pty_of_low((tree_t *)e); if (dt && dt->k == PTK_ARRAY && dt->dyn) return 1; }
     if (e->t == TT_VAR && e->v.sval) return pas_array_isdyn(e->v.sval) > 0;
     int k = 0;
     while (e && e->t == TT_IDX && e->n >= 2) { e = e->c[0]; k++; }
@@ -2975,6 +2987,7 @@ static const char *pas_designator_rectype(tree_t *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_is_aggregate_designator(tree_t *e) {
     if (!e) return 0;
+    if (e->t == TT_IDX) { const pty_t *dt = pty_of_low(e); if (dt && dt->k == PTK_ARRAY && dt->dyn) return 0; }
     if (e->t == TT_VAR && e->v.sval) { long long _ah; return !pas_array_isdyn(e->v.sval) && (pas_array_high_get(e->v.sval, &_ah) || pas_array_is_param(e->v.sval)); }
     if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_deref")) return pas_rectype_nf(pas_ptrexpr_target(e->c[1])) > 0;
     if (e->t == TT_IDX && e->n == 2 && e->slen != PAS_FIELD_IDX_MARK && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_arrrec_find(e->c[0]->v.sval, NULL) > 0) return 1;
@@ -4095,8 +4108,10 @@ static tree_t *pas_new_target_init(const char *rt) {
         mk_fnc3("__pas_arr_of", ilit(pas_arrtype_lo(rt)), ilit(ah), mk_rec_init_type(rt)) : mk_fnc2("arr_make", ilit(pas_arrtype_lo(rt)), ilit(ah));
     return pas_rectype_nf(rt) > 0 ? mk_rec_init_type(rt) : ilit(0);
 }
+static int pas_static_of_dyn(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t && t->k == PTK_ARRAY && !t->dyn && t->base && t->base->k == PTK_ARRAY && t->base->dyn; }
 static tree_t *mk_array_init(const char *name, long long high) {
     if (pas_array_isdyn(name)) return mk_fnc2("arr_make", ilit(0), ilit(-1));
+    if (pas_static_of_dyn(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_fnc2("arr_make", ilit(0), ilit(-1)));
     if (pas_rvt(name)) return mk_rec_block_of(pas_rvt(name), 0);
     if (pas_art(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_rec_block_of(pas_art(name), 0));
     if (name && pas_is_strarr(name)) {
