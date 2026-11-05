@@ -1937,6 +1937,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/posix_info.c \
     $(SRC)/runtime/posix_files.c \
     $(SRC)/runtime/posix_proc.c \
+    $(SRC)/runtime/unicon_leaves.c \
     $(SRC)/runtime/rt_dir_snapshot.c \
     $(SRC)/runtime/icn_extfn.c \
     $(SRC)/runtime/unification.c \

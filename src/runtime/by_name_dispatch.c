@@ -24247,17 +24247,6 @@ static DESCR_t bta_display(DESCR_t *args, int nargs, int _bop) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt_display(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_display(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
-DESCR_t bt_ICNx24USYSTEM(DESCR_t *args, int nargs) {
-    if (nargs == 1) {
-        const char * cmd = VARVAL_fn(args[0]);
-        int st;
-        if (!cmd) { return FAILDESCR; }
-        fflush(NULL);
-        st = system(cmd);
-        return INTVAL(st < 0 ? -1 : WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st));
-    }
-    return (DESCR_t){ .v = RTX_NOT_HANDLED };
-}
 DESCR_t bt_ICNx24UPVAR(DESCR_t *args, int nargs) {
     DESCR_t _bo = FAILDESCR;
     DESCR_t *const out = &_bo;
