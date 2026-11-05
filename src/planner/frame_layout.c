@@ -2226,6 +2226,8 @@ const char * zls_home_why_name(int w) {
         return "read-across-excursion";
         case 12:
         return "plan-run-split";
+        case 13:
+        return "retaining-condition";
         default:
         return "-";
     }
@@ -2406,6 +2408,7 @@ static void zls_hld_ix(const zls_nmix_t * m, const IR_graph_t * g, const char * 
     for (int e = zls_nmix_head(m, name); e >= 0; e = m->ex[e]) { fcn_t * t = fcn_get(g->all[m->en[e]]); t->fl |= FCN_LHOME; t->lw = why; }
 }
 int zls_home_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_HOME); return t ? t->hw : 0; }
+void zls_home_why_set(const IR_t * nd, int w) { fcn_t * t = fcn_get((IR_t *)nd); t->fl |= FCN_HOME; t->hw = w; }
 int zls_home_member(const IR_t * nd) { return (nd && zls_home_why(nd) && ir_node_produces_value(nd->op)) ? 1 : 0; }
 void zls_frame_resident_mark(const IR_t * nd) { fcn_flag(nd, FCN_RES); }
 int zls_frame_home(const IR_t * nd) { return (zls_home_member(nd) || zls_frame_word_why(nd) || (nd && nd->op == IR_SCAN_ENTER && zls_home_why(nd))) && zls_off(nd) >= 0 ? 1 : 0; }
