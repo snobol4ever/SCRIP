@@ -9534,6 +9534,7 @@ static int pl_text_fffd(char **bp, size_t *np) {
     return 1;
 }
 static int pl_read_term_text_raw(char **bp, size_t *np);
+static int pl_rb_put(char **bp, size_t *np, size_t *k, int c) { if (!pl_rb_room(bp, np, *k + 2)) return 0; (*bp)[(*k)++] = (char)c; return 1; }
 static int pl_read_term_text(char **bp, size_t *np) { int r = pl_read_term_text_raw(bp, np); if (r > 0 && pl_swi_dialect() && pl_in_is_text() && !pl_text_fffd(bp, np)) return -1; return r; }
 static int pl_read_term_text_raw(char **bp, size_t *np) {
     extern FILE *fh_cur_in_fp(void);
@@ -9543,13 +9544,20 @@ static int pl_read_term_text_raw(char **bp, size_t *np) {
     if (!pl_rb_room(bp, np, 2)) return -1;
     while ((c = fgetc(in)) != EOF) {
         if (!seen && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) continue;
-        if (!q && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; if (seen) { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = '\n'; } continue; }
+        if (!q && c == '%') {
+            if (seen && !pl_rb_put(bp, np, &k, c)) return -1;
+            while ((c = fgetc(in)) != EOF && c != '\n') if (seen && !pl_rb_put(bp, np, &k, c)) return -1;
+            if (seen && !pl_rb_put(bp, np, &k, '\n')) return -1;
+            continue;
+        }
         if (!q && c == '/') {
             int d = fgetc(in);
             if (d == '*') {
                 int p = 0, e2, closed = 0;
-                while ((e2 = fgetc(in)) != EOF) { if (p == '*' && e2 == '/') { closed = 1; break; } p = e2; }
+                if (seen && !(pl_rb_put(bp, np, &k, c) && pl_rb_put(bp, np, &k, d))) return -1;
+                while ((e2 = fgetc(in)) != EOF) { if (seen && !pl_rb_put(bp, np, &k, e2)) return -1; if (p == '*' && e2 == '/') { closed = 1; break; } p = e2; }
                 if (!closed) { (*bp)[k] = 0; return 2; }
+                if (seen) lit = 1;
                 continue;
             }
             if (d != EOF) ungetc(d, in);
