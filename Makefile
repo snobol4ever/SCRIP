@@ -2155,9 +2155,10 @@ FORCE:
 scrip: libscrip_rt
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -fPIC -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver.o
-	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver.o \
+	$(CC) $(CRT) -fPIC -c $(SRC)/driver/kernel.c -o $(OBJ)/scrip_kernel.o
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver.o $(OBJ)/scrip_kernel.o \
 	    -Wl,-rpath,'$$ORIGIN/out' -L$(abspath out) -lscrip_rt \
-	    $(LIBS) -o scrip
+	    $(LIBS) -l:libzmq.so.5 -o scrip
 	@echo "Built: scrip (dynamic, links out/libscrip_rt.so)"
 
 # ── parsers: the seven stand-alone parser executables (Lon 2026-09-27, CEO-1340): src/tools/parser_main.c compiled once per frontend,

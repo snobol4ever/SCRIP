@@ -3,6 +3,7 @@
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
 #include "ir/ct_arena.h"
+#include "driver/kernel.h"
 #include <stdarg.h>
 #include "ir/pin_va.h"
 #include <stdio.h>
@@ -1765,6 +1766,7 @@ static int refuse_dash_o(void) { fprintf(stderr, "scrip: -o FILE is refused: SPI
 int main(int argc, char **argv) {
     g_lower.icn.parse = icon_compile_parse;
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
+    if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
     int mode_run = 0;
     int opt_no_exec = 0, opt_input_after_end = 0;
     const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0;
