@@ -561,7 +561,6 @@ extern DESCR_t bt_squish(DESCR_t * args, int nargs) __attribute__((weak, visibil
 extern DESCR_t bt_startsx2Dwith(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_subst(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_m_substr(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
-extern DESCR_t bt_substrx2Drw(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_succ(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_m_sum(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_m_tail(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
@@ -642,7 +641,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_contains, bt_m_cos, bt_cosec, bt_cotan, bt_defined, bt_m_elems, bt_endsx2Dwith, bt_m_exp, bt_fc, bt_flip, bt_floor, bt_fmt, bt_gist, bt_hash, bt_m_index, bt_invert, bt_isx2Dlazy, bt_isx2Dprime,
     bt_item, bt_m_join, bt_key, bt_kv, bt_m_lc, bt_m_lines, bt_m_log, bt_maxpairs, bt_message, bt_minmax, bt_minpairs, bt_m_name, bt_none, bt_not, bt_nude, bt_one, bt_m_ord, bt_ords, bt_pairs,
     bt_pairup, bt_parsex2Dbase, bt_payload, bt_perl, bt_permutations, bt_m_pick, bt_polymod, bt_pred, bt_produce, bt_raku, bt_rand, bt_repeated, bt_m_rindex, bt_roll, bt_rotate, bt_rotor, bt_round,
-    bt_samecase, bt_sec, bt_sign, bt_m_sin, bt_skip, bt_so, bt_split, bt_m_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_m_substr, bt_substrx2Drw, bt_succ, bt_m_sum, bt_m_tail, bt_m_tan, bt_tc,
+    bt_samecase, bt_sec, bt_sign, bt_m_sin, bt_skip, bt_so, bt_split, bt_m_sqrt, bt_squish, bt_startsx2Dwith, bt_subst, bt_m_substr, bt_m_substr, bt_succ, bt_m_sum, bt_m_tail, bt_m_tan, bt_tc,
     bt_tclc, bt_trans, bt_m_trim, bt_trimx2Dleading, bt_trimx2Dtrailing, bt_truncate, bt_m_uc, bt_m_unique, bt_value, bt_wordcase, bt_words, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

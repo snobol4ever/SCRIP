@@ -3424,12 +3424,453 @@ static int rk_rat_dispatch(const char *meth, DESCR_t *recv, const DESCR_t *margs
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_item(DESCR_t *args, int nargs) { if ((nargs - 1) == 0) { return args[0]; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_IO(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) == 0 && args[0].v != DT_A) { return rk_io_mk(s); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_chars(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return INTVAL((long)utf8_strlen(s)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_uc(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 1, 1, 0)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_lc(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 2, 2, 0)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_fc(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 4, 4, 0)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_tc(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 3, 0, 0)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_tclc(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 3, 2, 0)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_flip(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    {
+        char *r = (char *)rt_str_alloc(n);
+        size_t o = n;
+        for (size_t i = 0; i < n; ) { size_t L; rk_utf8_cp((const unsigned char *)s + i, n - i, &L); o -= L; memcpy(r + o, s + i, L); i += L; }
+        r[n] = '\0';
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_trim(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    {
+        size_t a = 0, b = n;
+        while (a < b && isspace((unsigned char)s[a])) a++;
+        while (b > a && isspace((unsigned char)s[b - 1])) b--;
+        char *r = (char *)rt_str_alloc(b - a);
+        memcpy(r, s + a, b - a);
+        r[b - a] = '\0';
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_chop(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    {
+        long cnt = 1;
+        if ((nargs - 1) >= 1 && (args + 1)) {
+            DESCR_t c = args[1 + (0)];
+            if (IS_INT_fn(c)) cnt = (long)c.i;
+            else if (IS_REAL_fn(c)) cnt = (long)c.r;
+            else if (c.v == DT_BIG) cnt = LONG_MAX;
+            else { const char *t = to_cstring(c, sb, sizeof sb); cnt = (t && strspn(t, "0123456789") > 18) ? LONG_MAX : t ? atol(t) : 1; }
+        }
+        size_t b = n;
+        for (long k = 0; k < cnt && b > 0; k++) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
+        char *r = (char *)rt_str_alloc(b);
+        memcpy(r, s, b);
+        r[b] = '\0';
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_wordcase(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return STRVAL(rk_case_str(s, n, 0, 0, 1)); }
+    {
+        char *r = (char *)rt_str_alloc(n);
+        memcpy(r, s, n + 1);
+        int start = 1;
+        for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } }
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_contains(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1) { char nb[64]; const char *nd = to_cstring(args[1 + (0)], nb, sizeof nb); if (!nd) nd = ""; return INTVAL(strstr(s, nd) ? 1 : 0); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_startsx2Dwith(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1) {
+        char nb[128];
+        const char *nd = to_cstring(args[1 + (0)], nb, sizeof nb);
+        if (!nd) nd = "";
+        size_t ln = strlen(nd);
+        return INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_endsx2Dwith(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1) {
+        char nb[128];
+        const char *nd = to_cstring(args[1 + (0)], nb, sizeof nb);
+        if (!nd) nd = "";
+        size_t ln = strlen(nd);
+        return INTVAL((ln <= n && !strncmp(s + (n - ln), nd, ln)) ? 1 : 0);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_subst(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1 && rk_rx_pat(args[1 + (0)]) && ((nargs - 1) < 2 || !rk_is_code(args[1 + (1)]))) {
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(args[1 + (0)]), 0);
+        if (!prog) { return FAILDESCR; }
+        char rb2[256];
+        const char *rep = (nargs - 1) >= 2 ? to_cstring(args[1 + (1)], rb2, sizeof rb2) : "";
+        if (!rep) rep = "";
+        size_t rl = strlen(rep);
+        int glob = 0;
+        for (int i = 2; i < (nargs - 1); i++) if (args[1 + (i)].v == DT_BOOL && args[1 + (i)].i) glob = 1;
+        size_t cap = n + 1, olen = 0, pos = 0;
+        char *o = (char *) rt_wsb_alloc(cap);
+        int done = 0;
+        while (pos <= n && !done) {
+            RxMatch rm;
+            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
+            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
+            size_t need = olen + (ms - pos) + rl + (n - me) + 8;
+            if (need > cap) { size_t nc = need * 2; char *no = (char *) rt_wsb_alloc(nc); memcpy(no, o, olen); o = no; cap = nc; }
+            memcpy(o + olen, s + pos, ms - pos);
+            olen += ms - pos;
+            memcpy(o + olen, rep, rl);
+            olen += rl;
+            if (me == ms) { if (ms < n) o[olen++] = s[ms]; pos = ms + 1; } else pos = me;
+            if (!glob) done = 1;
+        }
+        if (pos <= n) {
+            size_t need = olen + (n - pos) + 8;
+            if (need > cap) { char *no = (char *) rt_wsb_alloc(need); memcpy(no, o, olen); o = no; }
+            memcpy(o + olen, s + pos, n - pos);
+            olen += n - pos;
+        }
+        o[olen] = '\0';
+        return STRVAL(rt_heap_strdup_c(o));
+    }
+    if ((nargs - 1) >= 1) {
+        char nb[256];
+        const char *needle = to_cstring(args[1 + (0)], nb, sizeof nb);
+        if (!needle) needle = "";
+        char rb[256];
+        const char *repl = ((nargs - 1) >= 2) ? to_cstring(args[1 + (1)], rb, sizeof rb) : "";
+        if (!repl) repl = "";
+        size_t nl = strlen(needle), rl = strlen(repl);
+        int glob = 0;
+        for (int i = 2; i < (nargs - 1); i++) if (args[1 + (i)].v == DT_BOOL && args[1 + (i)].i) glob = 1;
+        const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
+        if (!hit) { char *o = (char *)rt_str_alloc(n); memcpy(o, s, n + 1); return STRVAL(o); }
+        size_t hits = 1;
+        for (const char *h = hit + nl; glob && (h = strstr(h, needle)); h += nl) hits++;
+        char *o = (char *)rt_str_alloc(n - hits * nl + hits * rl);
+        size_t olen = 0;
+        const char *from = s;
+        for (size_t k = 0; k < hits; k++) {
+            memcpy(o + olen, from, (size_t)(hit - from));
+            olen += (size_t)(hit - from);
+            memcpy(o + olen, repl, rl);
+            olen += rl;
+            from = hit + nl;
+            hit = strstr(from, needle);
+        }
+        memcpy(o + olen, from, (size_t)(s + n - from));
+        olen += (size_t)(s + n - from);
+        o[olen] = '\0';
+        return STRVAL(o);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_substr(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) >= 1) {
+        long from = IS_INT_fn(args[1 + (0)]) ? (long)args[1 + (0)].i : atol(to_cstring(args[1 + (0)], sb, sizeof sb));
+        long ln = ((nargs - 1) >= 2) ? (IS_INT_fn(args[1 + (1)]) ? (long)args[1 + (1)].i : atol(to_cstring(args[1 + (1)], sb, sizeof sb))) : (long)utf8_strlen(s) - from;
+        if (from < 0) from = 0;
+        if (ln < 0) ln = 0;
+        long avail = (long)utf8_strlen(s) - from;
+        if (avail < 0) avail = 0;
+        if (ln > avail) ln = avail;
+        if (ln == 0) { return STRVAL(rt_heap_strdup_c("")); }
+        return SUBSTR_fn(args[0], INTVAL(from + 1), INTVAL(ln));
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_chr(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { long cp = IS_INT_fn(args[0]) ? (long)args[0].i : (long)atoll(s); char *r = (char *)rt_str_alloc(4); size_t rl = rk_utf8_put((unsigned)cp, r); r[rl] = '\0'; return BSTRVAL(r, rl); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_ord(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { size_t on = IS_STR_fn(args[0]) ? descr_slen(args[0]) : n; if (!s || !on) { return FAILDESCR; } size_t ln; return INTVAL(rk_utf8_cp((const unsigned char *)s, on, &ln)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_truncate(DESCR_t *args, int nargs) {
+    if (IS_REAL_fn(args[0]) && !isfinite(args[0].r)) { return args[0]; }
+    { return INTVAL((long)to_real(args[0])); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_floor(DESCR_t *args, int nargs) {
+    if (IS_REAL_fn(args[0]) && !isfinite(args[0].r)) { return args[0]; }
+    { return INTVAL((long)floor(to_real(args[0]))); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_round(DESCR_t *args, int nargs) {
+    DESCR_t _bo = FAILDESCR;
+    DESCR_t *const out = &_bo;
+    if (IS_REAL_fn(args[0]) && !isfinite(args[0].r)) { return args[0]; }
+    {
+        if ((nargs - 1) >= 1 && to_real(args[1 + (0)]) != 0.0) {
+            double sc = to_real(args[1 + (0)]), rv = floor(to_real(args[0]) / sc + 0.5) * sc;
+            if (IS_INT_fn(args[1 + (0)]) && IS_INT_fn(args[0])) *out = INTVAL((long) rv);
+            else *out = REALVAL(rv);
+            return _bo;
+        }
+        return INTVAL((long)floor(to_real(args[0]) + 0.5));
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_ceiling(DESCR_t *args, int nargs) {
+    if (IS_REAL_fn(args[0]) && !isfinite(args[0].r)) { return args[0]; }
+    { return INTVAL((long)ceil(to_real(args[0]))); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_sin(DESCR_t *args, int nargs) { { return REALVAL(sin(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_m_cos(DESCR_t *args, int nargs) { { return REALVAL(cos(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_m_tan(DESCR_t *args, int nargs) { { return REALVAL(tan(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_sec(DESCR_t *args, int nargs) { if ((nargs - 1) == 0) { return REALVAL(1.0 / cos(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_cosec(DESCR_t *args, int nargs) { if ((nargs - 1) == 0) { return REALVAL(1.0 / sin(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_cotan(DESCR_t *args, int nargs) { if ((nargs - 1) == 0) { return REALVAL(1.0 / tan(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_atan2(DESCR_t *args, int nargs) { if ((nargs - 1) <= 1) { return REALVAL(atan2(to_real(args[0]), (nargs - 1) ? to_real(args[1 + (0)]) : 1.0)); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_sign(DESCR_t *args, int nargs) {
+    if ((nargs - 1) == 0 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) { double d = to_real(args[0]); return isnan(d) ? args[0] : INTVAL(d < 0 ? -1 : d > 0 ? 1 : 0); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_isNaN(DESCR_t *args, int nargs) { if ((nargs - 1) == 0 && IS_REAL_fn(args[0])) { return (DESCR_t){ .v = DT_BOOL, .i = isnan(args[0].r) }; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_isx2Dprime(DESCR_t *args, int nargs) {
+    if ((nargs - 1) == 0 && IS_INT_fn(args[0])) {
+        long long v = args[0].i;
+        int pr = v >= 2;
+        for (long long d = 2; pr && d * d <= v; d++) if (v % d == 0) pr = 0;
+        return (DESCR_t){ .v = DT_BOOL, .i = pr };
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_parsex2Dbase(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) == 1 && IS_INT_fn(args[1 + (0)])) { return INTVAL(strtoll(s, NULL, (int) args[1 + (0)].i)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_ords(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) == 0) {
+        size_t cnt = 0;
+        { size_t ln; for (size_t i = 0; i < n; i += ln) { rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; cnt++; } }
+        DESCR_t *r = cnt ? (DESCR_t *) rt_ws_alloc_descr(cnt) : NULL;
+        size_t k = 0, ln;
+        for (size_t i = 0; i < n && k < cnt; i += ln) { unsigned cp = rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; r[k++] = INTVAL(cp); }
+        return rk_mk_arr(r, (int) cnt);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_sqrt(DESCR_t *args, int nargs) { { return REALVAL(sqrt(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_m_log(DESCR_t *args, int nargs) {
+    { double lx = log(to_real(args[0])); if ((nargs - 1) >= 1) lx /= log(to_real(args[1 + (0)])); return REALVAL(lx); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_exp(DESCR_t *args, int nargs) { { return REALVAL(exp(to_real(args[0]))); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_rand(DESCR_t *args, int nargs) { { return REALVAL((double)rand() / RAND_MAX * to_real(args[0])); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_words(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    {
+        const char **tx = (const char **) rt_pvec_alloc(n / 2 + 2);
+        size_t *ln = (size_t *) rt_wsb_alloc((n / 2 + 2) * sizeof(size_t));
+        int c = 0;
+        size_t i = 0;
+        while (i < n) { while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; size_t b = i; while (i < n && !isspace((unsigned char)s[i])) i++; tx[c] = s + b; ln[c] = i - b; c++; }
+        return rk_arr_of_texts(tx, ln, c);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_codes(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) == 0) { return INTVAL((long) utf8_strlen(s)); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_samecase(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    if ((nargs - 1) == 1) {
+        char pb[256];
+        const char *pat = to_cstring(args[1 + (0)], pb, sizeof pb);
+        if (!pat) pat = "";
+        size_t pn = strlen(pat);
+        char *r = (char *) rt_str_alloc(n * 2 + 1);
+        size_t o = 0, pi = 0;
+        for (size_t i = 0; i < n; i++) {
+            unsigned char c = (unsigned char) s[i], pc = pn ? (unsigned char) pat[pi < pn ? pi : pn - 1] : 0;
+            r[o++] = (char) (isupper(pc) ? toupper(c) : islower(pc) ? tolower(c) : c);
+            pi++;
+        }
+        r[o] = '\0';
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_chomp(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    {
+        size_t b = n;
+        if (b > 1 && s[b - 2] == '\r' && s[b - 1] == '\n') b -= 2;
+        else if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--;
+        char *r = (char *)rt_str_alloc(b);
+        memcpy(r, s, b);
+        r[b] = '\0';
+        return STRVAL(r);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_m_lines(DESCR_t *args, int nargs) {
+    char sb[64];
+    const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
+    if (!s) s = "";
+    size_t n = strlen(s);
+    { return rk_lines_arr(s, n); }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_fmt(DESCR_t *args, int nargs) {
+    {
+        char fb[256];
+        const char *fmt = ((nargs - 1) >= 1) ? to_cstring(args[1 + (0)], fb, sizeof fb) : "%s";
+        if (!fmt) fmt = "%s";
+        DESCR_t fa[2];
+        fa[0] = (args + 1) ? args[1 + (0)] : NULVCL;
+        fa[1] = args[0];
+        char *r = NULL;
+        size_t rl = 0;
+        rk_rsprintf_legacy(fmt, fa, 2, 1, &r, &rl);
+        return BSTRVAL(r, rl);
+    }
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     if ((recv.v == DT_DATA || recv.v == DT_I || recv.v == DT_BIG || recv.v == DT_R || recv.v == DT_S) && (meth[0] == 'R' || meth[0] == 'F' || meth[0] == 'n' || meth[0] == 'd' || recv.v == DT_DATA) &&
         rk_rat_dispatch(meth, &recv, margs, nmargs, out)) return 1;
     if (meth[0] == 'N' && meth[1] == 'F' && rk_str_norm_method(meth, recv, nmargs, out)) return 1;
-    if (nmargs == 0 && !strcmp(meth, "item")) { *out = recv; return 1; }
+    {
+        int _br = bt_row_of(BT_VOC_RKM, meth, (unsigned)strlen(meth));
+        if (_br >= 0 && g_bt_leaf[_br]) {
+            DESCR_t _av[1 + nmargs];
+            _av[0] = recv;
+            for (int _i = 0; _i < nmargs; _i++) _av[1 + _i] = margs[_i];
+            const DESCR_t _bv = g_bt_leaf[_br](_av, 1 + nmargs);
+            if (_bv.v != RTX_NOT_HANDLED) { *out = _bv; return 1; }
+        }
+    }
     {
         const char *tn = rk_typeobj_name(recv);
         if (tn) {
@@ -3561,31 +4002,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = rk_arr_of_texts(tx, ln, nel);
         return 1;
     }
-    if (!strcmp(meth, "IO") && nmargs == 0 && recv.v != DT_A) { *out = rk_io_mk(s); return 1; }
-    if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
-    if (!strcmp(meth, "uc")) { *out = STRVAL(rk_case_str(s, n, 1, 1, 0)); return 1; }
-    if (!strcmp(meth, "lc")) { *out = STRVAL(rk_case_str(s, n, 2, 2, 0)); return 1; }
-    if (!strcmp(meth, "fc")) { *out = STRVAL(rk_case_str(s, n, 4, 4, 0)); return 1; }
-    if (!strcmp(meth, "tc")) { *out = STRVAL(rk_case_str(s, n, 3, 0, 0)); return 1; }
-    if (!strcmp(meth, "tclc")) { *out = STRVAL(rk_case_str(s, n, 3, 2, 0)); return 1; }
-    if (!strcmp(meth, "flip")) {
-        char *r = (char *)rt_str_alloc(n);
-        size_t o = n;
-        for (size_t i = 0; i < n; ) { size_t L; rk_utf8_cp((const unsigned char *)s + i, n - i, &L); o -= L; memcpy(r + o, s + i, L); i += L; }
-        r[n] = '\0';
-        *out = STRVAL(r);
-        return 1;
-    }
-    if (!strcmp(meth, "trim")) {
-        size_t a = 0, b = n;
-        while (a < b && isspace((unsigned char)s[a])) a++;
-        while (b > a && isspace((unsigned char)s[b - 1])) b--;
-        char *r = (char *)rt_str_alloc(b - a);
-        memcpy(r, s + a, b - a);
-        r[b - a] = '\0';
-        *out = STRVAL(r);
-        return 1;
-    }
     if (!strcmp(meth, "trim-leading") || !strcmp(meth, "trim-trailing")) {
         size_t a = 0, b = n;
         if (meth[5] == 'l') { while (a < b && isspace((unsigned char)s[a])) a++; } else { while (b > a && isspace((unsigned char)s[b - 1])) b--; }
@@ -3595,24 +4011,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL(r);
         return 1;
     }
-    if (!strcmp(meth, "chop")) {
-        long cnt = 1;
-        if (nmargs >= 1 && margs) {
-            DESCR_t c = margs[0];
-            if (IS_INT_fn(c)) cnt = (long)c.i;
-            else if (IS_REAL_fn(c)) cnt = (long)c.r;
-            else if (c.v == DT_BIG) cnt = LONG_MAX;
-            else { const char *t = to_cstring(c, sb, sizeof sb); cnt = (t && strspn(t, "0123456789") > 18) ? LONG_MAX : t ? atol(t) : 1; }
-        }
-        size_t b = n;
-        for (long k = 0; k < cnt && b > 0; k++) { b--; while (b > 0 && ((unsigned char)s[b] & 0xC0) == 0x80) b--; }
-        char *r = (char *)rt_str_alloc(b);
-        memcpy(r, s, b);
-        r[b] = '\0';
-        *out = STRVAL(r);
-        return 1;
-    }
-    if (!strcmp(meth, "wordcase")) { *out = STRVAL(rk_case_str(s, n, 0, 0, 1)); return 1; }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (nmargs == 0 && !strcmp(meth, "gist") && (IS_STR_fn(recv) || IS_INT_fn(recv) || IS_REAL_fn(recv) || recv.v == DT_BOOL || recv.v == DT_BIG)) {
         *out = STRVAL(rt_heap_strdup_c(recv.v == DT_SNUL ? "Nil" : s));
@@ -3628,90 +4026,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         }
         if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; }
         *out = INTVAL((long)atoll(s));
-        return 1;
-    }
-    if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
-    if (!strcmp(meth, "starts-with") && nmargs >= 1) {
-        char nb[128];
-        const char *nd = to_cstring(margs[0], nb, sizeof nb);
-        if (!nd) nd = "";
-        size_t ln = strlen(nd);
-        *out = INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0);
-        return 1;
-    }
-    if (!strcmp(meth, "ends-with") && nmargs >= 1) {
-        char nb[128];
-        const char *nd = to_cstring(margs[0], nb, sizeof nb);
-        if (!nd) nd = "";
-        size_t ln = strlen(nd);
-        *out = INTVAL((ln <= n && !strncmp(s + (n - ln), nd, ln)) ? 1 : 0);
-        return 1;
-    }
-    if (!strcmp(meth, "subst") && nmargs >= 1 && rk_rx_pat(margs[0]) && (nmargs < 2 || !rk_is_code(margs[1]))) {
-        RxEnv renv;
-        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(margs[0]), 0);
-        if (!prog) { *out = FAILDESCR; return 1; }
-        char rb2[256];
-        const char *rep = nmargs >= 2 ? to_cstring(margs[1], rb2, sizeof rb2) : "";
-        if (!rep) rep = "";
-        size_t rl = strlen(rep);
-        int glob = 0;
-        for (int i = 2; i < nmargs; i++) if (margs[i].v == DT_BOOL && margs[i].i) glob = 1;
-        size_t cap = n + 1, olen = 0, pos = 0;
-        char *o = (char *) rt_wsb_alloc(cap);
-        int done = 0;
-        while (pos <= n && !done) {
-            RxMatch rm;
-            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
-            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
-            size_t need = olen + (ms - pos) + rl + (n - me) + 8;
-            if (need > cap) { size_t nc = need * 2; char *no = (char *) rt_wsb_alloc(nc); memcpy(no, o, olen); o = no; cap = nc; }
-            memcpy(o + olen, s + pos, ms - pos);
-            olen += ms - pos;
-            memcpy(o + olen, rep, rl);
-            olen += rl;
-            if (me == ms) { if (ms < n) o[olen++] = s[ms]; pos = ms + 1; } else pos = me;
-            if (!glob) done = 1;
-        }
-        if (pos <= n) {
-            size_t need = olen + (n - pos) + 8;
-            if (need > cap) { char *no = (char *) rt_wsb_alloc(need); memcpy(no, o, olen); o = no; }
-            memcpy(o + olen, s + pos, n - pos);
-            olen += n - pos;
-        }
-        o[olen] = '\0';
-        *out = STRVAL(rt_heap_strdup_c(o));
-        return 1;
-    }
-    if (!strcmp(meth, "subst") && nmargs >= 1) {
-        char nb[256];
-        const char *needle = to_cstring(margs[0], nb, sizeof nb);
-        if (!needle) needle = "";
-        char rb[256];
-        const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : "";
-        if (!repl) repl = "";
-        size_t nl = strlen(needle), rl = strlen(repl);
-        int glob = 0;
-        for (int i = 2; i < nmargs; i++) if (margs[i].v == DT_BOOL && margs[i].i) glob = 1;
-        const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
-        if (!hit) { char *o = (char *)rt_str_alloc(n); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
-        size_t hits = 1;
-        for (const char *h = hit + nl; glob && (h = strstr(h, needle)); h += nl) hits++;
-        char *o = (char *)rt_str_alloc(n - hits * nl + hits * rl);
-        size_t olen = 0;
-        const char *from = s;
-        for (size_t k = 0; k < hits; k++) {
-            memcpy(o + olen, from, (size_t)(hit - from));
-            olen += (size_t)(hit - from);
-            memcpy(o + olen, repl, rl);
-            olen += rl;
-            from = hit + nl;
-            hit = strstr(from, needle);
-        }
-        memcpy(o + olen, from, (size_t)(s + n - from));
-        olen += (size_t)(s + n - from);
-        o[olen] = '\0';
-        *out = STRVAL(o);
         return 1;
     }
     if ((!strcmp(meth, "index") || !strcmp(meth, "rindex")) && nmargs >= 1) {
@@ -3733,33 +4047,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = found >= 0 ? INTVAL(found) : NULVCL;
         return 1;
     }
-    if ((!strcmp(meth, "substr") || !strcmp(meth, "substr-rw")) && nmargs >= 1) {
-        long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));
-        long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from;
-        if (from < 0) from = 0;
-        if (ln < 0) ln = 0;
-        long avail = (long)utf8_strlen(s) - from;
-        if (avail < 0) avail = 0;
-        if (ln > avail) ln = avail;
-        if (ln == 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-        *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln));
-        return 1;
-    }
-    if (!strcmp(meth, "chr")) {
-        long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s);
-        char *r = (char *)rt_str_alloc(4);
-        size_t rl = rk_utf8_put((unsigned)cp, r);
-        r[rl] = '\0';
-        *out = BSTRVAL(r, rl);
-        return 1;
-    }
-    if (!strcmp(meth, "ord")) {
-        size_t on = IS_STR_fn(recv) ? descr_slen(recv) : n;
-        if (!s || !on) { *out = FAILDESCR; return 1; }
-        size_t ln;
-        *out = INTVAL(rk_utf8_cp((const unsigned char *)s, on, &ln));
-        return 1;
-    }
     if (!strcmp(meth, "chrs") && nmargs == 0 && recv.v != DT_A) { *out = recv; return 1; }
     if (!strcmp(meth, "abs")) {
         if (recv.v == DT_CPLX) {
@@ -3773,23 +4060,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         }
         return 1;
     }
-    if ((!strcmp(meth, "floor") || !strcmp(meth, "ceiling") || !strcmp(meth, "round") || !strcmp(meth, "truncate")) && IS_REAL_fn(recv) && !isfinite(recv.r)) { *out = recv; return 1; }
-    if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
-    if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
-    if (!strcmp(meth, "round")) {
-        if (nmargs >= 1 && to_real(margs[0]) != 0.0) {
-            double sc = to_real(margs[0]), rv = floor(to_real(recv) / sc + 0.5) * sc;
-            if (IS_INT_fn(margs[0]) && IS_INT_fn(recv)) *out = INTVAL((long) rv);
-            else *out = REALVAL(rv);
-            return 1;
-        }
-        *out = INTVAL((long)floor(to_real(recv) + 0.5));
-        return 1;
-    }
-    if (!strcmp(meth, "truncate")) { *out = INTVAL((long)to_real(recv)); return 1; }
-    if (!strcmp(meth, "sin")) { *out = REALVAL(sin(to_real(recv))); return 1; }
-    if (!strcmp(meth, "cos")) { *out = REALVAL(cos(to_real(recv))); return 1; }
-    if (!strcmp(meth, "tan")) { *out = REALVAL(tan(to_real(recv))); return 1; }
     {
         static const struct {
             const char *nm;
@@ -3798,20 +4068,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             { "log2", log2 }, { "log10", log10 }, { (const char *) 0, (double (*)(double)) 0 } };
         for (int mi = 0; rk_m1[mi].nm; mi++) if (!strcmp(meth, rk_m1[mi].nm) && nmargs == 0) { *out = REALVAL(rk_m1[mi].f(to_real(recv))); return 1; }
     }
-    if (!strcmp(meth, "sec") && nmargs == 0) { *out = REALVAL(1.0 / cos(to_real(recv))); return 1; }
-    if (!strcmp(meth, "cosec") && nmargs == 0) { *out = REALVAL(1.0 / sin(to_real(recv))); return 1; }
-    if (!strcmp(meth, "cotan") && nmargs == 0) { *out = REALVAL(1.0 / tan(to_real(recv))); return 1; }
-    if (!strcmp(meth, "atan2") && nmargs <= 1) { *out = REALVAL(atan2(to_real(recv), nmargs ? to_real(margs[0]) : 1.0)); return 1; }
-    if (!strcmp(meth, "sign") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { double d = to_real(recv); *out = isnan(d) ? recv : INTVAL(d < 0 ? -1 : d > 0 ? 1 : 0); return 1; }
-    if (!strcmp(meth, "isNaN") && nmargs == 0 && IS_REAL_fn(recv)) { *out = (DESCR_t){ .v = DT_BOOL, .i = isnan(recv.r) }; return 1; }
     if (!strcmp(meth, "Num") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = REALVAL(to_real(recv)); return 1; }
-    if (!strcmp(meth, "is-prime") && nmargs == 0 && IS_INT_fn(recv)) {
-        long long v = recv.i;
-        int pr = v >= 2;
-        for (long long d = 2; pr && d * d <= v; d++) if (v % d == 0) pr = 0;
-        *out = (DESCR_t){ .v = DT_BOOL, .i = pr };
-        return 1;
-    }
     if (!strcmp(meth, "base") && nmargs == 1 && IS_INT_fn(recv)) {
         long long v = recv.i;
         int bs = (int) rk_int_arg(margs[0], 10);
@@ -3835,16 +4092,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = rk_mk_arr(r, k);
         return 1;
     }
-    if (!strcmp(meth, "parse-base") && nmargs == 1 && IS_INT_fn(margs[0])) { *out = INTVAL(strtoll(s, NULL, (int) margs[0].i)); return 1; }
-    if (!strcmp(meth, "ords") && nmargs == 0) {
-        size_t cnt = 0;
-        { size_t ln; for (size_t i = 0; i < n; i += ln) { rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; cnt++; } }
-        DESCR_t *r = cnt ? (DESCR_t *) rt_ws_alloc_descr(cnt) : NULL;
-        size_t k = 0, ln;
-        for (size_t i = 0; i < n && k < cnt; i += ln) { unsigned cp = rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; r[k++] = INTVAL(cp); }
-        *out = rk_mk_arr(r, (int) cnt);
-        return 1;
-    }
     if (!strcmp(meth, "polymod") && IS_INT_fn(recv) && nmargs >= 1 && margs) {
         long long v = recv.i;
         rk_av_t dv = rk_av_args((DESCR_t *) margs, 0, nmargs);
@@ -3862,10 +4109,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = rk_mk_arr(pr, q);
         return 1;
     }
-    if (!strcmp(meth, "sqrt")) { *out = REALVAL(sqrt(to_real(recv))); return 1; }
-    if (!strcmp(meth, "log")) { double lx = log(to_real(recv)); if (nmargs >= 1) lx /= log(to_real(margs[0])); *out = REALVAL(lx); return 1; }
-    if (!strcmp(meth, "exp")) { *out = REALVAL(exp(to_real(recv))); return 1; }
-    if (!strcmp(meth, "rand")) { *out = REALVAL((double)rand() / RAND_MAX * to_real(recv)); return 1; }
     if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) {
         int truthy;
         if (IS_INT_fn(recv)) truthy = (recv.i != 0);
@@ -3894,37 +4137,11 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         else *out = REALVAL(recv.r + d);
         return 1;
     }
-    if (!strcmp(meth, "words")) {
-        const char **tx = (const char **) rt_pvec_alloc(n / 2 + 2);
-        size_t *ln = (size_t *) rt_wsb_alloc((n / 2 + 2) * sizeof(size_t));
-        int c = 0;
-        size_t i = 0;
-        while (i < n) { while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; size_t b = i; while (i < n && !isspace((unsigned char)s[i])) i++; tx[c] = s + b; ln[c] = i - b; c++; }
-        *out = rk_arr_of_texts(tx, ln, c);
-        return 1;
-    }
-    if (!strcmp(meth, "codes") && nmargs == 0) { *out = INTVAL((long) utf8_strlen(s)); return 1; }
     if ((!strcmp(meth, "Num") || !strcmp(meth, "Numeric")) && nmargs == 0 && recv.v != DT_A && !IS_INT_fn(recv) && !IS_REAL_fn(recv)) {
         char *ep;
         double dv = strtod(s, &ep);
         while (*ep == ' ') ep++;
         if (*s && (*ep == '\0')) { long lv = (long) dv; *out = (!strcmp(meth, "Numeric") && (double) lv == dv && !strpbrk(s, ".eEnN")) ? INTVAL(lv) : REALVAL(dv); return 1; }
-    }
-    if (!strcmp(meth, "samecase") && nmargs == 1) {
-        char pb[256];
-        const char *pat = to_cstring(margs[0], pb, sizeof pb);
-        if (!pat) pat = "";
-        size_t pn = strlen(pat);
-        char *r = (char *) rt_str_alloc(n * 2 + 1);
-        size_t o = 0, pi = 0;
-        for (size_t i = 0; i < n; i++) {
-            unsigned char c = (unsigned char) s[i], pc = pn ? (unsigned char) pat[pi < pn ? pi : pn - 1] : 0;
-            r[o++] = (char) (isupper(pc) ? toupper(c) : islower(pc) ? tolower(c) : c);
-            pi++;
-        }
-        r[o] = '\0';
-        *out = STRVAL(r);
-        return 1;
     }
     if (!strcmp(meth, "comb") && nmargs == 1 && IS_INT_fn(margs[0]) && margs[0].i > 0) {
         long cn = (long) margs[0].i;
@@ -3969,25 +4186,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = rk_arr_of_texts(tx, ln, c);
         return 1;
     }
-    if (!strcmp(meth, "chomp")) {
-        size_t b = n;
-        if (b > 1 && s[b - 2] == '\r' && s[b - 1] == '\n') b -= 2;
-        else if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--;
-        char *r = (char *)rt_str_alloc(b);
-        memcpy(r, s, b);
-        r[b] = '\0';
-        *out = STRVAL(r);
-        return 1;
-    }
-    if (!strcmp(meth, "wordcase")) {
-        char *r = (char *)rt_str_alloc(n);
-        memcpy(r, s, n + 1);
-        int start = 1;
-        for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } }
-        *out = STRVAL(r);
-        return 1;
-    }
-    if (!strcmp(meth, "lines")) { *out = rk_lines_arr(s, n); return 1; }
     if (!strcmp(meth, "elems")) { *out = INTVAL(s[0] ? 1 : 0); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
         if (rk_trans_has_rx(margs, nmargs)) return rk_trans_rx(STRVAL(rt_heap_strdup_c(s)), margs, nmargs, out);
@@ -4056,19 +4254,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         return 1;
     }
     if (!strcmp(meth, "join")) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
-    if (!strcmp(meth, "fmt")) {
-        char fb[256];
-        const char *fmt = (nmargs >= 1) ? to_cstring(margs[0], fb, sizeof fb) : "%s";
-        if (!fmt) fmt = "%s";
-        DESCR_t fa[2];
-        fa[0] = margs ? margs[0] : NULVCL;
-        fa[1] = recv;
-        char *r = NULL;
-        size_t rl = 0;
-        rk_rsprintf_legacy(fmt, fa, 2, 1, &r, &rl);
-        *out = BSTRVAL(r, rl);
-        return 1;
-    }
     return 0;
 }
 #define PTF_BUF(k) (((DESCR_t *)g_runtime.pas.pas_tf.p)[2 * (k)])
