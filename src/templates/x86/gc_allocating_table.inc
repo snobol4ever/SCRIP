@@ -3309,6 +3309,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "try_call_builtin_by_name_bl_s_rq", GC_RET_OTHER },
     { "try_call_builtin_by_name_eval_rq", GC_RET_OTHER },
     { "try_handle_if_directive_tree", GC_RET_OTHER },
+    { "udef_install_static", GC_RET_OTHER },
     { "udef_nidx_put", GC_RET_VOID },
     { "unify_pair", GC_RET_OTHER },
     { "unify_prepare", GC_RET_VOID },
