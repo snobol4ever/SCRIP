@@ -10998,11 +10998,7 @@ static char *pl_gnu_abs_path(const char *src) {
         }
         if (pass) a[k] = 0;
     }
-    if (ex && a[0] == '~' && (a[1] == '/' || a[1] == 0)) {
-        const char *h = getenv("HOME");
-        if (!h) return (char *)0;
-        a = pl_gnu_cat3(h, "/", a + 1);
-    } else if (ex && a[0] == '~') return (char *)0;
+    if (ex && a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); if (!h) return (char *)0; a = pl_gnu_cat3(h, "/", a + 1); } else if (ex && a[0] == '~') return (char *)0;
     if (!strcmp(a, "user")) return a;
     if (!a[0]) return (char *)0;
     if (a[0] != '/') { char *cwd = pl_gnu_cwd(); if (!cwd) return (char *)0; a = pl_gnu_cat3(cwd, "/", a); }
@@ -18089,6 +18085,41 @@ DESCR_t bt___rk_arr_set(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt_arr_set_pure(DESCR_t *args, int nargs) { if (nargs >= 3) { return pas_arr_set(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static DESCR_t bt_hash_each(DESCR_t *args, DESCR_t (*one)(DESCR_t *, int), int as_bool) {
+    rk_av_t ks = rk_av(args[1]);
+    DESCR_t *r = ks.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ks.n) : NULL;
+    for (int i = 0; i < ks.n; i++) {
+        DESCR_t sub[2] = { args[0], ks.el[i] }, got = one(sub, 2);
+        r[i] = IS_FAIL_fn(got) ? rk_typeobj("Any") : got;
+        if (as_bool) r[i] = (DESCR_t){ .v = DT_BOOL, .i = rk_is_truthy(r[i]) ? 1 : 0 };
+    }
+    return rk_mark_list(rk_mk_arr(r, ks.n));
+}
+DESCR_t bt_hash_get(DESCR_t *args, int nargs) {
+    if (nargs < 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    if (rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) return bt_hash_each(args, bt_hash_get, 0);
+    if (rk_qh_is(args[0])) return rk_qh_get(args[0], args[1]);
+    if (rk_match_is(args[0])) args[0] = FIELD_GET_fn(args[0], "named");
+    int found = 0;
+    DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
+    return found ? v : rk_typeobj("Any");
+}
+DESCR_t bt_hash_exists(DESCR_t *args, int nargs) {
+    if (nargs < 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    if (rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) return bt_hash_each(args, bt_hash_exists, 1);
+    if (rk_qh_is(args[0])) return INTVAL(rk_qh_get(args[0], args[1]).i ? 1 : 0);
+    return INTVAL((args[0].v == DT_T && args[0].tbl && table_has_d(args[0].tbl, rk_key_tmp(args[1]))) ? 1 : 0);
+}
+DESCR_t bt_hash_delete(DESCR_t *args, int nargs) {
+    if (nargs < 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    if (rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) return bt_hash_each(args, bt_hash_delete, 0);
+    if (rk_qh_is(args[0])) { DESCR_t ov; return rk_qh_del(args[0], args[1], &ov) ? ov : NULVCL; }
+    DESCR_t dk = rk_key_tmp(args[1]), dv = NULVCL;
+    int found = 0;
+    if (args[0].v == DT_T && args[0].tbl) { dv = table_get_found_d(args[0].tbl, dk, &found); if (found) table_delete_d(args[0].tbl, dk); }
+    return found ? dv : NULVCL;
+}
+DESCR_t bt___rk_subscr_adv(DESCR_t *args, int nargs) { DESCR_t o = FAILDESCR; if (nargs >= 2 && rk_subscr_adv(args, nargs, &o)) return o; return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (fn[0] == '_' && fn[1] == '_' && fn[2] == 'r' && fn[3] == 'k' && fn[4] == '_' && rk_fast_rat_builtin(fn, args, nargs, out)) return 1;
 #if RT_DIAG
@@ -18226,7 +18257,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = INTVAL(1);
         return 1;
     }
-    if (!strcmp(fn, "__rk_subscr_adv") && nargs >= 2) return rk_subscr_adv(args, nargs, out);
     if (!strcmp(fn, "callsame") || !strcmp(fn, "nextsame") || !strcmp(fn, "callwith")) {
         rk_redisp_t *top = g_redisp_cur;
         if (!top) { *out = FAILDESCR; return 1; }
@@ -18692,37 +18722,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "grammar_parse") && nargs == 2) { const char *gname = VARVAL_fn(args[0]); const char *subj = VARVAL_fn(args[1]); return grammar_parse_core(gname, subj, out, 0, (DESCR_t) { 0 }); }
-    if ((!strcmp(fn, "hash_get") || !strcmp(fn, "hash_exists") || !strcmp(fn, "hash_delete")) && nargs >= 2 && rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) {
-        rk_av_t ks = rk_av(args[1]);
-        DESCR_t *r = ks.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ks.n) : NULL;
-        for (int i = 0; i < ks.n; i++) {
-            DESCR_t sub[2] = { args[0], ks.el[i] }, one = FAILDESCR;
-            if (!script_try_call_builtin_by_name_rq(fn, sub, 2, &one, rq)) one = FAILDESCR;
-            r[i] = IS_FAIL_fn(one) ? rk_typeobj("Any") : one;
-            if (fn[5] == 'e') r[i] = (DESCR_t){ .v = DT_BOOL, .i = rk_is_truthy(r[i]) ? 1 : 0 };
-        }
-        *out = rk_mark_list(rk_mk_arr(r, ks.n));
-        return 1;
-    }
-    if (!strcmp(fn, "hash_get") && nargs >= 2) {
-        if (rk_qh_is(args[0])) { *out = rk_qh_get(args[0], args[1]); return 1; }
-        if (rk_match_is(args[0])) args[0] = FIELD_GET_fn(args[0], "named");
-        int found = 0;
-        DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
-        *out = found ? v : rk_typeobj("Any");
-        return 1;
-    }
-    if (!strcmp(fn, "hash_exists") && nargs >= 2 && rk_qh_is(args[0])) { *out = INTVAL(rk_qh_get(args[0], args[1]).i ? 1 : 0); return 1; }
-    if (!strcmp(fn, "hash_exists") && nargs >= 2) { *out = INTVAL((args[0].v == DT_T && args[0].tbl && table_has_d(args[0].tbl, rk_key_tmp(args[1]))) ? 1 : 0); return 1; }
-    if (!strcmp(fn, "hash_delete") && nargs >= 2 && rk_qh_is(args[0])) { DESCR_t ov; *out = rk_qh_del(args[0], args[1], &ov) ? ov : NULVCL; return 1; }
-    if (!strcmp(fn, "hash_delete") && nargs >= 2) {
-        DESCR_t dk = rk_key_tmp(args[1]);
-        int found = 0;
-        DESCR_t dv = NULVCL;
-        if (args[0].v == DT_T && args[0].tbl) { dv = table_get_found_d(args[0].tbl, dk, &found); if (found) table_delete_d(args[0].tbl, dk); }
-        *out = found ? dv : NULVCL;
-        return 1;
-    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
