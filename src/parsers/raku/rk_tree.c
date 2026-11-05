@@ -3035,6 +3035,25 @@ tree_t *rkb_self_sig(RkB *b, tree_t *sig) {
     return ns;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_attr_prologue(TL *params, tree_t *body, int kind) {
+    tree_t *pro = NULL;
+    for (int i = 0; kind != 0 && i < params->n; i++) {
+        tree_t *pp = params->v[i], *pv = pp && pp->t == TT_ASSIGN && pp->n ? pp->c[0] : pp;
+        if (!pv || pv->t != TT_VAR || !pv->v.sval || pv->v.sval[0] != '!' || !pv->v.sval[1]) continue;
+        const char *orig = pv->v.sval;
+        pv->v.sval = (char *) intern(orig + 1);
+        if (!pro) pro = ast_node_new(TT_SEQ_EXPR);
+        tree_t *dt = make_call("__rk_defined"), *iff = ast_node_new(TT_IF);
+        expr_add_child(dt, leaf_sval(TT_VAR, pv->v.sval));
+        expr_add_child(iff, dt);
+        expr_add_child(iff, expr_binary(TT_ASSIGN, rk_tw_field(orig), leaf_sval(TT_VAR, pv->v.sval)));
+        expr_add_child(pro, iff);
+    }
+    if (!pro) return body;
+    for (int i = 0; i < body->n; i++) expr_add_child(pro, body->c[i]);
+    return pro;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr) {
     (void) prefix; (void) has_parens; (void) tr; (void) ntr;
     TL params = { 0 };
@@ -3047,6 +3066,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     }
     if (params.n == 0 && !has_parens && rk_reads_var(body, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); tl_add(&params, ap); }
     if (!has_parens && (params.n == 0 || (params.n == 1 && params.v[0] && params.v[0]->v.sval && !strcmp(params.v[0]->v.sval, "@_"))) && rk_reads_var(body, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); tl_add(&params, hp); }
+    body = rk_attr_prologue(&params, body, kind);
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     nm = rk_op_name_canon(nm);
