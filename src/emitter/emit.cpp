@@ -1241,7 +1241,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_REM: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_rem()); } return 0;
     case IR_MATCH_ATP: { bb_prepare(nd); bb_emit_x86(bb_match_atp()); } return 0;
-    case IR_MATCH_CASMARK: { bb_prepare(nd); { const char * _sv = ((uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = _sv; if (_sv) g_emit.op_ival = 0; } bb_emit_x86(bb_match_casmark()); } return 0;
+    case IR_MATCH_CASMARK: { bb_prepare(nd); { const char * _sv = ((uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = _sv;
+        if (_sv) g_emit.op_ival = 0; } bb_emit_x86(bb_match_casmark()); } return 0;
     case IR_MATCH_ARB: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_arb()); } return 0;
     case IR_MATCH_BAL: { bb_prepare(nd); { if (_zn->leaf > 0) { g_emit.op_fc_bytes = _zn->leaf; g_emit.op_fc_base = g_emit.x86_scratch_off;
@@ -2906,10 +2907,22 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
     e->wk_off = -1; e->wk_n = 0; e->wk_e = 0; e->wk_pre = 0; e->dk = -1;
     if (rule == 1 || rule == 2) e->dk = g_emit.op_zrun + g_emit.op_zxb + adj + g_emit.op_vdj_live;
-    if ((rule == 0 || rule == 4 || rule == 1 || rule == 2) && g_emit.op_wk_off >= 0 && g_emit.op_wk_pool) {
-        int nw = (g_emit.op_wk_n + 63) / 64;
-        e->wk_off = (int32_t)g_emitter.g_gc_sites_wk.len; e->wk_n = g_emit.op_wk_n; e->wk_e = g_emit.op_wk_e; e->wk_pre = g_emit.op_wk_pre;
-        for (int q = 0; q < nw; q++) CV_PUSH(g_emitter.g_gc_sites_wk, uint64_t) = g_emit.op_wk_pool[g_emit.op_wk_off + q]; }
+    if ((rule == 0 || rule == 4 || rule == 1 || rule == 2) && g_emit.op_wk_off >= 0 && g_emit.op_wk_pool && !(g_emit.op_wk_pre & 7)) {
+        const uint64_t * blk = g_emit.op_wk_pool + g_emit.op_wk_off;
+        int sh = g_emit.op_wk_pre / 8;
+        auto it = g_emitter.g_gc_wk_blk.find(blk);
+        if (it == g_emitter.g_gc_wk_blk.end()) {
+            int nw = (int)g_emit.op_wk_pool[g_emit.op_wk_off - 1], wo = sh / 64, lo = sh % 64, tw = nw + wo + (lo ? 1 : 0);
+            CV_PUSH(g_emitter.g_gc_sites_wk, uint64_t) = (uint64_t)tw;
+            int base = (int)g_emitter.g_gc_sites_wk.len;
+            for (int q = 0; q < tw; q++) CV_PUSH(g_emitter.g_gc_sites_wk, uint64_t) = 0;
+            for (int q = 0; q < nw; q++) {
+                CV_AT(g_emitter.g_gc_sites_wk, uint64_t, base + q + wo) |= blk[q] << lo;
+                if (lo) CV_AT(g_emitter.g_gc_sites_wk, uint64_t, base + q + wo + 1) |= blk[q] >> (64 - lo);
+            }
+            it = g_emitter.g_gc_wk_blk.emplace(blk, base).first;
+        }
+        e->wk_off = (int32_t)it->second; e->wk_n = g_emit.op_wk_n + sh; e->wk_e = g_emit.op_wk_e; e->wk_pre = g_emit.op_wk_pre; }
     return (int)g_emitter.g_gc_sites_v.len - 1;
 }
 static void emit_gc_rsp_reset(void) { x86_rsp_reset_all(); }
@@ -3002,58 +3015,57 @@ extern "C" int emit_gc_sites_offs_n(void) { return (int)g_emitter.g_gc_sites_off
 extern "C" int emit_gc_sites_off(int k) { return (k >= 0 && (uint32_t)k < g_emitter.g_gc_sites_offs_v.len) ? CV_AT(g_emitter.g_gc_sites_offs_v, int, k) : -1; }
 extern "C" int emit_gc_sites_names_n(void) { return g_emitter.g_gc_sites_names_n; }
 extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_emitter.g_gc_sites_names_n) ? CV_AT(g_emitter.g_gc_sites_names_v, char *, k) : "?"; }
-static int emit_gc_site_mask(const gc_site_t * e, std::vector<uint64_t> & out) {
-    out.clear();
+static int emit_gc_site_nw(const gc_site_t * e) {
     if (e->wk_off < 0) return 0;
     int D = (e->rule == 0 || e->rule == 4) ? e->depth : ((e->rule == 1 || e->rule == 2) ? e->dk : -1);
     if (D < 0 && e->rule != 0 && e->rule != 4) return 0;
     int delta = D - e->wk_pre - e->wk_e;
-    if (D <= 0 || (D & 7) || delta < 0 || (delta & 7) || (e->wk_pre & 7)) return -1;
-    int nb = D / 8, sh = delta / 8;
-    out.assign((size_t)((nb + 63) / 64), 0u);
-    for (int j = 0; j < e->wk_n && j + sh < nb; j++)
-        if ((CV_AT(g_emitter.g_gc_sites_wk, uint64_t, e->wk_off + j / 64) >> (j % 64)) & 1ull) out[(size_t)(j + sh) / 64] |= 1ull << ((j + sh) % 64);
-    return 1;
+    if (D <= 0 || (D & 7) || delta < 0 || (delta & 7) || (e->wk_pre & 7)) return 0;
+    return e->wk_n < D / 8 ? e->wk_n : D / 8;
 }
-typedef struct { uint64_t off; uint32_t nw; std::vector<uint64_t> w; } gc_mask_root_t;
-static uint64_t emit_gc_site_rule12_third(uint32_t nw, const std::vector<uint64_t> & mk, int n, std::vector<uint64_t> & pool, std::vector<gc_mask_root_t> & roots) {
-    size_t L = mk.size();
-    uint64_t low = (nw % 64) ? ((1ull << (nw % 64)) - 1ull) : ~0ull;
-    for (size_t r = 0; r < roots.size(); r++) {
-        const gc_mask_root_t & R = roots[r];
-        if (R.nw < nw || R.w.size() < L) continue;
-        size_t k = 0;
-        while (k + 1 < L && R.w[k] == mk[k]) k++;
-        if (k + 1 == L && (R.w[L - 1] & low) == mk[L - 1]) return R.off | ((uint64_t)nw << 32);
-    }
-    uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
-    pool.insert(pool.end(), mk.begin(), mk.end());
-    roots.push_back(gc_mask_root_t{ t, nw, mk });
-    return t | ((uint64_t)nw << 32);
+static uint64_t emit_gc_site_anchor(const gc_site_t * e) {
+    if ((e->rule == 1 || e->rule == 2) && (e->kind & 255) != 1) return 0u;
+    int nw = emit_gc_site_nw(e);
+    if (nw <= 0) return 0u;
+    return (uint64_t)(((e->rule == 0 || e->rule == 4) ? e->depth : e->dk) / 8);
 }
-static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint64_t> & pool, std::vector<gc_mask_root_t> & roots, std::vector<uint64_t> & mk) {
-    if (((e->rule == 1 || e->rule == 2) && (e->kind & 255) != 1) || emit_gc_site_mask(e, mk) <= 0) return 0;
+static uint64_t emit_gc_site_wkword(const gc_site_t * e, size_t q, int nw) {
+    if ((int)(q * 64) >= nw) return 0ull;
+    uint64_t v = CV_AT(g_emitter.g_gc_sites_wk, uint64_t, (size_t)e->wk_off + q);
+    return (int)(q * 64 + 64) > nw ? v & ((1ull << (nw - (int)(q * 64))) - 1ull) : v;
+}
+static uint64_t emit_gc_site_third(const gc_site_t * e, int n, std::vector<uint64_t> & pool, std::unordered_map<int, uint64_t> & blkpool, const std::unordered_map<int, int> & maxnw) {
+    if ((e->rule == 1 || e->rule == 2) && (e->kind & 255) != 1) return 0;
+    int nw = emit_gc_site_nw(e);
     if (e->rule == 0 || e->rule == 4) {
-        if (e->depth <= 512) return mk[0];
-        uint64_t t = 32u + 24u * (uint64_t)n + 8u * (uint64_t)pool.size();
-        pool.insert(pool.end(), mk.begin(), mk.end());
+        if (nw <= 0) return 0;
+        if (e->depth <= 512) return emit_gc_site_wkword(e, 0, nw);
+        uint64_t t = 32u + 32u * (uint64_t)n + 8u * (uint64_t)pool.size();
+        for (int q = 0; q < (e->depth / 8 + 63) / 64; q++) pool.push_back(emit_gc_site_wkword(e, (size_t)q, nw));
         return t;
     }
-    return emit_gc_site_rule12_third((uint32_t)(e->dk / 8), mk, n, pool, roots);
+    if (nw <= 0) return 0;
+    auto it = blkpool.find(e->wk_off);
+    if (it == blkpool.end()) {
+        int mx = maxnw.find(e->wk_off)->second;
+        uint64_t t = 32u + 32u * (uint64_t)n + 8u * (uint64_t)pool.size();
+        for (int q = 0; q < (mx + 63) / 64; q++) pool.push_back(emit_gc_site_wkword(e, (size_t)q, mx));
+        it = blkpool.emplace(e->wk_off, t).first;
+    }
+    return it->second | ((uint64_t)nw << 32);
 }
 static void emit_gc_site_thirds(int n, const int * ord, std::vector<uint64_t> & pool, std::vector<uint64_t> & thirds) {
-    std::vector<gc_mask_root_t> roots;
-    std::vector<uint64_t> mk;
-    int seq[n > 0 ? n : 1];
-    for (int k = 0; k < n; k++) seq[k] = ord[k];
-    std::stable_sort(seq, seq + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).dk > CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).dk; });
+    std::unordered_map<int, uint64_t> blkpool;
+    std::unordered_map<int, int> maxnw;
     thirds.assign((size_t)(n > 0 ? n : 0), 0u);
-    for (int k = 0; k < n; k++) { int i = seq[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
-        thirds[(size_t)i] = emit_gc_site_third(e, n, pool, roots, mk);
+    for (int k = 0; k < n; k++) { const gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, ord[k]);
+        if ((e->rule == 1 || e->rule == 2) && (e->kind & 255) == 1) { int nw = emit_gc_site_nw(e); if (nw > 0 && nw > maxnw[e->wk_off]) maxnw[e->wk_off] = nw; } }
+    for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
+        thirds[(size_t)i] = emit_gc_site_third(e, n, pool, blkpool, maxnw);
         if (thirds[(size_t)i] && gc_sites_report_on())
-            fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d known=%d arrival=%d pre=%d words=%zu mask0=%llx third=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i,
+            fprintf(stderr, "[GC-MASK] %s #%d op=%s rule=%d depth=%d known=%d arrival=%d pre=%d words=%d anchor=%llu third=%llx\n", g_emit.flat_fam ? g_emit.flat_fam : "chain", i,
                 e->nd ? bb_op_name(e->nd->op) : "?",
-                (int)e->rule, (int)e->depth, (int)e->dk, e->wk_e, e->wk_pre, mk.size(), (unsigned long long)mk[0], (unsigned long long)thirds[(size_t)i]); }
+                (int)e->rule, (int)e->depth, (int)e->dk, e->wk_e, e->wk_pre, emit_gc_site_nw(e), (unsigned long long)emit_gc_site_anchor(e), (unsigned long long)thirds[(size_t)i]); }
 }
 static void emit_gc_sites_data(const char * fam, int frameless) {
      int n = (int)g_emitter.g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", g_emitter.emit_gc_sites_data_seq++);
@@ -3074,7 +3086,7 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
             uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32), third = thirds[(size_t)i];
             t = " .quad " + emit_gc_site_label(i) + (g_emit.gc_code_lbl.name ? std::string("-") + g_emit.gc_code_lbl.name : std::string()) + "\n .quad "
-                + std::to_string((unsigned long long)w) + "\n .quad " + std::to_string((unsigned long long)third) + "\n"; emit_text_n(t.data(), t.size()); }
+                + std::to_string((unsigned long long)w) + "\n .quad " + std::to_string((unsigned long long)third) + "\n .quad " + std::to_string((unsigned long long)emit_gc_site_anchor(e)) + "\n"; emit_text_n(t.data(), t.size()); }
         for (size_t q = 0; q < pool.size(); q++) { t = " .quad " + std::to_string((unsigned long long)pool[q]) + "\n"; emit_text_n(t.data(), t.size()); }
         emit_textf(".popsection\n");
         g_emitter.g_gc_sites_last_off = 0;
@@ -3092,12 +3104,13 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         emit_gc_site_thirds(n, idn, pool, thirds);
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32),
             third = thirds[(size_t)i];
-            bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); bb_emit_u64(third); }
+            bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); bb_emit_u64(third); bb_emit_u64(emit_gc_site_anchor(e)); }
         for (size_t q = 0; q < pool.size(); q++) bb_emit_u64(pool[q]);
     }
     CV_PUSH(g_emitter.g_gc_sites_names_v, char *) = ct_strdup(tl.name); g_emitter.g_gc_sites_names_n++;
     g_emitter.g_gc_sites_v.len = 0;
     g_emitter.g_gc_sites_wk.len = 0;
+    g_emitter.g_gc_wk_blk.clear();
     (void)fam;
 }
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
@@ -4972,7 +4985,8 @@ DESCR_t rt_pl_dop_ax_exp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fip(DESCR_t *, in
     int); DESCR_t rt_pl_dop_ax_e(DESCR_t *, int);
 }
 extern "C" {
-DESCR_t pas_xr_ev_d(DESCR_t *, int); DESCR_t pas_xr_cvt_d(DESCR_t *, int); DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int); DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
+DESCR_t pas_xr_ev_d(DESCR_t *, int); DESCR_t pas_xr_cvt_d(DESCR_t *, int); DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int);
+    DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
 DESCR_t rt_pas_ln(DESCR_t *, int); DESCR_t rt_pas_arctan(DESCR_t *, int); DESCR_t rt_pas_sqr(DESCR_t *, int);
 DESCR_t rt_rk_arr_at(DESCR_t *, int); DESCR_t rt_rk_arr_set(DESCR_t *, int); DESCR_t rt_rk_elem_put(DESCR_t *, int);
 DESCR_t rt_rk_param_check(DESCR_t *, int); DESCR_t rt_rk_assign_check(DESCR_t *, int); DESCR_t rt_rk_bindattr(DESCR_t *, int); DESCR_t rt_rk_box(DESCR_t *, int); DESCR_t rt_rk_blk_ref(DESCR_t *, int);
@@ -5197,7 +5211,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "__pas_iand", 2, "rt_iand_d", rt_iand_d }, { "__pas_ior", 2, "rt_ior_d", rt_ior_d }, { "__pas_ixor", 2, "rt_ixor_d", rt_ixor_d }, { "__pas_ishift", 2, "rt_ishift_d", rt_ishift_d },
         { "__pas_elem_ref", 3, "pas_elem_ref", pas_elem_ref }, { "__pas_ref_val", 1, "pas_ref_val", pas_ref_val },
         { "__pas_view", 4, "pas_view_make", pas_view_make },
-        { "__pas_xr_ev", -1, "pas_xr_ev_d", pas_xr_ev_d }, { "__pas_xr_cvt", -1, "pas_xr_cvt_d", pas_xr_cvt_d }, { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
+        { "__pas_xr_ev", -1, "pas_xr_ev_d", pas_xr_ev_d }, { "__pas_xr_cvt", -1, "pas_xr_cvt_d", pas_xr_cvt_d }, { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1,
+            "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
         { "__pas_exp", 1, "rt_pas_exp", rt_pas_exp }, { "__pas_sqrt", 1, "rt_pas_sqrt", rt_pas_sqrt }, { "__pas_ln", 1, "rt_pas_ln", rt_pas_ln }, { "__pas_arctan", 1, "rt_pas_arctan", rt_pas_arctan },
         { "__pas_sqr", 1, "rt_pas_sqr", rt_pas_sqr },
         { "__rk_arr_at", 2, "rt_rk_arr_at", rt_rk_arr_at }, { "__rk_arr_set", 3, "rt_rk_arr_set", rt_rk_arr_set }, { "__rk_elem_put", 4, "rt_rk_elem_put", rt_rk_elem_put },

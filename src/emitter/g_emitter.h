@@ -170,6 +170,7 @@ struct g_emitter_t {
     int gc_sites_report_on_v = -1;
     cv_t g_gc_sites_v;
     cv_t g_gc_sites_wk;
+    std::unordered_map<const uint64_t *, int> g_gc_wk_blk;
     int g_gc_sites_armed = 0, g_gc_sites_last_off = -1, g_gc_sites_names_n = 0;
     cv_t g_gc_sites_names_v;
     gc_match_lvl_t g_gc_match_out;

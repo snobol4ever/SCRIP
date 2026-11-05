@@ -2222,27 +2222,111 @@ static int zd_cross_code(const IR_graph_t * cg, IR_t ** nodes, int n, int k, int
     for (int c = 3; c <= 11; c++) if (fin & (1u << c)) return c;
     return 0;
 }
+struct zwk_blk_t { std::vector<uint64_t> bits; int top = 0; int first = INT_MAX; };
+struct zwk_st_t { int b = -1; int len = 0; };
+static uint64_t zwk_word(const zwk_blk_t & k, size_t q) { return q < k.bits.size() ? k.bits[q] : 0ull; }
+static uint64_t zwk_view_word(const std::vector<zwk_blk_t> & bl, const zwk_st_t & s, size_t q) {
+    if (s.b < 0 || (int)(q * 64) >= s.len) return 0ull;
+    uint64_t v = zwk_word(bl[(size_t)s.b], q);
+    return (int)(q * 64 + 64) > s.len ? v & ((1ull << (s.len - (int)(q * 64))) - 1ull) : v;
+}
+static int zwk_has_bits(const std::vector<zwk_blk_t> & bl, int b, int from, int to) {
+    if (b < 0 || from >= to || bl[(size_t)b].first >= to) return 0;
+    for (int q = from / 64; q * 64 < to; q++) {
+        uint64_t v = zwk_word(bl[(size_t)b], (size_t)q);
+        if (q * 64 < from) v &= ~((1ull << (from - q * 64)) - 1ull);
+        if (q * 64 + 64 > to) v &= (1ull << (to - q * 64)) - 1ull;
+        if (v) return 1;
+    }
+    return 0;
+}
+static int zwk_subset(const std::vector<zwk_blk_t> & bl, const zwk_st_t & a, const zwk_st_t & c) {
+    for (size_t q = 0; (int)(q * 64) < a.len; q++) if (zwk_view_word(bl, a, q) & ~zwk_view_word(bl, c, q)) return 0;
+    return 1;
+}
+static zwk_st_t zwk_norm(const std::vector<zwk_blk_t> & bl, zwk_st_t s) {
+    if (s.b < 0 || bl[(size_t)s.b].first >= s.len) return zwk_st_t();
+    if (s.len > bl[(size_t)s.b].top) s.len = bl[(size_t)s.b].top;
+    return s;
+}
+static int zwk_fork(std::vector<zwk_blk_t> & bl, const zwk_st_t & s) {
+    zwk_blk_t k;
+    if (s.b >= 0) {
+        k.bits.assign((size_t)((s.len + 63) / 64), 0ull);
+        for (size_t q = 0; q < k.bits.size(); q++) k.bits[q] = zwk_view_word(bl, s, q);
+        k.top = s.len;
+        k.first = bl[(size_t)s.b].first < s.len ? bl[(size_t)s.b].first : INT_MAX;
+    }
+    bl.push_back(k);
+    return (int)bl.size() - 1;
+}
+static void zwk_set(zwk_blk_t & k, int w) {
+    if ((size_t)(w / 64) >= k.bits.size()) k.bits.resize((size_t)(w / 64) + 1, 0ull);
+    k.bits[(size_t)w / 64] |= 1ull << (w % 64);
+    if (w + 1 > k.top) k.top = w + 1;
+    if (w < k.first) k.first = w;
+}
+static zwk_st_t zwk_extend(std::vector<zwk_blk_t> & bl, zwk_st_t s, const std::vector<int> & ws) {
+    if (ws.empty()) return s;
+    int mn = ws[0];
+    for (size_t q = 1; q < ws.size(); q++) if (ws[q] < mn) mn = ws[q];
+    int b = s.b;
+    if (b < 0 || s.len != bl[(size_t)b].top || mn < s.len) b = zwk_fork(bl, s);
+    for (size_t q = 0; q < ws.size(); q++) zwk_set(bl[(size_t)b], ws[q]);
+    zwk_st_t r; r.b = b; r.len = bl[(size_t)b].top;
+    return r;
+}
+static int zwk_join(std::vector<zwk_blk_t> & bl, zwk_st_t & into, const zwk_st_t & add) {
+    if (add.b < 0 || add.len <= 0) return 0;
+    if (into.b < 0) { into = add; return 1; }
+    if (into.b == add.b) {
+        if (add.len <= into.len || !zwk_has_bits(bl, add.b, into.len, add.len)) return 0;
+        into.len = add.len;
+        return 1;
+    }
+    if (zwk_subset(bl, add, into)) return 0;
+    if (zwk_subset(bl, into, add)) { into = add; return 1; }
+    zwk_blk_t k;
+    int len = into.len > add.len ? into.len : add.len;
+    k.bits.assign((size_t)((len + 63) / 64), 0ull);
+    for (size_t q = 0; q < k.bits.size(); q++) k.bits[q] = zwk_view_word(bl, into, q) | zwk_view_word(bl, add, q);
+    k.top = len;
+    int f1 = bl[(size_t)into.b].first < into.len ? bl[(size_t)into.b].first : INT_MAX, f2 = bl[(size_t)add.b].first < add.len ? bl[(size_t)add.b].first : INT_MAX;
+    k.first = f1 < f2 ? f1 : f2;
+    bl.push_back(k);
+    into.b = (int)bl.size() - 1;
+    into.len = len;
+    return 1;
+}
 void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
     rec->v_wk.clear();
     std::vector<int> E((size_t)n, -1), X((size_t)n, -1);
-    std::vector<std::vector<uint64_t>> in((size_t)n);
+    std::vector<zwk_blk_t> bl;
+    std::vector<zwk_st_t> in((size_t)n), ext((size_t)n), extin((size_t)n);
+    std::vector<unsigned char> extok((size_t)n, 0);
     for (int i = 0; i < n; i++) {
         znode_t * z = &rec->zn[i];
         z->wkoff = -1; z->wkn = 0; z->wke = 0;
         if (!rec->on[i] || !rec->xb || rec->xb[i] == INT_MIN || rec->out[i] < 0) continue;
         int e = z->zrunb + z->xbp, x = e + z->k;
         if (z->k < 0 || (e & 7) || (x & 7) || e < 0) continue;
-        E[(size_t)i] = e; X[(size_t)i] = x; in[(size_t)i].assign((size_t)((e / 8 + 63) / 64), 0u);
+        E[(size_t)i] = e; X[(size_t)i] = x;
     }
     std::vector<char> own;
+    std::vector<int> ws;
     for (int pass = 0, ch = 1; ch && pass < 4; pass++) {
         ch = 0;
         for (int j = 0; j < n; j++) {
             if (E[(size_t)j] < 0) continue;
-            std::vector<uint64_t> st = in[(size_t)j];
-            st.resize((size_t)((X[(size_t)j] / 8 + 63) / 64), 0u);
-            zd_wk_own(g, nodes[j], own);
-            for (size_t c = 0; c < own.size(); c++) if (own[c]) { int w = X[(size_t)j] / 8 - 1 - (int)c; if (w >= 0) st[(size_t)w / 64] |= 1ull << (w % 64); }
+            if (!extok[(size_t)j] || in[(size_t)j].b != extin[(size_t)j].b || in[(size_t)j].len != extin[(size_t)j].len) {
+                zd_wk_own(g, nodes[j], own);
+                ws.clear();
+                for (size_t c = 0; c < own.size(); c++) if (own[c]) { int w = X[(size_t)j] / 8 - 1 - (int)c; if (w >= 0) ws.push_back(w); }
+                ext[(size_t)j] = zwk_extend(bl, in[(size_t)j], ws);
+                extin[(size_t)j] = in[(size_t)j];
+                extok[(size_t)j] = 1;
+            }
+            const zwk_st_t st = ext[(size_t)j];
             IR_t * sc[1 + nodes[j]->n_operands]; int ns = 0, o2 = (int)nodes[j]->op;
             sc[ns++] = nodes[j]->γ.node;
             if (zd_check_arm_env(o2)) {
@@ -2254,23 +2338,26 @@ void zd_wk_fold(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g) {
                 int y = t ? nidx(nodes, n, t) : -1;
                 if (y < 0 || E[(size_t)y] < 0) continue;
                 int lim = E[(size_t)y] / 8 < X[(size_t)j] / 8 ? E[(size_t)y] / 8 : X[(size_t)j] / 8;
-                for (int q = 0; q * 64 < lim; q++) {
-                    uint64_t v = st[(size_t)q];
-                    if (q * 64 + 64 > lim) v &= (1ull << (lim - q * 64)) - 1ull;
-                    if (v & ~in[(size_t)y][(size_t)q]) { in[(size_t)y][(size_t)q] |= v; ch = 1; }
-                }
+                zwk_st_t add = st;
+                if (add.len > lim) add.len = lim;
+                add = zwk_norm(bl, add);
+                if (zwk_join(bl, in[(size_t)y], add)) ch = 1;
             }
         }
     }
+    std::vector<int> bofs(bl.size(), -1);
     for (int i = 0; i < n; i++) {
         if (E[(size_t)i] < 0) continue;
-        int nb = E[(size_t)i] / 8, any = 0;
-        std::vector<uint64_t> asc((size_t)((nb + 63) / 64), 0u);
-        for (int w = 0; w < nb; w++) if ((in[(size_t)i][(size_t)w / 64] >> (w % 64)) & 1ull) { int b = nb - 1 - w; asc[(size_t)b / 64] |= 1ull << (b % 64); any = 1; }
-        if (!any) continue;
+        const zwk_st_t s = zwk_norm(bl, in[(size_t)i]);
+        if (s.b < 0) continue;
         znode_t * z = &rec->zn[i];
-        z->wkoff = (int)rec->v_wk.size(); z->wkn = nb; z->wke = E[(size_t)i];
-        rec->v_wk.insert(rec->v_wk.end(), asc.begin(), asc.end());
+        if (bofs[(size_t)s.b] < 0) {
+            const zwk_blk_t & k = bl[(size_t)s.b];
+            rec->v_wk.push_back((uint64_t)k.bits.size());
+            bofs[(size_t)s.b] = (int)rec->v_wk.size();
+            rec->v_wk.insert(rec->v_wk.end(), k.bits.begin(), k.bits.end());
+        }
+        z->wkoff = bofs[(size_t)s.b]; z->wkn = s.len; z->wke = E[(size_t)i];
     }
 }
 static int zd_callee_frame_retained(const IR_graph_t * cg, const IR_t * nd) { int r = planner_retains_g(cg, nd);
