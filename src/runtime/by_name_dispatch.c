@@ -1172,7 +1172,9 @@ static int rk_is_seq(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.
 static int rk_seq_is_lazy(DESCR_t v) { return rk_is_seq(v) && (((ARBLK_t *) v.arr)->proto_bare & RK_SEQ_LAZY); }
 static void rk_seq_reify(DESCR_t *sp, long need);
 #define RK_ARR_BOUND 16
+#define RK_ARR_ITEM 64
 static int rk_is_cell(DESCR_t d) { return d.v == DT_N && d.slen == 1 && d.ptr; }
+static int rk_is_item(DESCR_t v) { return v.v == DT_A && v.arr && (((ARBLK_t *) v.arr)->proto_bare & RK_ARR_ITEM); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_slot(const ARBLK_t *b, long k) { DESCR_t d = b->data[k]; return ((b->proto_bare & RK_ARR_BOUND) && !b->proto && rk_is_cell(d)) ? *(DESCR_t *) d.ptr : d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2286,7 +2288,7 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
         if (lst && a.n == 1) { const char *one = tx[0]; size_t L = strlen(one); char *b = rt_wsb_alloc(L + 16); snprintf(b, L + 16, "%s(%s,)%s", sl ? "slip" : "", one, sq ? ".Seq" : ""); return b; }
         const char *body = rk_join_gists(tx, a.n, ", ", sl ? "slip(" : lst ? "(" : "[", lst ? ")" : "]");
         if (sq) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 5); snprintf(b, L + 5, "%s.Seq", body); return b; }
-        if (in_hash && !lst) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 2); b[0] = '$'; memcpy(b + 1, body, L + 1); return b; }
+        if ((in_hash && !lst) || rk_is_item(v)) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 2); b[0] = '$'; memcpy(b + 1, body, L + 1); return b; }
         return body;
     }
     return rk_raku_scalar(v);
@@ -3472,7 +3474,17 @@ static int rk_rat_dispatch(const char *meth, DESCR_t *recv, const DESCR_t *margs
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_item(DESCR_t *args, int nargs) { if ((nargs - 1) == 0) { return args[0]; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt_item(DESCR_t *args, int nargs) {
+    if ((nargs - 1) != 0) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    DESCR_t v = args[0];
+    if (!(v.v == DT_A && v.arr) || rk_is_pair(v) || rk_is_jct(v) || rk_is_seq(v) || rk_is_range(v) || rk_is_item(v)) return v;
+    rk_av_t a = rk_av(v);
+    DESCR_t c = rk_mk_arr(NULL, 0);
+    for (int i = 0; i < a.n; i++) rk_arr_append((ARBLK_t *) c.arr, a.el[i]);
+    ((ARBLK_t *) c.arr)->proto = ((ARBLK_t *) v.arr)->proto;
+    ((ARBLK_t *) c.arr)->proto_bare |= RK_ARR_ITEM;
+    return c;
+}
 DESCR_t bt_IO(DESCR_t *args, int nargs) {
     char sb[64];
     const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
@@ -13743,7 +13755,7 @@ static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
     return rn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_spill_count(DESCR_t v) { DESCR_t *la = 0; int ln = 0; if (v.v == DT_A && v.arr) return rk_av(v).n; if (rt_lv_is_list(v, &la, &ln)) return ln; return 1; }
+static int rk_spill_count(DESCR_t v) { DESCR_t *la = 0; int ln = 0; if (rk_is_item(v)) return 1; if (v.v == DT_A && v.arr) return rk_av(v).n; if (rt_lv_is_list(v, &la, &ln)) return ln; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill_scalar(DESCR_t *r, int k, DESCR_t v) { if (v.v == DT_SNUL) { r[k++] = rk_txt_elem("", 0); return k; } r[k++] = v; return k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13769,6 +13781,7 @@ static int rk_item(DESCR_t *r, int k, DESCR_t v) {
 static int rk_spill(DESCR_t *r, int k, DESCR_t v) {
     DESCR_t *la = 0;
     int ln = 0;
+    if (rk_is_item(v)) { r[k++] = v; return k; }
     if (v.v == DT_A && v.arr) { rk_av_t s = rk_av(v); for (int j = 0; j < s.n; j++) r[k++] = s.el[j]; return k; }
     if (rt_lv_is_list(v, &la, &ln)) { for (int j = 0; j < ln; j++) k = rk_spill_scalar(r, k, la[j]); return k; }
     return rk_spill_scalar(r, k, v);
@@ -14032,6 +14045,7 @@ DESCR_t rt_make_item_agg(DESCR_t *args, int nargs) {
 static int rk_flat_count(DESCR_t v) {
     DESCR_t *la = 0;
     int ln = 0, c = 0;
+    if (rk_is_item(v)) return 1;
     if (v.v == DT_A && v.arr) { rk_av_t a = rk_av(v); if (rk_is_list(v) || rk_is_slip(v)) { for (int i = 0; i < a.n; i++) c += rk_flat_count(a.el[i]); return c; } return a.n; }
     if (rt_lv_is_list(v, &la, &ln)) { for (int j = 0; j < ln; j++) c += rk_flat_count(la[j]); return c; }
     return 1;
@@ -14040,6 +14054,7 @@ static int rk_flat_count(DESCR_t v) {
 static int rk_flat_into(DESCR_t *r, int k, DESCR_t v) {
     DESCR_t *la = 0;
     int ln = 0;
+    if (rk_is_item(v)) { r[k++] = v; return k; }
     if (v.v == DT_A && v.arr) {
         rk_av_t a = rk_av(v);
         if (rk_is_list(v) || rk_is_slip(v)) { for (int i = 0; i < a.n; i++) k = rk_flat_into(r, k, a.el[i]); return k; }
@@ -17504,6 +17519,7 @@ static DESCR_t bta___rk_reduce_min(DESCR_t *args, int nargs, int _bop) { if (nar
 DESCR_t bt___rk_reduce_min(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_reduce_min(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt___rk_reduce_max(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_reduce_min(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_join(DESCR_t *args, int nargs) {
+    if (nargs == 0) return STRVAL("");
     if (nargs >= 1) {
         rk_cbh_t H = { g_rk_cbh_cur, { args[0], NULVCL } };
         g_rk_cbh_cur = &H;

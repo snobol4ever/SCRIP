@@ -482,6 +482,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt_hash_values", GC_RET_DESCR },
     { "bt_head", GC_RET_DESCR },
     { "bt_isx2Dprime", GC_RET_DESCR },
+    { "bt_item", GC_RET_DESCR },
     { "bt_join", GC_RET_DESCR },
     { "bt_lc", GC_RET_DESCR },
     { "bt_lines", GC_RET_DESCR },
