@@ -1229,6 +1229,8 @@ static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_slip(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_slip; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_slip_undef(DESCR_t v) { return rk_is_slip(v) && ((ARBLK_t *) v.arr)->hi < ((ARBLK_t *) v.arr)->lo; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_range[] = "Range";
 static int rk_is_range(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_range; }
 static int rk_is_list(DESCR_t v) {
@@ -4213,7 +4215,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0));
         return 1;
     }
-    if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
+    if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL && !rk_slip_undef(recv) ? 1 : 0); return 1; }
     if (!strcmp(meth, "message") || !strcmp(meth, "payload")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
@@ -13794,7 +13796,7 @@ static int rk_pre_value(const char *nm, DESCR_t *out) {
     if (!strcmp(nm, "Less")) { *out = (DESCR_t){ .v = DT_ORDER, .i = -1 }; return 1; }
     if (!strcmp(nm, "Same")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 0 }; return 1; }
     if (!strcmp(nm, "More")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 1 }; return 1; }
-    if (!strcmp(nm, "Empty")) { *out = rk_mk_arr(NULL, 0); return 1; }
+    if (!strcmp(nm, "Empty")) { DESCR_t em = rk_mk_arr(NULL, 0); ((ARBLK_t *) em.arr)->proto = rk_proto_slip; *out = em; return 1; }
     if (!strcmp(nm, "time")) { *out = INTVAL((long) time(NULL)); return 1; }
     if (!strcmp(nm, "now")) { struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts); *out = REALVAL((double) ts.tv_sec + (double) ts.tv_nsec / 1e9); return 1; }
     if (!strcmp(nm, "rand")) { *out = REALVAL((double) random() / ((double) RAND_MAX + 1.0)); return 1; }
@@ -24460,7 +24462,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     ;
     if ((_bid == BID___rk_defined) && nargs == 1) {
         DESCR_t v = args[0];
-        int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL) && !rk_typeobj_name(v) && !rk_failure_is(v);
+        int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL) && !rk_typeobj_name(v) && !rk_failure_is(v) && !rk_slip_undef(v);
         if (rk_failure_is(v)) rk_failure_handle(v);
         *out = t ? INTVAL(1) : FAILDESCR;
         return 1;
@@ -24469,7 +24471,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     ;
     if ((_bid == BID___rk_dor) && nargs == 2) {
         DESCR_t a = args[0];
-        int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL) && !rk_typeobj_name(a) && !rk_failure_is(a);
+        int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL) && !rk_typeobj_name(a) && !rk_failure_is(a) && !rk_slip_undef(a);
         if (rk_failure_is(a)) rk_failure_handle(a);
         *out = def ? a : args[1];
         return 1;

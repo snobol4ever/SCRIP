@@ -1426,8 +1426,8 @@ tree_t *rk_defined_op(RkB *b, int kind, tree_t *l, tree_t *r) {
         expr_add_child(seq, leaf_sval(TT_VAR, tmp));
         return seq;
     }
-    tree_t *yes = kind == 2 ? rside : kind == 3 ? make_call("__rk_arr") : leaf_sval(TT_VAR, tmp);
-    tree_t *no = kind == 2 ? make_call("__rk_arr") : rside;
+    tree_t *yes = kind == 2 ? rside : kind == 3 ? var_node(b, "Empty") : leaf_sval(TT_VAR, tmp);
+    tree_t *no = kind == 2 ? var_node(b, "Empty") : rside;
     expr_add_child(seq, rkb_ternary(b, dcall, yes, no));
     return seq;
 }
