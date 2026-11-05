@@ -1325,6 +1325,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_mod_closure", GC_RET_OTHER },
     { "pl_mod_goal", GC_RET_VOID },
     { "pl_mod_head", GC_RET_VOID },
+    { "pl_mod_import_facts", GC_RET_OTHER },
     { "pl_mod_import_of", GC_RET_OTHER },
     { "pl_mod_lib_private", GC_RET_OTHER },
     { "pl_mod_mt", GC_RET_OTHER },
