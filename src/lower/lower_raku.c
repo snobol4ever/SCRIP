@@ -688,6 +688,7 @@ static IR_t * rk_lower_smatch_boxes(rcx_t * cx, const tree_t * t, IR_t * γ, IR_
 }
 static int rk_rx_boxes_on(void) { const char * e = getenv("RK_RX_BOXES"); return !(e && e[0] == '0'); }
 static int rk_proc_known(const char * name);
+static int rk_proc_rest_kind(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_refuse(const tree_t * t, const char * what) { fprintf(stderr, "scrip: raku: line %d: REFUSED -- %s\n", t ? t->line : 0, what); exit(2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1950,6 +1951,23 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
             if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+            if (nm && !rk_is_multi_name(nm)) {
+                int named = !strcmp(nm, "__rk_named_call");
+                const char * pn = named ? ((t->n > 2 && t->c[1] && t->c[1]->t == TT_QLIT) ? t->c[1]->v.sval : NULL) : nm;
+                int rkv = pn ? rk_proc_rest_kind(pn) : 0, vi = (rkv >> 4) - 1, p0 = named ? 3 : 1;
+                int np = named ? ((t->n > 2 && t->c[2] && t->c[2]->t == TT_ILIT) ? (int) t->c[2]->v.ival : -1) : t->n - 1;
+                const tree_t * lastp = (np == vi + 1 && vi >= 0 && p0 + vi < t->n) ? t->c[p0 + vi] : NULL;
+                if (vi >= 0 && np >= vi && !(lastp && lastp->t == TT_FNC && lastp->v.sval && !strcmp(lastp->v.sval, "__rk_slurp"))) {
+                    tree_t * nc = rk_fnc2("__rk_named_call", leaf_sval2(TT_QLIT, pn), rk_ti(vi + 1));
+                    nc->line = t->line;
+                    for (int i = 0; i < vi; i++) ast_push(nc, t->c[p0 + i]);
+                    tree_t * sl = rk_fnc2("__rk_slurp", rk_ti(rkv & 15), NULL);
+                    for (int i = vi; i < np; i++) ast_push(sl, t->c[p0 + i]);
+                    ast_push(nc, sl);
+                    if (named) for (int i = p0 + np; i < t->n; i++) ast_push(nc, t->c[i]);
+                    return lower_rv(cx, nc, γ, ω, res);
+                }
+            }
             if (nm && (!strcmp(nm, "last") || !strcmp(nm, "next") || !strcmp(nm, "redo")) && !rk_user_proc_exists(nm)) { IR_t * lc = rk_loop_ctl(cx, t, nm, ω, res); if (lc) return lc; }
             if (nm && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) {
                 int swap = (!strcmp(nm, "split") || !strcmp(nm, "comb") || !strcmp(nm, "first") || !strcmp(nm, "roll")) && t->n == 3;
@@ -2763,7 +2781,19 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
         } else if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*%")) {
             g_stage2.proc_table[pi].named_rest = nparams;
         }
+        for (int k = 1; proc && k < nparams && k < proc->n; k++) {
+            const tree_t * sp = proc->c[k];
+            const char * sq = (sp && sp->n > 0 && sp->c[0] && sp->c[0]->t == TT_QLIT) ? sp->c[0]->v.sval : NULL;
+            int kd = !sq ? 0 : !strcmp(sq, "*@") ? 1 : !strcmp(sq, "**@") ? 2 : !strcmp(sq, "+@") ? 3 : !strcmp(sq, "+") ? 4 : 0;
+            if (kd) { g_stage2.proc_table[pi].rest_kind = kd + 16 * k; break; }
+        }
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_proc_rest_kind(const char * name) {
+    for (int i = 0; name && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_variadic ? 0 :
+        g_stage2.proc_table[i].rest_kind;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_proc_known(const char * name) {

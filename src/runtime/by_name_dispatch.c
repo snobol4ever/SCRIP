@@ -16296,6 +16296,21 @@ DESCR_t bt___rk_materialize(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt___rk_pair(DESCR_t *args, int nargs) { if (nargs == 2) { return rk_mk_pair(args[0], args[1]); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static DESCR_t rk_rest_pack(int kind, DESCR_t *tail, int rest) {
+    extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_plus_agg(DESCR_t *args, int nargs, int as_list);
+    if (kind == 2) return rt_make_item_agg(tail, rest);
+    if (kind >= 3) return rt_make_plus_agg(tail, rest, kind == 4);
+    return kind == 1 ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt___rk_slurp(DESCR_t *args, int nargs) {
+    if (nargs >= 1 && IS_INT_fn(args[0])) return rk_rest_pack((int) args[0].i, nargs > 1 ? &args[1] : (DESCR_t *)0, nargs - 1);
+    return (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bt___rk_named_call(DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (nargs >= 2) {
         extern const char *rt_proc_pname(const char *name, int k);
