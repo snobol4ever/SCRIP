@@ -154,7 +154,6 @@ int main(void) {
         {
             static DESCR_t elems[8];
             for (int i = 0; i < 8; i++) elems[i] = INTVAL(100 + i);
-            DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)");
             DEFDAT_fn("point3(frame_elems,frame_size,gen_type)");
             DEFDAT_fn("pair(x,y)");
             for (int n = 0; n <= 8; n += 4) {

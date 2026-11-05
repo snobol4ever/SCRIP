@@ -506,8 +506,6 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
             if (ii > jj) { int t = ii; ii = jj; jj = t; }
             int rlen = jj - ii;
             if (rlen <= 0) {
-                static int list_empty_reg = 0;
-                if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_empty_reg=1; }
                 DESCR_t empty_ptr = {0};
                 empty_ptr.v=DT_DATA;
                 empty_ptr.slen=DATA_ELEMS_SLEN;
@@ -520,8 +518,6 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
             rptr.v=DT_DATA;
             rptr.slen=DATA_ELEMS_SLEN;
             rptr.ptr=(void*)rbuf;
-            static int list_slice_reg = 0;
-            if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_slice_reg=1; }
             return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen), NULVCL);
         }
     }

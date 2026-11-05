@@ -2157,6 +2157,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_list_bang_ukey_at", GC_RET_DESCR },
     { "rt_list_bang_var_at", GC_RET_DESCR },
     { "rt_list_bang_var_body", GC_RET_DESCR },
+    { "rt_list_type_install", GC_RET_VOID },
     { "rt_lvb_get", GC_RET_VOID },
     { "rt_lvb_of", GC_RET_OTHER },
     { "rt_lvb_pull", GC_RET_VOID },

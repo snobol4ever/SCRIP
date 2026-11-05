@@ -2634,6 +2634,7 @@ int rt_environ_has(const char *prefix) {
 }
 const char *rt_scrip_getenv(const char *name) { if (!g_runtime.scrip_env) g_runtime.scrip_env = rt_environ_has("SCRIP_") ? 2 : 1; return g_runtime.scrip_env == 1 ? (const char *)0 : getenv(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_list_type_install(void);
 RT_ENTRY_DECL(core_lib_init, leaf, 0);
 void core_lib_init(void) {
     static int core_lib_inited = 0;
@@ -2687,6 +2688,7 @@ void core_lib_init(void) {
 #if RT_DIAG
     g_runtime.core.monitor_ready = 1;
 #endif
+    rt_list_type_install();
     DEFDAT_fn("tree(t,v,n,c)");
     g_runtime.abi.protected_pat_vars_armed = 1;
 }
@@ -3332,6 +3334,17 @@ void DEFDAT_fn(const char *spec) {
     t->serial_next = 1;
     g_runtime.core.udef_types = t;
     udef_nidx_put(t);
+}
+static char *g_rt_list_fields[] = { "frame_elems", "frame_size", "gen_type", "frame_cap", "frame_blocks" };
+DATBLK_t g_rt_list_type = { .name = "list", .nfields = (int)(sizeof g_rt_list_fields / sizeof g_rt_list_fields[0]), .fields = g_rt_list_fields, .next = NULL, .serial_next = 1 };
+static void rt_list_type_install(void) {
+    DATBLK_t **pp = &g_runtime.core.udef_types;
+    while (*pp && *pp != &g_rt_list_type) pp = &(*pp)->next;
+    if (*pp) return;
+    g_rt_list_type.next = NULL;
+    g_rt_list_type.serial_next = 1;
+    *pp = &g_rt_list_type;
+    udef_nidx_put(&g_rt_list_type);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DATBLK_t *_udef_lookup(const char *name) {

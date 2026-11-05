@@ -21562,8 +21562,6 @@ DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_make_list, leaf, 0);
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
-    static int list_reg3 = 0;
-    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_reg3 = 1; }
     DESCR_t *elems = (DESCR_t *)0;
     if (nargs > 0) { elems = rt_ws_alloc_descr((size_t)nargs); for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j]; }
     DESCR_t eptr = {0};
@@ -25543,8 +25541,6 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             }
         }
         if (nargs >= 2) { DESCR_t iv = args[1]; if (!IS_FAIL_fn(iv)) init = iv; }
-        static int list_reg2 = 0;
-        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_reg2 = 1; }
         DESCR_t *elems = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr = {0};
