@@ -2379,6 +2379,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$phrase_input'(D):-throw(error(type_error(list,D),_)).\n"
     "'$phrase_rt'(G,S0,S):-(current_prolog_flag('$dialect',swi)->'$phrase_input'(S0),'$phrase_input'(S);true),'$phrase'(G,S0,S).\n"
     "'$dcg_body'(V,S0,S,phrase(V,S0,S)):-var(V),!.\n"
+    "'$dcg_body'(M:G,S0,S,Goal):-atom(M),nonvar(G),(G=[_|_];G==[];string(G)),!,'$dcg_body'(G,S0,S,Goal).\n"
     "'$dcg_body'([],S0,S,S0=S):-!.\n"
     "'$dcg_body'([H|T],S0,S,S0=L):-!,'$dcg_list'([H|T],S,L).\n"
     "'$dcg_body'(Str,S0,S,S0=L):-string(Str),!,string_codes(Str,Cs),'$dcg_list'(Cs,S,L).\n"

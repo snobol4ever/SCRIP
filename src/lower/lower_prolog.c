@@ -2597,7 +2597,7 @@ static int pl_tree_is_callable(const tree_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_phrase_plain_nt(const tree_t * g) {
-    static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "{}", ".", "[]", "[|]", "!", "|", "call", 0 };
+    static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "{}", ".", "[]", "[|]", "!", "|", "call", ":", 0 };
     if (!g || (g->t != TT_FNC && g->t != TT_NAME && g->t != TT_QLIT) || !g->v.sval) return 0;
     for (int i = 0; ctl[i]; i++) if (!strcmp(g->v.sval, ctl[i])) return 0;
     return 1;
