@@ -1786,7 +1786,7 @@ static void scrip_harness_child(char ** c, FILE * rec, const sigset_t * old, cha
     exit(main(ac, av));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_harness_row(char * self, char ** c, int nc, FILE * rec) {
+static void scrip_harness_row(char * self, const char * mode, char ** c, int nc, FILE * rec) {
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
     if (nc < 8 || access(c[1], R_OK) != 0) { scrip_harness_record(rec, c[0], 2, "REFUSED", 0.0, 0L); return; }
@@ -1794,7 +1794,7 @@ static void scrip_harness_row(char * self, char ** c, int nc, FILE * rec) {
     char * av[nc + 8];
     int ac = 0;
     av[ac++] = self;
-    av[ac++] = "--run";
+    av[ac++] = (char *) mode;
     if (c[5][0]) { snprintf(dsw, sizeof dsw, "-d%sk", c[5]); av[ac++] = dsw; }
     if (c[6][0]) { snprintf(ssw, sizeof ssw, "-s%sk", c[6]); av[ac++] = ssw; }
     av[ac++] = c[1];
@@ -1831,7 +1831,7 @@ static void scrip_harness_row(char * self, char ** c, int nc, FILE * rec) {
     else scrip_harness_record(rec, c[0], WEXITSTATUS(st), "RAN", secs, ru.ru_maxrss);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_harness_main(char * self, const char * list_path, const char * record_path) {
+static int scrip_harness_main(char * self, const char * mode, const char * list_path, const char * record_path) {
     struct stat sb;
     int lf = open(list_path, O_RDONLY);
     if (lf < 0 || fstat(lf, &sb) < 0) { fprintf(stderr, "scrip: --harness cannot read the list '%s'\n", list_path); return 2; }
@@ -1849,7 +1849,7 @@ static int scrip_harness_main(char * self, const char * list_path, const char * 
         if (eol) *eol = '\0';
         int nc = 1;
         for (char * q = line; *q; q++) if (*q == '\t') nc++;
-        if (*line) { char * c[nc]; int k = 0; c[k++] = line; for (char * q = line; *q; q++) if (*q == '\t') { *q = '\0'; c[k++] = q + 1; } scrip_harness_row(self, c, nc, rec); }
+        if (*line) { char * c[nc]; int k = 0; c[k++] = line; for (char * q = line; *q; q++) if (*q == '\t') { *q = '\0'; c[k++] = q + 1; } scrip_harness_row(self, mode, c, nc, rec); }
         line = next;
     }
     fclose(rec);
@@ -1858,7 +1858,8 @@ static int scrip_harness_main(char * self, const char * list_path, const char * 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
     g_lower.icn.parse = icon_compile_parse;
-    if (argc >= 5 && strcmp(argv[1], "--harness") == 0 && strcmp(argv[3], "--record") == 0) return scrip_harness_main(argv[0], argv[2], argv[4]);
+    if (argc >= 5 && strcmp(argv[1], "--harness") == 0 && strcmp(argv[3], "--record") == 0) return scrip_harness_main(argv[0], "--run", argv[2], argv[4]);
+    if (argc >= 6 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0 && strcmp(argv[4], "--record") == 0) return scrip_harness_main(argv[0], "--compile", argv[3], argv[5]);
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
     int mode_run = 0;
