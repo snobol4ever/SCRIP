@@ -13,6 +13,8 @@
 #include <alloca.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <ctype.h>
 #include <errno.h>
 #include <libgen.h>
@@ -1763,8 +1765,100 @@ static void icn_register_locals(const char *pname, IR_graph_t *g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int refuse_dash_o(void) { fprintf(stderr, "scrip: -o FILE is refused: SPITBOL's -o=file names the compilation listing, so the assembly output of --compile is --out=FILE\n"); return 2; }
+static void scrip_harness_record(FILE * rec, const char * name, int rc, const char * kind, double secs, long maxrss_kb) {
+    fprintf(rec, "%s\t%d\t%s\t%.3f\t%ld\n", name, rc, kind, secs, maxrss_kb);
+    fflush(rec);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_harness_child(char ** c, FILE * rec, const sigset_t * old, char ** av) {
+    sigprocmask(SIG_SETMASK, old, (sigset_t *)0);
+    setpgid(0, 0);
+    fclose(rec);
+    int fi = open(c[2][0] ? c[2] : "/dev/null", O_RDONLY);
+    int fo = c[3][0] ? open(c[3], O_WRONLY | O_CREAT | O_TRUNC, 0644) : 1, fe = c[4][0] ? open(c[4], O_WRONLY | O_CREAT | O_TRUNC, 0644) : 2;
+    if (fi < 0 || fo < 0 || fe < 0) _exit(127);
+    if (dup2(fi, 0) < 0 || dup2(fo, 1) < 0 || dup2(fe, 2) < 0) _exit(127);
+    if (fi > 2) close(fi);
+    if (fo > 2) close(fo);
+    if (fe > 2) close(fe);
+    int ac = 0;
+    while (av[ac]) ac++;
+    exit(main(ac, av));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_harness_row(char * self, char ** c, int nc, FILE * rec) {
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    if (nc < 8 || access(c[1], R_OK) != 0) { scrip_harness_record(rec, c[0], 2, "REFUSED", 0.0, 0L); return; }
+    char dsw[strlen(c[5]) + 4], ssw[strlen(c[6]) + 4];
+    char * av[nc + 8];
+    int ac = 0;
+    av[ac++] = self;
+    av[ac++] = "--run";
+    if (c[5][0]) { snprintf(dsw, sizeof dsw, "-d%sk", c[5]); av[ac++] = dsw; }
+    if (c[6][0]) { snprintf(ssw, sizeof ssw, "-s%sk", c[6]); av[ac++] = ssw; }
+    av[ac++] = c[1];
+    if (nc > 8) av[ac++] = "--";
+    for (int k = 8; k < nc; k++) av[ac++] = c[k];
+    av[ac] = (char *)0;
+    double tmo = atof(c[7]);
+    sigset_t ss, old;
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &ss, &old);
+    fflush((FILE *)0);
+    pid_t pid = fork();
+    if (pid == 0) scrip_harness_child(c, rec, &old, av);
+    if (pid < 0) { sigprocmask(SIG_SETMASK, &old, (sigset_t *)0); scrip_harness_record(rec, c[0], 2, "REFUSED", 0.0, 0L); return; }
+    setpgid(pid, pid);
+    int st = 0, hang = 0;
+    struct rusage ru;
+    memset(&ru, 0, sizeof ru);
+    for (;;) {
+        if (wait4(pid, &st, WNOHANG, &ru) == pid) break;
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        double left = tmo - ((double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9);
+        if (tmo > 0 && left <= 0) { hang = 1; killpg(pid, SIGKILL); wait4(pid, &st, 0, &ru); break; }
+        struct timespec w = { 1, 0 };
+        if (tmo > 0 && left < 1.0) { w.tv_sec = 0; w.tv_nsec = (long)(left * 1e9) + 1; }
+        sigtimedwait(&ss, (siginfo_t *)0, &w);
+    }
+    sigprocmask(SIG_SETMASK, &old, (sigset_t *)0);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double secs = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
+    if (hang) scrip_harness_record(rec, c[0], 124, "HANG", secs, ru.ru_maxrss);
+    else if (WIFSIGNALED(st)) scrip_harness_record(rec, c[0], 128 + WTERMSIG(st), "CRASH", secs, ru.ru_maxrss);
+    else scrip_harness_record(rec, c[0], WEXITSTATUS(st), "RAN", secs, ru.ru_maxrss);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_harness_main(char * self, const char * list_path, const char * record_path) {
+    struct stat sb;
+    int lf = open(list_path, O_RDONLY);
+    if (lf < 0 || fstat(lf, &sb) < 0) { fprintf(stderr, "scrip: --harness cannot read the list '%s'\n", list_path); return 2; }
+    char * buf = (char *) ct_alloc((size_t) sb.st_size + 1);
+    ssize_t got = 0, r = 0;
+    while (got < sb.st_size && (r = read(lf, buf + got, (size_t)(sb.st_size - got))) > 0) got += r;
+    close(lf);
+    buf[got] = '\0';
+    FILE * rec = fopen(record_path, "w");
+    if (!rec) { fprintf(stderr, "scrip: --harness cannot write the record '%s'\n", record_path); return 2; }
+    char * line = buf;
+    while (*line) {
+        char * eol = strchr(line, '\n');
+        char * next = eol ? eol + 1 : line + strlen(line);
+        if (eol) *eol = '\0';
+        int nc = 1;
+        for (char * q = line; *q; q++) if (*q == '\t') nc++;
+        if (*line) { char * c[nc]; int k = 0; c[k++] = line; for (char * q = line; *q; q++) if (*q == '\t') { *q = '\0'; c[k++] = q + 1; } scrip_harness_row(self, c, nc, rec); }
+        line = next;
+    }
+    fclose(rec);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
     g_lower.icn.parse = icon_compile_parse;
+    if (argc >= 5 && strcmp(argv[1], "--harness") == 0 && strcmp(argv[3], "--record") == 0) return scrip_harness_main(argv[0], argv[2], argv[4]);
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
     int mode_run = 0;
