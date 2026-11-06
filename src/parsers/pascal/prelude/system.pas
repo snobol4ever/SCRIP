@@ -8,6 +8,7 @@ function BsrDWord(qv: int64): integer;
 function BsfQWord(qv: int64): integer;
 function BsfDWord(qv: int64): integer;
 function PopCnt(qv: int64): integer;
+function LowerCase(c: char): char;
 function IOResult: integer;
 procedure __sh_iocheck;
 implementation
@@ -80,6 +81,11 @@ begin
     qv := qv div 2
   end;
   PopCnt := cn
+end;
+function LowerCase(c: char): char;
+begin
+  if (c >= 'A') and (c <= 'Z') then LowerCase := chr(ord(c) + 32)
+  else LowerCase := c
 end;
 initialization
   stdout := __pas_stdfile(3);
