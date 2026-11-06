@@ -2712,6 +2712,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return eo;
         }
         case TT_SUSPEND:
+        if (t->v.ival == 1 && t->n > 0 && t->c[0] && rk_user_meth_named("take")) {
+            tree_t * mc = ast_node_new(TT_METHCALL);
+            ast_push(mc, t->c[0]);
+            ast_push(mc, leaf_sval2(TT_QLIT, "take"));
+            return lower_rv(cx, mc, γ, ω, res);
+        }
         if (cx->cur_proc_name && rk_proc_is_generator(cx->cur_proc_name)) {
             IR_t * sn = build(cx, IR_SUSPEND, cx->proc_exit ? cx->proc_exit : γ, ω);
             IR_LIT(sn).dval = 1.0;
