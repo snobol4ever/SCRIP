@@ -213,7 +213,7 @@ static void pf_gate(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_gra
             else if (k >= 0 && zon[k] && cl[k] >= 0 && fm[cl[k]] >= 0) { kd = fb[cl[k]] + zout[k] - (wantb ? 0 : zd_k_g(g, nodes[k])); kk = 2; kf = fm[cl[k]]; }
             if (lf >= 0 && kk == 1 && zd_edge_retains_g(g, nodes[k])) { IR_t * lt = zd_chase(nodes[k]->γ.node); int lq = lt ? pf_row(nodes, n, lt) : -1;
                 if (lq >= 0 && cl[lq] >= 0 && fm[cl[lq]] == lf) { kd = 0; kk = 2; kf = lf; } }
-            long di = (lf >= 0 && rec->gp) ? fb[cl[a]] + zout[a] - rec->gp[a] : (zon[i] && cl[i] >= 0 && fm[cl[i]] >= 0 && fm[cl[i]] == lf) ? fb[cl[i]] + zout[i] : 0;
+            long di = (zon[i] && cl[i] >= 0 && fm[cl[i]] >= 0 && fm[cl[i]] == lf) ? fb[cl[i]] + zout[i] : 0;
             if (lf >= 0 && kk == 2 && kf == lf) V = (int)(di - kd);
         }
         rec->v_gate.push_back(V);

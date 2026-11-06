@@ -53,7 +53,6 @@ int zls_frame_resident(const IR_t * nd);
 void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np);
 void zls_home_pass(const IR_graph_t * g);
 int zls_home_why(const IR_t * nd);
-void zls_home_why_set(const IR_t * nd, int w);
 int zls_home_member(const IR_t * nd);
 int zls_home_local_why(const IR_t * nd);
 int zls_home_local_kind(int lo);
