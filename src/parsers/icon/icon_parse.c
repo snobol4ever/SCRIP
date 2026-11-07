@@ -978,13 +978,15 @@ static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_proc(IcnParser *p) { return parse_proc_kw(p, TK_PROCEDURE, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *parse_name_list(IcnParser *p, const char *what) {
+static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults) {
     tree_t *vl = ast_node_new(TT_VLIST);
     expect(p, TK_LPAREN, what);
     while (!check(p, TK_RPAREN) && !check(p, TK_EOF) && !p->had_error) {
         if (p->cur.kind != TK_IDENT) { parser_error(p, "expected a name"); break; }
-        push_child(vl, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
+        tree_t *v = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
+        push_child(vl, v);
         advance(p);
+        if (defaults && match(p, TK_COLON)) { tree_t *d = parse_expr(p); if (d) ast_push(v, d); }
         if (!match(p, TK_COMMA)) break;
     }
     expect(p, TK_RPAREN, what);
@@ -994,7 +996,7 @@ static tree_t *parse_name_list(IcnParser *p, const char *what) {
 static tree_t *parse_initially(IcnParser *p) {
     expect(p, TK_INITIALLY, "initially");
     int sline = p->cur.line;
-    tree_t *params = check(p, TK_LPAREN) ? parse_name_list(p, "initially params") : ast_node_new(TT_VLIST);
+    tree_t *params = check(p, TK_LPAREN) ? parse_name_list(p, "initially params", 0) : ast_node_new(TT_VLIST);
     match(p, TK_SEMICOL);
     tree_t *body = ast_node_new(TT_PROGRAM);
     while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
@@ -1022,7 +1024,7 @@ static tree_t *parse_class(IcnParser *p) {
         push_child(supers, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
         advance(p);
     }
-    tree_t *fields = parse_name_list(p, "class fields");
+    tree_t *fields = parse_name_list(p, "class fields", 1);
     match(p, TK_SEMICOL);
     tree_t *cls = ast_node_new(TT_CLASS_DECL);
     cls->v.sval = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);

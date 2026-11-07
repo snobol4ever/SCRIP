@@ -222,6 +222,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     int fields_are_params = !(ini && ini->c[1]->n > 0);
     tree_t * cb = ast_node_new(TT_PROGRAM);
     ast_push(cb, cx_call(cx_var(cx_cat(c->name, "__init", "")), 0, NULL));
+    for (int i = 0; i < c->node->c[1]->n; i++) { const tree_t * f = c->node->c[1]->c[i]; if (f->n > 0) ast_push(cb, cx_bin(TT_ASSIGN, cx_un(TT_NULL, cx_var(f->v.sval)), f->c[0])); }
     tree_t * ra = ast_node_new(TT_FNC);
     ast_push(ra, cx_var(cx_cat(c->name, "__state", "")));
     ast_push(ra, cx_var("&null"));
