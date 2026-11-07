@@ -16978,6 +16978,8 @@ static DESCR_t bta___rk_intdiv(DESCR_t *args, int nargs, int _bop) {
         extern void rt_script_die_surface(const char *msg);
         int is_div = ((_bop == 0));
         DESCR_t a = args[0], b = args[1];
+        if (a.v == DT_BOOL) a = INTVAL(a.i != 0);
+        if (b.v == DT_BOOL) b = INTVAL(b.i != 0);
         { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); if (!is_div && (a.v == DT_DATA || b.v == DT_DATA) && rk_rat_binop(a, b, BINOP_MOD, out)) return _bo; }
         if ((a.v == DT_BIG || b.v == DT_BIG) && (a.v == DT_BIG || a.v == DT_I) && (b.v == DT_BIG || b.v == DT_I)) {
             extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
