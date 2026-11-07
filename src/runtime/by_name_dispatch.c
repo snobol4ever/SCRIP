@@ -4229,6 +4229,12 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             if (!strcmp(meth, "pairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(INTVAL(i), a.el[i]); *out = rk_mk_arr(r, a.n); return 1; }
             if (!strcmp(meth, "antipairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(a.el[i], INTVAL(i)); *out = rk_mk_arr(r, a.n); return 1; }
             if (!strcmp(meth, "batch")) {
+                if (nmargs >= 1 && IS_INT_fn(margs[0]) && margs[0].i < 1) {
+                    rk_exc_init();
+                    rk_exc_throw(DATCON_fn("X::OutOfRange", STRVAL(rt_heap_fmt("Batching sublist length is out of range. Is: %ld, should be in 1..^Inf", (long) margs[0].i)),
+                        STRVAL(rt_heap_strdup_c("Batching sublist length")), INTVAL(margs[0].i), STRVAL(rt_heap_strdup_c("1..^Inf"))));
+                    return 1;
+                }
                 long bs = (nmargs >= 1 && IS_INT_fn(margs[0]) && margs[0].i > 0) ? (long) margs[0].i : 1;
                 int nb = (int) ((a.n + bs - 1) / bs);
                 DESCR_t *rb = nb ? (DESCR_t *) rt_ws_alloc_descr((size_t) nb) : NULL;
