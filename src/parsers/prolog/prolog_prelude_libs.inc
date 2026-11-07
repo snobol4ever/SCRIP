@@ -19874,6 +19874,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "close_output_chars_stream", 2 },
     { "close_output_codes_stream", 2 },
     { "add_stream_alias", 2 },
+    { "set_stream_alias", 2 },
     { "current_alias", 2 },
     { "add_stream_mirror", 2 },
     { "remove_stream_mirror", 2 },
@@ -19999,6 +20000,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { "send_signal", 0 },
     { "set_bip_name", 0 },
     { "set_linedit_prompt", 0 },
+    { "set_stream_alias", 0 },
     { "set_stream_buffering", 0 },
     { "set_stream_eof_action", 0 },
     { "set_stream_line_column", 0 },
@@ -20536,6 +20538,8 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "'$gnu_b_sora'(X, PI, _) :- throw(error(domain_error(stream_or_alias, X), PI)).\n"
     "add_stream_alias(X, A) :- '$gnu_b_sora'(X, add_stream_alias/2, S), '$gnu_b_ia'(A, add_stream_alias/2),\n"
     "    ( stream_property(S1, alias(A)) -> ( S1 == S -> true ; throw(error(permission_error(add_alias, source_sink, alias(A)), add_stream_alias/2)) ) ; '$gnu_os'(ts_alias, al(S, A), _) ).\n"
+    "set_stream_alias(X, A) :- '$gnu_b_sora'(X, set_stream_alias/2, S), '$gnu_b_ia'(A, set_stream_alias/2),\n"
+    "    ( stream_property(S1, alias(A)), S1 == S -> true ; '$gnu_os'(ts_realias, al(S, A), _) ).\n"
     "current_alias(S, A) :- '$gnu_b_ostream'(S, current_alias/2), '$gnu_b_oa'(A, current_alias/2), stream_property(S, alias(A)).\n"
     "add_stream_mirror(X, M) :- '$gnu_b_sora'(X, add_stream_mirror/2, S), '$gnu_b_sora'(M, add_stream_mirror/2, Ms),\n"
     "    ( stream_property(Ms, output) -> true ; throw(error(permission_error(output, stream, M), add_stream_mirror/2)) ), '$gnu_os'(ts_mir_add, mm(S, Ms), _).\n"
@@ -37492,6 +37496,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "set_prolog_stack", 16, 2, 74 },
     { "set_setting", 11, 2, 67 },
     { "set_setting_default", 19, 2, 67 },
+    { "set_stream_alias", 16, 2, 34 },
     { "set_stream_buffering", 20, 2, 34 },
     { "set_stream_eof_action", 21, 2, 34 },
     { "set_stream_line_column", 22, 3, 34 },

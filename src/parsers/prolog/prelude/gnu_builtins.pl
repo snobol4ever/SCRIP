@@ -36,7 +36,7 @@
                           socket/2, socket_close/1, socket_bind/2, socket_listen/2, socket_accept/3, socket_accept/4, socket_connect/4, hostname_address/2,
                           open_input_atom_stream/2, open_input_chars_stream/2, open_input_codes_stream/2, open_output_atom_stream/1, open_output_chars_stream/1,
                           open_output_codes_stream/1, close_input_atom_stream/1, close_input_chars_stream/1, close_input_codes_stream/1, close_output_atom_stream/2,
-                          close_output_chars_stream/2, close_output_codes_stream/2, add_stream_alias/2, current_alias/2, add_stream_mirror/2, remove_stream_mirror/2,
+                          close_output_chars_stream/2, close_output_codes_stream/2, add_stream_alias/2, set_stream_alias/2, current_alias/2, add_stream_mirror/2, remove_stream_mirror/2,
                           current_mirror/2, current_stream/1,
                           set_stream_type/2, set_stream_eof_action/2, set_stream_buffering/2, stream_position/2, stream_line_column/3, set_stream_line_column/3,
                           seek/4,
@@ -512,6 +512,8 @@ close_output_codes_stream(X, A) :- '$gnu_b_tclose_out'(X, A, codes, close_output
 '$gnu_b_sora'(X, PI, _) :- throw(error(domain_error(stream_or_alias, X), PI)).
 add_stream_alias(X, A) :- '$gnu_b_sora'(X, add_stream_alias/2, S), '$gnu_b_ia'(A, add_stream_alias/2),
     ( stream_property(S1, alias(A)) -> ( S1 == S -> true ; throw(error(permission_error(add_alias, source_sink, alias(A)), add_stream_alias/2)) ) ; '$gnu_os'(ts_alias, al(S, A), _) ).
+set_stream_alias(X, A) :- '$gnu_b_sora'(X, set_stream_alias/2, S), '$gnu_b_ia'(A, set_stream_alias/2),
+    ( stream_property(S1, alias(A)), S1 == S -> true ; '$gnu_os'(ts_realias, al(S, A), _) ).
 current_alias(S, A) :- '$gnu_b_ostream'(S, current_alias/2), '$gnu_b_oa'(A, current_alias/2), stream_property(S, alias(A)).
 add_stream_mirror(X, M) :- '$gnu_b_sora'(X, add_stream_mirror/2, S), '$gnu_b_sora'(M, add_stream_mirror/2, Ms),
     ( stream_property(Ms, output) -> true ; throw(error(permission_error(output, stream, M), add_stream_mirror/2)) ), '$gnu_os'(ts_mir_add, mm(S, Ms), _).

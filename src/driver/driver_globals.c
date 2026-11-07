@@ -55,7 +55,7 @@ int fh_alias_idx(const char *nm){
     fh_ensure_init();
     if(!nm) return -1;
     for(int i=3;i<FH_N;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i;
-    for(int i=3;i<FH_N;i++) for(int k=0;g_fh[i].fp&&k<g_fh[i].nxal;k++) if(!strcmp(prolog_atom_name(g_fh[i].xal[k]),nm)) return i;
+    for(int i=0;i<FH_N;i++) for(int k=0;g_fh[i].fp&&k<g_fh[i].nxal;k++) if(!strcmp(prolog_atom_name(g_fh[i].xal[k]),nm)) return i;
     return -1;
 }
 void fh_set_alias(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_N) g_fh[idx].alias = nm ? rt_heap_strdup_c(nm) : (char *)0; }

@@ -7872,12 +7872,17 @@ static const char *pl_sp_eos_name(int i) {
     return "not";
 }
 static void pl_fh_push(int **v, int *n, int x) { int *q = (int *)rt_gcheap_grow_block((void *)*v, (uint16_t)HB_WSB, (uint64_t)(*n + 1) * sizeof(int)); if (!q) return; q[*n] = x; *v = q; (*n)++; }
-static int pl_sp_nprops(int i) { return PL_SP_NPROP + (i >= 3 ? g_fh[i].nxal + g_fh[i].nmir : 0); }
+static void pl_fh_addal(int i, const char *nm) {
+    extern int prolog_atom_intern(const char *);
+    if (i >= 3 && !g_fh[i].alias) fh_set_alias(i, nm);
+    else pl_fh_push(&g_fh[i].xal, &g_fh[i].nxal, prolog_atom_intern(nm));
+}
+static int pl_sp_nprops(int i) { return PL_SP_NPROP + g_fh[i].nxal + (i >= 3 ? g_fh[i].nmir : 0); }
 static int pl_sp_xprop(int i, int j, DESCR_t *out) {
     extern const char *prolog_atom_name(int);
-    if (i < 3) return 0;
     if (j < g_fh[i].nxal) { const char *a = prolog_atom_name(g_fh[i].xal[j]); *out = pl_mk_cmp1("alias", pl_mk_atom_dup(a, strlen(a))); return 1; }
     j -= g_fh[i].nxal;
+    if (i < 3) return 0;
     if (j < g_fh[i].nmir) { *out = pl_mk_cmp1("mirror", pl_mk_stream(g_fh[i].mir[j])); return 1; }
     return 0;
 }
@@ -12302,7 +12307,7 @@ static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
         if (!fp || !w || fseek(fp, (long)o.i, w[0] == 'b' ? SEEK_SET : w[0] == 'c' ? SEEK_CUR : SEEK_END) != 0 || (n = ftell(fp)) < 0) return 0;
         return plw_unify_vals(res, INTVAL(n), cx);
     }
-    if (!strcmp(op, "sp_multi")) { int idx = pl_atom_str(a) ? pl_sp_named(a) : pl_gs_sidx(a); return idx >= 3 && idx < FH_N && g_fh[idx].nxal + g_fh[idx].nmir > 0; }
+    if (!strcmp(op, "sp_multi")) { int idx = pl_atom_str(a) ? pl_sp_named(a) : pl_gs_sidx(a); return idx >= 0 && idx < FH_N && g_fh[idx].nxal + (idx >= 3 ? g_fh[idx].nmir : 0) > 0; }
     if (!strcmp(op, "unmark")) { int idx = pl_gs_sidx(a); if (idx >= 0) g_fh[idx].tsk = 0; return idx >= 0; }
     if (!strcmp(op, "kind")) { int idx = pl_gs_sidx(a); char k[2] = { idx >= 0 && g_fh[idx].tsk ? g_fh[idx].tsk : 'n', 0 }; return plw_unify_vals(res, pl_mk_atom(k), cx); }
     if (!strcmp(op, "take")) {
@@ -12316,12 +12321,24 @@ static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
         fseek(fp, end, SEEK_SET);
         return plw_unify_vals(res, pl_mk_atom_dup(b ? b : "", k), cx);
     }
-    if (!strcmp(op, "alias")) {
+    if (!strcmp(op, "alias")) { int idx = pl_gs_sidx(pl_gs_arg(a, 0, 2)); const char *nm = pl_atom_str(pl_gs_arg(a, 1, 2)); if (idx < 0 || !nm) return 0; pl_fh_addal(idx, nm); return 1; }
+    if (!strcmp(op, "realias")) {
+        extern int fh_alias_idx(const char *);
         int idx = pl_gs_sidx(pl_gs_arg(a, 0, 2));
         const char *nm = pl_atom_str(pl_gs_arg(a, 1, 2));
-        if (idx < 3 || !nm) return 0;
-        if (!g_fh[idx].alias) fh_set_alias(idx, nm);
-        else pl_fh_push(&g_fh[idx].xal, &g_fh[idx].nxal, prolog_atom_intern(nm));
+        int j;
+        if (idx < 0 || !nm) return 0;
+        j = fh_alias_idx(nm);
+        if (j >= 0 && j != idx) {
+            if (g_fh[j].alias && !strcmp(g_fh[j].alias, nm)) fh_set_alias(j, (const char *)0);
+            for (int k = 0; k < g_fh[j].nxal; k++) {
+                if (strcmp(prolog_atom_name(g_fh[j].xal[k]), nm)) continue;
+                for (int m = k; m + 1 < g_fh[j].nxal; m++) g_fh[j].xal[m] = g_fh[j].xal[m + 1];
+                g_fh[j].nxal--;
+                break;
+            }
+        }
+        pl_fh_addal(idx, nm);
         return 1;
     }
     if (!strcmp(op, "mir_add") || !strcmp(op, "mir_del")) {
