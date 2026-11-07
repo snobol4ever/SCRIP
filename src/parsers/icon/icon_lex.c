@@ -756,7 +756,9 @@ static char *ipp_fnsubst(IcnPp *pp, IcnPpDef *d, char *p, size_t *outlen, char *
     char **ae = (char **)ct_alloc((size_t)(d->np + 1) * sizeof *ae);
     char *q = p + 1, *cl = NULL;
     int na = 0;
-    if (q < pp->blim && *q == ')') cl = q;
+    char *wq = q;
+    while (wq < pp->blim && (*wq == ' ' || *wq == '\t')) wq++;
+    if (wq < pp->blim && *wq == ')') cl = wq;
     while (cl == NULL) {
         char *e = ipp_argend(pp, q);
         if (e == NULL) return NULL;
@@ -1046,7 +1048,8 @@ static int ipp_ppch(IcnPp *pp) {
                 if ((d = ipp_dlookup(pp, pp->bnxt, (int)(p - pp->bnxt), pp->bnxt)) == NULL || d->inuse == 1) { pp->bnxt++; return f; }
                 if (d->fn) {
                     size_t tl = 0; char *after = NULL;
-                    char *txt = (p < pp->blim && *p == '(') ? ipp_fnsubst(pp, d, p, &tl, &after) : NULL;
+                    char *lp = p; while (lp < pp->blim && (*lp == ' ' || *lp == '\t')) lp++;
+                    char *txt = (lp < pp->blim && *lp == '(') ? ipp_fnsubst(pp, d, lp, &tl, &after) : NULL;
                     if (txt == NULL) { pp->bnxt++; return f; }
                     pp->bnxt = after;
                     ipp_pushtext(pp, d, txt, tl);
