@@ -3375,26 +3375,39 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
+    int nu = by && cx->prog && cx->prog->v.ival;
     IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω);
-    IR_LIT(to).sval = (char *) "ag:int";
+    IR_LIT(to).sval = (char *) (nu ? "ar" : "ag:int");
     cx->last_gen = to;
     IR_t * lr = NULL;
     IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
     IR_t * lβ = cx->beta;
     IR_t * mr = NULL;
     IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr);
-    lc_γ_to(lr, em);
-    ir_operand_push(to, lr);
-    ir_operand_push(to, mr);
+    IR_t * cl = nu ? build(cx, IR_COERCE_NUMERIC, NULL, ω) : lr;
+    IR_t * cm = nu ? build(cx, IR_COERCE_NUMERIC, NULL, ω) : mr;
+    if (nu) {
+        IR_LIT(cl).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
+        IR_LIT(cm).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
+        ir_operand_push(cl, lr);
+        ir_operand_push(cm, mr);
+        lc_γ_to(lr, cl);
+        lc_γ_to(mr, cm);
+    }
+    lc_γ_to(cl, em);
+    ir_operand_push(to, cl);
+    ir_operand_push(to, cm);
     IR_t * last_op = mr;
     if (by) {
         IR_t * mβ = cx->beta;
         IR_t * br = NULL;
-        IR_t * eb = lower(cx, t->c[2], to, mβ, &br);
-        lc_γ_to(mr, eb);
+        IR_t * eb = lower(cx, t->c[2], nu ? NULL : to, mβ, &br);
+        IR_t * cb = nu ? build(cx, IR_COERCE_NUMERIC, NULL, ω) : br;
+        if (nu) { IR_LIT(cb).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE; ir_operand_push(cb, br); lc_γ_to(br, cb); }
+        lc_γ_to(cm, eb);
         (void) eb;
-        if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
-        ir_operand_push(to, br);
+        if (cb && ir_is_generator_kind(to->op)) lc_γ_to(cb, to);
+        ir_operand_push(to, cb);
         last_op = br;
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
     {
