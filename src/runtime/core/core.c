@@ -2639,9 +2639,9 @@ int rt_scrip_env_bits(void) {
 const char *rt_scrip_getenv(const char *name) { return (rt_scrip_env_bits() & 2) ? getenv(name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_list_type_install(void);
-static char dt_name[] = "tree", dt_ft[] = "t", dt_fv[] = "v", dt_fn[] = "n", dt_fc[] = "c";
-static char *dt_fields[] = { dt_ft, dt_fv, dt_fn, dt_fc };
-static DATBLK_t dt_tree = { dt_name, 4, dt_fields, (struct _DATINST_tType *)0, 1 };
+static char g_dt_name[] = "tree", g_dt_ft[] = "t", g_dt_fv[] = "v", g_dt_fn[] = "n", g_dt_fc[] = "c";
+static char *g_dt_fields[] = { g_dt_ft, g_dt_fv, g_dt_fn, g_dt_fc };
+static DATBLK_t g_dt_tree = { g_dt_name, 4, g_dt_fields, (struct _DATINST_tType *)0, 1 };
 RT_ENTRY_DECL(core_lib_init, leaf, 0);
 void core_lib_init(void) {
     static int core_lib_inited = 0;
@@ -2695,7 +2695,7 @@ void core_lib_init(void) {
 #if RT_DIAG
     g_runtime.core.monitor_ready = 1;
 #endif
-    if (!udef_install_static(&dt_tree)) DEFDAT_fn("tree(t,v,n,c)");
+    if (!udef_install_static(&g_dt_tree)) DEFDAT_fn("tree(t,v,n,c)");
     rt_list_type_install();
     g_runtime.abi.protected_pat_vars_armed = 1;
 }
