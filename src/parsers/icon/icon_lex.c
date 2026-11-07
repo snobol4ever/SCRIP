@@ -256,6 +256,16 @@ static IcnToken scan_number(IcnLexer *lx) {
     }
     while (isdigit((unsigned char)lex_cur(lx)))
         buf_push(&buf, &len, &cap, lex_advance(lx));
+    long long sfx = 1;
+    if (lx->unicon && lex_peek1(lx) != '.' && lex_peek1(lx) != '_' && !isalnum((unsigned char)lex_peek1(lx))) {
+        int c = lex_cur(lx);
+        if (c == 'k' || c == 'K') sfx = 1024LL;
+        else if (c == 'm' || c == 'M') sfx = 1048576LL;
+        else if (c == 'g' || c == 'G') sfx = 1073741824LL;
+        else if (c == 't' || c == 'T') sfx = 1099511627776LL;
+        else if (c == 'p' || c == 'P') sfx = 1125899906842624LL;
+        if (sfx != 1) lex_advance(lx);
+    }
     if ((lex_cur(lx) == 'r' || lex_cur(lx) == 'R') && !is_real) {
         int radix = (int)strtol(buf, NULL, 10);
         ct_drop(buf); buf = NULL; len = 0; cap = 0;
@@ -304,7 +314,7 @@ static IcnToken scan_number(IcnLexer *lx) {
         errno = 0;
         long _iv = strtol(buf, NULL, 10);
         if (errno == ERANGE) { t = make_tok(TK_BIGINT, line, col); t.val.sval.data = ct_strdup(buf); t.val.sval.len = strlen(buf); }
-        else { t = make_tok(TK_INT, line, col); t.val.ival = _iv; }
+        else { t = make_tok(TK_INT, line, col); t.val.ival = _iv * sfx; }
     }
     ct_drop(buf);
     return t;
