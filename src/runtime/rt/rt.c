@@ -2533,6 +2533,11 @@ DESCR_t rt_list_bang_ukey_at(DESCR_t obj, int64_t *cur) {
     }
     return rt_list_bang_key_at(obj, cur);
 }
+RT_ENTRY_DECL(rt_list_bang_ubang_at, leaf, 0);
+DESCR_t rt_list_bang_ubang_at(DESCR_t obj, int64_t *cur) {
+    if (obj.v == DT_I) { DESCR_t r = {0}; if (*cur >= obj.i) return FAILDESCR; r.v = DT_I; r.i = *cur + 1; return r; }
+    return rt_list_bang_at(obj, cur);
+}
 extern int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 extern int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
 #include "ir/SM.h"

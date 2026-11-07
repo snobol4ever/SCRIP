@@ -2158,6 +2158,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         case TT_ITERATE:
         {
             IR_t * nd = build(cx, IR_ITERATE, γ, ω);
+            if (cx->prog && cx->prog->v.ival) IR_LIT(nd).sval = (char *) "ubang";
             IR_t * orr = NULL;
             IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
             IR_t * opβ = cx->beta;

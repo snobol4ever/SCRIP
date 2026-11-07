@@ -9,6 +9,7 @@ DESCR_t rt_list_bang_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_ukey_at(DESCR_t obj, int64_t *cur);
+DESCR_t rt_list_bang_ubang_at(DESCR_t obj, int64_t *cur);
 DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur);
 }
 #include "templates/x86/x86_ops.h"
@@ -20,6 +21,7 @@ DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur);
 #define IT_ZD() (_.op_zres && _.op_sb >= 0)
 #define IT_BAD() (_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0)
 #define IT_CALL() (IT_IS("ukey") ? x86("call", "rt_list_bang_ukey_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_ukey_at) \
+                  : IT_IS("ubang") ? x86("call", "rt_list_bang_ubang_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_ubang_at) \
                   : IT_IS("key") ? x86("call", "rt_list_bang_key_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_key_at) \
                   : IT_IS("lvv") ? x86("call", "rt_list_bang_elem_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_elem_at) \
                   : IT_IS("lv") ? x86("call", "rt_list_bang_var_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_var_at) \
@@ -57,6 +59,7 @@ std::string bb_iterate() {
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("lea", "rdx", FRQ(_.op_sb))
          + (IT_IS("ukey") ? x86("call", "rt_list_bang_ukey_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_ukey_at)
+            : IT_IS("ubang") ? x86("call", "rt_list_bang_ubang_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_ubang_at)
             : IT_IS("key") ? x86("call", "rt_list_bang_key_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_key_at)
             : IT_IS("lvv") ? x86("call", "rt_list_bang_elem_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_elem_at)
             : IT_IS("lv") ? x86("call", "rt_list_bang_var_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_var_at)
