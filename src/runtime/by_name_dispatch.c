@@ -13364,7 +13364,7 @@ static void pl_gnu_hdbl(uint32_t *h, uint32_t *len, double x) {
     pl_gnu_h64(h, len, m);
 }
 #define PL_HASH_ON_PATH ((DTYPE_t)(DT_PLREF + 1))
-static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len) {
+static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len, long depth) {
     extern const char *prolog_atom_name(int);
     extern char *rt_big_str(DESCR_t);
     DESCR_t *first = (DESCR_t *)0;
@@ -13379,11 +13379,12 @@ static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len) {
             int ar = plc_fid_arity(d->slen);
             DESCR_t *kids = (DESCR_t *)d->p;
             if (!pl_is_cons(*d)) { const char *fn = prolog_atom_name(plc_fid_name(d->slen)); pl_gnu_h32(h, len, pl_gnu_atom_hash(fn ? fn : "")); pl_gnu_h32(h, len, (uint32_t)ar); }
+            if (--depth == 0) { if (pl_is_cons(*d)) { pl_gnu_h32(h, len, pl_gnu_atom_hash(".")); pl_gnu_h32(h, len, 2u); } break; }
             if (ar == 0) break;
             d->v = PL_HASH_ON_PATH;
             if (!nmarked++) first = d;
             int bad = 0;
-            for (int i = 0; i < ar - 1; i++) if (!pl_gnu_hash_walk(&kids[i], h, len)) { bad = 1; break; }
+            for (int i = 0; i < ar - 1; i++) if (!pl_gnu_hash_walk(&kids[i], h, len, depth)) { bad = 1; break; }
             if (bad) { ret = 0; break; }
             c = &kids[ar - 1];
             continue;
@@ -13405,9 +13406,23 @@ PL_CX_LEAF_HEAD(gnu_term_hash, 2)
         uint32_t h = 1688943522u, len = 0;
         ok = 0;
         if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
-        else if (!pl_gnu_hash_walk(&args[0], &h, &len)) ok = 1;
+        else if (!pl_gnu_hash_walk(&args[0], &h, &len, -1)) ok = 1;
         else ok = plw_unify_vals(args[1], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % (1u << 28))), cx);
         pl_gnu_ctx(cx, "term_hash", 2);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_term_hash4, 4)
+    {
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        DESCR_t hv = rt_pl_deref_val(args[3]);
+        DESCR_t rv = rt_pl_deref_val(args[2]);
+        long dp = (long)rt_pl_deref_val(args[1]).i;
+        uint32_t h = 1688943522u, len = 0, m = (rv.i <= 0 || rv.i > ((int64_t)1 << 28)) ? (1u << 28) : (uint32_t)rv.i;
+        ok = 0;
+        if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
+        else if (dp != 0 && !pl_gnu_hash_walk(&args[0], &h, &len, dp)) ok = 1;
+        else ok = plw_unify_vals(args[3], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % m)), cx);
+        pl_gnu_ctx(cx, "term_hash", 4);
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_prolog_pid, 1)

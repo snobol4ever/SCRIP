@@ -223,7 +223,8 @@ term_hash(_, D, _, _) :- \+ integer(D), !, throw(error(type_error(integer, D), t
 term_hash(_, _, R, _) :- var(R), !, throw(error(instantiation_error, term_hash/4)).
 term_hash(_, _, R, _) :- \+ integer(R), !, throw(error(type_error(integer, R), term_hash/4)).
 term_hash(_, _, R, _) :- R < 0, !, throw(error(domain_error(not_less_than_zero, R), term_hash/4)).
-term_hash(T, _, R, H) :- ( ground(T) -> term_hash(T, H0), ( R =:= 0 -> H = H0 ; H is H0 mod R ) ; true ).
+term_hash(_, _, _, H) :- \+ var(H), \+ integer(H), !, throw(error(type_error(integer, H), term_hash/4)).
+term_hash(T, D, R, H) :- '$gnu_term_hash4'(T, D, R, H).
 term_ref(T, R) :- var(R), !, ( var(T) -> throw(error(instantiation_error, term_ref/2)) ; '$gnu_b_tref_add'(T, R) ).
 term_ref(_, R) :- \+ integer(R), !, throw(error(type_error(integer, R), term_ref/2)).
 term_ref(_, R) :- R < 0, !, throw(error(domain_error(not_less_than_zero, R), term_ref/2)).

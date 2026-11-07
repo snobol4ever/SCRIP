@@ -688,7 +688,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_ICNx24UIDENT, bt_ICNx24UMUTEX, 0, 0, bt___rk_slurp, 0, bt_ICNx24UMKDIR, bt_ICNx24URMDIR, bt_ICNx24UCHMOD, bt_ICNx24UUMASK, bt_ICNx24USETENV, bt_ICNx24USYS_ERRSTR, bt_ICNx24UGETPID,
     bt_ICNx24UGETPPID, bt_ICNx24UGETPGRP, bt_ICNx24UGETUID, bt_ICNx24UGETEUID, bt_ICNx24UGETGID, bt_ICNx24UGETEGID, bt_ICNx24UCHDIR, bt_ICNx24UREADLINK, bt_ICNx24USYMLINK, bt_ICNx24USTAT,
     bt_ICNx24ULSTAT, bt_ICNx24UPIPE, bt_ICNx24UFILEPAIR, bt_ICNx24UFDUP, bt_ICNx24UFCNTL, bt_ICNx24USELECT, bt_ICNx24UGETPW, bt_ICNx24UGETGR, bt_ICNx24UGETSERV, bt_ICNx24UGETTIMEOFDAY,
-    bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, };
+    bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, 0, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
@@ -723,4 +723,4 @@ static const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___rk_meth_nc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, };
+    0, 0, };
