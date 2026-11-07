@@ -632,6 +632,7 @@ extern DESCR_t bt_ICNx24UKILL(DESCR_t * args, int nargs) __attribute__((weak, vi
 extern DESCR_t bt_ICNx24UEXEC(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ICNx24UMEMBER(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ICNx24UNUMERIC(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt___rk_temp(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, bt_x3C, bt_x3Cx3C, bt_x3Cx3Cx3D, bt_x3Cx3D, bt_x3D, bt_x3Dx3D, bt_x3Dx3Dx3D, bt_x3E, bt_x3Ex3D, bt_x3Ex3E, bt_x3Ex3Ex3D,
     0, 0, bt_ASGN, bt_CODE, 0, bt_DATA, bt_DATATYPE, 0, 0, 0, 0, bt_FAIL, bt_FIELD_GET, bt_FIELD_SET, bt_ICN_CASE_EQ, bt_ICN_NULL, bt_ICN_SCAN_POP, bt_ICN_SCAN_PUSH, bt_ICN_SWAP_TOP2, 0, bt_IDENTICAL,
     0, bt_ITEM, 0, bt_MAKELIST, bt_NONNULL, bt_OPSYN, 0, bt_RECORD_MAKE, bt_RECORD_REGISTER, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SNOx24NRET, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SUCCEED, 0, 0, 0,
@@ -689,7 +690,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_ICNx24UIDENT, bt_ICNx24UMUTEX, 0, 0, bt___rk_slurp, 0, bt_ICNx24UMKDIR, bt_ICNx24URMDIR, bt_ICNx24UCHMOD, bt_ICNx24UUMASK, bt_ICNx24USETENV, bt_ICNx24USYS_ERRSTR, bt_ICNx24UGETPID,
     bt_ICNx24UGETPPID, bt_ICNx24UGETPGRP, bt_ICNx24UGETUID, bt_ICNx24UGETEUID, bt_ICNx24UGETGID, bt_ICNx24UGETEGID, bt_ICNx24UCHDIR, bt_ICNx24UREADLINK, bt_ICNx24USYMLINK, bt_ICNx24USTAT,
     bt_ICNx24ULSTAT, bt_ICNx24UPIPE, bt_ICNx24UFILEPAIR, bt_ICNx24UFDUP, bt_ICNx24UFCNTL, bt_ICNx24USELECT, bt_ICNx24UGETPW, bt_ICNx24UGETGR, bt_ICNx24UGETSERV, bt_ICNx24UGETTIMEOFDAY,
-    bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, 0, bt_ICNx24UNUMERIC, };
+    bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, 0, bt_ICNx24UNUMERIC, bt___rk_temp, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
@@ -724,4 +725,4 @@ static const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___rk_meth_nc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, };
+    0, 0, 0, 0, };
