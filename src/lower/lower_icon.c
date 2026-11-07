@@ -1603,7 +1603,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(viap, pm_node(TT_ASSIGN, pm_var("&pos"), pm_var(sv), NULL));
                     ast_push(viap, pm_var(ev));
                     tree_t * sel = pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", pm_var(pv), NULL), pq, NULL), pm_node(TT_LIMIT, viap, pm_int(1), NULL), plain);
-                    return lower(cx, pvar ? sel : pm_node(TT_CONJ, pm_node(TT_LIMIT, pm_node(TT_ASSIGN, pm_var(pv), (tree_t *) t->c[1], NULL), pm_int(1), NULL), sel, NULL), γ, ω, res);
+                    return lower(cx, pvar ? sel : pm_node(TT_CONJ, pm_node(TT_ASSIGN, pm_var(pv), (tree_t *) t->c[1], NULL), sel, NULL), γ, ω, res);
                 }
                 int bal4 = fn && !strcmp(nm, "bal") && t->n >= 5 && t->n <= 7 && t->c[2] && t->c[3] && (t->c[2]->t == TT_CSET || t->c[2]->t == TT_QLIT) &&
                     (t->c[3]->t == TT_CSET || t->c[3]->t == TT_QLIT) && t->c[2]->v.sval && !strcmp(t->c[2]->v.sval, "(") && t->c[3]->v.sval && !strcmp(t->c[3]->v.sval, ")");
@@ -1618,6 +1618,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     tree_t * tv2 = ast_node_new(TT_VAR);
                     tv2->v.sval = (char *) tmp;
                     tree_t * one = ast_node_new(TT_FNC);
+                    if (!strcmp(nm, "match")) one->slen = -5;
                     ast_push(one, (tree_t *) fn);
                     ast_push(one, tv2);
                     tree_t * sc = ast_node_new(TT_SCAN);
