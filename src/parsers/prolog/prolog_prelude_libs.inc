@@ -19789,6 +19789,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "call_with_args", 10 },
     { "call_with_args", 11 },
     { "call_det", 2 },
+    { "countall", 2 },
     { "setarg", 4 },
     { "term_variables", 3 },
     { "term_hash", 4 },
@@ -19928,6 +19929,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { "close_output_chars_stream", 0 },
     { "close_output_codes_stream", 0 },
     { "copy_file", 0 },
+    { "countall", 0 },
     { "cpu_time", 0 },
     { "create_pipe", 0 },
     { "current_alias", 0 },
@@ -20229,6 +20231,11 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "call_det(G, _) :- var(G), !, throw(error(instantiation_error, call_det/2)).\n"
     "call_det(_, D) :- nonvar(D), D \\== true, D \\== false, !, throw(error(type_error(boolean, D), call_det/2)).\n"
     "call_det(G, D) :- call_cleanup(G, Det = true), ( Det == true -> D = true ; D = false ).\n"
+    "countall(_, N) :- nonvar(N), \\+ integer(N), !, throw(error(type_error(integer, N), countall/2)).\n"
+    "countall(_, N) :- integer(N), N < 0, !, throw(error(domain_error(not_less_than_zero, N), countall/2)).\n"
+    "countall(G, _) :- var(G), !, throw(error(instantiation_error, countall/2)).\n"
+    "countall(G, _) :- \\+ callable(G), !, throw(error(type_error(callable, G), countall/2)).\n"
+    "countall(G, N) :- catch(findall(x, G, L), error(existence_error(procedure, PI), _), throw(error(existence_error(procedure, PI), countall/2))), length(L, N0), N = N0.\n"
     "setarg(_, _, _, U) :- var(U), !, throw(error(instantiation_error, setarg/4)).\n"
     "setarg(_, _, _, U) :- U \\== true, U \\== false, !, throw(error(type_error(boolean, U), setarg/4)).\n"
     "setarg(N, T, V, true) :- setarg(N, T, V).\n"
@@ -36698,6 +36705,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "copy_stream_data", 16, 2, 74 },
     { "copy_stream_data", 16, 3, 74 },
     { "cos", 3, 2, 62 },
+    { "countall", 8, 2, 34 },
     { "cpu_time", 8, 1, 34 },
     { "create_pipe", 11, 2, 34 },
     { "csv", 3, 3, 23 },

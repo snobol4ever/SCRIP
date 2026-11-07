@@ -22,7 +22,7 @@
                           portray_clause/1, portray_clause/2, portray_clause/3, name_singleton_vars/1, name_query_vars/2, bind_variables/2,
                           partial_list/1, list_or_partial_list/1, generic_var/1, non_generic_var/1, non_fd_var/1, current_atom/1, atom_property/2,
                           call_with_args/1, call_with_args/2, call_with_args/3, call_with_args/4, call_with_args/5, call_with_args/6, call_with_args/7,
-                          call_with_args/8, call_with_args/9, call_with_args/10, call_with_args/11, call_det/2, setarg/4, term_variables/3,
+                          call_with_args/8, call_with_args/9, call_with_args/10, call_with_args/11, call_det/2, countall/2, setarg/4, term_variables/3,
                           term_hash/4, term_ref/2,
                           shell/1, shell/2, system/1, system/2, spawn/2, spawn/3, unlink/1, rename_file/2, delete_directory/1, copy_file/2,
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
@@ -207,6 +207,11 @@ call_with_args(P, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) :- '$gnu_b_cwa'(P, [A
 call_det(G, _) :- var(G), !, throw(error(instantiation_error, call_det/2)).
 call_det(_, D) :- nonvar(D), D \== true, D \== false, !, throw(error(type_error(boolean, D), call_det/2)).
 call_det(G, D) :- call_cleanup(G, Det = true), ( Det == true -> D = true ; D = false ).
+countall(_, N) :- nonvar(N), \+ integer(N), !, throw(error(type_error(integer, N), countall/2)).
+countall(_, N) :- integer(N), N < 0, !, throw(error(domain_error(not_less_than_zero, N), countall/2)).
+countall(G, _) :- var(G), !, throw(error(instantiation_error, countall/2)).
+countall(G, _) :- \+ callable(G), !, throw(error(type_error(callable, G), countall/2)).
+countall(G, N) :- catch(findall(x, G, L), error(existence_error(procedure, PI), _), throw(error(existence_error(procedure, PI), countall/2))), length(L, N0), N = N0.
 setarg(_, _, _, U) :- var(U), !, throw(error(instantiation_error, setarg/4)).
 setarg(_, _, _, U) :- U \== true, U \== false, !, throw(error(type_error(boolean, U), setarg/4)).
 setarg(N, T, V, true) :- setarg(N, T, V).
