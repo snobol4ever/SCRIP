@@ -26447,6 +26447,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         char mbuf[8];
         int is_pipe = 0;
         if (strict && strpbrk(mode, "gG")) { *out = FAILDESCR; return 1; }
+        if (strchr(mode, 'n')) { *out = FAILDESCR; return 1; }
         if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf, &is_pipe); cmode = mbuf; } else if (strstr(mode,"w")) cmode = "w";
         else if (strstr(mode,"a")) cmode = "a";
         if (is_pipe && (strcmp(cmode, "r") && strcmp(cmode, "w"))) { *out = FAILDESCR; return 1; }
