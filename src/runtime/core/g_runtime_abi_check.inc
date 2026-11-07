@@ -69,3 +69,4 @@ _Static_assert(offsetof(g_runtime_t, gc.gc_rrng_n) == G_RT_OFF_GC_GC_RRNG_N, "gc
 _Static_assert(offsetof(g_runtime_t, gc.gc_spine_recn) == G_RT_OFF_GC_GC_SPINE_RECN, "gc.gc_spine_recn moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, gc.gc_line_mbv) == G_RT_OFF_GC_GC_LINE_MBV, "gc.gc_line_mbv moved: run util_g_runtime_abi_offsets.py");
 _Static_assert(offsetof(g_runtime_t, gc.hp_cap_due) == G_RT_OFF_GC_HP_CAP_DUE, "gc.hp_cap_due moved: run util_g_runtime_abi_offsets.py");
+_Static_assert(offsetof(g_runtime_t, agg.sno_dumpno) == G_RT_OFF_AGG_SNO_DUMPNO, "agg.sno_dumpno moved: run util_g_runtime_abi_offsets.py");
