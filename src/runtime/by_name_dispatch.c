@@ -13571,12 +13571,14 @@ PL_CX_LEAF_HEAD(pl_op_count, 1) { extern int prolog_op_table_count(void); ok = p
 PL_CX_LEAF_HEAD(pl_op_nth, 4)
     {
         extern int prolog_op_table_get(int, const char **, int *, const char **);
+        extern int prolog_op_col_get(int, int, int *, int *);
         const char *onm = (const char *)0;
         const char *oty = (const char *)0;
         int opr = 0;
         DESCR_t iv = rt_pl_deref_val(args[0]);
         ok = 0;
-        if (iv.v == DT_I && prolog_op_table_get((int)iv.i - 1, &onm, &opr, &oty) && onm && oty) ok = plw_unify_vals(args[1], INTVAL((long long)opr), cx) &&
+        if (iv.v == DT_I && prolog_op_table_get((int)iv.i - 1, &onm, &opr, &oty) && onm && oty &&
+            (!pl_gnu_dialect() || prolog_op_col_get(prolog_atom_intern(onm), oty[0] == 'f' ? 0 : oty[2] ? 1 : 2, 0, 0))) ok = plw_unify_vals(args[1], INTVAL((long long)opr), cx) &&
             plw_unify_vals(args[2], pl_mk_atom_dup(oty, strlen(oty)), cx) && plw_unify_vals(args[3], pl_mk_atom_dup(onm, strlen(onm)), cx);
     }
 PL_CX_LEAF_TAIL

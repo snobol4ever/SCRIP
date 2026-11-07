@@ -19790,6 +19790,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "call_with_args", 11 },
     { "call_det", 2 },
     { "countall", 2 },
+    { "current_evaluable", 1 },
     { "setarg", 4 },
     { "term_variables", 3 },
     { "term_hash", 4 },
@@ -19936,6 +19937,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { "current_alias", 0 },
     { "current_atom", 0 },
     { "current_bip_name", 0 },
+    { "current_evaluable", 0 },
     { "current_mirror", 0 },
     { "current_stream", 0 },
     { "date_time", 0 },
@@ -20233,6 +20235,12 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "call_det(G, _) :- var(G), !, throw(error(instantiation_error, call_det/2)).\n"
     "call_det(_, D) :- nonvar(D), D \\== true, D \\== false, !, throw(error(type_error(boolean, D), call_det/2)).\n"
     "call_det(G, D) :- call_cleanup(G, Det = true), ( Det == true -> D = true ; D = false ).\n"
+    "current_evaluable(PI) :- var(PI), !, '$ev'(T, _), functor(T, F, A), PI = F/A.\n"
+    "current_evaluable(PI) :- PI \\= _/_, !, throw(error(type_error(predicate_indicator, PI), current_evaluable/1)).\n"
+    "current_evaluable(F/_) :- nonvar(F), \\+ atom(F), !, throw(error(type_error(atom, F), current_evaluable/1)).\n"
+    "current_evaluable(_/A) :- nonvar(A), \\+ integer(A), !, throw(error(type_error(integer, A), current_evaluable/1)).\n"
+    "current_evaluable(_/A) :- integer(A), A < 0, !, throw(error(domain_error(not_less_than_zero, A), current_evaluable/1)).\n"
+    "current_evaluable(F/A) :- '$ev'(T, _), functor(T, F, A).\n"
     "countall(_, N) :- nonvar(N), \\+ integer(N), !, throw(error(type_error(integer, N), countall/2)).\n"
     "countall(_, N) :- integer(N), N < 0, !, throw(error(domain_error(not_less_than_zero, N), countall/2)).\n"
     "countall(G, _) :- var(G), !, throw(error(instantiation_error, countall/2)).\n"
@@ -36732,6 +36740,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "current_bip_name", 16, 2, 34 },
     { "current_chr_constraint", 22, 1, 11 },
     { "current_engine", 14, 1, 28 },
+    { "current_evaluable", 17, 1, 34 },
     { "current_mirror", 14, 2, 34 },
     { "current_module", 14, 2, 5 },
     { "current_mutex", 13, 3, 5 },

@@ -313,16 +313,17 @@ static void op_cols_fill(void) {
         const char *ty;
         int p;
     } pre[] = { { "dynamic", "fx", 1150 }, { "discontiguous", "fx", 1150 }, { "initialization", "fx", 1150 }, { "multifile", "fx", 1150 }, { "public", "fx", 1150 }, { "meta_predicate", "fx", 1150 },
-        { "table", "fx", 1150 }, { 0, 0, 0 } };
+        { "table", "fx", 1150 }, { "$", "fx", 1 }, { "=>", "xfx", 1200 }, { ":=", "xfx", 990 }, { "@", "xfx", 900 }, { ":<", "xfx", 700 }, { ">:<", "xfx", 700 }, { "=@=", "xfx", 700 }, { "\\=@=",
+        "xfx", 700 }, { "?=", "xfx", 700 }, { "as", "xfx", 700 }, { "rdiv", "yfx", 400 }, { "xor", "yfx", 400 }, { 0, 0, 0 } };
     g_runtime.atoms.opcols_ready = 1;
     extern int prolog_op_user_count(void);
     extern int prolog_op_user_get(int, const char **, int *, const char **);
-    for (int i = 0; pre[i].n; i++) prolog_op_col_set_u(prolog_atom_intern(pre[i].n), pre[i].p, pre[i].ty, 2);
     for (int i = 0, n = prolog_op_table_count(); i < n; i++) {
         const char *nm = 0, *ty = 0;
         int pr = 0;
         if (prolog_op_table_get(i, &nm, &pr, &ty) && nm && ty) prolog_op_col_set_u(prolog_atom_intern(nm), pr, ty, 0);
     }
+    for (int i = 0; pre[i].n; i++) prolog_op_col_set_u(prolog_atom_intern(pre[i].n), pre[i].p, pre[i].ty, 2);
     for (int i = 0, n = prolog_op_user_count(); i < n; i++) {
         const char *nm = 0, *ty = 0;
         int pr = 0;
