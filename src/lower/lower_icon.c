@@ -1114,8 +1114,27 @@ static int pm_const_int(const tree_t * a, int64_t * v);
 static tree_t * pm_imm_commit(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) "*$imm"; q->slen = 5; return pm_call("SNO$PDEF", q, NULL); }
 static tree_t * th_var(const char * nm) { tree_t * v = pm_var(nm); v->slen = (int) strlen(nm); return v; }
 static tree_t * th_call(const char * fn, tree_t * a) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, th_var(fn)); ast_push(c, a); return c; }
+static tree_t * th_co_call(icx_t * cx, const tree_t * t) {
+    const char * tv = icn_synth_local(cx);
+    tree_t * ca = ast_node_new(TT_FNC);
+    ast_push(ca, th_var(tv));
+    for (int i = 1; i < t->n; i++) ast_push(ca, (tree_t *) t->c[i]);
+    ca->slen = -5;
+    tree_t * act = NULL;
+    if (t->n > 1) {
+        tree_t * lst = ast_node_new(TT_MAKELIST);
+        for (int i = 1; i < t->n; i++) ast_push(lst, (tree_t *) t->c[i]);
+        act = pm_node(TT_ACTIVATE, lst, th_var(tv), NULL);
+    } else act = pm_node(TT_ACTIVATE, th_var(tv), NULL, NULL);
+    tree_t * q = ast_node_new(TT_QLIT);
+    q->v.sval = (char *) "co-expression";
+    q->slen = 13;
+    tree_t * sel = pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), q, NULL), act, ca);
+    return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[0], NULL), sel, NULL);
+}
 static tree_t * th_form(icx_t * cx, const tree_t * t) {
     const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
+    if (fn && fn->t != TT_FIELD && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_callee_is_name(cx, fn)) return th_co_call(cx, t);
     if (!fn || fn->t != TT_VAR || !fn->v.sval || !cx->prog || !cx->prog->v.ival) return NULL;
     if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t == TT_CREATE && !icn_is_proc("spawn")) {
         const char * tv = icn_synth_local(cx);
