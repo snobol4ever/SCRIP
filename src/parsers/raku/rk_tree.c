@@ -2546,7 +2546,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     }
     if (sig == '%') {
         tree_t *val = type ? NULL : hash_pairs(b, rs, nrs);
-        if (!val) val = el_tree(b, rs[0]);
+        if (!val) val = nrs == 1 ? el_tree(b, rs[0]) : rs_list(b, rs, nrs);
         tree_t *var = var_node(b, name);
         return type ? decl_node(b, type, var, val) : expr_binary(TT_ASSIGN, var, val);
     }
