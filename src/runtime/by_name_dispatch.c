@@ -18805,6 +18805,10 @@ DESCR_t bt_hash_get(DESCR_t *args, int nargs) {
     if (rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) return bt_hash_each(args, bt_hash_get, 0);
     if (rk_qh_is(args[0])) return rk_qh_get(args[0], args[1]);
     if (rk_match_is(args[0])) args[0] = FIELD_GET_fn(args[0], "named");
+    if (rk_sub_is_arr(args[0]) || rk_is_range(args[0])) {
+        rk_exc_throw(rk_exc_adhoc(STRVAL(rt_heap_fmt("Type %s does not support associative indexing.", rt_mc_type_name(args[0])))));
+        return FAILDESCR;
+    }
     int found = 0;
     DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
     return found ? v : rk_typeobj("Any");
