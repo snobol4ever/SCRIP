@@ -3582,7 +3582,7 @@ static int r_keyword_term(RkP *p, int pos) {
     for (int i = 0; scopes[i]; i++) {
         int k = lit(p, pos, scopes[i]);
         if (k >= 0 && !wordch_at(p, k) && end_keyword_ok(p, k)) { int r = r_scoped(p, k, i); if (r >= 0) return r; }
-        else if (k >= 0 && !wordch_at(p, k) && (ch(p, k) == '(' || ch(p, k) == '\\')) { int r = r_scoped(p, k, i); if (r >= 0) return r; }
+        else if (k >= 0 && !wordch_at(p, k) && (ch(p, k) == '\\' || (ch(p, k) == '(' && !user_routine_n(p, p->s + pos, k - pos)))) { int r = r_scoped(p, k, i); if (r >= 0) return r; }
     }
     if ((e = r_multi_declarator(p, pos)) >= 0) return e;
     if ((e = r_routine_declarator(p, pos)) >= 0) return e;
