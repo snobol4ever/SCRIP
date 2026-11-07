@@ -24328,6 +24328,15 @@ DESCR_t bt_ICNx24UNUMERIC(DESCR_t *args, int nargs) {
     try_call_builtin_by_name_bl_s("numeric", args, nargs, &out, -1, 0);
     return out;
 }
+DESCR_t bt_ICNx24USET(DESCR_t *args, int nargs) {
+    TBBLK_t *tbl = set_new();
+    DESCR_t *elems = NULL;
+    int n = 0;
+    if (nargs >= 1 && args[0].v == DT_DATA && rt_lv_is_list(args[0], &elems, &n)) {
+        if (elems) for (int _i = 0; _i < n; _i++) table_set_descr_d(tbl, elems[_i], elems[_i]);
+    } else for (int _i = 0; _i < nargs; _i++) table_set_descr_d(tbl, args[_i], args[_i]);
+    return TABLE_VAL(tbl);
+}
 DESCR_t bt_ICNx24REFRESH(DESCR_t *args, int nargs) {
     if (nargs == 1) {
         DESCR_t src = args[0];
