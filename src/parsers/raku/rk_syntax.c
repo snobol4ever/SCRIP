@@ -2373,13 +2373,33 @@ static tree_t *x_level(RkP *p, RkX *x, int lv, tree_t *(*lower)(RkP *, RkX *), t
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *x_mul(RkP *p, RkX *x) { return x_level(p, x, LV_MUL, x_unary, x_unary); }
+static tree_t *x_band(RkP *p, RkX *x, int lo, int hi, int minp, tree_t *(*lower)(RkP *, RkX *)) {
+    tree_t *l = lower(p, x);
+    while (!x->fail && p->B && p->nuops && x_peek(p, x)) {
+        int ui = rkb_user_op_find(p->B, 'i', x->pk_txt), q = ui >= 0 ? rkb_user_op_prec(p->B, ui) : -1;
+        if (q <= lo || q >= hi || q < minp) break;
+        x_take(p, x);
+        tree_t *r = x_band(p, x, lo, hi, q + 1, lower);
+        if (p->build && !x->fail) l = rkb_binop(p->B, LV_ADDSUB, RK_UK + ui, l, r);
+    }
+    return x->fail ? NULL : l;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *x_addsub(RkP *p, RkX *x) { return x_level(p, x, LV_ADDSUB, x_mul, x_mul); }
+static tree_t *x_ub_mul(RkP *p, RkX *x) { return x_band(p, x, PR('u'), PR('v'), 0, x_unary); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *x_repl(RkP *p, RkX *x) { return x_level(p, x, LV_REPL, x_addsub, x_addsub); }
+static tree_t *x_mul(RkP *p, RkX *x) { return x_level(p, x, LV_MUL, x_ub_mul, x_ub_mul); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *x_cat(RkP *p, RkX *x) { return x_level(p, x, LV_CAT, x_repl, x_repl); }
+static tree_t *x_ub_add(RkP *p, RkX *x) { return x_band(p, x, PR('t'), PR('u'), 0, x_mul); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_addsub(RkP *p, RkX *x) { return x_level(p, x, LV_ADDSUB, x_ub_add, x_ub_add); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_ub_repl(RkP *p, RkX *x) { return x_band(p, x, PR('s'), PR('t'), 0, x_addsub); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_repl(RkP *p, RkX *x) { return x_level(p, x, LV_REPL, x_ub_repl, x_ub_repl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_ub_cat(RkP *p, RkX *x) { return x_band(p, x, PR('r'), PR('s'), 0, x_repl); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_cat(RkP *p, RkX *x) { return x_level(p, x, LV_CAT, x_ub_cat, x_ub_cat); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_range(RkP *p, RkX *x) {
     int top = !x->nterm && !x->eli;
@@ -4376,6 +4396,33 @@ static void check_category(RkP *p, int from, int to) {
     panic_at(p, from, "Cannot add tokens of category '%.*s'", i - from, p->s + from);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void apply_op_traits(RkP *p, int ui, int from, int to) {
+    static const char *const names[] = { "equiv", "tighter", "looser", 0 };
+    for (int t = from; t < to; t++) for (int i = 0; names[i]; i++) {
+        int l = (int) strlen(names[i]);
+        if (t + l + 1 > to || memcmp(p->s + t, names[i], (size_t) l) || p->s[t + l] != '(') continue;
+        if (t > from && asc_word((unsigned char) p->s[t - 1])) continue;
+        int c = t + l + 1; while (c < to && p->s[c] != ')') c++;
+        int s = t + l + 1; if (!at_lit(p, s, "&infix:<")) continue;
+        s += 8; int e = s; while (e < c && p->s[e] != '>') e++;
+        if (e >= c) continue;
+        int xp = -1, xa = AS_LEFT;
+        for (int k = p->nuops - 1; k >= 0 && xp < 0; k--) {
+            RkUserOp *v = &p->uops[k];
+            if (v->cat == 'i' && v->len == e - s && !memcmp(v->sym, p->s + s, (size_t) (e - s))) { xp = v->prec; xa = v->assoc; }
+        }
+        for (int k = 0; xp < 0 && rk_infix[k].sym; k++) {
+            int n = (int) strlen(rk_infix[k].sym);
+            if (n == e - s && !memcmp(rk_infix[k].sym, p->s + s, (size_t) n)) { xp = rk_infix[k].prec; xa = rk_infix[k].assoc; }
+        }
+        if (xp < 0) continue;
+        if (i == 0) { p->uops[ui].prec = xp; p->uops[ui].assoc = xa; }
+        else p->uops[ui].prec = i == 1 ? xp + 1 : xp - 1;
+    }
+    RkUserOp *u = &p->uops[ui];
+    if (p->B && rkb_user_op_find(p->B, 'i', u->sym) >= 0) rkb_user_op(p->B, 'i', u->sym, u->len, u->sym, u->len, u->prec);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_routine_def(RkP *p, int pos, int is_method) {
     int q = pos; int name_from = -1, name_to = -1;
     if (is_method) {
@@ -4396,6 +4443,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         int n = r_deflongname(p, q);
         if (n >= 0) { name_from = q; name_to = n; q = ws(p, n); check_category(p, name_from, name_to); }
     }
+    int nuops_reg0 = p->nuops;
     if (name_from >= 0) register_user_op(p, name_from, name_to);
     int nuops_before_traits = p->nuops;
     int sm = p->has_self;
@@ -4414,6 +4462,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     int tstart = q;
     q = r_traits(p, q); q = ws(p, q);
     RkTrait *rtr = p->tr; int nrtr = p->ntr;
+    if (!is_method && nuops_before_traits > nuops_reg0 && p->uops[nuops_before_traits - 1].cat == 'i') apply_op_traits(p, nuops_before_traits - 1, tstart, q);
     static const char *const rtraits[] = { "assoc", "DEPRECATED", "export", "hidden-from-backtrace", "hidden-from-USAGE", "implementation-detail", "leading_docs", "nodal",
                                            "pure", "trailing_docs", "default", "equiv", "looser", "tighter", "inlinable", "onlystar", "prec", "raw", "rw", "revision-gated",
                                            "test-assertion", "cached", 0 };
