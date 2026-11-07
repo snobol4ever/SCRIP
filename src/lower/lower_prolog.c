@@ -1585,7 +1585,7 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
     {
         const tree_t * pre[2] = { pl_cc_fnc1("once", (tree_t *) S), vchk };
         IR_t * pe = NULL;
-        IR_t * pf = pl_lower_conj(cx, pre, vchk ? 2 : 1, mark, resume, &pe, NULL, NULL);
+        IR_t * pf = pl_lower_conj(cx, pre, vchk ? 2 : 1, mark, ωfail, &pe, NULL, NULL);
         if (entry_out) *entry_out = pe ? pe : pf;
     }
     return resume;
