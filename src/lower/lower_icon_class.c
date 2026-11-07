@@ -197,6 +197,15 @@ static tree_t * cx_record(const char * name, const cx_sv * fl, int lead) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void cx_dflt_of(const tree_t * n, const tree_t * own, tree_t * cb) {
+    for (int i = 0; i < n->c[1]->n; i++) {
+        const tree_t * f = n->c[1]->c[i];
+        int dup = 0;
+        if (n != own) for (int j = 0; j < own->c[1]->n; j++) if (!strcmp(own->c[1]->c[j]->v.sval, f->v.sval)) dup = 1;
+        if (f->n > 0 && !dup) ast_push(cb, cx_bin(TT_ASSIGN, cx_un(TT_NULL, cx_var(f->v.sval)), f->c[0]));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     cx_sv mnames = { 0 };
     for (int i = 0; i < c->nmeth; i++) cx_push(&mnames, c->meth[i].name);
@@ -222,7 +231,8 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     int fields_are_params = !(ini && ini->c[1]->n > 0);
     tree_t * cb = ast_node_new(TT_PROGRAM);
     ast_push(cb, cx_call(cx_var(cx_cat(c->name, "__init", "")), 0, NULL));
-    for (int i = 0; i < c->node->c[1]->n; i++) { const tree_t * f = c->node->c[1]->c[i]; if (f->n > 0) ast_push(cb, cx_bin(TT_ASSIGN, cx_un(TT_NULL, cx_var(f->v.sval)), f->c[0])); }
+    for (int k = c->anc.n - 1; k >= 0; k--) { cx_class * ac = cx_find(st, c->anc.v[k]); if (ac) cx_dflt_of(ac->node, c->node, cb); }
+    cx_dflt_of(c->node, c->node, cb);
     tree_t * ra = ast_node_new(TT_FNC);
     ast_push(ra, cx_var(cx_cat(c->name, "__state", "")));
     ast_push(ra, cx_var("&null"));
