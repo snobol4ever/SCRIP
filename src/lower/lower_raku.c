@@ -4129,6 +4129,13 @@ static void rk_value_forms(tree_t * t) {
     for (int i = 0; i < t->n; i++) rk_value_forms(t->c[i]);
     if (t->t == TT_ASSIGN && t->n == 2 && rk_is_value_form(t->c[1])) t->c[1] = rk_value_wrap(t->c[1]);
     if (t->t == TT_ITERATE && t->n > 0 && rk_is_value_form(t->c[0])) t->c[0] = rk_value_wrap(t->c[0]);
+    if (t->t == TT_ITERATE && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] == '%') {
+        tree_t * mc = ast_node_new(TT_METHCALL);
+        mc->line = t->c[0]->line;
+        ast_push(mc, t->c[0]);
+        ast_push(mc, leaf_sval2(TT_QLIT, "pairs"));
+        t->c[0] = mc;
+    }
     if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_phaser_do") && t->c[1] && t->c[1]->t == TT_SEQ_EXPR && t->c[1]->n > 0 &&
         rk_is_value_form(t->c[1]->c[t->c[1]->n - 1])) t->c[1]->c[t->c[1]->n - 1] = rk_value_wrap(t->c[1]->c[t->c[1]->n - 1]);
 }
