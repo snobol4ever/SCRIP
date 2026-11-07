@@ -31,6 +31,12 @@ static char lex_peek1(IcnLexer *lx) {
     return lx->src[lx->pos + 1];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char lex_at(IcnLexer *lx, size_t k) {
+    lex_need(lx, k);
+    if (lx->pos + k >= lx->src_len) return '\0';
+    return lx->src[lx->pos + k];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char lex_advance(IcnLexer *lx) {
     lex_need(lx, 0);
     if (lx->pos >= lx->src_len) return '\0';
@@ -173,9 +179,29 @@ static char icn_esc_simple(char esc) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IcnToken scan_triple(IcnLexer *lx, int line, int col) {
+    lex_advance(lx);
+    lex_advance(lx);
+    char *buf = NULL; int len = 0, cap = 0;
+    while (lex_cur(lx) && !(lex_cur(lx) == '"' && lex_peek1(lx) == '"' && lex_at(lx, 2) == '"')) {
+        char c = lex_advance(lx);
+        buf_push(&buf, &len, &cap, c);
+    }
+    if (!lex_cur(lx)) { ct_drop(buf); return make_error(lx, "unterminated string literal"); }
+    lex_advance(lx);
+    lex_advance(lx);
+    lex_advance(lx);
+    if (!buf) buf = ct_strdup("");
+    IcnToken t = make_tok(TK_STRING, line, col);
+    t.val.sval.data = buf;
+    t.val.sval.len  = (size_t)len;
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IcnToken scan_string(IcnLexer *lx) {
     int line = lx->line, col = lx->col;
     lex_advance(lx);
+    if (lx->unicon && lex_cur(lx) == '"' && lex_peek1(lx) == '"') return scan_triple(lx, line, col);
     char *buf = NULL; int len = 0, cap = 0;
     while (lex_cur(lx) && lex_cur(lx) != '"') {
         char c = lex_advance(lx);
@@ -627,12 +653,12 @@ static IcnToken lex_one(IcnLexer *lx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct IcnPpDef { struct IcnPpDef *next; int nlen, vlen; char inuse; char *s; } IcnPpDef;
+typedef struct IcnPpDef { struct IcnPpDef *next; int nlen, vlen; char inuse; char *s; char fn; int np; char **pn; } IcnPpDef;
 typedef struct IcnPpFile { struct IcnPpFile *prev; char *fname; long lno; FILE *fp; const char *mem; size_t mlen, mpos; int ifdepth; } IcnPpFile;
 typedef struct IcnPpBuf { struct IcnPpBuf *prev; IcnPpDef *defn; char *ptr, *stop, *lim; } IcnPpBuf;
 typedef struct {
     IcnPpFile nofile, *curfile; IcnPpBuf *bstack, *bfree; char *buf, *bnxt, *bstop, *blim; IcnPpDef **cbin;
-    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals; char *srcpath;
+    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals, unicon; char *srcpath;
 } IcnPp;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_set_source_path(const char *path) { ct_drop(g_parser.icn.pp_src); g_parser.icn.pp_src = path ? ct_strdup(path) : (char *)0; }
@@ -695,14 +721,67 @@ static char *ipp_rline(IcnPp *pp, IcnPpFile *f) {
     return pp->lbuf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void ipp_pushdef(IcnPp *pp, IcnPpDef *d) {
+static void ipp_pushtext(IcnPp *pp, IcnPpDef *d, char *txt, size_t n) {
     d->inuse = 1;
     IcnPpBuf *b = pp->bfree;
     if (b == NULL) b = (IcnPpBuf *)ct_zalloc(1, sizeof *b); else pp->bfree = b->prev;
     b->prev = pp->bstack; b->defn = d; b->ptr = pp->bnxt; b->stop = pp->bstop; b->lim = pp->blim;
     pp->bstack = b;
-    pp->bnxt = pp->bstop = d->s + d->nlen;
-    pp->blim = pp->bnxt + d->vlen;
+    pp->bnxt = pp->bstop = txt;
+    pp->blim = txt + n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ipp_pushdef(IcnPp *pp, IcnPpDef *d) { ipp_pushtext(pp, d, d->s + d->nlen, (size_t)d->vlen); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *ipp_argend(IcnPp *pp, char *q) {
+    int depth = 0;
+    while (q < pp->blim) {
+        char c = *q;
+        if (c == '"' || c == '\'') {
+            q++;
+            while (q < pp->blim && *q != c) q += (*q == '\\') ? 2 : 1;
+            if (q >= pp->blim) return NULL;
+            q++;
+        }
+        else if (c == '(') { depth++; q++; }
+        else if (c == ')') { if (depth == 0) return q; depth--; q++; }
+        else if (c == ',' && depth == 0) return q;
+        else q++;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *ipp_fnsubst(IcnPp *pp, IcnPpDef *d, char *p, size_t *outlen, char **after) {
+    char **as = (char **)ct_alloc((size_t)(d->np + 1) * sizeof *as);
+    char **ae = (char **)ct_alloc((size_t)(d->np + 1) * sizeof *ae);
+    char *q = p + 1, *cl = NULL;
+    int na = 0;
+    if (q < pp->blim && *q == ')') cl = q;
+    while (cl == NULL) {
+        char *e = ipp_argend(pp, q);
+        if (e == NULL) return NULL;
+        if (na == d->np) { ipp_pfatal(pp, "too many arguments to a macro", NULL); return NULL; }
+        as[na] = q; ae[na] = e; na++;
+        if (*e == ')') cl = e; else q = e + 1;
+    }
+    if (na != d->np) { ipp_pfatal(pp, "too few arguments to a macro", NULL); return NULL; }
+    char *b = d->s + d->nlen, *be = b + d->vlen, *out = NULL;
+    int n = 0, cap = 0;
+    while (b < be) {
+        if (isalpha((unsigned char)*b) || *b == '_') {
+            char *w = b;
+            while (b < be && (isalnum((unsigned char)*b) || *b == '_')) b++;
+            int k = 0;
+            while (k < d->np && !(strlen(d->pn[k]) == (size_t)(b - w) && strncmp(w, d->pn[k], (size_t)(b - w)) == 0)) k++;
+            if (k < d->np) { for (char *a = as[k]; a < ae[k]; a++) buf_push(&out, &n, &cap, *a); }
+            else { for (char *c = w; c < b; c++) buf_push(&out, &n, &cap, *c); }
+        }
+        else buf_push(&out, &n, &cap, *b++);
+    }
+    if (out == NULL) out = ct_strdup("");
+    *outlen = (size_t)n;
+    *after = cl + 1;
+    return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ipp_pushline(IcnPp *pp, const char *fname, long lno) {
@@ -812,10 +891,24 @@ static char *ipp_pathfind(IcnPp *pp, const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *ipp_define(IcnPp *pp, char *s) {
-    char c, *name, *val;
+    char c, *name, *val; char **pn = NULL; int np = 0, fn = 0;
     if (isalpha((unsigned char)(c = *s)) || c == '_') s = ipp_getidt(name = s - 1, s);
     else return "$define: missing name";
-    if (*s == '(') return "$define: \"(\" after name requires preceding space";
+    if (*s == '(') {
+        if (!pp->unicon) return "$define: \"(\" after name requires preceding space";
+        fn = 1; s = ipp_wskip(s + 1);
+        while (isalpha((unsigned char)*s) || *s == '_') {
+            char *e = s;
+            while (isalnum((unsigned char)*e) || *e == '_') e++;
+            pn = (char **)ct_grow(pn, (size_t)(np + 1) * sizeof *pn);
+            pn[np++] = ct_strndup(s, (size_t)(e - s));
+            s = ipp_wskip(e);
+            if (*s != ',') break;
+            s = ipp_wskip(s + 1);
+        }
+        if (*s != ')') return "$define: bad parameter list";
+        s++;
+    }
     val = s = ipp_wskip(s);
     if (*s != '\0') {
         while ((c = *s) != '\0' && c != '#') {
@@ -825,7 +918,8 @@ static const char *ipp_define(IcnPp *pp, char *s) {
         while (isspace((unsigned char)s[-1])) s--;
     }
     *s = '\0';
-    ipp_dlookup(pp, name, -1, val);
+    IcnPpDef *d = ipp_dlookup(pp, name, -1, val);
+    if (d && fn) { d->fn = 1; d->np = np; d->pn = pn; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -942,6 +1036,14 @@ static int ipp_ppch(IcnPp *pp) {
                 while (p < pp->blim && (isalnum(c = (unsigned char)*p) || c == '_')) p++;
                 pp->bstop = p;
                 if ((d = ipp_dlookup(pp, pp->bnxt, (int)(p - pp->bnxt), pp->bnxt)) == NULL || d->inuse == 1) { pp->bnxt++; return f; }
+                if (d->fn) {
+                    size_t tl = 0; char *after = NULL;
+                    char *txt = (p < pp->blim && *p == '(') ? ipp_fnsubst(pp, d, p, &tl, &after) : NULL;
+                    if (txt == NULL) { pp->bnxt++; return f; }
+                    pp->bnxt = after;
+                    ipp_pushtext(pp, d, txt, tl);
+                    continue;
+                }
                 pp->bnxt = p;
                 ipp_pushdef(pp, d);
                 continue;
@@ -1009,6 +1111,7 @@ int icn_pp_echo(const char *path) {
 static void lex_pull_line(IcnLexer *lx) {
     IcnPp *pp = (IcnPp *)lx->pp;
     int c;
+    pp->unicon = lx->unicon;
     do {
         c = ipp_ppch(pp);
         if (c == EOF) { lx->pp_eof = 1; break; }
