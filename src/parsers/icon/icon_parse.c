@@ -896,15 +896,28 @@ static tree_t *parse_stmt(IcnParser *p) {
         int is_static = check(p, TK_STATIC);
         advance(p);
         tree_t *e = ast_node_new(is_static ? TT_STATIC_DECL : TT_LOCAL);
+        tree_t *out = ast_node_new(TT_PROGRAM);
+        push_child(out, e);
         while (!check(p, TK_SEMICOL) && !check(p, TK_EOF)) {
             if (p->cur.kind == TK_IDENT) {
+                int dline = p->cur.line;
+                tree_t *lhs = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
                 push_child(e, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
                 advance(p);
+                if (match(p, TK_ASSIGN)) {
+                    tree_t *asn = e_binary_at(dline, TT_ASSIGN, lhs, parse_assign(p));
+                    if (is_static) {
+                        tree_t *ini = ast_node_new(TT_INITIAL);
+                        ini->line = dline;
+                        push_child(ini, asn);
+                        push_child(out, ini);
+                    } else push_child(out, asn);
+                }
             }
             if (!match(p, TK_COMMA)) break;
         }
         stmt_end(p, "local or static declaration");
-        return e;
+        return out->n > 1 ? out : e;
     }
     tree_t *e = parse_expr(p);
     if (check(p, TK_ELSE) || check(p, TK_THEN)) { match(p, TK_SEMICOL); return e; }
@@ -930,6 +943,8 @@ static tree_t *parse_record(IcnParser *p) {
     match(p, TK_SEMICOL);
     return e;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_body_push(tree_t *body, tree_t *s) { if (s->t == TT_PROGRAM) { for (int i = 0; i < s->n; i++) ast_push(body, s->c[i]); } else ast_push(body, s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
     expect(p, kw, kw == TK_METHOD ? "method" : "procedure");
@@ -965,7 +980,7 @@ static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
     vlist->v.ival = is_variadic;
     for (int i = 0; i < nparams; i++) ast_push(vlist, params[i]);
     tree_t *body = ast_node_new(TT_PROGRAM);
-    for (int i = 0; i < nstmts; i++) ast_push(body, stmts[i]);
+    for (int i = 0; i < nstmts; i++) icn_body_push(body, stmts[i]);
     tree_t *proc = ast_node_new(TT_PROC_DECL);
     proc->v.sval = procname;
     proc->slen = end_line;
@@ -1002,7 +1017,7 @@ static tree_t *parse_initially(IcnParser *p) {
     while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
         int l = p->cur.line; tree_t *s = parse_stmt(p);
         if (s && s->line <= 0) s->line = l;
-        if (s) ast_push(body, s);
+        if (s) icn_body_push(body, s);
     }
     tree_t *proc = ast_node_new(TT_PROC_DECL);
     proc->v.sval = intern_n("initially", 9);
