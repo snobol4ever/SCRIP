@@ -658,7 +658,7 @@ typedef struct IcnPpFile { struct IcnPpFile *prev; char *fname; long lno; FILE *
 typedef struct IcnPpBuf { struct IcnPpBuf *prev; IcnPpDef *defn; char *ptr, *stop, *lim; } IcnPpBuf;
 typedef struct {
     IcnPpFile nofile, *curfile; IcnPpBuf *bstack, *bfree; char *buf, *bnxt, *bstop, *blim; IcnPpDef **cbin;
-    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals, unicon; char *srcpath;
+    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals, unicon, intri; char *srcpath;
 } IcnPp;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_set_source_path(const char *path) { ct_drop(g_parser.icn.pp_src); g_parser.icn.pp_src = path ? ct_strdup(path) : (char *)0; }
@@ -1025,6 +1025,14 @@ static void ipp_ppdir(IcnPp *pp, char *s) {
     if (errmsg != NULL && (!is_setline || b0 != '#')) ipp_pfatal(pp, errmsg, NULL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ipp_tscan(IcnPp *pp, const char *s) {
+    if (!pp->unicon) return;
+    for (; *s; s++) {
+        if (!pp->intri && *s == '#') break;
+        if (s[0] == '"' && s[1] == '"' && s[2] == '"') { pp->intri = !pp->intri; s += 2; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int ipp_ppch(IcnPp *pp) {
     int c, f; char *p; IcnPpDef *d;
     for (;;) {
@@ -1071,9 +1079,10 @@ static int ipp_ppch(IcnPp *pp) {
             p = pp->bnxt = pp->bstop = pp->blim = pp->buf;
             pp->curfile->lno++;
             while (isspace(c = (unsigned char)*p)) p++;
-            if (c == '$' && (!ispunct((unsigned char)p[1]) || p[1] == ' ')) ipp_ppdir(pp, p + 1);
-            else if (pp->buf[1] == 'l' && pp->buf[2] == 'i' && pp->buf[3] == 'n' && pp->buf[4] == 'e' && pp->buf[0] == '#' && pp->buf[5] == ' ') ipp_ppdir(pp, p + 1);
+            if (!pp->intri && c == '$' && (!ispunct((unsigned char)p[1]) || p[1] == ' ')) ipp_ppdir(pp, p + 1);
+            else if (!pp->intri && pp->buf[1] == 'l' && pp->buf[2] == 'i' && pp->buf[3] == 'n' && pp->buf[4] == 'e' && pp->buf[0] == '#' && pp->buf[5] == ' ') ipp_ppdir(pp, p + 1);
             else { pp->bnxt = pp->buf; pp->blim = pp->buf + strlen(pp->buf); pp->bstop = pp->bnxt; }
+            ipp_tscan(pp, pp->buf);
         } else {
             if (pp->curfile->ifdepth != pp->ifdepth) { ipp_pfatal(pp, "unterminated $if", NULL); pp->ifdepth = pp->curfile->ifdepth; }
             IcnPpFile *fs = pp->curfile;
