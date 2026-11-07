@@ -523,7 +523,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     cx->after_line = 0;
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) && icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
-    if (name && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && icn_callable_proc_index(name) < 0) { char * un = icn_unicon_row(name); if (un) name = un; }
+    int nm_form = name && nargs == 1 && !strcmp(name, "name");
+    if (name && !nm_form && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && icn_callable_proc_index(name) < 0) { char * un = icn_unicon_row(name); if (un) name = un; }
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
