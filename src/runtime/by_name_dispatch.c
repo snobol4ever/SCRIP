@@ -24303,6 +24303,31 @@ DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) {
 }
 DESCR_t bt_ICNx24UIDENT(DESCR_t *args, int nargs) { if (nargs == 1) { extern DESCR_t bt_ICNx24UIDENT(DESCR_t *, int); return bt_ICNx24UIDENT(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { if (nargs <= 1) { extern DESCR_t bt_ICNx24UMUTEX(DESCR_t *, int); return bt_ICNx24UMUTEX(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static int icn_numeric_suffix_power(char c) {
+    return (c == 'k' || c == 'K') ? 1 : (c == 'm' || c == 'M') ? 2 : (c == 'g' || c == 'G') ? 3 : (c == 't' || c == 'T') ? 4 : (c == 'p' || c == 'P') ? 5 : 0;
+}
+DESCR_t bt_ICNx24UNUMERIC(DESCR_t *args, int nargs) {
+    if (nargs == 1 && args[0].v == DT_S && args[0].s && args[0].slen != 0xFFFFFFFFu) {
+        const char *s = args[0].s;
+        size_t n = args[0].slen;
+        while (n && (*s == ' ' || *s == '\t')) { s++; n--; }
+        while (n && (s[n - 1] == ' ' || s[n - 1] == '\t')) n--;
+        const int pw = n >= 2 ? icn_numeric_suffix_power(s[n - 1]) : 0;
+        if (pw) {
+            size_t i = (s[0] == '+' || s[0] == '-') ? 1 : 0;
+            const int neg = s[0] == '-';
+            const size_t e = n - 1;
+            long long v = 0;
+            int ok = i < e;
+            for (; ok && i < e; i++) ok = s[i] >= '0' && s[i] <= '9' && !__builtin_mul_overflow(v, 10LL, &v) && !__builtin_add_overflow(v, (long long) (s[i] - '0'), &v);
+            for (int k = 0; ok && k < pw; k++) ok = !__builtin_mul_overflow(v, 1024LL, &v);
+            if (ok) return INTVAL(neg ? -v : v);
+        }
+    }
+    DESCR_t out = FAILDESCR;
+    try_call_builtin_by_name_bl_s("numeric", args, nargs, &out, -1, 0);
+    return out;
+}
 DESCR_t bt_ICNx24REFRESH(DESCR_t *args, int nargs) {
     if (nargs == 1) {
         DESCR_t src = args[0];
