@@ -153,7 +153,7 @@ static int icn_cvt_num_ok(DESCR_t d) {
     if (!((*p >= '0' && *p <= '9') || (*p == '.' && p[1] >= '0' && p[1] <= '9'))) return 0;
     const char *q = p;
     while (*q >= '0' && *q <= '9') q++;
-    if (q > p && (*q == 'r' || *q == 'R')) { q++; if (!icn_alnum_c(*q)) return 0; while (icn_alnum_c(*q)) q++; while (*q == ' ') q++; return !*q; }
+    if (q > p && (*q == 'r' || *q == 'R')) { q++; while (icn_alnum_c(*q)) q++; while (*q == ' ') q++; return !*q; }
     char *e;
     double x = strtod(p, &e);
     while (*e == ' ') e++;
@@ -584,7 +584,6 @@ int icon_radix_int(const char *s, long long *out) {
     while (*p >= '0' && *p <= '9') { base = base * 10 + (*p - '0'); p++; }
     if (!(p > bstart && (*p == 'r' || *p == 'R') && base >= 2 && base <= 36)) return 0;
     p++;
-    const char *dstart = p;
     long long v = 0;
     while (*p) {
         int d = -1;
@@ -597,7 +596,7 @@ int icon_radix_int(const char *s, long long *out) {
         p++;
     }
     while (*p == ' ' || *p == '\t') p++;
-    if (!(p > dstart && *p == '\0')) return 0;
+    if (*p != '\0') return 0;
     *out = neg ? -v : v;
     return 1;
 }
@@ -25370,7 +25369,6 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             while (*p >= '0' && *p <= '9') { base = base * 10 + (*p - '0'); p++; }
             if (p > bstart && (*p == 'r' || *p == 'R') && base >= 2 && base <= 36) {
                 p++;
-                const char *dstart = p;
                 long long v = 0;
                 while (*p) {
                     int d = -1;
@@ -25382,7 +25380,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                     p++;
                 }
                 while (*p == ' ' || *p == '\t') p++;
-                if (p > dstart && *p == '\0') { *out = INTVAL(neg ? -v : v); return 1; }
+                if (*p == '\0') { *out = INTVAL(neg ? -v : v); return 1; }
             }
         }
         errno = 0;
