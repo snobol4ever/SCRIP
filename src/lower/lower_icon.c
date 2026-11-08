@@ -1348,7 +1348,10 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
     if (!strcmp(fn->v.sval, "wait") && t->n == 2 && t->c[1] && !icn_is_proc("wait")) {
         const char * tv = icn_synth_local(cx);
         tree_t * yield = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL);
-        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL), NULL);
+        tree_t * tq = ast_node_new(TT_QLIT);
+        tq->v.sval = (char *) "integer";
+        tq->slen = 7;
+        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), tq, NULL), pm_call("ICN$UWAIT", th_var(tv), NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL)), NULL);
     }
     if (!strcmp(fn->v.sval, "lock") && t->n == 2 && t->c[1] && !icn_is_proc("lock")) {
         const char * mv = icn_synth_local(cx);
