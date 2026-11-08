@@ -449,7 +449,7 @@ b_term:
 b_factor:
     scalar_constant { $$ = $1; }
     |IDENT LPARENT b_expr RPARENT { $$ = pt_add(pt_add(pt_new(TT_FNC), $1), $3); }
-    |LPARENT b_expr RPARENT { $$ = $2; }
+    |LPARENT b_expr RPARENT { $$ = $2; if ($$ && $$->slen == 0 && $$->t != TT_ILIT && $$->t != TT_FLIT && $$->t != TT_CHRLIT && $$->t != TT_QLIT) $$->slen = -7; }
     ;
 record_body:
     record_field_list record_case_opt { $$ = pt_add(pt_retag($1, TT_FIELDS), $2); }
@@ -647,7 +647,7 @@ call:
     ;
 recv_primary:
     STRINGCONST { $$ = $1; }
-    |LPARENT expression RPARENT { $$ = $2; }
+    |LPARENT expression RPARENT { $$ = $2; if ($$ && $$->slen == 0 && $$->t != TT_ILIT && $$->t != TT_FLIT && $$->t != TT_CHRLIT && $$->t != TT_QLIT) $$->slen = -7; }
     |spec_expr { $$ = $1; }
     ;
 call_with_args:
@@ -797,7 +797,7 @@ factor:
     |REALCONST { $$ = $1; }
     |STRINGCONST { $$ = $1; }
     |CHARCODE { $$ = $1; }
-    |LPARENT expression RPARENT { $$ = $2; }
+    |LPARENT expression RPARENT { $$ = $2; if ($$ && $$->slen == 0 && $$->t != TT_ILIT && $$->t != TT_FLIT && $$->t != TT_CHRLIT && $$->t != TT_QLIT) $$->slen = -7; }
     |inherited_call { $$ = $1; }
     |NOTSY factor { $$ = pt_add(pt_new(TT_NOT), $2); }
     |ATSIGN factor { $$ = pt_add(pt_new(TT_ADDR), $2); }

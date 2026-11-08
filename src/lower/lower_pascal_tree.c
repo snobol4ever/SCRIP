@@ -4883,6 +4883,23 @@ static void pas_iso_empty_strings(const tree_t *t) {
     }
     for (int i = 0; i < t->n; i++) pas_iso_empty_strings(t->c[i]);
 }
+static int pas_sign_over(const tree_t *x) {
+    if (!x || x->slen == -7) return 0;
+    if (x->t == TT_CONJ && x->n == 2) return 1;
+    return x->t == TT_FNC && x->n == 3 && x->c[0] && x->c[0]->v.sval && (!strcasecmp(x->c[0]->v.sval, "shl") || !strcasecmp(x->c[0]->v.sval, "shr"));
+}
+static tree_t *pas_sign_into(tree_t *s, tree_t *x) {
+    int i = x->t == TT_CONJ ? 0 : 1;
+    if (pas_sign_over(x->c[i])) x->c[i] = pas_sign_into(s, x->c[i]);
+    else { s->c[0] = x->c[i]; x->c[i] = s; }
+    return x;
+}
+static tree_t *pas_sign_binds_factor(tree_t *t) {
+    if (!t) return t;
+    for (int i = 0; i < t->n; i++) t->c[i] = pas_sign_binds_factor(t->c[i]);
+    if ((t->t == TT_MNS || t->t == TT_PLS) && t->n == 1 && pas_sign_over(t->c[0])) return pas_sign_into(t, t->c[0]);
+    return t;
+}
 static void elab_bad(const char *nt, const tree_t *n) { fprintf(stderr, "pascal: internal error: no production of '%s' fits tree node kind %d\n", nt, n ? (int)n->t : -1); abort(); }
 static void pas_apply_event(const char *ev) {
     if (!strcmp(ev, "iso_error")) g_lower.pas.sem.pas_iso_errors++;
@@ -8179,6 +8196,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_limit_errors = 0;
     g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode") || pas_result_flips_dialect(pruned);
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
+    if (g_lower.pas.sem.pas_dialect_fpc) pruned = pas_sign_binds_factor(pruned);
     int _iofull = pas_user_ioflow(pruned), _su = pas_has_unit(pruned, "ioerr");
     g_lower.pas.sem.pas_iofull = _iofull;
     g_lower.pas.sem.pas_divchk = _su;

@@ -3084,7 +3084,7 @@ yyreduce:
 
   case 149: /* b_factor: LPARENT b_expr RPARENT  */
 #line 452 "pascal.y"
-                            { (yyval.node) = (yyvsp[-1].node); }
+                            { (yyval.node) = (yyvsp[-1].node); if ((yyval.node) && (yyval.node)->slen == 0 && (yyval.node)->t != TT_ILIT && (yyval.node)->t != TT_FLIT && (yyval.node)->t != TT_CHRLIT && (yyval.node)->t != TT_QLIT) (yyval.node)->slen = -7; }
 #line 3089 "pascal.tab.c"
     break;
 
@@ -3869,7 +3869,7 @@ yyreduce:
 
   case 277: /* recv_primary: LPARENT expression RPARENT  */
 #line 650 "pascal.y"
-                                { (yyval.node) = (yyvsp[-1].node); }
+                                { (yyval.node) = (yyvsp[-1].node); if ((yyval.node) && (yyval.node)->slen == 0 && (yyval.node)->t != TT_ILIT && (yyval.node)->t != TT_FLIT && (yyval.node)->t != TT_CHRLIT && (yyval.node)->t != TT_QLIT) (yyval.node)->slen = -7; }
 #line 3874 "pascal.tab.c"
     break;
 
@@ -4451,7 +4451,7 @@ yyreduce:
 
   case 374: /* factor: LPARENT expression RPARENT  */
 #line 800 "pascal.y"
-                                { (yyval.node) = (yyvsp[-1].node); }
+                                { (yyval.node) = (yyvsp[-1].node); if ((yyval.node) && (yyval.node)->slen == 0 && (yyval.node)->t != TT_ILIT && (yyval.node)->t != TT_FLIT && (yyval.node)->t != TT_CHRLIT && (yyval.node)->t != TT_QLIT) (yyval.node)->slen = -7; }
 #line 4456 "pascal.tab.c"
     break;
 
