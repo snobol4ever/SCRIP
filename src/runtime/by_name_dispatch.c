@@ -4654,8 +4654,15 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     b->hi2 = s->hi2;
     b->proto_bare = s->proto_bare;
     b->proto = s->proto;
-    b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
-    for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(s->data[k]);
+    b->ewidth = s->ewidth;
+    b->esigned = s->esigned;
+    if (s->ewidth) {
+        b->data = (DESCR_t *) rt_ws_alloc_raw((size_t) (n * s->ewidth));
+        memcpy(b->data, s->data, (size_t) (n * s->ewidth));
+    } else {
+        b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+        for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(s->data[k]);
+    }
     DESCR_t d = {0};
     d.v = DT_A;
     d.slen = 0;
@@ -4707,6 +4714,15 @@ static DESCR_t pas_dynset(DESCR_t old, DESCR_t proto, int depth, DESCR_t *dims, 
     long long on = ob ? (long long)ob->hi - ob->lo + 1 : 0;
     DESCR_t d = pas_dyn_block(n);
     ARBLK_t *b = (ARBLK_t *) d.arr;
+    if (ob && ob->ewidth && nd == 1) {
+        long long keep = on < n ? on : n;
+        b->ewidth = ob->ewidth;
+        b->esigned = ob->esigned;
+        b->data = (DESCR_t *) rt_ws_alloc_raw((size_t) ((n > 0 ? n : 1) * ob->ewidth));
+        memset(b->data, 0, (size_t) ((n > 0 ? n : 1) * ob->ewidth));
+        if (keep > 0) memcpy(b->data, ob->data, (size_t) (keep * ob->ewidth));
+        return d;
+    }
     for (long long k = 0; k < n; k++) {
         DESCR_t prev = k < on ? ob->data[k] : NULVCL;
         if (nd > 1) b->data[k] = pas_dynset(prev, proto, depth - 1, dims + 1, nd - 1);
