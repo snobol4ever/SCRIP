@@ -24432,10 +24432,17 @@ DESCR_t bt_ICNx24UNUMERIC(DESCR_t *args, int nargs) {
             const int neg = s[0] == '-';
             const size_t e = n - 1;
             long long v = 0;
-            int ok = i < e;
-            for (; ok && i < e; i++) ok = s[i] >= '0' && s[i] <= '9' && !__builtin_mul_overflow(v, 10LL, &v) && !__builtin_add_overflow(v, (long long) (s[i] - '0'), &v);
-            for (int k = 0; ok && k < pw; k++) ok = !__builtin_mul_overflow(v, 1024LL, &v);
-            if (ok) return INTVAL(neg ? -v : v);
+            int dig = i < e, ok = 1;
+            for (size_t j = i; dig && j < e; j++) dig = s[j] >= '0' && s[j] <= '9';
+            for (; dig && ok && i < e; i++) ok = !__builtin_mul_overflow(v, 10LL, &v) && !__builtin_add_overflow(v, (long long) (s[i] - '0'), &v);
+            for (int k = 0; dig && ok && k < pw; k++) ok = !__builtin_mul_overflow(v, 1024LL, &v);
+            if (dig && ok) return INTVAL(neg ? -v : v);
+            DESCR_t d = FAILDESCR, a0 = { .v = DT_S, .slen = (uint32_t) e, .s = s };
+            if (dig && try_call_builtin_by_name_bl_s("numeric", &a0, 1, &d, -1, 0) && d.v != DT_FAIL) {
+                extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+                for (int k = 0; k < pw; k++) d = rt_num_arith(d, INTVAL(1024), BINOP_MUL);
+                return d;
+            }
         }
     }
     DESCR_t out = FAILDESCR;
