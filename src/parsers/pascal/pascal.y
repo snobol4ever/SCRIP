@@ -656,6 +656,8 @@ call_with_args:
     |spec_expr LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
     |spec_expr LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
+    |call_with_args LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
+    |call_with_args LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     |selector PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }

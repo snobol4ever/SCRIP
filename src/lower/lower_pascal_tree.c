@@ -7868,6 +7868,13 @@ static void pas_lvalue_casts(tree_t *root, tree_t *t) {
         pas_lvalue_casts(root, c);
     }
 }
+static void pas_call_casts(tree_t *root, tree_t *t) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (IS(t, TT_FNC) && i == 0 && IS(c, TT_FNC) && c->n == 2 && IS(c->c[0], TT_VAR) && pas_castname(root, c->c[0]->v.sval)) { t->c[0] = c->c[1]; c = t->c[0]; }
+        pas_call_casts(root, c);
+    }
+}
 static void pas_rename_var(tree_t *t, const char *from, const char *to) {
     for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, from)) c->v.sval = (char *)to; pas_rename_var(c, from, to); }
 }
@@ -8211,6 +8218,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     pas_forin_types(flat, flat, NULL);
     pas_absolute_vars(flat);
     pas_lvalue_casts(flat, flat);
+    pas_call_casts(flat, flat);
     pas_shortstrings(flat);
     flat = pas_classes_prepass(flat);
     pas_defaults_prepass(flat);
