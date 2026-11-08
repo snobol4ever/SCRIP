@@ -3334,6 +3334,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_inits'([G|Gs]):-'$consult_goal'(G),'$consult_inits'(Gs).\n"
     "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n"
     "load_files(S):-load_files(S,[]).\n"
+    "public(_).\n"
+    "det(_).\n"
     "load_files(S,O0):-'$lf_check'(S,O0),'$lf_dia'(O0,O),'$lf_mod'(S,M,F),'$lf_list'(F,Fs),'$lf_all'(Fs,M,O).\n"
     "'$lf_dia'(O,O):-memberchk(dialect(_),O),!.\n"
     "'$lf_dia'(O,[dialect(xsb)|O]):-current_prolog_flag('$dialect',xsb),!.\n"
