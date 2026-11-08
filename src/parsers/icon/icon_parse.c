@@ -1084,6 +1084,7 @@ static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults, tre
         push_child(vl, v);
         advance(p);
         if (coer && p->lex->unicon && check(p, TK_COLON)) parse_param_coercion(p, v->v.sval, v->slen, coer);
+        if (coer && check(p, TK_LBRACK)) { advance(p); expect(p, TK_RBRACK, what); vl->v.ival = 1; break; }
         if (defaults && match(p, TK_COLON)) { tree_t *d = parse_expr(p); if (d) ast_push(v, d); }
         if (!match(p, TK_COMMA)) break;
     }

@@ -184,7 +184,7 @@ static tree_t * cx_method_proc(cx_st * st, const cx_class * c, const tree_t * m)
     cx_kids(body, &x, 0);
     int ini = !strcmp(m->v.sval, "initially");
     if (ini) ast_push(body, cx_un(TT_RETURN, cx_var("self")));
-    tree_t * p = cx_proc(cx_cat(c->name, "_", m->v.sval), params, (int) m->c[1]->v.ival, body);
+    tree_t * p = cx_proc(cx_cat(c->name, "_", m->v.sval), params, ini ? 0 : (int) m->c[1]->v.ival, body);
     p->slen = m->slen;
     p->line = m->line;
     return p;
@@ -252,7 +252,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     ast_push(cb, cx_un(TT_RETURN, cx_var("self")));
     tree_t * cpl = ast_node_new(TT_VLIST);
     for (int i = 0; i < cparams.n; i++) ast_push(cpl, cx_var(cparams.v[i]));
-    ast_push(prog, cx_stmt(cx_proc(c->name, cpl, 0, cb)));
+    ast_push(prog, cx_stmt(cx_proc(c->name, cpl, ini ? (int) ini->c[1]->v.ival : 0, cb)));
     for (int i = 2; i < c->node->n; i++) { const tree_t * m = c->node->c[i]; if (m->t != TT_RECORD && m->n > 2) ast_push(prog, cx_stmt(cx_method_proc(st, c, m))); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
