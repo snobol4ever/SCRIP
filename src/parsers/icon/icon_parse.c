@@ -984,17 +984,60 @@ static tree_t *parse_record(IcnParser *p) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_body_push(tree_t *body, tree_t *s) { if (s->t == TT_PROGRAM) { for (int i = 0; i < s->n; i++) ast_push(body, s->c[i]); } else ast_push(body, s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_param_call(const char *f, tree_t *a, tree_t *b) {
+    tree_t *c = ast_node_new(TT_FNC);
+    push_child(c, e_leaf_sval(TT_VAR, f, -1));
+    push_child(c, a);
+    if (b) push_child(c, b);
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_param_errno(const char *t, int tl) {
+    const char *nm[] = {"integer", "numeric", "string", "cset", "file", "list", "set", "table", "window"};
+    int en[] = {101, 102, 103, 104, 105, 108, 119, 124, 140};
+    for (int i = 0; i < 9; i++) if ((int)strlen(nm[i]) == tl && !strncmp(nm[i], t, tl)) return en[i];
+    return 123;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void parse_param_coercion(IcnParser *p, const char *v, int vl, tree_t *coer) {
+    int cl = p->cur.line;
+    advance(p);
+    const char *t = NULL; int tl = 0; tree_t *d = NULL;
+    if (check(p, TK_IDENT)) {
+        t = intern_n(p->cur.val.sval.data, (int)p->cur.val.sval.len); tl = (int)p->cur.val.sval.len;
+        advance(p);
+        if (check(p, TK_COLON)) { advance(p); d = parse_primary(p); }
+    }
+    else d = parse_primary(p);
+    if (d) push_child(coer, e_binary_at(cl, TT_ASSIGN, e_unary_at(cl, TT_NULL, e_leaf_sval(TT_VAR, v, vl)), d));
+    if (!t || (d && d->t == TT_MAKELIST && d->n == 0)) return;
+    int en = icn_param_errno(t, tl);
+    int conv = (en >= 101 && en <= 104) || (tl == 4 && !strncmp(t, "real", 4));
+    tree_t *ni = ast_node_new(TT_ILIT); ni->v.ival = en;
+    tree_t *err = icn_param_call("runerr", ni, e_leaf_sval(TT_VAR, v, vl));
+    if (conv) {
+        tree_t *cv = icn_param_call(t, e_leaf_sval(TT_VAR, v, vl), NULL);
+        push_child(coer, e_binary_at(cl, TT_ASSIGN, e_leaf_sval(TT_VAR, v, vl), e_binary_at(cl, TT_ALTERNATE, cv, err)));
+    }
+    else {
+        tree_t *ty = icn_param_call("type", e_leaf_sval(TT_VAR, v, vl), NULL);
+        push_child(coer, e_binary_at(cl, TT_ALTERNATE, e_binary_at(cl, TT_LEQ, ty, e_leaf_sval(TT_QLIT, t, tl)), err));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
     expect(p, kw, kw == TK_METHOD ? "method" : "procedure");
     if (p->cur.kind != TK_IDENT) { parser_error(p, "expected procedure name"); return NULL; }
     IcnToken name_tok = p->cur; advance(p);
     tree_t **params = NULL; int nparams = 0, pcap = 0; int is_variadic = 0;
+    tree_t *coer = ast_node_new(TT_PROGRAM);
     expect(p, TK_LPAREN, "procedure params");
     while (!check(p, TK_RPAREN) && !check(p, TK_EOF)) {
         if (p->cur.kind == TK_IDENT) {
             if (nparams+1 > pcap) { pcap = pcap ? pcap*2 : 4; params = ct_grow(params, pcap*sizeof(tree_t*)); }
             params[nparams++] = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
             advance(p);
+            if (p->lex->unicon && check(p, TK_COLON)) parse_param_coercion(p, params[nparams-1]->v.sval, params[nparams-1]->slen, coer);
             if (check(p, TK_LBRACK)) { advance(p); match(p, TK_RBRACK); is_variadic = 1; break; }
         }
         if (!match(p, TK_COMMA)) break;
@@ -1018,6 +1061,7 @@ static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
     vlist->v.ival = is_variadic;
     for (int i = 0; i < nparams; i++) ast_push(vlist, params[i]);
     tree_t *body = ast_node_new(TT_PROGRAM);
+    icn_body_push(body, coer);
     for (int i = 0; i < nstmts; i++) icn_body_push(body, stmts[i]);
     tree_t *proc = ast_node_new(TT_PROC_DECL);
     proc->v.sval = procname;
@@ -1031,7 +1075,7 @@ static tree_t *parse_proc_kw(IcnParser *p, IcnTkKind kw, int has_body) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_proc(IcnParser *p) { return parse_proc_kw(p, TK_PROCEDURE, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults) {
+static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults, tree_t *coer) {
     tree_t *vl = ast_node_new(TT_VLIST);
     expect(p, TK_LPAREN, what);
     while (!check(p, TK_RPAREN) && !check(p, TK_EOF) && !p->had_error) {
@@ -1039,6 +1083,7 @@ static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults) {
         tree_t *v = e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len);
         push_child(vl, v);
         advance(p);
+        if (coer && p->lex->unicon && check(p, TK_COLON)) parse_param_coercion(p, v->v.sval, v->slen, coer);
         if (defaults && match(p, TK_COLON)) { tree_t *d = parse_expr(p); if (d) ast_push(v, d); }
         if (!match(p, TK_COMMA)) break;
     }
@@ -1049,9 +1094,11 @@ static tree_t *parse_name_list(IcnParser *p, const char *what, int defaults) {
 static tree_t *parse_initially(IcnParser *p) {
     expect(p, TK_INITIALLY, "initially");
     int sline = p->cur.line;
-    tree_t *params = check(p, TK_LPAREN) ? parse_name_list(p, "initially params", 0) : ast_node_new(TT_VLIST);
+    tree_t *coer = ast_node_new(TT_PROGRAM);
+    tree_t *params = check(p, TK_LPAREN) ? parse_name_list(p, "initially params", 0, coer) : ast_node_new(TT_VLIST);
     match(p, TK_SEMICOL);
     tree_t *body = ast_node_new(TT_PROGRAM);
+    icn_body_push(body, coer);
     while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
         int l = p->cur.line; tree_t *s = parse_stmt(p);
         if (s && s->line <= 0) s->line = l;
@@ -1077,7 +1124,7 @@ static tree_t *parse_class(IcnParser *p) {
         push_child(supers, e_leaf_sval(TT_VAR, p->cur.val.sval.data, (int)p->cur.val.sval.len));
         advance(p);
     }
-    tree_t *fields = parse_name_list(p, "class fields", 1);
+    tree_t *fields = parse_name_list(p, "class fields", 1, NULL);
     match(p, TK_SEMICOL);
     tree_t *cls = ast_node_new(TT_CLASS_DECL);
     cls->v.sval = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);
