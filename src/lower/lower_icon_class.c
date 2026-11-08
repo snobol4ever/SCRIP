@@ -9,7 +9,7 @@
 typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
 typedef struct cx_class { const tree_t * node; const char * name; cx_sv supers, fields, anc; cx_meth * meth; int nmeth, cmeth; const tree_t * init; int built; } cx_class;
-typedef struct { cx_class * cls; int ncls, ccls, tmp, use_image; cx_sv gmeth; } cx_st;
+typedef struct { cx_class * cls; int ncls, ccls, tmp, use_image, use_oprec; cx_sv gmeth; } cx_st;
 typedef struct { cx_st * st; const cx_class * cls; cx_sv shadow; } cx_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cx_push(cx_sv * s, const char * w) {
@@ -90,12 +90,41 @@ static int cx_is_method(const cx_ctx * x, const char * nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * cx_clone(const tree_t * e) {
+    if (!e) return NULL;
+    tree_t * c = ast_node_new(e->t);
+    c->start = e->start;
+    c->end = e->end;
+    c->line = e->line;
+    c->slen = e->slen;
+    c->v = e->v;
+    for (int i = 0; i < e->n; i++) ast_push(c, cx_clone(e->c[i]));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * cx_ilit(long long v) { tree_t * e = ast_node_new(TT_ILIT); e->v.ival = v; return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * cx_guard(tree_t * gv, tree_t * obj_call, tree_t * plain_call) {
+    tree_t * ty = cx_un(TT_FNC, cx_var("type"));
+    ast_push(ty, gv);
+    tree_t * sec = cx_bin(TT_SECTION, ty, cx_un(TT_MNS, cx_ilit(7)));
+    ast_push(sec, cx_ilit(0));
+    tree_t * q = ast_node_new(TT_QLIT);
+    q->v.sval = (char *) "__state";
+    q->slen = 7;
+    tree_t * iff = cx_bin(TT_IF, cx_bin(TT_LEQ, sec, q), obj_call);
+    ast_push(iff, plain_call);
+    iff->line = obj_call->line;
+    return iff;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
     tree_t * f = n->c[0];
     const char * m = f->c[1]->v.sval;
     tree_t * obj = f->c[0];
     tree_t * mrec;
     tree_t * ref;
+    tree_t * gv = NULL;
     if (obj->t == TT_FIELD && obj->n > 1 && obj->c[1] && obj->c[1]->t == TT_VAR && cx_find(x->st, obj->c[1]->v.sval)) {
         const char * sup = obj->c[1]->v.sval;
         tree_t * base = cx_expr(obj->c[0], x);
@@ -115,21 +144,27 @@ static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
         if (base->t == TT_VAR) {
             ref = cx_var(base->v.sval);
             mrec = cx_fld(base, "__m");
+            if (x->st->use_oprec) gv = cx_var(base->v.sval);
         } else {
             char buf[24];
             snprintf(buf, sizeof buf, "%d", ++x->st->tmp);
             char * tmp = cx_cat("__o", buf, "");
-            mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
+            if (x->st->use_oprec) { gv = cx_bin(TT_ASSIGN, cx_var(tmp), base); mrec = cx_fld(cx_var(tmp), "__m"); } else mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
             ref = cx_var(tmp);
         }
     }
+    tree_t * pl = NULL;
+    if (gv) { pl = ast_node_new(TT_FNC); ast_push(pl, cx_fld(cx_var(ref->v.sval), m)); for (int i = 1; i < n->n; i++) ast_push(pl, cx_clone(n->c[i])); }
     tree_t * out = ast_node_new(TT_FNC);
     ast_push(out, cx_fld(mrec, m));
     ast_push(out, ref);
     for (int i = 1; i < n->n; i++) if (n->c[i]) ast_push(out, cx_expr(n->c[i], x));
     else ast_push(out, NULL);
     out->line = n->line;
-    return out;
+    if (!gv) return out;
+    for (int i = 1; i < pl->n; i++) if (pl->c[i]) pl->c[i] = cx_expr(pl->c[i], x);
+    pl->line = n->line;
+    return cx_guard(gv, out, pl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
@@ -295,12 +330,49 @@ static void cx_list_proc(cx_sb * sb, cx_st * st, const char * pname, int methods
     }
     cx_sb_add(sb, "end\n");
 }
+static void cx_fieldnames_proc(cx_sb * sb, const tree_t * prog) {
+    cx_sb_add(sb, "procedure fieldnames(x)\n   local t;\n   t := type(x);\n");
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * d = (s && s->t == TT_STMT) ? stmt_attr_expr(stmt_attr_find(s, ":subj")) : NULL;
+        if (!d || d->t != TT_RECORD || !d->v.sval) continue;
+        cx_sb_add(sb, "   if t == \"");
+        cx_sb_add(sb, d->v.sval);
+        cx_sb_add(sb, "\" then {");
+        for (int k = 0; k < d->n; k++) { cx_sb_add(sb, k ? " | \"" : " suspend \""); cx_sb_add(sb, d->c[k]->v.sval); cx_sb_add(sb, "\""); }
+        cx_sb_add(sb, d->n ? "; fail };\n" : " fail };\n");
+    }
+    cx_sb_add(sb, "   runerr(107, x);\nend\n");
+}
+static void cx_methods_proc(cx_sb * sb, const cx_st * st) {
+    cx_sb_add(sb, "procedure methods(o)\n   local t;\n   t := type(o);\n   if t == \"string\" then t := o || \"__state\";\n");
+    for (int i = 0; i < st->ncls; i++) {
+        const cx_class * c = &st->cls[i];
+        cx_sb_add(sb, "   if t == \"");
+        cx_sb_add(sb, c->name);
+        cx_sb_add(sb, "__state\" then return [");
+        int first = 1;
+        for (int k = 0; k < c->nmeth; k++) {
+            if (strcmp(c->meth[k].owner, c->name) || !c->meth[k].proc || c->meth[k].proc->n <= 2) continue;
+            if (!first) cx_sb_add(sb, ", ");
+            first = 0;
+            cx_sb_add(sb, c->meth[k].owner);
+            cx_sb_add(sb, "_");
+            cx_sb_add(sb, c->meth[k].name);
+        }
+        cx_sb_add(sb, "];\n");
+    }
+    cx_sb_add(sb, "   runerr(107, o);\nend\n");
+}
 static void cx_prelude(cx_st * st, tree_t * prog) {
     cx_sb sb;
     memset(&sb, 0, sizeof sb);
     if (cx_refs(prog, "classname")) cx_sb_add(&sb, "procedure classname(o)\n   local t;\n   t := type(o);\n   if t[-7:0] == \"__state\" then return t[1:-7];\nend\n");
     if (cx_refs(prog, "membernames")) cx_list_proc(&sb, st, "membernames", 0);
     if (cx_refs(prog, "methodnames")) cx_list_proc(&sb, st, "methodnames", 1);
+    if (cx_refs(prog, "fieldnames")) cx_fieldnames_proc(&sb, prog);
+    if (cx_refs(prog, "methods")) cx_methods_proc(&sb, st);
+    if (cx_refs(prog, "oprec")) cx_sb_add(&sb, "procedure oprec(o)\n   if type(o)[-7:0] == \"__state\" then return o.__m;\n   runerr(107, o);\nend\n");
     if (st->use_image)
         cx_sb_add(&sb,
         "procedure __uimage(x)\n   local s, t;\n   t := type(x);\n   if not (t[-7:0] == \"__state\") then return image(x);\n   s := image(x);\n   return \"object \" || t[1:-7] || s[find(\"__state\","
@@ -451,6 +523,7 @@ void icn_expand_classes(tree_t * prog) {
     if (!st.ncls) return;
     for (int i = 0; i < st.ncls; i++) cx_build(&st, &st.cls[i]);
     st.use_image = cx_refs(prog, "image");
+    st.use_oprec = cx_refs(prog, "oprec");
     int w = 0;
     for (int i = 0; i < prog->n; i++) {
         tree_t * s = prog->c[i];
