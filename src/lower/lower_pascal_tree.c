@@ -2377,6 +2377,8 @@ static void pas_ptrtype_add(const char *p, const char *r) {
 static const char *pas_ptrtype_target(const char *p) {
     if (!p) return NULL;
     for (int i = 0; i < g_lower.pas.sem.pas_nptrtype; i++) if (g_lower.pas.sem.pas_ptrtypes[i].pname && !strcmp(g_lower.pas.sem.pas_ptrtypes[i].pname, p)) return g_lower.pas.sem.pas_ptrtypes[i].rname;
+    const char *const B[] = { "byte", "word", "integer", "longint", "longword", "cardinal", "shortint", "smallint", "int64", "uint64", "qword", "boolean", "double", "single", 0 };
+    for (int i = 0; B[i]; i++) if (p[0] == 'p' && !strcmp(p + 1, B[i])) return B[i];
     return NULL;
 }
 static int pas_array_of_ptr(const pty_t *t) { return t && t->k == PTK_ARRAY && t->base && t->base->k == PTK_POINTER && !pty_is_pchar(t->base); }
