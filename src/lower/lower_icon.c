@@ -197,6 +197,13 @@ static int icn_builtin_reassigned(const char * nm) {
     for (int k = 0; k < g_lower.icn.breassigned.n; k++) if (!strcmp(LC_AT(&g_lower.icn.breassigned, const char *, k), nm)) return 1;
     return 0;
 }
+static int icn_never_pattern(const tree_t * a) {
+    if (!a) return 0;
+    if (a->t == TT_QLIT || a->t == TT_CSET || a->t == TT_ILIT || a->t == TT_TO || a->t == TT_TO_BY) return 1;
+    if (a->t != TT_ALTERNATE || a->n == 0) return 0;
+    for (int k = 0; k < a->n; k++) if (!icn_never_pattern(a->c[k])) return 0;
+    return 1;
+}
 static int icn_decl_list_has(const tree_t * d, const char * nm) { for (int k = 0; d && k < d->n; k++) if (d->c[k] && d->c[k]->v.sval && !strcmp(d->c[k]->v.sval, nm)) return 1; return 0; }
 static int icn_proc_declares(const tree_t * pd, const char * nm) {
     if (pd->n > 1 && icn_decl_list_has(pd->c[1], nm)) return 1;
@@ -1792,7 +1799,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             if (!fn || icn_callee_is_name(cx, fn)) {
                 const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
                 cx->after_line = after_line;
-                if (fn && !strcmp(nm, "match") && t->n == 2 && t->c[1] && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_is_proc(nm) && !icn_builtin_reassigned(nm)) {
+                if (fn && !strcmp(nm, "match") && t->n == 2 && t->c[1] && !icn_never_pattern(t->c[1]) && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_is_proc(nm) &&
+                    !icn_builtin_reassigned(nm)) {
                     const char * pv = t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] != '&' ? t->c[1]->v.sval : icn_synth_local(cx);
                     const int pvar = pv == t->c[1]->v.sval;
                     const char * sv = icn_synth_local(cx);
