@@ -520,7 +520,13 @@ static scrip_coctx_t *th_holder(DESCR_t m) {
 static int th_ready(scrip_coctx_t *c) {
     if (c->th_state == 1) return 1;
     if (c->th_state != 2) return 0;
-    if (c->th_wait_kind == 1) { DESCR_t *el = NULL; int n = 0; scrip_coctx_t *w = th_ctx(c->th_wait); return rt_lv_is_list(w ? w->th_outbox : c->th_inbox, &el, &n) && n > 0; }
+    if (c->th_wait_kind == 1) {
+        DESCR_t *el = NULL;
+        int n = 0;
+        scrip_coctx_t *w = th_ctx(c->th_wait);
+        if (c->th_wait.v != DT_CO && c->th_wait.v != DT_SNUL) return rt_lv_is_list(c->th_wait, &el, &n) && n > 0;
+        return rt_lv_is_list(w ? w->th_outbox : c->th_inbox, &el, &n) && n > 0;
+    }
     if (c->th_wait_kind == 2) { scrip_coctx_t *w = th_ctx(c->th_wait); return w && w->th_state == 3; }
     if (c->th_wait_kind == 3) return th_holder(c->th_wait) == NULL;
     if (c->th_wait_kind == 5) return 1;
@@ -529,6 +535,7 @@ static int th_ready(scrip_coctx_t *c) {
 DESCR_t bt_ICNx24SEND(DESCR_t *args, int nargs) {
     (void)nargs;
     scrip_coctx_t *cur = th_cur();
+    if (args[0].v != DT_CO && args[0].v != DT_SNUL) { DESCR_t *el = NULL; int n = 0; if (!rt_lv_is_list(args[0], &el, &n)) return FAILDESCR; th_put(&args[0], args[1]); th_wake(cur); return args[1]; }
     if (args[0].v == DT_SNUL) {
         th_mklist(&cur->th_outbox);
         th_put(&cur->th_outbox, args[1]);
@@ -545,6 +552,15 @@ DESCR_t bt_ICNx24SEND(DESCR_t *args, int nargs) {
 DESCR_t bt_ICNx24RECV(DESCR_t *args, int nargs) {
     (void)nargs;
     scrip_coctx_t *cur = th_cur();
+    if (args[0].v != DT_CO && args[0].v != DT_SNUL) {
+        DESCR_t *el = NULL;
+        int n = 0;
+        if (!rt_lv_is_list(args[0], &el, &n)) return FAILDESCR;
+        DESCR_t lg = th_get(&args[0]);
+        if (lg.v != DT_FAIL) { th_wake(cur); return lg; }
+        if (cur->th_state) { cur->th_state = 2; cur->th_wait_kind = 1; cur->th_wait = args[0]; }
+        return FAILDESCR;
+    }
     int self = args[0].v == DT_SNUL;
     scrip_coctx_t *from = self ? cur : th_ctx(args[0]);
     if (!from) return FAILDESCR;
