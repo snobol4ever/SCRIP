@@ -535,7 +535,6 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int after_line = cx->after_line;
     cx->after_line = 0;
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
-    if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) && icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
     int nm_form = name && nargs == 1 && !strcmp(name, "name");
     if (name && !nm_form && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && !icn_is_proc(name)) { char * un = icn_unicon_row(name); if (un) name = un; }
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
@@ -1295,6 +1294,16 @@ static tree_t * th_co_call(icx_t * cx, const tree_t * t) {
     tree_t * sel = pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), q, NULL), act, ca);
     return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[0], NULL), sel, NULL);
 }
+static tree_t * th_lock_wait(const char * mv) {
+    tree_t * yield = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL);
+    tree_t * got = pm_node(TT_UNTIL, pm_call("ICN$LOCK_TRY", th_var(mv), pm_int(1)), yield, NULL);
+    return pm_node(TT_LIMIT, pm_node(TT_ALTERNATE, got, icn_variable_lit_tree("&null"), NULL), pm_int(1), NULL);
+}
+static tree_t * th_unlock_tree(icx_t * cx, tree_t * m) {
+    const char * uv = icn_synth_local(cx);
+    tree_t * sched = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), icn_variable_lit_tree("&null"), NULL);
+    return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(uv), th_call("ICN$UNLOCK", m), NULL), pm_node(TT_LIMIT, sched, pm_int(1), NULL), th_var(uv));
+}
 static tree_t * th_form(icx_t * cx, const tree_t * t) {
     const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
     if (fn && fn->t != TT_FIELD && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_callee_is_name(cx, fn)) return th_co_call(cx, t);
@@ -1320,15 +1329,21 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
         tree_t * yield = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL);
         return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL), NULL);
     }
+    if (!strcmp(fn->v.sval, "lock") && t->n == 2 && t->c[1] && !icn_is_proc("lock")) {
+        const char * mv = icn_synth_local(cx);
+        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(mv), (tree_t *) t->c[1], NULL), th_lock_wait(mv), th_var(mv));
+    }
+    if (!strcmp(fn->v.sval, "trylock") && t->n == 2 && t->c[1] && !icn_is_proc("trylock")) return th_call("ICN$LOCK_TRY", (tree_t *) t->c[1]);
+    if (!strcmp(fn->v.sval, "unlock") && t->n == 2 && t->c[1] && !icn_is_proc("unlock")) return th_unlock_tree(cx, (tree_t *) t->c[1]);
     if (!strcmp(fn->v.sval, "ICN$CRIT") && t->n == 3) {
         const char * mv = icn_synth_local(cx), * rv = icn_synth_local(cx);
-        tree_t * bad = pm_node(TT_CONJ, th_call("ICN$UIDENT", th_var(mv)), icn_variable_lit_tree("&fail"), NULL);
+        tree_t * bad = pm_node(TT_CONJ, th_unlock_tree(cx, th_var(mv)), icn_variable_lit_tree("&fail"), NULL);
         tree_t * body = pm_node(TT_ALTERNATE, pm_node(TT_ASSIGN, th_var(rv), pm_node(TT_LIMIT, (tree_t *) t->c[2], pm_int(1), NULL), NULL), bad, NULL);
         tree_t * cj = ast_node_new(TT_CONJ);
         ast_push(cj, pm_node(TT_ASSIGN, th_var(mv), (tree_t *) t->c[1], NULL));
-        ast_push(cj, th_call("ICN$UIDENT", th_var(mv)));
+        ast_push(cj, th_lock_wait(mv));
         ast_push(cj, body);
-        ast_push(cj, th_call("ICN$UIDENT", th_var(mv)));
+        ast_push(cj, th_unlock_tree(cx, th_var(mv)));
         ast_push(cj, th_var(rv));
         return cj;
     }
