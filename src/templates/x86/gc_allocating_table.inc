@@ -280,6 +280,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bn_uni_list_delete", GC_RET_OTHER },
     { "bn_uni_list_insert", GC_RET_OTHER },
     { "bn_uni_list_reverse", GC_RET_OTHER },
+    { "bt_ICNx24CV_WAIT", GC_RET_DESCR },
     { "bt_ICNx24IMM", GC_RET_DESCR },
     { "bt_ICNx24LOCK_TRY", GC_RET_DESCR },
     { "bt_ICNx24RECV", GC_RET_DESCR },
