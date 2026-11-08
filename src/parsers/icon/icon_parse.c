@@ -192,6 +192,15 @@ static tree_t *parse_primary(IcnParser *p) {
     }
     if (t.kind == TK_LBRACK) {
         advance(p);
+        if (p->lex->unicon && check(p, TK_COLON)) {
+            advance(p);
+            tree_t *lc = ast_node_new(TT_LISTCOMP);
+            if (t.line > 0) lc->line = t.line;
+            push_child(lc, parse_expr(p));
+            expect(p, TK_COLON, "list comprehension");
+            expect(p, TK_RBRACK, "list comprehension");
+            return lc;
+        }
         tree_t *lst = ast_node_new(TT_MAKELIST);
         if (t.line > 0) lst->line = t.line;
         if (!check(p, TK_RBRACK)) {

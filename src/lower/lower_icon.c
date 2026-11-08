@@ -1308,6 +1308,19 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
     }
     return NULL;
 }
+static tree_t * th_listcomp(icx_t * cx, const tree_t * t) {
+    const char * lv = icn_synth_local(cx);
+    tree_t * put_c = ast_node_new(TT_FNC);
+    ast_push(put_c, th_var("put"));
+    ast_push(put_c, th_var(lv));
+    ast_push(put_c, (tree_t *) t->c[0]);
+    tree_t * cj = ast_node_new(TT_CONJ);
+    ast_push(cj, pm_node(TT_ASSIGN, th_var(lv), ast_node_new(TT_MAKELIST), NULL));
+    ast_push(cj, pm_node(TT_ALTERNATE, pm_node(TT_EVERY, put_c, NULL, NULL), icn_variable_lit_tree("&null"), NULL));
+    ast_push(cj, pm_node(TT_GT, pm_node(TT_SIZE, th_var(lv), NULL, NULL), pm_int(0), NULL));
+    ast_push(cj, th_var(lv));
+    return cj;
+}
 static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
     static const struct {
         const char * nm;
@@ -1747,6 +1760,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             *res = nd;
             return ea;
         }
+        case TT_LISTCOMP:
+        { tree_t * lcf = th_listcomp(cx, t); return lower(cx, lcf, γ, ω, res); }
         case TT_FNC:
         {
             const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
