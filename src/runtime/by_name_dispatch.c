@@ -24391,6 +24391,24 @@ static DESCR_t umaxmin_leaf(DESCR_t *args, int nargs, int dir) {
 DESCR_t bt_ICNx24UMAX(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, 1); }
 DESCR_t bt_ICNx24UMIN(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, -1); }
 DESCR_t bt_ICNx24UPCAT(DESCR_t *args, int nargs) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return nargs == 2 ? pat_cat(args[0], args[1]) : FAILDESCR; }
+static TBPAIR_t *utbl_live_at(TBBLK_t *t, unsigned oi) { return t->ord[oi].v == DT_RAW ? (TBPAIR_t *)0 : table_find_pair_d(t, t->ord[oi]); }
+static void utbl_build(TBBLK_t *r, TBBLK_t *x, TBBLK_t *y, int keep_in_y) {
+    for (unsigned oi = 0; oi < x->ord_len; oi++) { TBPAIR_t *e = utbl_live_at(x, oi); if (e && (table_has_d(y, e->key_descr) != 0) == keep_in_y) table_set_descr_d(r, e->key_descr, e->val); }
+}
+static DESCR_t utbl_op(const char *op, DESCR_t *args, int nargs) {
+    DESCR_t out;
+    if (nargs != 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    if (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set && args[1].v == DT_T && args[1].tbl && !args[1].tbl->is_set) {
+        TBBLK_t *x = args[0].tbl, *y = args[1].tbl, *r = table_new();
+        r->dflt = x->dflt;
+        if (op[0] == '+') { utbl_build(r, x, x, 1); utbl_build(r, y, x, 0); } else utbl_build(r, x, y, op[0] == '*');
+        return TABLE_VAL(r);
+    }
+    return try_call_builtin_by_name_bl_s_rq(op, args, nargs, &out, -1, 0, (long *)0) ? out : (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_ICNx24UUNION(DESCR_t *args, int nargs) { return utbl_op("++", args, nargs); }
+DESCR_t bt_ICNx24UINTER(DESCR_t *args, int nargs) { return utbl_op("**", args, nargs); }
+DESCR_t bt_ICNx24UDIFF(DESCR_t *args, int nargs) { return utbl_op("--", args, nargs); }
 static int icn_numeric_suffix_power(char c) {
     return (c == 'k' || c == 'K') ? 1 : (c == 'm' || c == 'M') ? 2 : (c == 'g' || c == 'G') ? 3 : (c == 't' || c == 'T') ? 4 : (c == 'p' || c == 'P') ? 5 : 0;
 }
