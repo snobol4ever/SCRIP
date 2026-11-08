@@ -1368,6 +1368,7 @@ static tree_t * th_poll(const char * sg, const char * sv) {
     tree_t * loop = pm_node(TT_WHILE, pm_node(TT_ASSIGN, th_var(sv), pm_call("ICN$USIGTAKE", NULL, NULL), NULL), hc, NULL);
     return pm_node(TT_ALTERNATE, loop, icn_variable_lit_tree("&null"), NULL);
 }
+static tree_t * th_yield(void) { return pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL); }
 static tree_t * th_form(icx_t * cx, const tree_t * t) {
     const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
     if (fn && fn->t != TT_FIELD && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_callee_is_name(cx, fn)) return th_co_call(cx, t);
@@ -1413,9 +1414,13 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
         tree_t * tq = ast_node_new(TT_QLIT);
         tq->v.sval = (char *) "integer";
         tq->slen = 7;
+        tree_t * cvw =
+            pm_node(TT_IF, pm_call("ICN$CV_WAIT", th_var(tv), NULL),
+            pm_node(TT_CONJ, pm_node(TT_UNTIL, pm_call("ICN$CV_WOKEN", NULL, NULL), th_yield(), NULL), pm_node(TT_UNTIL, pm_call("ICN$LOCK_TRY", th_var(tv), pm_int(1)), th_yield(), NULL), NULL),
+            pm_node(TT_UNTIL, pm_call("ICN$CV_WOKEN", NULL, NULL), th_yield(), NULL));
+        tree_t * byint = pm_node(TT_IF, pm_node(TT_LT, th_var(tv), pm_int(0), NULL), cvw, pm_call("ICN$UWAIT", th_var(tv), NULL));
         return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL),
-            pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), tq, NULL), pm_call("ICN$UWAIT", th_var(tv), NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL)), NULL)
-            ;
+            pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), tq, NULL), byint, pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL)), NULL);
     }
     if (!strcmp(fn->v.sval, "lock") && t->n == 2 && t->c[1] && !icn_is_proc("lock")) {
         const char * mv = icn_synth_local(cx);

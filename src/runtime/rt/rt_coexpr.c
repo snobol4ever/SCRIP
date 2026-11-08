@@ -523,6 +523,7 @@ static int th_ready(scrip_coctx_t *c) {
     if (c->th_wait_kind == 1) { DESCR_t *el = NULL; int n = 0; scrip_coctx_t *w = th_ctx(c->th_wait); return rt_lv_is_list(w ? w->th_outbox : c->th_inbox, &el, &n) && n > 0; }
     if (c->th_wait_kind == 2) { scrip_coctx_t *w = th_ctx(c->th_wait); return w && w->th_state == 3; }
     if (c->th_wait_kind == 3) return th_holder(c->th_wait) == NULL;
+    if (c->th_wait_kind == 5) return 1;
     return 0;
 }
 DESCR_t bt_ICNx24SEND(DESCR_t *args, int nargs) {
@@ -609,6 +610,24 @@ DESCR_t bt_ICNx24UNLOCK(DESCR_t *args, int nargs) {
     }
     return args[0];
 }
+DESCR_t bt_ICNx24UCONDVAR(DESCR_t *args, int nargs) { if (nargs == 1 && args[0].v != DT_SNUL && args[0].v != DT_I) return args[0]; return INTVAL(-(44 + ++g_runtime.misc.mutex_serial)); }
+DESCR_t bt_ICNx24USIGNAL(DESCR_t *args, int nargs) {
+    long long n = (nargs == 2 && args[1].v == DT_I) ? args[1].i : 1;
+    if (!(args[0].v == DT_I && args[0].i < 0)) return FAILDESCR;
+    scrip_coctx_t *root = &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    for (scrip_coctx_t *c = root; c && n > 0; c = th_next(c, root)) if (c->th_state == 2 && c->th_wait_kind == 4 && c->th_wait.v == DT_I && c->th_wait.i == args[0].i) { c->th_wait_kind = 5; n--; }
+    return args[0];
+}
+DESCR_t bt_ICNx24CV_WAIT(DESCR_t *args, int nargs) {
+    scrip_coctx_t *cur = th_cur();
+    int held = th_holds(cur, args[0]);
+    if (held) bt_ICNx24UNLOCK(args, nargs);
+    cur->th_state = 2;
+    cur->th_wait_kind = 4;
+    cur->th_wait = args[0];
+    return held ? args[0] : FAILDESCR;
+}
+DESCR_t bt_ICNx24CV_WOKEN(DESCR_t *args, int nargs) { (void)args; (void)nargs; scrip_coctx_t *cur = th_cur(); if (cur->th_wait_kind != 5) return FAILDESCR; th_wake(cur); return NULVCL; }
 DESCR_t bt_ICNx24USERIAL(DESCR_t *args, int nargs) {
     extern int try_call_builtin_by_name(const char *, DESCR_t *, int, DESCR_t *);
     DESCR_t out = FAILDESCR;
