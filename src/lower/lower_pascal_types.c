@@ -989,7 +989,7 @@ static int pt_sym_agg(const psym_t *p, long long *hi) {
     h = t->ix[0]->hi;
     if (t->nix == 2 && t->ix[1]) { if (!t->ix[1]->bounded) { *hi = 0; return 1; } h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; }
     *hi = h;
-    return h >= 0;
+    return h >= 0 || (t->nix == 1 && h >= t->ix[0]->lo);
 }
 int pty_name_agg(const char *name) {
     struct pty_state *s = pt_st();
@@ -1043,7 +1043,7 @@ int pty_name_high(const char *name, long long *hi) {
     if (t->k == PTK_RECORD && t->lay && k == 'v' && pty_rec_nf(t) > 0) { *hi = pty_rec_nf(t) - 1; return 1; }
     if (t->k != PTK_ARRAY || t->dyn || t->open || k == 'p' || k == 'r' || t->nix < 1 || !t->ix || !t->ix[0] || !t->ix[0]->bounded) return 0;
     if (t->nix == 2) { if (!t->ix[1] || !t->ix[1]->bounded) return 0; h = (t->ix[0]->hi - t->ix[0]->lo + 1) * (t->ix[1]->hi - t->ix[1]->lo + 1) - 1; } else if (!lf_arr(t, &ischar, &lo, &h)) return 0;
-    if (h < 0) return 0;
+    if (h < 0 && !(t->nix == 1 && h >= t->ix[0]->lo)) return 0;
     *hi = h;
     return 1;
 }
