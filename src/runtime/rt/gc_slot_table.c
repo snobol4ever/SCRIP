@@ -12,7 +12,7 @@
 #include "runtime/core/table.h"
 #include "runtime/core/trace.h"
 _Static_assert(sizeof(DESCR_t) == 16, "HB_DVEC is an array of DESCR_t cells, stride 16");
-_Static_assert(sizeof(ARBLK_t) == 56 && offsetof(ARBLK_t, proto) == 24 && offsetof(ARBLK_t, data) == 32,
+_Static_assert(sizeof(ARBLK_t) == 64 && offsetof(ARBLK_t, proto) == 24 && offsetof(ARBLK_t, data) == 32,
     "HB_ARR holds one ARBLK_t: the pointer members are proto and data; a new member means this row is re-read");
 _Static_assert(sizeof(VCELL_t) == 72 && offsetof(VCELL_t, key_d) == 24 && offsetof(VCELL_t, sv) == 40,
     "HB_AGGV holds one VCELL_t: cellp, tbl and key raw words, key_d and sv DESCR_t cells; a new member means this row is re-read");

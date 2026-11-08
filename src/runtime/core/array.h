@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct _ARBLK_t { int lo, hi; int ndim; int lo2, hi2; int proto_bare; const char *proto; DESCR_t *data; long id; long dumpno; } ARBLK_t;
+typedef struct _ARBLK_t { int lo, hi; int ndim; int lo2, hi2; int proto_bare; const char *proto; DESCR_t *data; long id; long dumpno; int ewidth; int esigned; } ARBLK_t;
 long rt_sno_dumpno_next(void);
 void rt_sno_dumpno_undo(void);
 long rt_agg_serial_list(void);

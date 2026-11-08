@@ -15815,8 +15815,38 @@ DESCR_t pas_arr_make(DESCR_t *args, int nargs) {
     b->lo2 = 0;
     b->hi2 = 0;
     b->proto_bare = 0;
+    b->ewidth = 0;
+    b->esigned = 0;
     b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n));
     for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
+    DESCR_t d = {0};
+    d.v = DT_A;
+    d.slen = 0;
+    d.arr = b;
+    return d;
+}
+RT_ENTRY_DECL(pas_arr_make_raw, leaf, 0);
+DESCR_t pas_arr_make_raw(DESCR_t *args, int nargs) {
+    if (nargs != 4) return FAILDESCR;
+    long long lo = IS_INT_fn(args[0]) ? args[0].i : 0;
+    long long hi = IS_INT_fn(args[1]) ? args[1].i : 0;
+    long long width = IS_INT_fn(args[2]) ? args[2].i : 1;
+    long long sgn = IS_INT_fn(args[3]) ? args[3].i : 0;
+    long long n = hi - lo + 1;
+    if (n < 1) n = 1;
+    ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+    b->id = rt_agg_serial_list();
+    b->dumpno = rt_sno_dumpno_next();
+    b->lo = (int) lo;
+    b->hi = (int) hi;
+    b->ndim = 1;
+    b->lo2 = 0;
+    b->hi2 = 0;
+    b->proto_bare = 0;
+    b->ewidth = (int) width;
+    b->esigned = (int) sgn;
+    b->data = (DESCR_t *)rt_ws_alloc_raw((size_t)(n * width));
+    memset(b->data, 0, (size_t)(n * width));
     DESCR_t d = {0};
     d.v = DT_A;
     d.slen = 0;

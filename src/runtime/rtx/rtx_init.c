@@ -140,7 +140,7 @@ _Static_assert(BINOP_LT == 5 && BINOP_LE == 6 && BINOP_GT == 7 && BINOP_GE == 8 
 _Static_assert(DT_A == 0x10,
     "rtx_icnsub.s RTX-28 array arm guards on DT_A AND branches on it AHEAD of the DT_N varref gate; descr.h drifted -- the arm would admit the wrong datatype and index a non-array, which links fine "
     "and corrupts silently");
-_Static_assert(sizeof(ARBLK_t) == 56 && offsetof(ARBLK_t, lo) == 0 && offsetof(ARBLK_t, hi) == 4 && offsetof(ARBLK_t, ndim) == 8 && offsetof(ARBLK_t, data) == 32,
+_Static_assert(sizeof(ARBLK_t) == 64 && offsetof(ARBLK_t, lo) == 0 && offsetof(ARBLK_t, hi) == 4 && offsetof(ARBLK_t, ndim) == 8 && offsetof(ARBLK_t, data) == 32,
     "rtx_icnsub.s RTX-28 and bb_subscript.cpp's lv-check hardcode ARBLK_t.lo/.hi/.ndim/.data; core.h drifted -- the bounds test would read the wrong ints and the cell address would be computed off t"
     "he wrong member, which links fine and hands back a pointer into arbitrary memory");
 _Static_assert(offsetof(DESCR_t, slen) == 4 && DATA_INST_SLEN == 0 && DATA_ELEMS_SLEN == 1,
