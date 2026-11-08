@@ -91,6 +91,23 @@ static int icn_begins_nexpr(IcnTkKind k) {
 static void push_child(tree_t *parent, tree_t *child) {
     expr_add_child(parent, child);
 }
+static tree_t *parse_table_literal(IcnParser *p, int line, tree_t *key) {
+    tree_t *f = ast_node_new(TT_FNC);
+    if (line > 0) f->line = line;
+    push_child(f, e_leaf_sval(TT_VAR, "table", -1));
+    for (;;) {
+        if (!key) advance(p);
+        expect(p, TK_COLON, "table literal");
+        if (key) push_child(f, key);
+        push_child(f, parse_expr(p));
+        if (!check(p, TK_SEMICOL)) break;
+        advance(p);
+        key = check(p, TK_DEFAULT) ? NULL : parse_expr(p);
+    }
+    expect(p, TK_RBRACK, "table literal");
+    return f;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_primary(IcnParser *p) {
     int line = p->cur.line;
@@ -211,8 +228,10 @@ static tree_t *parse_primary(IcnParser *p) {
         tree_t *lst = ast_node_new(TT_MAKELIST);
         if (t.line > 0) lst->line = t.line;
         if (!check(p, TK_RBRACK)) {
-            if (check(p, TK_COMMA)) push_child(lst, ast_node_new(TT_NUL));
-            else push_child(lst, parse_expr(p));
+            if (p->lex->unicon && check(p, TK_DEFAULT)) return parse_table_literal(p, t.line, NULL);
+            tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);
+            if (p->lex->unicon && check(p, TK_COLON)) return parse_table_literal(p, t.line, first);
+            push_child(lst, first);
             while (check(p, TK_COMMA)) {
                 advance(p);
                 if (check(p, TK_RBRACK)) { push_child(lst, ast_node_new(TT_NUL)); break; }
