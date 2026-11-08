@@ -135,6 +135,7 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         NV_SET_fn(nb, d);
         { const char *pn = rt_heap_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
     }
+    if (d.v == DT_S && d.slen == 0xFFFFFFFFu && d.s) { g_runtime.misc.pat_serial++; return rcp_node(TT_ANY, d.s, (uint32_t)strlen(d.s), 0, 0, 0); }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; g_runtime.misc.pat_serial++; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
     g_runtime.misc.pat_serial++;
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
