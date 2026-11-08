@@ -60,6 +60,7 @@ typedef struct {
     const char * file;
     int links;
     const tree_t * prog;
+    const tree_t * varcase_arg;
 } icx_t;
 static const char * icn_synth_local(icx_t * cx);
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
@@ -118,6 +119,26 @@ static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) {
     { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); }
     if (icn_is_own_global(cx, vn) || icn_is_proc(vn) || icn_builtin_reassigned(vn)) return icn_variable_lit_tree(vn);
     return NULL;
+}
+static tree_t * icn_variable_case(icx_t * cx, const tree_t * t) {
+    if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval || strcmp(t->c[0]->v.sval, "variable")) return NULL;
+    if (icn_is_local(cx, "variable") || !t->c[1] || t->c[1]->t == TT_QLIT || cx->nln <= 0 || t->c[1] == cx->varcase_arg) return NULL;
+    tree_t * e = ast_node_new(TT_CASE);
+    ast_push(e, (tree_t *) t->c[1]);
+    for (int i = 0; i < cx->nln; i++) {
+        if (!cx->ln[i] || cx->ln[i][0] == '$') continue;
+        tree_t * k = ast_node_new(TT_QLIT);
+        k->v.sval = (char *) cx->ln[i];
+        k->slen = (int) strlen(cx->ln[i]);
+        ast_push(e, k);
+        tree_t * v = ast_node_new(TT_VAR);
+        v->v.sval = (char *) cx->ln[i];
+        ast_push(e, v);
+    }
+    ast_push(e, ast_node_new(TT_NUL));
+    ast_push(e, (tree_t *) t);
+    cx->varcase_arg = t->c[1];
+    return e;
 }
 static int icn_gen_wiring(const IR_t * t) {
     if (!t) return 0;
@@ -1818,6 +1839,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     return lower(cx, tg, γ, ω, res);
                 }
             }
+            { tree_t * vc = icn_variable_case(cx, t); if (vc) return lower(cx, vc, γ, ω, res); }
             if (!fn || icn_callee_is_name(cx, fn)) {
                 const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
                 cx->after_line = after_line;
