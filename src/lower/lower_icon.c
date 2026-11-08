@@ -2372,7 +2372,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                 nd = build(cx, IR_GOTO, NULL, NULL);
                 lc_γ_to(nd, ln);
                 lc_ω_to(nd, ln);
-            } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
+            } else if (ln) nd = build(cx, IR_GOTO, ln, ln);
+            else return lc_key(cx, t, "&fail", γ, ω, res);
             *res = nd;
             return nd;
         }
@@ -3794,6 +3795,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     cx->loop_top = &lf;
     cx->loop_sp++;
     IR_t * eval = NULL;
+    cx->loop_next = NULL;
     IR_t * e_entry = lower(cx, E, NULL, ω, &eval);
     IR_t * gen_beta = cx->beta;
     cx->loop_sp--;
