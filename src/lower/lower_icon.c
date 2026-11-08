@@ -1391,6 +1391,7 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         q->slen = (int) strlen(nb);
         return pm_call("SNO$PDEF", q, NULL);
     }
+    if (t->t == TT_PAND && t->n >= 2) return pm_call("ICN$UPCAT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t != TT_FNC || t->n < 1 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval) return NULL;
     const char * nm = t->c[0]->v.sval;

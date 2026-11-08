@@ -505,7 +505,6 @@ static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
         n->slen = -2;
     }
     for (int i = 0; i < n->n; i++) dq_walk(n->c[i], prog, pend, np);
-    if (n->t == TT_PAND && n->n == 2) n->t = TT_CAT;
     if (n->t == TT_DEFER && n->n == 1 && n->c[0] && !n->v.sval) {
         char b[fmt_len("$df%d", g_lower.icn.pm_hidden_n + 1)];
         snprintf(b, sizeof b, "$df%d", ++g_lower.icn.pm_hidden_n);
