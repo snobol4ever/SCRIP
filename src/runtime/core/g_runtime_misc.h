@@ -33,6 +33,7 @@ typedef struct {
     int real_digits;
     int mutex_serial;
     int posix_errno;
+    unsigned long long pending_signals;
     long icn_errnumber;
     const char *icn_errtext;
     DESCR_t icn_errvalue;

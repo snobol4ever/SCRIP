@@ -10,6 +10,7 @@
 #include "posix_leaves.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/rt_list_view.h"
+#include "runtime/core/g_runtime.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int sig; } px_sig_t;
 static const px_sig_t px_sigs[] = { { "SIGABRT", SIGABRT }, { "SIGALRM", SIGALRM }, { "SIGBUS", SIGBUS }, { "SIGCHLD", SIGCHLD }, { "SIGCLD", SIGCHLD }, { "SIGCONT", SIGCONT }, { "SIGFPE", SIGFPE },
@@ -60,6 +61,38 @@ DESCR_t bt_ICNx24UKILL(DESCR_t *args, int nargs) {
     if (nargs != 2 || args[0].v != DT_I || sig < 0) return FAILDESCR;
     if (sig == 0) { errno = EINVAL; return px_fail(); }
     return kill((pid_t) args[0].i, sig) == 0 ? NULVCL : px_fail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void px_sig_pend(int sig) { __atomic_fetch_or(&g_runtime.misc.pending_signals, 1ULL << (sig - 1), __ATOMIC_SEQ_CST); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24USIGTRAP(DESCR_t *args, int nargs) {
+    int sig = nargs == 2 ? px_signal_number(args[0]) : -1;
+    struct sigaction sa = { 0 };
+    px_begin();
+    if (nargs != 2 || sig <= 0 || sig > 64 || sig == SIGKILL || sig == SIGSTOP) return FAILDESCR;
+    sa.sa_handler = IS_NULL_fn(args[1]) ? SIG_DFL : px_sig_pend;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    return sigaction(sig, &sa, NULL) != 0 ? px_fail() : INTVAL(sig);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24USIGTAKE(DESCR_t *args, int nargs) {
+    unsigned long long p;
+    int b;
+    (void) args;
+    if (nargs != 0) return FAILDESCR;
+    p = __atomic_load_n(&g_runtime.misc.pending_signals, __ATOMIC_SEQ_CST);
+    if (p == 0) return FAILDESCR;
+    b = __builtin_ctzll(p);
+    __atomic_fetch_and(&g_runtime.misc.pending_signals, ~(1ULL << b), __ATOMIC_SEQ_CST);
+    return INTVAL(b + 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24USIGNAME(DESCR_t *args, int nargs) {
+    const char *name;
+    if (nargs != 1 || args[0].v != DT_I) return FAILDESCR;
+    name = px_signal_name((int) args[0].i);
+    return name ? px_fmt("%s", name) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UEXEC(DESCR_t *args, int nargs) {
