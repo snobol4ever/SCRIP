@@ -359,8 +359,9 @@ static int pi_imm(const dtp_rcp_t *r) { return r && r->tt == TT_DEFER && r->s &&
 static int pi_num(pi_buf_t *o, const char *nm, int64_t v) { char t[40]; pi_str(o, nm); snprintf(t, sizeof t, "%lld)", (long long)v); pi_str(o, t); return 1; }
 static int pi_cset(pi_buf_t *o, const char *nm, const dtp_rcp_t *r) {
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-    DESCR_t cd = CSETVAL(r->s ? r->s : "");
+    DESCR_t sv = BSTRVAL((char *) (r->s ? r->s : ""), r->slen), cd = {0};
     DESCR_t im = {0};
+    if (!try_call_builtin_by_name("cset", &sv, 1, &cd)) return 0;
     if (!try_call_builtin_by_name("image", &cd, 1, &im) || im.v != DT_S || !im.s) return 0;
     pi_str(o, nm);
     pi_put(o, im.s, im.slen == 0xFFFFFFFFu ? strlen(im.s) : im.slen);
