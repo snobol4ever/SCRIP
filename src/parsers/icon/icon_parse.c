@@ -685,6 +685,46 @@ static tree_t *parse_scan(IcnParser *p) {
 static tree_t *parse_expr(IcnParser *p) {
     return parse_and(p);
 }
+static tree_t *icn_tree_copy(const tree_t *n) {
+    tree_t *r = ast_node_new(n->t);
+    r->v = n->v; r->start = n->start; r->end = n->end; r->line = n->line; r->slen = n->slen;
+    for (int i = 0; i < n->n; i++) push_child(r, icn_tree_copy(n->c[i]));
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_unlock_of(const tree_t *m) {
+    tree_t *f = ast_node_new(TT_FNC);
+    push_child(f, e_leaf_sval(TT_VAR, "unlock", -1));
+    push_child(f, icn_tree_copy(m));
+    return f;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_conj2(tree_t *a, tree_t *b) {
+    tree_t *c = ast_node_new(TT_CONJ);
+    push_child(c, a); push_child(c, b);
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_crit_exit(tree_t *n, const tree_t *m) {
+    if (n->t == TT_PROC_FAIL || (n->t == TT_RETURN && n->n == 0)) return icn_conj2(icn_unlock_of(m), n);
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    tree_t *me = ast_node_new(TT_FNC);
+    push_child(me, one); push_child(me, n->c[0]); push_child(me, icn_unlock_of(m));
+    n->c[0] = me;
+    tree_t *alt = ast_node_new(TT_ALTERNATE);
+    push_child(alt, n); push_child(alt, icn_conj2(icn_unlock_of(m), e_leaf_sval(TT_VAR, "&fail", -1)));
+    return alt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_crit_unlock_exits(tree_t *n, const tree_t *m) {
+    for (int i = 0; i < n->n; i++) {
+        tree_t *c = n->c[i];
+        if (!c || c->t == TT_CREATE) continue;
+        icn_crit_unlock_exits(c, m);
+        if (c->t == TT_RETURN || c->t == TT_PROC_FAIL) n->c[i] = icn_crit_exit(c, m);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_ctrl(IcnParser *p) {
     int line = p->cur.line;
@@ -782,7 +822,10 @@ static tree_t *parse_ctrl(IcnParser *p) {
         push_child(cs, e_leaf_sval(TT_VAR, "ICN$CRIT", -1));
         push_child(cs, parse_unary(p));
         expect(p, TK_COLON, "critical region");
-        push_child(cs, parse_expr(p));
+        tree_t *holder = ast_node_new(TT_SEQ_EXPR);
+        push_child(holder, parse_expr(p));
+        icn_crit_unlock_exits(holder, cs->c[1]);
+        push_child(cs, holder->c[0]);
         return cs;
     }
     if (check(p, TK_CASE)) {
