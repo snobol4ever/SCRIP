@@ -1645,6 +1645,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     cx->key_after_line = after_line;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     t = pm_fn_form(cx, t);
+    if (t && cx->prog && cx->prog->v.ival && t->n == 2 && (t->t == TT_CSET_UNION || t->t == TT_CSET_DIFF || t->t == TT_CSET_INTER))
+        return lower_node(cx, pm_call(t->t == TT_CSET_UNION ? "ICN$UUNION" : t->t == TT_CSET_DIFF ? "ICN$UDIFF" : "ICN$UINTER", (tree_t *) t->c[0], (tree_t *) t->c[1]), γ, ω, res);
     if (lc_is_binop(t->t)) {
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         int64_t bcode = lc_binop_code(t->t);
