@@ -9,4 +9,6 @@ DESCR_t px_list(DESCR_t *f, int n);
 DESCR_t px_fmt(const char *fmt, ...);
 int px_signal_number(DESCR_t d);
 const char *px_signal_name(int sig);
+#include <stdio.h>
+FILE *px_sock_open(const char *addr, const char *mode);
 #endif
