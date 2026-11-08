@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include "driver/driver_data.h"
 #include "ir/descr.h"
 #include "posix_leaves.h"
@@ -25,11 +26,35 @@ const char *px_str(DESCR_t d) { return d.v == DT_S ? rt_cstr_d(d) : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t px_rec(const char *tn, DESCR_t *f, int n) { DatType *t = dat_find_type(tn); return t ? dat_construct(t, f, n) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *px_sock_unix(const char *path, int listen_) {
+    struct sockaddr_un su = { 0 };
+    int fd, ls;
+    if (strlen(path) >= sizeof su.sun_path) { errno = ENAMETOOLONG; return NULL; }
+    su.sun_family = AF_UNIX;
+    memcpy(su.sun_path, path, strlen(path));
+    fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return NULL;
+    if (listen_) {
+        ls = fd;
+        fd = bind(ls, (struct sockaddr *) &su, sizeof su) == 0 && listen(ls, 1) == 0 ? accept(ls, NULL, NULL) : -1;
+        close(ls);
+    } else if (connect(fd, (struct sockaddr *) &su, sizeof su) != 0) {
+        close(fd);
+        fd = -1;
+    }
+    FILE *fp = fd >= 0 ? fdopen(fd, "r+") : NULL;
+    if (!fp && fd >= 0) close(fd);
+    if (fp) setvbuf(fp, NULL, _IOLBF, 0);
+    return fp;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *px_sock_open(const char *addr, const char *mode) {
     const char *c = strrchr(addr, ':');
     int listen_ = strchr(mode, 'a') != NULL, udp = strchr(mode, 'u') != NULL, fd = -1, one = 1;
     struct addrinfo hint = { 0 }, *ai = NULL;
-    if (!c || strchr(mode, 'r')) { errno = EINVAL; return NULL; }
+    if (strchr(mode, 'r')) { errno = EINVAL; return NULL; }
+    if (!c && !udp) return px_sock_unix(addr, listen_);
+    if (!c) { errno = EINVAL; return NULL; }
     char host[c - addr + 1];
     memcpy(host, addr, (size_t) (c - addr));
     host[c - addr] = 0;
