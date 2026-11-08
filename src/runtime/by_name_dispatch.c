@@ -15856,7 +15856,18 @@ DESCR_t pas_arr_make_raw(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(pas_arr_get, leaf, 0);
 DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
-    if (args[0].v == DT_A && args[0].arr) { ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = rk_ival(args[1]); if (i < b->lo || i > b->hi) return FAILDESCR; return b->data[i - b->lo]; }
+    if (args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        long i = rk_ival(args[1]);
+        if (i < b->lo || i > b->hi) return FAILDESCR;
+        if (b->ewidth) {
+            unsigned long long u = 0;
+            memcpy(&u, (unsigned char *) b->data + (size_t)(i - b->lo) * (size_t) b->ewidth, (size_t) b->ewidth);
+            if (b->esigned && b->ewidth < 8) { unsigned long long m = 1ULL << (b->ewidth * 8 - 1); u = (u ^ m) - m; }
+            return INTVAL((long long) u);
+        }
+        return b->data[i - b->lo];
+    }
     const char *cur = VARVAL_fn(args[0]);
     if (!cur) cur = "";
     long idx = rk_ival(args[1]);
@@ -15873,6 +15884,7 @@ DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
         long i = rk_ival(args[1]);
         if (i < b->lo || i > b->hi) return FAILDESCR;
+        if (b->ewidth) { long long v = rk_ival(args[2]); memcpy((unsigned char *) b->data + (size_t)(i - b->lo) * (size_t) b->ewidth, &v, (size_t) b->ewidth); return args[0]; }
         b->data[i - b->lo] = args[2];
         return args[0];
     }
