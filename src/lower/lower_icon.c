@@ -1537,7 +1537,12 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
             const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
             tree_t * callee;
-            if (lhs && icn_callee_is_name(cx, lhs)) { callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval); } else callee = (tree_t *) lhs;
+            if (lhs && icn_callee_is_name(cx, lhs)) {
+                char * un = (cx->prog && cx->prog->v.ival && strncmp(lhs->v.sval, "ICN$", 4) && icn_callable_proc_index(lhs->v.sval) < 0) ? icn_unicon_row(lhs->v.sval) : NULL;
+                callee = ast_node_new(TT_QLIT);
+                callee->v.sval = un ? un : lhs->v.sval;
+                callee->slen = (int) strlen(callee->v.sval);
+            } else callee = (tree_t *) lhs;
             IR_t * cr = NULL;
             IR_t * ce = lower(cx, callee, NULL, ω, &cr);
             IR_t * prevβ = cx->beta;

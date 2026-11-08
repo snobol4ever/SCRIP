@@ -233,15 +233,7 @@ int icn_builtin_is_generator(const char *name) {
     return !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "any") || !strcmp(name, "many") || !strcmp(name, "bal") || !strcmp(name, "key") || !strcmp(name, "seq");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int icn_builtin_is_known(const char *name) {
-    if (!name || !name[0]) return 0;
-    static const char icn_known[][9] = { "integer", "real", "string", "numeric", "char", "cset", "abs", "ord", "iand", "ior", "ixor", "ishift", "icom", "proc", "sqrt", "sin", "cos", "tan", "atan",
-        "log", "exp", "asin", "acos", "dtor", "rtod", "args", "collect", "copy", "image", "name", "type", "variable", "sort", "sortf", "center", "detab", "entab", "left", "map", "repl", "reverse",
-        "right", "trim", "delete", "insert", "list", "member", "pull", "get", "pop", "push", "put", "set", "table", "close", "getenv", "open", "read", "reads", "seek", "where", "stop", "write",
-        "writes", "" };
-    for (int i = 0; icn_known[i][0]; i++) if (icn_known[i][0] == name[0] && !strcmp(icn_known[i], name)) return 1;
-    return 0;
-}
+int icn_builtin_is_known(const char *name) { return name && name[0] && bt_row_of(BT_VOC_ICN, name, (unsigned) strlen(name)) >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; int np; } icn_bi_ent_t;
 static const icn_bi_ent_t *icn_bi_tbl(void) {
@@ -23462,8 +23454,9 @@ static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
     { const char *s = VARVAL_fn(v); return s ? s : ""; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sort_type_rank(DESCR_t v) {
+static int sort_type_rank(DESCR_t v, int num) {
     if (v.v == DT_SNUL) return 0;
+    if (num && (v.v == DT_I || v.v == DT_BIG || v.v == DT_R)) return 1;
     if (v.v == DT_I || v.v == DT_BIG) return 1;
     if (v.v == DT_R) return 2;
     if (IS_CSET_fn(v)) return 4;
@@ -23514,11 +23507,12 @@ static int sort_key_str_cmp(DESCR_t a, DESCR_t b) {
     return c < 0 ? -1 : (c > 0 ? 1 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
-    int ra = sort_type_rank(a), rb = sort_type_rank(b);
+static int sort_descr_cmp(DESCR_t a, DESCR_t b, int num) {
+    int ra = sort_type_rank(a, num), rb = sort_type_rank(b, num);
     if (ra != rb) return ra < rb ? -1 : 1;
     if (ra == 0) return 0;
     if (ra == 1) {
+        if (a.v == DT_R || b.v == DT_R) { double x = to_real(a), y = to_real(b); return x > y ? 1 : (x < y ? -1 : 0); }
         if (a.v == DT_I && b.v == DT_I) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
         { extern int rt_big_cmp(DESCR_t, DESCR_t); int c = rt_big_cmp(a, b); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     }
@@ -23543,45 +23537,118 @@ static int sort_data_field(DESCR_t v, int field_i, DESCR_t *out) {
     { int idx = sort_field_slot(field_i, ia->type->nfields); if (idx < 0) return 0; *out = ia->fields[idx]; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sort_field_cmp(DESCR_t a, DESCR_t b, int field_i) {
-    int ra = sort_type_rank(a), rb = sort_type_rank(b);
+static int sort_field_cmp(DESCR_t a, DESCR_t b, int field_i, int num) {
+    int ra = sort_type_rank(a, num), rb = sort_type_rank(b, num);
     if (ra != rb) return ra < rb ? -1 : 1;
     {
         DESCR_t fa, fb;
         int ha = sort_data_field(a, field_i, &fa), hb = sort_data_field(b, field_i, &fb), c;
-        if (!ha && !hb) return sort_descr_cmp(a, b);
+        if (!ha && !hb) return sort_descr_cmp(a, b, num);
         if (!ha) return -1;
         if (!hb) return 1;
-        c = sort_descr_cmp(fa, fb);
-        return c ? c : sort_descr_cmp(a, b);
+        c = sort_descr_cmp(fa, fb, num);
+        return c ? c : sort_descr_cmp(a, b, num);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sort_msort_descr(DESCR_t *a, DESCR_t *tmp, int n, int field_i) {
+static void sort_msort_descr(DESCR_t *a, DESCR_t *tmp, int n, int field_i, int num) {
     if (n < 2) return;
     {
         int m = n / 2, i = 0, j = n / 2, k = 0, t;
-        sort_msort_descr(a, tmp, m, field_i);
-        sort_msort_descr(a + m, tmp + m, n - m, field_i);
-        while (i < m && j < n) { if (sort_field_cmp(a[j], a[i], field_i) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
+        sort_msort_descr(a, tmp, m, field_i, num);
+        sort_msort_descr(a + m, tmp + m, n - m, field_i, num);
+        while (i < m && j < n) { if (sort_field_cmp(a[j], a[i], field_i, num) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
         while (i < m) tmp[k++] = a[i++];
         while (j < n) tmp[k++] = a[j++];
         for (t = 0; t < n; t++) a[t] = tmp[t];
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
+static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val, int num) {
     if (n < 2) return;
     {
         int m = n / 2, i = 0, j = n / 2, k = 0, t;
-        sort_msort_pairs(a, tmp, m, by_val);
-        sort_msort_pairs(a + m, tmp + m, n - m, by_val);
-        while (i < m && j < n) { DESCR_t x = by_val ? a[i]->val : a[i]->key_descr, y = by_val ? a[j]->val : a[j]->key_descr; if (sort_descr_cmp(y, x) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
+        sort_msort_pairs(a, tmp, m, by_val, num);
+        sort_msort_pairs(a + m, tmp + m, n - m, by_val, num);
+        while (i < m && j < n) {
+            DESCR_t x = by_val ? a[i]->val : a[i]->key_descr, y = by_val ? a[j]->val : a[j]->key_descr;
+            if (sort_descr_cmp(y, x, num) < 0) tmp[k++] = a[j++];
+            else tmp[k++] = a[i++];
+        }
         while (i < m) tmp[k++] = a[i++];
         while (j < n) tmp[k++] = a[j++];
         for (t = 0; t < n; t++) a[t] = tmp[t];
     }
 }
+static int sort_family(int bid, DESCR_t *args, int nargs, DESCR_t *out, int num) {
+    if ((bid == BID_sort) && nargs >= 1 && args[0].v == DT_T && args[0].tbl) {
+        TBBLK_t *tb = args[0].tbl;
+        int i_mode = (nargs >= 2) ? (int)to_int(args[1]) : 1;
+        if (i_mode < 1 || i_mode > 4) i_mode = 1;
+        int n = 0;
+        { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
+        TBPAIR_t **ent = rt_pvec_alloc((n>0?n:1));
+        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) ent[_k++] = e; }
+        int by_val = (i_mode % 2 == 0);
+        { TBPAIR_t **_tmp = rt_pvec_alloc((n>0?n:1)); sort_msort_pairs(ent, _tmp, n, by_val, num); }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        if (tb->is_set) { DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1)); for (int _k = 0; _k < n; _k++) mem[_k] = ent[_k]->key_descr; *out = rt_make_list(mem, n); return 1; }
+        if (i_mode >= 3) {
+            DESCR_t *flat = rt_ws_alloc_descr((size_t)(2*n>0?2*n:1));
+            for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
+            *out = rt_make_list(flat, 2*n);
+            return 1;
+        }
+        DESCR_t outer = rt_make_list(NULL, 0);
+        DESCR_t *pairs = rt_ws_alloc_descr((size_t)(n>0?n:1));
+        for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
+        rt_lv_set_elems(outer, DATA_ELEMS(pairs));
+        rt_lv_set_size(outer, n);
+        rt_lv_set_cap(outer, n);
+        *out = outer;
+        return 1;
+    }
+    if ((bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
+        TBBLK_t *tb = args[0].tbl;
+        int n = 0;
+        { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
+        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
+        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) mem[_k++] = e->key_descr; }
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs), num); }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        *out = rt_make_list(mem, n);
+        return 1;
+    }
+    if (((bid == BID_sortf) || (bid == BID_sort)) && (nargs == 1 || nargs == 2) && IS_DATA_INST_fn(args[0]) && args[0].u && sort_is_record(args[0])) {
+        DATINST_t *di = (DATINST_t *)args[0].u;
+        int n = di->type->nfields;
+        if (n < 0) n = 0;
+        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
+        for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, (bid == BID_sortf) ? sortf_field_i(args, nargs) : 0, num); }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        *out = rt_make_list(mem, n);
+        return 1;
+    }
+    if (((bid == BID_sort)&&(nargs==1||nargs==2))||((bid == BID_sortf)&&(nargs==1||nargs==2))) {
+        DESCR_t ld = args[0];
+        if (ld.v != DT_DATA) return 0;
+        DESCR_t *arr=NULL;
+        int n=0;
+        if (!rt_lv_is_list(ld,&arr,&n)) return 0;
+        extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+        if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
+        if(!arr) { *out=rt_make_list(NULL,0); return 1; }
+        DESCR_t *sorted=rt_ws_alloc_descr((size_t)n);
+        memcpy(sorted,arr,n*sizeof(DESCR_t));
+        int field_i=(bid == BID_sortf)?sortf_field_i(args, nargs):0;
+        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(sorted, _tmp, n, field_i, num); }
+        *out=rt_make_list(sorted,n);
+        return 1;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24304,6 +24371,25 @@ DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) {
 }
 DESCR_t bt_ICNx24UIDENT(DESCR_t *args, int nargs) { if (nargs == 1) { extern DESCR_t bt_ICNx24UIDENT(DESCR_t *, int); return bt_ICNx24UIDENT(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { if (nargs <= 1) { extern DESCR_t bt_ICNx24UMUTEX(DESCR_t *, int); return bt_ICNx24UMUTEX(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+static DESCR_t usort_leaf(int bid, DESCR_t *args, int nargs) {
+    DESCR_t out = FAILDESCR;
+    if (nargs < 1 || nargs > 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    if (icn_argtype_gate(bid, args, nargs, &out, 1)) return out;
+    return sort_family(bid, args, nargs, &out, 1) > 0 ? out : (DESCR_t){ .v = RTX_NOT_HANDLED };
+}
+DESCR_t bt_ICNx24USORT(DESCR_t *args, int nargs) { return usort_leaf(BID_sort, args, nargs); }
+DESCR_t bt_ICNx24USORTF(DESCR_t *args, int nargs) { return usort_leaf(BID_sortf, args, nargs); }
+static DESCR_t umaxmin_leaf(DESCR_t *args, int nargs, int dir) {
+    DESCR_t *e = args, best;
+    int n = nargs;
+    if (nargs == 0) return FAILDESCR;
+    if (nargs == 1 && args[0].v == DT_DATA && rt_lv_is_list(args[0], &e, &n) && (n <= 0 || !e)) return FAILDESCR;
+    best = e[0];
+    for (int i = 1; i < n; i++) if (sort_descr_cmp(e[i], best, 1) * dir > 0) best = e[i];
+    return best;
+}
+DESCR_t bt_ICNx24UMAX(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, 1); }
+DESCR_t bt_ICNx24UMIN(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, -1); }
 static int icn_numeric_suffix_power(char c) {
     return (c == 'k' || c == 'K') ? 1 : (c == 'm' || c == 'M') ? 2 : (c == 'g' || c == 'G') ? 3 : (c == 't' || c == 'T') ? 4 : (c == 'p' || c == 'P') ? 5 : 0;
 }
@@ -26335,71 +26421,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6249:
     ;
-    if ((_bid == BID_sort) && nargs >= 1 && args[0].v == DT_T && args[0].tbl) {
-        TBBLK_t *tb = args[0].tbl;
-        int i_mode = (nargs >= 2) ? (int)to_int(args[1]) : 1;
-        if (i_mode < 1 || i_mode > 4) i_mode = 1;
-        int n = 0;
-        { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
-        TBPAIR_t **ent = rt_pvec_alloc((n>0?n:1));
-        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) ent[_k++] = e; }
-        int by_val = (i_mode % 2 == 0);
-        { TBPAIR_t **_tmp = rt_pvec_alloc((n>0?n:1)); sort_msort_pairs(ent, _tmp, n, by_val); }
-        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
-        if (tb->is_set) { DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1)); for (int _k = 0; _k < n; _k++) mem[_k] = ent[_k]->key_descr; *out = rt_make_list(mem, n); return 1; }
-        if (i_mode >= 3) {
-            DESCR_t *flat = rt_ws_alloc_descr((size_t)(2*n>0?2*n:1));
-            for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
-            *out = rt_make_list(flat, 2*n);
-            return 1;
-        }
-        DESCR_t outer = rt_make_list(NULL, 0);
-        DESCR_t *pairs = rt_ws_alloc_descr((size_t)(n>0?n:1));
-        for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
-        rt_lv_set_elems(outer, DATA_ELEMS(pairs));
-        rt_lv_set_size(outer, n);
-        rt_lv_set_cap(outer, n);
-        *out = outer;
-        return 1;
-    }
-    if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
-        TBBLK_t *tb = args[0].tbl;
-        int n = 0;
-        { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
-        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
-        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) mem[_k++] = e->key_descr; }
-        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
-        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
-        *out = rt_make_list(mem, n);
-        return 1;
-    }
-    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && IS_DATA_INST_fn(args[0]) && args[0].u && sort_is_record(args[0])) {
-        DATINST_t *di = (DATINST_t *)args[0].u;
-        int n = di->type->nfields;
-        if (n < 0) n = 0;
-        DESCR_t *mem = rt_ws_alloc_descr((size_t)(n>0?n:1));
-        for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
-        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
-        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
-        *out = rt_make_list(mem, n);
-        return 1;
-    }
-    if (((_bid == BID_sort)&&(nargs==1||nargs==2))||((_bid == BID_sortf)&&(nargs==1||nargs==2))) {
-        DESCR_t ld = args[0];
-        if (ld.v != DT_DATA) return 0;
-        DESCR_t *arr=NULL;
-        int n=0;
-        if (!rt_lv_is_list(ld,&arr,&n)) return 0;
-        extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
-        if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
-        if(!arr) { *out=rt_make_list(NULL,0); return 1; }
-        DESCR_t *sorted=rt_ws_alloc_descr((size_t)n);
-        memcpy(sorted,arr,n*sizeof(DESCR_t));
-        int field_i=(_bid == BID_sortf)?sortf_field_i(args, nargs):0;
-        { DESCR_t *_tmp = rt_ws_alloc_descr((size_t)(n>0?n:1)); sort_msort_descr(sorted, _tmp, n, field_i); }
-        *out=rt_make_list(sorted,n);
-        return 1;
-    }
+    { int _sf = sort_family(_bid, args, nargs, out, 0); if (_sf >= 0) return _sf; }
     L_bidjmp_6322:
     ;
     if ((_bid == BID_FIELD_GET) && nargs == 2) {
