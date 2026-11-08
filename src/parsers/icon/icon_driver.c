@@ -144,7 +144,7 @@ static int icn_pkg_file_is(const char * path, const char * pkg) {
     if (!src) return 0;
     IcnLexer lx; icn_lex_init(&lx, src); lx.unicon = 1;
     IcnToken a = icn_lex_next(&lx);
-    while (a.kind == TK_LINK || a.kind == TK_IMPORT) do a = icn_lex_next(&lx); while (a.kind == TK_IDENT || a.kind == TK_STRING || a.kind == TK_COMMA || a.kind == TK_SEMICOL);
+    while (a.kind == TK_LINK || a.kind == TK_IMPORT || a.kind == TK_GLOBAL) do a = icn_lex_next(&lx); while (a.kind == TK_IDENT || a.kind == TK_STRING || a.kind == TK_COMMA || a.kind == TK_SEMICOL);
     IcnToken b = icn_lex_next(&lx);
     int ok = a.kind == TK_PACKAGE && (b.kind == TK_IDENT || b.kind == TK_STRING) && b.val.sval.data && !strcmp(b.val.sval.data, pkg);
     ct_drop(src);
