@@ -1673,6 +1673,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "px_newmode", GC_RET_OTHER },
     { "px_rec", GC_RET_DESCR },
     { "px_signal_number", GC_RET_OTHER },
+    { "px_sock_attrs", GC_RET_OTHER },
+    { "px_sock_open", GC_RET_OTHER },
     { "px_str", GC_RET_OTHER },
     { "px_user", GC_RET_DESCR },
     { "quant_step", GC_RET_OTHER },
