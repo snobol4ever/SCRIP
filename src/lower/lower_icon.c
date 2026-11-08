@@ -1412,12 +1412,7 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         tree_t * q = ast_node_new(TT_QLIT);
         q->v.sval = lp_strdup(nb);
         q->slen = (int) strlen(nb);
-        tree_t * c3 = ast_node_new(TT_FNC);
-        ast_push(c3, pm_var("SNO$PBC"));
-        ast_push(c3, pm_int((int64_t) TT_CAPT_COND_ASGN));
-        ast_push(c3, q);
-        ast_push(c3, pm_empty_str());
-        return pm_node(TT_CAT, c3, pm_imm_commit(), NULL);
+        return pm_call("ICN$UCURSOR", q, NULL);
     }
     if (t->t == TT_DEFER && t->v.sval) {
         char nb[fmt_len("*%s", t->v.sval)];

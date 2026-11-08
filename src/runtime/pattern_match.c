@@ -333,6 +333,17 @@ DESCR_t pat_mk_cursor(const char *name) {
     v.p = (void *)dtp_user(rcp_node(TT_CAPT_CURSOR, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0));
     return v;
 }
+DESCR_t pat_mk_ucursor(const char *name) {
+    DESCR_t v = {0};
+    v.v = DT_P;
+    v.slen = 0;
+    dtp_rcp_t *c = rcp_node(TT_CAPT_COND_ASGN, name, (uint32_t) strlen(name), 0, rcp_lit("", 0), 0);
+    dtp_rcp_t *s = rcp_bin(TT_SEQ, c, rcp_node(TT_DEFER, "*$imm", 5, 0, 0, 0));
+    s->ival = 1;
+    v.p = (void *)dtp_user(s);
+    return v;
+}
+DESCR_t bt_ICNx24UCURSOR(DESCR_t *args, int nargs) { return nargs == 1 ? pat_mk_ucursor(rt_cstr_d(args[0])) : FAILDESCR; }
 DESCR_t pat_defer(const char *name) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pat_operand_is_null(DESCR_t d) { return (d.v == DT_SNUL) || (d.v == DT_S && (!d.s || (d.slen == 0xFFFFFFFFu ? !*d.s : d.slen == 0))); }
@@ -424,6 +435,7 @@ static int pi_text(pi_buf_t *o, const dtp_rcp_t *r) {
         pi_str(o, ")");
         return 1;
         case TT_SEQ:
+        if (r->ival == 1 && r->l && r->l->s && r->l->slen >= 2) { pi_str(o, " .> "); pi_put(o, r->l->s + 2, r->l->slen - 2); return 1; }
         if (pi_imm(r->r)) return pi_text(o, r->l);
         if (!pi_text(o, r->l)) return 0;
         pi_str(o, " || ");
@@ -466,6 +478,7 @@ static int pat_nodes(const dtp_rcp_t *r) {
         case TT_BREAKX:
         return 3;
         case TT_SEQ:
+        if (r->ival == 1) return 1;
         return pat_nodes(r->l) + (pi_imm(r->r) ? 0 : pat_nodes(r->r));
         case TT_ALT:
         return 1 + pat_nodes(r->l) + pat_nodes(r->r);
