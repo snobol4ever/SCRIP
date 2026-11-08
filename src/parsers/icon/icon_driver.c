@@ -155,14 +155,15 @@ static char * icn_dir_join(const char * d, const char * name, const char * ext) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_pkg_dir_files(const char * d, const char * pkg, char *** out, int * n, int * cap) {
     char * one = icn_dir_join(d, pkg, ".icn");
-    if (access(one, R_OK) == 0) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = one; return; }
-    ct_drop(one);
+    int named = access(one, R_OK) == 0;
+    if (named) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = one; } else ct_drop(one);
     DIR * dp = opendir(d);
     if (!dp) return;
     struct dirent * de;
     while ((de = readdir(dp))) {
         size_t l = strlen(de->d_name);
         if (l < 5 || strcmp(de->d_name + l - 4, ".icn")) continue;
+        if (named && l == strlen(pkg) + 4 && !strncmp(de->d_name, pkg, l - 4)) continue;
         one = icn_dir_join(d, de->d_name, "");
         if (!icn_pkg_file_is(one, pkg)) { ct_drop(one); continue; }
         if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); }
