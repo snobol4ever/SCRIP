@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <strings.h>
 #include <sys/un.h>
 #include "driver/driver_data.h"
@@ -91,6 +92,36 @@ static int px_sock_proto(const char *v) {
     return n <= 255 ? (int) n : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_key_is(const char *s, size_t kl, const char *k) { return strlen(k) == kl && !strncmp(s, k, kl); }
+static int px_yesno(const char *v) { return !strcmp(v, "yes") ? 1 : !strcmp(v, "no") ? 0 : -1; }
+static int px_digits(const char *v) { if (!*v) return 0; for (const char *q = v; *q; q++) if (*q < '0' || *q > '9') return 0; return 1; }
+static int px_addr_part(const char *v, size_t n, struct in_addr *x) { char b[INET_ADDRSTRLEN]; if (n == 0 || n >= sizeof b) return 0; memcpy(b, v, n); b[n] = 0; return inet_pton(AF_INET, b, x) == 1; }
+static int px_inet_ok(const char *v) { struct in_addr x; return px_addr_part(v, strlen(v), &x); }
+static int px_group_ok(const char *v) {
+    struct in_addr x;
+    const char *c = strchr(v, ',');
+    if (!c) return px_inet_ok(v);
+    return px_addr_part(v, (size_t) (c - v), &x) && px_addr_part(c + 1, strlen(c + 1), &x);
+}
+static int px_mcast_member(int fd, const char *v, struct in_addr mif, int join) {
+    const char *c = strchr(v, ',');
+    struct in_addr g, src;
+    if (!c) {
+        struct ip_mreq m;
+        if (!px_addr_part(v, strlen(v), &g)) return -1;
+        m.imr_multiaddr = g;
+        m.imr_interface = mif;
+        return setsockopt(fd, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &m, sizeof m);
+    }
+    if (!px_addr_part(v, (size_t) (c - v), &g) || !px_addr_part(c + 1, strlen(c + 1), &src)) return -1;
+    struct ip_mreq_source m;
+    m.imr_multiaddr = g;
+    m.imr_sourceaddr = src;
+    m.imr_interface = mif;
+    return setsockopt(fd, IPPROTO_IP, join ? IP_ADD_SOURCE_MEMBERSHIP : IP_DROP_SOURCE_MEMBERSHIP, &m, sizeof m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
     *proto = -1;
     *hdrincl = -1;
@@ -99,14 +130,57 @@ static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
         const char *eq = s ? strchr(s, '=') : NULL;
         if (!eq) return px_sock_bad();
         size_t kl = (size_t) (eq - s);
-        if (kl == 5 && !strncmp(s, "proto", 5)) {
-            *proto = px_sock_proto(eq + 1);
+        const char *v = eq + 1;
+        if (px_key_is(s, kl, "proto")) {
+            *proto = px_sock_proto(v);
             if (*proto < 0) return px_sock_bad();
-        } else if (kl == 7 && !strncmp(s, "hdrincl", 7)) {
-            if (!strcmp(eq + 1, "yes")) *hdrincl = 1;
-            else if (!strcmp(eq + 1, "no")) *hdrincl = 0;
+        } else if (px_key_is(s, kl, "hdrincl")) {
+            if (!strcmp(v, "yes")) *hdrincl = 1;
+            else if (!strcmp(v, "no")) *hdrincl = 0;
             else return px_sock_bad();
+        } else if (px_key_is(s, kl, "reuseaddr") || px_key_is(s, kl, "reuseport") || px_key_is(s, kl, "broadcast") || px_key_is(s, kl, "mcastloop")) {
+            if (px_yesno(v) < 0) return px_sock_bad();
+        } else if (px_key_is(s, kl, "ttl") || px_key_is(s, kl, "rcvbuf") || px_key_is(s, kl, "sndbuf")) {
+            if (!px_digits(v)) return px_sock_bad();
+        } else if (px_key_is(s, kl, "iface")) {
+            if (!px_inet_ok(v)) return px_sock_bad();
+        } else if (px_key_is(s, kl, "join") || px_key_is(s, kl, "leave")) {
+            if (!px_group_ok(v)) return px_sock_bad();
         } else return px_sock_bad();
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_apply(int fd, const DESCR_t *a, int na, int prebind) {
+    struct in_addr mif;
+    socklen_t ml = sizeof mif;
+    if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &mif, &ml) != 0) mif.s_addr = htonl(INADDR_ANY);
+    for (int k = 0; k < na; k++) {
+        const char *s = px_str(a[k]);
+        const char *eq = strchr(s, '=');
+        size_t kl = (size_t) (eq - s);
+        const char *v = eq + 1;
+        int yn = px_yesno(v), iv = yn >= 0 ? yn : (int) strtol(v, NULL, 10), rc = 0;
+        unsigned char uc = (unsigned char) iv;
+        if (prebind) {
+            if (px_key_is(s, kl, "reuseaddr")) rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &iv, sizeof iv);
+            else if (px_key_is(s, kl, "reuseport")) rc = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &iv, sizeof iv);
+        } else if (px_key_is(s, kl, "broadcast")) rc = setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &iv, sizeof iv);
+        else if (px_key_is(s, kl, "rcvbuf")) rc = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &iv, sizeof iv);
+        else if (px_key_is(s, kl, "sndbuf")) rc = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &iv, sizeof iv);
+        else if (px_key_is(s, kl, "ttl")) {
+            rc = setsockopt(fd, IPPROTO_IP, IP_TTL, &iv, sizeof iv);
+            if (rc == 0) rc = setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &uc, sizeof uc);
+        } else if (px_key_is(s, kl, "mcastloop")) {
+            uc = (unsigned char) (yn == 1);
+            rc = setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &uc, sizeof uc);
+        } else if (px_key_is(s, kl, "iface")) {
+            struct in_addr x;
+            if (!px_addr_part(v, strlen(v), &x)) return px_sock_bad();
+            mif = x;
+            rc = setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &mif, sizeof mif);
+        } else if (px_key_is(s, kl, "join") || px_key_is(s, kl, "leave")) rc = px_mcast_member(fd, v, mif, px_key_is(s, kl, "join"));
+        if (rc != 0) return px_sock_errno();
     }
     return 0;
 }
@@ -136,15 +210,17 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
     hint.ai_flags = listen_ ? AI_PASSIVE : 0;
     if (getaddrinfo(*host ? host : NULL, c + 1, &hint, &ai) != 0 || !ai) { errno = EADDRNOTAVAIL; return NULL; }
     fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    if (fd >= 0 && px_sock_apply(fd, attrs, nattrs, 1) != 0) { close(fd); fd = -1; }
     if (fd >= 0 && listen_ && udp) {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
-        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0) { close(fd); fd = -1; }
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0) { close(fd); fd = -1; } else if (px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); fd = -1; }
     } else if (fd >= 0 && listen_) {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
         int ls = fd;
         fd = bind(ls, ai->ai_addr, ai->ai_addrlen) == 0 && listen(ls, 1) == 0 ? accept(ls, NULL, NULL) : -1;
         close(ls);
     } else if (fd >= 0 && udp) {
+        if (px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); freeaddrinfo(ai); return NULL; }
         FILE *dg = px_dg_open(fd, ai);
         freeaddrinfo(ai);
         if (!dg) close(fd);
@@ -153,6 +229,7 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
         close(fd);
         fd = -1;
     }
+    if (fd >= 0 && !udp && px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); fd = -1; }
     freeaddrinfo(ai);
     FILE *fp = fd >= 0 ? fdopen(fd, "r+") : NULL;
     if (!fp && fd >= 0) close(fd);
