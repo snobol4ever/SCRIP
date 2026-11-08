@@ -1,6 +1,7 @@
 {$H+}
 unit system;
 interface
+type TMethod = record Code, Data: Pointer; end;
 var stdout, stderr, erroutput: text;
 function StrLen(const sv: string): integer;
 function BsrQWord(qv: int64): integer;

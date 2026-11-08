@@ -2950,6 +2950,7 @@ static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
+    "type TMethod = record Code, Data: Pointer; end;\n"
     "var stdout, stderr, erroutput: text;\n"
     "function StrLen(const sv: string): integer;\n"
     "function BsrQWord(qv: int64): integer;\n"
