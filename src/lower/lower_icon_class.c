@@ -312,13 +312,13 @@ static void cx_list_proc(cx_sb * sb, cx_st * st, const char * pname, int methods
     cx_sb_add(sb, "procedure ");
     cx_sb_add(sb, pname);
     cx_sb_add(sb, "(o)\n   local t;\n   t := type(o);\n");
-    for (int i = 0; i < st->ncls; i++) {
-        const cx_class * c = &st->cls[i];
-        cx_sb_add(sb, "   if t == \"");
+    for (int i = 0; i < 2 * st->ncls; i++) {
+        const cx_class * c = &st->cls[i / 2];
+        cx_sb_add(sb, (i & 1) ? "   if o === \"" : "   if t == \"");
         cx_sb_add(sb, c->name);
-        cx_sb_add(sb, "__state\" then return [");
+        cx_sb_add(sb, (i & 1) ? "\" then return [" : "__state\" then return [");
         int first = 1;
-        if (!methods) { cx_sb_add(sb, "\"__s\", \"__m\""); first = 0; }
+        if (!methods && !(i & 1)) { cx_sb_add(sb, "\"__s\", \"__m\""); first = 0; }
         for (int k = 0; k < (methods ? c->nmeth : c->fields.n); k++) {
             if (!first) cx_sb_add(sb, ", ");
             first = 0;
