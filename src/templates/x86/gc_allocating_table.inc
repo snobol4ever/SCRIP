@@ -736,6 +736,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "core_icn_by_zero_check", GC_RET_OTHER },
     { "core_icn_display_image", GC_RET_VOID },
     { "core_icn_error", GC_RET_OTHER },
+    { "core_icn_error_text", GC_RET_OTHER },
     { "core_icn_fatal", GC_RET_VOID },
     { "core_icn_int_ok", GC_RET_OTHER },
     { "core_icn_int_ok_d", GC_RET_OTHER },
