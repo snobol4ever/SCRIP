@@ -26510,6 +26510,24 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         int is_pipe = 0;
         if (strict && strpbrk(mode, "gG")) { *out = FAILDESCR; return 1; }
         if (strchr(mode, 'n')) {
+            if (nargs == 2 && strchr(mode, 'u') && strchr(mode, 'a') && !strchr(mode, 'r')) {
+                const char *want = rt_cstr_d(args[0]);
+                for (int i = 3; i < FH_N; i++) {
+                    int t = 0;
+                    socklen_t tl = sizeof t;
+                    if (!g_fh[i].fp || !g_fh[i].name || strcmp(g_fh[i].name, want) || getsockopt(fileno(g_fh[i].fp), SOL_SOCKET, SO_TYPE, &t, &tl) != 0 || t != SOCK_DGRAM) continue;
+                    int nfd = dup(fileno(g_fh[i].fp));
+                    if (nfd < 0) { *out = FAILDESCR; return 1; }
+                    FILE *afp = fdopen(nfd, "r+");
+                    if (!afp) { close(nfd); *out = FAILDESCR; return 1; }
+                    setvbuf(afp, NULL, _IONBF, 0);
+                    int aidx = fh_alloc(afp);
+                    if (aidx < 0) { fclose(afp); *out = FAILDESCR; return 1; }
+                    g_fh[aidx].name = rt_heap_strdup_c(want);
+                    *out = FHVAL(aidx);
+                    return 1;
+                }
+            }
             extern FILE *px_sock_open(const char *, const char *, const DESCR_t *, int);
             FILE *sfp = px_sock_open(path, mode, nargs > 2 ? args + 2 : NULL, nargs > 2 ? nargs - 2 : 0);
             int sidx = sfp ? fh_alloc(sfp) : -1;
