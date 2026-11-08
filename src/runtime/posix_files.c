@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <grp.h>
 #include <poll.h>
 #include <pwd.h>
@@ -10,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "driver/driver_data.h"
 #include "driver/driver_globals.h"
 #include "posix_leaves.h"
 #include "runtime/rt/rt_arena.h"
@@ -211,4 +213,22 @@ DESCR_t bt_ICNx24USELECT(DESCR_t *args, int nargs) {
     if (r < 0 && errno != EINTR) return px_fail();
     for (int i = 0; i < n; i++) if (pf_pending(fs[i]) || (r > 0 && (pf[i].revents & (POLLIN | POLLHUP | POLLERR)))) rs[ready++] = fs[i];
     return px_list(rs, ready);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24URECEIVE(DESCR_t *args, int nargs) {
+    int fd = nargs == 1 && args[0].v == DT_FH ? pf_fd(args[0]) : -1;
+    if (fd < 0) return FAILDESCR;
+    px_begin();
+    ssize_t n = recv(fd, NULL, 0, MSG_PEEK | MSG_TRUNC);
+    if (n < 0) return px_fail();
+    char *buf = (char *) rt_heap_alloc_c((size_t) n + 1);
+    struct sockaddr_storage sa;
+    socklen_t sl = sizeof sa;
+    if (recvfrom(fd, buf, (size_t) n, 0, (struct sockaddr *) &sa, &sl) < 0) return px_fail();
+    char host[NI_MAXHOST], serv[NI_MAXSERV];
+    if (getnameinfo((struct sockaddr *) &sa, sl, host, sizeof host, serv, sizeof serv, NI_NUMERICSERV) != 0) return px_fail();
+    DESCR_t f[2] = { px_fmt("%s:%s", host, serv), BSTRVAL(buf, n) };
+    DatType *t = dat_find_type("posix_message");
+    if (!t) t = dat_register("posix_message(addr,msg)");
+    return dat_construct(t, f, 2);
 }

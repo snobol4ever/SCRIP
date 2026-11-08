@@ -27,18 +27,21 @@ DESCR_t px_rec(const char *tn, DESCR_t *f, int n) { DatType *t = dat_find_type(t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *px_sock_open(const char *addr, const char *mode) {
     const char *c = strrchr(addr, ':');
-    int listen_ = strchr(mode, 'a') != NULL, fd = -1, one = 1;
+    int listen_ = strchr(mode, 'a') != NULL, udp = strchr(mode, 'u') != NULL, fd = -1, one = 1;
     struct addrinfo hint = { 0 }, *ai = NULL;
-    if (!c || strchr(mode, 'u') || strchr(mode, 'r')) { errno = EINVAL; return NULL; }
+    if (!c || strchr(mode, 'r')) { errno = EINVAL; return NULL; }
     char host[c - addr + 1];
     memcpy(host, addr, (size_t) (c - addr));
     host[c - addr] = 0;
     hint.ai_family = AF_INET;
-    hint.ai_socktype = SOCK_STREAM;
+    hint.ai_socktype = udp ? SOCK_DGRAM : SOCK_STREAM;
     hint.ai_flags = listen_ ? AI_PASSIVE : 0;
     if (getaddrinfo(*host ? host : NULL, c + 1, &hint, &ai) != 0 || !ai) { errno = EADDRNOTAVAIL; return NULL; }
     fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    if (fd >= 0 && listen_) {
+    if (fd >= 0 && listen_ && udp) {
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0) { close(fd); fd = -1; }
+    } else if (fd >= 0 && listen_) {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
         int ls = fd;
         fd = bind(ls, ai->ai_addr, ai->ai_addrlen) == 0 && listen(ls, 1) == 0 ? accept(ls, NULL, NULL) : -1;
@@ -50,7 +53,7 @@ FILE *px_sock_open(const char *addr, const char *mode) {
     freeaddrinfo(ai);
     FILE *fp = fd >= 0 ? fdopen(fd, "r+") : NULL;
     if (!fp && fd >= 0) close(fd);
-    if (fp) setvbuf(fp, NULL, _IOLBF, 0);
+    if (fp) setvbuf(fp, NULL, udp ? _IONBF : _IOLBF, 0);
     return fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
