@@ -2233,11 +2233,11 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                 *res = gt;
                 return nullv;
             } else {
-                IR_t * cur_exit = cx->loop_exit;
+                IR_t * cur_exit = cx->loop_exit, * cur_fail = cx->loop_fail;
+                if (k > 1) { icn_loop_fr * lfx = icn_loop_at(cx, cx->loop_sp - k); if (lfx) { cur_exit = lfx->exit; cur_fail = lfx->fail; } }
                 IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
-                IR_t * cur_fail = cx->loop_fail;
                 IR_t * fail_goto = cur_fail ? build(cx, IR_GOTO, cur_fail, cur_fail) : exit_goto;
-                int idx = cx->loop_sp - 2;
+                int idx = cx->loop_sp - 1 - k;
                 IR_t * se = cx->loop_exit, * sn = cx->loop_next, * sf = cx->loop_fail;
                 { icn_loop_fr * lfi = icn_loop_at(cx, idx); if (lfi) { cx->loop_exit = lfi->exit; cx->loop_next = lfi->next; cx->loop_fail = lfi->fail; } }
                 IR_t * ev = NULL;
