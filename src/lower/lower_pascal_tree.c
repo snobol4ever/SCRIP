@@ -3812,6 +3812,7 @@ static void pas_scope_require(const char *name) {
     fprintf(stderr, "pascal: ISO 7185 6.2.2.1 violation: the identifier '%s' has no defining-point -- it is declared nowhere in a region enclosing this use\n", name);
     g_lower.pas.sem.pas_iso_errors++;
 }
+void pas_note_error(void) { g_lower.pas.sem.pas_iso_errors++; }
 static int pas_is_rel(tree_t *e) { if (!e) return 0; switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; } }
 static void pas_not_a_word_symbol(const char *n) {
     const char *ws[] = { "and", "array", "begin", "case", "const", "div", "do", "downto", "else", "end", "file", "for", "function", "goto", "if", "in", "label", "mod", "nil", "not", "of", "or",

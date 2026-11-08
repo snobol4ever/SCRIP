@@ -5,6 +5,7 @@
 #include "ir/ct_arena.h"
 #include "ir/ast.h"
 #include "lower_pascal_class.h"
+#include "lower_pascal_tree.h"
 #define PC_IS(x, k) ((x) && (x)->t == (k))
 typedef struct pc_class pc_class;
 typedef struct { const char *name; const char *kind; int isfunc; tree_t *params; tree_t *rtype; int virt, over, abst, has_impl, used; pc_class *owner; } pc_meth;
@@ -524,6 +525,11 @@ static tree_t *pc_inherited(pc_ctx *x, tree_t *k) {
     { pc_meth *pm = pc_pick(x, x->cur->parent, mn, args, 1); return pc_mcall(x, pc_var("self"), pm ? pm : m, args, 1, 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * const pc_tobject_names[] = { "Create", "Destroy", "Free", "InitInstance", "CleanupInstance", "ClassType", "ClassName", "ClassNameIs", "ClassParent", "ClassInfo", "InstanceSize",
+    "InheritsFrom", "StringMessageTable", "MethodAddress", "MethodName", "FieldAddress", "GetInterface", "GetInterfaceEntry", "GetInterfaceTable", "UnitName", "Equals", "GetHashCode", "ToString",
+    "SafeCallException", "AfterConstruction", "BeforeDestruction", "DefaultHandler", "DefaultHandlerStr", "Dispatch", "DispatchStr", "NewInstance", "FreeInstance", NULL };
+static int pc_tobject_member(const char *n) { for (int i = 0; pc_tobject_names[i]; i++) if (pc_eq(pc_tobject_names[i], n)) return 1; return 0; }
+static void pc_no_member(pc_class *c, const char *n) { fprintf(stderr, "pascal: '%s' is not a member of class '%s' or of its ancestors\n", n, c->raw); pas_note_error(); }
 static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
     if (!e) return e;
     if (PC_IS(e, TT_VAR)) {
@@ -612,6 +618,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
                 return pc_mcall(x, NULL, m, e, 1, 0);
             }
             if (m) return pc_mcall(x, pc_expr(x, h->c[0]), m, e, 1, 0);
+            if (b.cls && !b.ref && !pc_is_member(b.cls, n) && !pc_tobject_member(n)) { pc_no_member(b.cls, n); return pc_int(0); }
             if (b.cls && !b.ref) return pc_read_member(x, pc_expr(x, h->c[0]), b.cls, n, e);
         }
         for (int i = 0; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
@@ -740,7 +747,7 @@ static tree_t *pc_stmt(pc_ctx *x, tree_t *s) {
             pc_meth *m = pc_find_meth(c, pc_sv(s->c[0]));
             if (m) return pc_mcall(x, pc_self(x, pc_sv(s->c[0])), m, NULL, 0, 0);
         }
-        return pc_expr(x, s);
+        { tree_t *r = pc_expr(x, s); return PC_IS(r, TT_ILIT) ? ast_node_new(TT_SUCCEED) : r; }
         case TT_KEYWORD:
         return pc_eq(pc_sv(s), "inherited") ? pc_inherited(x, s) : s;
         case TT_DIE:
