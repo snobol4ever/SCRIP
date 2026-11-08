@@ -524,7 +524,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "system") && icn_callable_proc_index("system") < 0) name = "ICN$USYSTEM";
     if (name && nargs == 1 && cx->prog && cx->prog->v.ival && (!strcmp(name, "lock") || !strcmp(name, "unlock") || !strcmp(name, "trylock")) && icn_callable_proc_index(name) < 0) name = "ICN$UIDENT";
     int nm_form = name && nargs == 1 && !strcmp(name, "name");
-    if (name && !nm_form && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && icn_callable_proc_index(name) < 0) { char * un = icn_unicon_row(name); if (un) name = un; }
+    if (name && !nm_form && cx->prog && cx->prog->v.ival && strncmp(name, "ICN$", 4) && !icn_is_proc(name)) { char * un = icn_unicon_row(name); if (un) name = un; }
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
@@ -1713,7 +1713,7 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
             tree_t * callee;
             if (lhs && icn_callee_is_name(cx, lhs)) {
-                char * un = (cx->prog && cx->prog->v.ival && strncmp(lhs->v.sval, "ICN$", 4) && icn_callable_proc_index(lhs->v.sval) < 0) ? icn_unicon_row(lhs->v.sval) : NULL;
+                char * un = (cx->prog && cx->prog->v.ival && strncmp(lhs->v.sval, "ICN$", 4) && !icn_is_proc(lhs->v.sval)) ? icn_unicon_row(lhs->v.sval) : NULL;
                 callee = ast_node_new(TT_QLIT);
                 callee->v.sval = un ? un : lhs->v.sval;
                 callee->slen = (int) strlen(callee->v.sval);
