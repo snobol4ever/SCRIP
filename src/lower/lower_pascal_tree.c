@@ -3615,6 +3615,17 @@ static long long pas_wrap_mask_of_type(const char *t) {
     }
     return 0;
 }
+static int pas_wrap_sbits_of_type(const char *t) {
+    for (int g = 0; t && g < 8; g++) {
+        if (!strcmp(t, "shortint") || !strcmp(t, "int8")) return 8;
+        if (!strcmp(t, "smallint") || !strcmp(t, "int16")) return 16;
+        if (!strcmp(t, "longint") || !strcmp(t, "int32") || !strcmp(t, "integer")) return 32;
+        const char *al = pas_typealias_get(t);
+        if (!al || !strcmp(al, t)) break;
+        t = al;
+    }
+    return 0;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (!g_lower.pas.sem.pas_dialect_fpc && sel && sel->t == TT_IDX && sel->n >= 1 && sel->c[0] && sel->c[0]->t == TT_FNC && sel->c[0]->n >= 1 && sel->c[0]->c[0] && sel->c[0]->c[0]->t == TT_VAR &&
         sel->c[0]->c[0]->v.sval && pas_curfunc_name() && !strcmp(sel->c[0]->c[0]->v.sval, pas_curfunc_name())) {
@@ -3627,6 +3638,9 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_ILIT && !pas_array_isdyn(sel->v.sval)) {
         long long _wm = pas_wrap_mask_of_type(pas_scalarvartype_get(sel->v.sval));
         if (_wm) rhs = mk_fnc2("iand", rhs, ilit(_wm));
+        long long _ad[4], _ah;
+        int _sb = pas_array_dims(sel->v.sval, _ad) || pas_array_high_get(sel->v.sval, &_ah) ? 0 : pas_wrap_sbits_of_type(pas_scalarvartype_get(sel->v.sval));
+        if (_sb) rhs = bin(TT_SUB, mk_fnc2("ixor", mk_fnc2("iand", rhs, ilit((1LL << _sb) - 1)), ilit(1LL << (_sb - 1))), ilit(1LL << (_sb - 1)));
     }
     if (sel && sel->t == TT_FNC && sel->n == 5 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_rdecode") && sel->c[1]) {
         tree_t *e0 = sel->c[1];
@@ -4243,7 +4257,7 @@ static void pas_formal_strtypes(const char *sig, PNodeList *params) {
         tree_t *id = params->items[i];
         if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 1);
-        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t) || pas_is_u64_typename(t))) pas_scalarvartype_add(id->v.sval, t);
+        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t) || pas_wrap_sbits_of_type(t) || pas_is_u64_typename(t))) pas_scalarvartype_add(id->v.sval, t);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
