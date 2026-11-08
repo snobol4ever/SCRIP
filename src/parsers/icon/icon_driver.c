@@ -155,7 +155,7 @@ static char * icn_dir_join(const char * d, const char * name, const char * ext) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_pkg_dir_files(const char * d, const char * pkg, char *** out, int * n, int * cap) {
     char * one = icn_dir_join(d, pkg, ".icn");
-    int named = access(one, R_OK) == 0;
+    int named = access(one, R_OK) == 0 && icn_pkg_file_is(one, pkg);
     if (named) { if (*n == *cap) { *cap = *cap ? *cap * 2 : 4; *out = (char **) ct_grow(*out, (size_t) *cap * sizeof **out); } (*out)[(*n)++] = one; } else ct_drop(one);
     DIR * dp = opendir(d);
     if (!dp) return;
