@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <strings.h>
 #include <sys/un.h>
 #include "driver/driver_data.h"
 #include "ir/ct_arena.h"
@@ -70,11 +73,59 @@ static FILE *px_dg_open(int fd, const struct addrinfo *ai) {
     return fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-FILE *px_sock_open(const char *addr, const char *mode) {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_bad(void) { g_runtime.misc.icn_errnumber = 1310; g_runtime.misc.icn_errtext = "bad socket attribute"; g_runtime.misc.icn_err_valid = 1; errno = 0; return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_errno(void) { g_runtime.misc.icn_errtext = strerror(errno); g_runtime.misc.icn_err_valid = 1; return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_proto(const char *v) {
+    const struct {
+        const char *n;
+        int p;
+    } t[] = { { "icmp", 1 }, { "icmpv6", 58 }, { "icmp6", 58 }, { "igmp", 2 }, { "tcp", 6 }, { "udp", 17 }, { "gre", 47 }, { "ospf", 89 }, { "pim", 103 }, { "raw", 255 } };
+    if (!*v) return -1;
+    for (size_t k = 0; k < sizeof t / sizeof t[0]; k++) if (!strcasecmp(v, t[k].n)) return t[k].p;
+    if (strlen(v) > 3) return -1;
+    for (const char *q = v; *q; q++) if (*q < '0' || *q > '9') return -1;
+    long n = strtol(v, NULL, 10);
+    return n <= 255 ? (int) n : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
+    *proto = -1;
+    *hdrincl = -1;
+    for (int k = 0; k < na; k++) {
+        const char *s = px_str(a[k]);
+        const char *eq = s ? strchr(s, '=') : NULL;
+        if (!eq) return px_sock_bad();
+        size_t kl = (size_t) (eq - s);
+        if (kl == 5 && !strncmp(s, "proto", 5)) {
+            *proto = px_sock_proto(eq + 1);
+            if (*proto < 0) return px_sock_bad();
+        } else if (kl == 7 && !strncmp(s, "hdrincl", 7)) {
+            if (!strcmp(eq + 1, "yes")) *hdrincl = 1;
+            else if (!strcmp(eq + 1, "no")) *hdrincl = 0;
+            else return px_sock_bad();
+        } else return px_sock_bad();
+    }
+    return 0;
+}
+FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int nattrs) {
+    int proto = -1, hdrincl = -1;
+    if (px_sock_attrs(attrs, nattrs, &proto, &hdrincl) < 0) return NULL;
+    if (strchr(mode, 'r')) {
+        if (proto < 0) { px_sock_bad(); return NULL; }
+        int rfd = socket(AF_INET, SOCK_RAW, proto), one_h = 1;
+        if (rfd < 0) { px_sock_errno(); return NULL; }
+        if (hdrincl == 1 && setsockopt(rfd, IPPROTO_IP, IP_HDRINCL, &one_h, sizeof one_h) != 0) { px_sock_errno(); close(rfd); return NULL; }
+        FILE *rf = fdopen(rfd, "r+");
+        if (!rf) { px_sock_errno(); close(rfd); return NULL; }
+        setvbuf(rf, NULL, _IONBF, 0);
+        return rf;
+    }
     const char *c = strrchr(addr, ':');
     int listen_ = strchr(mode, 'a') != NULL, udp = strchr(mode, 'u') != NULL, fd = -1, one = 1;
     struct addrinfo hint = { 0 }, *ai = NULL;
-    if (strchr(mode, 'r')) { errno = EINVAL; return NULL; }
     if (!c && !udp) return px_sock_unix(addr, listen_);
     if (!c) { errno = EINVAL; return NULL; }
     char host[c - addr + 1];

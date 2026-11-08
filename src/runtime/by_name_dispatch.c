@@ -26491,17 +26491,17 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6361:
     ;
-    if ((_bid == BID_open) && (nargs == 1 || nargs == 2)) {
+    if ((_bid == BID_open) && (nargs == 1 || nargs == 2 || (nargs > 2 && (args[1].v == DT_S || args[1].v == DT_SNUL) && args[1].s && strchr(args[1].s, 'n')))) {
         const char *path = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
         if (!path) { *out = FAILDESCR; return 1; }
-        const char *mode = (nargs == 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s) ? args[1].s : "r";
+        const char *mode = (nargs >= 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s) ? args[1].s : "r";
         const char *cmode = "r";
         char mbuf[8];
         int is_pipe = 0;
         if (strict && strpbrk(mode, "gG")) { *out = FAILDESCR; return 1; }
         if (strchr(mode, 'n')) {
-            extern FILE *px_sock_open(const char *, const char *);
-            FILE *sfp = px_sock_open(path, mode);
+            extern FILE *px_sock_open(const char *, const char *, const DESCR_t *, int);
+            FILE *sfp = px_sock_open(path, mode, nargs > 2 ? args + 2 : NULL, nargs > 2 ? nargs - 2 : 0);
             int sidx = sfp ? fh_alloc(sfp) : -1;
             if (sidx < 0) { if (sfp) fclose(sfp); *out = FAILDESCR; return 1; }
             g_fh[sidx].name = rt_heap_strdup_c(path);
