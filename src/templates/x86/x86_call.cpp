@@ -368,6 +368,7 @@ std::string x86_port_hook(int site, int port, const char * lbl) {
            + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf + 8) : x86_zref(_.op_zcp_dst + 8, 1), "rax");
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_xrec & 4)) s += x86("mov", "rsp", RDQ("rbp", _.op_grec)) + IF(_.op_grec_pop != 0, x86_add("rsp", (long)_.op_grec_pop));
     else if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
+    if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop > 0) for (int i = 0; i < _.op_hclr_n; i++) s += x86("mov", FRQ(_.op_hclr[i]), 0L);
     if (site == X86H_JMP && port == X86P_OMEGA && (_.op_xrec & 8)) s += x86("mov", "rsp", RDQ("rbp", _.op_wrec)) + IF(_.op_wrec_pop != 0, x86_add("rsp", (long)_.op_wrec_pop));
     else if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA) {

@@ -803,6 +803,19 @@ static int64_t rk_blob_bounds(const char * blob) {
     return (int64_t)(mn & 0xFFFF) | ((int64_t)(mx & 0xFFFF) << 16) | ((int64_t)fl << 32);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_hclr_fill(int ri) {
+    const zeta_plan_t * r = g_planner.g_zd_rec_p;
+    g_emit.op_hclr_n = 0; g_emit.op_hclr_v.len = 0;
+    if (g_emit.op_zgpop <= 0 || ri < 0 || !r || ri >= r->n || !g_emit_cfg || !g_emit_cfg->cell_frame) return;
+    const int hi = r->out[ri], lo = hi - g_emit.op_zgpop;
+    for (int i = 0; i < r->n; i++) {
+        IR_t * m = r->nodes[i];
+        if (!m || !r->on[i] || (m->op != IR_PROC_GEN && m->op != IR_CALL_PROC_STAGED && m->op != IR_CALL_VALUE) || r->zn[i].actoff < 0) continue;
+        if (r->out[i] - zd_k(m) >= lo && r->out[i] <= hi) CV_PUSH(g_emit.op_hclr_v, int) = r->zn[i].actoff + 8;
+    }
+    g_emit.op_hclr = (const int *)g_emit.op_hclr_v.p; g_emit.op_hclr_n = (int)g_emit.op_hclr_v.len;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
@@ -1067,6 +1080,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (g_planner.zd_plan__dg)
             fprintf(stderr, "[ZD-STAGE] op=%d gpop=%d wpop=%d abs=%d k=%d fc=%ld\n", (int)nd->op, g_emit.op_zgpop, g_emit.op_wpop, g_emitter.g_zd_abs, g_emitter.g_zd_k, (long)g_emit.op_fc_bytes);
             g_emit.op_wsteal = g_emitter.g_zd_wsteal; g_emitter.g_zd_stage = 0; }
+    emit_hclr_fill(_ri);
     extern void bb_prepare_capture_arbno(IR_t *nd, int imm);
     extern void bb_prepare(IR_t *nd);
     extern int bb_slot_get(IR_t *nd);
