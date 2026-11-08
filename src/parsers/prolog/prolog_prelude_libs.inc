@@ -34427,6 +34427,7 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "tnot(G):- \\+ G.\n"
     "'$tnot_kind'(G,TK):-functor(G,F,N),('$tbl_isincr'(F/N)->TK=incr;functor(H,F,N),catch(clause(H,'$tbl_icall'(_,_)),_,fail)->assertz('$tbl_incrp'(F/N)),TK=incr;TK=plain).\n"
     "'$tnot_split'(G,_):-var(G),!,throw(error(instantiation_error,tnot/1)).\n"
+    "'$tnot_split'(M:G,G1):-atom(M),nonvar(G),G=M2:G2,atom(M2),!,'$tnot_split'(M2:G2,G1).\n"
     "'$tnot_split'(M:G,G1):-atom(M),!,('$mod_cl'(M,G,0,G1)->true;G1=G).\n"
     "'$tnot_split'(G,G).\n"
     "'$tnot_impl'(undefined,'$tbl undefined'):-!.\n"
