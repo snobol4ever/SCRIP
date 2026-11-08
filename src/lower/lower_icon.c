@@ -3219,7 +3219,9 @@ static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * �
     IR_t * ge = (t->n > 0 && t->c[0]) ? lower_arm(cx, t->c[0], lim, ω, &er, lv) : lower(cx, NULL, lim, ω, &er);
     IR_t * gen_beta = cx->beta;
     if (t->n > 0 && t->c[0] && t->c[0]->t == TT_CONJ && t->c[0]->n > 0 && !is_resumable(t->c[0]->c[t->c[0]->n - 1]) && cx->conj_resumable && cx->conj_resumable != ω) gen_beta = cx->conj_resumable;
-    ir_operand_push(lim, er);
+    IR_t * nv = NULL;
+    if (er && (er->op == IR_SUSPEND || er->op == IR_RETURN || er->op == IR_GOTO)) { nv = build(cx, IR_VAR, lim, ω); IR_LIT(nv).sval = (char *) "&null"; }
+    ir_operand_push(lim, nv ? nv : er);
     ir_operand_push(lim, lr);
     IR_t * gate = NULL;
     if (lr) {
@@ -3233,7 +3235,7 @@ static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * �
         γ_to(lr, ge);
         if (lr && lr->γ.node == ge) lc_γ_to(lr, ge);
     }
-    if (er) lc_γ_to(er, lim);
+    if (er && !nv) lc_γ_to(er, lim);
     if (gen_beta && gen_beta != ω && gen_beta != er) ir_operand_push(lim, gen_beta);
     if (gate) ir_operand_push(lim, gate);
     (void)inner_beta;
