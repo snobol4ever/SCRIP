@@ -1774,7 +1774,7 @@ typedef struct scrip_hrow_t { const char * name; const char * in; const char * o
 static void scrip_harness_child(const scrip_hrow_t * h, FILE * rec, const sigset_t * old, char ** av) {
     sigprocmask(SIG_SETMASK, old, (sigset_t *)0);
     setpgid(0, 0);
-    fclose(rec);
+    if (rec != stderr) fclose(rec);
     if (h->cwd && chdir(h->cwd) != 0) _exit(127);
     for (int k = 0; k < h->nenv; k++) if (!strchr(h->env[k], '=') || putenv(h->env[k]) != 0) _exit(127);
     int merged = h->err && strcmp(h->err, "merged") == 0;
@@ -1793,7 +1793,14 @@ static void scrip_harness_child(const scrip_hrow_t * h, FILE * rec, const sigset
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_harness_key(const char * f, const char * k, const char ** v) { size_t n = strlen(k); if (strncmp(f, k, n) || f[n] != '=') return 0; *v = f + n + 1; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_harness_row(char * self, const char * mode, char ** c, int nc, FILE * rec) {
+static int scrip_harness_is_field(const char * f) {
+    const char * const ks[] = { "name", "stdin", "stdout", "stderr", "cwd", "env", "timeout_s" };
+    const char * v = (const char *)0;
+    for (size_t i = 0; i < sizeof ks / sizeof ks[0]; i++) if (scrip_harness_key(f, ks[i], &v)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_harness_row(char * self, const char * mode, char ** c, int nc, FILE * rec, const char * outdir) {
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
     char * env[nc + 1];
@@ -1820,6 +1827,13 @@ static void scrip_harness_row(char * self, const char * mode, char ** c, int nc,
     char nb[base ? strlen(base) + 1 : 2];
     if (!h.name && base) { strcpy(nb, base); char * dot = strrchr(nb, '.'); if (dot && dot != nb) *dot = '\0'; h.name = nb; }
     if (!h.name) h.name = "?";
+    char fn[strlen(h.name) + 1];
+    char op[outdir ? strlen(outdir) + strlen(h.name) + 6 : 1];
+    char ep[outdir ? strlen(outdir) + strlen(h.name) + 6 : 1];
+    strcpy(fn, h.name);
+    for (char * q = fn; *q; q++) if (*q == '/') *q = '_';
+    if (outdir && !h.out) { snprintf(op, sizeof op, "%s/%s.out", outdir, fn); h.out = op; }
+    if (outdir && !h.err) { snprintf(ep, sizeof ep, "%s/%s.err", outdir, fn); h.err = ep; }
     int dfd = h.cwd ? open(h.cwd, O_RDONLY | O_DIRECTORY) : AT_FDCWD;
     int ok = src && src[0] && dfd != -1 && faccessat(dfd, src, R_OK, 0) == 0;
     if (h.cwd && dfd >= 0) close(dfd);
@@ -1858,7 +1872,7 @@ static void scrip_harness_row(char * self, const char * mode, char ** c, int nc,
     else scrip_harness_record(rec, h.name, WEXITSTATUS(st), "RAN", secs, ru.ru_maxrss);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_harness_main(char * self, const char * mode, const char * list_path, const char * record_path) {
+static int scrip_harness_main(char * self, const char * mode, char ** com, int ncom, const char * list_path, FILE * rec, const char * outdir) {
     struct stat sb;
     int lf = open(list_path, O_RDONLY);
     if (lf < 0 || fstat(lf, &sb) < 0) { fprintf(stderr, "scrip: --harness cannot read the list '%s'\n", list_path); return 2; }
@@ -1867,8 +1881,6 @@ static int scrip_harness_main(char * self, const char * mode, const char * list_
     while (got < sb.st_size && (r = read(lf, buf + got, (size_t)(sb.st_size - got))) > 0) got += r;
     close(lf);
     buf[got] = '\0';
-    FILE * rec = fopen(record_path, "w");
-    if (!rec) { fprintf(stderr, "scrip: --harness cannot write the record '%s'\n", record_path); return 2; }
     char * line = buf;
     while (*line) {
         char * eol = strchr(line, '\n');
@@ -1876,17 +1888,58 @@ static int scrip_harness_main(char * self, const char * mode, const char * list_
         if (eol) *eol = '\0';
         int nc = 1;
         for (char * q = line; *q; q++) if (*q == '\t') nc++;
-        if (*line) { char * c[nc]; int k = 0; c[k++] = line; for (char * q = line; *q; q++) if (*q == '\t') { *q = '\0'; c[k++] = q + 1; } scrip_harness_row(self, mode, c, nc, rec); }
+        if (*line) {
+            char * c[ncom + nc];
+            int k = 0;
+            for (int j = 0; j < ncom; j++) c[k++] = com[j];
+            c[k++] = line;
+            for (char * q = line; *q; q++) if (*q == '\t') { *q = '\0'; c[k++] = q + 1; }
+            scrip_harness_row(self, mode, c, ncom + nc, rec, outdir);
+        }
         line = next;
     }
-    fclose(rec);
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_harness_cli(char * self, const char * mode, int ac, char ** av) {
+    const char * outdir = (const char *)0, * record = (const char *)0;
+    char * com[ac + 1];
+    int ncom = 0, rows = 0, seen = 0, keep = 0;
+    for (int i = 0; i < ac; i++) {
+        if (strcmp(av[i], "--out") == 0 && i + 1 < ac) { outdir = av[++i]; continue; }
+        if (strcmp(av[i], "--record") == 0 && i + 1 < ac) { record = av[++i]; continue; }
+        if (!seen && (av[i][0] == '-' || scrip_harness_is_field(av[i]))) { com[ncom++] = av[i]; continue; }
+        seen = 1;
+        rows++;
+    }
+    if (rows == 0) { fprintf(stderr, "scrip: --harness names no program or list\n"); return 2; }
+    FILE * rec = stderr;
+    if (record) { rec = fopen(record, "w"); if (!rec) { fprintf(stderr, "scrip: --harness cannot write the record '%s'\n", record); return 2; } }
+    seen = 0;
+    for (int i = 0; i < ac; i++) {
+        if (strcmp(av[i], "--out") == 0 && i + 1 < ac) { i++; continue; }
+        if (strcmp(av[i], "--record") == 0 && i + 1 < ac) { i++; continue; }
+        if (!seen && (av[i][0] == '-' || scrip_harness_is_field(av[i]))) continue;
+        seen = 1;
+        size_t n = strlen(av[i]);
+        if (n >= 4 && strcmp(av[i] + n - 4, ".tsv") == 0) {
+            int r = scrip_harness_main(self, mode, com, ncom, av[i], rec, outdir);
+            if (r != 0) keep = r;
+        } else {
+            char * c[ncom + 1];
+            for (int j = 0; j < ncom; j++) c[j] = com[j];
+            c[ncom] = av[i];
+            scrip_harness_row(self, mode, c, ncom + 1, rec, outdir);
+        }
+    }
+    if (rec != stderr) fclose(rec);
+    return keep;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
     g_lower.icn.parse = icon_compile_parse;
-    if (argc >= 5 && strcmp(argv[1], "--harness") == 0 && strcmp(argv[3], "--record") == 0) return scrip_harness_main(argv[0], "--run", argv[2], argv[4]);
-    if (argc >= 6 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0 && strcmp(argv[4], "--record") == 0) return scrip_harness_main(argv[0], "--compile", argv[3], argv[5]);
+    if (argc >= 3 && strcmp(argv[1], "--harness") == 0) return scrip_harness_cli(argv[0], "--run", argc - 2, argv + 2);
+    if (argc >= 4 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0) return scrip_harness_cli(argv[0], "--compile", argc - 3, argv + 3);
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
     int mode_run = 0;
