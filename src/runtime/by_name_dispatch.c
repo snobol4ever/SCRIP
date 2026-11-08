@@ -25472,6 +25472,18 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_5385:
     ;
     if ((_bid == BID_proc) && (nargs == 2 || nargs == 1)) {
+        if (nargs == 2 && args[0].v == DT_CO) {
+            extern void *g_scrip_co_current;
+            extern void *scrip_co_gc_root(void);
+            extern int core_icn_act_top(void);
+            extern const char *core_icn_act_name(int);
+            extern DESCR_t rt_proc_value(const char *);
+            long lvl = (long)to_int(args[1]);
+            int top = core_icn_act_top();
+            const char *pn = (args[0].p == (g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root()) && lvl >= 0 && lvl < top) ? core_icn_act_name(top - (int)lvl) : (const char *)0;
+            *out = pn ? rt_proc_value(pn) : FAILDESCR;
+            return 1;
+        }
         if (args[0].v == DT_E) { *out = args[0]; return 1; }
         if (args[0].v != DT_S && args[0].v != DT_SNUL) { *out = FAILDESCR; return 1; }
         const char *pname = VARVAL_fn(args[0]);
