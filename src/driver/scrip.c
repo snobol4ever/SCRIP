@@ -1770,46 +1770,73 @@ static void scrip_harness_record(FILE * rec, const char * name, int rc, const ch
     fflush(rec);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_harness_child(char ** c, FILE * rec, const sigset_t * old, char ** av) {
+typedef struct scrip_hrow_t { const char * name; const char * in; const char * out; const char * err; const char * cwd; char ** env; int nenv; } scrip_hrow_t;
+static void scrip_harness_child(const scrip_hrow_t * h, FILE * rec, const sigset_t * old, char ** av) {
     sigprocmask(SIG_SETMASK, old, (sigset_t *)0);
     setpgid(0, 0);
     fclose(rec);
-    int fi = open(c[2][0] ? c[2] : "/dev/null", O_RDONLY);
-    int fo = c[3][0] ? open(c[3], O_WRONLY | O_CREAT | O_TRUNC, 0644) : 1, fe = c[4][0] ? open(c[4], O_WRONLY | O_CREAT | O_TRUNC, 0644) : 2;
+    if (h->cwd && chdir(h->cwd) != 0) _exit(127);
+    for (int k = 0; k < h->nenv; k++) if (!strchr(h->env[k], '=') || putenv(h->env[k]) != 0) _exit(127);
+    int merged = h->err && strcmp(h->err, "merged") == 0;
+    int fi = open(h->in ? h->in : "/dev/null", O_RDONLY);
+    int fo = h->out ? open(h->out, O_WRONLY | O_CREAT | O_TRUNC, 0644) : 1;
+    int fe = merged ? fo : h->err ? open(h->err, O_WRONLY | O_CREAT | O_TRUNC, 0644) : 2;
     if (fi < 0 || fo < 0 || fe < 0) _exit(127);
     if (dup2(fi, 0) < 0 || dup2(fo, 1) < 0 || dup2(fe, 2) < 0) _exit(127);
     if (fi > 2) close(fi);
     if (fo > 2) close(fo);
-    if (fe > 2) close(fe);
+    if (fe > 2 && fe != fo) close(fe);
     int ac = 0;
     while (av[ac]) ac++;
     exit(main(ac, av));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_harness_key(const char * f, const char * k, const char ** v) { size_t n = strlen(k); if (strncmp(f, k, n) || f[n] != '=') return 0; *v = f + n + 1; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_harness_row(char * self, const char * mode, char ** c, int nc, FILE * rec) {
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    if (nc < 8 || access(c[1], R_OK) != 0) { scrip_harness_record(rec, c[0], 2, "REFUSED", 0.0, 0L); return; }
-    char dsw[strlen(c[5]) + 4], ssw[strlen(c[6]) + 4];
+    char * env[nc + 1];
     char * av[nc + 8];
-    int ac = 0;
+    scrip_hrow_t h = { 0 };
+    const char * tm = "60", * v = (const char *)0, * src = (const char *)0;
+    int ac = 0, k = 0;
+    h.env = env;
     av[ac++] = self;
     av[ac++] = (char *) mode;
-    if (c[5][0]) { snprintf(dsw, sizeof dsw, "-d%sk", c[5]); av[ac++] = dsw; }
-    if (c[6][0]) { snprintf(ssw, sizeof ssw, "-s%sk", c[6]); av[ac++] = ssw; }
-    av[ac++] = c[1];
-    if (nc > 8) av[ac++] = "--";
-    for (int k = 8; k < nc; k++) av[ac++] = c[k];
+    for (; k < nc && !src; k++) {
+        if (scrip_harness_key(c[k], "name", &v)) h.name = v;
+        else if (scrip_harness_key(c[k], "stdin", &v)) h.in = v;
+        else if (scrip_harness_key(c[k], "stdout", &v)) h.out = v;
+        else if (scrip_harness_key(c[k], "stderr", &v)) h.err = v;
+        else if (scrip_harness_key(c[k], "cwd", &v)) h.cwd = v;
+        else if (scrip_harness_key(c[k], "env", &v)) env[h.nenv++] = (char *) v;
+        else if (scrip_harness_key(c[k], "timeout_s", &v)) tm = v;
+        else if (c[k][0] == '-') av[ac++] = c[k];
+        else src = c[k];
+    }
+    const char * base = src ? strrchr(src, '/') : (const char *)0;
+    base = base ? base + 1 : src;
+    char nb[base ? strlen(base) + 1 : 2];
+    if (!h.name && base) { strcpy(nb, base); char * dot = strrchr(nb, '.'); if (dot && dot != nb) *dot = '\0'; h.name = nb; }
+    if (!h.name) h.name = "?";
+    int dfd = h.cwd ? open(h.cwd, O_RDONLY | O_DIRECTORY) : AT_FDCWD;
+    int ok = src && src[0] && dfd != -1 && faccessat(dfd, src, R_OK, 0) == 0;
+    if (h.cwd && dfd >= 0) close(dfd);
+    if (!ok) { scrip_harness_record(rec, h.name, 2, "REFUSED", 0.0, 0L); return; }
+    av[ac++] = (char *) src;
+    if (k < nc) av[ac++] = "--";
+    for (; k < nc; k++) av[ac++] = c[k];
     av[ac] = (char *)0;
-    double tmo = atof(c[7]);
+    double tmo = atof(tm);
     sigset_t ss, old;
     sigemptyset(&ss);
     sigaddset(&ss, SIGCHLD);
     sigprocmask(SIG_BLOCK, &ss, &old);
     fflush((FILE *)0);
     pid_t pid = fork();
-    if (pid == 0) scrip_harness_child(c, rec, &old, av);
-    if (pid < 0) { sigprocmask(SIG_SETMASK, &old, (sigset_t *)0); scrip_harness_record(rec, c[0], 2, "REFUSED", 0.0, 0L); return; }
+    if (pid == 0) scrip_harness_child(&h, rec, &old, av);
+    if (pid < 0) { sigprocmask(SIG_SETMASK, &old, (sigset_t *)0); scrip_harness_record(rec, h.name, 2, "REFUSED", 0.0, 0L); return; }
     setpgid(pid, pid);
     int st = 0, hang = 0;
     struct rusage ru;
@@ -1826,9 +1853,9 @@ static void scrip_harness_row(char * self, const char * mode, char ** c, int nc,
     sigprocmask(SIG_SETMASK, &old, (sigset_t *)0);
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double secs = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
-    if (hang) scrip_harness_record(rec, c[0], 124, "HANG", secs, ru.ru_maxrss);
-    else if (WIFSIGNALED(st)) scrip_harness_record(rec, c[0], 128 + WTERMSIG(st), "CRASH", secs, ru.ru_maxrss);
-    else scrip_harness_record(rec, c[0], WEXITSTATUS(st), "RAN", secs, ru.ru_maxrss);
+    if (hang) scrip_harness_record(rec, h.name, 124, "HANG", secs, ru.ru_maxrss);
+    else if (WIFSIGNALED(st)) scrip_harness_record(rec, h.name, 128 + WTERMSIG(st), "CRASH", secs, ru.ru_maxrss);
+    else scrip_harness_record(rec, h.name, WEXITSTATUS(st), "RAN", secs, ru.ru_maxrss);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_harness_main(char * self, const char * mode, const char * list_path, const char * record_path) {
