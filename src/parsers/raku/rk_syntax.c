@@ -4397,8 +4397,8 @@ static void check_category(RkP *p, int from, int to) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void apply_op_traits(RkP *p, int ui, int from, int to) {
-    static const char *const names[] = { "equiv", "tighter", "looser", 0 };
-    for (int t = from; t < to; t++) for (int i = 0; names[i]; i++) {
+    static const char names[][8] = { "equiv", "tighter", "looser", "" };
+    for (int t = from; t < to; t++) for (int i = 0; names[i][0]; i++) {
         int l = (int) strlen(names[i]);
         if (t + l + 1 > to || memcmp(p->s + t, names[i], (size_t) l) || p->s[t + l] != '(') continue;
         if (t > from && asc_word((unsigned char) p->s[t - 1])) continue;
