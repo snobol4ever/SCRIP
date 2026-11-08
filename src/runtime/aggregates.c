@@ -391,6 +391,17 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24UTABLE(DESCR_t *args, int nargs) {
+    TBBLK_t *tbl = table_new();
+    tbl->dflt = (nargs & 1) ? args[nargs - 1] : NULVCL;
+    for (int i = 0; i + 1 < nargs; i += 2) table_set_descr_d(tbl, args[i], args[i + 1]);
+    DESCR_t d = {0};
+    d.v = DT_T;
+    d.slen = 0;
+    d.tbl = tbl;
+    return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long _icn_hash(DESCR_t k) {
     if (IS_CSET_fn(k)) {
         uint32_t w[8] = { 0 };
