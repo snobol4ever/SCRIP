@@ -19872,7 +19872,16 @@ DESCR_t pas_pdx(DESCR_t *args, int nargs) {
     (void) nargs;
     long long i = rk_ival(args[1]), lo = rk_ival(args[2]), hi = rk_ival(args[3]);
     DESCR_t *cell = pas_heap_ref(args[0], "__pas_pdx");
-    if (cell->v == DT_A && cell->arr) { ARBLK_t *b = (ARBLK_t *) cell->arr; if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data) return pas_pcell_at((void *) b->data, i - b->lo, "__pas_pdx"); }
+    if (cell->v == DT_A && cell->arr) {
+        ARBLK_t *b = (ARBLK_t *) cell->arr;
+        if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data && b->ewidth) {
+            DESCR_t r = pas_pcell_at((void *) b->data, (i - b->lo) * b->ewidth, "__pas_pdx");
+            r.src_node0 = r.src_node1 = (uint8_t) b->ewidth;
+            r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (b->esigned ? 32 : 0));
+            return r;
+        }
+        if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data) return pas_pcell_at((void *) b->data, i - b->lo, "__pas_pdx");
+    }
     if (args[0].v != DT_PCELL) pas_file_err("6.5.4", "an element is indexed through a pointer that holds no cell kind", "__pas_pdx");
     return pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + (i - lo), "__pas_pdx");
 }
