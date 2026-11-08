@@ -219,4 +219,4 @@ const char *icon_real_str(double r, char *buf, int bufsz) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) { g_runtime.misc.real_digits = (nargs == 1 && IS_INT_fn(args[0])) ? (int)args[0].i : 0; return NULVCL; }
+DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) { g_runtime.misc.real_digits = (nargs == 1 && IS_INT_fn(args[0])) ? (int)args[0].i : 0; g_runtime.misc.pat_serial = 0; return NULVCL; }

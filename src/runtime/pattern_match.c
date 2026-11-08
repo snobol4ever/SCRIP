@@ -112,6 +112,7 @@ static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rc
 }
 static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
+static DTP_t *dtp_user(dtp_rcp_t *rcp) { DTP_t *h = dtp_new((void *)0, rcp); h->zpad = g_runtime.misc.pat_serial++; return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p && ((DTP_t *)d.p)->rcp) return ((DTP_t *)d.p)->rcp;
@@ -134,7 +135,8 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         NV_SET_fn(nb, d);
         { const char *pn = rt_heap_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
     }
-    if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
+    if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; g_runtime.misc.pat_serial++; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
+    g_runtime.misc.pat_serial++;
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
     if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); real_str(d.r, b, 40); return rcp_lit(b, (uint32_t)strlen(b)); }
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
@@ -228,19 +230,13 @@ void *dtp_fn_of(void *headv) {
 DESCR_t pat_lit(const char *s) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0)); return v; }
 DESCR_t pat_operand(DESCR_t d) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_of(d)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_span(const char *chars) {
-    DESCR_t v = {0};
-    v.v = DT_P;
-    v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_SPAN, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
-    return v;
-}
+DESCR_t pat_span(const char *chars) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_SPAN, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_break_(const char *chars) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_BREAK, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    v.p = (void *)dtp_user(rcp_node(TT_BREAK, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -248,59 +244,53 @@ DESCR_t pat_breakx(const char *chars) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_BREAKX, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    v.p = (void *)dtp_user(rcp_node(TT_BREAKX, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_any_cs(const char *chars) {
-    DESCR_t v = {0};
-    v.v = DT_P;
-    v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_ANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
-    return v;
-}
+DESCR_t pat_any_cs(const char *chars) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_ANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pat_notany(const char *chars) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_NOTANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
+    v.p = (void *)dtp_user(rcp_node(TT_NOTANY, chars ? chars : "", chars ? (uint32_t)strlen(chars) : 0, 0, 0, 0));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_len(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_LEN, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_len(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_LEN, 0, 0, n, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_pos(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_POS, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_pos(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_POS, 0, 0, n, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_rpos(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_RPOS, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_rpos(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_RPOS, 0, 0, n, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_tab(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_TAB, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_tab(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_TAB, 0, 0, n, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_rtab(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_RTAB, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_rtab(int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_RTAB, 0, 0, n, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_arb(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ARB, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_arb(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_ARB, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_arbno(DESCR_t inner) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ARBNO, 0, 0, 0, rcp_of(inner), 0)); return v; }
+DESCR_t pat_arbno(DESCR_t inner) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_ARBNO, 0, 0, 0, rcp_of(inner), 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_rem(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_REM, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_rem(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_REM, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_fence_p(DESCR_t inner) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FENCE, 0, 0, 1, rcp_of(inner), 0)); return v; }
+DESCR_t pat_fence_p(DESCR_t inner) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_FENCE, 0, 0, 1, rcp_of(inner), 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_fence(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FENCE, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_fence(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_FENCE, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_flush(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FLUSH, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_flush(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_FLUSH, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pat_is_bare_flush(DESCR_t d) { const DTP_t *h = (d.v == DT_P) ? (const DTP_t *)d.p : (const DTP_t *)0; return h && !h->fn && h->rcp && h->rcp->tt == TT_FLUSH && !h->rcp->l && !h->rcp->r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_fail(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_FAIL, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_fail(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_FAIL, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_abort(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_ABORT, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_abort(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_ABORT, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_succeed(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_SUCCEED, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_succeed(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_SUCCEED, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_bal(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(TT_BAL, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_bal(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_BAL, 0, 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_epsilon(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_lit("", 0)); return v; }
+DESCR_t pat_epsilon(void) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_lit("", 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pat_cset_code(int tt) { return tt == TT_ANY ? 59 : tt == TT_NOTANY ? 151 : tt == TT_SPAN ? 188 : tt == TT_BREAK ? 69 : tt == TT_BREAKX ? 70 : 0; }
 const char *pat_cset_text(DESCR_t a) {
@@ -326,30 +316,24 @@ int pat_num_arg_ok(int tt, DESCR_t a) {
     if (n < 0 || n > 16777216) { core_runtime_error(base + 1, rt_coerce_errtext(base + 1)); return 0; }
     return 1;
 }
-DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, cs ? cs : "", cs ? (uint32_t)strlen(cs) : 0, 0, 0, 0)); return v; }
-DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
-DESCR_t pat_mk_nil(int tt) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
+DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(tt, cs ? cs : "", cs ? (uint32_t)strlen(cs) : 0, 0, 0, 0)); return v; }
+DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(tt, 0, 0, n, 0, 0)); return v; }
+DESCR_t pat_mk_nil(int tt) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
 DESCR_t pat_mk_capt(int tt, const char *name, DESCR_t sub) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(tt, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, rcp_of(sub), 0));
+    v.p = (void *)dtp_user(rcp_node(tt, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, rcp_of(sub), 0));
     return v;
 }
 DESCR_t pat_mk_cursor(const char *name) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_CAPT_CURSOR, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0));
+    v.p = (void *)dtp_user(rcp_node(TT_CAPT_CURSOR, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0));
     return v;
 }
-DESCR_t pat_defer(const char *name) {
-    DESCR_t v = {0};
-    v.v = DT_P;
-    v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0));
-    return v;
-}
+DESCR_t pat_defer(const char *name) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pat_operand_is_null(DESCR_t d) { return (d.v == DT_SNUL) || (d.v == DT_S && (!d.s || (d.slen == 0xFFFFFFFFu ? !*d.s : d.slen == 0))); }
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
@@ -358,11 +342,153 @@ DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    v.p = (void *)dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
+    v.p = (void *)dtp_user(rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pat_alt(DESCR_t left, DESCR_t right) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_bin(TT_ALT, rcp_of(left), rcp_of(right))); return v; }
+DESCR_t pat_alt(DESCR_t left, DESCR_t right) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_bin(TT_ALT, rcp_of(left), rcp_of(right))); return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char *b; size_t n; size_t cap; } pi_buf_t;
+static void pi_put(pi_buf_t *o, const char *s, size_t n) {
+    if (o->n + n + 1 > o->cap) { o->cap = (o->n + n + 1) * 2; o->b = (char *)(o->b ? rt_wsb_realloc(o->b, o->cap) : rt_wsb_alloc(o->cap)); }
+    memcpy(o->b + o->n, s, n);
+    o->n += n;
+}
+static void pi_str(pi_buf_t *o, const char *s) { pi_put(o, s, strlen(s)); }
+static int pi_imm(const dtp_rcp_t *r) { return r && r->tt == TT_DEFER && r->s && !strcmp(r->s, "*$imm"); }
+static int pi_num(pi_buf_t *o, const char *nm, int64_t v) { char t[40]; pi_str(o, nm); snprintf(t, sizeof t, "%lld)", (long long)v); pi_str(o, t); return 1; }
+static int pi_cset(pi_buf_t *o, const char *nm, const dtp_rcp_t *r) {
+    extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+    DESCR_t cd = CSETVAL(r->s ? r->s : "");
+    DESCR_t im = {0};
+    if (!try_call_builtin_by_name("image", &cd, 1, &im) || im.v != DT_S || !im.s) return 0;
+    pi_str(o, nm);
+    pi_put(o, im.s, im.slen == 0xFFFFFFFFu ? strlen(im.s) : im.slen);
+    pi_str(o, ")");
+    return 1;
+}
+static int pi_text(pi_buf_t *o, const dtp_rcp_t *r) {
+    if (!r) return 0;
+    switch (r->tt) {
+        case TT_QLIT:
+        pi_str(o, "\"");
+        pi_put(o, r->s ? r->s : "", r->slen);
+        pi_str(o, "\"");
+        return 1;
+        case TT_ANY:
+        return pi_cset(o, "Any(", r);
+        case TT_NOTANY:
+        return pi_cset(o, "NotAny(", r);
+        case TT_SPAN:
+        return pi_cset(o, "Span(", r);
+        case TT_BREAK:
+        return pi_cset(o, "Break(", r);
+        case TT_BREAKX:
+        return pi_cset(o, "Breakx(", r);
+        case TT_LEN:
+        return pi_num(o, "Len(", r->ival);
+        case TT_RTAB:
+        return pi_num(o, "Rtab(", r->ival);
+        case TT_RPOS:
+        return pi_num(o, "Rpos(", r->ival);
+        case TT_TAB:
+        return pi_num(o, "Tab(", r->ival + 1);
+        case TT_POS:
+        return pi_num(o, "Pos(", r->ival + 1);
+        case TT_REM:
+        pi_str(o, "Rem()");
+        return 1;
+        case TT_ARB:
+        pi_str(o, "Arb()");
+        return 1;
+        case TT_BAL:
+        pi_str(o, "Bal()");
+        return 1;
+        case TT_FAIL:
+        pi_str(o, "Fail()");
+        return 1;
+        case TT_ABORT:
+        pi_str(o, "Abort()");
+        return 1;
+        case TT_SUCCEED:
+        pi_str(o, "Succeed()");
+        return 1;
+        case TT_FENCE:
+        if (r->ival) return 0;
+        pi_str(o, "Fence()");
+        return 1;
+        case TT_ARBNO:
+        pi_str(o, "Arbno(");
+        if (!pi_text(o, r->l)) return 0;
+        pi_str(o, ")");
+        return 1;
+        case TT_SEQ:
+        if (pi_imm(r->r)) return pi_text(o, r->l);
+        if (!pi_text(o, r->l)) return 0;
+        pi_str(o, " || ");
+        return pi_text(o, r->r);
+        case TT_ALT:
+        pi_str(o, "(");
+        if (!pi_text(o, r->l)) return 0;
+        pi_str(o, " .| ");
+        if (!pi_text(o, r->r)) return 0;
+        pi_str(o, ")");
+        return 1;
+        case TT_CAPT_COND_ASGN:
+        {
+            const char *nm = r->s ? r->s : "";
+            int im = (unsigned char)nm[0] == 5;
+            pi_str(o, "(");
+            if (!pi_text(o, r->l)) return 0;
+            pi_str(o, im ? ") => " : ") -> ");
+            pi_str(o, im ? nm + 1 : nm);
+            return 1;
+        }
+        default:
+        return 0;
+    }
+}
+static int pn_has_fence_arb(const dtp_rcp_t *r) { return r && (r->tt == TT_SEQ ? pn_has_fence_arb(r->l) || pn_has_fence_arb(r->r) : (r->tt == TT_FENCE || r->tt == TT_ARB)); }
+static int pn_nonsimple(const dtp_rcp_t *x) {
+    const dtp_rcp_t *h = x;
+    while (h && h->tt == TT_SEQ) h = h->l;
+    int t = h ? h->tt : 0;
+    if (t == TT_ALT || t == TT_ARBNO || t == TT_CAPT_COND_ASGN || t == TT_FENCE || t == TT_REM || t == TT_ARB || t == TT_BAL || t == TT_BREAKX) return 1;
+    if (t == TT_BREAK || t == TT_TAB || t == TT_RTAB || t == TT_POS || t == TT_RPOS || t == TT_FAIL || t == TT_SUCCEED || t == TT_ABORT) return 1;
+    return pn_has_fence_arb(x);
+}
+static int pat_nodes(const dtp_rcp_t *r) {
+    if (!r) return 0;
+    switch (r->tt) {
+        case TT_ARB:
+        return 2;
+        case TT_BREAKX:
+        return 3;
+        case TT_SEQ:
+        return pat_nodes(r->l) + (pi_imm(r->r) ? 0 : pat_nodes(r->r));
+        case TT_ALT:
+        return 1 + pat_nodes(r->l) + pat_nodes(r->r);
+        case TT_CAPT_COND_ASGN:
+        return 2 + pat_nodes(r->l);
+        case TT_ARBNO:
+        return 1 + pat_nodes(r->l) + (pn_nonsimple(r->l) ? 2 : 0);
+        default:
+        return 1;
+    }
+}
+int pat_image_str(void *headv, DESCR_t *out) {
+    const DTP_t *h = (const DTP_t *)headv;
+    pi_buf_t o = {0, 0, 0};
+    char pre[64];
+    if (!h || !h->rcp) return 0;
+    snprintf(pre, sizeof pre, "pattern_%d(%d) = ", (int)h->zpad, pat_nodes(h->rcp));
+    pi_str(&o, pre);
+    if (!pi_text(&o, h->rcp)) return 0;
+    char *res = rt_heap_strndup_c(o.b, o.n);
+    *out = STRVAL(res);
+    out->slen = (uint32_t)o.n;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_index_operand_ok(DESCR_t base, DESCR_t idx, int strict) {
     if (!strict) return 1;

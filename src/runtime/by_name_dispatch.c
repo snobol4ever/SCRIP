@@ -25502,6 +25502,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             *out = STRVAL(buf);
             return 1;
         }
+        if (av.v == DT_P && av.p) { extern int pat_image_str(void *, DESCR_t *); if (pat_image_str(av.p, out)) return 1; }
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";

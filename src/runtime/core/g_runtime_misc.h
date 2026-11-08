@@ -77,5 +77,6 @@ typedef struct {
     char *stack_ceil;
     char *emitted_text_lo;
     char *emitted_text_hi;
+    int pat_serial;
 } g_misc_t;
 #endif
