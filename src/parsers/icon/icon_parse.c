@@ -364,7 +364,7 @@ static tree_t *parse_limit(IcnParser *p) {
         } else if (check(p, TK_SEND) || check(p, TK_SENDB)) {
             int bl = check(p, TK_SENDB);
             advance(p);
-            n = icn_msg_call("ICN$SEND", parse_unary(p), n, bl);
+            n = icn_msg_call("ICN$SEND", icn_begins_nexpr(p->cur.kind) ? parse_unary(p) : NULL, n, bl);
         } else if (check(p, TK_RECV) || check(p, TK_RECVB)) {
             int bl = check(p, TK_RECVB);
             advance(p);
