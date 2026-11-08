@@ -20926,6 +20926,7 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
             else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
         }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (nm && !strcmp(nm, "input")) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(0); return 1; }
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r");
         if (!fp && pas_io_fail(errno)) { *out = IS_FH_fn(args[0]) ? args[0] : STRVAL(rt_heap_strdup_c(nm)); return 1; }
