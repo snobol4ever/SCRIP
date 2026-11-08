@@ -608,7 +608,7 @@ static DESCR_t rt_real_zero_divisor(int strict) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_cset_operand_ok(DESCR_t v) { return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R || v.v == DT_BIG; }
+int icn_cset_operand_ok(DESCR_t v) { return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R || v.v == DT_BIG; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict);
 static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {

@@ -24407,6 +24407,11 @@ static DESCR_t utbl_op(const char *op, DESCR_t *args, int nargs) {
         if (op[0] == '+') { utbl_build(r, x, x, 1); utbl_build(r, y, x, 0); } else utbl_build(r, x, y, op[0] == '*');
         return TABLE_VAL(r);
     }
+    if (!(args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set && args[1].v == DT_T && args[1].tbl && args[1].tbl->is_set)) {
+        extern int icn_cset_operand_ok(DESCR_t v);
+        extern int core_icn_error_text(int code, DESCR_t val, const char *msg);
+        for (int k = 0; k < 2; k++) if (!icn_cset_operand_ok(args[k])) { core_icn_error_text(120, args[k], "two csets, two sets, or two tables expected"); return FAILDESCR; }
+    }
     { extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); return rt_num_arith(args[0], args[1], op[0] == '+' ? BINOP_CUNION : op[0] == '*' ? BINOP_CINTER : BINOP_CDIFF); }
 }
 DESCR_t bt_ICNx24UUNION(DESCR_t *args, int nargs) { return utbl_op("++", args, nargs); }

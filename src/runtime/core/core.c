@@ -3057,20 +3057,22 @@ const char *core_icn_errmsg(int code) { return icn_errmsg(code); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_startup_error_no_main(void) { fflush(stdout); fprintf(stderr, "scrip: error %d: %s\n  at startup\n", 117, icn_errmsg(117)); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-RT_ENTRY_DECL(core_icn_error, leaf, 0);
-int core_icn_error(int code, DESCR_t val) {
+int core_icn_error_text(int code, DESCR_t val, const char *msg) {
     if (g_runtime.abi.error != 0 && !G_ERROR_IS_EVAL(g_runtime.abi.error)) {
         g_runtime.abi.error--;
         g_runtime.misc.icn_errnumber = code;
-        { const char *_em = icn_errmsg_known(code); g_runtime.misc.icn_errtext = _em ? _em : ""; }
+        g_runtime.misc.icn_errtext = msg ? msg : "";
         g_runtime.misc.icn_errvalue = val;
         g_runtime.misc.icn_err_valid = 1;
         if (g_core_errjmp_n > 0) core_errjmp_throw(g_core_errjmp_n - 1, code);
         return 1;
     }
-    core_icn_report(code, val, (const char *)0);
+    core_icn_report(code, val, msg);
     exit(1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(core_icn_error, leaf, 0);
+int core_icn_error(int code, DESCR_t val) { return core_icn_error_text(code, val, icn_errmsg_known(code)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_fatal(int code, DESCR_t val) { core_icn_report(code, val, (const char *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
