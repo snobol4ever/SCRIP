@@ -35,7 +35,7 @@ static void icn_link_note(char * tried, size_t triedsz, const char * cand) {
     memcpy(tried + have, cand, strlen(cand)); tried[have + strlen(cand)] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
+static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz, int unicon) {
     if (triedsz) tried[0] = '\0';
     char * src = NULL;
     const char * vars[2]; vars[0] = getenv("IPATH"); vars[1] = getenv("ICONPATH");
@@ -57,7 +57,7 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
     { char exe[PATH_MAX];
       if (realpath("/proc/self/exe", exe)) { char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
           for (int k = 0; k < 2; k++) {
-              snprintf(out, outsz, "%s/../corpus/packages/icon/%s/%s.icn", exe, k ? "unicon_ipl/procs" : "ipl/procs", nm);
+              snprintf(out, outsz, "%s/../corpus/packages/icon/%s/%s.icn", exe, (k ^ (unicon != 0)) ? "unicon_ipl/procs" : "ipl/procs", nm);
               icn_link_note(tried, triedsz, out);
               src = icn_read_file(out);
               if (src) return src;
@@ -122,7 +122,8 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             if (pneed < PATH_MAX + sizeof "/../corpus/packages/icon/ipl/procs") pneed = PATH_MAX + sizeof "/../corpus/packages/icon/ipl/procs";
             size_t per = strlen(nm) + sizeof ", /.icn", tneed = 1 + 2 * (pneed + per);
             for (int v = 0; v < 2; v++) if (pev[v]) { tneed += strlen(pev[v]) + per; for (const char * q = pev[v]; *q; q++) if (*q == ':') tneed += per; }
-            char path[pneed + strlen(nm) + sizeof "/.icn"]; char tried[tneed]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
+            char path[pneed + strlen(nm) + sizeof "/.icn"]; char tried[tneed];
+            char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried, prog->v.ival != 0);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
             IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src); lx2.unicon = (prog && prog->v.ival) || icn_source_is_unicon(src);
             IcnParser p2; icn_parse_init(&p2, &lx2);
