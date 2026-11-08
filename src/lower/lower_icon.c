@@ -3294,9 +3294,17 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_has_break(const tree_t * n) { if (!n) return 0; if (n->t == TT_LOOP_BREAK) return 1; for (int i = 0; i < n->n; i++) if (icn_tree_has_break(n->c[i])) return 1; return 0; }
+static int icn_never_succeeds(const tree_t * n) {
+    if (!n) return 0;
+    if (n->t == TT_RETURN || n->t == TT_PROC_FAIL) return 1;
+    if (n->t == TT_WHILE || n->t == TT_UNTIL || n->t == TT_EVERY || n->t == TT_REPEAT) return !icn_tree_has_break(n);
+    if (n->t == TT_SEQ_EXPR) return n->n > 0 && icn_never_succeeds(n->c[n->n - 1]);
+    if (n->t == TT_CONJ) { for (int i = 0; i < n->n; i++) if (icn_never_succeeds(n->c[i])) return 1; return 0; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
-    if (t->n > 1 && t->c[0] && t->c[1] && (t->c[0]->t == TT_WHILE || t->c[0]->t == TT_UNTIL || t->c[0]->t == TT_EVERY) && !icn_tree_has_break(t->c[0])) {
+    if (t->n > 1 && t->c[0] && t->c[1] && icn_never_succeeds(t->c[0])) {
         IR_t * lp = NULL;
         IR_t * lq = NULL;
         IR_t * le = lower_arm(cx, t->c[0], ω, ω, &lp, lv);
