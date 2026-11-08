@@ -24424,8 +24424,8 @@ DESCR_t bt_ICNx24UNUMERIC(DESCR_t *args, int nargs) {
     if (nargs == 1 && args[0].v == DT_S && args[0].s && args[0].slen != 0xFFFFFFFFu) {
         const char *s = args[0].s;
         size_t n = args[0].slen;
-        while (n && (*s == ' ' || *s == '\t')) { s++; n--; }
-        while (n && (s[n - 1] == ' ' || s[n - 1] == '\t')) n--;
+        while (n && isspace((unsigned char) *s)) { s++; n--; }
+        while (n && isspace((unsigned char) s[n - 1])) n--;
         const int pw = n >= 2 ? icn_numeric_suffix_power(s[n - 1]) : 0;
         if (pw) {
             size_t i = (s[0] == '+' || s[0] == '-') ? 1 : 0;
