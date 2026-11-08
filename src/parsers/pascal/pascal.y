@@ -673,6 +673,7 @@ argument:
     expression { $$ = $1; }
     |expression COLON expression { $$ = pt_add(pt_add(pt_new(TT_FMT), $1), $3); }
     |expression COLON expression COLON expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_FMT), $1), $3), $5); }
+    |selector LBRACK expression DOTDOT expression RBRACK { $$ = pt_add(pt_add(pt_new(TT_IDX), $1), pt_add(pt_add(pt_new(TT_SUBRANGE), $3), $5)); }
     ;
 assignment:
     selector BECOMES expression { $$ = pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3); }
