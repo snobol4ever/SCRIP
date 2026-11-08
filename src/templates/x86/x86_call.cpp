@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include "templates/x86/x86_call.h"
+#include "ir/ir_graph.h"
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
 #include "emitter/emit_state.h"
@@ -293,6 +294,7 @@ std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_
     x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN");
     v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_runtime.abi.monitor_bin) ? 1 : 0); } return v; }
+int x86_trace_taps_on() { return x86_trace_hooks_on() || (g_emit_cfg && g_emit_cfg->trace_taps); }
 int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int x86_portcount_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PORT_COUNTS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }

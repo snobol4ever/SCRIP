@@ -2868,7 +2868,7 @@ static void icn_register_local_offsets(const char * pname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff = 16) {
-    if (!x86_trace_hooks_on()) return std::string();
+    if (!x86_trace_taps_on()) return std::string();
     extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
@@ -3531,7 +3531,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                   + x86("mov", "rcx", RDQ("rsp", _gw + 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", _gw + 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
                   + x86("lea", "rcx", RDQ("rsp", _gw + 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
-                  + IF(x86_trace_hooks_on(), x86("mov", RDQ("rax", frame_total + 64), 0L))
+                  + IF(x86_trace_taps_on(), x86("mov", RDQ("rax", frame_total + 64), 0L))
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
                   +
@@ -4181,7 +4181,7 @@ static int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
             {
               bb_emit_x86( x86("mov", "rbp", "rax")
                          +
-                             IF(x86_trace_hooks_on(),
+                             IF(x86_trace_taps_on(),
                              x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") + x86("mov", "rcx", RDQ("rcx", GRT_AT(line))) +
                                  x86("shl", "rcx", 1L) +
                              x86("mov", "rdx", RDQ("rax", 64)) + x86("and", "rdx", 1L) + x86("or", "rcx", "rdx") + x86("mov", RDQ("rax", 64), "rcx"))

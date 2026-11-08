@@ -700,7 +700,7 @@ static std::string trace_tap_body(const char * pname, int kind, int np, int r11d
 }
 std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     extern int g_flat_node_id;
-    return IF(x86_trace_hooks_on() && pname, trace_tap_body(xa_icn_trace_intern(pname), kind, np, r11d, g_flat_node_id++));
+    return IF(x86_trace_taps_on() && pname, trace_tap_body(xa_icn_trace_intern(pname), kind, np, r11d, g_flat_node_id++));
 }
 const char * xa_icn_trace_pname(void) {
     return (g_emit_cfg && g_emit_cfg->root_graph) ? "main"

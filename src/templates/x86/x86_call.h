@@ -44,5 +44,6 @@ std::string x86_pl_alarm_probe();
 std::string x86_pl_tr_undo_prestep(int l_skip);
 std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done);
 int x86_trace_hooks_on();
+int x86_trace_taps_on();
 }
 #endif

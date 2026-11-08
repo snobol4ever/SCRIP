@@ -38,6 +38,7 @@ struct IR_graph_t {
     int caller_frame;
     int static_calls;
     int poll_alpha;
+    int trace_taps;
     int multi_proto;
     const char * l3_ancestor_name;
     int deterministic;

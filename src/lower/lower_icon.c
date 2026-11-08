@@ -3677,9 +3677,9 @@ static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     IR_LIT(mark).sval = (char *) cx->file;
     return mark;
 }
-static int icn_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
+static int icn_trace_wanted(icx_t * cx) { return cx->want_lines || g_runtime.abi.trace_budget != 0; }
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
-    if (line <= 0 || !icn_trace_wanted()) return stmt_entry;
+    if (line <= 0 || g_runtime.abi.trace_budget == 0) return stmt_entry;
     IR_t * call = build(cx, IR_CALL, stmt_entry, ω);
     IR_LIT(call).sval = "__trace_stmt";
     IR_t * lit = build(cx, IR_LIT_INTEGER, call, ω);
@@ -3688,7 +3688,7 @@ static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t
     return lit;
 }
 static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
-    if (!name || !*name || !icn_trace_wanted()) return body_entry;
+    if (!name || !*name || !icn_trace_wanted(cx)) return body_entry;
     IR_t * call = build(cx, IR_CALL, body_entry, ω);
     IR_LIT(call).sval = "__trace_call";
     IR_t * nm = build(cx, IR_LIT_STRING, call, ω);
@@ -3697,7 +3697,7 @@ static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_ent
     return nm;
 }
 static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out) {
-    if (!name || !*name || !icn_trace_wanted()) { *call_out = NULL; return NULL; }
+    if (!name || !*name || !icn_trace_wanted(cx)) { *call_out = NULL; return NULL; }
     IR_t * call = build(cx, IR_CALL, γ, ω);
     IR_LIT(call).sval = (char *) hook;
     IR_t * nm = build(cx, IR_LIT_STRING, call, ω);
@@ -3744,6 +3744,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
     icn_retag_scan_body(cx, 0);
     icn_settle_fail_conduits(g);
+    g->trace_taps = cx->want_lines;
     g->cell_frame = 1;
     g->spine_cells = 1;
     g->scan_regs = 1;
