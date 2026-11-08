@@ -657,6 +657,7 @@ extern DESCR_t bt_ICNx24UCURSOR(DESCR_t * args, int nargs) __attribute__((weak, 
 extern DESCR_t bt_ICNx24USIGTRAP(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ICNx24USIGTAKE(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_ICNx24USIGNAME(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_ICNx24UATTRIB(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, bt_x3C, bt_x3Cx3C, bt_x3Cx3Cx3D, bt_x3Cx3D, bt_x3D, bt_x3Dx3D, bt_x3Dx3Dx3D, bt_x3E, bt_x3Ex3D, bt_x3Ex3E, bt_x3Ex3Ex3D,
     0, 0, bt_ASGN, bt_CODE, 0, bt_DATA, bt_DATATYPE, 0, 0, 0, 0, bt_FAIL, bt_FIELD_GET, bt_FIELD_SET, bt_ICN_CASE_EQ, bt_ICN_NULL, bt_ICN_SCAN_POP, bt_ICN_SCAN_PUSH, bt_ICN_SWAP_TOP2, 0, bt_IDENTICAL,
     0, bt_ITEM, 0, bt_MAKELIST, bt_NONNULL, bt_OPSYN, 0, bt_RECORD_MAKE, bt_RECORD_REGISTER, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SNOx24NRET, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SUCCEED, 0, 0, 0,
@@ -716,7 +717,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_ICNx24ULSTAT, bt_ICNx24UPIPE, bt_ICNx24UFILEPAIR, bt_ICNx24UFDUP, bt_ICNx24UFCNTL, bt_ICNx24USELECT, bt_ICNx24UGETPW, bt_ICNx24UGETGR, bt_ICNx24UGETSERV, bt_ICNx24UGETTIMEOFDAY,
     bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, 0, bt_ICNx24UNUMERIC, bt___rk_temp, bt_ICNx24USET, bt_ICNx24USORT, bt_ICNx24USORTF,
     bt_ICNx24UMAX, bt_ICNx24UMIN, bt_ICNx24UPCAT, bt_ICNx24URECEIVE, bt_ICNx24UUNION, bt_ICNx24UINTER, bt_ICNx24UDIFF, bt_ICNx24SEND, bt_ICNx24RECV, bt_ICNx24USEND, bt_ICNx24THREAD, bt_ICNx24SCHED,
-    bt_ICNx24THREAD_END, bt_ICNx24DONE, bt_ICNx24UTABLE, bt_ICNx24LOCK_TRY, bt_ICNx24UNLOCK, bt_ICNx24UCURSOR, bt_ICNx24USIGTRAP, bt_ICNx24USIGTAKE, bt_ICNx24USIGNAME, };
+    bt_ICNx24THREAD_END, bt_ICNx24DONE, bt_ICNx24UTABLE, bt_ICNx24LOCK_TRY, bt_ICNx24UNLOCK, bt_ICNx24UCURSOR, bt_ICNx24USIGTRAP, bt_ICNx24USIGTAKE, bt_ICNx24USIGNAME, bt_ICNx24UATTRIB, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
@@ -751,4 +752,4 @@ static const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___rk_meth_nc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };

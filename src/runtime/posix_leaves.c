@@ -277,6 +277,28 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
     return fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24UATTRIB(DESCR_t *args, int nargs) {
+    if (nargs < 2 || args[0].v != DT_FH) return FAILDESCR;
+    FILE *fp = fh_get((int) args[0].i);
+    if (!fp) return FAILDESCR;
+    int fd = fileno(fp), proto = -1, hdrincl = -1;
+    if (px_sock_attrs(args + 1, nargs - 1, &proto, &hdrincl) < 0) return FAILDESCR;
+    if (px_sock_apply(fd, args + 1, nargs - 1, 1, NULL, NULL) != 0) return FAILDESCR;
+    if (px_sock_apply(fd, args + 1, nargs - 1, 0, NULL, NULL) != 0) return FAILDESCR;
+    const char *s = px_str(args[1]), *eq = s ? strchr(s, '=') : NULL;
+    if (!eq) return FAILDESCR;
+    size_t kl = (size_t) (eq - s);
+    if (px_key_is(s, kl, "ttl")) { unsigned char t = 0; socklen_t tl = sizeof t; if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &t, &tl) != 0) return px_fail(); return INTVAL((int64_t) t); }
+    if (px_key_is(s, kl, "rcvbuf") || px_key_is(s, kl, "sndbuf")) {
+        int v = 0;
+        socklen_t vl = sizeof v;
+        int opt = px_key_is(s, kl, "rcvbuf") ? SO_RCVBUF : SO_SNDBUF;
+        if (getsockopt(fd, SOL_SOCKET, opt, &v, &vl) != 0) return px_fail();
+        return INTVAL((int64_t) v);
+    }
+    return STRVAL(rt_heap_strdup_c(eq + 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t px_fmt(const char *fmt, ...) {
     va_list a, b;
     va_start(a, fmt);
