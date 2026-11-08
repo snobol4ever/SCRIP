@@ -1,8 +1,8 @@
 #ifndef BUILTIN_TABLE_H
 #define BUILTIN_TABLE_H
 #include <string.h>
-#define BT_ROWS 1319
-#define BT_BID_MAX 1329
+#define BT_ROWS 1320
+#define BT_BID_MAX 1330
 #define BT_LEGACY_LAST 190
 #define BT_LEGACY_TABSZ 1024
 #define BT_HASHSZ 4096

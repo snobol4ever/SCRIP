@@ -232,3 +232,26 @@ DESCR_t bt_ICNx24URECEIVE(DESCR_t *args, int nargs) {
     if (!t) t = dat_register("posix_message(addr,msg)");
     return dat_construct(t, f, 2);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24USEND(DESCR_t *args, int nargs) {
+    if (nargs != 2 || args[0].v != DT_S || args[1].v != DT_S) return FAILDESCR;
+    px_begin();
+    const char *addr = rt_cstr_d(args[0]);
+    const char *c = strrchr(addr, ':');
+    if (!c) { errno = EINVAL; return px_fail(); }
+    char host[c - addr + 1];
+    memcpy(host, addr, (size_t) (c - addr));
+    host[c - addr] = 0;
+    struct addrinfo hint = { 0 }, *ai = NULL;
+    hint.ai_family = AF_INET;
+    hint.ai_socktype = SOCK_DGRAM;
+    if (getaddrinfo(*host ? host : NULL, c + 1, &hint, &ai) != 0 || !ai) { errno = EADDRNOTAVAIL; return px_fail(); }
+    int fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    if (fd < 0) { freeaddrinfo(ai); return px_fail(); }
+    ssize_t n = sendto(fd, args[1].s, (size_t) args[1].slen, 0, ai->ai_addr, ai->ai_addrlen);
+    int e = errno;
+    close(fd);
+    freeaddrinfo(ai);
+    if (n < 0) { errno = e; return px_fail(); }
+    return NULVCL;
+}
