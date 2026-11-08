@@ -1002,9 +1002,10 @@ static void pl_mod_args(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
             else if (ds && pl_mod_atomish(ds) && (!strcmp(ds->v.sval, ":") || !strcmp(ds->v.sval, "^"))) k = ds->v.sval[0];
         } else k = spec[i];
         if (k == '0') {
-            pl_mod_goal(ms, m1, m2, g->c[i], trans);
-            if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) g->c[i] = pl_mod_qualify(m1, g->c[i]);
-            else if (pl_mod_var_wraps(m1, g->c[i], ctx)) g->c[i] = pl_mod_var_wrap(m1, trans, g->c[i]);
+            if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) {
+                if (!(g->c[i]->t == TT_FNC && g->c[i]->v.sval && !strcmp(g->c[i]->v.sval, ":") && g->c[i]->n == 2 && pl_mod_atomish(g->c[i]->c[0]))) g->c[i] = pl_mod_qualify(m1, g->c[i]);
+            }
+            else { pl_mod_goal(ms, m1, m2, g->c[i], trans); if (pl_mod_var_wraps(m1, g->c[i], ctx)) g->c[i] = pl_mod_var_wrap(m1, trans, g->c[i]); }
         }
         else if (k == '^') { tree_t *a = g->c[i]; while (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) a = a->c[1]; pl_mod_goal(ms, m1, m2, a, trans); }
         else if (k >= '1' && k <= '9') g->c[i] = pl_mod_var_wraps(m1, g->c[i], ctx) ? pl_mod_var_wrap(m1, trans, g->c[i]) : pl_mod_closure(ms, m1, m2, g->c[i], k - '0', declared);
