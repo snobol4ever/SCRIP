@@ -4915,7 +4915,7 @@ DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t 
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
-DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int); DESCR_t pas_arr_make(DESCR_t *, int); DESCR_t pas_ptr_diff(DESCR_t *, int); DESCR_t pas_pdx(DESCR_t *, int);
+DESCR_t pas_arr_get(DESCR_t *, int); DESCR_t pas_arr_set(DESCR_t *, int); DESCR_t pas_arr_make(DESCR_t *, int); DESCR_t pas_arr_make_raw(DESCR_t *, int); DESCR_t pas_ptr_diff(DESCR_t *, int); DESCR_t pas_pdx(DESCR_t *, int);
     DESCR_t pas_row_get(DESCR_t *, int); DESCR_t pas_row_set(DESCR_t *, int);
     DESCR_t pas_pchar_of(DESCR_t *, int);
     DESCR_t pas_pstrlen(DESCR_t *, int); DESCR_t pas_pstr(DESCR_t *, int); DESCR_t pas_addr(DESCR_t *, int); DESCR_t pas_addr_var(DESCR_t *, int);
@@ -5224,7 +5224,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },
         { "$pl_cs_count", 1, "rt_pl_dop_pl_cs_count", rt_pl_dop_pl_cs_count }, { "$pl_cs_nth", 4, "rt_pl_dop_pl_cs_nth", rt_pl_dop_pl_cs_nth },
         { "arr_get", 2, "pas_arr_get", pas_arr_get }, { "arr_set_pure", 3, "pas_arr_set", pas_arr_set },
-        { "arr_make", 1, "pas_arr_make", pas_arr_make }, { "arr_make", 2, "pas_arr_make", pas_arr_make },
+        { "arr_make", 1, "pas_arr_make", pas_arr_make }, { "arr_make", 2, "pas_arr_make", pas_arr_make }, { "arr_make_raw", 4, "pas_arr_make_raw", pas_arr_make_raw },
         { "__pas_deref", 1, "pas_deref", pas_deref }, { "__pas_deref_set", 2, "pas_deref_set", pas_deref_set }, { "__pas_field_set", 3, "pas_field_set", pas_field_set },
         { "__pas_alloc_rec", 1, "pas_alloc_rec", pas_alloc_rec }, { "__pas_dispose", 1, "pas_dispose", pas_dispose },
         { "__pas_ptr_diff", 2, "pas_ptr_diff", pas_ptr_diff }, { "__pas_pdx", 4, "pas_pdx", pas_pdx }, { "__pas_row_get", 5, "pas_row_get", pas_row_get }, { "__pas_row_set", 6, "pas_row_set",
