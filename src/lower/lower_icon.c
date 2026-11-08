@@ -3323,7 +3323,7 @@ static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * �
         IR_t * lp = NULL;
         IR_t * lq = NULL;
         IR_t * le = lower_arm(cx, t->c[0], ω, ω, &lp, lv);
-        IR_t * ne = lower(cx, t->c[1], le, ω, &lq);
+        IR_t * ne = t->c[1]->t == TT_ILIT ? le : lower(cx, t->c[1], le, ω, &lq);
         cx->beta = ω;
         *res = lp;
         return ne;
