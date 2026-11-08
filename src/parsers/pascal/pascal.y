@@ -543,6 +543,7 @@ param_type:
     IDENT { pascal_note_type_ident($1); $$ = $1; }
     |IDENT PERIOD IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |ARRAYSY OFSY IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_new(TT_ARRAY_TYPE), $3); }
+    |ARRAYSY OFSY CONSTSY { $$ = pt_add(pt_new(TT_ARRAY_TYPE), pt_sval(pt_new(TT_VAR), "const")); }
     |spec_ref { $$ = $1; }
     ;
 routine_directives:

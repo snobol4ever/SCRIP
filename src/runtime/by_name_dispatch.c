@@ -20747,9 +20747,11 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     if (id == PBI_format && nargs >= 1) {
         const char *f = VARVAL_fn(args[0]);
         if (!f) f = "";
-        size_t n = pas_format(f, args + 1, nargs - 1, NULL, 0);
+        int ab = nargs == 2 && args[1].v == DT_A && args[1].arr && !((ARBLK_t *) args[1].arr)->ewidth;
+        int na = ab ? (int)(((ARBLK_t *) args[1].arr)->hi - ((ARBLK_t *) args[1].arr)->lo + 1) : nargs - 1;
+        size_t n = pas_format(f, ab ? ((ARBLK_t *) args[1].arr)->data : args + 1, na, NULL, 0);
         char *o = rt_wsb_alloc(n + 1);
-        pas_format(f, args + 1, nargs - 1, o, n);
+        pas_format(f, ab ? ((ARBLK_t *) args[1].arr)->data : args + 1, na, o, n);
         o[n] = '\0';
         *out = STRVAL(o);
         return 1;

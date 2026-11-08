@@ -5517,6 +5517,10 @@ static pval E_call_with_args(const tree_t *n) {
             if (b && b->t == TT_VAR && pas_array_dims(b->v.sval, d2)) { out.node = ilit(d2[3] - d2[2] + 1); return out; }
         }
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
+        if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && !IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str)) {
+            out.node = mk_fnc2("__pas_format", E_expression(n->c[1]).node, E_expression(n->c[2]).node);
+            return out;
+        }
         if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
                 int _ac = IS(n->c[i], TT_SET) && ((i - 1 < 64 && ((pas_openparm_mask(v[1].str) >> (i - 1)) & 1ULL)) || pas_formal_is_dynarr(v[1].str, i - 1));
