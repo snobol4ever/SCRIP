@@ -2855,8 +2855,16 @@ static IR_t * icn_part_mark(icx_t * cx, long line, IR_t * next, int back) {
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_tree_has_loop_ctl(const tree_t * n) {
+    if (!n) return 0;
+    if (n->t == TT_LOOP_BREAK || n->t == TT_LOOP_NEXT) return 1;
+    for (int i = 0; i < n->n; i++) if (icn_tree_has_loop_ctl(n->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL;
+    if (C && (C->t == TT_SUSPEND || C->t == TT_RETURN || C->t == TT_PROC_FAIL) && !icn_tree_has_loop_ctl(C)) { IR_t * cv = NULL; IR_t * ce = lower(cx, C, ω, ω, &cv); *res = cv; return ce; }
     const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     long cl = icn_first_line(C), bl = icn_part_line(B);
     int split = icn_parts_split(cl, bl);
