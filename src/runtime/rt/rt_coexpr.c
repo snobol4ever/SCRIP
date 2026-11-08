@@ -205,6 +205,7 @@ void scrip_cofail(void) {
     me->dead = 1;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
+    if (me->th_state == 1 || me->th_state == 2) { DESCR_t nv = NULVCL; me->th_state = 3; memcpy(&back->xmit, &nv, sizeof nv); }
 #if RT_DIAG
     scrip_co_trace_term(me, back, 0, 0, 1);
 #endif
@@ -380,7 +381,7 @@ scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_
     scrip_coswitch(self, target, first, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
     g_scrip_co_current = prev;
     { if (self->cur_line > 0) g_runtime.abi.line = self->cur_line; }
-    if (target->dead) return (scrip_co_ret_t){ 0, self->env };
+    if (target->dead && target->th_state != 3) return (scrip_co_ret_t){ 0, self->env };
     memcpy(out2, &self->xmit, sizeof self->xmit);
     return (scrip_co_ret_t){ 1, self->env };
 }

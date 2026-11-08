@@ -1369,6 +1369,7 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
         tree_t * body = pm_node(TT_CONJ, once, pm_call("ICN$THREAD_END", NULL, NULL), pm_node(TT_REPEAT, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), NULL, NULL));
         return th_call("ICN$THREAD", pm_node(TT_CREATE, body, NULL, NULL));
     }
+    if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t != TT_CREATE && !icn_is_proc("spawn")) return th_call("ICN$THREAD", (tree_t *) t->c[1]);
     if (!strcmp(fn->v.sval, "ICN$RECV") && t->n == 4 && t->slen != -6 && t->c[3] && t->c[3]->t == TT_ILIT && t->c[3]->v.ival == 1 && t->c[2] && t->c[2]->t == TT_VAR && t->c[2]->v.sval &&
         !strcmp(t->c[2]->v.sval, "&null")) {
         const char * tv = icn_synth_local(cx), * vv = icn_synth_local(cx);
