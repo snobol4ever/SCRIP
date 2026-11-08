@@ -4515,6 +4515,7 @@ static unsigned pas_mt_u32rand(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PAS_VIEW_STR 64
+#define PAS_VIEW_RAW 128
 static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     if (p.v == DT_PCELL && (p.src_node2 & PAS_VIEW_STR)) pas_file_err("6.5.4", "a pointer into a string's characters denotes no variable cell", fn);
@@ -15900,7 +15901,7 @@ DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_elem_ref(DESCR_t *args, int nargs) {
-    if (args[0].v == DT_A && args[0].arr) {
+    if (args[0].v == DT_A && args[0].arr && !((ARBLK_t *) args[0].arr)->ewidth) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
         long i = rk_ival(args[1]);
         if (i < b->lo || i > b->hi) return FAILDESCR;
@@ -19727,6 +19728,12 @@ static DESCR_t *pas_view_at(DESCR_t p, long long *el, int *bo) {
 static DESCR_t pas_view_load(DESCR_t p) {
     long long e;
     int bo, w = p.src_node0, W = p.src_node1, f = p.src_node2;
+    if (f & PAS_VIEW_RAW) {
+        uint64_t u = 0;
+        if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", "__pas_deref");
+        memcpy(&u, (unsigned char *) p.ptr + (int32_t) p.slen, (size_t) W);
+        return pas_view_val(u, 0, (f >> 5) & 1, W);
+    }
     DESCR_t *b = pas_view_at(p, &e, &bo);
     uint64_t v = 0;
     if (W >= w) for (int k = 0; k < W / w; k++) v |= pas_view_img(b[e + k], f & 3, w) << (8 * w * k);
@@ -19736,6 +19743,12 @@ static DESCR_t pas_view_load(DESCR_t p) {
 static void pas_view_store(DESCR_t p, DESCR_t val) {
     long long e;
     int bo, w = p.src_node0, W = p.src_node1, f = p.src_node2;
+    if (f & PAS_VIEW_RAW) {
+        uint64_t u = pas_view_img(val, 0, W);
+        if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", "__pas_deref_set");
+        memcpy((unsigned char *) p.ptr + (int32_t) p.slen, &u, (size_t) W);
+        return;
+    }
     DESCR_t *b = pas_view_at(p, &e, &bo);
     uint64_t v = pas_view_img(val, (f >> 3) & 3, W);
     if (W >= w) { for (int k = 0; k < W / w; k++) b[e + k] = pas_view_val(v >> (8 * w * k), f & 3, (f >> 2) & 1, w); return; }
@@ -19797,6 +19810,12 @@ DESCR_t pas_addr(DESCR_t *args, int nargs) {
     if (args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
         if (b->hi < b->lo || !b->data) return INTVAL(0);
+        if (b->ewidth) {
+            DESCR_t r = pas_pcell_at((void *) b->data, (rk_ival(args[1]) - b->lo) * b->ewidth, "__pas_addr");
+            r.src_node0 = r.src_node1 = (uint8_t) b->ewidth;
+            r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (b->esigned ? 32 : 0));
+            return r;
+        }
         return pas_pcell_at((void *) b->data, rk_ival(args[1]) - b->lo, "__pas_addr");
     }
     if (IS_INT_fn(args[0]) && args[0].i == 0) return INTVAL(0);
@@ -19822,6 +19841,7 @@ DESCR_t pas_ptr_inc(DESCR_t *args, int nargs) {
 }
 static uintptr_t pas_ptr_word(DESCR_t p) {
     if (!p.src_node0) return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t)(int32_t) p.slen;
+    if (p.src_node2 & PAS_VIEW_RAW) return (uintptr_t) p.ptr + (uintptr_t)(intptr_t)(int32_t) p.slen;
     long long off = (long long)(int32_t) p.slen, w = p.src_node0, e = off >= 0 ? off / w : -((-off + w - 1) / w);
     return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t) e + (uintptr_t)(off - e * w);
 }
