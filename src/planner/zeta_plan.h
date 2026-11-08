@@ -25,7 +25,7 @@ struct znode_t {
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
     int go0off, vp1off, cvnoff, pto, owno, vso, vp1vso, cft;
-    int wkoff, wkn, wke;
+    int wkoff, wkn, wke, unr;
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
@@ -50,6 +50,7 @@ struct zeta_plan_t {
     int * fbase;
     int * b;
     unsigned char * kn;
+    unsigned char * unr;
     IR_t * entry;
     IR_graph_t * cfg;
     IR_t * key;

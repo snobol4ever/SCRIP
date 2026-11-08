@@ -2631,6 +2631,24 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             bb_op_name(g_planner.codegen_flat_chain_body_nodes[k]->op));
         } } if (!_add) break; zd_plan(cg, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
         }
+    unsigned char * zd_unr = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n; i++) zd_unr[i] = 0;
+    if (!(cg && cg->n_alts > 0) && !_stmt_seed) {
+        auto landed = [&](int h) -> int {
+            for (int i = 0; i < n; i++) {
+                if (zd_claim[i] < 0 || zd_claim[i] == h || zd_unr[i]) continue;
+                for (int v = 0; v < 2; v++) { IR_t * t = zd_chase(v ? g_planner.codegen_flat_chain_body_nodes[i]->ω.node : g_planner.codegen_flat_chain_body_nodes[i]->γ.node);
+                    int q = t ? nidx(g_planner.codegen_flat_chain_body_nodes, n, t) : -1;
+                    if (q >= 0 && zd_claim[q] == h && !port_sz_beta(zd_edge_sz(g_planner.codegen_flat_chain_body_nodes[i], v))) return 1; }
+                IR_t * nd = g_planner.codegen_flat_chain_body_nodes[i]; int na = (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : -1;
+                for (int k = 0; k < nd->n_operands; k++) { int q = nd->operands[k] ? nidx(g_planner.codegen_flat_chain_body_nodes, n, nd->operands[k]) : -1;
+                    if (q >= 0 && zd_claim[q] == h && !(na >= 0 && (k >= 2 * na || (k & 1)))) return 1; } }
+            return 0; };
+        for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) { moved = 0;
+            for (int h = 1; h < n; h++) { if (zd_claim[h] != h || zd_unr[h] || h == zd_claim[0] || ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[h]) || landed(h)) continue;
+                for (int i = 0; i < n; i++) if (zd_claim[i] == h) zd_unr[i] = 1; moved = 1;
+                if (zd_map_on()) fprintf(stderr, "[ZD-MAP] UNREACHED run=%d (%s): no alpha landing in the plan; its boxes emit a trap, no cell access\n", h,
+                    bb_op_name(g_planner.codegen_flat_chain_body_nodes[h]->op)); } } }
     zeta_plan_t * rec = new zeta_plan_t();
     rec->entry = entry; rec->n = n; rec->own_root = entry_is_own_graph_root; rec->empty_fail = flat_empty_body_fail; rec->empty_succ = flat_empty_body_succ;
     rec->nodes = g_planner.codegen_flat_chain_body_nodes;
@@ -2643,6 +2661,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     rec->cpd = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->cpd, zd_cpd, sizeof(int) * (size_t)n);
     rec->claim = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->claim, zd_claim, sizeof(int) * (size_t)n);
     rec->vl = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->vl, zd_vl, sizeof(int) * (size_t)n);
+    rec->unr = (unsigned char *)ct_zalloc((size_t)(n > 0 ? n : 1), 1); memcpy(rec->unr, zd_unr, (size_t)n);
     rec->chn = (int *)ct_zalloc((size_t)(2 * n + 2), sizeof(int)); memcpy(rec->chn, zd_chn, sizeof(int) * (size_t)(2 * n + 2));
     if (g_planner.g_zd_zarm_p == zd_arm) g_planner.g_zd_zarm_p = rec->arm;
     if (n > 0) {
