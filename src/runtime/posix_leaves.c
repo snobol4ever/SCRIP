@@ -122,6 +122,21 @@ static int px_mcast_member(int fd, const char *v, struct in_addr mif, int join) 
     return setsockopt(fd, IPPROTO_IP, join ? IP_ADD_SOURCE_MEMBERSHIP : IP_DROP_SOURCE_MEMBERSHIP, &m, sizeof m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_mcast_grp(int fd, struct in_addr g, struct in_addr mif, int join) {
+    struct ip_mreq m;
+    m.imr_multiaddr = g;
+    m.imr_interface = mif;
+    return setsockopt(fd, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &m, sizeof m);
+}
+static int px_mcast_ssm(int fd, struct in_addr g, struct in_addr src, struct in_addr mif, int join) {
+    struct ip_mreq_source m;
+    m.imr_multiaddr = g;
+    m.imr_sourceaddr = src;
+    m.imr_interface = mif;
+    return setsockopt(fd, IPPROTO_IP, join ? IP_ADD_SOURCE_MEMBERSHIP : IP_DROP_SOURCE_MEMBERSHIP, &m, sizeof m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
     *proto = -1;
     *hdrincl = -1;
@@ -144,6 +159,8 @@ static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
             if (!px_digits(v)) return px_sock_bad();
         } else if (px_key_is(s, kl, "iface")) {
             if (!px_inet_ok(v)) return px_sock_bad();
+        } else if (px_key_is(s, kl, "source")) {
+            if (!px_inet_ok(v)) return px_sock_bad();
         } else if (px_key_is(s, kl, "join") || px_key_is(s, kl, "leave")) {
             if (!px_group_ok(v)) return px_sock_bad();
         } else return px_sock_bad();
@@ -151,10 +168,11 @@ static int px_sock_attrs(const DESCR_t *a, int na, int *proto, int *hdrincl) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int px_sock_apply(int fd, const DESCR_t *a, int na, int prebind) {
+static int px_sock_apply(int fd, const DESCR_t *a, int na, int prebind, const struct in_addr *grp, const struct in_addr *asrc) {
     struct in_addr mif;
     socklen_t ml = sizeof mif;
     if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &mif, &ml) != 0) mif.s_addr = htonl(INADDR_ANY);
+    int joined = 0, sourced = 0;
     for (int k = 0; k < na; k++) {
         const char *s = px_str(a[k]);
         const char *eq = strchr(s, '=');
@@ -179,10 +197,23 @@ static int px_sock_apply(int fd, const DESCR_t *a, int na, int prebind) {
             if (!px_addr_part(v, strlen(v), &x)) return px_sock_bad();
             mif = x;
             rc = setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &mif, sizeof mif);
-        } else if (px_key_is(s, kl, "join") || px_key_is(s, kl, "leave")) rc = px_mcast_member(fd, v, mif, px_key_is(s, kl, "join"));
+        } else if (px_key_is(s, kl, "source")) {
+            struct in_addr src;
+            if (!grp || !px_addr_part(v, strlen(v), &src)) return px_sock_bad();
+            sourced = 1;
+            rc = px_mcast_ssm(fd, *grp, src, mif, 1);
+        } else if (px_key_is(s, kl, "join") || px_key_is(s, kl, "leave")) {
+            joined |= px_key_is(s, kl, "join");
+            rc = px_mcast_member(fd, v, mif, px_key_is(s, kl, "join"));
+        }
         if (rc != 0) return px_sock_errno();
     }
+    if (!prebind && grp) { int pr = 0; if (asrc) pr = px_mcast_ssm(fd, *grp, *asrc, mif, 1); else if (!joined && !sourced) pr = px_mcast_grp(fd, *grp, mif, 1); if (pr != 0) return px_sock_errno(); }
     return 0;
+}
+static const struct in_addr *px_bound_group(const struct addrinfo *ai) {
+    const struct sockaddr_in *sin = (const struct sockaddr_in *) ai->ai_addr;
+    return IN_MULTICAST(ntohl(sin->sin_addr.s_addr)) ? &sin->sin_addr : NULL;
 }
 FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int nattrs) {
     int proto = -1, hdrincl = -1;
@@ -205,22 +236,31 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
     char host[c - addr + 1];
     memcpy(host, addr, (size_t) (c - addr));
     host[c - addr] = 0;
+    struct in_addr asrc_v, *asrc = NULL;
+    char *at = listen_ && udp ? strchr(host, '@') : NULL;
+    if (at) { *at = 0; if (inet_pton(AF_INET, host, &asrc_v) != 1) { errno = EINVAL; return NULL; } asrc = &asrc_v; memmove(host, at + 1, strlen(at + 1) + 1); }
     hint.ai_family = AF_INET;
     hint.ai_socktype = udp ? SOCK_DGRAM : SOCK_STREAM;
     hint.ai_flags = listen_ ? AI_PASSIVE : 0;
     if (getaddrinfo(*host ? host : NULL, c + 1, &hint, &ai) != 0 || !ai) { errno = EADDRNOTAVAIL; return NULL; }
     fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    if (fd >= 0 && px_sock_apply(fd, attrs, nattrs, 1) != 0) { close(fd); fd = -1; }
+    if (fd >= 0 && px_sock_apply(fd, attrs, nattrs, 1, NULL, NULL) != 0) { close(fd); fd = -1; }
     if (fd >= 0 && listen_ && udp) {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
-        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0) { close(fd); fd = -1; } else if (px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); fd = -1; }
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) != 0) {
+            close(fd);
+            fd = -1;
+        } else if (px_sock_apply(fd, attrs, nattrs, 0, px_bound_group(ai), px_bound_group(ai) ? asrc : NULL) != 0) {
+            close(fd);
+            fd = -1;
+        }
     } else if (fd >= 0 && listen_) {
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
         int ls = fd;
         fd = bind(ls, ai->ai_addr, ai->ai_addrlen) == 0 && listen(ls, 1) == 0 ? accept(ls, NULL, NULL) : -1;
         close(ls);
     } else if (fd >= 0 && udp) {
-        if (px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); freeaddrinfo(ai); return NULL; }
+        if (px_sock_apply(fd, attrs, nattrs, 0, NULL, NULL) != 0) { close(fd); freeaddrinfo(ai); return NULL; }
         FILE *dg = px_dg_open(fd, ai);
         freeaddrinfo(ai);
         if (!dg) close(fd);
@@ -229,7 +269,7 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
         close(fd);
         fd = -1;
     }
-    if (fd >= 0 && !udp && px_sock_apply(fd, attrs, nattrs, 0) != 0) { close(fd); fd = -1; }
+    if (fd >= 0 && !udp && px_sock_apply(fd, attrs, nattrs, 0, NULL, NULL) != 0) { close(fd); fd = -1; }
     freeaddrinfo(ai);
     FILE *fp = fd >= 0 ? fdopen(fd, "r+") : NULL;
     if (!fp && fd >= 0) close(fd);
