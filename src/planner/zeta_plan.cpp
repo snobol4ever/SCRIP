@@ -2499,6 +2499,10 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
         for (int c = 1; c < 16; c++) if (cr_sc[c]) fprintf(stderr, "%d:%d,", c, cr_sc[c]);
         fprintf(stderr, "\n"); }
 }
+static int zd_has_match(IR_t ** nodes, int n) {
+    for (int i = 0; i < n; i++) if (!strncmp(bb_op_name(nodes[i]->op), "IR_MATCH", 8)) return 1;
+    return 0;
+}
 zeta_plan_t * planner_chain_plan(const IR_graph_t * cg, IR_t * entry, const char * prefix) {
     int CH_MAX = 65536; if (cg && cg->n + 1024 > CH_MAX) CH_MAX = cg->n + 1024; int Q_MAX = CH_MAX * 16;
       if (g_planner.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_planner.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_planner.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
@@ -2633,7 +2637,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         }
     unsigned char * zd_unr = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int i = 0; i < n; i++) zd_unr[i] = 0;
-    if (!(cg && cg->n_alts > 0) && !_stmt_seed) {
+    if (!(cg && cg->n_alts > 0) && !_stmt_seed && !zd_has_match(g_planner.codegen_flat_chain_body_nodes, n)) {
         auto landed = [&](int h) -> int {
             for (int i = 0; i < n; i++) {
                 if (zd_claim[i] < 0 || zd_claim[i] == h || zd_unr[i]) continue;
