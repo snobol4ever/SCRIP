@@ -72,7 +72,7 @@ static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_begins_nexpr(IcnTkKind k) {
     switch (k) {
-    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PUNEVAL2: case TK_PSETCUR: case TK_REGEX:
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_SEND: case TK_SENDB: case TK_RECV: case TK_RECVB: case TK_PUNEVAL: case TK_PUNEVAL2: case TK_PSETCUR: case TK_REGEX:
     case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
     case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
     case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
@@ -335,6 +335,17 @@ static tree_t *parse_postfix(IcnParser *p) {
 }
 static tree_t *parse_unary(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_msg_call(const char *fn, tree_t *t, tree_t *v, int blocking) {
+    tree_t *call = ast_node_new(TT_FNC);
+    tree_t *flag = ast_node_new(TT_ILIT);
+    flag->v.ival = blocking;
+    push_child(call, e_leaf_sval(TT_VAR, fn, -1));
+    push_child(call, t ? t : e_leaf_sval(TT_VAR, "&null", -1));
+    push_child(call, v ? v : e_leaf_sval(TT_VAR, "&null", -1));
+    push_child(call, flag);
+    return call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_repalt(IcnParser *p) {
     if (check(p, TK_BAR)) { advance(p); return e_unary(TT_REPALT, parse_unary(p)); }
     if (check(p, TK_CONCAT))  { advance(p); return e_unary(TT_REPALT, e_unary(TT_REPALT, parse_unary(p))); }
@@ -345,10 +356,20 @@ static tree_t *parse_repalt(IcnParser *p) {
 static tree_t *parse_limit(IcnParser *p) {
     tree_t *n = parse_unary(p);
     if (!n) return NULL;
-    while (check(p, TK_BACKSLASH)) {
-        advance(p);
-        tree_t *lim = parse_unary(p);
-        n = e_binary(TT_LIMIT, n, lim);
+    for (;;) {
+        if (check(p, TK_BACKSLASH)) {
+            advance(p);
+            tree_t *lim = parse_unary(p);
+            n = e_binary(TT_LIMIT, n, lim);
+        } else if (check(p, TK_SEND) || check(p, TK_SENDB)) {
+            int bl = check(p, TK_SENDB);
+            advance(p);
+            n = icn_msg_call("ICN$USEND", parse_unary(p), n, bl);
+        } else if (check(p, TK_RECV) || check(p, TK_RECVB)) {
+            int bl = check(p, TK_RECVB);
+            advance(p);
+            n = icn_msg_call("ICN$URECV", parse_unary(p), n, bl);
+        } else break;
     }
     return n;
 }
@@ -365,6 +386,8 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_NOT))       { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_NOT,        parse_unary(p)); }
     if (check(p, TK_QMARK))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_RANDOM,     parse_unary(p)); }
     if (check(p, TK_AT))        { int atline = p->cur.line; advance(p); tree_t *na = e_unary(TT_ACTIVATE, parse_unary(p)); if (na) na->line = atline; return na; }
+    if (check(p, TK_SEND) || check(p, TK_SENDB)) { int bl = check(p, TK_SENDB); advance(p); return icn_msg_call("ICN$USEND", NULL, NULL, bl); }
+    if (check(p, TK_RECV) || check(p, TK_RECVB)) { int bl = check(p, TK_RECVB); advance(p); return icn_msg_call("ICN$URECV", icn_begins_nexpr(p->cur.kind) ? parse_unary(p) : NULL, NULL, bl); }
     if (check(p, TK_TILDE))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_CSET_COMPL, parse_unary(p)); }
     if (check(p, TK_DOT))       { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_DEREF,      parse_unary(p)); }
     if (check(p, TK_PLUSPLUS))   { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_PLS, e_unary_at(ol, TT_PLS, parse_unary(p))); }

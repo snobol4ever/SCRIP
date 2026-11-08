@@ -474,8 +474,10 @@ static IcnToken lex_one(IcnLexer *lx) {
             }
             return make_tok(TK_CARET, line, col);
         case '<':
+            if (lx->unicon && lex_cur(lx) == '@') { lex_advance(lx); return make_tok(TK_RECV, line, col); }
             if (lex_cur(lx) == '<') {
                 lex_advance(lx);
+                if (lx->unicon && lex_cur(lx) == '@') { lex_advance(lx); return make_tok(TK_RECVB, line, col); }
                 if (lex_cur(lx) == '=') {
                     lex_advance(lx);
                     if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
@@ -644,6 +646,11 @@ static IcnToken lex_one(IcnLexer *lx) {
             }
             return make_tok(TK_QMARK, line, col);
         case '@':
+            if (lx->unicon && lex_cur(lx) == '>') {
+                lex_advance(lx);
+                if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_SENDB, line, col); }
+                return make_tok(TK_SEND, line, col);
+            }
             if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
                 lex_advance(lx); lex_advance(lx);
                 return make_tok(TK_AUGAT, line, col);
@@ -1309,6 +1316,10 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_THREAD:    return "thread";
         case TK_CRITICAL:  return "critical";
         case TK_PMATCH:    return "??";
+        case TK_SEND:      return "@>";
+        case TK_SENDB:     return "@>>";
+        case TK_RECV:      return "<@";
+        case TK_RECVB:     return "<<@";
         case TK_POR:       return ".|";
         case TK_PAND:      return "&&";
         case TK_REGEX:     return "REGEX";

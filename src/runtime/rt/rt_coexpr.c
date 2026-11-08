@@ -484,3 +484,7 @@ int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
 DESCR_t bt_ICNx24UIDENT(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : INTVAL(++g_runtime.misc.mutex_serial); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24USEND(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_runtime_error(177, "deadlock: every thread is blocked"); return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt_ICNx24URECV(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_runtime_error(177, "deadlock: every thread is blocked"); return FAILDESCR; }
