@@ -357,12 +357,20 @@ DESCR_t pat_defer_text(const char *name, DESCR_t text, int k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pat_operand_is_null(DESCR_t d) { return (d.v == DT_SNUL) || (d.v == DT_S && (!d.s || (d.slen == 0xFFFFFFFFu ? !*d.s : d.slen == 0))); }
+static int pi_imm(const dtp_rcp_t *r) { return r && r->tt == TT_DEFER && r->s && !strcmp(r->s, "*$imm"); }
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
     if (pat_operand_is_null(right)) return left;
     if (pat_operand_is_null(left)) return right;
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
+    if (right.v == DT_P && right.p && pi_imm(((DTP_t *)right.p)->rcp) && left.v == DT_P && left.p) {
+        DTP_t *h = dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
+        h->zpad = ((DTP_t *)left.p)->zpad;
+        g_runtime.misc.pat_serial--;
+        v.p = (void *)h;
+        return v;
+    }
     v.p = (void *)dtp_user(rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
     return v;
 }
@@ -376,7 +384,6 @@ static void pi_put(pi_buf_t *o, const char *s, size_t n) {
     o->n += n;
 }
 static void pi_str(pi_buf_t *o, const char *s) { pi_put(o, s, strlen(s)); }
-static int pi_imm(const dtp_rcp_t *r) { return r && r->tt == TT_DEFER && r->s && !strcmp(r->s, "*$imm"); }
 static int pi_num(pi_buf_t *o, const char *nm, int64_t v) { char t[40]; pi_str(o, nm); snprintf(t, sizeof t, "%lld)", (long long)v); pi_str(o, t); return 1; }
 static int pi_cset(pi_buf_t *o, const char *nm, const dtp_rcp_t *r) {
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
