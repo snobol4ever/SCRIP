@@ -286,6 +286,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt_ICNx24REFRESH", GC_RET_DESCR },
     { "bt_ICNx24SEND", GC_RET_DESCR },
     { "bt_ICNx24THREAD", GC_RET_DESCR },
+    { "bt_ICNx24UATTRIB", GC_RET_DESCR },
     { "bt_ICNx24UCHDIR", GC_RET_DESCR },
     { "bt_ICNx24UCHMOD", GC_RET_DESCR },
     { "bt_ICNx24UCURSOR", GC_RET_DESCR },
