@@ -3896,10 +3896,10 @@ static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
     if (icn_progname_used_once(prog)) { const char * pg = "__icn_progname"; lc_vec_push(out, &pg); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
+static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out, int unicon) {
     if (!n) return;
     if (n->t == TT_PROC_DECL || n->t == TT_LOCAL || n->t == TT_STATIC_DECL || n->t == TT_GLOBAL) return;
-    if (n->t == TT_FIELD) { if (n->n > 0) icn_collect_implicit_locals(n->c[0], excl, nexcl, out); return; }
+    if (n->t == TT_FIELD) { if (n->n > 0) icn_collect_implicit_locals(n->c[0], excl, nexcl, out, unicon); return; }
     if (n->t == TT_VAR && n->v.sval) {
         const char * nm = n->v.sval;
         int found = 0;
@@ -3908,10 +3908,10 @@ static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, in
         if (!found) {
             extern int icn_builtin_is_known(const char *);
             extern void * dat_find_type(const char *);
-            if (!icn_builtin_is_known(nm) && icn_builtin_arity(nm) == -99 && !dat_find_type(nm) && !icn_proc_reassigned(nm)) lc_vec_push(out, &nm);
+            if (!icn_builtin_is_known(nm) && icn_builtin_arity(nm) == -99 && !dat_find_type(nm) && !icn_proc_reassigned(nm) && !(unicon && icn_has_unicon_row(nm))) lc_vec_push(out, &nm);
         }
     }
-    for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out);
+    for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out, unicon);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_progname_used(const tree_t * n) {
@@ -4045,7 +4045,7 @@ static int icn_subtree_has_suspend(const tree_t *n) {
 static int icn_body_has_suspend(const tree_t *proc) { if (!proc) return 0; for (int i = 0; i < proc->n; i++) if (icn_subtree_has_suspend(proc->c[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_icon_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_icon_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }
-void lower_icon_resolve_call_kinds(void);
+void lower_icon_resolve_call_kinds(int unicon);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icon_register_program(stage2_t * s2, const tree_t * prog) {
     extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
@@ -4190,7 +4190,8 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                 for (int k = 0; k < w; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &_ln[k]);
                 for (int k = 0; k < g_lower.icn.synth_excl.n; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &LC_AT(&g_lower.icn.synth_excl, const char *, k));
                 icn_vec_reuse(&g_lower.icn.lower_icon_stage2_impl, (int) sizeof(const char *));
-                icn_collect_implicit_locals(body, (const char **)g_lower.icn.lower_icon_stage2_excl.data, g_lower.icn.lower_icon_stage2_excl.n, &g_lower.icn.lower_icon_stage2_impl);
+                icn_collect_implicit_locals(body, (const char **)g_lower.icn.lower_icon_stage2_excl.data, g_lower.icn.lower_icon_stage2_excl.n, &g_lower.icn.lower_icon_stage2_impl,
+                    prog && prog->v.ival);
                 if (w > 0 || g_lower.icn.lower_icon_stage2_impl.n > 0 || g_lower.icn.synth_locals.n > 0) {
                     int total = w + g_lower.icn.lower_icon_stage2_impl.n + g_lower.icn.synth_locals.n;
                     const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *));
@@ -4207,7 +4208,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
         }
     }
     icn_display_homes_every_local();
-    lower_icon_resolve_call_kinds();
+    lower_icon_resolve_call_kinds(prog && prog->v.ival);
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4246,7 +4247,7 @@ static void icn_register_reassigned_builtin_globals(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lower_icon_resolve_call_kinds(void) {
+void lower_icon_resolve_call_kinds(int unicon) {
     extern int rt_builtin_is_generator(const char *);
     extern int rt_builtin_is_known(const char *);
     extern int is_global(const char *);
@@ -4289,6 +4290,7 @@ void lower_icon_resolve_call_kinds(void) {
             if (skip || icn_proc_reassigned(vn)) continue;
             int isproc = 0;
             for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, vn)) { isproc = 1; break; }
+            { char * un = (unicon && !isproc && (!strcmp(vn, "max") || !strcmp(vn, "min"))) ? icn_unicon_row(vn) : NULL; if (un) { IR_LIT(nd).sval = un; nd->op = IR_PROC_VALUE; continue; } }
             if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) {
                 extern void rt_icn_global_note(const char *);
                 rt_icn_global_note(vn);

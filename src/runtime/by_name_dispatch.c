@@ -25524,6 +25524,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";
+            char unm[64];
+            if (!strncmp(nm, "ICN$U", 5)) { size_t k = 0; for (const char * q = nm + 5; *q && k + 1 < sizeof unm; q++) unm[k++] = (char) tolower((unsigned char) *q); unm[k] = '\0'; nm = unm; }
             snprintf(buf,256,
                 dat_find_type(nm) ? "record constructor %s" : (!IS_PROCVAL_EXTERNAL_fn(av) && !IS_PROCVAL_BUILTIN_fn(av) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) ? "procedure %s" :
                 "function %s", nm);
