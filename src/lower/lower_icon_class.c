@@ -339,7 +339,7 @@ static cx_sv * pk_imports(pk_st * st, const char * file) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pk_map(const pk_st * st, const char * file, const char * name) {
     if (!*name || name[0] == '&') return NULL;
-    if (*file && pk_declared(&st->decls, file, name)) return cx_cat(file, "__", name);
+    if (pk_declared(&st->decls, file, name)) return *file ? cx_cat(file, "__", name) : NULL;
     for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) for (int k = 0; k < st->ilist[i].n; k++) if (pk_declared(&st->decls, st->ilist[i].v[k], name))
         return cx_cat(st->ilist[i].v[k], "__", name);
     return NULL;
@@ -399,7 +399,6 @@ static void icn_apply_packages(tree_t * prog) {
         if (!d) continue;
         const char * f = pk_pkg_of(s, mainpkg);
         if (d->t == TT_USE_DECL) { cx_sv * il = pk_imports(&st, f); for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) cx_push_new(il, d->c[k]->v.sval); continue; }
-        if (!*f) continue;
         if (d->t == TT_PROC_DECL || d->t == TT_RECORD || d->t == TT_CLASS_DECL) {
             if (d->v.sval) pk_decl_add(&st.decls, f, d->v.sval);
         } else if (d->t == TT_GLOBAL) for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) pk_decl_add(&st.decls, f, d->c[k]->v.sval);
