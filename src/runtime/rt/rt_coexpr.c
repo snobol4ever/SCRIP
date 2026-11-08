@@ -14,6 +14,8 @@
 #include <limits.h>
 #include "gc_heap.h"
 #include "rt_coexpr.h"
+#include "rt_list_view.h"
+#include "runtime/builtin_ids.h"
 _Static_assert(sizeof(scrip_coctx_t) <= sizeof(((g_coexpr_t *)0)->root_ctx) && _Alignof(scrip_coctx_t) <= 16,
     "g_runtime.coexpr.root_ctx holds the root scrip_coctx_t: g_runtime_coexpr.h cannot include rt_coexpr.h (its declarations clash with by_name_dispatch.c), so the block is bytes and this assert is "
     "its size contract");
@@ -256,6 +258,9 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     g_runtime.gc.scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
+    ctx->th_state = 0;
+    ctx->th_wait_kind = 0;
+    ctx->th_inbox = ctx->th_outbox = ctx->th_wait = ctx->th_locks = (DESCR_t){0};
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)ct_alloc(sizeof(scrip_coexpr_entry_pkg_t));
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
@@ -382,6 +387,9 @@ scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg) {
     g_runtime.gc.scrip_coexpr_live++;
+    ctx->th_state = 0;
+    ctx->th_wait_kind = 0;
+    ctx->th_inbox = ctx->th_outbox = ctx->th_wait = ctx->th_locks = (DESCR_t){0};
     ctx->entry_fn = entry_fn;
     ctx->entry_arg = entry_arg;
     ctx->thread = 0;
@@ -439,12 +447,14 @@ void scrip_co_gc_images(long *on_stack, long *off_stack) {
 #else
 void scrip_co_gc_images(long *on_stack, long *off_stack) { if (on_stack) *on_stack = 0; if (off_stack) *off_stack = 0; }
 #endif
+static void th_visit(scrip_coctx_t *c) { rt_gc_visit_descr(&c->th_inbox); rt_gc_visit_descr(&c->th_outbox); rt_gc_visit_descr(&c->th_wait); rt_gc_visit_descr(&c->th_locks); }
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     long n = 0, ns = 0;
     scrip_coctx_t *c;
     rt_gc_visit_descr(&(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).xmit);
+    th_visit((scrip_coctx_t *)g_runtime.coexpr.root_ctx);
     n++;
-    for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); n++; }
+    for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); th_visit(c); n++; }
     if (n_ctx) *n_ctx = n;
     if (n_sigma) *n_sigma = ns;
     return n;
@@ -485,6 +495,83 @@ DESCR_t bt_ICNx24UIDENT(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : INTVAL(++g_runtime.misc.mutex_serial); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24SEND(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_runtime_error(177, "deadlock: every thread is blocked"); return FAILDESCR; }
+DESCR_t rt_make_list(DESCR_t *, int);
+DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
+static scrip_coctx_t *th_cur(void) { return g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root(); }
+static scrip_coctx_t *th_ctx(DESCR_t co) { return co.v == DT_CO ? (scrip_coctx_t *)co.p : NULL; }
+static void th_mklist(DESCR_t *f) { if (f->v == DT_SNUL) *f = rt_make_list((DESCR_t *)0, 0); }
+static void th_put(DESCR_t *lst, DESCR_t v) { DESCR_t a[2] = { *lst, v }; rt_call_arr_bl_strict("put", a, 2, BID_put | (3 << 16)); }
+static DESCR_t th_get(DESCR_t *lst) { DESCR_t a[1] = { *lst }; return rt_call_arr_bl_strict("get", a, 1, BID_get | (3 << 16)); }
+static void th_wake(scrip_coctx_t *c) { c->th_wait_kind = 0; if (c->th_state == 2) c->th_state = 1; }
+static scrip_coctx_t *th_next(scrip_coctx_t *c, scrip_coctx_t *root) { return c == root ? g_co_gc_head : c->gc_next; }
+static int th_ready(scrip_coctx_t *c) {
+    if (c->th_state == 1) return 1;
+    if (c->th_state != 2) return 0;
+    if (c->th_wait_kind == 1) { DESCR_t *el = NULL; int n = 0; return rt_lv_is_list(c->th_inbox, &el, &n) && n > 0; }
+    if (c->th_wait_kind == 2) { scrip_coctx_t *w = th_ctx(c->th_wait); return w && w->th_state == 3; }
+    return 0;
+}
+DESCR_t bt_ICNx24SEND(DESCR_t *args, int nargs) {
+    (void)nargs;
+    scrip_coctx_t *cur = th_cur();
+    if (args[0].v == DT_SNUL) {
+        th_mklist(&cur->th_outbox);
+        th_put(&cur->th_outbox, args[1]);
+    } else {
+        scrip_coctx_t *t = th_ctx(args[0]);
+        if (!t) return FAILDESCR;
+        th_mklist(&t->th_inbox);
+        th_put(&t->th_inbox, args[1]);
+    }
+    th_wake(cur);
+    return args[1];
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24RECV(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_runtime_error(177, "deadlock: every thread is blocked"); return FAILDESCR; }
+DESCR_t bt_ICNx24RECV(DESCR_t *args, int nargs) {
+    (void)nargs;
+    scrip_coctx_t *cur = th_cur();
+    int self = args[0].v == DT_SNUL;
+    scrip_coctx_t *from = self ? cur : th_ctx(args[0]);
+    if (!from) return FAILDESCR;
+    DESCR_t *box = self ? &cur->th_inbox : &from->th_outbox;
+    th_mklist(box);
+    DESCR_t got = th_get(box);
+    if (got.v != DT_FAIL) { th_wake(cur); return got; }
+    if (cur->th_state) { cur->th_state = 2; cur->th_wait_kind = 1; cur->th_wait = args[0]; }
+    return FAILDESCR;
+}
+DESCR_t bt_ICNx24THREAD(DESCR_t *args, int nargs) {
+    (void)nargs;
+    scrip_coctx_t *t = th_ctx(args[0]);
+    if (!t) return FAILDESCR;
+    t->th_state = 1;
+    th_mklist(&t->th_inbox);
+    th_mklist(&t->th_outbox);
+    scrip_coctx_t *root = (scrip_coctx_t *)g_runtime.coexpr.root_ctx;
+    if (root->th_state == 0) root->th_state = 1;
+    return args[0];
+}
+DESCR_t bt_ICNx24THREAD_END(DESCR_t *args, int nargs) { (void)args; (void)nargs; th_cur()->th_state = 3; return NULVCL; }
+DESCR_t bt_ICNx24DONE(DESCR_t *args, int nargs) {
+    (void)nargs;
+    scrip_coctx_t *cur = th_cur();
+    scrip_coctx_t *t = th_ctx(args[0]);
+    if (t && t->th_state == 3) { th_wake(cur); return args[0]; }
+    cur->th_state = 2;
+    cur->th_wait_kind = 2;
+    cur->th_wait = args[0];
+    return FAILDESCR;
+}
+DESCR_t bt_ICNx24SCHED(DESCR_t *args, int nargs) {
+    (void)args;
+    (void)nargs;
+    scrip_coctx_t *cur = th_cur();
+    scrip_coctx_t *root = (scrip_coctx_t *)g_runtime.coexpr.root_ctx;
+    scrip_coctx_t *pick = NULL;
+    int after = 0;
+    for (scrip_coctx_t *c = root; c && !pick; c = th_next(c, root)) { if (c == cur) { after = 1; continue; } if (after && th_ready(c)) pick = c; }
+    for (scrip_coctx_t *c = root; c && !pick && c != cur; c = th_next(c, root)) if (th_ready(c)) pick = c;
+    if (!pick) return FAILDESCR;
+    pick->th_state = 1;
+    return (DESCR_t){ .v = DT_CO, .p = pick };
+}

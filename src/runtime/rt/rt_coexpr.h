@@ -58,6 +58,12 @@ typedef struct scrip_coctx_t {
     char *pl_keep;
     char *pl_b0;
     int pl_det;
+    int th_state;
+    int th_wait_kind;
+    DESCR_t th_inbox;
+    DESCR_t th_outbox;
+    DESCR_t th_wait;
+    DESCR_t th_locks;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint64_t epc, char *efp);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
