@@ -1351,7 +1351,9 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
         tree_t * tq = ast_node_new(TT_QLIT);
         tq->v.sval = (char *) "integer";
         tq->slen = 7;
-        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), tq, NULL), pm_call("ICN$UWAIT", th_var(tv), NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL)), NULL);
+        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL),
+            pm_node(TT_IF, pm_node(TT_LEQ, pm_call("type", th_var(tv), NULL), tq, NULL), pm_call("ICN$UWAIT", th_var(tv), NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL)), NULL)
+            ;
     }
     if (!strcmp(fn->v.sval, "lock") && t->n == 2 && t->c[1] && !icn_is_proc("lock")) {
         const char * mv = icn_synth_local(cx);
@@ -3216,7 +3218,18 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
     return ent[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_tree_has_break(const tree_t * n) { if (!n) return 0; if (n->t == TT_LOOP_BREAK) return 1; for (int i = 0; i < n->n; i++) if (icn_tree_has_break(n->c[i])) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
+    if (t->n > 1 && t->c[0] && t->c[1] && (t->c[0]->t == TT_WHILE || t->c[0]->t == TT_UNTIL || t->c[0]->t == TT_EVERY) && !icn_tree_has_break(t->c[0])) {
+        IR_t * lp = NULL;
+        IR_t * lq = NULL;
+        IR_t * le = lower_arm(cx, t->c[0], ω, ω, &lp, lv);
+        IR_t * ne = lower(cx, t->c[1], le, ω, &lq);
+        cx->beta = ω;
+        *res = lp;
+        return ne;
+    }
     IR_t * lim = build(cx, IR_LIMIT, γ, ω);
     IR_t * lr = NULL;
     IR_t * ee = lower(cx, (t->n > 1) ? t->c[1] : NULL, lim, ω, &lr);
