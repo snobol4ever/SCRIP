@@ -184,6 +184,7 @@ static IcnToken scan_triple(IcnLexer *lx, int line, int col) {
     lex_advance(lx);
     char *buf = NULL; int len = 0, cap = 0;
     while (lex_cur(lx) && !(lex_cur(lx) == '"' && lex_peek1(lx) == '"' && lex_at(lx, 2) == '"')) {
+        if (lex_cur(lx) == '\\' && lex_peek1(lx) == '"' && lex_at(lx, 2) == '\\' && lex_at(lx, 3) == '"' && lex_at(lx, 4) == '\\' && lex_at(lx, 5) == '"') { for (int k = 0; k < 6; k++) lex_advance(lx); for (int k = 0; k < 3; k++) buf_push(&buf, &len, &cap, '"'); continue; }
         char c = lex_advance(lx);
         buf_push(&buf, &len, &cap, c);
     }
