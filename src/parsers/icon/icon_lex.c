@@ -141,7 +141,7 @@ static void skip_ws(IcnLexer *lx) {
         }
         if (lex_cur(lx) == '$') {
             char nx = lex_peek1(lx);
-            if (nx == '(' || nx == ')' || nx == '<' || nx == '>') break;
+            if (nx == '(' || nx == ')' || nx == '<' || nx == '>' || (lx->unicon && (isalpha((unsigned char) nx) || nx == '_'))) break;
             while (lex_cur(lx) && lex_cur(lx) != '\n')
                 lex_advance(lx);
             continue;
@@ -677,6 +677,7 @@ static IcnToken lex_one(IcnLexer *lx) {
             if (lex_cur(lx) == ')') { lex_advance(lx); return make_tok(TK_RBRACE, line, col); }
             if (lex_cur(lx) == '<') { lex_advance(lx); return make_tok(TK_LBRACK, line, col); }
             if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_RBRACK, line, col); }
+            if (lx->unicon && (isalpha((unsigned char) lex_cur(lx)) || lex_cur(lx) == '_')) return make_tok(TK_DOT, line, col);
             while (lex_cur(lx) && lex_cur(lx) != '\n') lex_advance(lx);
             return lex_one(lx);
         default: {
