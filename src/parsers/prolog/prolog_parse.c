@@ -1618,6 +1618,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dif_or_one_fails'([N|Ns]):-'$dif_or_one_fail'(N),'$dif_or_one_fails'(Ns).\n"
     "when(Cond,Goal):-'$when_cond'(Cond,Opt),'$when_first'(Opt,Goal).\n"
     "'$when_cond'(C,_):-var(C),!,throw(error(instantiation_error,when/2)).\n"
+    "'$when_cond'(C,_):- \\+acyclic_term(C),!,throw(error(type_error(acyclic_term,C),context(system:'$eval_when_condition'/2,_))).\n"
     "'$when_cond'(nonvar(X),O):-!,(nonvar(X)->O=true;O=nonvar(X)).\n"
     "'$when_cond'(ground(X),O):-!,(ground(X)->O=true;O=ground(X)).\n"
     "'$when_cond'(?=(X,Y),O):-!,(?=(X,Y)->O=true;O = ?=(X,Y)).\n"
