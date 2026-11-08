@@ -694,7 +694,7 @@ typedef struct IcnPpFile { struct IcnPpFile *prev; char *fname; long lno; FILE *
 typedef struct IcnPpBuf { struct IcnPpBuf *prev; IcnPpDef *defn; char *ptr, *stop, *lim; } IcnPpBuf;
 typedef struct {
     IcnPpFile nofile, *curfile; IcnPpBuf *bstack, *bfree; char *buf, *bnxt, *bstop, *blim; IcnPpDef **cbin;
-    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals, unicon, intri; char *srcpath;
+    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals, unicon, intri, upre; char *srcpath;
 } IcnPp;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_set_source_path(const char *path) { ct_drop(g_parser.icn.pp_src); g_parser.icn.pp_src = path ? ct_strdup(path) : (char *)0; }
@@ -1160,6 +1160,7 @@ static void lex_pull_line(IcnLexer *lx) {
     IcnPp *pp = (IcnPp *)lx->pp;
     int c;
     pp->unicon = lx->unicon;
+    if (pp->unicon && !pp->upre) { static const char *const up[] = { "_CONCURRENT", "_PATTERNS", "_MESSAGING" }; pp->upre = 1; for (int k = 0; k < 3; k++) ipp_dlookup(pp, (char *)up[k], -1, (char *)"1"); }
     do {
         c = ipp_ppch(pp);
         if (c == EOF) { lx->pp_eof = 1; break; }
