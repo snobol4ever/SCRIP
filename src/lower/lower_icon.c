@@ -48,6 +48,7 @@ typedef struct {
     int scan_sp;
     int loop_next_ssp;
     int want_lines;
+    int has_trap;
     int end_line;
     int after_line;
     int key_after_line;
@@ -1325,10 +1326,44 @@ static tree_t * th_unlock_tree(icx_t * cx, tree_t * m) {
     tree_t * sched = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), icn_variable_lit_tree("&null"), NULL);
     return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(uv), th_call("ICN$UNLOCK", m), NULL), pm_node(TT_LIMIT, sched, pm_int(1), NULL), th_var(uv));
 }
+static const char * th_sigh(icx_t * cx) {
+    for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], "$sigh")) return "$sigh";
+    const char * nm = "$sigh";
+    { extern void global_register(const char *); global_register(nm); }
+    lc_vec_push(&g_lower.icn.lower_icon_proc_gnv, &nm);
+    cx->gn = (const char **) g_lower.icn.lower_icon_proc_gnv.data;
+    cx->ngn = g_lower.icn.lower_icon_proc_gnv.n;
+    return nm;
+}
+static tree_t * th_poll(const char * sg, const char * sv) {
+    tree_t * hc = ast_node_new(TT_FNC);
+    ast_push(hc, pm_node(TT_IDX, th_var(sg), th_var(sv), NULL));
+    ast_push(hc, pm_call("ICN$USIGNAME", th_var(sv), NULL));
+    tree_t * loop = pm_node(TT_WHILE, pm_node(TT_ASSIGN, th_var(sv), pm_call("ICN$USIGTAKE", NULL, NULL), NULL), hc, NULL);
+    return pm_node(TT_ALTERNATE, loop, icn_variable_lit_tree("&null"), NULL);
+}
 static tree_t * th_form(icx_t * cx, const tree_t * t) {
     const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
     if (fn && fn->t != TT_FIELD && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_callee_is_name(cx, fn)) return th_co_call(cx, t);
     if (!fn || fn->t != TT_VAR || !fn->v.sval || !cx->prog || !cx->prog->v.ival) return NULL;
+    if (cx->has_trap && t->n == 3 && !strcmp(fn->v.sval, "trap") && !icn_is_proc("trap")) {
+        const char * hv = icn_synth_local(cx);
+        const char * sg = th_sigh(cx);
+        tree_t * ini = pm_node(TT_ASSIGN, th_var(hv), (tree_t *) t->c[2], NULL);
+        tree_t * reg = pm_node(TT_ALTERNATE, pm_node(TT_NONNULL, th_var(sg), NULL, NULL), pm_node(TT_ASSIGN, th_var(sg), th_call("list", pm_int(64)), NULL), NULL);
+        tree_t * slot = pm_node(TT_IDX, th_var(sg), pm_call("ICN$USIGTRAP", (tree_t *) t->c[1], th_var(hv)), NULL);
+        return pm_node(TT_CONJ, ini, pm_node(TT_CONJ, reg, pm_node(TT_ASSIGN, slot, th_var(hv), NULL), NULL), NULL);
+    }
+    if (cx->has_trap && t->slen != -6 && !icn_is_proc(fn->v.sval) &&
+        (!strcmp(fn->v.sval, "delay") || !strcmp(fn->v.sval, "read") || !strcmp(fn->v.sval, "reads") || !strcmp(fn->v.sval, "select") || !strcmp(fn->v.sval, "wait") || !strcmp(fn->v.sval, "system") ||
+        !strcmp(fn->v.sval, "receive"))) {
+        const char * sg = th_sigh(cx);
+        const char * rv = icn_synth_local(cx), * sv = icn_synth_local(cx);
+        tree_t * call = ast_node_new(TT_FNC);
+        for (int i = 0; i < t->n; i++) ast_push(call, (tree_t *) t->c[i]);
+        call->slen = -6;
+        return pm_node(TT_IF, pm_node(TT_ASSIGN, th_var(rv), call, NULL), pm_node(TT_CONJ, th_poll(sg, sv), th_var(rv), NULL), pm_node(TT_CONJ, th_poll(sg, sv), icn_variable_lit_tree("&fail"), NULL));
+    }
     if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t == TT_CREATE && t->c[1]->n >= 1 && !icn_is_proc("spawn")) {
         tree_t * once = pm_node(TT_ALTERNATE, pm_node(TT_LIMIT, (tree_t *) t->c[1]->c[0], pm_int(1), NULL), icn_variable_lit_tree("&null"), NULL);
         tree_t * body = pm_node(TT_CONJ, once, pm_call("ICN$THREAD_END", NULL, NULL), pm_node(TT_REPEAT, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), NULL, NULL));
@@ -4035,6 +4070,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon";
     }
     cx.want_lines = icn_tree_mentions_kw(prog, "&trace");
+    cx.has_trap = prog && prog->v.ival && icn_tree_mentions_kw(prog, "trap");
     cx.end_line = pd ? pd->slen : 0;
     {
         extern const char * stmt_src_get_file(void);
