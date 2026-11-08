@@ -218,12 +218,16 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     ast_push(g, cx_var(cx_cat(c->name, "__oprec", "")));
     ast_push(prog, cx_stmt(g));
     tree_t * ib = ast_node_new(TT_PROGRAM);
-    for (int s = 0; s < c->supers.n; s++) if (cx_find(st, c->supers.v[s])) ast_push(ib, cx_call(cx_var(cx_cat(c->supers.v[s], "__init", "")), 0, NULL));
     tree_t * ma = ast_node_new(TT_FNC);
     ast_push(ma, cx_var(cx_cat(c->name, "__methods", "")));
     for (int i = 0; i < c->nmeth; i++) ast_push(ma, c->meth[i].proc && c->meth[i].proc->n > 2 ? cx_var(cx_cat(c->meth[i].owner, "_", c->meth[i].name)) : cx_var("&null"));
-    for (int i = 0; i < c->anc.n; i++) ast_push(ma, cx_var(cx_cat(c->anc.v[i], "__oprec", "")));
+    for (int i = 0; i < c->anc.n; i++) ast_push(ma, cx_var("&null"));
     ast_push(ib, cx_bin(TT_ASSIGN, cx_un(TT_NULL, cx_var(cx_cat(c->name, "__oprec", ""))), ma));
+    for (int s = 0; s < c->supers.n; s++) {
+        if (!cx_find(st, c->supers.v[s])) continue;
+        ast_push(ib, cx_bin(TT_CONJ, cx_un(TT_NULL, cx_var(cx_cat(c->supers.v[s], "__oprec", ""))), cx_call(cx_var(cx_cat(c->supers.v[s], "__init", "")), 0, NULL)));
+    }
+    for (int i = 0; i < c->anc.n; i++) ast_push(ib, cx_bin(TT_ASSIGN, cx_fld(cx_var(cx_cat(c->name, "__oprec", "")), c->anc.v[i]), cx_var(cx_cat(c->anc.v[i], "__oprec", ""))));
     ast_push(ib, cx_un(TT_RETURN, cx_var("&null")));
     ast_push(prog, cx_stmt(cx_proc(cx_cat(c->name, "__init", ""), ast_node_new(TT_VLIST), 0, ib)));
     const tree_t * ini = c->init;
