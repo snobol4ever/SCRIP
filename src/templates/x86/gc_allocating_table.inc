@@ -307,6 +307,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt_ICNx24UPIPE", GC_RET_DESCR },
     { "bt_ICNx24UPVAR", GC_RET_DESCR },
     { "bt_ICNx24UREADLINK", GC_RET_DESCR },
+    { "bt_ICNx24URECEIVE", GC_RET_DESCR },
     { "bt_ICNx24URMDIR", GC_RET_DESCR },
     { "bt_ICNx24USELECT", GC_RET_DESCR },
     { "bt_ICNx24USET", GC_RET_DESCR },
