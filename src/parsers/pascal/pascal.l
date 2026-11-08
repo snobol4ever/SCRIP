@@ -435,6 +435,7 @@ ALNUM    [A-Za-z0-9_]
 "end"                   { return ENDSY; }
 "var"                   { pascal_seen_decl_start = 1; return VARSY; }
 "const"                 { pascal_seen_decl_start = 1; return CONSTSY; }
+"resourcestring"        { pascal_seen_decl_start = 1; return CONSTSY; }
 "type"                  { pascal_seen_decl_start = 1; return TYPESY; }
 "procedure"             { pascal_seen_decl_start = 1; return PROCEDURESY; }
 "function"              { pascal_seen_decl_start = 1; return FUNCTIONSY; }
