@@ -598,6 +598,7 @@ static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
         if (children.v == DT_A && children.arr) return array_get(children.arr, i);
         return FAILDESCR;
     }
+    if (arr.v == DT_FH) { extern DESCR_t px_sock_peek(DESCR_t, DESCR_t); return px_sock_peek(arr, idx); }
     core_runtime_error(3, NULL);
     return FAILDESCR;
 }

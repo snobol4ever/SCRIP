@@ -21,6 +21,7 @@
 #include "ir/descr.h"
 #include "posix_leaves.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/table.h"
 #include "runtime/rt/rt_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void px_begin(void) { g_runtime.misc.posix_errno = 0; }
@@ -297,6 +298,64 @@ DESCR_t bt_ICNx24UATTRIB(DESCR_t *args, int nargs) {
         return INTVAL((int64_t) v);
     }
     return STRVAL(rt_heap_strdup_c(eq + 1));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *const px_sock_names[] = { "ttl", "hdrincl", "iface", "mcastloop", "reuseaddr", "reuseport", "broadcast", "rcvbuf", "sndbuf", NULL };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t px_sock_get(int fd, const char *name) {
+    if (!strcmp(name, "ttl")) { unsigned char t = 0; socklen_t tl = sizeof t; if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &t, &tl) != 0) return FAILDESCR; return INTVAL((int64_t) t); }
+    if (!strcmp(name, "iface")) {
+        struct in_addr a;
+        socklen_t al = sizeof a;
+        char txt[INET_ADDRSTRLEN];
+        if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &a, &al) != 0 || !inet_ntop(AF_INET, &a, txt, sizeof txt)) return FAILDESCR;
+        return STRVAL(rt_heap_strdup_c(txt));
+    }
+    if (!strcmp(name, "rcvbuf") || !strcmp(name, "sndbuf")) {
+        int v = 0;
+        socklen_t vl = sizeof v;
+        if (getsockopt(fd, SOL_SOCKET, !strcmp(name, "rcvbuf") ? SO_RCVBUF : SO_SNDBUF, &v, &vl) != 0) return FAILDESCR;
+        return INTVAL((int64_t) v);
+    }
+    if (!strcmp(name, "hdrincl") || !strcmp(name, "mcastloop")) {
+        unsigned char c = 0;
+        int i = 0, rc;
+        socklen_t l = sizeof i;
+        if (!strcmp(name, "mcastloop")) { l = sizeof c; rc = getsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &c, &l); i = c; } else rc = getsockopt(fd, IPPROTO_IP, IP_HDRINCL, &i, &l);
+        if (rc != 0) return FAILDESCR;
+        return i ? STRVAL(rt_heap_strdup_c("yes")) : NULVCL;
+    }
+    int opt = !strcmp(name, "reuseaddr") ? SO_REUSEADDR : !strcmp(name, "reuseport") ? SO_REUSEPORT : !strcmp(name, "broadcast") ? SO_BROADCAST : -1;
+    if (opt < 0) return FAILDESCR;
+    int v = 0;
+    socklen_t vl = sizeof v;
+    if (getsockopt(fd, SOL_SOCKET, opt, &v, &vl) != 0) return FAILDESCR;
+    return v ? STRVAL(rt_heap_strdup_c("yes")) : NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_sock_fd(DESCR_t f) {
+    if (f.v != DT_FH) return -1;
+    FILE *fp = fh_get((int) f.i);
+    if (!fp) return -1;
+    int fd = fileno(fp), ty = 0;
+    socklen_t tl = sizeof ty;
+    return getsockopt(fd, SOL_SOCKET, SO_TYPE, &ty, &tl) == 0 ? fd : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t px_sock_peek(DESCR_t f, DESCR_t name) {
+    int fd = px_sock_fd(f);
+    if (fd < 0 || (name.v != DT_S && name.v != DT_SNUL)) return FAILDESCR;
+    const char *n = rt_cstr_d(name);
+    if (strcmp(n, "*")) return px_sock_get(fd, n);
+    TBBLK_t *tb = table_new();
+    for (int k = 0; px_sock_names[k]; k++) { DESCR_t v = px_sock_get(fd, px_sock_names[k]); if (v.v != DT_FAIL) table_set_descr_d(tb, STRVAL(rt_heap_strdup_c(px_sock_names[k])), v); }
+    return TABLE_VAL(tb);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t px_sock_key_at(DESCR_t f, int64_t *cur) {
+    if (px_sock_fd(f) < 0) return FAILDESCR;
+    for (int64_t k = 0; px_sock_names[k]; k++) if (k == *cur) return STRVAL(rt_heap_strdup_c(px_sock_names[k]));
+    return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t px_fmt(const char *fmt, ...) {

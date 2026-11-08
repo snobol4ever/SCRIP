@@ -2531,6 +2531,7 @@ DESCR_t rt_list_bang_ukey_at(DESCR_t obj, int64_t *cur) {
         extern char *rt_heap_strdup_c(const char *);
         return *cur < obj.u->type->nfields ? STRVAL(rt_heap_strdup_c(obj.u->type->fields[*cur])) : FAILDESCR;
     }
+    if (obj.v == DT_FH) { extern DESCR_t px_sock_key_at(DESCR_t, int64_t *); return px_sock_key_at(obj, cur); }
     return rt_list_bang_key_at(obj, cur);
 }
 RT_ENTRY_DECL(rt_list_bang_ubang_at, leaf, 0);
