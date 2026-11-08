@@ -124,7 +124,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             for (int v = 0; v < 2; v++) if (pev[v]) { tneed += strlen(pev[v]) + per; for (const char * q = pev[v]; *q; q++) if (*q == ':') tneed += per; }
             char path[pneed + strlen(nm) + sizeof "/.icn"]; char tried[tneed]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
-            IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src); lx2.unicon = icn_source_is_unicon(src);
+            IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src); lx2.unicon = (prog && prog->v.ival) || icn_source_is_unicon(src);
             IcnParser p2; icn_parse_init(&p2, &lx2);
             tree_t * sub_ast = NULL;
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
@@ -198,7 +198,7 @@ static void icn_resolve_imports(tree_t * prog, const char * filename) {
             for (int f = 0; f < nf; f++) {
                 char * src = icn_read_file(files[f]);
                 if (!src) { fprintf(stderr, "icon: import: cannot read %s\n", files[f]); exit(1); }
-                IcnLexer lx2; icn_pp_set_source_path(files[f]); icn_lex_init(&lx2, src); lx2.unicon = icn_source_is_unicon(src);
+                IcnLexer lx2; icn_pp_set_source_path(files[f]); icn_lex_init(&lx2, src); lx2.unicon = (prog && prog->v.ival) || icn_source_is_unicon(src);
                 IcnParser p2; icn_parse_init(&p2, &lx2);
                 tree_t * sub_ast = NULL;
                 CODE_t * sp = icn_parse_file(&p2, &sub_ast);
