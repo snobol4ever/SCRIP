@@ -68,7 +68,10 @@ static void cx_build(cx_st * st, cx_class * c) {
         for (int i = 0; i < sc->fields.n; i++) cx_push_new(&c->fields, sc->fields.v[i]);
         for (int i = 0; i < sc->nmeth; i++) cx_mpush(c, sc->meth[i].name, sc->meth[i].owner, sc->meth[i].proc);
         cx_push_new(&c->anc, sc->name);
-        for (int i = 0; i < sc->anc.n; i++) cx_push_new(&c->anc, sc->anc.v[i]);
+    }
+    for (int q = 0; q < c->anc.n; q++) {
+        cx_class * ac = cx_find(st, c->anc.v[q]);
+        if (ac) for (int s = 0; s < ac->supers.n; s++) { cx_class * sc = cx_find(st, ac->supers.v[s]); if (sc) cx_push_new(&c->anc, sc->name); }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
