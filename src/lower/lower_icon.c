@@ -1358,13 +1358,13 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
     if (!strcmp(fn->v.sval, "unlock") && t->n == 2 && t->c[1] && !icn_is_proc("unlock")) return th_unlock_tree(cx, (tree_t *) t->c[1]);
     if (!strcmp(fn->v.sval, "ICN$CRIT") && t->n == 3) {
         const char * mv = icn_synth_local(cx), * rv = icn_synth_local(cx);
-        tree_t * bad = pm_node(TT_CONJ, th_unlock_tree(cx, th_var(mv)), icn_variable_lit_tree("&fail"), NULL);
+        tree_t * bad = pm_node(TT_CONJ, icn_is_proc("unlock") ? th_call("unlock", th_var(mv)) : th_unlock_tree(cx, th_var(mv)), icn_variable_lit_tree("&fail"), NULL);
         tree_t * body = pm_node(TT_ALTERNATE, pm_node(TT_ASSIGN, th_var(rv), pm_node(TT_LIMIT, (tree_t *) t->c[2], pm_int(1), NULL), NULL), bad, NULL);
         tree_t * cj = ast_node_new(TT_CONJ);
         ast_push(cj, pm_node(TT_ASSIGN, th_var(mv), (tree_t *) t->c[1], NULL));
-        ast_push(cj, th_lock_wait(mv));
+        ast_push(cj, icn_is_proc("lock") ? th_call("lock", th_var(mv)) : th_lock_wait(mv));
         ast_push(cj, body);
-        ast_push(cj, th_unlock_tree(cx, th_var(mv)));
+        ast_push(cj, icn_is_proc("unlock") ? th_call("unlock", th_var(mv)) : th_unlock_tree(cx, th_var(mv)));
         ast_push(cj, th_var(rv));
         return cj;
     }

@@ -224,6 +224,7 @@ static const tree_t * icn_top_subject(const tree_t * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_mark_proc_refs(const tree_t * n, const tree_t ** procs, int np, char * keep) {
     if (!n) return;
+    if (n->t == TT_VAR && n->v.sval && !strcmp(n->v.sval, "ICN$CRIT")) for (int k = 0; k < np; k++) if (procs[k]->v.sval && (!strcmp(procs[k]->v.sval, "lock") || !strcmp(procs[k]->v.sval, "unlock"))) keep[k] = 1;
     if (n->t == TT_VAR && n->v.sval) { const char * qn = strrchr(n->v.sval, ':'); qn = (qn && qn > n->v.sval && qn[-1] == ':') ? qn + 1 : n->v.sval; for (int k = 0; k < np; k++) if (!keep[k] && procs[k]->v.sval && !strcmp(procs[k]->v.sval, qn)) keep[k] = 1; }
     for (int i = 0; i < n->n; i++) icn_mark_proc_refs(n->c[i], procs, np, keep);
 }
