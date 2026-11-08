@@ -55,6 +55,7 @@ static void cx_build(cx_st * st, cx_class * c) {
     for (int i = 0; i < n->c[0]->n; i++) cx_push(&c->supers, n->c[0]->c[i]->v.sval);
     for (int i = 0; i < n->c[1]->n; i++) cx_push_new(&c->fields, n->c[1]->c[i]->v.sval);
     for (int i = 2; i < n->n; i++) {
+        if (n->c[i]->t == TT_RECORD) continue;
         const tree_t * m = n->c[i];
         if (!strcmp(m->v.sval, "initially")) c->init = m;
         cx_mpush(c, m->v.sval, c->name, m);
@@ -212,6 +213,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     for (int i = 0; i < c->anc.n; i++) cx_push(&mnames, c->anc.v[i]);
     ast_push(prog, cx_stmt(cx_record(cx_cat(c->name, "__state", ""), &c->fields, 1)));
     ast_push(prog, cx_stmt(cx_record(cx_cat(c->name, "__methods", ""), &mnames, 0)));
+    for (int i = 2; i < c->node->n; i++) if (c->node->c[i]->t == TT_RECORD) ast_push(prog, cx_stmt((tree_t *) c->node->c[i]));
     tree_t * g = ast_node_new(TT_GLOBAL);
     ast_push(g, cx_var(cx_cat(c->name, "__oprec", "")));
     ast_push(prog, cx_stmt(g));
@@ -251,7 +253,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     tree_t * cpl = ast_node_new(TT_VLIST);
     for (int i = 0; i < cparams.n; i++) ast_push(cpl, cx_var(cparams.v[i]));
     ast_push(prog, cx_stmt(cx_proc(c->name, cpl, 0, cb)));
-    for (int i = 2; i < c->node->n; i++) { const tree_t * m = c->node->c[i]; if (m->n > 2) ast_push(prog, cx_stmt(cx_method_proc(st, c, m))); }
+    for (int i = 2; i < c->node->n; i++) { const tree_t * m = c->node->c[i]; if (m->t != TT_RECORD && m->n > 2) ast_push(prog, cx_stmt(cx_method_proc(st, c, m))); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { char * b; size_t n, cap; } cx_sb;

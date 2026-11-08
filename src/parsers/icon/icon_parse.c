@@ -1134,6 +1134,7 @@ static tree_t *parse_class(IcnParser *p) {
     while (!check(p, TK_END) && !check(p, TK_INITIALLY) && !check(p, TK_EOF) && !p->had_error) {
         if (check(p, TK_METHOD)) { tree_t * m = parse_proc_kw(p, TK_METHOD, 1); if (m) ast_push(cls, m); }
         else if (check(p, TK_ABSTRACT)) { advance(p); tree_t * m = parse_proc_kw(p, TK_METHOD, 0); if (m) ast_push(cls, m); }
+        else if (check(p, TK_RECORD)) { tree_t * r = parse_record(p); if (r) ast_push(cls, r); }
         else { parser_error(p, "class body: expected method, abstract method, initially or end"); break; }
         match(p, TK_SEMICOL);
     }
