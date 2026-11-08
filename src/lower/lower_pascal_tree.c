@@ -857,6 +857,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         if (v && v->t == TT_QLIT && v->v.sval) return ilit(name[0] == 'l' ? 0 : (long long)strlen(v->v.sval) - 1);
         if (v && v->t == TT_VAR && v->v.sval) {
             int sk = pas_var_string_kind(v->v.sval);
+            if (sk == 1 && pty_shortmax(v) > 0) return ilit(name[0] == 'l' ? 0 : pty_shortmax(v));
             if (sk) {
                 int _zb = sk == 1 && (g_lower.pas.sem.pas_zerobased_strings & 1);
                 return !strcmp(name, "low") ? ilit(sk == 2 || _zb ? 0 : 1) :
