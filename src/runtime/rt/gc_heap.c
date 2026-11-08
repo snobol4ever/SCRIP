@@ -1980,8 +1980,7 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop) {
         it->c = c->gc_next;
         if (!scrip_co_stack_of(c, &clo, &chi) || clo >= chi) continue;
         if (c->alive && pthread_equal(it->self, c->thread)) { it->run_hi = chi; it->run_c = c; continue; }
-        *lo = gc_seg_parked_lo(c, clo);
-        *hi = chi;
+        if (!c->started) { if (!c->image || !c->image_map) continue; *lo = c->image + c->image_off; *hi = c->image + c->image_span; } else { *lo = gc_seg_parked_lo(c, clo); *hi = chi; }
         *pop = 4;
         it->prbp = c->park_rbp;
         it->sc = c;
@@ -2026,7 +2025,7 @@ long gc_stack_segments(char *floor, const gc_ent_t *ent) {
 #if RT_DIAG
         g_runtime.gc.gc_rep_pop = pop;
 #endif
-        words += gc_visit_segment((const char *)lo, (const char *)hi, it.prbp ? &pe : ent, it.sc, run);
+        words += gc_visit_segment((const char *)lo, (const char *)hi, pop == 4 ? (pe.pc ? &pe : (const gc_ent_t *)0) : ent, it.sc, run);
 #if RT_DIAG
         g_runtime.gc.gc_rep_pop = 0;
 #endif
@@ -2741,7 +2740,7 @@ int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a) {
         gc_seg_begin(&it, &floor);
         while (ok && gc_seg_next(&it, &lo, &hi, &pop)) {
             gc_ent_t pe = gc_park_ent(it.sc, lo, it.prbp);
-            const gc_ent_t *ent = it.prbp ? &pe : entered ? &ce : (const gc_ent_t *)0;
+            const gc_ent_t *ent = pop == 4 ? (pe.pc ? &pe : (const gc_ent_t *)0) : entered ? &ce : (const gc_ent_t *)0;
             int run = g_runtime.gc.gc_seg_main && !it.prbp;
             g_runtime.gc.gc_seg_main = 0;
             if (gc_sw_segment_fn(lo, hi, ent, it.sc, run, pass ? fn : (rt_gc_frame_fn)0, a) < 0) ok = 0;
@@ -3612,7 +3611,7 @@ static long gc_audit_b_shim(char *floor) {
         rg[n].name = g_gc_rep_popname[pop];
         rg[n].xr = xr;
         rg[n].nxr = 0;
-        re[n] = it.prbp ? (gc_ent_t){ (const void *)0, lo, it.prbp } : ue;
+        re[n] = pop == 4 ? (gc_ent_t){ (const void *)0, lo, it.prbp } : ue;
         rs[n] = it.sc;
         rh[n] = it.prbp ? 1 : uhas;
         xcap += (long)(hi - lo) / 8 + 1;
