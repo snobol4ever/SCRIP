@@ -134,7 +134,14 @@ static tree_t *parse_primary(IcnParser *p) {
         IcnParser sp; icn_parse_init(&sp, &sub);
         tree_t * inner = parse_expr(&sp);
         if (sp.had_error || !inner) { parser_error(p, "expected an expression between backquotes"); return NULL; }
-        tree_t * df = ast_node_new(TT_DEFER); push_child(df, inner); df->line = t.line; if (t.kind == TK_PUNEVAL2) df->slen = -2; return df;
+        tree_t * df = ast_node_new(TT_DEFER); push_child(df, inner); df->line = t.line; if (t.kind == TK_PUNEVAL2) df->slen = -2;
+        int nq = t.kind == TK_PUNEVAL2 ? 2 : 1; int tl = (int) t.val.sval.len; char * bq = ct_alloc((size_t) (tl + 5));
+        for (int i = 0; i < nq; i++) bq[i] = '`';
+        memcpy(bq + nq, t.val.sval.data, (size_t) tl);
+        for (int i = 0; i < nq; i++) bq[nq + tl + i] = '`';
+        bq[tl + 2 * nq] = 0;
+        tree_t * tq = ast_node_new(TT_QLIT); tq->v.sval = bq; tq->slen = tl + 2 * nq; push_child(df, tq);
+        return df;
     }
     if (t.kind == TK_COLONCOLON) {
         advance(p);

@@ -345,6 +345,15 @@ DESCR_t pat_mk_ucursor(const char *name) {
 }
 DESCR_t bt_ICNx24UCURSOR(DESCR_t *args, int nargs) { return nargs == 1 ? pat_mk_ucursor(rt_cstr_d(args[0])) : FAILDESCR; }
 DESCR_t pat_defer(const char *name) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_user(rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, 0, 0)); return v; }
+DESCR_t pat_defer_text(const char *name, DESCR_t text, int k) {
+    DESCR_t v = {0};
+    v.v = DT_P;
+    v.slen = 0;
+    if (k > 1) g_runtime.misc.pat_serial += k - 1;
+    dtp_rcp_t *l = (text.v == DT_S && text.s) ? rcp_lit(text.s, (uint32_t) text.slen) : 0;
+    v.p = (void *)dtp_user(rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, l, 0));
+    return v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pat_operand_is_null(DESCR_t d) { return (d.v == DT_SNUL) || (d.v == DT_S && (!d.s || (d.slen == 0xFFFFFFFFu ? !*d.s : d.slen == 0))); }
 DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
@@ -387,6 +396,9 @@ static int pi_text(pi_buf_t *o, const dtp_rcp_t *r) {
         pi_put(o, r->s ? r->s : "", r->slen);
         pi_str(o, "\"");
         return 1;
+        case TT_DEFER:
+        if (r->l && r->l->tt == TT_QLIT) { pi_put(o, r->l->s, r->l->slen); return 1; }
+        return 0;
         case TT_ANY:
         return pi_cset(o, "Any(", r);
         case TT_NOTANY:

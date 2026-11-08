@@ -1420,7 +1420,9 @@ static tree_t * pm_patfn(icx_t * cx, const tree_t * t) {
         tree_t * q = ast_node_new(TT_QLIT);
         q->v.sval = lp_strdup(nb);
         q->slen = (int) strlen(nb);
-        return pm_call("SNO$PDEF", q, NULL);
+        tree_t * pd = pm_call("SNO$PDEF", q, t->n >= 1 ? (tree_t *) t->c[0] : NULL);
+        if (t->n >= 2) ast_push(pd, (tree_t *) t->c[1]);
+        return pd;
     }
     if (t->t == TT_PAND && t->n >= 2) return pm_call("ICN$UPCAT", (tree_t *) t->c[0], (tree_t *) t->c[1]);
     if (t->t == TT_ALT && t->n >= 2) return pm_call("SNO$PBALT", (tree_t *) t->c[0], (tree_t *) t->c[1]);

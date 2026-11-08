@@ -491,21 +491,41 @@ static int dq_is_pat_fn(const char * nm) {
     for (int i = 0; i < (int) (sizeof f / sizeof f[0]); i++) if (!strcmp(f[i], nm)) return 1;
     return 0;
 }
+static tree_t * dq_show(tree_t * nm, tree_t * tx) {
+    int nl = nm->slen, al = tx && tx->v.sval ? tx->slen : 0;
+    const char * as = tx && tx->v.sval ? tx->v.sval : "";
+    char * b = ct_alloc((size_t) (nl + al + 3));
+    memcpy(b, nm->v.sval, (size_t) nl);
+    b[nl] = '(';
+    memcpy(b + nl + 1, as, (size_t) al);
+    b[nl + al + 1] = ')';
+    b[nl + al + 2] = 0;
+    tree_t * q = ast_node_new(TT_QLIT);
+    q->v.sval = b;
+    q->slen = nl + al + 2;
+    return q;
+}
 static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
     if (!n) return;
     if (n->t == TT_FNC && n->n == 2 && n->c[0] && n->c[0]->t == TT_VAR && n->c[0]->v.sval && dq_is_pat_fn(n->c[0]->v.sval) && !dq_is_proc(prog, n->c[0]->v.sval) && n->c[1] && n->c[1]->t == TT_DEFER &&
-        n->c[1]->n == 1 && !n->c[1]->v.sval) {
+        n->c[1]->n >= 1 && !n->c[1]->v.sval) {
+        tree_t * old = n->c[1];
+        tree_t * nm = n->c[0];
         tree_t * fn = ast_node_new(TT_FNC);
-        ast_push(fn, n->c[0]);
-        ast_push(fn, n->c[1]->c[0]);
-        n->c[0] = fn;
-        n->n = 1;
+        ast_push(fn, nm);
+        ast_push(fn, old->c[0]);
+        tree_t * cnt = ast_node_new(TT_ILIT);
+        cnt->v.ival = 2;
+        n->n = 0;
+        ast_push(n, fn);
+        ast_push(n, dq_show(nm, old->n >= 2 ? old->c[1] : NULL));
+        ast_push(n, cnt);
         n->t = TT_DEFER;
         n->v.sval = NULL;
         n->slen = -2;
     }
     for (int i = 0; i < n->n; i++) dq_walk(n->c[i], prog, pend, np);
-    if (n->t == TT_DEFER && n->n == 1 && n->c[0] && !n->v.sval) {
+    if (n->t == TT_DEFER && n->n >= 1 && n->c[0] && !n->v.sval) {
         char b[fmt_len("$df%d", g_lower.icn.pm_hidden_n + 1)];
         snprintf(b, sizeof b, "$df%d", ++g_lower.icn.pm_hidden_n);
         tree_t * inner = n->c[0];
@@ -517,7 +537,11 @@ static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
         pend[(*np)++] = cx_stmt(cx_proc(b, ast_node_new(TT_VLIST), 0, body));
         n->v.sval = ct_strdup(b);
         n->slen = (int) strlen(b);
+        tree_t * tx = n->n >= 2 ? n->c[1] : NULL;
+        tree_t * ct = n->n >= 3 ? n->c[2] : NULL;
         n->n = 0;
+        if (tx) ast_push(n, tx);
+        if (ct) ast_push(n, ct);
     }
 }
 static int dq_count(const tree_t * n) { int k = 0; if (!n) return 0; if (n->t == TT_DEFER) k++; for (int i = 0; i < n->n; i++) k += dq_count(n->c[i]); return k; }

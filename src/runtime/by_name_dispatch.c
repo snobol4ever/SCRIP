@@ -23891,7 +23891,11 @@ DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) {
 }
 DESCR_t rt_sno_parb_d(DESCR_t *args, int nargs) { extern DESCR_t pat_arbno(DESCR_t); RT_HOOK_GUARD("SNO$PARB"); return nargs == 1 ? pat_arbno(args[0]) : FAILDESCR; }
 DESCR_t rt_sno_pfen_d(DESCR_t *args, int nargs) { extern DESCR_t pat_fence_p(DESCR_t); RT_HOOK_GUARD("SNO$PFEN"); return nargs == 1 ? pat_fence_p(args[0]) : FAILDESCR; }
-DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) { extern DESCR_t pat_defer(const char *); RT_HOOK_GUARD("SNO$PDEF"); return nargs == 1 ? pat_defer(rt_sno_target_name(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) {
+    extern DESCR_t pat_defer_text(const char *, DESCR_t, int);
+    RT_HOOK_GUARD("SNO$PDEF");
+    return nargs >= 1 && nargs <= 3 ? pat_defer_text(rt_sno_target_name(args[0]), nargs >= 2 ? args[1] : NULVCL, nargs >= 3 ? (int) rk_ival(args[2]) : 1) : FAILDESCR;
+}
 DESCR_t rt_sno_kwset_d(DESCR_t *args, int nargs) {
     extern int rt_keyword_write_snobol4(const char *sval, DESCR_t v);
     RT_HOOK_GUARD("SNO$KWSET");
@@ -26839,7 +26843,11 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_SNOx24PFEN) && nargs == 1) { extern DESCR_t pat_fence_p(DESCR_t); *out = pat_fence_p(args[0]); return 1; }
     L_bidjmp_6553:
     ;
-    if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(rt_sno_target_name(args[0])); return 1; }
+    if ((_bid == BID_SNOx24PDEF) && nargs >= 1 && nargs <= 3) {
+        extern DESCR_t pat_defer_text(const char *, DESCR_t, int);
+        *out = pat_defer_text(rt_sno_target_name(args[0]), nargs >= 2 ? args[1] : NULVCL, nargs >= 3 ? (int) rk_ival(args[2]) : 1);
+        return 1;
+    }
     L_bidjmp_6554:
     ;
     if ((_bid == BID_SNOx24MKPAT) && nargs >= 1) {

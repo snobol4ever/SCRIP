@@ -23,7 +23,7 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     "bt_SNOx24NRET", 54, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "SNO$PARB", "rt_sno_parb_d", 55, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "SNO$PB0", "rt_sno_pb0_d", 56, BT_VOC_SNO,
     BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "SNO$PBALT", "rt_sno_pbalt_d", 57, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "SNO$PBC", "rt_sno_pbc_d", 58, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 3, 3, 0 },
     { "SNO$PBK", "rt_sno_pbk_d", 59, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "SNO$PBN", "rt_sno_pbn_d", 60, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 2, 2, 0 }, { "SNO$PCUR", "rt_sno_pcur_d", 61,
-    BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "SNO$PDEF", "rt_sno_pdef_d", 62, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "SNO$PFEN", "rt_sno_pfen_d", 63, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1,
+    BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1, 0 }, { "SNO$PDEF", "rt_sno_pdef_d", 62, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 3, 0 }, { "SNO$PFEN", "rt_sno_pfen_d", 63, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, 1, 1,
     0 }, { "SNO$STMT", "rt_sno_stmt_d", 64, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -1, 0 }, { "SNO$WANTNM", "rt_sno_wantnm_d", 65, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -1, 0 }, { "SUBSTR",
     "bn_substr", 66, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "SUCCEED", "bt_SUCCEED", 67, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "TABLE", "bn_table", 68, BT_VOC_SNO,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "TIME", "bn_time", 69, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "TRIM", "bn_trim", 70, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "VALUE",
