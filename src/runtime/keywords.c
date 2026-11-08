@@ -539,10 +539,11 @@ RT_ENTRY_DECL(rt_keyword_gen, gen, 0);
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    if (!strcmp(kw,"features")) {
+    if (!strcmp(kw,"features") || !strcmp(kw,"ufeatures")) {
         static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "dynamic loading", "environment variables", "external values", "keyboard functions", "large integers", "pipes",
-            "system function" };
+            "system function", "concurrent threads", "pattern type", "messaging" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
+        if (!strcmp(kw,"features")) n -= 3;
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);
     }

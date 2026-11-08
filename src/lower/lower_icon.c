@@ -952,7 +952,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     }
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
     IR_t * nd = build(cx, is_gen_kw ? IR_KW_ICON_GEN : IR_KW_ICON, γ, ω);
-    IR_LIT(nd).sval = (char *) kw;
+    IR_LIT(nd).sval = (char *) (is_gen_kw && !strcmp(id, "features") && cx->prog && cx->prog->v.ival ? "&ufeatures" : kw);
     if (is_gen_kw) { cx->beta = nd; *res = nd; return nd; }
     *res = nd;
     return nd;

@@ -29,7 +29,8 @@ DESCR_t rt_keyword_var(const char *name, long scan_a, void *scan_b);
          x86("mov", FRQ(_.op_off), "rax") \
        + x86("mov", FRQ(_.op_off + 8), "rdx")))
 #define KI_GENKW() \
-    (!strcmp(_.op_name2, "features") || !strcmp(_.op_name2, "regions") || !strcmp(_.op_name2, "storage") || !strcmp(_.op_name2, "collections") || !strcmp(_.op_name2, "allocated"))
+(!strcmp(_.op_name2, "features") || !strcmp(_.op_name2, "ufeatures") || !strcmp(_.op_name2, "regions") || !strcmp(_.op_name2, "storage") || !strcmp(_.op_name2, "collections") || !strcmp(_.op_name2, \
+    "allocated"))
 std::string bb_keyword_icon() {
     return IF(KI_BOMB(), x86_alpha() + x86_bomb("bb_keyword: no slot"))
          + IF(!KI_BOMB() && KI_VARFORM(),
@@ -139,7 +140,9 @@ std::string bb_keyword_icon() {
             + x86_omega()
             + x86_beta()
             + x86_omega()
-          : (!strcmp(_.op_name2, "features") || !strcmp(_.op_name2, "regions") || !strcmp(_.op_name2, "storage") || !strcmp(_.op_name2, "collections") || !strcmp(_.op_name2, "allocated"))
+          :
+              (!strcmp(_.op_name2, "features") || !strcmp(_.op_name2, "ufeatures") || !strcmp(_.op_name2, "regions") || !strcmp(_.op_name2, "storage") || !strcmp(_.op_name2, "collections") ||
+              !strcmp(_.op_name2, "allocated"))
             ? x86("comment", "KEYWORD_gen")
             + x86_alpha()
             + x86("mov", FRQ(_.op_off + 16), (long)0)
