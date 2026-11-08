@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include "ir/ct_arena.h"
 #include "ir/ast.h"
 #include "lower_pascal_class.h"
@@ -245,6 +246,11 @@ static void pc_root_class(pc_ctx *x) {
     pc_meth *ts = pc_meth_add(r, "tostring", NULL, 1, NULL, pc_var("string"));
     ts->virt = 1;
     ts->has_impl = 1;
+    tree_t *ma = ast_node_new(TT_PARAMS);
+    tree_t *mad = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("aname")), pc_var("string"));
+    mad->v.sval = "value";
+    ast_push(ma, mad);
+    pc_meth_add(r, "methodaddress", NULL, 1, ma, pc_var("pointer"))->has_impl = 1;
 }
 static void pc_link(pc_ctx *x) {
     for (int i = 0; i < x->ncls; i++) {
@@ -989,6 +995,7 @@ static void pc_gen_dispatch(pc_ctx *x, tree_t *fwd, tree_t *gen, pc_meth *root) 
     if (cs->n == 1) return;
     pc_emit(fwd, gen, root->isfunc, nm, pc_self_params(root->owner, root->params), root->rtype, pc_blk(NULL, pc_n1(TT_SEQ_EXPR, cs)));
 }
+static const char *pc_lower(const char *s) { char *r = ct_alloc(strlen(s) + 1); size_t i = 0; for (; s[i]; i++) r[i] = (char)tolower((unsigned char)s[i]); r[i] = 0; return r; }
 static void pc_gen_root(pc_ctx *x, tree_t *fwd, tree_t *gen) {
     tree_t *ps = pc_self_params(x->root, NULL);
     pc_emit(fwd, gen, 0, "__pc_tobject__destroy", pc_clone(ps), NULL, pc_blk(NULL, pc_n1(TT_SEQ_EXPR, ast_node_new(TT_SUCCEED))));
@@ -1009,6 +1016,32 @@ static void pc_gen_root(pc_ctx *x, tree_t *fwd, tree_t *gen) {
     tree_t *cs = pc_n1(TT_CASE, pc_var("c"));
     for (int i = 0; i < x->ncls; i++) ast_push(cs, pc_n2(TT_ARM, pc_n1(TT_VLIST, pc_int(x->cls[i]->id)), pc_asg(pc_var("__pc_classname"), pc_leaf(TT_QLIT, x->cls[i]->raw))));
     pc_emit(fwd, gen, 1, "__pc_classname", nps, pc_var("string"), pc_blk(NULL, pc_n1(TT_SEQ_EXPR, cs)));
+    tree_t *mps = ast_node_new(TT_PARAMS);
+    tree_t *mcd = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("c")), pc_var("integer"));
+    mcd->v.sval = "value";
+    ast_push(mps, mcd);
+    tree_t *mnd = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("nm")), pc_var("string"));
+    mnd->v.sval = "value";
+    ast_push(mps, mnd);
+    tree_t *mcs = pc_n1(TT_CASE, pc_var("c"));
+    for (int i = 0; i < x->ncls; i++) {
+        tree_t *arm = pc_n1(TT_SEQ_EXPR, pc_asg(pc_var("__pc_methodaddress"), pc_var("nil")));
+        for (pc_class *k = x->cls[i]; k; k = k->parent) for (int j = 0; j < k->nm; j++) {
+            pc_meth *m = &k->m[j];
+            if (!m->has_impl || pc_find_meth(x->cls[i], m->name) != m) continue;
+            ast_push(arm,
+                pc_if(pc_n2(TT_EQ, pc_var("nm"), pc_leaf(TT_QLIT, pc_lower(m->name))), pc_asg(pc_var("__pc_methodaddress"), pc_int(pas_hash_stable(pc_lower(pc_impl_name(m->owner, m->name))))), NULL));
+        }
+        ast_push(mcs, pc_n2(TT_ARM, pc_n1(TT_VLIST, pc_int(x->cls[i]->id)), arm));
+    }
+    pc_emit(fwd, gen, 1, "__pc_methodaddress", mps, pc_var("pointer"), pc_blk(NULL, pc_n1(TT_SEQ_EXPR, mcs)));
+    tree_t *mac = pc_fnc("__pc_methodaddress");
+    ast_push(mac, pc_ofld(pc_var("self"), "__cls"));
+    tree_t *mlc = pc_fnc("__pc_lcase");
+    ast_push(mlc, pc_var("aname"));
+    ast_push(mac, mlc);
+    tree_t *mas = pc_self_params(x->root, x->root->m[x->root->nm - 1].params);
+    pc_emit(fwd, gen, 1, "__pc_tobject__methodaddress", mas, pc_var("pointer"), pc_blk(NULL, pc_n1(TT_SEQ_EXPR, pc_asg(pc_var("__pc_tobject__methodaddress"), mac))));
     tree_t *ips = ast_node_new(TT_PARAMS);
     tree_t *od = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("o")), pc_var("tobject"));
     od->v.sval = "value";

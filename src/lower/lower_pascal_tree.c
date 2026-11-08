@@ -1698,12 +1698,6 @@ static tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const cha
     if (isset) ast_push(e, leaf_s(TT_QLIT, "set"));
     return e;
 }
-static long long pas_hash_stable(const char *nm) {
-    unsigned long long h = 1469598103934665603ULL;
-    for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 1099511628211ULL; }
-    unsigned long long v = (1000000000ULL + (h % 1000000000ULL)) & ~0xFULL;
-    return (long long)v;
-}
 static int pas_addr_base_offset(tree_t *e, long long *out) {
     if (!e) return 0;
     if (e->t == TT_VAR && e->v.sval) { *out = pas_hash_stable(e->v.sval); return 1; }
