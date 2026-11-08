@@ -134,6 +134,7 @@ static void pas_scope_enter(const char *name, PNodeList *params) {
     }
 }
 static int pas_pf_is_formal(const char *name);
+static int pas_pf_nactuals(const char *sig);
 static const PasDef *pas_pf_lookup(const char *name);
 static tree_t *pas_pf_callthrough(const char *name, PNodeList *args);
 static const char *pas_pf_rtype(const tree_t *e) {
@@ -3723,7 +3724,7 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     return bin(TT_ASSIGN, sel, rhs);
 }
 static tree_t *mk_ident(const char *name) {
-    if (pas_pf_is_formal(name) && pas_pf_lookup(name)->sig[0] == 'F') return pas_pf_callthrough(name, NULL);
+    if (pas_pf_is_formal(name) && pas_pf_lookup(name)->sig[0] == 'F' && pas_pf_nactuals(pas_pf_lookup(name)->sig) == 0) return pas_pf_callthrough(name, NULL);
     if (name && !strcmp(name, "result") && !pas_is_declared_local_here(name)) { const char *cf = pas_curfunc_name(); if (cf) return leaf_s(TT_VAR, cf); }
     if (name && pas_curfunc_name()) {
         const char *cf = pas_curfunc_name();
