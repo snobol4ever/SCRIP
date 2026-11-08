@@ -11,7 +11,15 @@ function PopCnt(qv: int64): integer;
 function LowerCase(c: char): char;
 function IOResult: integer;
 procedure __sh_iocheck;
+function __pc_lcase(const s: string): string;
 implementation
+function __pc_lcase(const s: string): string;
+var i: integer;
+begin
+  __pc_lcase := s;
+  for i := 1 to length(s) do
+    if (s[i] >= 'A') and (s[i] <= 'Z') then __pc_lcase[i] := chr(ord(s[i]) + 32)
+end;
 function IOResult: integer;
 begin
   IOResult := __pas_ioresult(0)
