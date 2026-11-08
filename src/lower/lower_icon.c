@@ -382,6 +382,11 @@ static int icn_tree_calls_a_generator(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (icn_tree_calls_a_generator(t->c[i])) return 1;
     return 0;
 }
+static int icn_is_patfn_name(const char * nm) {
+    const char * const pn[] = { "Len", "Pos", "Rpos", "Tab", "Rtab", "Any", "NotAny", "Span", "Break", "Breakx", "Nspan", "Arb", "Rem", "Bal", "Fail", "Succeed", "Abort", "Fence", "Arbno" };
+    for (size_t i = 0; i < sizeof pn / sizeof pn[0]; i++) if (!strcmp(pn[i], nm)) return 1;
+    return 0;
+}
 static int is_resumable(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_STMT) t = stmt_subj(t);
@@ -393,6 +398,7 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_FNC) {
         const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL;
         if (nm && !strcmp(nm, "ICN$CRIT") && t->n == 3) return is_resumable(t->c[1]);
+        if (nm && icn_is_patfn_name(nm) && !icn_is_proc(nm)) { for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
         if (!nm || icn_call_allow_gen(nm) || icn_callee_is_a_value(nm)) return 1;
         for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1;
         return 0;
