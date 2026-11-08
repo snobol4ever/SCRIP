@@ -609,3 +609,9 @@ DESCR_t bt_ICNx24UNLOCK(DESCR_t *args, int nargs) {
     }
     return args[0];
 }
+DESCR_t bt_ICNx24USERIAL(DESCR_t *args, int nargs) {
+    extern int try_call_builtin_by_name(const char *, DESCR_t *, int, DESCR_t *);
+    DESCR_t out = FAILDESCR;
+    if (nargs == 1) { if (try_call_builtin_by_name("serial", args, 1, &out)) return out; return FAILDESCR; }
+    return INTVAL((long long) scrip_co_serial_disp(th_cur()));
+}
