@@ -24394,6 +24394,33 @@ static DESCR_t umaxmin_leaf(DESCR_t *args, int nargs, int dir) {
 }
 DESCR_t bt_ICNx24UMAX(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, 1); }
 DESCR_t bt_ICNx24UMIN(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, -1); }
+DESCR_t bt_ICNx24ULIST(DESCR_t *args, int nargs) {
+    extern DESCR_t rt_make_list(DESCR_t *, int);
+    DESCR_t * el = NULL;
+    int n = 0;
+    if (nargs == 1 && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
+        DESCR_t * mem;
+        TBPAIR_t * e;
+        int k;
+        extern int table_icn_nth(TBBLK_t *, int64_t, TBPAIR_t **);
+        while (table_icn_nth(args[0].tbl, n, &e)) n++;
+        mem = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
+        k = n;
+        for (int i = 0; i < n; i++) if (table_icn_nth(args[0].tbl, i, &e)) mem[--k] = e->key_descr;
+        return rt_make_list(mem, n);
+    }
+    if (nargs == 1 && args[0].v == DT_DATA && rt_lv_is_list(args[0], &el, &n)) return rt_make_list(n > 0 ? el : NULL, n > 0 ? n : 0);
+    { DESCR_t out = FAILDESCR; if (icn_argtype_gate(BID_list, args, nargs, &out, 1)) return out; }
+    if (nargs > 2) return FAILDESCR;
+    if (nargs >= 1 && !IS_FAIL_fn(args[0]) && args[0].v != DT_SNUL) {
+        if (IS_INT_fn(args[0])) n = (int) args[0].i;
+        else if (IS_REAL_fn(args[0])) n = (int) args[0].r;
+        else if (icn_cvt_int_ok(args[0])) n = (int) to_int(args[0]);
+        else return FAILDESCR;
+    }
+    if (n < 0) return FAILDESCR;
+    { DESCR_t * mem = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1)); for (int i = 0; i < n; i++) mem[i] = (nargs >= 2 && !IS_FAIL_fn(args[1])) ? args[1] : NULVCL; return rt_make_list(mem, n); }
+}
 DESCR_t bt_ICNx24UPCAT(DESCR_t *args, int nargs) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return nargs == 2 ? pat_cat(args[0], args[1]) : FAILDESCR; }
 static TBPAIR_t *utbl_live_at(TBBLK_t *t, unsigned oi) { return t->ord[oi].v == DT_RAW ? (TBPAIR_t *)0 : table_find_pair_d(t, t->ord[oi]); }
 static void utbl_build(TBBLK_t *r, TBBLK_t *x, TBBLK_t *y, int keep_in_y) {
