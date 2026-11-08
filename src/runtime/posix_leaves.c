@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "driver/driver_data.h"
+#include "ir/ct_arena.h"
 #include "ir/descr.h"
 #include "posix_leaves.h"
 #include "runtime/core/g_runtime.h"
@@ -48,6 +49,27 @@ static FILE *px_sock_unix(const char *path, int listen_) {
     return fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int fd; socklen_t len; struct sockaddr_storage sa; } px_dg_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ssize_t px_dg_read(void *c, char *b, size_t n) { return recv(((px_dg_t *) c)->fd, b, n, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ssize_t px_dg_write(void *c, const char *b, size_t n) { px_dg_t *d = (px_dg_t *) c; return sendto(d->fd, b, n, 0, (struct sockaddr *) &d->sa, d->len); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int px_dg_close(void *c) { px_dg_t *d = (px_dg_t *) c; int r = close(d->fd); ct_drop(d); return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *px_dg_open(int fd, const struct addrinfo *ai) {
+    px_dg_t *d = (px_dg_t *) ct_zalloc(1, sizeof *d);
+    cookie_io_functions_t io = { px_dg_read, px_dg_write, NULL, px_dg_close };
+    d->fd = fd;
+    d->len = ai->ai_addrlen;
+    memcpy(&d->sa, ai->ai_addr, ai->ai_addrlen);
+    FILE *fp = fopencookie(d, "r+", io);
+    if (!fp) { ct_drop(d); return NULL; }
+    fp->_fileno = fd;
+    setvbuf(fp, NULL, _IONBF, 0);
+    return fp;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *px_sock_open(const char *addr, const char *mode) {
     const char *c = strrchr(addr, ':');
     int listen_ = strchr(mode, 'a') != NULL, udp = strchr(mode, 'u') != NULL, fd = -1, one = 1;
@@ -71,6 +93,11 @@ FILE *px_sock_open(const char *addr, const char *mode) {
         int ls = fd;
         fd = bind(ls, ai->ai_addr, ai->ai_addrlen) == 0 && listen(ls, 1) == 0 ? accept(ls, NULL, NULL) : -1;
         close(ls);
+    } else if (fd >= 0 && udp) {
+        FILE *dg = px_dg_open(fd, ai);
+        freeaddrinfo(ai);
+        if (!dg) close(fd);
+        return dg;
     } else if (fd >= 0 && connect(fd, ai->ai_addr, ai->ai_addrlen) != 0) {
         close(fd);
         fd = -1;
