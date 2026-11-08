@@ -806,12 +806,12 @@ static int64_t rk_blob_bounds(const char * blob) {
 static void emit_hclr_fill(int ri) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p;
     g_emit.op_hclr_n = 0; g_emit.op_hclr_v.len = 0;
-    if (g_emit.op_zgpop <= 0 || ri < 0 || !r || ri >= r->n || !g_emit_cfg || !g_emit_cfg->cell_frame) return;
-    const int hi = r->out[ri], lo = hi - g_emit.op_zgpop;
+    if (g_emit.op_zgpop <= 0 || ri < 0 || !r || ri >= r->n || !r->xb || r->xb[ri] == INT_MIN || !g_emit_cfg || !g_emit_cfg->cell_frame) return;
+    const int hi = r->xb[ri] + r->out[ri], lo = hi - g_emit.op_zgpop;
     for (int i = 0; i < r->n; i++) {
         IR_t * m = r->nodes[i];
-        if (!m || !r->on[i] || (m->op != IR_PROC_GEN && m->op != IR_CALL_PROC_STAGED && m->op != IR_CALL_VALUE) || r->zn[i].actoff < 0) continue;
-        if (r->out[i] - zd_k(m) >= lo && r->out[i] <= hi) CV_PUSH(g_emit.op_hclr_v, int) = r->zn[i].actoff + 8;
+        if (!m || !r->on[i] || (m->op != IR_PROC_GEN && m->op != IR_CALL_PROC_STAGED && m->op != IR_CALL_VALUE) || r->zn[i].actoff < 0 || r->xb[i] == INT_MIN) continue;
+        if (r->xb[i] + r->out[i] - zd_k(m) >= lo && r->xb[i] + r->out[i] <= hi) CV_PUSH(g_emit.op_hclr_v, int) = r->zn[i].actoff + 8;
     }
     g_emit.op_hclr = (const int *)g_emit.op_hclr_v.p; g_emit.op_hclr_n = (int)g_emit.op_hclr_v.len;
 }
