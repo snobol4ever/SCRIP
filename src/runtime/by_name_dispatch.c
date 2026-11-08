@@ -24390,6 +24390,7 @@ static DESCR_t umaxmin_leaf(DESCR_t *args, int nargs, int dir) {
 }
 DESCR_t bt_ICNx24UMAX(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, 1); }
 DESCR_t bt_ICNx24UMIN(DESCR_t *args, int nargs) { return umaxmin_leaf(args, nargs, -1); }
+DESCR_t bt_ICNx24UPCAT(DESCR_t *args, int nargs) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return nargs == 2 ? pat_cat(args[0], args[1]) : FAILDESCR; }
 static int icn_numeric_suffix_power(char c) {
     return (c == 'k' || c == 'K') ? 1 : (c == 'm' || c == 'M') ? 2 : (c == 'g' || c == 'G') ? 3 : (c == 't' || c == 'T') ? 4 : (c == 'p' || c == 'P') ? 5 : 0;
 }

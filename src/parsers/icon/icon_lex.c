@@ -363,6 +363,32 @@ static IcnToken scan_ident(IcnLexer *lx) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rx_prev_ender(int k) {
+    switch (k) {
+    case TK_IDENT: case TK_INT: case TK_BIGINT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_REGEX: case TK_RPAREN: case TK_RBRACK: case TK_RBRACE:
+    case TK_BREAK: case TK_FAIL: case TK_NEXT: case TK_END: case TK_PUNEVAL: case TK_PUNEVAL2:
+        return 1;
+    default:
+        return 0;
+    }
+}
+static IcnToken scan_regex(IcnLexer *lx, int line, int col) {
+    char * bb = NULL; int bl = 0, bc = 0, depth = 0; char q = 0;
+    while (lex_cur(lx)) {
+        char c = lex_cur(lx);
+        if (q) { if (c == '\\' && lex_peek1(lx)) buf_push(&bb, &bl, &bc, lex_advance(lx)); else if (c == q) q = 0; }
+        else if (c == '"' || c == '\'') q = c;
+        else if (c == '(' || c == '[') depth++;
+        else if (c == ')' || c == ']') depth--;
+        else if (c == '>' && depth <= 0) break;
+        buf_push(&bb, &bl, &bc, lex_advance(lx));
+    }
+    if (lex_cur(lx) != '>') { lx->had_error = 1; snprintf(lx->errmsg, sizeof lx->errmsg, "line %d: unterminated regular expression", line); return make_tok(TK_ERROR, line, col); }
+    lex_advance(lx);
+    if (!bb) bb = ct_strdup("");
+    IcnToken t = make_tok(TK_REGEX, line, col); t.val.sval.data = bb; t.val.sval.len = (size_t) bl; return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IcnToken lex_one(IcnLexer *lx) {
     skip_ws(lx);
     int line = lx->line, col = lx->col;
@@ -481,6 +507,7 @@ static IcnToken lex_one(IcnLexer *lx) {
                 lex_advance(lx); lex_advance(lx);
                 return make_tok(TK_AUGLT, line, col);
             }
+            if (lx->unicon && !rx_prev_ender(lx->prev)) return scan_regex(lx, line, col);
             return make_tok(TK_LT, line, col);
         case '>':
             if (lex_cur(lx) == '>') {
@@ -1152,7 +1179,9 @@ IcnToken icn_lex_next(IcnLexer *lx) {
     if (lx->pos > 0) { memmove(lx->src, lx->src + lx->pos, lx->src_len - lx->pos + 1); lx->src_len -= lx->pos; lx->pos = 0; }
     if (lx->had_error == -1) {
     }
-    return lex_one(lx);
+    IcnToken t = lex_one(lx);
+    lx->prev = t.kind;
+    return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *icn_tk_name(IcnTkKind kind) {
@@ -1282,6 +1311,7 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_PMATCH:    return "??";
         case TK_POR:       return ".|";
         case TK_PAND:      return "&&";
+        case TK_REGEX:     return "REGEX";
         case TK_PASSNM:    return "->";
         case TK_PIMD:      return "=>";
         case TK_PSETCUR:   return ".>";

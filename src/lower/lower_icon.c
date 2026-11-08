@@ -1112,6 +1112,155 @@ static void pm_retag_alpha(IR_graph_t * g, int from, IR_t * target) {
 static tree_t * pm_call(const char * fn, tree_t * a0, tree_t * a1) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, pm_var(fn)); if (a0) ast_push(c, a0); if (a1) ast_push(c, a1); return c; }
 static tree_t * pm_empty_str(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; return q; }
 static int pm_const_int(const tree_t * a, int64_t * v);
+typedef struct rx_s { char k; const char * s; int n; struct rx_s * a, * b; } rx_t;
+typedef struct { const char * p, * e; int line; } rxs_t;
+static rx_t * rx_mk(char k, const char * s, int n, rx_t * a, rx_t * b) { rx_t * r = ct_zalloc(1, sizeof * r); r->k = k; r->s = s; r->n = n; r->a = a; r->b = b; return r; }
+static void rx_fail(rxs_t * st, const char * m) { fprintf(stderr, "icon: line %d: regular expression: %s\n", st->line, m); exit(1); }
+static void rx_ws(rxs_t * st) { while (st->p < st->e && isspace((unsigned char) *st->p)) st->p++; }
+static int rx_at(rxs_t * st, char c) { rx_ws(st); return st->p < st->e && *st->p == c; }
+static int rx_word(char c) { return isalnum((unsigned char) c) || c == '_'; }
+static char * rx_quoted(rxs_t * st, int * n) {
+    char q = *st->p++;
+    char * o = ct_zalloc(1, (size_t) (st->e - st->p) + 1);
+    int m = 0;
+    while (st->p < st->e && *st->p != q) { char c = *st->p++; if (c == '\\' && st->p < st->e) { c = *st->p++; c = c == 'n' ? '\n' : c == 't' ? '\t' : c; } o[m++] = c; }
+    if (st->p >= st->e) rx_fail(st, "unterminated string");
+    st->p++;
+    *n = m;
+    return o;
+}
+static rx_t * rx_set(rxs_t * st, char k) {
+    char * o = ct_zalloc(1, (size_t) (st->e - st->p) * 256 + 1);
+    int m = 0, have = 0;
+    char prev = 0;
+    if (k == 'N') st->p++;
+    while (st->p < st->e && *st->p != ']') {
+        char c = *st->p++;
+        if (isspace((unsigned char) c)) continue;
+        if (c == '-' && have && st->p < st->e && *st->p != ']') { char hi = *st->p++; for (int x = (unsigned char) prev + 1; x <= (unsigned char) hi; x++) o[m++] = (char) x; have = 0; continue; }
+        o[m++] = c;
+        prev = c;
+        have = 1;
+    }
+    if (st->p >= st->e) rx_fail(st, "unterminated [");
+    st->p++;
+    return rx_mk(k, o, m, NULL, NULL);
+}
+static rx_t * rx_regex(rxs_t * st);
+static rx_t * rx_atom(rxs_t * st) {
+    rx_ws(st);
+    if (st->p >= st->e) rx_fail(st, "operand expected");
+    char c = *st->p;
+    int n = 0;
+    if (rx_word(c)) { const char * b = st->p; while (st->p < st->e && rx_word(*st->p)) st->p++; return rx_mk('I', b, (int) (st->p - b), NULL, NULL); }
+    if (c == '"') { char * o = rx_quoted(st, &n); return rx_mk('S', o, n, NULL, NULL); }
+    if (c == '\'') { char * o = rx_quoted(st, &n); return rx_mk('C', o, n, NULL, NULL); }
+    if (c == '.') { st->p++; return rx_mk('D', NULL, 0, NULL, NULL); }
+    if (c == '(') { st->p++; rx_t * r = rx_regex(st); if (!rx_at(st, ')')) rx_fail(st, ") expected"); st->p++; return rx_mk('P', NULL, 0, r, NULL); }
+    if (c == '[') { st->p++; rx_ws(st); return rx_set(st, (st->p < st->e && *st->p == '^') ? 'N' : 'A'); }
+    rx_fail(st, "unexpected character");
+    return NULL;
+}
+static rx_t * rx_post(rxs_t * st) {
+    rx_t * r = rx_atom(st);
+    for (;;) {
+        if (rx_at(st, '*')) {
+            st->p++;
+            r = rx_mk('k', NULL, 0, r, NULL);
+        } else if (rx_at(st, '+')) {
+            st->p++;
+            r = rx_mk('o', NULL, 0, r, NULL);
+        } else if (rx_at(st, '?')) {
+            st->p++;
+            r = rx_mk('q', NULL, 0, r, NULL);
+        } else if (rx_at(st, '{')) {
+            st->p++;
+            rx_ws(st);
+            int cnt = 0;
+            if (st->p >= st->e || !isdigit((unsigned char) *st->p)) rx_fail(st, "repeat count expected");
+            while (st->p < st->e && isdigit((unsigned char) *st->p)) cnt = cnt * 10 + (*st->p++ - '0');
+            if (!rx_at(st, '}')) rx_fail(st, "} expected");
+            st->p++;
+            if (cnt < 1) rx_fail(st, "regex occurrences may not be zero yet");
+            rx_t * base = r;
+            for (int i = 2; i <= cnt; i++) r = rx_mk('c', NULL, 0, r, base);
+        } else return r;
+    }
+}
+static rx_t * rx_seq(rxs_t * st) { rx_t * l = rx_post(st); rx_ws(st); if (st->p < st->e && (rx_word(*st->p) || strchr("\"'.([", *st->p))) return rx_mk('c', NULL, 0, l, rx_seq(st)); return l; }
+static rx_t * rx_regex(rxs_t * st) {
+    rx_ws(st);
+    if (st->p >= st->e || *st->p == ')') return rx_mk('e', NULL, 0, NULL, NULL);
+    rx_t * l = rx_seq(st);
+    if (rx_at(st, '|')) { st->p++; return rx_mk('b', NULL, 0, l, rx_regex(st)); }
+    return l;
+}
+static tree_t * rx_lit(tree_e k, const char * s, int n) { tree_t * q = ast_node_new(k); q->v.sval = lp_strdup(s ? s : ""); q->slen = n; return q; }
+static tree_t * rx_tr(const rx_t * r, int line);
+static tree_t * rx_arb(tree_t * a) { return pm_call("Arbno", a, NULL); }
+static tree_t * rx_cat(tree_t * a, tree_t * b) { return pm_call("ICN$UPCAT", a, b); }
+static tree_t * rx_opt(tree_t * a) { return pm_node(TT_ALT, a, rx_lit(TT_QLIT, "", 0), NULL); }
+static tree_t * rx_notany_nl(void) { return pm_call("NotAny", rx_lit(TT_QLIT, "\n", 1), NULL); }
+static tree_t * rx_tail(const rx_t * r, int line, int arb) { tree_t * last = rx_lit(TT_QLIT, r->s + r->n - 1, 1); if (arb) return rx_arb(last); return rx_opt(last); }
+static tree_t * rx_tr(const rx_t * r, int line) {
+    switch (r->k) {
+        case 'e':
+        return rx_lit(TT_QLIT, "", 0);
+        case 'I':
+        case 'S':
+        return rx_lit(TT_QLIT, r->s, r->n);
+        case 'C':
+        return rx_lit(TT_CSET, r->s, r->n);
+        case 'D':
+        return rx_notany_nl();
+        case 'A':
+        return pm_call("Any", rx_lit(TT_CSET, r->s, r->n), NULL);
+        case 'N':
+        return pm_call("NotAny", rx_lit(TT_CSET, r->s, r->n), NULL);
+        case 'P':
+        return rx_tr(r->a, line);
+        case 'c':
+        return rx_cat(rx_tr(r->a, line), rx_tr(r->b, line));
+        case 'b':
+        return pm_node(TT_ALT, rx_tr(r->a, line), rx_tr(r->b, line), NULL);
+        case 'k':
+        {
+            const rx_t * a = r->a;
+            if (a->k == 'I') return a->n > 1 ? rx_cat(rx_lit(TT_QLIT, a->s, a->n - 1), rx_tail(a, line, 1)) : rx_arb(rx_lit(TT_QLIT, a->s, a->n));
+            if (a->k == 'D') { fprintf(stderr, "icon: line %d: regular expression: * is not supported on .\n", line); exit(1); }
+            if (a->k == 'A') return rx_arb(rx_lit(TT_CSET, a->s, a->n));
+            if (a->k == 'P') return rx_arb(rx_tr(a->a, line));
+            return rx_arb(rx_tr(a, line));
+        }
+        case 'o':
+        {
+            const rx_t * a = r->a;
+            if (a->k == 'I') return rx_cat(rx_lit(TT_QLIT, a->s, a->n), rx_tail(a, line, 1));
+            if (a->k == 'S') return rx_cat(rx_tr(a, line), rx_arb(rx_tr(a, line)));
+            if (a->k == 'D') return rx_cat(rx_notany_nl(), rx_arb(rx_notany_nl()));
+            if (a->k == 'C') { fprintf(stderr, "icon: line %d: regular expression: + is not supported on a cset\n", line); exit(1); }
+            rx_t kl = *r;
+            kl.k = 'k';
+            return rx_cat(rx_tr(a, line), rx_tr(&kl, line));
+        }
+        default:
+        {
+            const rx_t * a = r->a;
+            if (a->k == 'I') return a->n > 1 ? rx_cat(rx_lit(TT_QLIT, a->s, a->n - 1), rx_tail(a, line, 0)) : rx_opt(rx_lit(TT_QLIT, a->s, a->n));
+            if (a->k == 'S' || a->k == 'C') return rx_opt(rx_tr(a, line));
+            if (a->k == 'D') { fprintf(stderr, "icon: line %d: regular expression: ? is not supported on .\n", line); exit(1); }
+            return rx_opt(rx_tr(a, line));
+        }
+    }
+}
+static tree_t * rx_translate(const tree_t * t) {
+    rxs_t st = { t->v.sval ? t->v.sval : "", NULL, t->line };
+    st.e = st.p + (t->slen > 0 ? (size_t) t->slen : strlen(st.p));
+    rx_t * r = rx_regex(&st);
+    rx_ws(&st);
+    if (st.p < st.e) rx_fail(&st, "unexpected text");
+    return rx_tr(r, t->line);
+}
 static tree_t * pm_imm_commit(void) { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) "*$imm"; q->slen = 5; return pm_call("SNO$PDEF", q, NULL); }
 static tree_t * th_var(const char * nm) { tree_t * v = pm_var(nm); v->slen = (int) strlen(nm); return v; }
 static tree_t * th_call(const char * fn, tree_t * a) { tree_t * c = ast_node_new(TT_FNC); ast_push(c, th_var(fn)); ast_push(c, a); return c; }
@@ -1576,6 +1725,8 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
         case TT_PMATCH:
         return lower_pmatch(cx, t, γ, ω, res);
+        case TT_REGEX:
+        return lower(cx, rx_translate(t), γ, ω, res);
         case TT_PAND:
         case TT_CAPT_COND_ASGN:
         case TT_CAPT_IMMED_ASGN:

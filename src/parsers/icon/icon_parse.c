@@ -72,7 +72,7 @@ static tree_t *parse_block_or_expr(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_begins_nexpr(IcnTkKind k) {
     switch (k) {
-    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PUNEVAL2: case TK_PSETCUR:
+    case TK_INT: case TK_REAL: case TK_STRING: case TK_CSET: case TK_IDENT: case TK_COLONCOLON: case TK_PUNEVAL: case TK_PUNEVAL2: case TK_PSETCUR: case TK_REGEX:
     case TK_PLUS: case TK_MINUS: case TK_STAR: case TK_SLASH: case TK_CARET:
     case TK_BANG: case TK_QMARK: case TK_AT: case TK_TILDE: case TK_DOT:
     case TK_BACKSLASH: case TK_AND: case TK_BAR: case TK_CONCAT: case TK_LCONCAT:
@@ -121,6 +121,12 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_CSET) {
         advance(p);
         return e_leaf_sval(TT_CSET, t.val.sval.data, (int)t.val.sval.len);
+    }
+    if (t.kind == TK_REGEX) {
+        advance(p);
+        tree_t * rx = e_leaf_sval(TT_REGEX, t.val.sval.data, (int)t.val.sval.len);
+        rx->line = t.line;
+        return rx;
     }
     if (t.kind == TK_PUNEVAL || t.kind == TK_PUNEVAL2) {
         advance(p);

@@ -134,6 +134,7 @@ typedef enum {
     TK_PSETCUR,
     TK_PUNEVAL,
     TK_PUNEVAL2,
+    TK_REGEX,
     TK_COUNT
 } IcnTkKind;
 typedef union {
@@ -163,6 +164,7 @@ typedef struct {
     int         had_error;
     int         pp_fatals;
     int         unicon;
+    int         prev;
 } IcnLexer;
 void icn_pp_set_source_path(const char *path);
 void icn_pp_source_base(char *out, size_t n);
