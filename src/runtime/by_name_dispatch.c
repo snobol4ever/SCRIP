@@ -4681,12 +4681,14 @@ static long long pas_fill_count(const ARBLK_t *s) { long long n = (long long)s->
 static void pas_fill(DESCR_t v, long long c) {
     if (v.v != DT_A || !v.arr) return;
     ARBLK_t *s = (ARBLK_t *) v.arr;
+    if (s->ewidth) { for (long long k = 0, n = pas_fill_count(s); k < n; k++) memcpy((char *) s->data + k * s->ewidth, &c, (size_t) s->ewidth); return; }
     for (long long k = 0, n = pas_fill_count(s); k < n; k++) pas_fill_cell(&s->data[k], c);
 }
 static void pas_fill_from(DESCR_t v, long long idx, long long bytes, long long esz, long long c) {
     if (v.v != DT_A || !v.arr) return;
     ARBLK_t *s = (ARBLK_t *) v.arr;
     long long n = pas_fill_count(s), k = idx - s->lo, end = esz > 0 ? k + bytes / esz : n;
+    if (s->ewidth) { for (k = k < 0 ? 0 : k; k < end && k < n; k++) memcpy((char *) s->data + k * s->ewidth, &c, (size_t) s->ewidth); return; }
     for (k = k < 0 ? 0 : k; k < end && k < n; k++) pas_fill_cell(&s->data[k], c);
 }
 static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig, int upper);
@@ -20699,6 +20701,15 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
         long long dk = 0, sk = 0, dn = -1, sn = -1;
         long long bytes = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, esz = IS_INT_fn(args[5]) ? (long long)args[5].i : 0;
         long long n = esz > 0 ? bytes / esz : bytes;
+        ARBLK_t *rdb = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL, *rsb = (args[2].v == DT_A && args[2].arr) ? (ARBLK_t *) args[2].arr : NULL;
+        if (rdb && rsb && rdb->ewidth && rsb->ewidth) {
+            long long rdk = (IS_INT_fn(args[1]) ? (long long) args[1].i : rdb->lo) - rdb->lo, rsk = (IS_INT_fn(args[3]) ? (long long) args[3].i : rsb->lo) - rsb->lo;
+            long long rdn = ((long long) rdb->hi - rdb->lo + 1 - rdk) * rdb->ewidth, rsn = ((long long) rsb->hi - rsb->lo + 1 - rsk) * rsb->ewidth, rn = bytes < rdn ? bytes : rdn;
+            if (rn > rsn) rn = rsn;
+            if (rdk >= 0 && rsk >= 0 && rn > 0) memmove((char *) rdb->data + rdk * rdb->ewidth, (char *) rsb->data + rsk * rsb->ewidth, (size_t) rn);
+            *out = args[0];
+            return 1;
+        }
         if (pas_move_side(args[0], args[1], &dd, &dk, &dn) && pas_move_side(args[2], args[3], &sd, &sk, &sn)) {
             if (dn >= 0 && n > dn - dk) n = dn - dk;
             if (sn >= 0 && n > sn - sk) n = sn - sk;
