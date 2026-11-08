@@ -62,6 +62,7 @@ typedef struct {
     int links;
     const tree_t * prog;
     const tree_t * varcase_arg;
+    const tree_t * body;
 } icx_t;
 static const char * icn_synth_local(icx_t * cx);
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
@@ -114,16 +115,30 @@ static int icn_is_static_mangled_name(const char * nm) {
     return 0;
 }
 static int icn_ret_global_name(const icx_t * cx, const char * nm) { return nm && nm[0] != '&' && !icn_is_local(cx, nm) && (icn_is_own_global(cx, nm) || icn_is_static_mangled_name(nm)); }
+static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out, int unicon);
+static int icn_is_implicit_local(const icx_t * cx, const char * nm) {
+    lc_vec iv;
+    lc_vec_init(&iv, (int) sizeof(const char *));
+    iv.n = 0;
+    icn_collect_implicit_locals(cx->body, cx->ln, cx->nln, &iv, cx->prog && cx->prog->v.ival);
+    for (int i = 0; i < iv.n; i++) if (!strcmp(LC_AT(&iv, const char *, i), nm)) return 1;
+    return 0;
+}
 static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) {
     if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL;
     if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn);
     { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); }
     if (icn_is_own_global(cx, vn) || icn_is_proc(vn) || icn_builtin_reassigned(vn)) return icn_variable_lit_tree(vn);
+    if (icn_is_implicit_local(cx, vn)) return icn_variable_lit_tree(vn);
     return NULL;
 }
 static tree_t * icn_variable_case(icx_t * cx, const tree_t * t) {
     if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || t->c[0]->t != TT_VAR || !t->c[0]->v.sval || strcmp(t->c[0]->v.sval, "variable")) return NULL;
-    if (icn_is_local(cx, "variable") || !t->c[1] || t->c[1]->t == TT_QLIT || cx->nln <= 0 || t->c[1] == cx->varcase_arg) return NULL;
+    if (icn_is_local(cx, "variable") || !t->c[1] || t->c[1]->t == TT_QLIT || t->c[1] == cx->varcase_arg) return NULL;
+    lc_vec iv;
+    lc_vec_init(&iv, (int) sizeof(const char *));
+    icn_collect_implicit_locals(cx->body, cx->ln, cx->nln, &iv, cx->prog && cx->prog->v.ival);
+    if (cx->nln + iv.n <= 0) return NULL;
     tree_t * e = ast_node_new(TT_CASE);
     ast_push(e, (tree_t *) t->c[1]);
     for (int i = 0; i < cx->nln; i++) {
@@ -134,6 +149,17 @@ static tree_t * icn_variable_case(icx_t * cx, const tree_t * t) {
         ast_push(e, k);
         tree_t * v = ast_node_new(TT_VAR);
         v->v.sval = (char *) cx->ln[i];
+        ast_push(e, v);
+    }
+    for (int i = 0; i < iv.n; i++) {
+        const char * nm = LC_AT(&iv, const char *, i);
+        if (!nm || nm[0] == '$') continue;
+        tree_t * k = ast_node_new(TT_QLIT);
+        k->v.sval = (char *) nm;
+        k->slen = (int) strlen(nm);
+        ast_push(e, k);
+        tree_t * v = ast_node_new(TT_VAR);
+        v->v.sval = (char *) nm;
         ast_push(e, v);
     }
     ast_push(e, ast_node_new(TT_NUL));
@@ -4062,6 +4088,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
         for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &plist->c[i]->v.sval);
         const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
+        cx.body = body;
         icn_statics_prepass((tree_t *) body, pd->v.sval ? pd->v.sval : "anon");
         for (int i = 0; body && i < body->n; i++) {
             const tree_t * st = body->c[i];
