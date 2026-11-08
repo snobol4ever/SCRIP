@@ -570,6 +570,7 @@ pf_section:
     id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
     |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
+    |IDENT id_list COLON param_type { int cr = $1->v.sval && !strcasecmp($1->v.sval, "constref"); if (!$1->v.sval || (strcasecmp($1->v.sval, "out") && !cr)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, cr ? "const" : "var"); }
     |PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
     |FUNCTIONSY IDENT pf_params COLON result_type { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
     ;
