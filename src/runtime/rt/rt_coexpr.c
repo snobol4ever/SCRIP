@@ -507,7 +507,7 @@ static scrip_coctx_t *th_next(scrip_coctx_t *c, scrip_coctx_t *root) { return c 
 static int th_ready(scrip_coctx_t *c) {
     if (c->th_state == 1) return 1;
     if (c->th_state != 2) return 0;
-    if (c->th_wait_kind == 1) { DESCR_t *el = NULL; int n = 0; return rt_lv_is_list(c->th_inbox, &el, &n) && n > 0; }
+    if (c->th_wait_kind == 1) { DESCR_t *el = NULL; int n = 0; scrip_coctx_t *w = th_ctx(c->th_wait); return rt_lv_is_list(w ? w->th_outbox : c->th_inbox, &el, &n) && n > 0; }
     if (c->th_wait_kind == 2) { scrip_coctx_t *w = th_ctx(c->th_wait); return w && w->th_state == 3; }
     return 0;
 }

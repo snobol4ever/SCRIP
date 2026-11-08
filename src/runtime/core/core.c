@@ -3012,6 +3012,8 @@ static const char *icn_errmsg_known(int n) {
         return "by value equal to zero";
         case 212:
         return "attempt to read file not open for reading";
+        case 177:
+        return "deadlock: every thread is blocked";
         case 213:
         return "attempt to write file not open for writing";
         case 214:

@@ -1286,13 +1286,26 @@ static tree_t * th_form(icx_t * cx, const tree_t * t) {
     const tree_t * fn = t->n > 0 ? t->c[0] : NULL;
     if (fn && fn->t != TT_FIELD && t->slen != -5 && cx->prog && cx->prog->v.ival && !icn_callee_is_name(cx, fn)) return th_co_call(cx, t);
     if (!fn || fn->t != TT_VAR || !fn->v.sval || !cx->prog || !cx->prog->v.ival) return NULL;
-    if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t == TT_CREATE && !icn_is_proc("spawn")) {
+    if (!strcmp(fn->v.sval, "spawn") && t->n >= 2 && t->c[1] && t->c[1]->t == TT_CREATE && t->c[1]->n >= 1 && !icn_is_proc("spawn")) {
+        tree_t * once = pm_node(TT_ALTERNATE, pm_node(TT_LIMIT, (tree_t *) t->c[1]->c[0], pm_int(1), NULL), icn_variable_lit_tree("&null"), NULL);
+        tree_t * body = pm_node(TT_CONJ, once, pm_call("ICN$THREAD_END", NULL, NULL), pm_node(TT_REPEAT, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), NULL, NULL));
+        return th_call("ICN$THREAD", pm_node(TT_CREATE, body, NULL, NULL));
+    }
+    if (!strcmp(fn->v.sval, "ICN$RECV") && t->n == 4 && t->slen != -6 && t->c[3] && t->c[3]->t == TT_ILIT && t->c[3]->v.ival == 1 && t->c[2] && t->c[2]->t == TT_VAR && t->c[2]->v.sval &&
+        !strcmp(t->c[2]->v.sval, "&null")) {
+        const char * tv = icn_synth_local(cx), * vv = icn_synth_local(cx);
+        tree_t * rc = pm_call("ICN$RECV", th_var(tv), (tree_t *) t->c[2]);
+        ast_push(rc, (tree_t *) t->c[3]);
+        rc->slen = -6;
+        tree_t * yield = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL);
+        tree_t * brk = pm_node(TT_LOOP_BREAK, th_var(vv), NULL, NULL);
+        tree_t * body = pm_node(TT_REPEAT, pm_node(TT_IF, pm_node(TT_ASSIGN, th_var(vv), rc, NULL), brk, yield), NULL, NULL);
+        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), body, NULL);
+    }
+    if (!strcmp(fn->v.sval, "wait") && t->n == 2 && t->c[1] && !icn_is_proc("wait")) {
         const char * tv = icn_synth_local(cx);
-        tree_t * cj = ast_node_new(TT_CONJ);
-        ast_push(cj, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL));
-        ast_push(cj, pm_node(TT_EVERY, pm_node(TT_ACTIVATE, th_var(tv), NULL, NULL), NULL, NULL));
-        ast_push(cj, th_var(tv));
-        return cj;
+        tree_t * yield = pm_node(TT_ALTERNATE, pm_node(TT_ACTIVATE, pm_call("ICN$SCHED", NULL, NULL), NULL, NULL), pm_call("runerr", pm_int(177), NULL), NULL);
+        return pm_node(TT_CONJ, pm_node(TT_ASSIGN, th_var(tv), (tree_t *) t->c[1], NULL), pm_node(TT_UNTIL, th_call("ICN$DONE", th_var(tv)), yield, NULL), NULL);
     }
     if (!strcmp(fn->v.sval, "ICN$CRIT") && t->n == 3) {
         const char * mv = icn_synth_local(cx), * rv = icn_synth_local(cx);
