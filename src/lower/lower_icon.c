@@ -228,6 +228,16 @@ static int icn_tree_has_rtname_lv(const tree_t * n) {
     for (int i = 0; i < n->n; i++) if (icn_tree_has_rtname_lv(n->c[i])) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_global_declared(const tree_t * prog, const char * nm) {
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) d = stmt_subj(d);
+        if (d && d->t == TT_GLOBAL) for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval && !strcmp(d->c[k]->v.sval, nm)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_collect_reassigned_procs(const tree_t * prog) {
     if (g_lower.icn.reassigned_prog == prog) return;
     lc_vec_init(&g_lower.icn.reassigned, (int) sizeof(const char *));
@@ -238,6 +248,11 @@ static void icn_collect_reassigned_procs(const tree_t * prog) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) d = stmt_subj(d);
         if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_lower.icn.reassigned, &d->v.sval);
+    }
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) d = stmt_subj(d);
+        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval) && icn_global_declared(prog, d->v.sval)) lc_vec_push(&g_lower.icn.reassigned, &d->v.sval);
     }
 }
 static int icn_builtin_reassigned(const char * nm) {
