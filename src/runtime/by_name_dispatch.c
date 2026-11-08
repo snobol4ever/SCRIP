@@ -15797,8 +15797,8 @@ static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out, 
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-_Static_assert(offsetof(ARBLK_t, lo) == 0 && offsetof(ARBLK_t, hi) == 4 && offsetof(ARBLK_t, data) == 32 && sizeof(DESCR_t) == 16,
-    "bb_call_pas_elem.cpp reads the block bounds and the data vector at these offsets");
+_Static_assert(offsetof(ARBLK_t, lo) == 0 && offsetof(ARBLK_t, hi) == 4 && offsetof(ARBLK_t, data) == 32 && offsetof(ARBLK_t, ewidth) == 56 && sizeof(DESCR_t) == 16,
+    "bb_call_pas_elem.cpp reads the block bounds, the data vector and the element width at these offsets");
 RT_ENTRY_DECL(pas_arr_make, leaf, 0);
 DESCR_t pas_arr_make(DESCR_t *args, int nargs) {
     long long lo = (nargs == 2 && IS_INT_fn(args[0])) ? args[0].i : 0;

@@ -11,6 +11,7 @@ extern "C" {
 #define PE_LO 0
 #define PE_HI 4
 #define PE_DATA 32
+#define PE_EWIDTH 56
 #define PE_COLD 200
 #define PE_FAIL 201
 #define PE_DONE 202
@@ -23,6 +24,10 @@ static std::string pe_core(const std::string & b0, const std::string & b8, const
          + x86("mov", "rsi", b8.c_str())
          + x86("test", "rsi", "rsi")
          + x86("jz", L(PE_COLD))
+         + x86("comment", "PAS-ELEM a raw array (ewidth nonzero) takes the runtime call")
+         + x86("mov", "eax", RDD("rsi", PE_EWIDTH))
+         + x86("test", "eax", "eax")
+         + x86("jnz", L(PE_COLD))
          + x86("mov", "rax", i0.c_str())
          + x86("cmp", "al", (long)DT_I)
          + x86("jne", L(PE_COLD))
