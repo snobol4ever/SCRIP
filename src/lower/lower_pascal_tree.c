@@ -5035,6 +5035,15 @@ static pval E_argument(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_IDX) && n->n == 2 && IS(n->c[1], TT_SUBRANGE) && n->c[1]->n == 2) {
+        {
+            PNodeList *_al = pnl_new();
+            pnl_push(_al, mk_fnc3("arr_slice", E_expression(n->c[0]).node, E_expression(n->c[1]->c[0]).node, E_expression(n->c[1]->c[1]).node));
+            pnl_push(_al, ilit(-1));
+            out.list = _al;
+        }
+        return out;
+    }
     if (IS(n, TT_FMT) && n->n >= 2 && pas_xr_src(n->c[0])) {
         tree_t *e = ast_node_new(TT_FNC);
         ast_push(e, leaf_s(TT_VAR, "__pas_xr_str"));
@@ -5541,6 +5550,12 @@ static pval E_call_with_args(const tree_t *n) {
         if (dflt && v[3].list && v[3].list->count > 2 * onp) v[3].list->count = 2 * onp;
         {
             v[3].list = pas_pf_actuals(v[1].str, v[3].list);
+            if (v[3].list) for (int i = 0; i + 1 < v[3].list->count; i += 2)
+                if (pas_proc_param_is_var(v[1].str, i / 2) && IS(v[3].list->items[i], TT_FNC) && v[3].list->items[i]->n > 0 && IS(v[3].list->items[i]->c[0], TT_VAR) &&
+                !strcmp(v[3].list->items[i]->c[0]->v.sval, "arr_slice")) {
+                fprintf(stderr, "pascal: a slice a[lo..hi] is a copy and cannot be passed as the variable parameter %d of '%s'\n", i / 2 + 1, v[1].str);
+                g_lower.pas.sem.pas_iso_errors++;
+            }
             if (v[3].list) for (int i = 0; i < v[3].list->count; i++) if (pas_proc_param_is_var(v[1].str, i) && pas_actual_is_packed_component(v[3].list->items[i])) {
                 fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: a component of a packed structure is passed as the variable parameter %d of '%s'\n", i + 1, v[1].str);
                 g_lower.pas.sem.pas_iso_errors++;

@@ -455,19 +455,19 @@ int rt_builtin_is_known(const char *name) {
     static const char known[][24] = { "write", "writes", "stop", "integer", "real", "string", "numeric", "char", "chr", "ord", "cset", "type", "image", "proc", "args", "copy", "abs", "sqrt", "sin",
         "cos", "tan", "exp", "log", "asin", "acos", "atan", "dtor", "rtod", "max", "min", "trim", "reverse", "repl", "map", "left", "center", "right", "detab", "entab", "read", "reads", "sprintf",
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
-        "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
-        "__rk_unpack_named", "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_subscr_adv", "__rk_tl_got", "__rk_is_code", "__rk_run_child",
-        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip",
-        "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat",
-        "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul",
-        "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq",
-        "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul",
-        "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max",
-        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_unbase",
-        "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref",
-        "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor",
-        "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack",
+        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "arr_slice", "__rk_arr_xx", "__rk_arr_at",
+        "__rk_seq_new", "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
+        "__rk_first_shape", "__rk_unpack_named", "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_subscr_adv", "__rk_tl_got", "__rk_is_code",
+        "__rk_run_child", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth",
+        "__rk_hyper_zip", "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat",
+        "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym",
+        "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup",
+        "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add",
+        "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross",
+        "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list",
+        "__rk_radix_str", "__rk_unbase", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign",
+        "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx",
+        "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack",
         "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail",
         "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new",
         "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture",
@@ -18752,6 +18752,8 @@ DESCR_t bt___rk_grep_append(DESCR_t *args, int nargs) { { const DESCR_t _r = bta
 DESCR_t bt___rk_map_append(DESCR_t *args, int nargs) { { const DESCR_t _r = bta___rk_map_append(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_arr_make(DESCR_t *args, int nargs) { if ((nargs == 1 || nargs == 2)) { return pas_arr_make(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_arr_get(DESCR_t *args, int nargs) { if (nargs == 2) { return pas_arr_get(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t pas_slice(DESCR_t *args, int nargs);
+DESCR_t bt_arr_slice(DESCR_t *args, int nargs) { if (nargs == 3) { return pas_slice(args, nargs); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt___rk_arr_set(DESCR_t *args, int nargs) {
     DESCR_t _bo = FAILDESCR;
     DESCR_t *const out = &_bo;
@@ -19854,6 +19856,37 @@ DESCR_t pas_ptr_inc(DESCR_t *args, int nargs) {
     r.src_node1 = args[0].src_node1;
     r.src_node2 = args[0].src_node2;
     return r;
+}
+RT_ENTRY_DECL(pas_slice, leaf, 0);
+DESCR_t pas_slice(DESCR_t *args, int nargs) {
+    if (nargs != 3) return FAILDESCR;
+    long long lo = rk_ival(args[1]), hi = rk_ival(args[2]), n = hi - lo + 1;
+    if (n < 1) return FAILDESCR;
+    ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+    b->id = rt_agg_serial_list();
+    b->dumpno = rt_sno_dumpno_next();
+    b->lo = 0;
+    b->hi = (int) (n - 1);
+    b->ndim = 1;
+    b->lo2 = 0;
+    b->hi2 = 0;
+    b->proto_bare = 0;
+    b->ewidth = 0;
+    b->esigned = 0;
+    b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+    for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
+    for (long long k = 0; k < n; k++) {
+        DESCR_t a2[2] = { args[0], INTVAL(lo + k) };
+        DESCR_t e = args[0].v == DT_A ? pas_arr_get(a2, 2) : pas_ptr_inc(a2, 2);
+        if (args[0].v != DT_A) e = pas_deref(&e, 1);
+        if (e.v == DT_FAIL) return FAILDESCR;
+        b->data[k] = e;
+    }
+    DESCR_t d = {0};
+    d.v = DT_A;
+    d.slen = 0;
+    d.arr = b;
+    return d;
 }
 static uintptr_t pas_ptr_word(DESCR_t p) {
     if (!p.src_node0) return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t)(int32_t) p.slen;
