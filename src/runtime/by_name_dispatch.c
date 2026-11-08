@@ -56,7 +56,7 @@ static void icn_loadfunc_cstr_args(DESCR_t *args, int nargs) {
         args[i].slen = n + 1;
     }
 }
-static int icn_open_spec_is_icon(const char *spec) { for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtTpP", *p)) return 0; return 1; }
+static int icn_open_spec_is_icon(const char *spec) { for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtTpPhH", *p)) return 0; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_open_untranslated(const char *spec) { int un = 0; for (const char *p = spec; p && *p; p++) { if (*p == 'u' || *p == 'U') un = 1; else if (*p == 't' || *p == 'T') un = 0; } return un; }
 static void icn_open_cmode(const char *spec, char *out, int *is_pipe) {
@@ -26520,7 +26520,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6361:
     ;
-    if ((_bid == BID_open) && (nargs == 1 || nargs == 2 || (nargs > 2 && (args[1].v == DT_S || args[1].v == DT_SNUL) && args[1].s && strchr(args[1].s, 'n')))) {
+    if ((_bid == BID_open) && (nargs == 1 || nargs == 2 || (nargs > 2 && (args[1].v == DT_S || args[1].v == DT_SNUL) && args[1].s && (strchr(args[1].s, 'n') || strchr(args[1].s, 'h'))))) {
         const char *path = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
         if (!path) { *out = FAILDESCR; return 1; }
         const char *mode = (nargs >= 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s) ? args[1].s : "r";
@@ -26565,7 +26565,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         struct stat _dst;
         if (!is_pipe && !strcmp(cmode, "r") && !stat(path, &_dst) && S_ISDIR(_dst.st_mode)) { fp = rt_dir_snapshot(path); if (!fp) { *out = FAILDESCR; return 1; } _isdir = 1; }
         if (!fp) fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
-        if (!fp) { *out = FAILDESCR; return 1; }
+        if (!fp) { g_runtime.misc.icn_errtext = strerror(errno); g_runtime.misc.icn_err_valid = 1; *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) g_fh[idx].type = 'p';
