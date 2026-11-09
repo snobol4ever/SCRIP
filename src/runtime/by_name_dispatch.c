@@ -4714,10 +4714,12 @@ static DESCR_t pas_dynset(DESCR_t old, DESCR_t proto, int depth, DESCR_t *dims, 
     if (n < 0) n = 0;
     ARBLK_t *ob = (old.v == DT_A && old.arr) ? (ARBLK_t *) old.arr : NULL;
     long long on = ob ? (long long)ob->hi - ob->lo + 1 : 0;
-    DESCR_t d = pas_dyn_block(n);
+    int raw = ob && ob->ewidth && nd == 1;
+    DESCR_t d = pas_dyn_block(raw ? 0 : n);
     ARBLK_t *b = (ARBLK_t *) d.arr;
-    if (ob && ob->ewidth && nd == 1) {
+    if (raw) {
         long long keep = on < n ? on : n;
+        b->hi = (int) (n - 1);
         b->ewidth = ob->ewidth;
         b->esigned = ob->esigned;
         b->data = (DESCR_t *) rt_ws_alloc_raw((size_t) ((n > 0 ? n : 1) * ob->ewidth));
