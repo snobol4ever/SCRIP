@@ -21711,6 +21711,7 @@ DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT
 RT_ENTRY_DECL(rt_call_arr_bl, leaf, 0);
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out);
+int rt_lv_unraw(DESCR_t *slot);
 static long rt_ctor_gen(void) {
     extern int dat_type_gen(void);
     extern unsigned rt_dtax_gen;
@@ -22167,6 +22168,19 @@ RT_ENTRY_DECL(rt_call_arr_gen, gen, 0);
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 0)); }
 DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_lv_unraw(DESCR_t *slot) {
+    if (!slot || rt_lv_is_list(*slot, (DESCR_t **)0, (int *)0) != 2) return 0;
+    int n = (int)slot->u->fields[1].i;
+    uint32_t k = slot->u->fields[0].slen;
+    DESCR_t *mem = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
+    DATINST_t *in = slot->u;
+    const int64_t *ri = (const int64_t *)in->fields[0].ptr;
+    const double *rr = (const double *)in->fields[0].ptr;
+    for (int i = 0; i < n; i++) mem[i] = k == DATA_RVEC_R_SLEN ? REALVAL(rr[i]) : INTVAL(ri[i]);
+    in->fields[0].ptr = (void *)mem;
+    in->fields[0].slen = DATA_ELEMS_SLEN;
+    return 1;
+}
 RT_ENTRY_DECL(rt_make_list, leaf, 0);
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     DESCR_t *elems = (DESCR_t *)0;
@@ -23413,6 +23427,7 @@ static int icn_bi_direct_write(int bid, DESCR_t *args, int nargs, DESCR_t *out) 
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
+    for (int i = 0; i < nargs; i++) if (args[i].v == DT_DATA) rt_lv_unraw(&args[i]);
     switch (bid) {
         case BID_string:
         case BID_IDENTICAL:
