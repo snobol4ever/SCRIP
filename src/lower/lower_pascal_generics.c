@@ -122,6 +122,16 @@ static void pg_sh_rename(tree_t *e, const char *sfx) {
     }
     for (int i = 0; i < e->n; i++) pg_sh_rename(e->c[i], sfx);
 }
+static void pg_self(tree_t *e, const char *name, const char *mn) {
+    if (!e || PG_KIND(e, "specialize")) return;
+    for (int i = 0; i < e->n; i++) {
+        tree_t *c = e->c[i];
+        if (PG_IS(e, TT_FIELD) && i == 1) continue;
+        if (PG_IS(c, TT_VAR) && c->v.sval && !strcasecmp(c->v.sval, name)) { e->c[i] = pg_var(mn); continue; }
+        pg_self(c, name, mn);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pg_resolve(pg_ctx *x, tree_t *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pg_seen(const pg_tmpl *t, const char *mn) { for (int i = 0; i < t->ninst; i++) if (!strcmp(t->inst[i].key, mn)) return 1; return 0; }
@@ -150,6 +160,7 @@ static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
     if (pg_seen(t, mn)) return pg_var(mn);
     tree_t *body = pg_clone(t->body), *node;
     pg_subst(body, t->params, args);
+    if (t->kind == PG_TYPE) pg_self(body, t->name, mn);
     pg_sh_rename(body, mn);
     if (t->kind == PG_ROUTINE) { body->c[0] = pg_var(mn); node = body; } else { node = ast_node_new(TT_DECL); node->v.sval = ct_strdup("type"); ast_push(node, pg_var(mn)); ast_push(node, body); }
     pg_record(t, mn, node);
@@ -161,6 +172,7 @@ static tree_t *pg_instantiate(pg_ctx *x, tree_t *spec) {
         tree_t *mb = pg_clone(m->body);
         mb->c[0]->c[0] = pg_var(mn);
         pg_subst(mb, t->params, args);
+        pg_self(mb, t->name, mn);
         pg_sh_rename(mb, mn);
         pg_record(m, mn, mb);
         pg_resolve(x, mb);
