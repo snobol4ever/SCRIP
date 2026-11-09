@@ -20,6 +20,7 @@ extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, 
 extern "C" void rt_zdp_ev(void);
 extern "C" void rt_zdp_sm_init(void);
 extern "C" int bb_node_id(IR_t * nd);
+extern "C" int emit_zrow_adead(const IR_t * nd);
 int x86_key_unbacked(int off) { return (g_emit_cfg && (g_emit_cfg->pf.keys_only || (g_emit_cfg->pf.home_frame && off >= g_emit_cfg->pf.kbase))) ? 1 : 0; }
 int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 static void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
@@ -47,6 +48,7 @@ const char * x86_zop(int off, int q, int bump) {
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r != 2 && x86_key_unbacked(off) && _.op_zres && _.op_xa > 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return q ? RDQ("rbp", off - _.op_xk - _.op_xa) : RDD("rbp", off - _.op_xk - _.op_xa);
     if (r != 2 && x86_key_unbacked(off) && _.op_zres) { if (_.op_xd >= 0 && off >= _.op_xk && off < _.op_xk + _.op_xw) return q ? ZCELL(_.op_xd + off - _.op_xk) : ZCELLD(_.op_xd + off - _.op_xk); }
+    if (r != 2 && x86_key_unbacked(off) && _.op_zres && _.node && emit_zrow_adead(_.node)) return q ? ZRES_SPINE(0) : ZCELLD(0);
     if (r != 2 && x86_key_unbacked(off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
@@ -184,6 +186,7 @@ std::string x86_beta_zchk() {
     return x86("lea", "r11", RDQ("rbp", -e)) + x86("cmp", "rsp", "r11") + x86("je", L(986)) + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n") + x86("def", L(986));
 }
 std::string x86_alpha_zchk() {
+    if (_.node && emit_zrow_adead(_.node)) return x86_bomb("alpha of a beta-only box: the plan found no alpha landing on its run (ADEAD)");
     if (!_.node || !x86_resumable_frame()) return std::string();
     int e = emit_zrow_zchk(_.node); if (e == (-2147483647 - 1)) return std::string();
     return x86("lea", "r11", RDQ("rbp", -e)) + x86("cmp", "rsp", "r11") + x86("je", L(987)) + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n") + x86("def", L(987));

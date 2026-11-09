@@ -2354,6 +2354,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * cnt = nd->n_operands > 1 ? nd->operands[1] : NULL;
         int sa = gen ? drive_value_slot(gen) : -1;
         int sc = cnt ? drive_value_slot(cnt) : -1;
+        { const zeta_plan_t * _pr = g_planner.g_zd_rec_p; int _pi = _pr ? zrow_of(nd) : -1;
+            if (_pi >= 0 && _pr->rd && _pr->rdo && _pr->rdo[_pi + 1] > _pr->rdo[_pi] && _pr->rd[_pr->rdo[_pi]].key >= 0) sa = _pr->rd[_pr->rdo[_pi]].key; }
         if (sa < 0 || sc < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa; g_emit.op_sc = sc;
         g_emit.lbl_t0 = g_emitter.g_limit_gen_beta ? g_emitter.g_limit_gen_beta->name : (lbl_ω ? lbl_ω->name : NULL);
@@ -3272,6 +3274,7 @@ extern "C" int emit_zrow_xabs(const IR_t * nd) {
     int ri = (nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
     return (ri < 0 || !r->on[ri] || !r->xb || r->xb[ri] == INT_MIN) ? INT_MIN : r->xb[ri] + r->out[ri];
 }
+extern "C" int emit_zrow_adead(const IR_t * nd) { const zeta_plan_t * r = g_planner.g_zd_rec_p; int ri = (r && nd) ? zrow_of(nd) : -1; return (ri >= 0 && ri < r->n) ? r->zn[ri].adead : 0; }
 extern "C" int emit_zrow_zchk(const IR_t * nd) {
     const zeta_plan_t * r = g_planner.g_zd_rec_p; if (!r || !nd || !getenv("SCRIP_ZD_RTCHECK")) return INT_MIN;
     int ri = (nd == g_emit.node && g_emit.op_zrow >= 0 && g_emit.op_zrow < r->n && r->nodes[g_emit.op_zrow] == nd) ? g_emit.op_zrow : zrow_of(nd);
