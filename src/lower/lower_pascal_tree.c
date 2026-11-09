@@ -4991,6 +4991,7 @@ static void elab_bad(const char *nt, const tree_t *n) { fprintf(stderr, "pascal:
 static void pas_apply_event(const char *ev) {
     if (!strcmp(ev, "iso_error")) g_lower.pas.sem.pas_iso_errors++;
     else if (!strcmp(ev, "mode_iso")) g_lower.pas.sem.pas_mode_iso = 1;
+    else if (!strcmp(ev, "int16")) g_lower.pas.sem.pas_int16 = 1;
     else if (!strcmp(ev, "seen_mode")) g_lower.pas.sem.pas_seen_mode_directive = 1;
     else if (!strncmp(ev, "fnamecall ", 10)) g_lower.pas.sem.pas_fname_is_call = atoi(ev + 10);
     else if (!strncmp(ev, "minenum ", 8)) g_lower.pas.sem.pas_min_enum_size = atoi(ev + 8);

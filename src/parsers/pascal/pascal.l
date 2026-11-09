@@ -32,7 +32,7 @@ static tree_t *pascal_leaf(tree_e kind) {
 }
 void pascal_flip_dialect(int d) { if (pascal_dialect() == PAS_DIALECT_ISO_DEFAULT) { pascal_dialect_set(d); pascal_event("seen_mode"); } }
 static int pascal_hstr_on(void) { if (*pascal_sw_set_p() & (1u << 7)) return (*pascal_sw_on_p() >> 7) & 1u; return pascal_dialect() == PAS_DIALECT_DELPHI; }
-void pascal_stamp_dialect(tree_t *leaf) { if (leaf && pascal_dialect() >= PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("seen_mode")); }
+void pascal_stamp_dialect(tree_t *leaf) { if (leaf && pascal_dialect() >= PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("seen_mode")); if (leaf && pascal_dialect() == PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("int16")); }
 void pascal_pragma_flush(tree_t *root) { for (int i = 0; root && i < pascal_nev; i++) ast_push(root, pascal_attr_of(pascal_ev[i])); pascal_nev = 0; }
 static long long pascal_int_lit(const char *t) {
     errno = 0; unsigned long long v = strtoull(t, NULL, 10);

@@ -57,6 +57,7 @@ typedef struct {
     int pas_crt_raw;
     int pas_dialect_fpc;
     int pas_mode_iso;
+    int pas_int16;
     int pas_fname_is_call;
     int pas_limit_errors;
     int pas_min_enum_size;
