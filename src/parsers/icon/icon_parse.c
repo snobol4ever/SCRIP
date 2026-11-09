@@ -718,42 +718,76 @@ static tree_t *icn_unlock_of(const tree_t *m) {
     return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *icn_unlock_chain(const IcnCrit *st) {
+    tree_t *c = NULL;
+    for (; st; st = st->up) {
+        tree_t *u = icn_unlock_of(st->m);
+        if (!c) c = u;
+        else { tree_t *j = ast_node_new(TT_CONJ); push_child(j, c); push_child(j, u); c = j; }
+    }
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_lock_fill(tree_t *q, const IcnCrit *st) {
+    if (!st) return;
+    icn_lock_fill(q, st->up);
+    tree_t *f = ast_node_new(TT_FNC);
+    push_child(f, e_leaf_sval(TT_VAR, "lock", -1));
+    push_child(f, icn_tree_copy(st->m));
+    push_child(q, f);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *icn_conj2(tree_t *a, tree_t *b) {
     tree_t *c = ast_node_new(TT_CONJ);
     push_child(c, a); push_child(c, b);
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *icn_crit_exit(tree_t *n, const tree_t *m) {
-    if (n->t == TT_PROC_FAIL || (n->t == TT_RETURN && n->n == 0)) return icn_conj2(icn_unlock_of(m), n);
+static tree_t *icn_crit_exit(tree_t *n, const IcnCrit *st) {
+    if (n->t == TT_PROC_FAIL || (n->t == TT_RETURN && n->n == 0)) return icn_conj2(icn_unlock_chain(st), n);
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     tree_t *me = ast_node_new(TT_FNC);
-    push_child(me, one); push_child(me, n->c[0]); push_child(me, icn_unlock_of(m));
+    push_child(me, one); push_child(me, n->c[0]); push_child(me, icn_unlock_chain(st));
     n->c[0] = me;
     tree_t *alt = ast_node_new(TT_ALTERNATE);
-    push_child(alt, n); push_child(alt, icn_conj2(icn_unlock_of(m), e_leaf_sval(TT_VAR, "&fail", -1)));
+    push_child(alt, n); push_child(alt, icn_conj2(icn_unlock_chain(st), e_leaf_sval(TT_VAR, "&fail", -1)));
     return alt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *icn_unlock_after(tree_t *e, const tree_t *m) {
+static tree_t *icn_unlock_after(tree_t *e, const IcnCrit *st) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     tree_t *me = ast_node_new(TT_FNC);
-    push_child(me, one); push_child(me, e); push_child(me, icn_unlock_of(m));
+    push_child(me, one); push_child(me, e); push_child(me, icn_unlock_chain(st));
     tree_t *one2 = ast_node_new(TT_ILIT); one2->v.ival = 1;
     tree_t *lim = ast_node_new(TT_LIMIT);
-    push_child(lim, icn_conj2(icn_unlock_of(m), e_leaf_sval(TT_VAR, "&fail", -1))); push_child(lim, one2);
+    push_child(lim, icn_conj2(icn_unlock_chain(st), e_leaf_sval(TT_VAR, "&fail", -1))); push_child(lim, one2);
     tree_t *alt = ast_node_new(TT_ALTERNATE);
     push_child(alt, me); push_child(alt, lim);
     return alt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_crit_conj(tree_t *par, int i, const tree_t *m) {
+static tree_t *icn_susp_rewrite(tree_t *s, const IcnCrit *st) {
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    tree_t *me = ast_node_new(TT_FNC);
+    push_child(me, one); push_child(me, s->c[0]); push_child(me, icn_unlock_chain(st));
+    s->c[0] = me;
+    tree_t *q = ast_node_new(TT_SEQ_EXPR);
+    icn_lock_fill(q, st);
+    if (s->n > 1) { push_child(q, s->c[1]); s->c[1] = q; }
+    else push_child(s, q);
+    tree_t *b = ast_node_new(TT_SEQ_EXPR);
+    push_child(b, s);
+    icn_lock_fill(b, st);
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_crit_conj(tree_t *par, int i, const IcnCrit *st) {
     tree_t *c = par->c[i], *pv = i > 0 ? par->c[i - 1] : NULL;
     if (par->t == TT_CONJ && i == par->n - 1 && pv && pv->t == TT_FNC && pv->n > 0 && pv->c[0]->t == TT_VAR && !strcmp(pv->c[0]->v.sval, "unlock")) {
-        push_child(par, c); par->c[i] = icn_unlock_of(m);
+        push_child(par, c); par->c[i] = icn_unlock_chain(st);
         return i + 1;
     }
-    par->c[i] = icn_conj2(icn_unlock_of(m), c);
+    par->c[i] = icn_conj2(icn_unlock_chain(st), c);
     return i;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -768,20 +802,22 @@ static tree_t **icn_break_slot(tree_t *n) {
     return n->n && n->c[0]->t != TT_LOOP_NEXT ? &n->c[0] : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_crit_walk(tree_t *n, const tree_t *m, int depth) {
+static void icn_crit_walk(tree_t *n, const IcnCrit *st, int depth) {
     for (int i = 0; i < n->n; i++) {
         tree_t *c = n->c[i];
         if (!c || c->t == TT_CREATE) continue;
+        if (c->t == TT_FNC && c->n > 0 && c->c[0]->t == TT_VAR && c->c[0]->v.sval && !strcmp(c->c[0]->v.sval, "ICN$CRIT")) continue;
         if (c->t == TT_LOOP_BREAK) {
             tree_t **e = icn_break_slot(c), *h = ast_node_new(TT_SEQ_EXPR);
-            if (e) { push_child(h, *e); icn_crit_walk(h, m, depth); *e = h->c[0]; }
+            if (e) { push_child(h, *e); icn_crit_walk(h, st, depth); *e = h->c[0]; }
             if (icn_exit_index(c) <= depth) continue;
-            if (e) *e = icn_unlock_after(*e, m); else i = icn_crit_conj(n, i, m);
+            if (e) *e = icn_unlock_after(*e, st); else i = icn_crit_conj(n, i, st);
             continue;
         }
-        icn_crit_walk(c, m, depth + (c->t == TT_WHILE || c->t == TT_REPEAT || c->t == TT_EVERY));
-        if (c->t == TT_RETURN || c->t == TT_PROC_FAIL) n->c[i] = icn_crit_exit(c, m);
-        else if (c->t == TT_LOOP_NEXT && depth < 1) i = icn_crit_conj(n, i, m);
+        icn_crit_walk(c, st, depth + (c->t == TT_WHILE || c->t == TT_REPEAT || c->t == TT_EVERY));
+        if (c->t == TT_RETURN || c->t == TT_PROC_FAIL) n->c[i] = icn_crit_exit(c, st);
+        else if (c->t == TT_LOOP_NEXT && depth < 1) i = icn_crit_conj(n, i, st);
+        else if (c->t == TT_SUSPEND) n->c[i] = icn_susp_rewrite(c, st);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -882,9 +918,12 @@ static tree_t *parse_ctrl(IcnParser *p) {
         push_child(cs, e_leaf_sval(TT_VAR, "ICN$CRIT", -1));
         push_child(cs, parse_unary(p));
         expect(p, TK_COLON, "critical region");
+        IcnCrit fr = { cs->c[1], p->crit };
+        p->crit = &fr;
         tree_t *holder = ast_node_new(TT_SEQ_EXPR);
         push_child(holder, parse_expr(p));
-        icn_crit_walk(holder, cs->c[1], 0);
+        icn_crit_walk(holder, &fr, 0);
+        p->crit = fr.up;
         push_child(cs, holder->c[0]);
         return cs;
     }
