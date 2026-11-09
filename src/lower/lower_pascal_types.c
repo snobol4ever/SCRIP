@@ -160,7 +160,7 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
             if (p) return 0;
             if (!strcmp(n->v.sval, "true")) { *v = 1; return 1; }
             if (!strcmp(n->v.sval, "false")) { *v = 0; return 1; }
-            if (!strcmp(n->v.sval, "maxint")) { *v = 2147483647; return 1; }
+            if (!strcmp(n->v.sval, "maxint")) { *v = g_lower.pas.sem.pas_int16 ? 32767 : 2147483647; return 1; }
             return 0;
         }
         case TT_PLS:
@@ -912,7 +912,7 @@ void pty_run(tree_t *prog, int fpc) {
     struct pty_state *s = pt_mk();
     s->fpc = fpc;
     s->stats = (long *)ct_zalloc(80, sizeof(long));
-    s->tint = pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
+    s->tint = g_lower.pas.sem.pas_int16 ? pt_ord(PTK_INT, "integer", -32768LL, 32767LL) : pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
     s->tqword = pt_ord(PTK_INT, "qword", 0, 0);
     s->tqword->uns = 1;
     s->tqword->bounded = 0;

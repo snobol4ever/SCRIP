@@ -3360,6 +3360,8 @@ static char pas_var_decl_class(const char *name) {
     }
     return k;
 }
+static const char *pas_int_name(const char *n) { return (n && g_lower.pas.sem.pas_int16 && !strcmp(n, "integer")) ? "smallint" : n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi) {
     int n = 0;
     long long l = 0, h = -1;
@@ -3371,8 +3373,8 @@ static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi) {
         int ok = 0;
         for (int guard = 0; t && guard < 8 && !ok; guard++) {
             if (!strcmp(t, "integer")) {
-                cl = -2147483647LL;
-                ch = 2147483647LL;
+                cl = g_lower.pas.sem.pas_int16 ? -32768LL : -2147483647LL;
+                ch = g_lower.pas.sem.pas_int16 ? 32767LL : 2147483647LL;
                 ok = 1;
             } else if (!strcmp(t, "char")) {
                 cl = 0;
@@ -3623,6 +3625,7 @@ static long long pas_wrap_mask_of_type(const char *t) {
 }
 static int pas_wrap_sbits_of_type(const char *t) {
     for (int g = 0; t && g < 8; g++) {
+        t = pas_int_name(t);
         if (!strcmp(t, "shortint") || !strcmp(t, "int8")) return 8;
         if (!strcmp(t, "smallint") || !strcmp(t, "int16")) return 16;
         if (!strcmp(t, "longint") || !strcmp(t, "int32") || !strcmp(t, "integer")) return 32;
@@ -3754,7 +3757,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "paramcount") && !pas_is_func(name) && !pas_scalarvartype_get(name)) return mk_fnc0("__pas_paramcount");
     long long cv;
     if (pas_const_get(name, &cv)) return pas_is_charvar(name) ? mk_chrlit(ilit(cv)) : ilit(cv);
-    if (name && !strcmp(name, "maxint") && !pas_scalarvartype_get(name) && !pas_is_func(name)) return ilit(2147483647);
+    if (name && !strcmp(name, "maxint") && !pas_scalarvartype_get(name) && !pas_is_func(name)) return ilit(g_lower.pas.sem.pas_int16 ? 32767 : 2147483647);
     double rv;
     if (pas_rconst_get(name, &rv)) return flit(rv);
     const char *sv = pas_sconst_get(name);
@@ -4046,6 +4049,7 @@ static int pas_lohi_bits(tree_t *a) {
 }
 static int pas_sizeof_builtin_size(const char *n, long long *out) {
     if (!n) return 0;
+    n = pas_int_name(n);
     static const struct {
         const char *n;
         long long sz;
@@ -4078,6 +4082,7 @@ static int pas_sizeof_lookup(const char *name, long long *out) {
 }
 static int pas_ordinal_builtin_bound(const char *n, long long *lo, long long *hi) {
     if (!n) return 0;
+    n = pas_int_name(n);
     static const struct {
         const char *n;
         long long lo;
@@ -4152,7 +4157,7 @@ static int pas_raw_int_w(const pty_t *et, long long *w, long long *sg) {
     if (et && et->k == PTK_CHAR) { *w = 1; *sg = 0; return 1; }
     if (et && et->k == PTK_ENUM && et->hi >= 0 && et->hi < 256) { *w = 1; *sg = 0; return 1; }
     if (!et || et->k != PTK_INT || !et->name) return 0;
-    const char *n = et->name;
+    const char *n = pas_int_name(et->name);
     if (!strcmp(n, "byte") || !strcmp(n, "uint8")) { *w = 1; *sg = 0; return 1; }
     if (!strcmp(n, "shortint") || !strcmp(n, "int8")) { *w = 1; *sg = 1; return 1; }
     if (!strcmp(n, "word") || !strcmp(n, "uint16")) { *w = 2; *sg = 0; return 1; }
@@ -6836,7 +6841,7 @@ static pval E_scalar_constant(const tree_t *n) {
             long long cv = 0;
             if (v[1].str && !strcmp(v[1].str, "true")) cv = 1;
             else if (v[1].str && !strcmp(v[1].str, "false")) cv = 0;
-            else if (!pas_const_get(v[1].str, &cv) && v[1].str && !strcmp(v[1].str, "maxint")) cv = 2147483647;
+            else if (!pas_const_get(v[1].str, &cv) && v[1].str && !strcmp(v[1].str, "maxint")) cv = g_lower.pas.sem.pas_int16 ? 32767 : 2147483647;
             g_lower.pas.sem.pas_last_const_enum = pas_const_isenum(v[1].str);
             out.ival = cv;
         }
