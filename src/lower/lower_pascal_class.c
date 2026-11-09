@@ -509,7 +509,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e);
 static tree_t *pc_stmt(pc_ctx *x, tree_t *s);
 static tree_t *pc_mcall(pc_ctx *x, tree_t *obj, pc_meth *m, tree_t *args, int from, int direct) {
     tree_t *call;
-    if (pc_eq(m->kind, "class")) call = pc_fnc(pc_impl_name(m->owner, m->name));
+    if (pc_eq(m->kind, "class") || pc_eq(m->kind, "operator")) call = pc_fnc(pc_impl_name(m->owner, m->name));
     else if (pc_eq(m->kind, "constructor") && !m->has_impl) return ast_node_new(TT_SUCCEED);
     else {
         pc_meth *root = direct ? NULL : pc_meth_root(m);
@@ -585,6 +585,11 @@ static const char * const pc_tobject_names[] = { "Create", "Destroy", "Free", "I
 static int pc_tobject_member(const char *n) { for (int i = 0; pc_tobject_names[i]; i++) if (pc_eq(pc_tobject_names[i], n)) return 1; return 0; }
 static void pc_no_member(pc_class *c, const char *n) { fprintf(stderr, "pascal: '%s' is not a member of class '%s' or of its ancestors\n", n, c->raw); pas_note_error(); }
 static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
+    if (PC_IS(e, TT_ADD) && e->n == 2) {
+        pc_ty a = pc_type(x, e->c[0]);
+        pc_meth *m = a.cls && a.cls->isrec ? pc_find_meth(a.cls, "add") : NULL;
+        if (m && pc_eq(m->kind, "operator")) { tree_t *args = ast_node_new(TT_VLIST); ast_push(args, e->c[0]); ast_push(args, e->c[1]); return pc_mcall(x, NULL, m, args, 0, 0); }
+    }
     if (!e) return e;
     if (PC_IS(e, TT_VAR)) {
         const char *n = pc_sv(e);
@@ -950,7 +955,7 @@ static void pc_routine(pc_ctx *x, tree_t *r) {
             const char *impl = pc_impl_name(c, m->name);
             r->c[0] = pc_var(impl);
             r->v.sval = NULL;
-            int cls_m = pc_eq(m->kind, "class");
+            int cls_m = pc_eq(m->kind, "class") || pc_eq(m->kind, "operator");
             if (!cls_m) {
                 tree_t *np = ast_node_new(TT_PARAMS);
                 tree_t *sd = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("self")), pc_var(c->name));

@@ -466,6 +466,7 @@ record_field:
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     |CONSTRUCTORSY IDENT pv_mark parameter_list_opt { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "constructor"); }
     |DESTRUCTORSY IDENT pv_mark parameter_list_opt { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "destructor"); }
+    |CLASSSY IDENT IDENT pv_mark parameter_list_opt COLON result_type { if (strcasecmp($2->v.sval, "operator")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "operator"); }
     |{ $$ = NULL; }
     ;
 case_arm_mark:
@@ -518,6 +519,10 @@ procedure_decl:
     }
     |CLASSSY PROCEDURESY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $11), "class");
+    }
+    |CLASSSY IDENT IDENT PERIOD IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
+        if (strcasecmp($2->v.sval, "operator")) { pascal_yyerror("syntax error"); YYERROR; }
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $9), $13), "operator");
     }
     |CLASSSY FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $9), $13), "class");
