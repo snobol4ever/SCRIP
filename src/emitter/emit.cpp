@@ -1022,6 +1022,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     if (_ri < 0) { fprintf(stderr, "FATAL emitter: node %s has no plan row (ARCH-THREE-ZETAS-EMISSION 6.3: the row is the emitter's one input)\n", nd ? bb_op_name(nd->op) : "NONE"); abort(); }
     const zeta_plan_t * _zr = g_planner.g_zd_rec_p; const znode_t * _zn = &_zr->zn[_ri]; const zrd_t * _rdp = _zr->rd + _zr->rdo[_ri]; const int _rdn = _zr->rdo[_ri + 1] - _zr->rdo[_ri];
     g_emit.op_zrow = _ri; g_emit.op_res_live = _zn->rlive;
+    if (_zn->unr) { x86_begin();
+        bb_emit_x86(x86_deflabel(X86P_ALPHA) + x86_bomb("unreached box: the plan found no alpha landing on its run (UNREACHED)") + x86_deflabel(X86P_BETA) + x86_bomb("unreached box entered at beta"));
+        return 0; }
     { if (g_emitter.walk_bb_node_inner__ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); g_emitter.walk_bb_node_inner__ba = (e && *e == '0') ? 0 : 1;
         g_emitter.walk_bb_node_inner__bo = getenv("SCRIP_BB_ONLY");
         g_emitter.walk_bb_node_inner__bs = getenv("SCRIP_BB_SKIP"); }
