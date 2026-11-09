@@ -192,6 +192,7 @@ static const char *pas_rectype_field_typename(const char *rn, long idx);
 static int pas_dyn_depth(tree_t *e, const char **elem);
 static int pas_dyn_elem_is_string(tree_t *base);
 static long long pas_wrap_mask_of_type(const char *t);
+static tree_t *pas_wrap_to_tn(tree_t *rhs, const char *tn, int arr);
 static int pas_formal_is_dynarr(const char *callee, int idx);
 static int pas_formal_elem_is_string(const char *callee, int idx);
 static tree_t *mk_set_ctor(PNodeList *elems);
@@ -1527,6 +1528,11 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 {
                     long long _rd[4];
                     if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx) && pas_row_designator(val, _rd)) val = mk_row_call("__pas_row_get", val, _rd, NULL);
+                }
+                if (val && val->t != TT_ILIT && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx)) {
+                    const pty_t *_wf = pty_formal_type(name, _pidx);
+                    const char *_wt = _wf ? pty_name_of(_wf) : NULL;
+                    if (_wt) val = pas_wrap_to_tn(val, _wt, 0);
                 }
                 if (g_lower.pas.sem.pas_ptrcell && val && (pas_is_proc(name) || pas_is_func(name))) {
                     const pty_t *_ft = pty_formal_type(name, _pidx), *_at = pty_of_low(val);
@@ -3635,6 +3641,39 @@ static int pas_wrap_sbits_of_type(const char *t) {
     }
     return 0;
 }
+static const char *pas_store_tn(tree_t *sel) {
+    if (!sel) return NULL;
+    if (sel->t == TT_VAR && sel->v.sval) return pas_scalarvartype_get(sel->v.sval);
+    if (sel->t == TT_FIELD && sel->n == 2 && sel->c[1] && sel->c[1]->t == TT_VAR && sel->c[1]->v.sval) {
+        const char *fn = sel->c[1]->v.sval;
+        const pty_t *r = sel->c[0] ? pty_of_src(sel->c[0]) : NULL;
+        if (r && r->k == PTK_POINTER) r = pty_pointee(r);
+        for (int i = 0; r && r->k == PTK_RECORD && i < pty_rec_nf(r); i++) { struct pty_fld o; if (pty_rec_fld(r, i, &o) && o.name && !strcasecmp(o.name, fn)) return o.ft ? pty_name_of(o.ft) : NULL; }
+        return NULL;
+    }
+    if (sel->t == TT_IDX && sel->n == 2 && sel->c[0] && sel->c[1]) {
+        tree_t *b = sel->c[0];
+        struct pty_fld o;
+        if (sel->c[1]->t == TT_ILIT) {
+            const char *rn = b->t == TT_VAR && b->v.sval ? NULL : pas_designator_rectype(b);
+            if (b->t == TT_VAR && b->v.sval) {
+                const pty_t *rt = pas_rvt(b->v.sval);
+                if (rt && pty_rec_fld(rt, (int) sel->c[1]->v.ival, &o)) return o.ft ? pty_name_of(o.ft) : NULL;
+            } else if (rn && pas_rtf(rn, (long) sel->c[1]->v.ival, &o)) return o.ft ? pty_name_of(o.ft) : NULL;
+        }
+        if (b->t == TT_VAR && b->v.sval) return pas_scalarvartype_get(b->v.sval);
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pas_wrap_to_tn(tree_t *rhs, const char *tn, int arr) {
+    long long _wm = pas_wrap_mask_of_type(tn);
+    if (_wm) rhs = mk_fnc2("iand", rhs, ilit(_wm));
+    int _sb = arr ? 0 : pas_wrap_sbits_of_type(tn);
+    if (_sb) rhs = bin(TT_SUB, mk_fnc2("ixor", mk_fnc2("iand", rhs, ilit((1LL << _sb) - 1)), ilit(1LL << (_sb - 1))), ilit(1LL << (_sb - 1)));
+    return rhs;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (!g_lower.pas.sem.pas_dialect_fpc && sel && sel->t == TT_IDX && sel->n >= 1 && sel->c[0] && sel->c[0]->t == TT_FNC && sel->c[0]->n >= 1 && sel->c[0]->c[0] && sel->c[0]->c[0]->t == TT_VAR &&
         sel->c[0]->c[0]->v.sval && pas_curfunc_name() && !strcmp(sel->c[0]->c[0]->v.sval, pas_curfunc_name())) {
@@ -3644,12 +3683,11 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         g_lower.pas.sem.pas_iso_errors++;
     }
     { long long _rd[4]; if (pas_row_designator(rhs, _rd)) rhs = mk_row_call("__pas_row_get", rhs, _rd, NULL); if (pas_row_designator(sel, _rd)) return mk_row_call("__pas_row_set", sel, _rd, rhs); }
-    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_ILIT && !pas_array_isdyn(sel->v.sval)) {
-        long long _wm = pas_wrap_mask_of_type(pas_scalarvartype_get(sel->v.sval));
-        if (_wm) rhs = mk_fnc2("iand", rhs, ilit(_wm));
+    if (rhs && rhs->t != TT_ILIT && !(sel && sel->t == TT_VAR && sel->v.sval && pas_array_isdyn(sel->v.sval))) {
+        const char *_tn = pas_store_tn(sel);
         long long _ad[4], _ah;
-        int _sb = pas_array_dims(sel->v.sval, _ad) || pas_array_high_get(sel->v.sval, &_ah) ? 0 : pas_wrap_sbits_of_type(pas_scalarvartype_get(sel->v.sval));
-        if (_sb) rhs = bin(TT_SUB, mk_fnc2("ixor", mk_fnc2("iand", rhs, ilit((1LL << _sb) - 1)), ilit(1LL << (_sb - 1))), ilit(1LL << (_sb - 1)));
+        int _arr = sel && sel->t == TT_VAR && sel->v.sval && (pas_array_dims(sel->v.sval, _ad) || pas_array_high_get(sel->v.sval, &_ah));
+        if (_tn) rhs = pas_wrap_to_tn(rhs, _tn, _arr);
     }
     if (sel && sel->t == TT_FNC && sel->n == 5 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_rdecode") && sel->c[1]) {
         tree_t *e0 = sel->c[1];
