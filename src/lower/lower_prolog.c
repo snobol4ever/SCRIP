@@ -2734,10 +2734,11 @@ static tree_t * pl_pp_runtime(const tree_t * h, const tree_t * pp) {
     cv2->v.ival = cv->v.ival;
     iv2->v.ival = iv->v.ival;
     tree_t * pc = pl_cc_fnc1("$pl_pp_pcheck", (tree_t *) pp);
-    return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h),
+    return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_enum", (tree_t *) h),
+        pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h),
         pl_cc_fnc2(",", pc,
         pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv),
-        pl_cc_fnc2(",", pl_between_own(pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv)), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))));
+        pl_cc_fnc2(",", pl_between_own(pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv)), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp))))));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -3738,7 +3739,13 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
                 if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[1]) {
                     tree_t * pg = pl_cc_fnc2("predicate_property", (tree_t *) h->c[1], (tree_t *) t->c[1]);
-                    if (h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME) return goal(cx, pg, γnext, ωfail, entry_out);
+                    int lm = h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME;
+                    if (lm && g_stage2.pl_dialect == PL_DIALECT_SWI && h->c[0]->v.sval && strcmp(h->c[0]->v.sval, "user")) {
+                        tree_t * qh = pl_cc_freshvar();
+                        tree_t * qg = pl_cc_ite(pl_cc_fnc3("$mod_q1", (tree_t *) h->c[0], (tree_t *) h->c[1], qh), pl_cc_fnc2("predicate_property", qh, (tree_t *) t->c[1]), pg);
+                        return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_enum", (tree_t *) h), qg), γnext, ωfail, entry_out);
+                    }
+                    if (lm) return goal(cx, pg, γnext, ωfail, entry_out);
                     return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("ignore", pl_cc_fnc2("=", (tree_t *) h->c[0], (tree_t *) pl_atom_goal("user"))), pg), γnext, ωfail, entry_out);
                 }
                 const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;

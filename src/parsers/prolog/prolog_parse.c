@@ -1982,6 +1982,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$gnu_dcg_tl'(L,S0,S,O0,t,Gs0,Gs):-'$gnu_dcg_cp'(L,L,S,X),(O0==t->S0=X,Gs0=Gs;Gs0=[S0=X|Gs]).\n"
     "'$gnu_dcg_cp'([H|T],L,S,[H|R]):-(var(T)->throw(error(instantiation_error,_));T==[]->R=S;T=[_|_]->'$gnu_dcg_cp'(T,L,S,R);throw(error(type_error(list,L),_))).\n"
     "'$predicate_property1'(F,N,built_in):-'$gnu_builtin'(F,N),\\+current_predicate(F/N).\n"
+    "'$pl_pp_enum'(H):-(current_prolog_flag('$dialect',swi),(var(H)->M=user,V=H;H=M:V,var(V))->current_predicate(M:N/A),\\+sub_atom(N,0,1,_,'$'),functor(V,N,A);true).\n"
     "'$pl_pp_pcheck'(P):-(var(P);\\+current_prolog_flag('$dialect',gnu)),!.\n"
     "'$pl_pp_pcheck'(P):-callable(P),functor(P,N,_),memberchk(N,[static,dynamic,private,public,monofile,multifile,user,built_in,built_in_fd,control_construct,native_code,"
         "prolog_file,prolog_line,meta_predicate,defined,discontiguous,exported,imported_from,foreign,iso,number_of_clauses,native,tabled,incremental,volatile,transparent,nodebug,visible,"
@@ -4659,7 +4660,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     int hk = pl_libs_hook_lines(lp, nlibs, uprog);
     hk |= pl_libs_autoload_hook_lines(lp, nlibs, uprog);
-    if (hk) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$pl_pp_pcheck"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
+    if (hk) { pl_cv_add(referenced, "$load_item"); pl_cv_add(referenced, "$pl_pp_pcheck"); pl_cv_add(referenced, "$pl_pp_enum"); pl_cv_add(referenced, "$meta_add"); pl_cv_add(referenced, "goal_expansion"); pl_cv_add(referenced, "term_expansion"); }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         for (int j = 0; j < nlibs; j++) {
@@ -4773,7 +4774,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) { pl_cv_add(referenced, "$phrase"); pl_cv_add(referenced, "$phrase_rt"); }
-        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) pl_cv_add(referenced, "$pl_pp_pcheck");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) { pl_cv_add(referenced, "$pl_pp_pcheck"); pl_cv_add(referenced, "$pl_pp_enum"); pl_cv_add(referenced, "$mod_q1"); }
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) { pl_cv_add(referenced, "$ssu_begin"); pl_cv_add(referenced, "$ssu_check"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
@@ -5047,9 +5048,9 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     pl_module_imports_referenced(prog, &referenced, &modimp);
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); pl_cv_add(&referenced, "$load_items"); pl_cv_add(&refkeys, pl_pred_key("$load_items", 3)); }
-    if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
+    if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) { pl_cv_add(&referenced, "$pl_pp_pcheck"); pl_cv_add(&referenced, "$pl_pp_enum"); }
     if (pl_cv_has(&referenced, "clause")) { pl_cv_add(&referenced, "$pl_clause_q"); pl_cv_add(&referenced, "$mod_q1"); }
-    if (pl_cv_has(&referenced, "predicate_property")) { pl_cv_add(&referenced, "$pl_decl_flag"); pl_cv_add(&referenced, "$pl_imported_from"); }
+    if (pl_cv_has(&referenced, "predicate_property")) { pl_cv_add(&referenced, "$pl_decl_flag"); pl_cv_add(&referenced, "$pl_imported_from"); pl_cv_add(&referenced, "$mod_q1"); }
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "call_with_depth_limit")) pl_cv_add(&referenced, "$dl_findall");
@@ -5182,7 +5183,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (PlClause *cl = prog->head; cl && !dot; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) dot = 1;
         if (dot) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); }
     }
-    if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) { pl_cv_add(&referenced, "$load_item"); pl_cv_add(&referenced, "$pl_pp_pcheck"); }
+    if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) { pl_cv_add(&referenced, "$load_item"); pl_cv_add(&referenced, "$pl_pp_pcheck"); pl_cv_add(&referenced, "$pl_pp_enum"); }
     if (pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$meta_add");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
@@ -5301,7 +5302,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
                 if (pl_cv_has(&calls[i], "between")) { pl_cv_add(&calls[i], "$between_test"); pl_cv_add(&calls[i], "$between_big"); }
                 if (pl_cv_has(&calls[i], "erase")) { pl_cv_add(&calls[i], "$rec_ref"); pl_cv_add(&calls[i], "$rec_erase"); }
                 if (pl_cv_has(&calls[i], "current_predicate")) pl_cv_add(&calls[i], "$cp_mq");
-                if (pl_cv_has(&calls[i], "predicate_property")) { pl_cv_add(&calls[i], "$pl_decl_flag"); pl_cv_add(&calls[i], "$pl_imported_from"); pl_cv_add(&calls[i], "$pl_pp_pcheck"); }
+                if (pl_cv_has(&calls[i], "predicate_property")) { pl_cv_add(&calls[i], "$pl_decl_flag"); pl_cv_add(&calls[i], "$pl_imported_from"); pl_cv_add(&calls[i], "$pl_pp_pcheck"); pl_cv_add(&calls[i], "$pl_pp_enum"); pl_cv_add(&calls[i], "$mod_q1"); }
                 if (pl_cv_has(&calls[i], "with_output_to")) { pl_cv_add(&calls[i], "$wot_stream_sink"); pl_cv_add(&calls[i], "$wot_stream"); }
                 cdone[i] = 1;
             }
