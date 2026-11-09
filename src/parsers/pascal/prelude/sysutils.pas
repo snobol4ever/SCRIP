@@ -66,6 +66,20 @@ type
   EHeapMemoryError = class(Exception);
   EInvalidPointer = class(EHeapMemoryError);
   EOutOfMemory = class(EHeapMemoryError);
+  TStringBuilder = class
+  private
+    FText: string;
+  public
+    constructor Create;
+    procedure Append(const s: string); overload;
+    procedure Append(c: char); overload;
+    procedure Append(c: char; n: integer); overload;
+    procedure Append(i: integer); overload;
+    procedure AppendFormat(const fmt: string; const args: array of const);
+    procedure Clear;
+    procedure Free;
+    function ToString: string;
+  end;
 function IntToStr(n: integer): string;
 function IntToStr(n: qword): string;
 function StrToInt(s: string): integer;
@@ -279,6 +293,42 @@ end;
 function Exception.ToString: string;
 begin
   ToString := ClassName + ': ' + FMessage
+end;
+constructor TStringBuilder.Create;
+begin
+  FText := ''
+end;
+procedure TStringBuilder.Append(const s: string);
+begin
+  FText := FText + s
+end;
+procedure TStringBuilder.Append(c: char);
+begin
+  FText := FText + c
+end;
+procedure TStringBuilder.Append(c: char; n: integer);
+var k: integer;
+begin
+  for k := 1 to n do FText := FText + c
+end;
+procedure TStringBuilder.Append(i: integer);
+begin
+  FText := FText + IntToStr(i)
+end;
+procedure TStringBuilder.AppendFormat(const fmt: string; const args: array of const);
+begin
+  FText := FText + Format(fmt, args)
+end;
+procedure TStringBuilder.Clear;
+begin
+  FText := ''
+end;
+procedure TStringBuilder.Free;
+begin
+end;
+function TStringBuilder.ToString: string;
+begin
+  ToString := FText
 end;
 function IntToStr(n: integer): string;
 var r: string; neg: boolean;
