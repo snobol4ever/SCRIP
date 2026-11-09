@@ -704,7 +704,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *fil
 typedef struct { const char *mod; const char *name; int ar; } pl_mkey_t;
 typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; cv_t imps; int reflects; } pl_mods_t;
 typedef struct { char nm[27]; int ar; char spec[27]; } pl_mspec_t;
-static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
+static const pl_mspec_t pl_mod_meta_builtins[] = { { "freeze", 2, "-0" }, { "when", 2, "-0" }, { "call", 1, "0" },{ "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
     { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
     { "ignore", 1, "0" }, { "catch", 3, "0-0" }, { "bagof", 3, "-^-" }, { "setof", 3, "-^-" }, { "aggregate_all", 3, "-0-" }, { "aggregate_all", 4, "--0-" }, { "call_cleanup", 2, "00" },
     { "setup_call_cleanup", 3, "000" }, { "setup_call_catcher_cleanup", 4, "00-0" }, { "time", 1, "0" }, { "with_output_to", 2, "-0" }, { "maplist", 2, "1-" }, { "maplist", 3, "2--" }, { "maplist", 4, "3---" }, { "maplist", 5, "4----" },
@@ -1002,7 +1002,7 @@ static void pl_mod_args(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
             else if (ds && pl_mod_atomish(ds) && (!strcmp(ds->v.sval, ":") || !strcmp(ds->v.sval, "^"))) k = ds->v.sval[0];
         } else k = spec[i];
         if (k == '0') {
-            if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) {
+            if ((declared || !strcmp(nm, "freeze") || !strcmp(nm, "when")) && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) {
                 if (!(g->c[i]->t == TT_FNC && g->c[i]->v.sval && !strcmp(g->c[i]->v.sval, ":") && g->c[i]->n == 2 && pl_mod_atomish(g->c[i]->c[0]))) g->c[i] = pl_mod_qualify(m1, g->c[i]);
             }
             else { pl_mod_goal(ms, m1, m2, g->c[i], trans); if (pl_mod_var_wraps(m1, g->c[i], ctx)) g->c[i] = pl_mod_var_wrap(m1, trans, g->c[i]); }
