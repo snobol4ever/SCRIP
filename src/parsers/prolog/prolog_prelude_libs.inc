@@ -31595,16 +31595,8 @@ static const char PL_PRELUDE_LIB_66_SRC[] =
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_EXPORTS[] = {
-    { "setting", 4 },
-    { "setting", 2 },
-    { "set_setting", 2 },
-    { "set_setting_default", 2 },
-    { "restore_setting", 1 },
-    { "current_setting", 1 },
-    { "save_settings", 0 },
-    { "save_settings", 1 },
-    { "load_settings", 1 },
-    { "load_settings", 2 },
+    { "safe_goal", 1 },
+    { "safe_call", 1 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_67_SHADOWS[] = {
@@ -31618,9 +31610,915 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_67_OPS[] = {
 };
 static const char *const PL_PRELUDE_LIB_67_LOADS[] = { 0 };
 static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_67_METAS[] = {
+    { "safe_call", 1, "safe_call(0)" },
+    { "safe_goal", 1, "safe_goal(:)" },
     { "", 0, "" }
 };
 static const char PL_PRELUDE_LIB_67_SRC[] =
+    ":- dynamic 'safe_meta_predicate'/1, 'safe_meta'/3, 'safe_global_variable'/1, 'safe_directive'/1.\n"
+    ":- '$meta_spec'((\n"
+    "    safe_goal(:),\n"
+    "    safe_call(0))).\n"
+    "safe_call(Goal0) :-\n"
+    "    expand_goal(Goal0, Goal),\n"
+    "    safe_goal(Goal),\n"
+    "    call(Goal).\n"
+    "safe_goal(M:Goal) :-\n"
+    "    empty_assoc(Safe0),\n"
+    "    catch('$sandbox_safe'(Goal, M, [], Safe0, _), E, true),\n"
+    "    !,\n"
+    "    nb_delete(sandbox_last_error),\n"
+    "    (   var(E)\n"
+    "    ->  true\n"
+    "    ;   throw(E)\n"
+    "    ).\n"
+    "safe_goal(_) :-\n"
+    "    nb_current(sandbox_last_error, E),\n"
+    "    !,\n"
+    "    nb_delete(sandbox_last_error),\n"
+    "    throw(E).\n"
+    "safe_goal(G) :-\n"
+    "    debug(sandbox(fail), 'safe_goal/1 failed for ~p', [G]),\n"
+    "    throw(error(instantiation_error, sandbox(G, []))).\n"
+    "'$sandbox_safe'(V, _, Parents, _, _) :-\n"
+    "    var(V),\n"
+    "    !,\n"
+    "    Error = error(instantiation_error, sandbox(V, Parents)),\n"
+    "    nb_setval(sandbox_last_error, Error),\n"
+    "    throw(Error).\n"
+    "'$sandbox_safe'(M:G, _, Parents, Safe0, Safe) :-\n"
+    "    !,\n"
+    "    must_be(atom, M),\n"
+    "    must_be(callable, G),\n"
+    "    '$sandbox_known_module'(M:G, Parents),\n"
+    "    (   predicate_property(M:G, imported_from(M2))\n"
+    "    ->  true\n"
+    "    ;   M2 = M\n"
+    "    ),\n"
+    "    (   (   '$sandbox_safe_primitive'(M2:G)\n"
+    "        ;   '$sandbox_safe_primitive'(G),\n"
+    "            predicate_property(G, iso)\n"
+    "        )\n"
+    "    ->  Safe = Safe0\n"
+    "    ;   (   predicate_property(M:G, exported)\n"
+    "        ;   predicate_property(M:G, public)\n"
+    "        ;   predicate_property(M:G, multifile)\n"
+    "        ;   predicate_property(M:G, iso)\n"
+    "        ;   memberchk(M:_, Parents)\n"
+    "        )\n"
+    "    ->  '$sandbox_safe'(G, M, Parents, Safe0, Safe)\n"
+    "    ;   throw(error(permission_error(call, sandboxed, M:G),\n"
+    "                    sandbox(M:G, Parents)))\n"
+    "    ).\n"
+    "'$sandbox_safe'(G, _, Parents, _, _) :-\n"
+    "    debugging(sandbox(show)),\n"
+    "    length(Parents, Level),\n"
+    "    debug(sandbox(show), '[~D] SAFE ~q?', [Level, G]),\n"
+    "    fail.\n"
+    "'$sandbox_safe'(G, _, Parents, Safe, Safe) :-\n"
+    "    catch('$sandbox_safe_primitive'(G),\n"
+    "          error(instantiation_error, _),\n"
+    "          '$sandbox_rethrow_instantition_error'([G|Parents])),\n"
+    "    predicate_property(G, iso),\n"
+    "    !.\n"
+    "'$sandbox_safe'(G, M, Parents, Safe, Safe) :-\n"
+    "    '$sandbox_known_module'(M:G, Parents),\n"
+    "    (   predicate_property(M:G, imported_from(M2))\n"
+    "    ->  true\n"
+    "    ;   M2 = M\n"
+    "    ),\n"
+    "    (   catch('$sandbox_safe_primitive'(M2:G),\n"
+    "              error(instantiation_error, _),\n"
+    "              '$sandbox_rethrow_instantition_error'([M2:G|Parents]))\n"
+    "    ;   predicate_property(M2:G, number_of_rules(0))\n"
+    "    ),\n"
+    "    !.\n"
+    "'$sandbox_safe'(G, M, Parents, Safe0, Safe) :-\n"
+    "    predicate_property(G, iso),\n"
+    "    '$sandbox_safe_meta_call'(G, M, Called),\n"
+    "    !,\n"
+    "    '$sandbox_add_iso_parent'(G, Parents, Parents1),\n"
+    "    '$sandbox_safe_list'(Called, M, Parents1, Safe0, Safe).\n"
+    "'$sandbox_safe'(G, M, Parents, Safe0, Safe) :-\n"
+    "    (   predicate_property(M:G, imported_from(M2))\n"
+    "    ->  true\n"
+    "    ;   M2 = M\n"
+    "    ),\n"
+    "    '$sandbox_safe_meta_call'(M2:G, M, Called),\n"
+    "    !,\n"
+    "    '$sandbox_safe_list'(Called, M, Parents, Safe0, Safe).\n"
+    "'$sandbox_safe'(G, M, Parents, Safe0, Safe) :-\n"
+    "    '$sandbox_goal_id'(M:G, Id, Gen),\n"
+    "    (   get_assoc(Id, Safe0, _)\n"
+    "    ->  Safe = Safe0\n"
+    "    ;   put_assoc(Id, Safe0, true, Safe1),\n"
+    "        (   Gen == M:G\n"
+    "        ->  '$sandbox_safe_clauses'(Gen, M, [Id|Parents], Safe1, Safe)\n"
+    "        ;   catch('$sandbox_safe_clauses'(Gen, M, [Id|Parents], Safe1, Safe),\n"
+    "                  error(instantiation_error, Ctx),\n"
+    "                  '$sandbox_unsafe'(Parents, Ctx))\n"
+    "        )\n"
+    "    ),\n"
+    "    !.\n"
+    "'$sandbox_safe'(G, M, Parents, _, _) :-\n"
+    "    debug(sandbox(fail),\n"
+    "          'safe/1 failed for ~p (parents:~p)', [M:G, Parents]),\n"
+    "    fail.\n"
+    "'$sandbox_unsafe'(Parents, Var) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    nb_setval(sandbox_last_error,\n"
+    "              error(instantiation_error, sandbox(_, Parents))),\n"
+    "    fail.\n"
+    "'$sandbox_unsafe'(_Parents, Ctx) :-\n"
+    "    Ctx = sandbox(_,_),\n"
+    "    nb_setval(sandbox_last_error,\n"
+    "              error(instantiation_error, Ctx)),\n"
+    "    fail.\n"
+    "'$sandbox_rethrow_instantition_error'(Parents) :-\n"
+    "    throw(error(instantiation_error, sandbox(_, Parents))).\n"
+    "'$sandbox_safe_clauses'(G, M, Parents, Safe0, Safe) :-\n"
+    "    predicate_property(M:G, interpreted),\n"
+    "    '$sandbox_def_module'(M:G, MD:QG),\n"
+    "    \\+ '$sandbox_compiled'(MD:QG),\n"
+    "    !,\n"
+    "    findall(Ref-Body, clause(MD:QG, Body, Ref), Bodies),\n"
+    "    '$sandbox_safe_bodies'(Bodies, MD, Parents, Safe0, Safe).\n"
+    "'$sandbox_safe_clauses'(G, M, [_|Parents], _, _) :-\n"
+    "    predicate_property(M:G, visible),\n"
+    "    !,\n"
+    "    throw(error(permission_error(call, sandboxed, G),\n"
+    "                sandbox(M:G, Parents))).\n"
+    "'$sandbox_safe_clauses'(_, _, [G|Parents], _, _) :-\n"
+    "    throw(error(existence_error(procedure, G),\n"
+    "                sandbox(G, Parents))).\n"
+    "'$sandbox_compiled'(system:(@(_,_))).\n"
+    "'$sandbox_known_module'(M:_, _) :-\n"
+    "    current_module(M),\n"
+    "    !.\n"
+    "'$sandbox_known_module'(M:G, Parents) :-\n"
+    "    throw(error(permission_error(call, sandboxed, M:G),\n"
+    "                sandbox(M:G, Parents))).\n"
+    "'$sandbox_add_iso_parent'(G, Parents, Parents) :-\n"
+    "    '$sandbox_is_control'(G),\n"
+    "    !.\n"
+    "'$sandbox_add_iso_parent'(G, Parents, [G|Parents]).\n"
+    "'$sandbox_is_control'((_,_)).\n"
+    "'$sandbox_is_control'((_;_)).\n"
+    "'$sandbox_is_control'((_->_)).\n"
+    "'$sandbox_is_control'((_*->_)).\n"
+    "'$sandbox_is_control'(\\+(_)).\n"
+    "'$sandbox_safe_bodies'([], _, _, Safe, Safe).\n"
+    "'$sandbox_safe_bodies'([Ref-H|T], M, Parents, Safe0, Safe) :-\n"
+    "    (   H = M2:H2, nonvar(M2),\n"
+    "        clause_property(Ref, module(M2))\n"
+    "    ->  copy_term(H2, H3),\n"
+    "        CM = M2\n"
+    "    ;   copy_term(H, H3),\n"
+    "        CM = M\n"
+    "    ),\n"
+    "    '$sandbox_safe'(H3, CM, Parents, Safe0, Safe1),\n"
+    "    '$sandbox_safe_bodies'(T, M, Parents, Safe1, Safe).\n"
+    "'$sandbox_def_module'(M:G, MD:QG) :-\n"
+    "    predicate_property(M:G, imported_from(MD)),\n"
+    "    !,\n"
+    "    '$sandbox_meta_qualify'(MD:G, M, QG).\n"
+    "'$sandbox_def_module'(M:G, M:QG) :-\n"
+    "    '$sandbox_meta_qualify'(M:G, M, QG).\n"
+    "'$sandbox_safe_list'([], _, _, Safe, Safe).\n"
+    "'$sandbox_safe_list'([H|T], M, Parents, Safe0, Safe) :-\n"
+    "    (   H = M2:H2,\n"
+    "        M == M2\n"
+    "    ->  copy_term(H2, H3)\n"
+    "    ;   copy_term(H, H3)\n"
+    "    ),\n"
+    "    '$sandbox_safe'(H3, M, Parents, Safe0, Safe1),\n"
+    "    '$sandbox_safe_list'(T, M, Parents, Safe1, Safe).\n"
+    "'$sandbox_meta_qualify'(MD:G, M, QG) :-\n"
+    "    predicate_property(MD:G, meta_predicate(Head)),\n"
+    "    !,\n"
+    "    G =.. [Name|Args],\n"
+    "    Head =.. [_|Q],\n"
+    "    '$sandbox_qualify_args'(Q, M, Args, QArgs),\n"
+    "    QG =.. [Name|QArgs].\n"
+    "'$sandbox_meta_qualify'(_:G, _, G).\n"
+    "'$sandbox_qualify_args'([], _, [], []).\n"
+    "'$sandbox_qualify_args'([H|T], M, [A|AT], [Q|QT]) :-\n"
+    "    '$sandbox_qualify_arg'(H, M, A, Q),\n"
+    "    '$sandbox_qualify_args'(T, M, AT, QT).\n"
+    "'$sandbox_qualify_arg'(S, M, A, Q) :-\n"
+    "    '$sandbox_q_arg'(S),\n"
+    "    !,\n"
+    "    '$sandbox_qualify'(A, M, Q).\n"
+    "'$sandbox_qualify_arg'(_, _, A, A).\n"
+    "'$sandbox_q_arg'(I) :- integer(I), !.\n"
+    "'$sandbox_q_arg'(:).\n"
+    "'$sandbox_q_arg'(^).\n"
+    "'$sandbox_q_arg'(//).\n"
+    "'$sandbox_qualify'(A, M, MZ:Q) :-\n"
+    "    strip_module(M:A, MZ, Q).\n"
+    "'$sandbox_goal_id'(M:Goal, M:Id, Gen) :-\n"
+    "    !,\n"
+    "    '$sandbox_goal_id'(Goal, Id, Gen).\n"
+    "'$sandbox_goal_id'(Var, _, _) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    instantiation_error(Var).\n"
+    "'$sandbox_goal_id'(Atom, Atom, Atom) :-\n"
+    "    atom(Atom),\n"
+    "    !.\n"
+    "'$sandbox_goal_id'(Term, _, _) :-\n"
+    "    \\+ compound(Term),\n"
+    "    !,\n"
+    "    type_error(callable, Term).\n"
+    "'$sandbox_goal_id'(Term, Skolem, Gen) :-\n"
+    "    compound_name_arity(Term, Name, Arity),\n"
+    "    compound_name_arity(Skolem, Name, Arity),\n"
+    "    compound_name_arity(Gen, Name, Arity),\n"
+    "    '$sandbox_copy_goal_args'(1, Term, Skolem, Gen),\n"
+    "    (   Gen =@= Term\n"
+    "    ->  !\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    numbervars(Skolem, 0, _).\n"
+    "'$sandbox_goal_id'(Term, Skolem, Term) :-\n"
+    "    debug(sandbox(specify), 'Retrying with ~p', [Term]),\n"
+    "    copy_term(Term, Skolem),\n"
+    "    numbervars(Skolem, 0, _).\n"
+    "'$sandbox_copy_goal_args'(I, Term, Skolem, Gen) :-\n"
+    "    arg(I, Term, TA),\n"
+    "    !,\n"
+    "    arg(I, Skolem, SA),\n"
+    "    arg(I, Gen, GA),\n"
+    "    '$sandbox_copy_goal_arg'(TA, SA, GA),\n"
+    "    I2 is I + 1,\n"
+    "    '$sandbox_copy_goal_args'(I2, Term, Skolem, Gen).\n"
+    "'$sandbox_copy_goal_args'(_, _, _, _).\n"
+    "'$sandbox_copy_goal_arg'(Arg, SArg, Arg) :-\n"
+    "    '$sandbox_copy_goal_arg'(Arg),\n"
+    "    !,\n"
+    "    copy_term(Arg, SArg).\n"
+    "'$sandbox_copy_goal_arg'(_, _, _).\n"
+    "'$sandbox_copy_goal_arg'(Var) :- var(Var), !, fail.\n"
+    "'$sandbox_copy_goal_arg'(_:_).\n"
+    "'$sandbox_verify_safe_declaration'(Var) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    instantiation_error(Var).\n"
+    "'$sandbox_verify_safe_declaration'(Module:Goal) :-\n"
+    "    !,\n"
+    "    must_be(atom, Module),\n"
+    "    must_be(callable, Goal),\n"
+    "    (   '$sandbox_ok_meta'(Module:Goal)\n"
+    "    ->  true\n"
+    "    ;   (   predicate_property(Module:Goal, visible)\n"
+    "        ->  true\n"
+    "        ;   predicate_property(Module:Goal, foreign)\n"
+    "        ),\n"
+    "        \\+ predicate_property(Module:Goal, imported_from(_)),\n"
+    "        \\+ predicate_property(Module:Goal, meta_predicate(_))\n"
+    "    ->  true\n"
+    "    ;   permission_error(declare, safe_goal, Module:Goal)\n"
+    "    ).\n"
+    "'$sandbox_verify_safe_declaration'(Goal) :-\n"
+    "    must_be(callable, Goal),\n"
+    "    (   predicate_property(system:Goal, iso),\n"
+    "        \\+ predicate_property(system:Goal, meta_predicate())\n"
+    "    ->  true\n"
+    "    ;   permission_error(declare, safe_goal, Goal)\n"
+    "    ).\n"
+    "'$sandbox_ok_meta'(system:assert(_)).\n"
+    "'$sandbox_ok_meta'(system:load_files(_,_)).\n"
+    "'$sandbox_ok_meta'(system:use_module(_,_)).\n"
+    "'$sandbox_ok_meta'(system:use_module(_)).\n"
+    "'$sandbox_ok_meta'('$syspreds':predicate_property(_,_)).\n"
+    "'$sandbox_verify_predefined_safe_declarations' :-\n"
+    "    forall(clause(safe_primitive(Goal), _Body, Ref),\n"
+    "           ( E = error(F,_),\n"
+    "             catch('$sandbox_verify_safe_declaration'(Goal), E, true),\n"
+    "             (   nonvar(F)\n"
+    "             ->  clause_property(Ref, file(File)),\n"
+    "                 clause_property(Ref, line_count(Line)),\n"
+    "                 print_message(error, bad_safe_declaration(Goal, File, Line))\n"
+    "             ;   true\n"
+    "             )\n"
+    "           )).\n"
+    "'$sandbox_safe_primitive'(true).\n"
+    "'$sandbox_safe_primitive'(fail).\n"
+    "'$sandbox_safe_primitive'(system:false).\n"
+    "'$sandbox_safe_primitive'(repeat).\n"
+    "'$sandbox_safe_primitive'(!).\n"
+    "'$sandbox_safe_primitive'(var(_)).\n"
+    "'$sandbox_safe_primitive'(nonvar(_)).\n"
+    "'$sandbox_safe_primitive'(system:attvar(_)).\n"
+    "'$sandbox_safe_primitive'(integer(_)).\n"
+    "'$sandbox_safe_primitive'(float(_)).\n"
+    ":- if(current_predicate(rational/1)).\n"
+    "'$sandbox_safe_primitive'(system:rational(_)).\n"
+    "'$sandbox_safe_primitive'(system:rational(_,_,_)).\n"
+    ":- endif.\n"
+    "'$sandbox_safe_primitive'(number(_)).\n"
+    "'$sandbox_safe_primitive'(atom(_)).\n"
+    "'$sandbox_safe_primitive'(system:blob(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string(_)).\n"
+    "'$sandbox_safe_primitive'(atomic(_)).\n"
+    "'$sandbox_safe_primitive'(compound(_)).\n"
+    "'$sandbox_safe_primitive'(callable(_)).\n"
+    "'$sandbox_safe_primitive'(ground(_)).\n"
+    "'$sandbox_safe_primitive'(system:nonground(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:cyclic_term(_)).\n"
+    "'$sandbox_safe_primitive'(acyclic_term(_)).\n"
+    "'$sandbox_safe_primitive'(system:is_stream(_)).\n"
+    "'$sandbox_safe_primitive'(system:'$is_char'(_)).\n"
+    "'$sandbox_safe_primitive'(system:'$is_char_code'(_)).\n"
+    "'$sandbox_safe_primitive'(system:'$is_char_list'(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$is_code_list'(_,_)).\n"
+    "'$sandbox_safe_primitive'(@>(_,_)).\n"
+    "'$sandbox_safe_primitive'(@>=(_,_)).\n"
+    "'$sandbox_safe_primitive'(==(_,_)).\n"
+    "'$sandbox_safe_primitive'(@<(_,_)).\n"
+    "'$sandbox_safe_primitive'(@=<(_,_)).\n"
+    "'$sandbox_safe_primitive'(compare(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(sort(_,_)).\n"
+    "'$sandbox_safe_primitive'(keysort(_,_)).\n"
+    "'$sandbox_safe_primitive'(system: =@=(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$btree_find_node'(_,_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(=(_,_)).\n"
+    "'$sandbox_safe_primitive'(\\=(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'?='(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:unifiable(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(unify_with_occurs_check(_,_)).\n"
+    "'$sandbox_safe_primitive'(\\==(_,_)).\n"
+    "'$sandbox_safe_primitive'(is(_,_)).\n"
+    "'$sandbox_safe_primitive'(>(_,_)).\n"
+    "'$sandbox_safe_primitive'(>=(_,_)).\n"
+    "'$sandbox_safe_primitive'(=:=(_,_)).\n"
+    "'$sandbox_safe_primitive'(=\\=(_,_)).\n"
+    "'$sandbox_safe_primitive'(=<(_,_)).\n"
+    "'$sandbox_safe_primitive'(<(_,_)).\n"
+    ":- if(current_prolog_flag(bounded, false)).\n"
+    "'$sandbox_safe_primitive'(system:nth_integer_root_and_remainder(_,_,_,_)).\n"
+    ":- endif.\n"
+    "'$sandbox_safe_primitive'(arg(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:setarg(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:nb_setarg(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:nb_linkarg(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(functor(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:functor(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(_ =.. _).\n"
+    "'$sandbox_safe_primitive'(system:compound_name_arity(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:compound_name_arguments(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$filled_array'(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(copy_term(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:copy_term(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:duplicate_term(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:copy_term_nat(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:size_abstract_term(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(numbervars(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:numbervars(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(subsumes_term(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_hash(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_hash(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:variant_sha1(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:variant_hash(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$term_size'(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:is_dict(_)).\n"
+    "'$sandbox_safe_primitive'(system:is_dict(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:get_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:get_dict(_,_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$get_dict_ex'(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:dict_create(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:dict_pairs(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:put_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:put_dict(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:del_dict(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:select_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:b_set_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:nb_set_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:nb_link_dict(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:(:<(_,_))).\n"
+    "'$sandbox_safe_primitive'(system:(>:<(_,_))).\n"
+    "'$sandbox_safe_primitive'(atom_chars(_, _)).\n"
+    "'$sandbox_safe_primitive'(atom_codes(_, _)).\n"
+    "'$sandbox_safe_primitive'(sub_atom(_,_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(atom_concat(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(atom_length(_,_)).\n"
+    "'$sandbox_safe_primitive'(char_code(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:name(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomic_concat(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomic_list_concat(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomic_list_concat(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:downcase_atom(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:upcase_atom(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:char_type(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:normalize_space(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:sub_atom_icasechk(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(number_codes(_,_)).\n"
+    "'$sandbox_safe_primitive'(number_chars(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atom_number(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:code_type(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atom_string(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:number_string(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string_chars(_, _)).\n"
+    "'$sandbox_safe_primitive'(system:string_codes(_, _)).\n"
+    "'$sandbox_safe_primitive'(system:string_code(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:sub_string(_,_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:split_string(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomics_to_string(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomics_to_string(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string_concat(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string_length(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string_lower(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:string_upper(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_string(_,_)).\n"
+    "'$sandbox_safe_primitive'('$syspreds':term_string(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(length(_,_)).\n"
+    "'$sandbox_safe_primitive'(throw(_)).\n"
+    "'$sandbox_safe_primitive'(system:abort).\n"
+    "'$sandbox_safe_primitive'(current_prolog_flag(_,_)).\n"
+    "'$sandbox_safe_primitive'(current_op(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:sleep(_)).\n"
+    "'$sandbox_safe_primitive'(system:thread_self(_)).\n"
+    "'$sandbox_safe_primitive'(system:get_time(_)).\n"
+    "'$sandbox_safe_primitive'(system:statistics(_,_)).\n"
+    ":- if(current_prolog_flag(threads,true)).\n"
+    "'$sandbox_safe_primitive'(system:thread_statistics(Id,_,_)) :-\n"
+    "    (   var(Id)\n"
+    "    ->  instantiation_error(Id)\n"
+    "    ;   thread_self(Id)\n"
+    "    ).\n"
+    "'$sandbox_safe_primitive'(system:thread_property(Id,_)) :-\n"
+    "    (   var(Id)\n"
+    "    ->  instantiation_error(Id)\n"
+    "    ;   thread_self(Id)\n"
+    "    ).\n"
+    ":- endif.\n"
+    "'$sandbox_safe_primitive'(system:format_time(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:format_time(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:date_time_stamp(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:stamp_date_time(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:strip_module(_,_,_)).\n"
+    "'$sandbox_safe_primitive'('$messages':message_to_string(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:import_module(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:file_base_name(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:file_directory_name(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:file_name_extension(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(clause(H,_)) :- '$sandbox_safe_clause'(H).\n"
+    "'$sandbox_safe_primitive'(asserta(X)) :- '$sandbox_safe_assert'(X).\n"
+    "'$sandbox_safe_primitive'(assertz(X)) :- '$sandbox_safe_assert'(X).\n"
+    "'$sandbox_safe_primitive'(retract(X)) :- '$sandbox_safe_assert'(X).\n"
+    "'$sandbox_safe_primitive'(retractall(X)) :- '$sandbox_safe_assert'(X).\n"
+    "'$sandbox_safe_primitive'('$dcg':dcg_translate_rule(_,_)).\n"
+    "'$sandbox_safe_primitive'('$syspreds':predicate_property(Pred, _)) :-\n"
+    "    nonvar(Pred),\n"
+    "    Pred \\= (_:_).\n"
+    "'$sandbox_safe_primitive'('$dicts':'.'(_,K,_)) :- atom(K).\n"
+    "'$sandbox_safe_primitive'('$dicts':'.'(_,K,_)) :-\n"
+    "    (   nonvar(K)\n"
+    "    ->  '$sandbox_dict_built_in'(K)\n"
+    "    ;   instantiation_error(K)\n"
+    "    ).\n"
+    "'$sandbox_dict_built_in'(get(_)).\n"
+    "'$sandbox_dict_built_in'(put(_)).\n"
+    "'$sandbox_dict_built_in'(put(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:false).\n"
+    "'$sandbox_safe_primitive'(system:cyclic_term(_)).\n"
+    "'$sandbox_safe_primitive'(system:msort(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:sort(_,_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:between(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:succ(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:plus(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:float_class(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_variables(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_variables(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$term_size'(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atom_to_term(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_to_atom(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomic_list_concat(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:atomic_list_concat(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:downcase_atom(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:upcase_atom(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:is_list(_)).\n"
+    "'$sandbox_safe_primitive'(system:memberchk(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$skip_list'(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:'$seek_list'(_, _, _, _)).\n"
+    "'$sandbox_safe_primitive'(system:get_attr(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:get_attrs(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:term_attvars(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:del_attr(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:del_attrs(_)).\n"
+    "'$sandbox_safe_primitive'('$attvar':copy_term(_,_,_)).\n"
+    "'$sandbox_safe_primitive'(system:b_getval(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:b_setval(Var,_)) :-\n"
+    "    '$sandbox_safe_global_var'(Var).\n"
+    "'$sandbox_safe_primitive'(system:nb_getval(_,_)).\n"
+    "'$sandbox_safe_primitive'('$syspreds':nb_setval(Var,_)) :-\n"
+    "    '$sandbox_safe_global_var'(Var).\n"
+    "'$sandbox_safe_primitive'(system:nb_linkval(Var,_)) :-\n"
+    "    '$sandbox_safe_global_var'(Var).\n"
+    "'$sandbox_safe_primitive'(system:nb_current(_,_)).\n"
+    "'$sandbox_safe_primitive'(system:assert(X)) :-\n"
+    "    '$sandbox_safe_assert'(X).\n"
+    "'$sandbox_safe_primitive'(system:writeln(_)).\n"
+    "'$sandbox_safe_primitive'('$messages':print_message(_,_)).\n"
+    "'$sandbox_safe_primitive'('$syspreds':set_prolog_stack(Stack, limit(ByteExpr))) :-\n"
+    "    nonvar(Stack),\n"
+    "    '$sandbox_stack_name'(Stack),\n"
+    "    catch(Bytes is ByteExpr, _, fail),\n"
+    "    prolog_stack_property(Stack, limit(Current)),\n"
+    "    Bytes =< Current.\n"
+    "'$sandbox_stack_name'(global).\n"
+    "'$sandbox_stack_name'(local).\n"
+    "'$sandbox_stack_name'(trail).\n"
+    "'$sandbox_safe_primitive'('$tabling':abolish_all_tables).\n"
+    "'$sandbox_safe_primitive'('$tabling':'$wrap_tabled'(Module:_Head, _Mode)) :-\n"
+    "    prolog_load_context(module, Module),\n"
+    "    !.\n"
+    "'$sandbox_safe_primitive'('$tabling':'$moded_wrap_tabled'(Module:_Head,_,_,_,_)) :-\n"
+    "    prolog_load_context(module, Module),\n"
+    "    !.\n"
+    "'$sandbox_safe_primitive'(system:use_module(Spec, _Import)) :-\n"
+    "    '$sandbox_safe_primitive'(system:use_module(Spec)).\n"
+    "'$sandbox_safe_primitive'(system:load_files(Spec, Options)) :-\n"
+    "    '$sandbox_safe_primitive'(system:use_module(Spec)),\n"
+    "    maplist('$sandbox_safe_load_file_option', Options).\n"
+    "'$sandbox_safe_primitive'(system:use_module(Spec)) :-\n"
+    "    ground(Spec),\n"
+    "    (   atom(Spec)\n"
+    "    ->  Path = Spec\n"
+    "    ;   Spec =.. [_Alias, Segments],\n"
+    "        phrase('$sandbox_segments_to_path'(Segments), List),\n"
+    "        atomic_list_concat(List, Path)\n"
+    "    ),\n"
+    "    \\+ is_absolute_file_name(Path),\n"
+    "    \\+ sub_atom(Path, _, _, _, '/../'),\n"
+    "    absolute_file_name(Spec, AbsFile,\n"
+    "                       [ access(read),\n"
+    "                         file_type(prolog),\n"
+    "                         file_errors(fail)\n"
+    "                       ]),\n"
+    "    file_name_extension(_, Ext, AbsFile),\n"
+    "    '$sandbox_save_extension'(Ext).\n"
+    "'$sandbox_segments_to_path'(A/B) -->\n"
+    "    !,\n"
+    "    '$sandbox_segments_to_path'(A),\n"
+    "    [/],\n"
+    "    '$sandbox_segments_to_path'(B).\n"
+    "'$sandbox_segments_to_path'(X) -->\n"
+    "    [X].\n"
+    "'$sandbox_save_extension'(pl).\n"
+    "'$sandbox_safe_load_file_option'(if(changed)).\n"
+    "'$sandbox_safe_load_file_option'(if(not_loaded)).\n"
+    "'$sandbox_safe_load_file_option'(must_be_module(_)).\n"
+    "'$sandbox_safe_load_file_option'(optimise(_)).\n"
+    "'$sandbox_safe_load_file_option'(silent(_)).\n"
+    "'$sandbox_safe_assert'(C) :- cyclic_term(C), !, fail.\n"
+    "'$sandbox_safe_assert'(X) :- var(X), !, fail.\n"
+    "'$sandbox_safe_assert'(_Head:-_Body) :- !, fail.\n"
+    "'$sandbox_safe_assert'(_:_) :- !, fail.\n"
+    "'$sandbox_safe_assert'(_).\n"
+    "'$sandbox_safe_clause'(H) :- var(H), !.\n"
+    "'$sandbox_safe_clause'(_:_) :- !, fail.\n"
+    "'$sandbox_safe_clause'(_).\n"
+    "'$sandbox_safe_global_var'(Name) :-\n"
+    "    var(Name),\n"
+    "    !,\n"
+    "    instantiation_error(Name).\n"
+    "'$sandbox_safe_global_var'(Name) :-\n"
+    "    safe_global_variable(Name).\n"
+    "'$sandbox_safe_meta'(system:put_attr(V,M,A), Called) :-\n"
+    "    !,\n"
+    "    (   atom(M)\n"
+    "    ->  '$sandbox_attr_hook_predicates'([ attr_unify_hook(A, _),\n"
+    "                               attribute_goals(V,_,_),\n"
+    "                               project_attributes(_,_)\n"
+    "                             ], M, Called)\n"
+    "    ;   instantiation_error(M)\n"
+    "    ).\n"
+    "'$sandbox_safe_meta'(system:with_output_to(Output, G), [G]) :-\n"
+    "    '$sandbox_safe_output'(Output),\n"
+    "    !.\n"
+    "'$sandbox_safe_meta'(system:format(Format, Args), Calls) :-\n"
+    "    '$sandbox_format_calls'(Format, Args, Calls).\n"
+    "'$sandbox_safe_meta'(system:format(Output, Format, Args), Calls) :-\n"
+    "    '$sandbox_safe_output'(Output),\n"
+    "    '$sandbox_format_calls'(Format, Args, Calls).\n"
+    "'$sandbox_safe_meta'(prolog_debug:debug(_Term, Format, Args), Calls) :-\n"
+    "    '$sandbox_format_calls'(Format, Args, Calls).\n"
+    "'$sandbox_safe_meta'(system:set_prolog_flag(Flag, Value), []) :-\n"
+    "    atom(Flag),\n"
+    "    '$sandbox_safe_prolog_flag'(Flag, Value).\n"
+    "'$sandbox_safe_meta'('$attvar':freeze(_Var,Goal), [Goal]).\n"
+    "'$sandbox_safe_meta'(phrase(NT,Xs0,Xs), [Goal]) :-\n"
+    "    '$sandbox_expand_nt'(NT,Xs0,Xs,Goal).\n"
+    "'$sandbox_safe_meta'(phrase(NT,Xs0), [Goal]) :-\n"
+    "    '$sandbox_expand_nt'(NT,Xs0,[],Goal).\n"
+    "'$sandbox_safe_meta'('$dcg':call_dcg(NT,Xs0,Xs), [Goal]) :-\n"
+    "    '$sandbox_expand_nt'(NT,Xs0,Xs,Goal).\n"
+    "'$sandbox_safe_meta'('$dcg':call_dcg(NT,Xs0), [Goal]) :-\n"
+    "    '$sandbox_expand_nt'(NT,Xs0,[],Goal).\n"
+    "'$sandbox_safe_meta'('$tabling':abolish_table_subgoals(V), []) :-\n"
+    "    \\+ '$sandbox_qualified'(V).\n"
+    "'$sandbox_safe_meta'('$tabling':current_table(V, _), []) :-\n"
+    "    \\+ '$sandbox_qualified'(V).\n"
+    "'$sandbox_safe_meta'('$tabling':tnot(G), [G]).\n"
+    "'$sandbox_safe_meta'('$tabling':not_exists(G), [G]).\n"
+    "'$sandbox_qualified'(V) :-\n"
+    "    nonvar(V),\n"
+    "    V = _:_.\n"
+    "'$sandbox_attr_hook_predicates'([], _, []).\n"
+    "'$sandbox_attr_hook_predicates'([H|T], M, Called) :-\n"
+    "    (   predicate_property(M:H, defined)\n"
+    "    ->  Called = [M:H|Rest]\n"
+    "    ;   Called = Rest\n"
+    "    ),\n"
+    "    '$sandbox_attr_hook_predicates'(T, M, Rest).\n"
+    "'$sandbox_expand_nt'(NT, _Xs0, _Xs, _NewGoal) :-\n"
+    "    strip_module(NT, _, Plain),\n"
+    "    var(Plain),\n"
+    "    !,\n"
+    "    instantiation_error(Plain).\n"
+    "'$sandbox_expand_nt'(NT, Xs0, Xs, NewGoal) :-\n"
+    "    dcg_translate_rule((pseudo_nt --> NT),\n"
+    "                       (pseudo_nt(Xs0c,Xsc) :- NewGoal0)),\n"
+    "    (   var(Xsc), Xsc \\== Xs0c\n"
+    "    ->  Xs = Xsc, NewGoal1 = NewGoal0\n"
+    "    ;   NewGoal1 = (NewGoal0, Xsc = Xs)\n"
+    "    ),\n"
+    "    (   var(Xs0c)\n"
+    "    ->  Xs0 = Xs0c,\n"
+    "        NewGoal = NewGoal1\n"
+    "    ;   NewGoal = ( Xs0 = Xs0c, NewGoal1 )\n"
+    "    ).\n"
+    "'$sandbox_safe_meta_call'(Goal, _, _Called) :-\n"
+    "    debug(sandbox(meta), 'Safe meta ~p?', [Goal]),\n"
+    "    fail.\n"
+    "'$sandbox_safe_meta_call'(Goal, Context, Called) :-\n"
+    "    (   '$sandbox_safe_meta'(Goal, Called)\n"
+    "    ->  true\n"
+    "    ;   safe_meta(Goal, Context, Called)\n"
+    "    ),\n"
+    "    !.\n"
+    "'$sandbox_safe_meta_call'(Goal, _, Called) :-\n"
+    "    Goal = M:Plain,\n"
+    "    compound(Plain),\n"
+    "    compound_name_arity(Plain, Name, Arity),\n"
+    "    safe_meta_predicate(M:Name/Arity),\n"
+    "    predicate_property(Goal, meta_predicate(Spec)),\n"
+    "    !,\n"
+    "    '$sandbox_called'(Spec, Plain, Called).\n"
+    "'$sandbox_safe_meta_call'(M:Goal, _, Called) :-\n"
+    "    !,\n"
+    "    '$sandbox_generic_goal'(Goal, Gen),\n"
+    "    '$sandbox_safe_meta'(M:Gen),\n"
+    "    '$sandbox_called'(Gen, Goal, Called).\n"
+    "'$sandbox_safe_meta_call'(Goal, _, Called) :-\n"
+    "    '$sandbox_generic_goal'(Goal, Gen),\n"
+    "    '$sandbox_safe_meta'(Gen),\n"
+    "    '$sandbox_called'(Gen, Goal, Called).\n"
+    "'$sandbox_called'(Gen, Goal, Called) :-\n"
+    "    compound_name_arity(Goal, _, Arity),\n"
+    "    '$sandbox_called'(1, Arity, Gen, Goal, Called).\n"
+    "'$sandbox_called'(I, Arity, Gen, Goal, Called) :-\n"
+    "    I =< Arity,\n"
+    "    !,\n"
+    "    arg(I, Gen, Spec),\n"
+    "    (   '$sandbox_calling_meta_spec'(Spec)\n"
+    "    ->  arg(I, Goal, Called0),\n"
+    "        '$sandbox_extend'(Spec, Called0, G),\n"
+    "        Called = [G|Rest]\n"
+    "    ;   Called = Rest\n"
+    "    ),\n"
+    "    I2 is I+1,\n"
+    "    '$sandbox_called'(I2, Arity, Gen, Goal, Rest).\n"
+    "'$sandbox_called'(_, _, _, _, []).\n"
+    "'$sandbox_generic_goal'(G, Gen) :-\n"
+    "    functor(G, Name, Arity),\n"
+    "    functor(Gen, Name, Arity).\n"
+    "'$sandbox_calling_meta_spec'(V) :- var(V), !, fail.\n"
+    "'$sandbox_calling_meta_spec'(I) :- integer(I), !.\n"
+    "'$sandbox_calling_meta_spec'(^).\n"
+    "'$sandbox_calling_meta_spec'(//).\n"
+    "'$sandbox_extend'(^, G, Plain) :-\n"
+    "    !,\n"
+    "    '$sandbox_strip_existential'(G, Plain).\n"
+    "'$sandbox_extend'(//, DCG, Goal) :-\n"
+    "    !,\n"
+    "    (   expand_phrase(call_dcg(DCG,_,_), Goal)\n"
+    "    ->  true\n"
+    "    ;   instantiation_error(DCG)\n"
+    "    ).\n"
+    "'$sandbox_extend'(0, G, G) :- !.\n"
+    "'$sandbox_extend'(I, M:G0, M:G) :-\n"
+    "    !,\n"
+    "    G0 =.. List,\n"
+    "    length(Extra, I),\n"
+    "    append(List, Extra, All),\n"
+    "    G =.. All.\n"
+    "'$sandbox_extend'(I, G0, G) :-\n"
+    "    G0 =.. List,\n"
+    "    length(Extra, I),\n"
+    "    append(List, Extra, All),\n"
+    "    G =.. All.\n"
+    "'$sandbox_strip_existential'(Var, Var) :-\n"
+    "    var(Var),\n"
+    "    !.\n"
+    "'$sandbox_strip_existential'(M:G0, M:G) :-\n"
+    "    !,\n"
+    "    '$sandbox_strip_existential'(G0, G).\n"
+    "'$sandbox_strip_existential'(_^G0, G) :-\n"
+    "    !,\n"
+    "    '$sandbox_strip_existential'(G0, G).\n"
+    "'$sandbox_strip_existential'(G, G).\n"
+    "'$sandbox_safe_meta'((0,0)).\n"
+    "'$sandbox_safe_meta'((0;0)).\n"
+    "'$sandbox_safe_meta'((0->0)).\n"
+    "'$sandbox_safe_meta'(system:(0*->0)).\n"
+    "'$sandbox_safe_meta'(catch(0,*,0)).\n"
+    "'$sandbox_safe_meta'(findall(*,0,*)).\n"
+    "'$sandbox_safe_meta'('$bags':findall(*,0,*,*)).\n"
+    "'$sandbox_safe_meta'(setof(*,^,*)).\n"
+    "'$sandbox_safe_meta'(bagof(*,^,*)).\n"
+    "'$sandbox_safe_meta'('$bags':findnsols(*,*,0,*)).\n"
+    "'$sandbox_safe_meta'('$bags':findnsols(*,*,0,*,*)).\n"
+    "'$sandbox_safe_meta'(system:call_cleanup(0,0)).\n"
+    "'$sandbox_safe_meta'(system:setup_call_cleanup(0,0,0)).\n"
+    "'$sandbox_safe_meta'(system:setup_call_catcher_cleanup(0,0,*,0)).\n"
+    "'$sandbox_safe_meta'('$attvar':call_residue_vars(0,*)).\n"
+    "'$sandbox_safe_meta'('$syspreds':call_with_inference_limit(0,*,*)).\n"
+    "'$sandbox_safe_meta'('$syspreds':call_with_depth_limit(0,*,*)).\n"
+    "'$sandbox_safe_meta'('$syspreds':undo(0)).\n"
+    "'$sandbox_safe_meta'(^(*,0)).\n"
+    "'$sandbox_safe_meta'(\\+(0)).\n"
+    "'$sandbox_safe_meta'(call(0)).\n"
+    "'$sandbox_safe_meta'(call(1,*)).\n"
+    "'$sandbox_safe_meta'(call(2,*,*)).\n"
+    "'$sandbox_safe_meta'(call(3,*,*,*)).\n"
+    "'$sandbox_safe_meta'(call(4,*,*,*,*)).\n"
+    "'$sandbox_safe_meta'(call(5,*,*,*,*,*)).\n"
+    "'$sandbox_safe_meta'(call(6,*,*,*,*,*,*)).\n"
+    "'$sandbox_safe_meta'('$tabling':start_tabling(*,0)).\n"
+    "'$sandbox_safe_meta'('$tabling':start_tabling(*,0,*,*)).\n"
+    "'$sandbox_safe_meta'(wfs:call_delays(0,*)).\n"
+    "'$sandbox_safe_output'(Output) :-\n"
+    "    var(Output),\n"
+    "    !,\n"
+    "    instantiation_error(Output).\n"
+    "'$sandbox_safe_output'(atom(_)).\n"
+    "'$sandbox_safe_output'(string(_)).\n"
+    "'$sandbox_safe_output'(codes(_)).\n"
+    "'$sandbox_safe_output'(codes(_,_)).\n"
+    "'$sandbox_safe_output'(chars(_)).\n"
+    "'$sandbox_safe_output'(chars(_,_)).\n"
+    "'$sandbox_safe_output'(current_output).\n"
+    "'$sandbox_safe_output'(current_error).\n"
+    "'$sandbox_format_calls'(Format, _Args, _Calls) :-\n"
+    "    var(Format),\n"
+    "    !,\n"
+    "    instantiation_error(Format).\n"
+    "'$sandbox_format_calls'(Format, Args, Calls) :-\n"
+    "    format_types(Format, Types),\n"
+    "    (   '$sandbox_format_callables'(Types, Args, Calls)\n"
+    "    ->  true\n"
+    "    ;   throw(error(format_error(Format, Types, Args), _))\n"
+    "    ).\n"
+    "'$sandbox_format_callables'([], [], []).\n"
+    "'$sandbox_format_callables'([callable|TT], [G|TA], [G|TG]) :-\n"
+    "    !,\n"
+    "    '$sandbox_format_callables'(TT, TA, TG).\n"
+    "'$sandbox_format_callables'([_|TT], [_|TA], TG) :-\n"
+    "    !,\n"
+    "    '$sandbox_format_callables'(TT, TA, TG).\n"
+    "'$sandbox_safe_pattr'(dynamic(_)).\n"
+    "'$sandbox_safe_pattr'(thread_local(_)).\n"
+    "'$sandbox_safe_pattr'(volatile(_)).\n"
+    "'$sandbox_safe_pattr'(discontiguous(_)).\n"
+    "'$sandbox_safe_pattr'(multifile(_)).\n"
+    "'$sandbox_safe_pattr'(public(_)).\n"
+    "'$sandbox_safe_pattr'(meta_predicate(_)).\n"
+    "'$sandbox_safe_pattr'(table(_)).\n"
+    "'$sandbox_safe_pattr'(non_terminal(_)).\n"
+    "'$sandbox_safe_pattr'(Var, _) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    instantiation_error(Var).\n"
+    "'$sandbox_safe_pattr'((A,B), Attr) :-\n"
+    "    !,\n"
+    "    '$sandbox_safe_pattr'(A, Attr),\n"
+    "    '$sandbox_safe_pattr'(B, Attr).\n"
+    "'$sandbox_safe_pattr'(M:G, Attr) :-\n"
+    "    !,\n"
+    "    (   atom(M),\n"
+    "        prolog_load_context(module, M)\n"
+    "    ->  true\n"
+    "    ;   Goal =.. [Attr,M:G],\n"
+    "        permission_error(directive, sandboxed, (:- Goal))\n"
+    "    ).\n"
+    "'$sandbox_safe_pattr'(_, _).\n"
+    "'$sandbox_safe_source_directive'(op(_,_,Name)) :-\n"
+    "    !,\n"
+    "    (   atom(Name)\n"
+    "    ->  true\n"
+    "    ;   is_list(Name),\n"
+    "        maplist(atom, Name)\n"
+    "    ).\n"
+    "'$sandbox_safe_source_directive'(set_prolog_flag(Flag, Value)) :-\n"
+    "    !,\n"
+    "    atom(Flag), ground(Value),\n"
+    "    '$sandbox_safe_prolog_flag'(Flag, Value).\n"
+    "'$sandbox_safe_source_directive'(style_check(_)).\n"
+    "'$sandbox_safe_source_directive'(initialization(_)).\n"
+    "'$sandbox_safe_source_directive'(initialization(_,_)).\n"
+    "'$sandbox_directive_loads_file'(use_module(library(X)), X).\n"
+    "'$sandbox_directive_loads_file'(use_module(library(X), _Imports), X).\n"
+    "'$sandbox_directive_loads_file'(load_files(library(X), _Options), X).\n"
+    "'$sandbox_directive_loads_file'(ensure_loaded(library(X)), X).\n"
+    "'$sandbox_directive_loads_file'(include(X), X).\n"
+    "'$sandbox_safe_path'(X) :-\n"
+    "    var(X),\n"
+    "    !,\n"
+    "    instantiation_error(X).\n"
+    "'$sandbox_safe_path'(X) :-\n"
+    "    (   atom(X)\n"
+    "    ;   string(X)\n"
+    "    ),\n"
+    "    !,\n"
+    "    \\+ sub_atom(X, 0, _, 0, '..'),\n"
+    "    \\+ sub_atom(X, 0, _, _, '/'),\n"
+    "    \\+ sub_atom(X, 0, _, _, '../'),\n"
+    "    \\+ sub_atom(X, _, _, 0, '/..'),\n"
+    "    \\+ sub_atom(X, _, _, _, '/../').\n"
+    "'$sandbox_safe_path'(A/B) :-\n"
+    "    !,\n"
+    "    '$sandbox_safe_path'(A),\n"
+    "    '$sandbox_safe_path'(B).\n"
+    "'$sandbox_safe_prolog_flag'(generate_debug_info, _).\n"
+    "'$sandbox_safe_prolog_flag'(optimise, _).\n"
+    "'$sandbox_safe_prolog_flag'(occurs_check, _).\n"
+    "'$sandbox_safe_prolog_flag'(var_prefix, _).\n"
+    "'$sandbox_safe_prolog_flag'(double_quotes, _).\n"
+    "'$sandbox_safe_prolog_flag'(back_quotes, _).\n"
+    "'$sandbox_safe_prolog_flag'(rational_syntax, _).\n"
+    "'$sandbox_safe_prolog_flag'(prefer_rationals, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_overflow, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_zero_div, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_undefined, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_underflow, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_rounding, _).\n"
+    "'$sandbox_safe_prolog_flag'(float_rounding, _).\n"
+    "'$sandbox_safe_prolog_flag'(max_rational_size, _).\n"
+    "'$sandbox_safe_prolog_flag'(max_rational_size_action, _).\n"
+    "'$sandbox_safe_prolog_flag'(max_answers_for_subgoal,_).\n"
+    "'$sandbox_safe_prolog_flag'(max_answers_for_subgoal_action,_).\n"
+    "'$sandbox_safe_prolog_flag'(max_table_answer_size,_).\n"
+    "'$sandbox_safe_prolog_flag'(max_table_answer_size_action,_).\n"
+    "'$sandbox_safe_prolog_flag'(max_table_subgoal_size,_).\n"
+    "'$sandbox_safe_prolog_flag'(max_table_subgoal_size_action,_).\n"
+    "'$sandbox_callers'([], _) --> !.\n"
+    "'$sandbox_callers'(_,  0) --> !.\n"
+    "'$sandbox_callers'([G|Parents], Level) -->\n"
+    "    { NextLevel is Level-1\n"
+    "    },\n"
+    "    [ nl, '\\t  ~p'-[G] ],\n"
+    "    '$sandbox_callers'(Parents, NextLevel).\n"
+    "'$sandbox_format_error'(Format, Types, Args) -->\n"
+    "    { length(Types, TypeLen),\n"
+    "      length(Args, ArgsLen),\n"
+    "      (   TypeLen > ArgsLen\n"
+    "      ->  Problem = 'not enough'\n"
+    "      ;   Problem = 'too many'\n"
+    "      )\n"
+    "    },\n"
+    "    [ 'format(~q): ~w arguments (found ~w, need ~w)'-\n"
+    "      [Format, Problem, ArgsLen, TypeLen]\n"
+    "    ].\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
+    { "setting", 4 },
+    { "setting", 2 },
+    { "set_setting", 2 },
+    { "set_setting_default", 2 },
+    { "restore_setting", 1 },
+    { "current_setting", 1 },
+    { "save_settings", 0 },
+    { "save_settings", 1 },
+    { "load_settings", 1 },
+    { "load_settings", 2 },
+    { "", 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
+    { "", 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
+    { "", 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
+    { 0, "", "" }
+};
+static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
+    { "", 0, "" }
+};
+static const char PL_PRELUDE_LIB_68_SRC[] =
     ":- dynamic st_value/3, st_default/3, local_file/1, st_modified/0, '$set_decl'/5.\n"
     "'$set_builtin'(body_indentation, listing, nonneg, 4, 'Indentation used goals in the body').\n"
     "'$set_builtin'(tab_distance, listing, nonneg, 0, 'Distance between tab-stops.  0 uses only spaces').\n"
@@ -31732,7 +32630,7 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "'$set_load'(In) :- read_term(In, T, []), ( T == end_of_file -> true ; '$set_load1'(T), '$set_load'(In) ).\n"
     "'$set_load1'(setting(Q, V)) :- !, strip_module(Q, M, N), retractall(st_value(N, _, _)), assertz(st_value(N, M, V)).\n"
     "'$set_load1'(_).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "assignment", 2 },
     { "constraint", 3 },
     { "constraint", 4 },
@@ -31748,20 +32646,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_EXPORTS[] = {
     { "variable_value", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_68_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_68_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_68_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_68_METAS[] = {
+static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_68_SRC[] =
+static const char PL_PRELUDE_LIB_69_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
     ":- endif.\n"
     "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
@@ -32702,7 +33600,7 @@ static const char PL_PRELUDE_LIB_68_SRC[] =
     "            print_message(warning, simplex(bounded))\n"
     "        ;   true\n"
     "        ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "tcp_socket", 1 },
     { "udp_socket", 1 },
     { "unix_domain_socket", 1 },
@@ -32721,20 +33619,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_EXPORTS[] = {
     { "gethostname", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_69_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_69_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_69_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_69_METAS[] = {
+static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_69_SRC[] =
+static const char PL_PRELUDE_LIB_70_SRC[] =
     "'$sk_raise'('$oserr'(C, M)) :- throw(error(socket_error(C, M), _)).\n"
     "'$sk_ok'(R) :- ( R == ok -> true ; '$sk_raise'(R) ).\n"
     "'$sk_val'(R, V) :- ( R = '$oserr'(_, _) -> '$sk_raise'(R) ; V = R ).\n"
@@ -32798,7 +33696,7 @@ static const char PL_PRELUDE_LIB_69_SRC[] =
     "    ;   nonvar(A) -> '$sk_resolve'(A, R), '$sk_val'(R, H0), H = H0\n"
     "    ;   throw(error(instantiation_error, _))\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -32810,17 +33708,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_EXPORTS[] = {
     { "group_by", 4 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_70_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_70_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_70_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
+static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
     { "call_nth", 2, "call_nth(0,?)" },
     { "distinct", 1, "distinct(0)" },
     { "distinct", 2, "distinct(?,0)" },
@@ -32832,7 +33730,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_70_METAS[] = {
     { "reduced", 3, "reduced(?,0,+)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_70_SRC[] =
+static const char PL_PRELUDE_LIB_71_SRC[] =
     ":- '$meta_spec'((\n"
     "    distinct(0),\n"
     "    distinct(?, 0),\n"
@@ -33000,7 +33898,7 @@ static const char PL_PRELUDE_LIB_70_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -33017,20 +33915,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_EXPORTS[] = {
     { "renormalize", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_71_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_71_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_71_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_71_METAS[] = {
+static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_71_SRC[] =
+static const char PL_PRELUDE_LIB_72_SRC[] =
     "normalize_scalar(S,[S,0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -33225,7 +34123,7 @@ static const char PL_PRELUDE_LIB_71_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_q_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "add_linear_11", 3 },
     { "add_linear_f1", 4 },
     { "add_linear_ff", 5 },
@@ -33242,20 +34140,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_EXPORTS[] = {
     { "renormalize", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_72_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_72_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_72_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_72_METAS[] = {
+static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_72_SRC[] =
+static const char PL_PRELUDE_LIB_73_SRC[] =
     "normalize_scalar(S,[S,0.0]).\n"
     "renormalize([I,R|Hom],Lin) :-\n"
     "\tlength(Hom,Len),\n"
@@ -33476,7 +34374,7 @@ static const char PL_PRELUDE_LIB_72_SRC[] =
     "\t;   Next = Sofar + K*Var\n"
     "\t),\n"
     "\t'$store_r_hom2sum'(Cs,Next,Term).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -33484,22 +34382,22 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_EXPORTS[] = {
     { "string_lines", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_73_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_73_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_73_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_73_METAS[] = {
+static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
     { "indent_lines", 4, "indent_lines(1,+,+,-)" },
     { "interpolate_string", 4, "interpolate_string(:,-,+,+)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_73_SRC[] =
+static const char PL_PRELUDE_LIB_74_SRC[] =
     ":- '$meta_spec'((\n"
     "    interpolate_string(:, -, +, +),\n"
     "    indent_lines(1, +, +, -))).\n"
@@ -33713,7 +34611,7 @@ static const char PL_PRELUDE_LIB_73_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "$clause", 4 },
     { "open_string", 2 },
     { "exists_file", 1 },
@@ -33748,20 +34646,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_EXPORTS[] = {
     { "current_arithmetic_function", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_74_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_74_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_74_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_74_METAS[] = {
+static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_74_SRC[] =
+static const char PL_PRELUDE_LIB_75_SRC[] =
     "get_time(T) :- '$gnu_os'(get_time, 0, T).\n"
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$clause'(H, B, R, _) :- nonvar(R), !, ( clause(H0, B0, R) -> true ; nb_current('$tx_cur', tx(Rs)), '$swb_tx_erased'(Rs, R, (H0 :- B0)) ), B = B0, '$swb_unmangle'(H0, H).\n"
@@ -33947,7 +34845,7 @@ static const char PL_PRELUDE_LIB_74_SRC[] =
     "current_arithmetic_function(F) :-\n"
     "    throw(error(type_error(callable, F), context(current_arithmetic_function/1, _))).\n"
     "'$swb_evaluables'([(*)/2,(**)/2,(+)/1,(+)/2,(-)/1,(-)/2,(/)/2,(//)/2,(/\\)/2,(<<)/2,(>>)/2,(\\)/1,(\\/)/2,(^)/2,abs/1,acos/1,acosh/1,asin/1,asinh/1,atan/1,atan/2,atan2/2,atanh/1,ceil/1,ceiling/1,copysign/2,cos/1,cosh/1,cputime/0,denominator/1,(div)/2,e/0,epsilon/0,erf/1,erfc/1,eval/1,exp/1,float/1,float_fractional_part/1,float_integer_part/1,floor/1,gcd/2,getbit/2,inf/0,integer/1,lcm/2,lgamma/1,log/1,log10/1,lsb/1,max/2,min/2,(mod)/2,msb/1,nan/0,nexttoward/2,numerator/1,pi/0,popcount/1,powm/3,random/1,random_float/0,rational/1,rationalize/1,(rdiv)/2,(rem)/2,round/1,roundtoward/2,sign/1,sin/1,sinh/1,sqrt/1,tan/1,tanh/1,truncate/1,(xor)/2]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -34119,21 +35017,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "snapshot", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
     { "undefined", 0 },
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_75_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_75_METAS[] = {
+static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_75_SRC[] =
+static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,plain,T1),'$tbl_sl_read'(T1,G).\n"
     "'$tbl_sl_get'(none,VT,G,I,K,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),catch('$tbl_sl_run'(T),E,('$tbl_sl_abandon'(T),throw(E))).\n"
@@ -34672,7 +35570,7 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     "'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.\n"
     "'$tbl_rsrun'([],_,_,_,[]).\n"
     "'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -34689,17 +35587,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "same_functor", 4 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_76_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_76_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
+static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
     { "foldsubterms", 4, "foldsubterms(3,+,+,-)" },
     { "foldsubterms", 5, "foldsubterms(4,+,?,+,-)" },
     { "mapargs", 3, "mapargs(2,?,?)" },
@@ -34707,7 +35605,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
     { "mapsubterms_var", 3, "mapsubterms_var(2,?,?)" },
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_76_SRC[] =
+static const char PL_PRELUDE_LIB_77_SRC[] =
     ":- '$meta_spec'((\n"
     "    mapargs(2,?,?),\n"
     "    mapsubterms(2,?,?),\n"
@@ -34922,29 +35820,29 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
     { "call_with_time_limit", 2 },
     { "call_with_time_limit", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_77_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_77_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_77_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_77_METAS[] = {
+static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_77_SRC[] =
+static const char PL_PRELUDE_LIB_78_SRC[] =
     "call_with_time_limit(T, G) :- T > 0, !, setup_call_cleanup('$alarm_push'(T, P), once(G), '$alarm_pop'(P)).\n"
     "call_with_time_limit(_, _) :- throw(time_limit_exceeded).\n"
     "call_with_time_limit(T, G, _) :- call_with_time_limit(T, G).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "add_edges", 3 },
     { "add_vertices", 3 },
     { "complement", 2 },
@@ -34965,20 +35863,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_EXPORTS[] = {
     { "connect_ugraph", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_78_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_78_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_79_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_78_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_78_METAS[] = {
+static const char *const PL_PRELUDE_LIB_79_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_79_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_78_SRC[] =
+static const char PL_PRELUDE_LIB_79_SRC[] =
     "vertices([], []) :- !.\n"
     "vertices([Vertex-_|Graph], [Vertex|Vertices]) :-\n"
     "    vertices(Graph, Vertices).\n"
@@ -35236,7 +36134,7 @@ static const char PL_PRELUDE_LIB_78_SRC[] =
     "    ord_union(Rs0, Nei, Rs1, D),\n"
     "    append(Ns, D, Nsi),\n"
     "    '$ugraphs_reachable'(Nsi, G, Rs1, RsF).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_EXPORTS[] = {
     { "uri_components", 2 },
     { "uri_data", 3 },
     { "uri_data", 4 },
@@ -35256,20 +36154,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_EXPORTS[] = {
     { "uri_iri", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_79_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_79_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_80_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_79_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_79_METAS[] = {
+static const char *const PL_PRELUDE_LIB_80_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_80_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_79_SRC[] =
+static const char PL_PRELUDE_LIB_80_SRC[] =
     "uri_components(U, C) :- nonvar(U), !, '$uri_codes'(U, Cs), '$uri_split'(Cs, S, A, P, Q, F), C = uri_components(S, A, P, Q, F).\n"
     "uri_components(U, C) :- nonvar(C), C = uri_components(S, A, P, Q, F), !, '$uri_build'(S, A, P, Q, F, Cs), atom_codes(U, Cs).\n"
     "uri_components(_, _) :- throw(error(instantiation_error, context(uri:uri_components/2, _))).\n"
@@ -35475,7 +36373,7 @@ static const char PL_PRELUDE_LIB_79_SRC[] =
     "'$uri_irienc'([], []).\n"
     "'$uri_irienc'([C|Cs], Es) :- C >= 128, !, '$uri_utf8'(C, Bs), '$uri_pct'(Bs, Es, Es1), '$uri_irienc'(Cs, Es1).\n"
     "'$uri_irienc'([C|Cs], [C|Es]) :- '$uri_irienc'(Cs, Es).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_EXPORTS[] = {
     { "numbervars", 1 },
     { "varnumbers", 2 },
     { "max_var_number", 3 },
@@ -35483,21 +36381,21 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_EXPORTS[] = {
     { "varnumbers_names", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_80_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_QUIET[] = {
     { "numbervars", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_80_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_81_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_80_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_80_METAS[] = {
+static const char *const PL_PRELUDE_LIB_81_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_81_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_80_SRC[] =
+static const char PL_PRELUDE_LIB_81_SRC[] =
     "numbervars(Term) :-\n"
     "    numbervars(Term, 0, _).\n"
     "varnumbers(Term, Copy) :-\n"
@@ -35593,27 +36491,27 @@ static const char PL_PRELUDE_LIB_80_SRC[] =
     "    I2 is I + 1,\n"
     "    '$varnumbers_varnumbers_names_args'(I2, Arity, Term, Bindings1, Bindings, Copy).\n"
     "'$varnumbers_varnumbers_names_args'(_, _, _, Bindings, Bindings, _).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_81_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_81_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_82_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_81_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_81_METAS[] = {
+static const char *const PL_PRELUDE_LIB_82_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_82_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_81_SRC[] =
+static const char PL_PRELUDE_LIB_82_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -35748,7 +36646,7 @@ static const char PL_PRELUDE_LIB_81_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -35773,20 +36671,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_EXPORTS[] = {
     { "set_xsb_param", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_82_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_82_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_83_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_82_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_82_METAS[] = {
+static const char *const PL_PRELUDE_LIB_83_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_83_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_82_SRC[] =
+static const char PL_PRELUDE_LIB_83_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -35831,7 +36729,7 @@ static const char PL_PRELUDE_LIB_82_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_EXPORTS[] = {
     { "term_new_mod", 3 },
     { "index", 2 },
     { "index", 3 },
@@ -35886,24 +36784,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_EXPORTS[] = {
     { "$xsb_qcall", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
     { "term_size", 2 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_83_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_84_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_83_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_83_METAS[] = {
+static const char *const PL_PRELUDE_LIB_84_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_84_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_83_SRC[] =
+static const char PL_PRELUDE_LIB_84_SRC[] =
     "concat_atom(L, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, A).\n"
     "concat_atom(L, Sep, A) :- '$xsb_ca_atomic'(L), atomic_list_concat(L, Sep, A).\n"
     "'$xsb_ca_atomic'([]).\n"
@@ -36064,29 +36962,29 @@ static const char PL_PRELUDE_LIB_83_SRC[] =
     "'$xsb_impstub'((A,B), Qs, Mod) :- !, ( nonvar(Qs), Qs = (C,D) -> true ; C = A, D = B ), '$xsb_impstub'(A, C, Mod), '$xsb_impstub'(B, D, Mod).\n"
     "'$xsb_impstub'(P/N, Q/N, Mod) :- atom(P), atom(Q), integer(N), !, functor(H, Q, N), H =.. [_|As], G =.. [P|As], assertz((H :- '$xsb_qcall'(Mod, G))).\n"
     "'$xsb_impstub'(_, _, _).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_84_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_85_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_84_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_84_METAS[] = {
+static const char *const PL_PRELUDE_LIB_85_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_85_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_84_SRC[] =
+static const char PL_PRELUDE_LIB_85_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_86_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -36124,20 +37022,20 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_EXPORTS[] = {
     { "$tbl $xt_ntp", 1 },
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_86_SHADOWS[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_85_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_86_QUIET[] = {
     { "", 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_85_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_86_OPS[] = {
     { 0, "", "" }
 };
-static const char *const PL_PRELUDE_LIB_85_LOADS[] = { 0 };
-static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_85_METAS[] = {
+static const char *const PL_PRELUDE_LIB_86_LOADS[] = { 0 };
+static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_86_METAS[] = {
     { "", 0, "" }
 };
-static const char PL_PRELUDE_LIB_85_SRC[] =
+static const char PL_PRELUDE_LIB_86_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -36274,25 +37172,26 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "rbtrees", PL_PRELUDE_LIB_64_EXPORTS, PL_PRELUDE_LIB_64_OPS, PL_PRELUDE_LIB_64_SHADOWS, PL_PRELUDE_LIB_64_QUIET, PL_PRELUDE_LIB_64_SRC, PL_PRELUDE_LIB_64_METAS, PL_PRELUDE_LIB_64_LOADS, 0 },
     { "readutil", PL_PRELUDE_LIB_65_EXPORTS, PL_PRELUDE_LIB_65_OPS, PL_PRELUDE_LIB_65_SHADOWS, PL_PRELUDE_LIB_65_QUIET, PL_PRELUDE_LIB_65_SRC, PL_PRELUDE_LIB_65_METAS, PL_PRELUDE_LIB_65_LOADS, 0 },
     { "record", PL_PRELUDE_LIB_66_EXPORTS, PL_PRELUDE_LIB_66_OPS, PL_PRELUDE_LIB_66_SHADOWS, PL_PRELUDE_LIB_66_QUIET, PL_PRELUDE_LIB_66_SRC, PL_PRELUDE_LIB_66_METAS, PL_PRELUDE_LIB_66_LOADS, 0 },
-    { "settings", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 0 },
-    { "simplex", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
-    { "socket", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
-    { "solution_sequences", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
-    { "store_q", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 1 },
-    { "store_r", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 1 },
-    { "strings", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 0 },
-    { "swi_builtins", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
-    { "tabling", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
-    { "terms", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
-    { "time", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
-    { "ugraphs", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
-    { "uri", PL_PRELUDE_LIB_79_EXPORTS, PL_PRELUDE_LIB_79_OPS, PL_PRELUDE_LIB_79_SHADOWS, PL_PRELUDE_LIB_79_QUIET, PL_PRELUDE_LIB_79_SRC, PL_PRELUDE_LIB_79_METAS, PL_PRELUDE_LIB_79_LOADS, 0 },
-    { "varnumbers", PL_PRELUDE_LIB_80_EXPORTS, PL_PRELUDE_LIB_80_OPS, PL_PRELUDE_LIB_80_SHADOWS, PL_PRELUDE_LIB_80_QUIET, PL_PRELUDE_LIB_80_SRC, PL_PRELUDE_LIB_80_METAS, PL_PRELUDE_LIB_80_LOADS, 0 },
-    { "writef", PL_PRELUDE_LIB_81_EXPORTS, PL_PRELUDE_LIB_81_OPS, PL_PRELUDE_LIB_81_SHADOWS, PL_PRELUDE_LIB_81_QUIET, PL_PRELUDE_LIB_81_SRC, PL_PRELUDE_LIB_81_METAS, PL_PRELUDE_LIB_81_LOADS, 0 },
-    { "xsb_builtins", PL_PRELUDE_LIB_82_EXPORTS, PL_PRELUDE_LIB_82_OPS, PL_PRELUDE_LIB_82_SHADOWS, PL_PRELUDE_LIB_82_QUIET, PL_PRELUDE_LIB_82_SRC, PL_PRELUDE_LIB_82_METAS, PL_PRELUDE_LIB_82_LOADS, 0 },
-    { "xsb_dialect", PL_PRELUDE_LIB_83_EXPORTS, PL_PRELUDE_LIB_83_OPS, PL_PRELUDE_LIB_83_SHADOWS, PL_PRELUDE_LIB_83_QUIET, PL_PRELUDE_LIB_83_SRC, PL_PRELUDE_LIB_83_METAS, PL_PRELUDE_LIB_83_LOADS, 0 },
-    { "xsb_ordsets", PL_PRELUDE_LIB_84_EXPORTS, PL_PRELUDE_LIB_84_OPS, PL_PRELUDE_LIB_84_SHADOWS, PL_PRELUDE_LIB_84_QUIET, PL_PRELUDE_LIB_84_SRC, PL_PRELUDE_LIB_84_METAS, PL_PRELUDE_LIB_84_LOADS, 0 },
-    { "xsb_tables", PL_PRELUDE_LIB_85_EXPORTS, PL_PRELUDE_LIB_85_OPS, PL_PRELUDE_LIB_85_SHADOWS, PL_PRELUDE_LIB_85_QUIET, PL_PRELUDE_LIB_85_SRC, PL_PRELUDE_LIB_85_METAS, PL_PRELUDE_LIB_85_LOADS, 0 },
+    { "sandbox", PL_PRELUDE_LIB_67_EXPORTS, PL_PRELUDE_LIB_67_OPS, PL_PRELUDE_LIB_67_SHADOWS, PL_PRELUDE_LIB_67_QUIET, PL_PRELUDE_LIB_67_SRC, PL_PRELUDE_LIB_67_METAS, PL_PRELUDE_LIB_67_LOADS, 0 },
+    { "settings", PL_PRELUDE_LIB_68_EXPORTS, PL_PRELUDE_LIB_68_OPS, PL_PRELUDE_LIB_68_SHADOWS, PL_PRELUDE_LIB_68_QUIET, PL_PRELUDE_LIB_68_SRC, PL_PRELUDE_LIB_68_METAS, PL_PRELUDE_LIB_68_LOADS, 0 },
+    { "simplex", PL_PRELUDE_LIB_69_EXPORTS, PL_PRELUDE_LIB_69_OPS, PL_PRELUDE_LIB_69_SHADOWS, PL_PRELUDE_LIB_69_QUIET, PL_PRELUDE_LIB_69_SRC, PL_PRELUDE_LIB_69_METAS, PL_PRELUDE_LIB_69_LOADS, 0 },
+    { "socket", PL_PRELUDE_LIB_70_EXPORTS, PL_PRELUDE_LIB_70_OPS, PL_PRELUDE_LIB_70_SHADOWS, PL_PRELUDE_LIB_70_QUIET, PL_PRELUDE_LIB_70_SRC, PL_PRELUDE_LIB_70_METAS, PL_PRELUDE_LIB_70_LOADS, 0 },
+    { "solution_sequences", PL_PRELUDE_LIB_71_EXPORTS, PL_PRELUDE_LIB_71_OPS, PL_PRELUDE_LIB_71_SHADOWS, PL_PRELUDE_LIB_71_QUIET, PL_PRELUDE_LIB_71_SRC, PL_PRELUDE_LIB_71_METAS, PL_PRELUDE_LIB_71_LOADS, 0 },
+    { "store_q", PL_PRELUDE_LIB_72_EXPORTS, PL_PRELUDE_LIB_72_OPS, PL_PRELUDE_LIB_72_SHADOWS, PL_PRELUDE_LIB_72_QUIET, PL_PRELUDE_LIB_72_SRC, PL_PRELUDE_LIB_72_METAS, PL_PRELUDE_LIB_72_LOADS, 1 },
+    { "store_r", PL_PRELUDE_LIB_73_EXPORTS, PL_PRELUDE_LIB_73_OPS, PL_PRELUDE_LIB_73_SHADOWS, PL_PRELUDE_LIB_73_QUIET, PL_PRELUDE_LIB_73_SRC, PL_PRELUDE_LIB_73_METAS, PL_PRELUDE_LIB_73_LOADS, 1 },
+    { "strings", PL_PRELUDE_LIB_74_EXPORTS, PL_PRELUDE_LIB_74_OPS, PL_PRELUDE_LIB_74_SHADOWS, PL_PRELUDE_LIB_74_QUIET, PL_PRELUDE_LIB_74_SRC, PL_PRELUDE_LIB_74_METAS, PL_PRELUDE_LIB_74_LOADS, 0 },
+    { "swi_builtins", PL_PRELUDE_LIB_75_EXPORTS, PL_PRELUDE_LIB_75_OPS, PL_PRELUDE_LIB_75_SHADOWS, PL_PRELUDE_LIB_75_QUIET, PL_PRELUDE_LIB_75_SRC, PL_PRELUDE_LIB_75_METAS, PL_PRELUDE_LIB_75_LOADS, 0 },
+    { "tabling", PL_PRELUDE_LIB_76_EXPORTS, PL_PRELUDE_LIB_76_OPS, PL_PRELUDE_LIB_76_SHADOWS, PL_PRELUDE_LIB_76_QUIET, PL_PRELUDE_LIB_76_SRC, PL_PRELUDE_LIB_76_METAS, PL_PRELUDE_LIB_76_LOADS, 0 },
+    { "terms", PL_PRELUDE_LIB_77_EXPORTS, PL_PRELUDE_LIB_77_OPS, PL_PRELUDE_LIB_77_SHADOWS, PL_PRELUDE_LIB_77_QUIET, PL_PRELUDE_LIB_77_SRC, PL_PRELUDE_LIB_77_METAS, PL_PRELUDE_LIB_77_LOADS, 0 },
+    { "time", PL_PRELUDE_LIB_78_EXPORTS, PL_PRELUDE_LIB_78_OPS, PL_PRELUDE_LIB_78_SHADOWS, PL_PRELUDE_LIB_78_QUIET, PL_PRELUDE_LIB_78_SRC, PL_PRELUDE_LIB_78_METAS, PL_PRELUDE_LIB_78_LOADS, 0 },
+    { "ugraphs", PL_PRELUDE_LIB_79_EXPORTS, PL_PRELUDE_LIB_79_OPS, PL_PRELUDE_LIB_79_SHADOWS, PL_PRELUDE_LIB_79_QUIET, PL_PRELUDE_LIB_79_SRC, PL_PRELUDE_LIB_79_METAS, PL_PRELUDE_LIB_79_LOADS, 0 },
+    { "uri", PL_PRELUDE_LIB_80_EXPORTS, PL_PRELUDE_LIB_80_OPS, PL_PRELUDE_LIB_80_SHADOWS, PL_PRELUDE_LIB_80_QUIET, PL_PRELUDE_LIB_80_SRC, PL_PRELUDE_LIB_80_METAS, PL_PRELUDE_LIB_80_LOADS, 0 },
+    { "varnumbers", PL_PRELUDE_LIB_81_EXPORTS, PL_PRELUDE_LIB_81_OPS, PL_PRELUDE_LIB_81_SHADOWS, PL_PRELUDE_LIB_81_QUIET, PL_PRELUDE_LIB_81_SRC, PL_PRELUDE_LIB_81_METAS, PL_PRELUDE_LIB_81_LOADS, 0 },
+    { "writef", PL_PRELUDE_LIB_82_EXPORTS, PL_PRELUDE_LIB_82_OPS, PL_PRELUDE_LIB_82_SHADOWS, PL_PRELUDE_LIB_82_QUIET, PL_PRELUDE_LIB_82_SRC, PL_PRELUDE_LIB_82_METAS, PL_PRELUDE_LIB_82_LOADS, 0 },
+    { "xsb_builtins", PL_PRELUDE_LIB_83_EXPORTS, PL_PRELUDE_LIB_83_OPS, PL_PRELUDE_LIB_83_SHADOWS, PL_PRELUDE_LIB_83_QUIET, PL_PRELUDE_LIB_83_SRC, PL_PRELUDE_LIB_83_METAS, PL_PRELUDE_LIB_83_LOADS, 0 },
+    { "xsb_dialect", PL_PRELUDE_LIB_84_EXPORTS, PL_PRELUDE_LIB_84_OPS, PL_PRELUDE_LIB_84_SHADOWS, PL_PRELUDE_LIB_84_QUIET, PL_PRELUDE_LIB_84_SRC, PL_PRELUDE_LIB_84_METAS, PL_PRELUDE_LIB_84_LOADS, 0 },
+    { "xsb_ordsets", PL_PRELUDE_LIB_85_EXPORTS, PL_PRELUDE_LIB_85_OPS, PL_PRELUDE_LIB_85_SHADOWS, PL_PRELUDE_LIB_85_QUIET, PL_PRELUDE_LIB_85_SRC, PL_PRELUDE_LIB_85_METAS, PL_PRELUDE_LIB_85_LOADS, 0 },
+    { "xsb_tables", PL_PRELUDE_LIB_86_EXPORTS, PL_PRELUDE_LIB_86_OPS, PL_PRELUDE_LIB_86_SHADOWS, PL_PRELUDE_LIB_86_QUIET, PL_PRELUDE_LIB_86_SRC, PL_PRELUDE_LIB_86_METAS, PL_PRELUDE_LIB_86_LOADS, 0 },
     { "", 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 typedef struct { char nm[33]; int n; int ar; int lib; } pl_prelude_lib_ex_t;
@@ -36332,36 +37231,36 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "#\\=#", 4, 2, 35 },
     { "#\\==>", 5, 2, 35 },
     { "#\\\\/", 4, 2, 35 },
-    { "$amt_drop", 9, 3, 85 },
+    { "$amt_drop", 9, 3, 86 },
     { "$apropos_match", 14, 2, 5 },
     { "$arch", 5, 2, 5 },
     { "$argv", 5, 1, 5 },
-    { "$atp_goal", 9, 2, 85 },
-    { "$ats_close", 10, 3, 85 },
-    { "$ats_dep", 8, 4, 85 },
-    { "$ats_drop", 9, 2, 85 },
-    { "$ats_goal", 9, 2, 85 },
-    { "$ats_hits", 9, 2, 85 },
-    { "$ats_lit", 8, 2, 85 },
-    { "$ats_opts", 9, 1, 85 },
-    { "$ats_split", 10, 4, 85 },
-    { "$call_delays_m", 14, 3, 75 },
-    { "$call_residual_m", 16, 3, 75 },
+    { "$atp_goal", 9, 2, 86 },
+    { "$ats_close", 10, 3, 86 },
+    { "$ats_dep", 8, 4, 86 },
+    { "$ats_drop", 9, 2, 86 },
+    { "$ats_goal", 9, 2, 86 },
+    { "$ats_hits", 9, 2, 86 },
+    { "$ats_lit", 8, 2, 86 },
+    { "$ats_opts", 9, 1, 86 },
+    { "$ats_split", 10, 4, 86 },
+    { "$call_delays_m", 14, 3, 76 },
+    { "$call_residual_m", 16, 3, 76 },
     { "$chr_attach", 11, 5, 10 },
-    { "$clause", 7, 4, 74 },
+    { "$clause", 7, 4, 75 },
     { "$declare_module", 15, 3, 5 },
     { "$dict_eval", 10, 3, 27 },
-    { "$dl_f2", 6, 3, 74 },
-    { "$dl_findall", 11, 3, 74 },
-    { "$gr_idx", 7, 4, 75 },
-    { "$grd", 4, 3, 75 },
-    { "$grd_u", 6, 3, 75 },
+    { "$dl_f2", 6, 3, 75 },
+    { "$dl_findall", 11, 3, 75 },
+    { "$gr_idx", 7, 4, 76 },
+    { "$grd", 4, 3, 76 },
+    { "$grd_u", 6, 3, 76 },
     { "$home", 5, 1, 5 },
-    { "$idg_forced", 11, 1, 75 },
-    { "$idg_mono_affects_lazy", 22, 5, 75 },
-    { "$incr_drop", 10, 3, 75 },
-    { "$incr_guard", 11, 2, 75 },
-    { "$incr_inval", 11, 0, 75 },
+    { "$idg_forced", 11, 1, 76 },
+    { "$idg_mono_affects_lazy", 22, 5, 76 },
+    { "$incr_drop", 10, 3, 76 },
+    { "$incr_guard", 11, 2, 76 },
+    { "$incr_inval", 11, 0, 76 },
     { "$mctx_assert", 12, 3, 49 },
     { "$mctx_assert", 12, 4, 49 },
     { "$mctx_asserta", 13, 3, 49 },
@@ -36377,174 +37276,174 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$set_prompt", 11, 1, 5 },
     { "$sig_atomic", 11, 1, 5 },
     { "$strip_module", 13, 3, 5 },
-    { "$tbh_v", 6, 3, 75 },
-    { "$tbl $xt_ntp", 12, 1, 85 },
-    { "$tbl tabled_call", 16, 1, 75 },
-    { "$tbl undefined", 14, 0, 75 },
-    { "$tbl_abort", 10, 0, 75 },
-    { "$tbl_add", 8, 5, 75 },
-    { "$tbl_addk", 9, 5, 75 },
-    { "$tbl_alt", 8, 1, 75 },
-    { "$tbl_alt2", 9, 2, 75 },
-    { "$tbl_ans2", 9, 3, 75 },
-    { "$tbl_answer", 11, 2, 75 },
-    { "$tbl_answered", 13, 1, 75 },
-    { "$tbl_app", 8, 3, 75 },
-    { "$tbl_atrip", 10, 1, 75 },
-    { "$tbl_aval", 9, 4, 75 },
-    { "$tbl_call", 9, 2, 75 },
-    { "$tbl_chk", 8, 2, 75 },
-    { "$tbl_chk2", 9, 3, 75 },
-    { "$tbl_complete", 13, 1, 75 },
-    { "$tbl_conj", 9, 2, 75 },
-    { "$tbl_count", 10, 3, 75 },
-    { "$tbl_cycg", 9, 1, 75 },
-    { "$tbl_deeper", 11, 2, 75 },
-    { "$tbl_del", 8, 3, 75 },
-    { "$tbl_depn", 9, 1, 75 },
-    { "$tbl_dgoal", 10, 2, 75 },
-    { "$tbl_dl", 7, 1, 75 },
-    { "$tbl_dlpush", 11, 1, 75 },
-    { "$tbl_dmin", 9, 3, 75 },
-    { "$tbl_done", 9, 1, 75 },
-    { "$tbl_drop", 9, 2, 75 },
-    { "$tbl_drop_all", 13, 1, 75 },
-    { "$tbl_dup", 8, 1, 75 },
-    { "$tbl_eval", 9, 2, 75 },
-    { "$tbl_eval1", 10, 1, 75 },
-    { "$tbl_eval1n", 11, 1, 75 },
-    { "$tbl_fa", 7, 3, 75 },
-    { "$tbl_fin_all", 12, 1, 75 },
-    { "$tbl_final", 10, 1, 75 },
-    { "$tbl_final1", 11, 1, 75 },
-    { "$tbl_finvals", 12, 2, 75 },
-    { "$tbl_gdeeper", 12, 2, 75 },
-    { "$tbl_gshort", 11, 2, 75 },
-    { "$tbl_icall", 10, 2, 75 },
-    { "$tbl_idx", 8, 4, 75 },
-    { "$tbl_incrs", 10, 1, 75 },
-    { "$tbl_indep", 10, 2, 75 },
-    { "$tbl_inprog", 11, 1, 75 },
-    { "$tbl_isincr", 11, 1, 75 },
-    { "$tbl_lead", 9, 1, 75 },
-    { "$tbl_leading", 12, 0, 75 },
-    { "$tbl_local_variant_table", 24, 1, 75 },
-    { "$tbl_lookup", 11, 4, 75 },
-    { "$tbl_madd", 9, 6, 75 },
-    { "$tbl_manswer", 12, 4, 75 },
-    { "$tbl_mcall", 10, 3, 75 },
-    { "$tbl_mcheck", 11, 1, 75 },
-    { "$tbl_mclos", 10, 2, 75 },
-    { "$tbl_mcond", 10, 3, 75 },
-    { "$tbl_mindex", 11, 1, 75 },
-    { "$tbl_mput", 9, 6, 75 },
-    { "$tbl_msplit", 11, 7, 75 },
-    { "$tbl_mterm", 10, 2, 75 },
-    { "$tbl_mupd", 9, 4, 75 },
-    { "$tbl_mupd1", 10, 4, 75 },
-    { "$tbl_mupds", 10, 4, 75 },
-    { "$tbl_nest", 9, 4, 75 },
-    { "$tbl_noattv", 11, 1, 75 },
-    { "$tbl_ph", 7, 1, 75 },
-    { "$tbl_pos", 8, 2, 75 },
-    { "$tbl_qual", 9, 3, 75 },
-    { "$tbl_radd", 9, 5, 75 },
-    { "$tbl_raise", 10, 0, 75 },
-    { "$tbl_range", 10, 3, 75 },
-    { "$tbl_ratoms", 11, 2, 75 },
-    { "$tbl_rcls", 9, 4, 75 },
-    { "$tbl_renew", 10, 3, 75 },
-    { "$tbl_reset", 10, 1, 75 },
-    { "$tbl_resid", 10, 3, 75 },
-    { "$tbl_resq", 9, 2, 75 },
-    { "$tbl_restrain", 13, 2, 75 },
-    { "$tbl_rhas", 9, 2, 75 },
-    { "$tbl_rneg", 9, 2, 75 },
-    { "$tbl_round", 10, 3, 75 },
-    { "$tbl_rounds", 11, 0, 75 },
-    { "$tbl_rprog", 10, 4, 75 },
-    { "$tbl_rput", 9, 5, 75 },
-    { "$tbl_rs", 7, 1, 75 },
-    { "$tbl_rsa", 8, 2, 75 },
-    { "$tbl_rshare", 11, 3, 75 },
-    { "$tbl_rsk", 8, 6, 75 },
-    { "$tbl_run", 8, 5, 75 },
-    { "$tbl_runs", 9, 5, 75 },
-    { "$tbl_rval", 9, 2, 75 },
-    { "$tbl_same", 9, 2, 75 },
-    { "$tbl_scc", 8, 4, 75 },
-    { "$tbl_slice", 10, 2, 75 },
-    { "$tbl_snap", 9, 2, 75 },
-    { "$tbl_snapat", 11, 3, 75 },
-    { "$tbl_snapins", 12, 2, 75 },
-    { "$tbl_snapw", 10, 2, 75 },
-    { "$tbl_srounds", 12, 1, 75 },
-    { "$tbl_strip", 10, 3, 75 },
-    { "$tbl_table_status", 17, 4, 75 },
-    { "$tbl_trip", 9, 1, 75 },
-    { "$tbl_trip", 9, 2, 75 },
-    { "$tbl_ucons", 10, 2, 75 },
-    { "$tbl_unpair", 11, 2, 75 },
-    { "$tbl_unqe", 9, 2, 75 },
-    { "$tbl_unqem", 10, 3, 75 },
-    { "$tbl_unql", 9, 2, 75 },
-    { "$tbl_unqlm", 10, 3, 75 },
-    { "$tbl_unqual", 11, 3, 75 },
-    { "$tbl_upto", 9, 4, 75 },
-    { "$tbl_use", 8, 1, 75 },
-    { "$tbl_valid", 10, 4, 75 },
-    { "$tbl_vmap", 9, 2, 75 },
-    { "$tbl_w", 6, 2, 75 },
-    { "$tbl_wany", 9, 2, 75 },
-    { "$tbl_wdrop", 10, 1, 75 },
-    { "$tbl_wfsrun", 11, 0, 75 },
-    { "$tbl_wtin", 9, 2, 75 },
-    { "$tnot_i", 7, 3, 75 },
-    { "$tnot_impl", 10, 2, 75 },
-    { "$tnot_split", 11, 2, 75 },
-    { "$tnot_st", 8, 3, 75 },
-    { "$tnot_u", 7, 2, 75 },
+    { "$tbh_v", 6, 3, 76 },
+    { "$tbl $xt_ntp", 12, 1, 86 },
+    { "$tbl tabled_call", 16, 1, 76 },
+    { "$tbl undefined", 14, 0, 76 },
+    { "$tbl_abort", 10, 0, 76 },
+    { "$tbl_add", 8, 5, 76 },
+    { "$tbl_addk", 9, 5, 76 },
+    { "$tbl_alt", 8, 1, 76 },
+    { "$tbl_alt2", 9, 2, 76 },
+    { "$tbl_ans2", 9, 3, 76 },
+    { "$tbl_answer", 11, 2, 76 },
+    { "$tbl_answered", 13, 1, 76 },
+    { "$tbl_app", 8, 3, 76 },
+    { "$tbl_atrip", 10, 1, 76 },
+    { "$tbl_aval", 9, 4, 76 },
+    { "$tbl_call", 9, 2, 76 },
+    { "$tbl_chk", 8, 2, 76 },
+    { "$tbl_chk2", 9, 3, 76 },
+    { "$tbl_complete", 13, 1, 76 },
+    { "$tbl_conj", 9, 2, 76 },
+    { "$tbl_count", 10, 3, 76 },
+    { "$tbl_cycg", 9, 1, 76 },
+    { "$tbl_deeper", 11, 2, 76 },
+    { "$tbl_del", 8, 3, 76 },
+    { "$tbl_depn", 9, 1, 76 },
+    { "$tbl_dgoal", 10, 2, 76 },
+    { "$tbl_dl", 7, 1, 76 },
+    { "$tbl_dlpush", 11, 1, 76 },
+    { "$tbl_dmin", 9, 3, 76 },
+    { "$tbl_done", 9, 1, 76 },
+    { "$tbl_drop", 9, 2, 76 },
+    { "$tbl_drop_all", 13, 1, 76 },
+    { "$tbl_dup", 8, 1, 76 },
+    { "$tbl_eval", 9, 2, 76 },
+    { "$tbl_eval1", 10, 1, 76 },
+    { "$tbl_eval1n", 11, 1, 76 },
+    { "$tbl_fa", 7, 3, 76 },
+    { "$tbl_fin_all", 12, 1, 76 },
+    { "$tbl_final", 10, 1, 76 },
+    { "$tbl_final1", 11, 1, 76 },
+    { "$tbl_finvals", 12, 2, 76 },
+    { "$tbl_gdeeper", 12, 2, 76 },
+    { "$tbl_gshort", 11, 2, 76 },
+    { "$tbl_icall", 10, 2, 76 },
+    { "$tbl_idx", 8, 4, 76 },
+    { "$tbl_incrs", 10, 1, 76 },
+    { "$tbl_indep", 10, 2, 76 },
+    { "$tbl_inprog", 11, 1, 76 },
+    { "$tbl_isincr", 11, 1, 76 },
+    { "$tbl_lead", 9, 1, 76 },
+    { "$tbl_leading", 12, 0, 76 },
+    { "$tbl_local_variant_table", 24, 1, 76 },
+    { "$tbl_lookup", 11, 4, 76 },
+    { "$tbl_madd", 9, 6, 76 },
+    { "$tbl_manswer", 12, 4, 76 },
+    { "$tbl_mcall", 10, 3, 76 },
+    { "$tbl_mcheck", 11, 1, 76 },
+    { "$tbl_mclos", 10, 2, 76 },
+    { "$tbl_mcond", 10, 3, 76 },
+    { "$tbl_mindex", 11, 1, 76 },
+    { "$tbl_mput", 9, 6, 76 },
+    { "$tbl_msplit", 11, 7, 76 },
+    { "$tbl_mterm", 10, 2, 76 },
+    { "$tbl_mupd", 9, 4, 76 },
+    { "$tbl_mupd1", 10, 4, 76 },
+    { "$tbl_mupds", 10, 4, 76 },
+    { "$tbl_nest", 9, 4, 76 },
+    { "$tbl_noattv", 11, 1, 76 },
+    { "$tbl_ph", 7, 1, 76 },
+    { "$tbl_pos", 8, 2, 76 },
+    { "$tbl_qual", 9, 3, 76 },
+    { "$tbl_radd", 9, 5, 76 },
+    { "$tbl_raise", 10, 0, 76 },
+    { "$tbl_range", 10, 3, 76 },
+    { "$tbl_ratoms", 11, 2, 76 },
+    { "$tbl_rcls", 9, 4, 76 },
+    { "$tbl_renew", 10, 3, 76 },
+    { "$tbl_reset", 10, 1, 76 },
+    { "$tbl_resid", 10, 3, 76 },
+    { "$tbl_resq", 9, 2, 76 },
+    { "$tbl_restrain", 13, 2, 76 },
+    { "$tbl_rhas", 9, 2, 76 },
+    { "$tbl_rneg", 9, 2, 76 },
+    { "$tbl_round", 10, 3, 76 },
+    { "$tbl_rounds", 11, 0, 76 },
+    { "$tbl_rprog", 10, 4, 76 },
+    { "$tbl_rput", 9, 5, 76 },
+    { "$tbl_rs", 7, 1, 76 },
+    { "$tbl_rsa", 8, 2, 76 },
+    { "$tbl_rshare", 11, 3, 76 },
+    { "$tbl_rsk", 8, 6, 76 },
+    { "$tbl_run", 8, 5, 76 },
+    { "$tbl_runs", 9, 5, 76 },
+    { "$tbl_rval", 9, 2, 76 },
+    { "$tbl_same", 9, 2, 76 },
+    { "$tbl_scc", 8, 4, 76 },
+    { "$tbl_slice", 10, 2, 76 },
+    { "$tbl_snap", 9, 2, 76 },
+    { "$tbl_snapat", 11, 3, 76 },
+    { "$tbl_snapins", 12, 2, 76 },
+    { "$tbl_snapw", 10, 2, 76 },
+    { "$tbl_srounds", 12, 1, 76 },
+    { "$tbl_strip", 10, 3, 76 },
+    { "$tbl_table_status", 17, 4, 76 },
+    { "$tbl_trip", 9, 1, 76 },
+    { "$tbl_trip", 9, 2, 76 },
+    { "$tbl_ucons", 10, 2, 76 },
+    { "$tbl_unpair", 11, 2, 76 },
+    { "$tbl_unqe", 9, 2, 76 },
+    { "$tbl_unqem", 10, 3, 76 },
+    { "$tbl_unql", 9, 2, 76 },
+    { "$tbl_unqlm", 10, 3, 76 },
+    { "$tbl_unqual", 11, 3, 76 },
+    { "$tbl_upto", 9, 4, 76 },
+    { "$tbl_use", 8, 1, 76 },
+    { "$tbl_valid", 10, 4, 76 },
+    { "$tbl_vmap", 9, 2, 76 },
+    { "$tbl_w", 6, 2, 76 },
+    { "$tbl_wany", 9, 2, 76 },
+    { "$tbl_wdrop", 10, 1, 76 },
+    { "$tbl_wfsrun", 11, 0, 76 },
+    { "$tbl_wtin", 9, 2, 76 },
+    { "$tnot_i", 7, 3, 76 },
+    { "$tnot_impl", 10, 2, 76 },
+    { "$tnot_split", 11, 2, 76 },
+    { "$tnot_st", 8, 3, 76 },
+    { "$tnot_u", 7, 2, 76 },
     { "$version", 8, 1, 5 },
-    { "$xs_memv", 8, 2, 75 },
-    { "$xs_minus", 9, 3, 75 },
-    { "$xs_q", 5, 4, 75 },
-    { "$xsb_modr", 9, 2, 83 },
-    { "$xsb_pbind", 10, 2, 83 },
-    { "$xsb_psub", 9, 3, 83 },
-    { "$xsb_qcall", 10, 2, 83 },
-    { "$xt_ntp", 7, 1, 85 },
-    { "$xt_tv1", 7, 2, 85 },
+    { "$xs_memv", 8, 2, 76 },
+    { "$xs_minus", 9, 3, 76 },
+    { "$xs_q", 5, 4, 76 },
+    { "$xsb_modr", 9, 2, 84 },
+    { "$xsb_pbind", 10, 2, 84 },
+    { "$xsb_psub", 9, 3, 84 },
+    { "$xsb_qcall", 10, 2, 84 },
+    { "$xt_ntp", 7, 1, 86 },
+    { "$xt_tv1", 7, 2, 86 },
     { ":<", 2, 2, 27 },
     { ">:<", 3, 2, 27 },
     { "C", 1, 3, 5 },
-    { "abolish_all_tables", 18, 0, 75 },
-    { "abolish_module_tables", 21, 1, 85 },
-    { "abolish_nonincremental_tables", 29, 0, 85 },
-    { "abolish_nonincremental_tables", 29, 1, 85 },
-    { "abolish_table_call", 18, 1, 85 },
-    { "abolish_table_call", 18, 2, 85 },
-    { "abolish_table_info", 18, 0, 85 },
-    { "abolish_table_pred", 18, 1, 85 },
-    { "abolish_table_subgoal", 21, 1, 85 },
-    { "abolish_table_subgoal", 21, 2, 85 },
-    { "abolish_table_subgoals", 22, 1, 85 },
-    { "abolish_table_subgoals", 22, 2, 85 },
+    { "abolish_all_tables", 18, 0, 76 },
+    { "abolish_module_tables", 21, 1, 86 },
+    { "abolish_nonincremental_tables", 29, 0, 86 },
+    { "abolish_nonincremental_tables", 29, 1, 86 },
+    { "abolish_table_call", 18, 1, 86 },
+    { "abolish_table_call", 18, 2, 86 },
+    { "abolish_table_info", 18, 0, 86 },
+    { "abolish_table_pred", 18, 1, 86 },
+    { "abolish_table_subgoal", 21, 1, 86 },
+    { "abolish_table_subgoal", 21, 2, 86 },
+    { "abolish_table_subgoals", 22, 1, 86 },
+    { "abolish_table_subgoals", 22, 2, 86 },
     { "abs", 3, 2, 62 },
     { "acos", 4, 2, 62 },
-    { "add_edges", 9, 3, 78 },
-    { "add_linear_11", 13, 3, 71 },
+    { "add_edges", 9, 3, 79 },
     { "add_linear_11", 13, 3, 72 },
-    { "add_linear_f1", 13, 4, 71 },
+    { "add_linear_11", 13, 3, 73 },
     { "add_linear_f1", 13, 4, 72 },
-    { "add_linear_ff", 13, 5, 71 },
+    { "add_linear_f1", 13, 4, 73 },
     { "add_linear_ff", 13, 5, 72 },
+    { "add_linear_ff", 13, 5, 73 },
     { "add_linedit_completion", 22, 1, 34 },
     { "add_nb_set", 10, 2, 50 },
     { "add_nb_set", 10, 3, 50 },
     { "add_stream_alias", 16, 2, 34 },
     { "add_stream_mirror", 17, 2, 34 },
     { "add_to_heap", 11, 4, 37 },
-    { "add_vertices", 12, 3, 78 },
+    { "add_vertices", 12, 3, 79 },
     { "aggregate", 9, 3, 0 },
     { "aggregate", 9, 4, 0 },
     { "aggregate_all", 13, 3, 0 },
@@ -36566,10 +37465,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "arithmetic_function", 19, 1, 3 },
     { "arrangement", 11, 2, 19 },
     { "asin", 4, 2, 62 },
-    { "assertai", 8, 2, 83 },
-    { "asserti", 7, 2, 83 },
-    { "assertzi", 8, 2, 83 },
-    { "assignment", 10, 2, 68 },
+    { "assertai", 8, 2, 84 },
+    { "asserti", 7, 2, 84 },
+    { "assertzi", 8, 2, 84 },
+    { "assignment", 10, 2, 69 },
     { "assoc_to_keys", 13, 2, 4 },
     { "assoc_to_list", 13, 2, 4 },
     { "assoc_to_values", 15, 2, 4 },
@@ -36581,7 +37480,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "atom_json_dict", 14, 3, 44 },
     { "atom_json_term", 14, 3, 44 },
     { "atom_property", 13, 2, 34 },
-    { "attv_unify", 10, 2, 83 },
+    { "attv_unify", 10, 2, 84 },
     { "automaton", 9, 3, 13 },
     { "automaton", 9, 8, 13 },
     { "b_set_dict", 10, 3, 27 },
@@ -36602,10 +37501,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "blanks", 6, 2, 26 },
     { "blanks_to_nl", 12, 2, 26 },
     { "bounded_sublist", 15, 3, 38 },
-    { "call_delays", 11, 2, 75 },
+    { "call_delays", 11, 2, 76 },
     { "call_det", 8, 2, 34 },
-    { "call_nth", 8, 2, 70 },
-    { "call_residual_program", 21, 2, 75 },
+    { "call_nth", 8, 2, 71 },
+    { "call_residual_program", 21, 2, 76 },
     { "call_with_args", 14, 1, 34 },
     { "call_with_args", 14, 2, 34 },
     { "call_with_args", 14, 3, 34 },
@@ -36617,14 +37516,14 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "call_with_args", 14, 9, 34 },
     { "call_with_args", 14, 10, 34 },
     { "call_with_args", 14, 11, 34 },
-    { "call_with_depth_limit", 21, 3, 74 },
-    { "call_with_time_limit", 20, 2, 77 },
-    { "call_with_time_limit", 20, 3, 77 },
+    { "call_with_depth_limit", 21, 3, 75 },
+    { "call_with_time_limit", 20, 2, 78 },
+    { "call_with_time_limit", 20, 3, 78 },
     { "ceiling", 7, 2, 62 },
     { "chain", 5, 2, 13 },
     { "checklist", 9, 2, 5 },
     { "chmod", 5, 2, 30 },
-    { "chmod_", 6, 2, 74 },
+    { "chmod_", 6, 2, 75 },
     { "chr activate_constraint", 23, 3, 11 },
     { "chr all_suspensions", 19, 3, 11 },
     { "chr allocate_constraint", 23, 4, 11 },
@@ -36687,7 +37586,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "close_input_atom_stream", 23, 1, 34 },
     { "close_input_chars_stream", 24, 1, 34 },
     { "close_input_codes_stream", 24, 1, 34 },
-    { "close_open_tables", 17, 1, 85 },
+    { "close_open_tables", 17, 1, 86 },
     { "close_output_atom_stream", 24, 2, 34 },
     { "close_output_chars_stream", 25, 2, 34 },
     { "close_output_codes_stream", 25, 2, 34 },
@@ -36696,28 +37595,28 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "collect_nonlin", 14, 3, 17 },
     { "combine", 7, 3, 19 },
     { "compile", 7, 1, 62 },
-    { "compile", 7, 1, 83 },
-    { "compile", 7, 2, 83 },
-    { "compiler_options", 16, 1, 82 },
-    { "complement", 10, 2, 78 },
-    { "compose", 7, 3, 78 },
+    { "compile", 7, 1, 84 },
+    { "compile", 7, 2, 84 },
+    { "compiler_options", 16, 1, 83 },
+    { "complement", 10, 2, 79 },
+    { "compose", 7, 3, 79 },
     { "concat", 6, 3, 5 },
     { "concat_atom", 11, 2, 5 },
-    { "concat_atom", 11, 2, 83 },
+    { "concat_atom", 11, 2, 84 },
     { "concat_atom", 11, 3, 5 },
-    { "concat_atom", 11, 3, 83 },
-    { "connect_ugraph", 14, 3, 78 },
-    { "constraint", 10, 3, 68 },
-    { "constraint", 10, 4, 68 },
-    { "constraint_add", 14, 4, 68 },
+    { "concat_atom", 11, 3, 84 },
+    { "connect_ugraph", 14, 3, 79 },
+    { "constraint", 10, 3, 69 },
+    { "constraint", 10, 4, 69 },
+    { "constraint_add", 14, 4, 69 },
     { "convert_time", 12, 2, 5 },
     { "convert_time", 12, 8, 5 },
     { "convlist", 8, 3, 2 },
     { "copy_directory", 14, 2, 30 },
     { "copy_file", 9, 2, 30 },
     { "copy_file", 9, 2, 34 },
-    { "copy_stream_data", 16, 2, 74 },
-    { "copy_stream_data", 16, 3, 74 },
+    { "copy_stream_data", 16, 2, 75 },
+    { "copy_stream_data", 16, 3, 75 },
     { "cos", 3, 2, 62 },
     { "countall", 8, 2, 34 },
     { "cpu_time", 8, 1, 34 },
@@ -36736,7 +37635,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "cumulative", 10, 1, 13 },
     { "cumulative", 10, 2, 13 },
     { "current_alias", 13, 2, 34 },
-    { "current_arithmetic_function", 27, 1, 74 },
+    { "current_arithmetic_function", 27, 1, 75 },
     { "current_atom", 12, 1, 34 },
     { "current_bip_name", 16, 2, 34 },
     { "current_chr_constraint", 22, 1, 11 },
@@ -36747,9 +37646,9 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "current_mutex", 13, 3, 5 },
     { "current_record", 14, 2, 66 },
     { "current_record_predicate", 24, 2, 66 },
-    { "current_setting", 15, 1, 67 },
+    { "current_setting", 15, 1, 68 },
     { "current_stream", 14, 1, 34 },
-    { "current_table", 13, 2, 75 },
+    { "current_table", 13, 2, 76 },
     { "current_thread", 14, 2, 5 },
     { "current_type", 12, 3, 29 },
     { "date", 4, 1, 62 },
@@ -36760,22 +37659,22 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "debugging", 9, 0, 34 },
     { "dec_step", 8, 2, 8 },
     { "dec_step", 8, 2, 9 },
-    { "dedent_lines", 12, 3, 73 },
+    { "dedent_lines", 12, 3, 74 },
     { "del_assoc", 9, 4, 4 },
     { "del_dict", 8, 4, 27 },
-    { "del_edges", 9, 3, 78 },
+    { "del_edges", 9, 3, 79 },
     { "del_max_assoc", 13, 4, 4 },
     { "del_min_assoc", 13, 4, 4 },
-    { "del_vertices", 12, 3, 78 },
+    { "del_vertices", 12, 3, 79 },
     { "delete", 6, 3, 47 },
     { "delete_directory", 16, 1, 34 },
     { "delete_directory_and_contents", 29, 1, 30 },
     { "delete_directory_contents", 25, 1, 30 },
-    { "delete_factor", 13, 4, 71 },
     { "delete_factor", 13, 4, 72 },
+    { "delete_factor", 13, 4, 73 },
     { "delete_from_heap", 16, 4, 37 },
-    { "delete_return", 13, 2, 85 },
-    { "delete_return", 13, 3, 85 },
+    { "delete_return", 13, 2, 86 },
+    { "delete_return", 13, 3, 86 },
     { "deref", 5, 2, 8 },
     { "deref", 5, 2, 9 },
     { "deref_var", 9, 2, 8 },
@@ -36801,13 +37700,13 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "display_to_codes", 16, 2, 34 },
     { "displayq", 8, 1, 5 },
     { "displayq", 8, 2, 5 },
-    { "distinct", 8, 1, 70 },
-    { "distinct", 8, 2, 70 },
-    { "do_all", 6, 1, 83 },
-    { "do_all", 6, 2, 83 },
+    { "distinct", 8, 1, 71 },
+    { "distinct", 8, 2, 71 },
+    { "do_all", 6, 1, 84 },
+    { "do_all", 6, 2, 84 },
     { "do_checks", 9, 8, 42 },
     { "do_checks", 9, 8, 43 },
-    { "document_export", 15, 1, 82 },
+    { "document_export", 15, 1, 83 },
     { "domain_error", 12, 2, 29 },
     { "drop", 4, 3, 38 },
     { "drop_dep", 8, 1, 20 },
@@ -36820,9 +37719,9 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "dump_nz", 7, 5, 9 },
     { "dump_var", 8, 6, 8 },
     { "dump_var", 8, 6, 9 },
-    { "dynamic_pred_has_clauses", 24, 2, 82 },
-    { "edb", 3, 1, 82 },
-    { "edges", 5, 2, 78 },
+    { "dynamic_pred_has_clauses", 24, 2, 83 },
+    { "edb", 3, 1, 83 },
+    { "edges", 5, 2, 79 },
     { "element", 7, 3, 13 },
     { "empty_assoc", 11, 1, 4 },
     { "empty_ds", 8, 1, 38 },
@@ -36841,30 +37740,30 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "engine_post", 11, 3, 28 },
     { "engine_self", 11, 1, 28 },
     { "engine_yield", 12, 1, 28 },
-    { "ensure_dync_loaded", 18, 1, 82 },
+    { "ensure_dync_loaded", 18, 1, 83 },
     { "entailed", 8, 1, 51 },
     { "entailed", 8, 1, 52 },
     { "eol", 3, 2, 26 },
     { "eos", 3, 2, 26 },
     { "eval_license", 12, 0, 5 },
-    { "excess_vars", 11, 4, 75 },
+    { "excess_vars", 11, 4, 76 },
     { "exclude", 7, 3, 2 },
     { "exec", 4, 4, 34 },
     { "exec", 4, 5, 34 },
     { "existence_error", 15, 2, 29 },
     { "existence_error", 15, 3, 29 },
-    { "exists_directory", 16, 1, 74 },
-    { "exists_file", 11, 1, 74 },
-    { "expand_file_name", 16, 2, 74 },
-    { "expand_filename", 15, 2, 83 },
-    { "export", 6, 1, 82 },
+    { "exists_directory", 16, 1, 75 },
+    { "exists_file", 11, 1, 75 },
+    { "expand_file_name", 16, 2, 75 },
+    { "expand_filename", 15, 2, 84 },
+    { "export", 6, 1, 83 },
     { "export_binding", 14, 1, 8 },
     { "export_binding", 14, 1, 9 },
     { "export_binding", 14, 2, 9 },
     { "export_list", 11, 2, 5 },
-    { "fast_read", 9, 2, 74 },
-    { "fast_term_serialized", 20, 2, 74 },
-    { "fast_write", 10, 2, 74 },
+    { "fast_read", 9, 2, 75 },
+    { "fast_term_serialized", 20, 2, 75 },
+    { "fast_write", 10, 2, 75 },
     { "fd_all_different", 16, 1, 35 },
     { "fd_at_least_one", 15, 1, 35 },
     { "fd_at_most_one", 14, 1, 35 },
@@ -36926,15 +37825,15 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "fdset_union", 11, 2, 13 },
     { "fdset_union", 11, 3, 13 },
     { "feature", 7, 2, 5 },
-    { "file_close", 10, 1, 82 },
-    { "file_flush", 10, 2, 83 },
-    { "file_mode_", 10, 2, 74 },
-    { "file_open", 9, 3, 82 },
+    { "file_close", 10, 1, 83 },
+    { "file_flush", 10, 2, 84 },
+    { "file_mode_", 10, 2, 75 },
+    { "file_open", 9, 3, 83 },
     { "file_permission", 15, 2, 34 },
-    { "file_read", 9, 3, 82 },
-    { "file_seek", 9, 4, 83 },
-    { "file_truncate", 13, 3, 83 },
-    { "file_write", 10, 2, 83 },
+    { "file_read", 9, 3, 83 },
+    { "file_seek", 9, 4, 84 },
+    { "file_truncate", 13, 3, 84 },
+    { "file_write", 10, 2, 84 },
     { "find_chr_constraint", 19, 1, 11 },
     { "find_linedit_completion", 23, 2, 34 },
     { "flatten", 7, 2, 47 },
@@ -36947,31 +37846,31 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "foldl", 5, 5, 2 },
     { "foldl", 5, 6, 2 },
     { "foldl", 5, 7, 2 },
-    { "foldsubterms", 12, 4, 76 },
-    { "foldsubterms", 12, 5, 76 },
+    { "foldsubterms", 12, 4, 77 },
+    { "foldsubterms", 12, 5, 77 },
     { "format_to_atom", 14, 3, 34 },
     { "format_to_chars", 15, 3, 34 },
     { "format_to_codes", 15, 3, 34 },
     { "free_variables", 14, 2, 5 },
     { "free_variables", 14, 4, 0 },
-    { "gc_dynamic", 10, 1, 83 },
-    { "gc_heap", 7, 0, 83 },
-    { "gc_strings", 10, 0, 82 },
-    { "gc_tables", 9, 1, 85 },
+    { "gc_dynamic", 10, 1, 84 },
+    { "gc_heap", 7, 0, 84 },
+    { "gc_strings", 10, 0, 83 },
+    { "gc_tables", 9, 1, 86 },
     { "geler", 5, 3, 17 },
     { "gen_assoc", 9, 3, 4 },
     { "gen_nb_set", 10, 2, 50 },
-    { "gen_state", 9, 1, 68 },
-    { "gen_state_clpr", 14, 1, 68 },
-    { "gen_state_clpr", 14, 2, 68 },
+    { "gen_state", 9, 1, 69 },
+    { "gen_state_clpr", 14, 1, 69 },
+    { "gen_state_clpr", 14, 2, 69 },
     { "genarg", 6, 3, 62 },
     { "generic_var", 11, 1, 34 },
     { "gensym", 6, 2, 33 },
     { "get_assoc", 9, 3, 4 },
     { "get_assoc", 9, 5, 4 },
-    { "get_call", 8, 3, 75 },
-    { "get_calls", 9, 3, 75 },
-    { "get_calls_for_table", 19, 2, 85 },
+    { "get_call", 8, 3, 76 },
+    { "get_calls", 9, 3, 76 },
+    { "get_calls_for_table", 19, 2, 86 },
     { "get_dict", 8, 3, 27 },
     { "get_dict", 8, 5, 27 },
     { "get_ds", 6, 3, 38 },
@@ -36984,19 +37883,19 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "get_or_add_class", 16, 2, 8 },
     { "get_or_add_class", 16, 2, 9 },
     { "get_print_stream", 16, 1, 34 },
-    { "get_residual", 12, 2, 75 },
-    { "get_returns", 11, 2, 75 },
-    { "get_returns", 11, 3, 75 },
-    { "get_returns_and_dls", 19, 3, 75 },
-    { "get_returns_and_tvs", 19, 3, 85 },
-    { "get_returns_for_call", 20, 2, 75 },
+    { "get_residual", 12, 2, 76 },
+    { "get_returns", 11, 2, 76 },
+    { "get_returns", 11, 3, 76 },
+    { "get_returns_and_dls", 19, 3, 76 },
+    { "get_returns_and_tvs", 19, 3, 86 },
+    { "get_returns_for_call", 20, 2, 76 },
     { "get_store", 9, 2, 38 },
-    { "get_time", 8, 1, 74 },
-    { "gethostname", 11, 1, 69 },
+    { "get_time", 8, 1, 75 },
+    { "gethostname", 11, 1, 70 },
     { "getrand", 7, 1, 63 },
     { "global_cardinality", 18, 2, 13 },
     { "global_cardinality", 18, 3, 13 },
-    { "group_by", 8, 4, 70 },
+    { "group_by", 8, 4, 71 },
     { "group_pairs_by_key", 18, 2, 56 },
     { "hash", 4, 1, 5 },
     { "hash_term", 9, 2, 5 },
@@ -37016,28 +37915,28 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "ht_put_new", 10, 3, 36 },
     { "ht_size", 7, 2, 36 },
     { "ht_update", 9, 4, 36 },
-    { "import", 6, 1, 82 },
     { "import", 6, 1, 83 },
+    { "import", 6, 1, 84 },
     { "in", 2, 2, 13 },
     { "in_set", 6, 2, 13 },
     { "inc_step", 8, 2, 8 },
     { "inc_step", 8, 2, 9 },
     { "include", 7, 3, 2 },
-    { "incr_assert", 11, 1, 75 },
-    { "incr_asserta", 12, 1, 75 },
-    { "incr_assertz", 12, 1, 75 },
-    { "incr_invalidate_call", 20, 1, 75 },
-    { "incr_invalidate_calls", 21, 1, 75 },
-    { "incr_retract", 12, 1, 75 },
-    { "incr_retractall", 15, 1, 75 },
-    { "indent_lines", 12, 3, 73 },
-    { "indent_lines", 12, 4, 73 },
-    { "indep", 5, 2, 71 },
+    { "incr_assert", 11, 1, 76 },
+    { "incr_asserta", 12, 1, 76 },
+    { "incr_assertz", 12, 1, 76 },
+    { "incr_invalidate_call", 20, 1, 76 },
+    { "incr_invalidate_calls", 21, 1, 76 },
+    { "incr_retract", 12, 1, 76 },
+    { "incr_retractall", 15, 1, 76 },
+    { "indent_lines", 12, 3, 74 },
+    { "indent_lines", 12, 4, 74 },
     { "indep", 5, 2, 72 },
+    { "indep", 5, 2, 73 },
     { "index", 5, 1, 5 },
-    { "index", 5, 1, 82 },
-    { "index", 5, 2, 83 },
-    { "index", 5, 3, 83 },
+    { "index", 5, 1, 83 },
+    { "index", 5, 2, 84 },
+    { "index", 5, 3, 84 },
     { "indomain", 8, 1, 13 },
     { "ineq", 4, 4, 39 },
     { "ineq", 4, 4, 40 },
@@ -37057,22 +37956,22 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "inf", 3, 4, 9 },
     { "init_store", 10, 2, 38 },
     { "ins", 3, 2, 13 },
-    { "install_verify_attribute_handler", 32, 4, 83 },
-    { "install_verify_attribute_handler", 32, 5, 83 },
+    { "install_verify_attribute_handler", 32, 4, 84 },
+    { "install_verify_attribute_handler", 32, 5, 84 },
     { "instantiation_error", 19, 1, 29 },
     { "integer", 7, 3, 26 },
     { "intercept", 9, 3, 41 },
     { "intercept", 9, 4, 41 },
     { "intercept_all", 13, 4, 41 },
-    { "interpolate_string", 18, 4, 73 },
+    { "interpolate_string", 18, 4, 74 },
     { "intersect_eq", 12, 3, 38 },
     { "intersection", 12, 3, 47 },
     { "intro_at", 8, 3, 8 },
     { "intro_at", 8, 3, 9 },
-    { "iri_normalized", 14, 2, 79 },
-    { "iri_normalized", 14, 3, 79 },
+    { "iri_normalized", 14, 2, 80 },
+    { "iri_normalized", 14, 3, 80 },
     { "is_absolute_file_name", 21, 1, 34 },
-    { "is_acyclic", 10, 1, 83 },
+    { "is_acyclic", 10, 1, 84 },
     { "is_alnum", 8, 1, 24 },
     { "is_alpha", 8, 1, 24 },
     { "is_ascii", 8, 1, 24 },
@@ -37106,8 +38005,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "is_space", 8, 1, 24 },
     { "is_upper", 8, 1, 24 },
     { "is_white", 8, 1, 24 },
-    { "isolate", 7, 3, 71 },
     { "isolate", 7, 3, 72 },
+    { "isolate", 7, 3, 73 },
     { "iterate_dec", 11, 2, 8 },
     { "iterate_dec", 11, 2, 9 },
     { "json_read", 9, 2, 44 },
@@ -37140,8 +38039,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "lb", 2, 3, 9 },
     { "leash", 5, 1, 34 },
     { "lex_chain", 9, 1, 13 },
-    { "limit", 5, 2, 70 },
-    { "link_file", 9, 3, 74 },
+    { "limit", 5, 2, 71 },
+    { "link_file", 9, 3, 75 },
     { "list_difference_eq", 18, 3, 38 },
     { "list_or_partial_list", 20, 1, 34 },
     { "list_to_assoc", 13, 2, 4 },
@@ -37153,10 +38052,10 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "listing", 7, 0, 46 },
     { "listing", 7, 1, 46 },
     { "listing", 7, 2, 46 },
-    { "load_dyn", 8, 1, 82 },
-    { "load_dync", 9, 1, 82 },
-    { "load_settings", 13, 1, 67 },
-    { "load_settings", 13, 2, 67 },
+    { "load_dyn", 8, 1, 83 },
+    { "load_dync", 9, 1, 83 },
+    { "load_settings", 13, 1, 68 },
+    { "load_settings", 13, 2, 68 },
     { "lock_predicate", 14, 2, 5 },
     { "log", 3, 2, 62 },
     { "log10", 5, 2, 62 },
@@ -37173,24 +38072,24 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "map_assoc", 9, 2, 4 },
     { "map_assoc", 9, 3, 4 },
     { "map_list_to_pairs", 17, 3, 56 },
-    { "mapargs", 7, 3, 76 },
+    { "mapargs", 7, 3, 77 },
     { "maplist", 7, 2, 2 },
     { "maplist", 7, 3, 2 },
     { "maplist", 7, 4, 2 },
     { "maplist", 7, 5, 2 },
-    { "maplist", 7, 6, 74 },
-    { "maplist", 7, 7, 74 },
-    { "mapsubterms", 11, 3, 76 },
-    { "mapsubterms_var", 15, 3, 76 },
+    { "maplist", 7, 6, 75 },
+    { "maplist", 7, 7, 75 },
+    { "mapsubterms", 11, 3, 77 },
+    { "mapsubterms_var", 15, 3, 77 },
     { "max_assoc", 9, 3, 4 },
     { "max_go_list", 11, 2, 38 },
     { "max_list", 8, 2, 47 },
     { "max_member", 10, 2, 47 },
     { "max_member", 10, 3, 47 },
-    { "max_var_number", 14, 3, 80 },
+    { "max_var_number", 14, 3, 81 },
     { "maximize", 8, 1, 8 },
     { "maximize", 8, 1, 9 },
-    { "maximize", 8, 3, 68 },
+    { "maximize", 8, 3, 69 },
     { "maybe", 5, 0, 63 },
     { "maybe", 5, 1, 63 },
     { "maybe", 5, 2, 63 },
@@ -37207,7 +38106,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "midstring", 9, 5, 62 },
     { "midstring", 9, 6, 62 },
     { "min_assoc", 9, 3, 4 },
-    { "min_ed_dis", 10, 3, 83 },
+    { "min_ed_dis", 10, 3, 84 },
     { "min_list", 8, 2, 47 },
     { "min_member", 10, 2, 47 },
     { "min_member", 10, 3, 47 },
@@ -37215,47 +38114,47 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "min_of_heap", 11, 5, 37 },
     { "minimize", 8, 1, 8 },
     { "minimize", 8, 1, 9 },
-    { "minimize", 8, 3, 68 },
+    { "minimize", 8, 3, 69 },
     { "mode", 4, 1, 62 },
-    { "mult_hom", 8, 3, 71 },
     { "mult_hom", 8, 3, 72 },
-    { "mult_linear_factor", 18, 3, 71 },
+    { "mult_hom", 8, 3, 73 },
     { "mult_linear_factor", 18, 3, 72 },
+    { "mult_linear_factor", 18, 3, 73 },
     { "must_be", 7, 2, 29 },
     { "name_query_vars", 15, 2, 34 },
     { "name_singleton_vars", 19, 1, 34 },
     { "nb_intercept_all", 16, 4, 41 },
     { "nb_set_dict", 11, 3, 27 },
     { "nb_set_to_list", 14, 2, 50 },
-    { "neighbors", 9, 3, 78 },
-    { "neighbours", 10, 3, 78 },
+    { "neighbors", 9, 3, 79 },
+    { "neighbours", 10, 3, 79 },
     { "new_atom", 8, 1, 34 },
     { "new_atom", 8, 2, 34 },
     { "nextto", 6, 3, 47 },
     { "nf", 2, 2, 51 },
     { "nf", 2, 2, 52 },
-    { "nf2sum", 6, 3, 71 },
     { "nf2sum", 6, 3, 72 },
+    { "nf2sum", 6, 3, 73 },
     { "nf2term", 7, 2, 51 },
     { "nf2term", 7, 2, 52 },
-    { "nf_coeff_of", 11, 3, 71 },
     { "nf_coeff_of", 11, 3, 72 },
+    { "nf_coeff_of", 11, 3, 73 },
     { "nf_constant", 11, 2, 51 },
     { "nf_constant", 11, 2, 52 },
-    { "nf_rhs_x", 8, 4, 71 },
     { "nf_rhs_x", 8, 4, 72 },
-    { "nf_substitute", 13, 4, 71 },
+    { "nf_rhs_x", 8, 4, 73 },
     { "nf_substitute", 13, 4, 72 },
+    { "nf_substitute", 13, 4, 73 },
     { "no_style_check", 14, 1, 62 },
     { "non_fd_var", 10, 1, 34 },
     { "non_generic_var", 15, 1, 34 },
     { "nonblank", 8, 3, 26 },
     { "nonblanks", 9, 3, 26 },
-    { "normalize_scalar", 16, 2, 71 },
     { "normalize_scalar", 16, 2, 72 },
+    { "normalize_scalar", 16, 2, 73 },
     { "nospy", 5, 1, 34 },
     { "nospyall", 8, 0, 34 },
-    { "not_exists", 10, 1, 75 },
+    { "not_exists", 10, 1, 76 },
     { "notrace", 7, 0, 34 },
     { "nth0", 4, 3, 47 },
     { "nth0", 4, 4, 47 },
@@ -37263,11 +38162,11 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "nth1", 4, 4, 47 },
     { "number", 6, 3, 26 },
     { "number_atom", 11, 2, 34 },
-    { "number_digits", 13, 2, 83 },
-    { "numbervars", 10, 1, 80 },
+    { "number_digits", 13, 2, 84 },
+    { "numbervars", 10, 1, 81 },
     { "numlist", 7, 3, 47 },
-    { "objective", 9, 2, 68 },
-    { "offset", 6, 2, 70 },
+    { "objective", 9, 2, 69 },
+    { "offset", 6, 2, 71 },
     { "on_exception", 12, 3, 62 },
     { "open_input_atom_stream", 22, 2, 34 },
     { "open_input_chars_stream", 23, 2, 34 },
@@ -37275,7 +38174,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "open_output_atom_stream", 23, 1, 34 },
     { "open_output_chars_stream", 24, 1, 34 },
     { "open_output_codes_stream", 24, 1, 34 },
-    { "open_string", 11, 2, 74 },
+    { "open_string", 11, 2, 75 },
     { "opt_arguments", 13, 3, 54 },
     { "opt_help", 8, 2, 54 },
     { "opt_parse", 9, 4, 54 },
@@ -37297,14 +38196,14 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "ord_memberchk", 13, 2, 55 },
     { "ord_selectchk", 13, 3, 55 },
     { "ord_seteq", 9, 2, 55 },
-    { "ord_setproduct", 14, 3, 84 },
+    { "ord_setproduct", 14, 3, 85 },
     { "ord_subset", 10, 2, 55 },
     { "ord_subtract", 12, 3, 55 },
     { "ord_symdiff", 11, 3, 55 },
     { "ord_union", 9, 2, 55 },
     { "ord_union", 9, 3, 55 },
     { "ord_union", 9, 4, 55 },
-    { "order_by", 8, 2, 70 },
+    { "order_by", 8, 2, 71 },
     { "ordering", 8, 1, 19 },
     { "os_version", 10, 1, 34 },
     { "otherwise", 9, 0, 62 },
@@ -37334,7 +38233,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "portray_clause", 14, 3, 46 },
     { "pow", 3, 3, 62 },
     { "prefix", 6, 2, 47 },
-    { "print_file_contents", 19, 1, 83 },
+    { "print_file_contents", 19, 1, 84 },
     { "print_to_atom", 13, 2, 34 },
     { "print_to_chars", 14, 2, 34 },
     { "print_to_codes", 14, 2, 34 },
@@ -37352,7 +38251,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "project_nonlin", 14, 3, 17 },
     { "projecting_assert", 17, 1, 16 },
     { "prolog_flag", 11, 2, 62 },
-    { "prolog_to_os_filename", 21, 2, 74 },
+    { "prolog_to_os_filename", 21, 2, 75 },
     { "prolog_var_name", 15, 3, 26 },
     { "proper_length", 13, 2, 47 },
     { "proper_list", 11, 1, 5 },
@@ -37411,11 +38310,11 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "re_replace", 10, 5, 57 },
     { "re_split", 8, 3, 57 },
     { "re_split", 8, 4, 57 },
-    { "reachable", 9, 3, 78 },
+    { "reachable", 9, 3, 79 },
     { "read_atom", 9, 1, 34 },
     { "read_atom", 9, 2, 34 },
-    { "read_canonical", 14, 1, 82 },
-    { "read_canonical", 14, 2, 82 },
+    { "read_canonical", 14, 1, 83 },
+    { "read_canonical", 14, 2, 83 },
     { "read_clause", 11, 1, 5 },
     { "read_clause", 11, 2, 5 },
     { "read_file_to_codes", 18, 3, 65 },
@@ -37430,7 +38329,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "read_line_to_codes", 18, 2, 65 },
     { "read_line_to_codes", 18, 3, 65 },
     { "read_line_to_string", 19, 2, 65 },
-    { "read_link", 9, 3, 74 },
+    { "read_link", 9, 3, 75 },
     { "read_number", 11, 1, 34 },
     { "read_number", 11, 2, 34 },
     { "read_pending_input", 18, 3, 5 },
@@ -37444,43 +38343,45 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "read_variables", 14, 2, 5 },
     { "read_variables", 14, 3, 5 },
     { "real_time", 9, 1, 34 },
-    { "reclaim_space", 13, 1, 83 },
+    { "reclaim_space", 13, 1, 84 },
     { "reconsider", 10, 1, 8 },
     { "reconsider", 10, 1, 9 },
     { "record", 6, 1, 66 },
-    { "reduced", 7, 1, 70 },
-    { "reduced", 7, 3, 70 },
+    { "reduced", 7, 1, 71 },
+    { "reduced", 7, 3, 71 },
     { "redundancy_vars", 15, 1, 21 },
     { "relative_file_name", 18, 3, 30 },
     { "remainder", 9, 3, 26 },
     { "remove_stream_mirror", 20, 2, 34 },
     { "rename_file", 11, 2, 34 },
-    { "renormalize", 11, 2, 71 },
     { "renormalize", 11, 2, 72 },
+    { "renormalize", 11, 2, 73 },
     { "repair", 6, 2, 51 },
     { "repair", 6, 2, 52 },
     { "representation_error", 20, 1, 29 },
     { "reset_gensym", 12, 0, 33 },
     { "reset_gensym", 12, 1, 33 },
     { "resource_error", 14, 1, 29 },
-    { "restore_setting", 15, 1, 67 },
-    { "retract_nr", 10, 1, 83 },
+    { "restore_setting", 15, 1, 68 },
+    { "retract_nr", 10, 1, 84 },
     { "reverse", 7, 2, 47 },
-    { "rm", 2, 1, 83 },
+    { "rm", 2, 1, 84 },
     { "round", 5, 2, 62 },
     { "run_tests", 9, 0, 58 },
     { "run_tests", 9, 1, 58 },
+    { "safe_call", 9, 1, 67 },
+    { "safe_goal", 9, 1, 67 },
     { "same_class", 10, 2, 8 },
     { "same_class", 10, 2, 9 },
-    { "same_file", 9, 2, 74 },
-    { "same_functor", 12, 2, 76 },
-    { "same_functor", 12, 3, 76 },
-    { "same_functor", 12, 4, 76 },
+    { "same_file", 9, 2, 75 },
+    { "same_functor", 12, 2, 77 },
+    { "same_functor", 12, 3, 77 },
+    { "same_functor", 12, 4, 77 },
     { "same_length", 11, 2, 47 },
     { "sat", 3, 1, 12 },
     { "sat_count", 9, 2, 12 },
-    { "save_settings", 13, 0, 67 },
-    { "save_settings", 13, 1, 67 },
+    { "save_settings", 13, 0, 68 },
+    { "save_settings", 13, 1, 68 },
     { "scalar_product", 14, 4, 13 },
     { "scanl", 5, 4, 2 },
     { "scanl", 5, 5, 2 },
@@ -37498,45 +38399,45 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "send_signal", 11, 2, 34 },
     { "send_silent_signal", 18, 1, 41 },
     { "serialized", 10, 2, 13 },
-    { "set_arg", 7, 3, 82 },
+    { "set_arg", 7, 3, 83 },
     { "set_base_module", 15, 1, 5 },
     { "set_bip_name", 12, 2, 34 },
     { "set_feature", 11, 2, 5 },
     { "set_linedit_prompt", 18, 1, 34 },
-    { "set_prolog_stack", 16, 2, 74 },
-    { "set_setting", 11, 2, 67 },
-    { "set_setting_default", 19, 2, 67 },
+    { "set_prolog_stack", 16, 2, 75 },
+    { "set_setting", 11, 2, 68 },
+    { "set_setting_default", 19, 2, 68 },
     { "set_stream_alias", 16, 2, 34 },
     { "set_stream_buffering", 20, 2, 34 },
     { "set_stream_eof_action", 21, 2, 34 },
     { "set_stream_line_column", 22, 3, 34 },
     { "set_stream_type", 15, 2, 34 },
     { "set_test_options", 16, 1, 58 },
-    { "set_time_file", 13, 3, 74 },
-    { "set_xsb_param", 13, 2, 82 },
+    { "set_time_file", 13, 3, 75 },
+    { "set_xsb_param", 13, 2, 83 },
     { "setarg", 6, 4, 34 },
-    { "setenv", 6, 2, 74 },
+    { "setenv", 6, 2, 75 },
     { "setrand", 7, 1, 63 },
-    { "setting", 7, 2, 67 },
-    { "setting", 7, 4, 67 },
+    { "setting", 7, 2, 68 },
+    { "setting", 7, 4, 68 },
     { "setup_and_call_cleanup", 22, 3, 5 },
     { "setup_and_call_cleanup", 22, 4, 5 },
     { "sformat", 7, 2, 5 },
     { "sformat", 7, 3, 5 },
-    { "shadow_price", 12, 3, 68 },
+    { "shadow_price", 12, 3, 69 },
     { "shell", 5, 1, 34 },
     { "shell", 5, 2, 34 },
     { "sign", 4, 2, 62 },
     { "simple", 6, 1, 62 },
     { "sin", 3, 2, 62 },
     { "singleton_heap", 14, 3, 37 },
-    { "size_file", 9, 2, 74 },
+    { "size_file", 9, 2, 75 },
     { "size_nb_set", 11, 2, 50 },
-    { "sk_not", 6, 1, 75 },
+    { "sk_not", 6, 1, 76 },
     { "skip_line", 9, 0, 62 },
     { "skip_line", 9, 1, 62 },
     { "sleep", 5, 1, 34 },
-    { "snapshot", 8, 1, 75 },
+    { "snapshot", 8, 1, 76 },
     { "socket", 6, 2, 34 },
     { "socket_accept", 13, 3, 34 },
     { "socket_accept", 13, 4, 34 },
@@ -37584,36 +38485,36 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "sr_write_message", 16, 4, 34 },
     { "sr_write_message", 16, 6, 34 },
     { "sr_write_message", 16, 8, 34 },
-    { "storage_delete_all", 18, 1, 83 },
-    { "storage_delete_fact", 19, 3, 83 },
-    { "storage_delete_fact_bt", 22, 3, 83 },
-    { "storage_delete_keypair", 22, 3, 83 },
-    { "storage_delete_keypair_bt", 25, 3, 83 },
-    { "storage_find_fact", 17, 2, 83 },
-    { "storage_find_keypair", 20, 3, 83 },
-    { "storage_insert_fact", 19, 3, 83 },
-    { "storage_insert_fact_bt", 22, 3, 83 },
-    { "storage_insert_keypair", 22, 4, 83 },
-    { "storage_insert_keypair_bt", 25, 4, 83 },
-    { "storage_reclaim_space", 21, 1, 83 },
-    { "str_cat", 7, 3, 82 },
+    { "storage_delete_all", 18, 1, 84 },
+    { "storage_delete_fact", 19, 3, 84 },
+    { "storage_delete_fact_bt", 22, 3, 84 },
+    { "storage_delete_keypair", 22, 3, 84 },
+    { "storage_delete_keypair_bt", 25, 3, 84 },
+    { "storage_find_fact", 17, 2, 84 },
+    { "storage_find_keypair", 20, 3, 84 },
+    { "storage_insert_fact", 19, 3, 84 },
+    { "storage_insert_fact_bt", 22, 3, 84 },
+    { "storage_insert_keypair", 22, 4, 84 },
+    { "storage_insert_keypair_bt", 25, 4, 84 },
+    { "storage_reclaim_space", 21, 1, 84 },
+    { "str_cat", 7, 3, 83 },
     { "stream_line_column", 18, 3, 34 },
     { "stream_position", 15, 2, 34 },
     { "stream_position", 15, 3, 62 },
     { "stream_to_lazy_list", 19, 2, 61 },
     { "string", 6, 3, 26 },
-    { "string_lines", 12, 2, 73 },
+    { "string_lines", 12, 2, 74 },
     { "string_to_atom", 14, 2, 5 },
     { "string_to_list", 14, 2, 5 },
     { "string_without", 14, 4, 26 },
-    { "subgoal_property", 16, 2, 75 },
+    { "subgoal_property", 16, 2, 76 },
     { "sublist", 7, 2, 38 },
     { "sublist", 7, 3, 5 },
     { "subset", 6, 2, 47 },
     { "substitute_eq", 13, 4, 38 },
     { "substring", 9, 4, 5 },
-    { "subsumes", 8, 2, 76 },
-    { "subsumes_chk", 12, 2, 76 },
+    { "subsumes", 8, 2, 77 },
+    { "subsumes_chk", 12, 2, 77 },
     { "subtract", 8, 3, 47 },
     { "sum", 3, 3, 13 },
     { "sum_list", 8, 2, 47 },
@@ -37622,8 +38523,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "sup", 3, 2, 9 },
     { "sup", 3, 4, 8 },
     { "sup", 3, 4, 9 },
-    { "swritef", 7, 2, 81 },
-    { "swritef", 7, 3, 81 },
+    { "swritef", 7, 2, 82 },
+    { "swritef", 7, 3, 82 },
     { "syntax_error", 12, 1, 29 },
     { "syntax_error", 12, 3, 61 },
     { "syntax_error_info", 17, 4, 34 },
@@ -37631,93 +38532,93 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "system", 6, 2, 34 },
     { "system_time", 11, 1, 34 },
     { "systems", 7, 3, 21 },
-    { "table_state", 11, 4, 85 },
-    { "tabled_call", 11, 1, 75 },
+    { "table_state", 11, 4, 86 },
+    { "tabled_call", 11, 1, 76 },
     { "take", 4, 3, 38 },
     { "tan", 3, 2, 62 },
     { "taut", 4, 2, 12 },
-    { "tcp_accept", 10, 3, 69 },
-    { "tcp_bind", 8, 2, 69 },
-    { "tcp_close_socket", 16, 1, 69 },
-    { "tcp_connect", 11, 2, 69 },
-    { "tcp_connect", 11, 3, 69 },
-    { "tcp_connect", 11, 4, 69 },
-    { "tcp_getopt", 10, 2, 69 },
-    { "tcp_host_to_address", 19, 2, 69 },
-    { "tcp_listen", 10, 2, 69 },
-    { "tcp_open_socket", 15, 2, 69 },
-    { "tcp_open_socket", 15, 3, 69 },
-    { "tcp_setopt", 10, 2, 69 },
-    { "tcp_socket", 10, 1, 69 },
+    { "tcp_accept", 10, 3, 70 },
+    { "tcp_bind", 8, 2, 70 },
+    { "tcp_close_socket", 16, 1, 70 },
+    { "tcp_connect", 11, 2, 70 },
+    { "tcp_connect", 11, 3, 70 },
+    { "tcp_connect", 11, 4, 70 },
+    { "tcp_getopt", 10, 2, 70 },
+    { "tcp_host_to_address", 19, 2, 70 },
+    { "tcp_listen", 10, 2, 70 },
+    { "tcp_open_socket", 15, 2, 70 },
+    { "tcp_open_socket", 15, 3, 70 },
+    { "tcp_setopt", 10, 2, 70 },
+    { "tcp_socket", 10, 1, 70 },
     { "temporary_file", 14, 3, 34 },
     { "temporary_name", 14, 2, 34 },
-    { "term_depth", 10, 2, 82 },
-    { "term_factorized", 15, 3, 76 },
+    { "term_depth", 10, 2, 83 },
+    { "term_factorized", 15, 3, 77 },
     { "term_hash", 9, 4, 34 },
-    { "term_new_mod", 12, 3, 83 },
+    { "term_new_mod", 12, 3, 84 },
     { "term_ref", 8, 2, 34 },
-    { "term_size", 9, 2, 76 },
-    { "term_size", 9, 2, 83 },
-    { "term_subsumer", 13, 3, 76 },
-    { "term_to_atom", 12, 2, 83 },
-    { "term_to_atom", 12, 3, 83 },
-    { "term_to_codes", 13, 2, 83 },
-    { "term_to_codes", 13, 3, 83 },
+    { "term_size", 9, 2, 77 },
+    { "term_size", 9, 2, 84 },
+    { "term_subsumer", 13, 3, 77 },
+    { "term_to_atom", 12, 2, 84 },
+    { "term_to_atom", 12, 3, 84 },
+    { "term_to_codes", 13, 2, 84 },
+    { "term_to_codes", 13, 3, 84 },
     { "term_variables", 14, 3, 34 },
-    { "text_to_string", 14, 2, 74 },
+    { "text_to_string", 14, 2, 75 },
     { "thread_at_exit", 14, 1, 5 },
-    { "thread_shared", 13, 1, 82 },
-    { "ti", 2, 1, 82 },
+    { "thread_shared", 13, 1, 83 },
+    { "ti", 2, 1, 83 },
     { "time", 4, 3, 38 },
-    { "time_file", 9, 2, 74 },
-    { "tnot", 4, 1, 75 },
+    { "time_file", 9, 2, 75 },
+    { "tnot", 4, 1, 76 },
     { "to_lower", 8, 2, 24 },
     { "to_upper", 8, 2, 24 },
-    { "top_sort", 8, 2, 78 },
-    { "top_sort", 8, 3, 78 },
-    { "transaction", 11, 1, 75 },
-    { "transaction_updates", 19, 1, 75 },
-    { "transitive_closure", 18, 2, 78 },
-    { "transportation", 14, 4, 68 },
+    { "top_sort", 8, 2, 79 },
+    { "top_sort", 8, 3, 79 },
+    { "transaction", 11, 1, 76 },
+    { "transaction_updates", 19, 1, 76 },
+    { "transitive_closure", 18, 2, 79 },
+    { "transportation", 14, 4, 69 },
     { "transpose", 9, 2, 13 },
     { "transpose_pairs", 15, 2, 56 },
-    { "transpose_ugraph", 16, 2, 78 },
+    { "transpose_ugraph", 16, 2, 79 },
     { "trie_insert_new", 15, 3, 5 },
-    { "truth_value", 11, 2, 85 },
+    { "truth_value", 11, 2, 86 },
     { "tuples_in", 9, 2, 13 },
     { "type_error", 10, 2, 29 },
     { "ub", 2, 3, 8 },
     { "ub", 2, 3, 9 },
-    { "udp_socket", 10, 1, 69 },
-    { "ugraph_union", 12, 3, 78 },
+    { "udp_socket", 10, 1, 70 },
+    { "ugraph_union", 12, 3, 79 },
     { "unconstrained", 13, 4, 8 },
     { "unconstrained", 13, 4, 9 },
-    { "undefined", 9, 0, 75 },
+    { "undefined", 9, 0, 76 },
     { "uninstantiation_error", 21, 1, 29 },
     { "union", 5, 3, 47 },
     { "unix", 4, 1, 62 },
-    { "unix_domain_socket", 18, 1, 69 },
+    { "unix_domain_socket", 18, 1, 70 },
     { "unlink", 6, 1, 34 },
     { "unlock_predicate", 16, 2, 5 },
-    { "unsetenv", 8, 1, 74 },
+    { "unsetenv", 8, 1, 75 },
     { "update_store", 12, 2, 38 },
     { "upper_lower", 11, 2, 24 },
-    { "uri_authority_components", 24, 2, 79 },
-    { "uri_authority_data", 18, 3, 79 },
-    { "uri_components", 14, 2, 79 },
-    { "uri_data", 8, 3, 79 },
-    { "uri_data", 8, 4, 79 },
-    { "uri_encoded", 11, 3, 79 },
-    { "uri_file_name", 13, 2, 79 },
-    { "uri_iri", 7, 2, 79 },
-    { "uri_is_global", 13, 1, 79 },
-    { "uri_normalized", 14, 2, 79 },
-    { "uri_normalized", 14, 3, 79 },
-    { "uri_normalized_iri", 18, 2, 79 },
-    { "uri_normalized_iri", 18, 3, 79 },
-    { "uri_query_components", 20, 2, 79 },
-    { "uri_resolve", 11, 3, 79 },
-    { "use_subsumptive_tabling", 23, 0, 75 },
+    { "uri_authority_components", 24, 2, 80 },
+    { "uri_authority_data", 18, 3, 80 },
+    { "uri_components", 14, 2, 80 },
+    { "uri_data", 8, 3, 80 },
+    { "uri_data", 8, 4, 80 },
+    { "uri_encoded", 11, 3, 80 },
+    { "uri_file_name", 13, 2, 80 },
+    { "uri_iri", 7, 2, 80 },
+    { "uri_is_global", 13, 1, 80 },
+    { "uri_normalized", 14, 2, 80 },
+    { "uri_normalized", 14, 3, 80 },
+    { "uri_normalized_iri", 18, 2, 80 },
+    { "uri_normalized_iri", 18, 3, 80 },
+    { "uri_query_components", 20, 2, 80 },
+    { "uri_resolve", 11, 3, 80 },
+    { "use_subsumptive_tabling", 23, 0, 76 },
     { "user_time", 9, 1, 34 },
     { "valid_term_position", 19, 2, 60 },
     { "var_intern", 10, 2, 8 },
@@ -37728,24 +38629,24 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "var_with_def_assign", 19, 2, 9 },
     { "var_with_def_intern", 19, 4, 8 },
     { "var_with_def_intern", 19, 4, 9 },
-    { "variable_value", 14, 3, 68 },
-    { "variant", 7, 2, 76 },
-    { "variant_get_residual", 20, 2, 85 },
-    { "varnumbers", 10, 2, 80 },
-    { "varnumbers", 10, 3, 80 },
-    { "varnumbers_names", 16, 3, 80 },
+    { "variable_value", 14, 3, 69 },
+    { "variant", 7, 2, 77 },
+    { "variant_get_residual", 20, 2, 86 },
+    { "varnumbers", 10, 2, 81 },
+    { "varnumbers", 10, 3, 81 },
+    { "varnumbers_names", 16, 3, 81 },
     { "vertex_value", 12, 2, 6 },
     { "vertex_value", 12, 2, 7 },
-    { "vertices", 8, 2, 78 },
-    { "vertices_edges_to_ugraph", 24, 3, 78 },
+    { "vertices", 8, 2, 79 },
+    { "vertices_edges_to_ugraph", 24, 3, 79 },
     { "wait", 4, 2, 34 },
-    { "wait_for_input", 14, 3, 74 },
+    { "wait_for_input", 14, 3, 75 },
     { "wait_linear", 11, 3, 51 },
     { "wait_linear", 11, 3, 52 },
     { "weighted_maximum", 16, 3, 12 },
     { "white", 5, 2, 26 },
     { "whites", 6, 2, 26 },
-    { "working_directory", 17, 2, 74 },
+    { "working_directory", 17, 2, 75 },
     { "write_canonical_to_atom", 23, 2, 34 },
     { "write_canonical_to_chars", 24, 2, 34 },
     { "write_canonical_to_codes", 24, 2, 34 },
@@ -37756,18 +38657,18 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "write_to_atom", 13, 2, 34 },
     { "write_to_chars", 14, 2, 34 },
     { "write_to_codes", 14, 2, 34 },
-    { "writef", 6, 1, 81 },
-    { "writef", 6, 2, 81 },
+    { "writef", 6, 1, 82 },
+    { "writef", 6, 2, 82 },
     { "writeq_to_atom", 14, 2, 34 },
     { "writeq_to_chars", 15, 2, 34 },
     { "writeq_to_codes", 15, 2, 34 },
     { "xdigit", 6, 3, 26 },
     { "xdigits", 7, 3, 26 },
     { "xinteger", 8, 3, 26 },
-    { "xsb_configuration", 17, 2, 83 },
-    { "xsb_error_get_message", 21, 2, 85 },
-    { "xsb_error_get_tag", 17, 2, 85 },
-    { "xwam_state", 10, 2, 75 },
+    { "xsb_configuration", 17, 2, 84 },
+    { "xsb_error_get_message", 21, 2, 86 },
+    { "xsb_error_get_tag", 17, 2, 86 },
+    { "xwam_state", 10, 2, 76 },
     { "zcompare", 8, 3, 13 },
     { "{}", 2, 1, 51 },
     { "{}", 2, 1, 52 },

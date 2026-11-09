@@ -5241,6 +5241,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
                 if (pl_cv_has(&calls[i], "between")) { pl_cv_add(&calls[i], "$between_test"); pl_cv_add(&calls[i], "$between_big"); }
                 if (pl_cv_has(&calls[i], "erase")) { pl_cv_add(&calls[i], "$rec_ref"); pl_cv_add(&calls[i], "$rec_erase"); }
                 if (pl_cv_has(&calls[i], "current_predicate")) pl_cv_add(&calls[i], "$cp_mq");
+                if (pl_cv_has(&calls[i], "predicate_property")) { pl_cv_add(&calls[i], "$pl_decl_flag"); pl_cv_add(&calls[i], "$pl_imported_from"); pl_cv_add(&calls[i], "$pl_pp_pcheck"); }
                 if (pl_cv_has(&calls[i], "with_output_to")) { pl_cv_add(&calls[i], "$wot_stream_sink"); pl_cv_add(&calls[i], "$wot_stream"); }
                 cdone[i] = 1;
             }

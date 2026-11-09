@@ -6048,6 +6048,15 @@ static const tree_t * pl_meta_rt_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_prog_defines(const tree_t * prog, const char * key) {
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval && !strcmp(subj->v.sval, key)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
     int any = 0, nk = 0;
     for (int i = 0; i < prog->n && !any; i++) {
@@ -6057,6 +6066,7 @@ static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
         if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && (pl_tree_calls(subj, "load_files", 1) || pl_tree_calls(subj, "load_files", 2))) any = 1;
         if (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "load_files")) any = 1;
     }
+    if (!pl_prog_defines(prog, "$src_file_add/3")) return prog;
     if (!any) return prog;
     const char * seen[prog->n + 1];
     const char * lastfile = "";
@@ -6624,7 +6634,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (pl_attv_is_key(subj, "$undo_run/0")) g_stage2.pl_undo_armed = 1;
     }
     prog = pl_attv_rewrite(prog);
-    if (!g_stage2.depth_counted && pl_names_depth_limit(prog)) g_stage2.depth_counted = 1;
+    if (!g_stage2.depth_counted && pl_names_depth_limit(prog) && pl_prog_defines(prog, "$dl_findall/3")) g_stage2.depth_counted = 1;
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;
