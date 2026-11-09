@@ -806,6 +806,18 @@ static tree_t *pc_stmt(pc_ctx *x, tree_t *s) {
             ast_push(q, pc_asg(pc_expr(x, s->c[1]), pc_var("nil")));
             return q;
         }
+        if (s->n == 3 && PC_IS(s->c[0], TT_VAR) && (pc_eq(pc_sv(s->c[0]), "new") || pc_eq(pc_sv(s->c[0]), "dispose")) && !pc_sym_find(x, pc_sv(s->c[0])) && pc_type(x, pc_n1(TT_DEREF, s->c[1])).cls) {
+            int isnew = pc_eq(pc_sv(s->c[0]), "new");
+            tree_t *m = s->c[2],
+                *call = PC_IS(m, TT_FNC) ? pc_n1(TT_FNC, pc_fld(pc_n1(TT_DEREF, pc_clone(s->c[1])), pc_sv(m->c[0]))) : pc_n1(TT_FNC, pc_fld(pc_n1(TT_DEREF, pc_clone(s->c[1])), pc_sv(m)));
+            for (int i = 1; PC_IS(m, TT_FNC) && i < m->n; i++) ast_push(call, m->c[i]);
+            tree_t *q = pc_seq(), *alloc = pc_fnc(isnew ? "new" : "dispose");
+            ast_push(alloc, s->c[1]);
+            if (isnew) ast_push(q, alloc);
+            ast_push(q, pc_stmt(x, call));
+            if (!isnew) ast_push(q, alloc);
+            return q;
+        }
         if (s->n == 1 && PC_IS(s->c[0], TT_VAR) && pc_ident_is_member(x, pc_sv(s->c[0]))) {
             pc_class *c = pc_member_owner(x, pc_sv(s->c[0]));
             pc_meth *m = pc_find_meth(c, pc_sv(s->c[0]));
