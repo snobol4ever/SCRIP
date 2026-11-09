@@ -4832,7 +4832,17 @@ static void pl_db_decls_capture(void) {
             memcpy(nm, pe->key, nl);
             nm[nl] = 0;
             if (pl_name_is_scrip_own(nm, ar)) {
-                if (pl_prelude_lib_exports(nm, ar) && !pl_iso_builtin(nm, ar) && pl_dyn_index(nm, ar) < 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(7); PL_DW(-1); }
+                if (pl_prelude_lib_exports(nm, ar) && !pl_iso_builtin(nm, ar) && pl_dyn_index(nm, ar) < 0) {
+                    PL_DW(prolog_atom_intern(nm));
+                    PL_DW(ar);
+                    PL_DW(7);
+                    PL_DW(-1);
+                } else if (g_stage2.pl_dialect == PL_DIALECT_GNU) {
+                    PL_DW(prolog_atom_intern(nm));
+                    PL_DW(ar);
+                    PL_DW(7);
+                    PL_DW(-1);
+                }
                 continue;
             }
             if (pl_decl_dyn_is(nm, ar) && pe->file && pe->file[0] != '<') {

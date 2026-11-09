@@ -5215,7 +5215,8 @@ int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind) {
         pl_db_key_t *e = pl_db_reg_find(r, key);
         if (!e) e = pl_db_reg_add(r, key);
         if (!e) return 0;
-        if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 7) { if (e->k < 0 && !e->db) e->lib = 1; } else if (kind == 3) e->stat = 1;
+        if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 7) e->lib = 1;
+        else if (kind == 3) e->stat = 1;
         else e->decl = 1;
         if (kind == 2) { pl_db_t *d = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db; if (d && d->whole) pl_db_dynamize(root, d); }
         return 1;
