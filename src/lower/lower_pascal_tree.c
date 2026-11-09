@@ -462,6 +462,15 @@ static tree_t *mk_fnc1(const char *fn, tree_t *a) { tree_t *e = ast_node_new(TT_
 static tree_t *mk_chrlit(tree_t *a) { tree_t *e = mk_fnc1("__pas_chrlit", a); pty_note_kind(e, PTK_CHAR); return e; }
 static tree_t *mk_fnc2(const char *fn, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *mk_fnc3(const char *fn, tree_t *a, tree_t *b, tree_t *c) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); ast_push(e, a); ast_push(e, b); ast_push(e, c); return e; }
+static tree_t *mk_fnc4(const char *fn, tree_t *a, tree_t *b, tree_t *c, tree_t *d) {
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, fn));
+    ast_push(e, a);
+    ast_push(e, b);
+    ast_push(e, c);
+    ast_push(e, d);
+    return e;
+}
 static int pas_ord_var_bounds(const char *name, long long *lo, long long *hi);
 static tree_t *pas_ord_check(tree_t *v, long long lo, long long hi, const char *what) {
     tree_t *e = ast_node_new(TT_FNC);
@@ -4138,8 +4147,30 @@ static tree_t *pas_new_target_init(const char *rt) {
     return pas_rectype_nf(rt) > 0 ? mk_rec_init_type(rt) : ilit(0);
 }
 static int pas_static_of_dyn(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t && t->k == PTK_ARRAY && !t->dyn && t->base && t->base->k == PTK_ARRAY && t->base->dyn; }
+static int pas_raw_int_w(const pty_t *et, long long *w, long long *sg) {
+    if (et && et->k == PTK_BOOL) { *w = 1; *sg = 0; return 1; }
+    if (et && et->k == PTK_CHAR) { *w = 1; *sg = 0; return 1; }
+    if (et && et->k == PTK_ENUM && et->hi >= 0 && et->hi < 256) { *w = 1; *sg = 0; return 1; }
+    if (!et || et->k != PTK_INT || !et->name) return 0;
+    const char *n = et->name;
+    if (!strcmp(n, "byte") || !strcmp(n, "uint8")) { *w = 1; *sg = 0; return 1; }
+    if (!strcmp(n, "shortint") || !strcmp(n, "int8")) { *w = 1; *sg = 1; return 1; }
+    if (!strcmp(n, "word") || !strcmp(n, "uint16")) { *w = 2; *sg = 0; return 1; }
+    if (!strcmp(n, "smallint") || !strcmp(n, "int16")) { *w = 2; *sg = 1; return 1; }
+    if (!strcmp(n, "longword") || !strcmp(n, "cardinal") || !strcmp(n, "uint32")) { *w = 4; *sg = 0; return 1; }
+    if (!strcmp(n, "longint") || !strcmp(n, "integer") || !strcmp(n, "int32")) { *w = 4; *sg = 1; return 1; }
+    if (!strcmp(n, "int64")) { *w = 8; *sg = 1; return 1; }
+    if (!strcmp(n, "qword") || !strcmp(n, "uint64")) { *w = 8; *sg = 0; return 1; }
+    if (et->bounded && et->lo >= 0 && et->hi < 256) { *w = 1; *sg = 0; return 1; }
+    return 0;
+}
 static tree_t *mk_array_init(const char *name, long long high) {
-    if (pas_array_isdyn(name)) return mk_fnc2("arr_make", ilit(0), ilit(-1));
+    if (pas_array_isdyn(name)) {
+        long long rw, rs;
+        const pty_t *rt = pty_name_type(name);
+        if (rt && rt->k == PTK_ARRAY && rt->dyn && pas_raw_int_w(rt->base, &rw, &rs)) return mk_fnc4("arr_make_raw", ilit(0), ilit(-1), ilit(rw), ilit(rs));
+        return mk_fnc2("arr_make", ilit(0), ilit(-1));
+    }
     if (pas_static_of_dyn(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_fnc2("arr_make", ilit(0), ilit(-1)));
     if (pas_rvt(name)) return mk_rec_block_of(pas_rvt(name), 0);
     if (pas_art(name)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_rec_block_of(pas_art(name), 0));
@@ -4155,6 +4186,12 @@ static tree_t *mk_array_init(const char *name, long long high) {
         if (eh >= 0) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_fnc2("arr_make", ilit(pas_arrtype_lo(et)), ilit(eh)));
     }
     { long long rlo, rhi; if (name && pas_rows_get(name, 0, &rlo, &rhi)) return mk_fnc3("__pas_arr_of", ilit(pas_array_nonparam_low(name)), ilit(high), mk_fnc2("arr_make", ilit(rlo), ilit(rhi))); }
+    {
+        long long rw, rs;
+        const pty_t *rt = name ? pty_name_type(name) : NULL;
+        if (rt && rt->k == PTK_ARRAY && !(rt->packed && rt->base && rt->base->k == PTK_CHAR) && pas_array_ncols(name) < 0 && pas_raw_int_w(rt->base, &rw, &rs))
+            return mk_fnc4("arr_make_raw", ilit(pas_array_low(name)), ilit(high), ilit(rw), ilit(rs));
+    }
     if (!pas_array_is_real(name)) return mk_fnc2("arr_make", ilit(pas_is_chararr(name) ? pas_chararr_lo(name) : 0), ilit(high));
     { long long lo = pas_array_low(name); if (pas_array_ncols(name) < 0 && lo != 0 && lo <= high) return mk_fnc2("arr_make", ilit(lo), ilit(high)); }
     return mk_fnc1("arr_make", ilit(high));
