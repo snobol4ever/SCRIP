@@ -28359,7 +28359,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         }
     }
     {
-        const char *gp[10];
+        const char *gp[12];
         int n = 0;
         if (kind) {
             char tk[strlen(nm) + 32];
@@ -28374,6 +28374,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
             gp[n++] = "static";
         }
         if (n) gp[n++] = "visible";
+        { extern int pl_pi_is_iso(const char *, int); if (n && pl_pi_is_iso(nm, ar)) gp[n++] = "iso"; }
         if (pl_pp_meta(root, nm, ar, &mt, &mi)) gp[n++] = "meta_predicate";
         if (i > n) return (const char *)0;
         if (!strcmp(gp[i - 1], "file")) *file = fp;

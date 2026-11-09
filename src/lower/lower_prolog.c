@@ -2085,6 +2085,30 @@ static int pl_pi_is_static_builtin(const char * pn, int ar) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_pi_is_builtin(const char * pn, int ar) { return pl_pi_is_static_builtin(pn, ar); }
+static const struct {
+    const char * nm;
+    int ar;
+} pl_iso_pis[] = { { "!", 0 }, { ",", 2 }, { "->", 2 }, { ";", 2 }, { "<", 2 }, { "=", 2 }, { "=..", 2 }, { "=:=", 2 }, { "=<", 2 }, { "==", 2 }, { "=\\=", 2 }, { ">", 2 }, { ">=", 2 }, { "@<", 2 },
+    { "@=<", 2 }, { "@>", 2 }, { "@>=", 2 }, { "\\+", 1 }, { "\\=", 2 }, { "\\==", 2 }, { "abolish", 1 }, { "acyclic_term", 1 }, { "arg", 3 }, { "asserta", 1 }, { "assertz", 1 }, { "at_end_of_stream",
+    0 }, { "at_end_of_stream", 1 }, { "atom", 1 }, { "atom_chars", 2 }, { "atom_codes", 2 }, { "atom_concat", 3 }, { "atom_length", 2 }, { "atomic", 1 }, { "bagof", 3 }, { "call", 1 }, { "call", 2 },
+    { "call", 3 }, { "call", 4 }, { "call", 5 }, { "call", 6 }, { "call", 7 }, { "call", 8 }, { "callable", 1 }, { "catch", 3 }, { "char_code", 2 }, { "char_conversion", 2 }, { "clause", 2 },
+    { "close", 1 }, { "close", 2 }, { "compare", 3 }, { "compound", 1 }, { "copy_term", 2 }, { "current_char_conversion", 2 }, { "current_input", 1 }, { "current_op", 3 }, { "current_output", 1 },
+    { "current_predicate", 1 }, { "current_prolog_flag", 2 }, { "discontiguous", 1 }, { "dynamic", 1 }, { "fail", 0 }, { "false", 0 }, { "findall", 3 }, { "float", 1 }, { "flush_output", 0 },
+    { "flush_output", 1 }, { "functor", 3 }, { "get_byte", 1 }, { "get_byte", 2 }, { "get_char", 1 }, { "get_char", 2 }, { "get_code", 1 }, { "get_code", 2 }, { "ground", 1 }, { "halt", 0 }, { "halt",
+    1 }, { "initialization", 1 }, { "integer", 1 }, { "is", 2 }, { "keysort", 2 }, { "length", 2 }, { "message_queue_create", 2 }, { "message_queue_destroy", 1 }, { "message_queue_property", 2 },
+    { "multifile", 1 }, { "mutex_create", 2 }, { "mutex_destroy", 1 }, { "mutex_lock", 1 }, { "mutex_property", 2 }, { "mutex_trylock", 1 }, { "mutex_unlock", 1 }, { "nl", 0 }, { "nl", 1 },
+    { "nonvar", 1 }, { "number", 1 }, { "number_chars", 2 }, { "number_codes", 2 }, { "numbervars", 3 }, { "once", 1 }, { "op", 3 }, { "open", 3 }, { "open", 4 }, { "peek_byte", 1 }, { "peek_byte",
+    2 }, { "peek_char", 1 }, { "peek_char", 2 }, { "peek_code", 1 }, { "peek_code", 2 }, { "phrase", 2 }, { "phrase", 3 }, { "predicate_property", 2 }, { "put_byte", 1 }, { "put_byte", 2 },
+    { "put_char", 1 }, { "put_char", 2 }, { "put_code", 1 }, { "put_code", 2 }, { "read", 1 }, { "read", 2 }, { "read_term", 2 }, { "read_term", 3 }, { "repeat", 0 }, { "retract", 1 }, { "retractall",
+    1 }, { "set_input", 1 }, { "set_output", 1 }, { "set_prolog_flag", 2 }, { "set_stream_position", 2 }, { "setof", 3 }, { "sort", 2 }, { "stream_property", 2 }, { "sub_atom", 5 }, { "subsumes_term",
+    2 }, { "term_variables", 2 }, { "thread_create", 3 }, { "thread_detach", 1 }, { "thread_get_message", 1 }, { "thread_get_message", 2 }, { "thread_get_message", 3 }, { "thread_peek_message", 1 },
+    { "thread_peek_message", 2 }, { "thread_property", 2 }, { "thread_self", 1 }, { "thread_send_message", 2 }, { "thread_signal", 2 }, { "throw", 1 }, { "true", 0 }, { "unify_with_occurs_check", 2 },
+    { "var", 1 }, { "with_mutex", 2 }, { "write", 1 }, { "write", 2 }, { "write_canonical", 1 }, { "write_canonical", 2 }, { "write_term", 2 }, { "write_term", 3 }, { "writeq", 1 }, { "writeq", 2 },
+    };
+int pl_pi_is_iso(const char * pn, int ar) {
+    for (size_t i = 0; pn && i < sizeof pl_iso_pis / sizeof pl_iso_pis[0]; i++) if (pl_iso_pis[i].ar == ar && !strcmp(pl_iso_pis[i].nm, pn)) return 1;
+    return 0;
+}
 static const tree_t * pl_tree_number(const tree_t * t) { return (t && (t->t == TT_ILIT || t->t == TT_FLIT || pl_tree_is_big(t))) ? t : NULL; }
 static const tree_t * pl_body_ill_typed(const tree_t * b) {
     if (!b) return NULL;
@@ -3735,7 +3759,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     tree_t * meta = def ? (tree_t *) 0 : pl_meta_builtin_tree(pn, ar);
                     int nonpred = (g_stage2.pl_dialect == PL_DIALECT_SWI) && (!strcmp(pn, "?-") || !strcmp(pn, ":-") || !strcmp(pn, "|"));
                     int bi = !def && !nonpred && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
-                    const tree_t * props[12];
+                    const tree_t * props[16];
                     const char * pf = (def && !dyn) ? pl_pred_file(pn, ar) : (const char *) 0;
                     char rp[PATH_MAX];
                     int np = 0;
@@ -3750,6 +3774,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (def) props[np++] = pl_atom_goal("defined");
                     if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); props[np++] = pl_atom_goal("static"); }
                     if (def || bi) props[np++] = pl_atom_goal("visible");
+                    if ((def || bi) && pl_pi_is_iso(pn, ar)) props[np++] = pl_atom_goal("iso");
                     if (!portray1 && pl_decl_mf_is(pn, ar)) props[np++] = pl_atom_goal("multifile");
                     if (meta) props[np++] = pl_cc_fnc1("meta_predicate", meta);
                     if (um) {
@@ -3761,7 +3786,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         }
                         props[np++] = pl_cc_fnc1("meta_predicate", tm);
                     }
-                    for (int i = 0; i < npt && np < 12; i++) props[np++] = props_pt[i];
+                    for (int i = 0; i < npt && np < 16; i++) props[np++] = props_pt[i];
                     if (!np) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
                     {
                         tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
