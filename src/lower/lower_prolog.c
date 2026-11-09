@@ -3459,15 +3459,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     pl_cc_fnc2(!strcmp(nm, "asserta") ? "$db_asserta_r" : "$db_assertz_r", (tree_t *) t->c[0], (tree_t *) t->c[1]))), γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "clause") && (t->n == 2 || t->n == 3) && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ":") && t->c[0]->n == 2 && t->c[0]->c[0] &&
-                (t->c[0]->c[0]->t == TT_QLIT || t->c[0]->c[0]->t == TT_NAME) && t->c[0]->c[0]->v.sval && !strcmp(t->c[0]->c[0]->v.sval, "user")) {
-                tree_t * u = ast_node_new(TT_FNC);
-                u->v = t->v;
-                u->line = t->line;
-                u->slen = t->slen;
-                ast_push(u, t->c[0]->c[1]);
-                for (int i = 1; i < t->n; i++) ast_push(u, t->c[i]);
-                return goal(cx, u, γnext, ωfail, entry_out);
-            }
+                t->c[0]->c[1])
+                return goal(cx,
+                t->n == 2 ? pl_cc_fnc3("$pl_clause_q", (tree_t *) t->c[0]->c[0], (tree_t *) t->c[0]->c[1], (tree_t *) t->c[1]) :
+                pl_cc_fnc4("$pl_clause_q", (tree_t *) t->c[0]->c[0], (tree_t *) t->c[0]->c[1], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
             if (!strcmp(nm, "clause") && t->n == 3) {
                 {
                     const tree_t * bad = pl_tree_number(t->c[0]);
