@@ -2265,6 +2265,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$mod_qb'(_,Q:G,Q:G):-var(Q),!.\n"
     "'$mod_qb'(_,Q:G,QG):-atom(Q),Q\\==user,compound(G),functor(G,clause,N),(N=:=2;N=:=3),arg(1,G,H),\\+ (nonvar(H),H=_:_),!,G=..[clause,H|Rest],G2=..[clause,Q:H|Rest],'$mod_qb'(Q,G2,QG).\n"
     "'$mod_qb'(_,Q:G,QG):-!,'$mod_qb'(Q,G,QG).\n"
+    "'$mod_qb'(M,G,QG):-atom(M),M\\==user,compound(G),functor(G,F,1),memberchk(F,[assert,asserta,assertz,retract,retractall]),current_prolog_flag('$dialect',swi),!,arg(1,G,T),'$mq_db_head'(M,T,QT),QG=..[F,QT].\n"
     "'$mod_qb'(M,G,QG):-compound(G),'$lfx_meta'(G,Sp),!,G=..[F|As],Sp=..[_|Ms],'$mod_qmargs'(Ms,As,M,As2),G2=..[F|As2],'$mod_head'(M,G2,QG).\n"
     "'$mod_qmargs'([],[],_,[]).\n"
     "'$mod_qmargs'([S|Ss],[A|As],M,[B|Bs]):-(S==0->'$mod_qb'(M,A,B);B=A),'$mod_qmargs'(Ss,As,M,Bs).\n"
