@@ -4689,12 +4689,45 @@ static void pl_clause_term_walk(const tree_t * t, cv_t * keys, int * all) {
     for (int i = 0; i < t->n; i++) pl_clause_term_walk(t->c[i], keys, all);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_seed_unmod(tree_t * t, const char * mod, size_t ml) {
+    if (!t || !mod || !t->v.sval || (t->t != TT_FNC && t->t != TT_QLIT)) return t;
+    if (t->t == TT_FNC && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->") || !strcmp(t->v.sval, "\\+"))) {
+        for (int i = 0; i < t->n; i++) t->c[i] = pl_seed_unmod(t->c[i], mod, ml);
+        return t;
+    }
+    if (!strncmp(t->v.sval, mod, ml) && t->v.sval[ml] == ':' && t->v.sval[ml + 1]) t->v.sval = t->v.sval + ml + 1;
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_seed_clause_unmod(tree_t * tg, const char * mod, size_t ml) {
+    if (mod && tg && tg->t == TT_FNC && tg->v.sval && !strcmp(tg->v.sval, ":-") && tg->n == 2) tg->c[1] = pl_seed_unmod(tg->c[1], mod, ml);
+    return tg;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_seed_forward_target(const tree_t * ch, const char * nm, int ar, const char ** mod, size_t * ml) {
+    const tree_t * f = ch->t == TT_CHOICE ? (ch->n == 1 ? ch->c[0] : NULL) : ch;
+    const tree_t * b = (f && f->t == TT_CLAUSE && f->n == ar + 1) ? f->c[ar] : NULL;
+    const char * cn = (b && b->v.sval && (ar > 0 ? (b->t == TT_FNC && b->n == ar) : b->t == TT_QLIT)) ? strrchr(b->v.sval, ':') : NULL;
+    if (!cn || cn == b->v.sval || strcmp(cn + 1, nm)) return NULL;
+    for (int k = 0; k < ar; k++) if (f->c[k]->t != TT_VAR || b->c[k]->t != TT_VAR || f->c[k]->v.ival != b->c[k]->v.ival) return NULL;
+    {
+        char * q = pl_pi_text(b->v.sval, ar, 1);
+        const tree_t * tch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, q);
+        if (!tch || tch == ch) return NULL;
+        *mod = b->v.sval;
+        *ml = (size_t) (cn - b->v.sval);
+        return tch;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * procs) {
     const char * slash = strrchr(key, '/');
     char * nm;
     size_t nl;
     int ar, n;
     const char * kn;
+    const char * mod = NULL;
+    size_t ml = 0;
     if (!slash || key[0] == '$' || !ch || (ch->t == TT_CHOICE && ch->n < 1)) return;
     ar = atoi(slash + 1);
     nl = (size_t) (slash - key);
@@ -4702,6 +4735,7 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
     memcpy(nm, key, nl);
     nm[nl] = 0;
     if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) { ct_drop(nm); return; }
+    { const char * cm = strchr(nm, ':'); const tree_t * tch = pl_seed_forward_target(ch, nm, ar, &mod, &ml); if (tch) ch = tch; else if (cm && cm != nm) { mod = nm; ml = (size_t) (cm - nm); } }
     n = ch->t == TT_CHOICE ? ch->n : 1;
     kn = ct_strdup(key);
     for (int lo = 0; lo < n && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
@@ -4710,7 +4744,9 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
         g_lower.pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const tree_t * sc = ch->t == TT_CHOICE ? ch->c[i] : ch;
-            sg[m++] = pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(sc, nm, ar, 1), pl_seed_file_term(pl_pred_file(nm, ar)), pl_seed_line_term(sc));
+            sg[m++] =
+                pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_seed_clause_unmod(pl_static_clause_term(sc, nm, ar, 1), mod, ml), pl_seed_file_term(pl_pred_file(nm, ar)),
+                pl_seed_line_term(sc));
         }
         g_lower.pl.seed_var_base = save_base;
         {
