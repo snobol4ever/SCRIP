@@ -22178,6 +22178,14 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs), NULVCL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_list_own(DESCR_t *elems, int nargs) {
+    DESCR_t eptr = {0};
+    eptr.v=DT_DATA;
+    eptr.slen=DATA_ELEMS_SLEN;
+    eptr.ptr=(void*)(nargs > 0 ? elems : (DESCR_t *)0);
+    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs), NULVCL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_args_list_from(char **v, int n) {
     if (n < 0 || !v) n = 0;
     DESCR_t *tmp = rt_ws_alloc_descr((size_t)(n>0?n:1));
@@ -24607,7 +24615,7 @@ DESCR_t bt_ICNx24ULIST(DESCR_t *args, int nargs) {
         else return FAILDESCR;
     }
     if (n < 0) return FAILDESCR;
-    { DESCR_t * mem = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1)); for (int i = 0; i < n; i++) mem[i] = (nargs >= 2 && !IS_FAIL_fn(args[1])) ? args[1] : NULVCL; return rt_make_list(mem, n); }
+    { DESCR_t * mem = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1)); for (int i = 0; i < n; i++) mem[i] = (nargs >= 2 && !IS_FAIL_fn(args[1])) ? args[1] : NULVCL; return rt_make_list_own(mem, n); }
 }
 DESCR_t bt_ICNx24UPCAT(DESCR_t *args, int nargs) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return nargs == 2 ? pat_cat(args[0], args[1]) : FAILDESCR; }
 static TBPAIR_t *utbl_live_at(TBBLK_t *t, unsigned oi) { return t->ord[oi].v == DT_RAW ? (TBPAIR_t *)0 : table_find_pair_d(t, t->ord[oi]); }

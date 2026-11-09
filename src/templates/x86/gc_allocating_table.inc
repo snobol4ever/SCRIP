@@ -2281,6 +2281,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_make_flat_agg", GC_RET_DESCR },
     { "rt_make_item_agg", GC_RET_DESCR },
     { "rt_make_list", GC_RET_DESCR },
+    { "rt_make_list_own", GC_RET_DESCR },
     { "rt_make_plus_agg", GC_RET_DESCR },
     { "rt_match_capture", GC_RET_DESCR },
     { "rt_match_replace", GC_RET_VOID },
