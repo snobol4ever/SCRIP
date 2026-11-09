@@ -5399,9 +5399,37 @@ static void pl_cc_branch(tree_t *dl, const tree_t *cond, const char *src, int a,
     ast_push(e, pl_cc_qlit(src + a, b > a ? b - a : 0));
     ast_push(dl, e);
 }
+static void pl_cc_declare_dynamic(PlProgram *prog, const cv_t *dk) {
+    cv_t done = { 0 };
+    PlClause *prev = (PlClause *)0;
+    if (!dk->len) return;
+    for (PlClause *cl = prog->head; cl; prev = cl, cl = cl->next) {
+        const char *nm; int ar; char *k;
+        if (!pl_clause_key(cl, &nm, &ar)) continue;
+        k = pl_pred_key(nm, ar);
+        if (!pl_cv_has(dk, k) || pl_cv_has(&done, k)) continue;
+        pl_cv_add(&done, k);
+        PlClause *d = ct_zalloc(1, sizeof(PlClause));
+        tree_t *c = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *sl = ast_node_new(TT_FNC), *il = ast_node_new(TT_ILIT);
+        g->v.sval = ct_strdup("dynamic");
+        sl->v.sval = ct_strdup("/");
+        il->v.ival = ar;
+        ast_push(sl, pl_cc_qlit(nm, (int)strlen(nm)));
+        ast_push(sl, il);
+        ast_push(g, sl);
+        ast_push(c, ast_node_new(TT_NUL));
+        ast_push(c, g);
+        d->lineno = cl->lineno;
+        d->tr = c;
+        d->next = cl;
+        if (prev) prev->next = d; else prog->head = d;
+        prog->nclauses++;
+        prev = d;
+    }
+}
 static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
     Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
-    int dfr = 0, dnest = 0, dstart = 0; const tree_t *dcond = (const tree_t *)0; tree_t *dl = (tree_t *)0; const char *dmod = "user", *dunit = (const char *)0, *cur_unit = (const char *)0;
+    cv_t dkeys = { 0 }; int dfr = 0, dnest = 0, dstart = 0; const tree_t *dcond = (const tree_t *)0; tree_t *dl = (tree_t *)0; const char *dmod = "user", *dunit = (const char *)0, *cur_unit = (const char *)0;
     if (!prog) return;
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
     memset(&ix, 0, sizeof ix); ix.swi = swi;
@@ -5435,6 +5463,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
                     dstart = cl->send;
                 }
             }
+            if (!keep && !dunit) { const char *kn; int ka; if (pl_clause_key(cl, &kn, &ka)) pl_cv_add(&dkeys, pl_pred_key(kn, ka)); }
             if (keep) prev = cl;
             else { if (prev) prev->next = next; else prog->head = next; prog->nclauses--; }
             cl = next;
@@ -5478,6 +5507,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
         cl = next;
     }
     prog->tail = prev;
+    pl_cc_declare_dynamic(prog, &dkeys);
     if (q.ifst.len != 0) { fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n", q.filename, CV_AT(q.ifst, IfFrame, q.ifst.len - 1).line); q.nerrors++; }
     prog->nerrors += q.nerrors;
 }
