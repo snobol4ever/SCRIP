@@ -251,6 +251,21 @@ static void pg_place_types(pg_ctx *x, tree_t *prog) {
     for (int s = 1; s <= x->seq; s++) for (int i = 0; i < x->nt; i++) for (int k = 0; x->t[i].kind == PG_TYPE && k < x->t[i].ninst; k++) if (x->t[i].inst[k].seq == s)
         pg_insert_decl(part, x->t[i].inst[k].node, x->t[i].inst[k].key);
 }
+static int pg_is_method_inst(const pg_ctx *x, const tree_t *n) {
+    for (int i = 0; i < x->nt; i++) for (int k = 0; x->t[i].kind == PG_METHOD && k < x->t[i].ninst; k++) if (x->t[i].inst[k].node == n) return 1;
+    return 0;
+}
+static void pg_move_methods(pg_ctx *x, tree_t *prog) {
+    tree_t *blk = pg_program_block(prog), **tmp;
+    int last = -1, w = 0, m = 0;
+    if (!blk) return;
+    for (int i = 0; i < blk->n; i++) if (PG_IS(blk->c[i], TT_PART) && blk->c[i]->v.sval && !strcmp(blk->c[i]->v.sval, "type")) last = i;
+    if (last < 0) return;
+    tmp = ct_zalloc(last + 1, sizeof *tmp);
+    for (int j = 0; j < last; j++) { if (pg_is_method_inst(x, blk->c[j])) tmp[m++] = blk->c[j]; else blk->c[w++] = blk->c[j]; }
+    blk->c[w++] = blk->c[last];
+    for (int j = 0; j < m; j++) blk->c[w++] = tmp[j];
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *pas_generics_prepass(tree_t *prog) {
     pg_ctx x;
@@ -261,5 +276,6 @@ tree_t *pas_generics_prepass(tree_t *prog) {
     pg_resolve(&x, prog);
     for (int i = 0; i < x.nt; i++) pg_splice(&x.t[i]);
     pg_place_types(&x, prog);
+    pg_move_methods(&x, prog);
     return x.fatal ? NULL : prog;
 }
