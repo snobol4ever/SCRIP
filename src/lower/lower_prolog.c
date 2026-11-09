@@ -4072,6 +4072,25 @@ static int pl_key_dynamic(const char * key) {
     nm[nlen] = 0;
     return pl_dyn_is_marked(nm, atoi(slash + 1));
 }
+static int max_var_slot_below(const tree_t * t, int lim, int mx) {
+    if (!t) return mx;
+    if (t->t == TT_VAR && (int) t->v.ival < lim && (int) t->v.ival > mx) mx = (int) t->v.ival;
+    for (int i = 0; i < t->n; i++) mx = max_var_slot_below(t->c[i], lim, mx);
+    return mx;
+}
+static void pl_compact_fresh_slots(tree_t * t, long long * keys, int * n, int cap, int lim, int base) {
+    if (!t) return;
+    if (t->t == TT_VAR) {
+        long long key = t->v.ival;
+        if (key < lim) return;
+        int slot = -1;
+        for (int i = 0; i < *n; i++) if (keys[i] == key) { slot = i; break; }
+        if (slot < 0 && *n < cap) { keys[*n] = key; slot = *n; (*n)++; }
+        t->v.ival = base + (slot < 0 ? cap - 1 : slot);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pl_compact_fresh_slots(t->c[i], keys, n, cap, lim, base);
+}
 static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int nc = (ch->t == TT_CHOICE) ? ch->n : 1;
     int pop_on = !pl_trace_wanted() && !g_stage2.rt_lowering && !pl_key_dynamic(key);
@@ -4113,6 +4132,22 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int maxlocal = -1;
     int fresh_saved = g_lower.pl.fresh_next;
     for (int k = 0; k < nc; k++) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch; if (cl) { int ml = max_var_slot(cl, -1); if (ml > maxlocal) maxlocal = ml; } }
+    if (maxlocal >= 900000) {
+        tree_t * cc = pl_tree_copy(ch);
+        int real = -1;
+        for (int k = 0; k < nc; k++) real = max_var_slot_below((cc->t == TT_CHOICE) ? cc->c[k] : cc, 900000, real);
+        maxlocal = -1;
+        for (int k = 0; k < nc; k++) {
+            tree_t * cl = (cc->t == TT_CHOICE) ? cc->c[k] : cc;
+            int occ = pl_tree_var_occ(cl) + 1;
+            long long keys[occ];
+            int nk = 0;
+            pl_compact_fresh_slots(cl, keys, &nk, occ, 900000, real + 1);
+            int ml = max_var_slot(cl, -1);
+            if (ml > maxlocal) maxlocal = ml;
+        }
+        ch = cc;
+    }
     int nva = maxlocal + 1 > 0 ? maxlocal + 1 : 1;
     int valias[nva];
     unsigned char aliased[nva];
