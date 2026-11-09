@@ -1514,6 +1514,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_sp_xprop", GC_RET_OTHER },
     { "pl_splice_consults", GC_RET_VOID },
     { "pl_split_text", GC_RET_OTHER },
+    { "pl_ssu_nomatch", GC_RET_OTHER },
+    { "pl_ssu_rewrite", GC_RET_OTHER },
     { "pl_static_seed_pred", GC_RET_VOID },
     { "pl_stream_idx", GC_RET_OTHER },
     { "pl_stream_idx_ball", GC_RET_OTHER },
