@@ -51,6 +51,7 @@ static tree_t *pc_n1(tree_e k, tree_t *a) { tree_t *e = ast_node_new(k); if (a) 
 static tree_t *pc_n2(tree_e k, tree_t *a, tree_t *b) { tree_t *e = pc_n1(k, a); if (b) ast_push(e, b); return e; }
 static tree_t *pc_fld(tree_t *base, const char *f) { return pc_n2(TT_FIELD, base, pc_var(f)); }
 static tree_t *pc_ofld(tree_t *obj, const char *f) { return pc_fld(pc_n1(TT_DEREF, obj), f); }
+static tree_t *pc_mfld(const pc_class *c, tree_t *obj, const char *f) { return c && c->isrec ? pc_fld(obj, f) : pc_ofld(obj, f); }
 static tree_t *pc_asg(tree_t *l, tree_t *r) { return pc_n2(TT_ASSIGN, l, r); }
 static tree_t *pc_seq(void) { return ast_node_new(TT_SEQ_EXPR); }
 static tree_t *pc_if(tree_t *c, tree_t *t, tree_t *e) { tree_t *n = pc_n2(TT_IF, c, t); if (e) ast_push(n, e); return n; }
@@ -508,9 +509,9 @@ static int pc_ident_is_member(pc_ctx *x, const char *n) {
 }
 static tree_t *pc_read_member(pc_ctx *x, tree_t *obj, pc_class *c, const char *n, tree_t *idx) {
     pc_field *f = pc_find_field(c, n);
-    if (f) return pc_ofld(obj, n);
+    if (f) return pc_mfld(c, obj, n);
     pc_prop *p = pc_find_prop(c, n);
-    if (p && p->rd) { if (pc_find_field(c, p->rd)) return pc_ofld(obj, p->rd); pc_meth *g = pc_find_meth(c, p->rd); if (g) return pc_mcall(x, obj, g, idx, 1, 0); }
+    if (p && p->rd) { if (pc_find_field(c, p->rd)) return pc_mfld(c, obj, p->rd); pc_meth *g = pc_find_meth(c, p->rd); if (g) return pc_mcall(x, obj, g, idx, 1, 0); }
     pc_meth *m = pc_pick(x, c, n, idx, 1);
     if (m) return pc_mcall(x, obj, m, idx, 1, 0);
     return pc_fld(obj, n);
@@ -518,9 +519,9 @@ static tree_t *pc_read_member(pc_ctx *x, tree_t *obj, pc_class *c, const char *n
 static tree_t *pc_write_member(pc_ctx *x, tree_t *obj, pc_class *c, const char *n, tree_t *idx, tree_t *rhs) {
     pc_prop *p = pc_find_field(c, n) ? NULL : pc_find_prop(c, n);
     const char *w = p ? p->wr : n;
-    if (w && pc_find_field(c, w)) return pc_asg(pc_ofld(obj, w), rhs);
+    if (w && pc_find_field(c, w)) return pc_asg(pc_mfld(c, obj, w), rhs);
     pc_meth *s = w ? pc_find_meth(c, w) : NULL;
-    if (!s) return pc_asg(pc_ofld(obj, n), rhs);
+    if (!s) return pc_asg(pc_mfld(c, obj, n), rhs);
     tree_t *args = ast_node_new(TT_VLIST);
     ast_push(args, NULL);
     for (int i = 1; idx && i < idx->n; i++) ast_push(args, idx->c[i]);
@@ -864,7 +865,7 @@ static void pc_block_syms(pc_ctx *x, tree_t *b) {
             tree_t *d = p->c[j];
             if (!PC_IS(d, TT_DECL) || d->n < 1) continue;
             if (pc_eq(pc_sv(p), "type") && d->n >= 2) {
-                pc_class *c = PC_IS(d->c[1], TT_CLASS_DECL) ? pc_class_named(x, pc_sv(d->c[0])) : NULL;
+                pc_class *c = (PC_IS(d->c[1], TT_CLASS_DECL) || PC_IS(d->c[1], TT_RECORD)) ? pc_class_named(x, pc_sv(d->c[0])) : NULL;
                 if (c || PC_IS(d->c[1], TT_CLASS_DECL)) { pc_sym_add(x, pc_sv(d->c[0]), 'k', NULL, c); continue; }
                 if (PC_IS(d->c[1], TT_VAR)) { pc_class *al = pc_class_named(x, pc_sv(d->c[1])); if (al) { pc_sym_add(x, pc_sv(d->c[0]), 'k', NULL, al); continue; } }
                 pc_sym_add(x, pc_sv(d->c[0]), 't', d->c[1], NULL);
