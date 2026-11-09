@@ -18368,7 +18368,7 @@ static const char PL_PRELUDE_LIB_27_SRC[] =
     "'$dict_fn'(put(N), D, V) :- !, put_dict(N, D, V).\n"
     "'$dict_fn'(put(K, X), D, V) :- !, put_dict(K, D, X, V).\n"
     "'$dict_fn'(K, D, V) :- atomic(K), !, ( get_dict(K, D, V0) -> V = V0 ; throw(error(existence_error(key, K, D), context(system:'$get_dict_ex'/3, _))) ).\n"
-    "'$dict_fn'(F, D, V) :- ( F = '$dict_m0'(_) -> true ; compound(F) ), is_dict(D, T), atom(T), current_predicate('$dict_method'/4), !, '$dict_method'(T, F, D, V).\n"
+    "'$dict_fn'(F, D, V) :- ( F = '$dict_m0'(_) -> true ; compound(F) ), is_dict(D, T), atom(T), \\+ catch(( '$dict_method'('$none', _, _, _) -> fail ; fail ), error(existence_error(procedure, '$dict_method'/4), _), true), !, '$dict_method'(T, F, D, V).\n"
     "'$dict_fn'(F, D, _) :- throw(error(existence_error(dict_function, F), D)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "engine_create", 3 },
@@ -34404,6 +34404,8 @@ static const char PL_PRELUDE_LIB_74_SRC[] =
     "    interpolate_string(:, -, +, +),\n"
     "    indent_lines(1, +, +, -))).\n"
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
+    "'$dict_method'('strings', exec(Compiled, Map), _Dict, String) :-\n"
+    "    '$strings_exec_interpolate'(Compiled, String, Map).\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
     "    '$strings_exec_interpolate'(Compiled, Out, Map).\n"

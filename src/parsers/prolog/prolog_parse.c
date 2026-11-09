@@ -4710,7 +4710,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next, j++) {
                 const char *cn;
                 int car;
-                int hook = pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl) || (pl_clause_key(cl, &cn, &car) && cn && car == 3 && !strcmp(cn, "exception"));
+                int hook = pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl) || (pl_clause_key(cl, &cn, &car) && cn && ((car == 3 && !strcmp(cn, "exception")) || (car == 4 && !strcmp(cn, "$dict_method"))));
                 if (hook) {
                     mk[i][j] = 1;
                     if (!pl_clause_is_meta_spec(cl)) pl_clause_collect_refs(cl, &r);
