@@ -4706,9 +4706,11 @@ static tree_t *pas_pf_field_assign(const tree_t *n) {
     tree_t *rhs = ilit(0);
     if (!(IS(n->c[1], TT_VAR) && n->c[1]->v.sval && !strcasecmp(n->c[1]->v.sval, "nil"))) {
         PNodeList *c = pnl_new();
-        pas_pf_closure(c, E_expression(n->c[1]).node, sg, fn, 1);
+        tree_t *rv = E_expression(n->c[1]).node;
+        int fr = rv && rv->t == TT_VAR && rv->v.sval && pas_pf_is_formal(rv->v.sval);
+        pas_pf_closure(c, rv, sg, fn, 1);
         rhs = c->items[0];
-        for (int k = 1; k <= 3; k++) if (c->items[2 * k]->t != TT_ILIT) {
+        for (int k = 1; k <= 3 && !fr; k++) if (c->items[2 * k]->t != TT_ILIT) {
             fprintf(stderr, "pascal: the procedural field '%s' holds a routine id alone: a nested routine or a method cannot be assigned to it\n", fn);
             g_lower.pas.sem.pas_iso_errors++;
             break;
