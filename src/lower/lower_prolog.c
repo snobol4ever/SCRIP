@@ -3724,6 +3724,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "predicate_property") && t->n == 2 && !pl_user_defines(nm, 2)) {
                 const tree_t * h = t->c[0];
+                if (t->c[1] && t->c[1]->t == TT_FNC && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "imported_from") && t->c[1]->n == 1) {
+                    int qh = h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[1];
+                    return goal(cx, pl_cc_fnc3("$pl_imported_from", qh ? (tree_t *) h->c[0] : (tree_t *) pl_atom_goal("user"), qh ? (tree_t *) h->c[1] : (tree_t *) h, (tree_t *) t->c[1]->c[0]),
+                        γnext, ωfail, entry_out);
+                }
                 if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[1]) {
                     tree_t * pg = pl_cc_fnc2("predicate_property", (tree_t *) h->c[1], (tree_t *) t->c[1]);
                     if (h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME) return goal(cx, pg, γnext, ωfail, entry_out);
