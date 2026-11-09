@@ -3709,7 +3709,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 int ar = (h && h->t == TT_FNC) ? h->n : 0;
                 const tree_t * pp = t->c[1];
                 if (pl_tree_number(h)) return goal(cx, (g_stage2.pl_dialect == PL_DIALECT_SWI) ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
-                if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
+                if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && g_stage2.pl_dialect != PL_DIALECT_SWI && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
                 if (!pn || ((g_stage2.pl_dialect == PL_DIALECT_GNU) && !(!strcmp(pn, "portray") && ar == 1))) {
                     int dyn0 = pn && ((pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar));
