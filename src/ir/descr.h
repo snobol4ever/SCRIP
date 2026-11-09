@@ -50,6 +50,8 @@ static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { retur
 static inline __attribute__((always_inline)) int IS_KWNAME_fn(DESCR_t v) { return v.v == DT_N && v.slen == 0 && v.s && v.s[0] == '&' && v.s[1] == '&'; }
 #define DATA_INST_SLEN 0u
 #define DATA_ELEMS_SLEN 1u
+#define DATA_RVEC_I_SLEN 2u
+#define DATA_RVEC_R_SLEN 3u
 DESCR_SASSERT(DATA_INST_SLEN != DATA_ELEMS_SLEN,
     "DT_DATA was a UNION with nothing in the descriptor to arbitrate it: the .u arm is a DATINST_t (a record instance) and the "
     ".ptr arm is a raw DESCR_t element vector (an Icon list's frame_elems backing store), and until 2026-09-18 BOTH were minted "

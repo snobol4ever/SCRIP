@@ -573,6 +573,14 @@ RTX_FUNC(rt_lv_is_list)
     jne     .Llv_no
     cmp     byte ptr [rdi + 4], 0
     jne     .Llv_no
+    cmp     byte ptr [rax], DT_DATA
+    jne     .Llv_kd
+    mov     edi, dword ptr [rax + 4]
+    cmp     edi, 2
+    je      .Llv_raw
+    cmp     edi, 3
+    je      .Llv_raw
+.Llv_kd:
     test    rdx, rdx
     je      .Llv_n
     cmp     byte ptr [rax], DT_DATA
@@ -595,6 +603,18 @@ RTX_FUNC(rt_lv_is_list)
     mov     dword ptr [rcx], edi
 .Llv_yes:
     mov     eax, 1
+    ret
+.Llv_raw:
+    test    rdx, rdx
+    je      .Llv_rn
+    mov     qword ptr [rdx], 0
+.Llv_rn:
+    test    rcx, rcx
+    je      .Llv_r2
+    mov     edi, dword ptr [rax + 24]
+    mov     dword ptr [rcx], edi
+.Llv_r2:
+    mov     eax, 2
     ret
 .Llv_no:
     xor     eax, eax

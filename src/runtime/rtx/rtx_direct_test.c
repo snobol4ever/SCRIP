@@ -76,6 +76,7 @@ static int lv_model(DESCR_t o, DESCR_t **elems, int *n) {
     DESCR_t gt = o.u->fields[2];
     if (gt.v != DT_S || !gt.s || strcmp(gt.s, "list") != 0) return 0;
     DESCR_t ea = o.u->fields[0];
+    if (ea.v == DT_DATA && (ea.slen == DATA_RVEC_I_SLEN || ea.slen == DATA_RVEC_R_SLEN)) { if (elems) *elems = (DESCR_t *)0; if (n) *n = (int)o.u->fields[1].i; return 2; }
     if (elems) *elems = (ea.v == DT_DATA && ea.slen == DATA_ELEMS_SLEN) ? (ea.ptr ? (DESCR_t *)ea.ptr : nil) : (DESCR_t *)0;
     if (n) *n = (int)o.u->fields[1].i;
     return 1;
@@ -266,12 +267,13 @@ int main(void) {
             void *ep;
             int ok;
             char *tag;
-        } cs[] = { { "a list", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a list with four fields", &ty4, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a list with no element block", &ty3, DT_DATA,
-            DATA_ELEMS_SLEN, 0, 1, lst }, { "a list whose elements are no block", &ty3, DT_I, 0, el, 1, lst }, { "the tag lis", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lis }, { "the tag lists", &ty3,
-            DT_DATA, DATA_ELEMS_SLEN, el, 1, lsts }, { "the tag table", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, tbl }, { "the tag empty", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, e0 },
-            { "a type frame_elemz", &tyx, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type frame_elemsX", &tyl, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type fr", &tys, DT_DATA, DATA_ELEMS_SLEN,
-            el, 1, lst }, { "a type with a NULL first field", &tyn, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type with two fields", &ty2, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a NULL type",
-            0, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a tag NULL string", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, 0 }, };
+        } cs[] = { { "a list", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a raw integer list", &ty3, DT_DATA, DATA_RVEC_I_SLEN, el, 1, lst }, { "a raw real list", &ty3, DT_DATA,
+            DATA_RVEC_R_SLEN, el, 1, lst }, { "a list with four fields", &ty4, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a list with no element block", &ty3, DT_DATA, DATA_ELEMS_SLEN, 0, 1, lst },
+            { "a list whose elements are no block", &ty3, DT_I, 0, el, 1, lst }, { "the tag lis", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lis }, { "the tag lists", &ty3, DT_DATA, DATA_ELEMS_SLEN, el,
+            1, lsts }, { "the tag table", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, tbl }, { "the tag empty", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, e0 }, { "a type frame_elemz", &tyx, DT_DATA,
+            DATA_ELEMS_SLEN, el, 1, lst }, { "a type frame_elemsX", &tyl, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type fr", &tys, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst },
+            { "a type with a NULL first field", &tyn, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type with two fields", &ty2, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a NULL type", 0, DT_DATA,
+            DATA_ELEMS_SLEN, el, 1, lst }, { "a tag NULL string", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, 0 }, };
         int ncs = (int)(sizeof cs / sizeof cs[0]), lfail0 = fails;
         for (int i = 0; i < ncs; i++) {
             in.type = cs[i].ty;
