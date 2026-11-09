@@ -1047,9 +1047,11 @@ static tree_t *pc_init_field(pc_ctx *x, tree_t *lhs, tree_t *type) {
 static void pc_gen_new(pc_ctx *x, tree_t *fwd, tree_t *gen, pc_class *c, pc_meth *m) {
     const char *nm = pc_name(pc_impl_name(c, m->name), "__new", NULL);
     tree_t *body = pc_seq();
-    ast_push(body, pc_n2(TT_FNC, pc_var("new"), pc_var("self")));
-    ast_push(body, pc_asg(pc_ofld(pc_var("self"), "__cls"), pc_int(c->id)));
-    for (pc_class *a = c; a; a = a->parent) for (int i = 0; i < a->nf; i++) { tree_t *s = pc_init_field(x, pc_ofld(pc_var("self"), a->f[i].name), a->f[i].type); if (s) ast_push(body, s); }
+    if (!c->isrec) {
+        ast_push(body, pc_n2(TT_FNC, pc_var("new"), pc_var("self")));
+        ast_push(body, pc_asg(pc_ofld(pc_var("self"), "__cls"), pc_int(c->id)));
+        for (pc_class *a = c; a; a = a->parent) for (int i = 0; i < a->nf; i++) { tree_t *s = pc_init_field(x, pc_ofld(pc_var("self"), a->f[i].name), a->f[i].type); if (s) ast_push(body, s); }
+    }
     if (m->has_impl) { tree_t *call = pc_fnc(pc_impl_name(m->owner, m->name)); ast_push(call, pc_var("self")); pc_param_args(call, m->params); ast_push(body, call); }
     ast_push(body, pc_asg(pc_var(nm), pc_var("self")));
     pc_emit(fwd, gen, 1, nm, pc_self_params(NULL, m->params), pc_var(c->name), pc_blk(pc_vpart("self", pc_var(c->name)), body));
