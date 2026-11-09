@@ -28750,6 +28750,9 @@ PL_CX_LEAF_HEAD(db_clause_src, 3)
         ok = db && rt_pl_db_src_of_ref(db, ref, &file, &line) && file >= 0 && plw_unify_vals(args[1], pl_make_atom(file), cx) && plw_unify_vals(args[2], INTVAL((long long)line), cx);
     }
 PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(db_unload_file, 1)
+    { extern int rt_pl_db_unload_src(void *, int); DESCR_t fv = rt_pl_deref_val(args[0]); ok = (int)fv.v == DT_PLATOM; if (ok) rt_pl_db_unload_src((void *)(uintptr_t)cx->r14, (int)fv.i); }
+PL_CX_LEAF_TAIL
 DESCR_t rt_pl_dop_db_erase_ref_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_slot_of_ref(void *, int);
     extern int rt_pl_db_erase(void *, void *, int);

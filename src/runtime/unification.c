@@ -6079,6 +6079,19 @@ int rt_pl_db_erase(void *root, void *db_v, int i) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_unload_src(void *root, int file) {
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    int n = 0;
+    if (!r || file < 0) return 0;
+    for (int k = 0; k < r->n; k++) {
+        pl_db_t *db;
+        if (r->e[k].stat || !pl_db_key_current(root, &r->e[k])) continue;
+        db = (r->e[k].k >= 0) ? pl_db_cell_peek(root, r->e[k].k) : r->e[k].db;
+        if (!db || !db->src) continue;
+        for (int i = db->n - 1; i >= 0; i--) if (i < db->n && !db->s[i].erased && db->src[2 * i] == file && rt_pl_db_erase(root, db, i)) n++;
+    }
+    return n;
+}
 int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
 int rt_pl_db_slot_erased(void *db_v, int i) { pl_db_t *db = (pl_db_t *)db_v; return db && i >= 0 && i < db->n && db->s[i].erased; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

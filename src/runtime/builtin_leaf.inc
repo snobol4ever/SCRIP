@@ -726,7 +726,7 @@ static const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, b
     bt_ICNx24UGETRUSAGE, bt_ICNx24UFORK, bt_ICNx24UWAIT, bt_ICNx24UKILL, bt_ICNx24UEXEC, bt_ICNx24UMEMBER, 0, bt_ICNx24UNUMERIC, bt___rk_temp, bt_ICNx24USET, bt_ICNx24USORT, bt_ICNx24USORTF,
     bt_ICNx24UMAX, bt_ICNx24UMIN, bt_ICNx24UPCAT, bt_ICNx24URECEIVE, bt_ICNx24UUNION, bt_ICNx24UINTER, bt_ICNx24UDIFF, bt_ICNx24SEND, bt_ICNx24RECV, bt_ICNx24USEND, bt_ICNx24THREAD, bt_ICNx24SCHED,
     bt_ICNx24THREAD_END, bt_ICNx24DONE, bt_ICNx24UTABLE, bt_ICNx24LOCK_TRY, bt_ICNx24UNLOCK, bt_ICNx24UCURSOR, bt_ICNx24USIGTRAP, bt_ICNx24USIGTAKE, bt_ICNx24USIGNAME, bt_ICNx24UATTRIB,
-    bt_ICNx24USERIAL, bt_ICNx24UCONDVAR, bt_ICNx24USIGNAL, bt_ICNx24CV_WAIT, bt_ICNx24CV_WOKEN, bt_ICNx24ULIST, bt_arr_make_raw, bt_arr_slice, };
+    bt_ICNx24USERIAL, bt_ICNx24UCONDVAR, bt_ICNx24USIGNAL, bt_ICNx24CV_WAIT, bt_ICNx24CV_WOKEN, bt_ICNx24ULIST, bt_arr_make_raw, bt_arr_slice, 0, };
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
 extern int bt_EVAL(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
@@ -761,4 +761,4 @@ static const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___rk_meth_nc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };

@@ -4994,7 +4994,7 @@ DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t 
                         DESCR_t rt_pl_dop_pl_op_check(DESCR_t *,
                         int); DESCR_t rt_pl_dop_pl_sp_check(DESCR_t *, int); DESCR_t rt_pl_dop_pl_ioarg(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_count(DESCR_t *,
                             int); DESCR_t rt_pl_dop_pl_op_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_count(DESCR_t *, int); DESCR_t rt_pl_dop_cutcall(DESCR_t *,
-                                int); DESCR_t rt_pl_dop_shc(DESCR_t *, int); DESCR_t rt_pl_dop_db_clause_src(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int);
+                                int); DESCR_t rt_pl_dop_shc(DESCR_t *, int); DESCR_t rt_pl_dop_db_clause_src(DESCR_t *, int); DESCR_t rt_pl_dop_db_unload_file(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int);
 DESCR_t rt_pl_dop_alarm_push(DESCR_t *, int); DESCR_t rt_pl_dop_alarm_pop(DESCR_t *, int); DESCR_t rt_pl_dop_os_sleep(DESCR_t *, int); DESCR_t rt_pl_dop_sk_socket(DESCR_t *, int);
 DESCR_t rt_pl_dop_sk_close(DESCR_t *, int); DESCR_t rt_pl_dop_sk_bind(DESCR_t *, int); DESCR_t rt_pl_dop_sk_listen(DESCR_t *, int); DESCR_t rt_pl_dop_sk_accept(DESCR_t *, int);
 DESCR_t rt_pl_dop_sk_connect(DESCR_t *, int); DESCR_t rt_pl_dop_sk_open(DESCR_t *, int); DESCR_t rt_pl_dop_sk_setopt(DESCR_t *, int); DESCR_t rt_pl_dop_sk_fileno(DESCR_t *, int);
@@ -5214,7 +5214,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
                     { "$pl_op_check", 3, "rt_pl_dop_pl_op_check", rt_pl_dop_pl_op_check }, { "$heap_guard", 2, "rt_pl_dop_heap_guard", rt_pl_dop_heap_guard }, { "$pl_sp_check", 2,
                         "rt_pl_dop_pl_sp_check", rt_pl_dop_pl_sp_check }, { "$pl_ioarg", 2,
                         "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall }, { "$shc", 1, "rt_pl_dop_shc", rt_pl_dop_shc }, { "$db_clause_src", 3,
-                            "rt_pl_dop_db_clause_src", rt_pl_dop_db_clause_src },
+                            "rt_pl_dop_db_clause_src", rt_pl_dop_db_clause_src }, { "$db_unload_file", 1, "rt_pl_dop_db_unload_file", rt_pl_dop_db_unload_file },
         { "$alarm_push", 2, "rt_pl_dop_alarm_push", rt_pl_dop_alarm_push }, { "$alarm_pop", 1, "rt_pl_dop_alarm_pop", rt_pl_dop_alarm_pop },
         { "$os_sleep", 1, "rt_pl_dop_os_sleep", rt_pl_dop_os_sleep }, { "$sk_socket", 2, "rt_pl_dop_sk_socket", rt_pl_dop_sk_socket }, { "$sk_close", 2, "rt_pl_dop_sk_close", rt_pl_dop_sk_close },
         { "$sk_bind", 3, "rt_pl_dop_sk_bind", rt_pl_dop_sk_bind }, { "$sk_listen", 3, "rt_pl_dop_sk_listen", rt_pl_dop_sk_listen }, { "$sk_accept", 2, "rt_pl_dop_sk_accept", rt_pl_dop_sk_accept },
