@@ -2858,6 +2858,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
                 if (t->c[0] && t->c[0]->t == TT_VAR && nextra == 0 && !strcmp(nm, "call") && pl_dl_ctl_leaf_scope(cx)) return goal(cx, pl_dl_leaf_tree((tree_t *) t->c[0]), γnext, ωfail, entry_out);
                 if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
+                if (!strcmp(nm, "call") && nextra == 0 && t->c[0] && (t->c[0]->t == TT_CUT || ((t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "!"))))
+                    return goal(cx, pl_atom_goal("true"), γnext, ωfail, entry_out);
                 const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);
                 if (ext && pl_body_ill_typed(ext)) return goal(cx, pl_cc_type_error("callable", ext, nm, t->n), γnext, ωfail, entry_out);
                 if (!ext)
