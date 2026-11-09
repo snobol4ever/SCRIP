@@ -1232,6 +1232,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_cell_text", GC_RET_OTHER },
     { "pl_cell_text_n", GC_RET_OTHER },
     { "pl_cell_tree", GC_RET_OTHER },
+    { "pl_clause_head_shown", GC_RET_DESCR },
     { "pl_co_answer", GC_RET_DESCR },
     { "pl_co_park_leaf", GC_RET_DESCR },
     { "pl_code_range_ball", GC_RET_OTHER },

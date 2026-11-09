@@ -7130,6 +7130,26 @@ static DESCR_t pl_body_call_vars(DESCR_t b, int swi) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_clause_head_shown(DESCR_t h, void *root) {
+    extern int rt_pl_db_mod_get(void *, const char *, int, int64_t *);
+    extern void *rt_pl_compound_cell(const char *, int, void *);
+    extern const char *prolog_atom_name(int);
+    const char *nm = h.v == DT_PLATOM ? pl_atom_str(h) : h.v == (DTYPE_t)DT_PLREF ? prolog_atom_name(plc_fid_name(h.slen)) : (const char *)0;
+    const char *c = nm ? strchr(nm, ':') : (const char *)0;
+    int64_t sz = 0;
+    if (!c || c == nm || !c[1]) return h;
+    {
+        char mod[(size_t)(c - nm) + 1];
+        DESCR_t kids[2];
+        memcpy(mod, nm, (size_t)(c - nm));
+        mod[c - nm] = 0;
+        if (!strcmp(mod, "user") || !rt_pl_db_mod_get(root, mod, 0, &sz)) return h;
+        kids[0] = pl_mk_atom(mod);
+        kids[1] = h.v == DT_PLATOM ? pl_mk_atom(c + 1) : *(DESCR_t *)rt_pl_compound_cell(c + 1, plc_fid_arity(h.slen), h.p);
+        return *(DESCR_t *)rt_pl_compound_cell(":", 2, (void *)kids);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
@@ -7143,7 +7163,10 @@ DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
             DESCR_t *ra = (DESCR_t *)rc.p;
             DESCR_t *ta = (DESCR_t *)tc.p;
             DESCR_t bodyv = pl_body_call_vars(ra[1], !pl_gnu_dialect());
-            out = plw_unify_vals(ra[0], ta[0], cx) && plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR;
+            DESCR_t t0 = rt_pl_deref_val(ta[0]);
+            int shown = plw_unbound_tag(plw_cell_deref(plw_entry(&ta[0]))) || (t0.v == (DTYPE_t)DT_PLREF && plc_fid_arity(t0.slen) == 2 && plc_fid_name(t0.slen) == prolog_atom_intern(":"));
+            DESCR_t headv = shown ? pl_clause_head_shown(rt_pl_deref_val(ra[0]), (void *)(uintptr_t)cx->r14) : ra[0];
+            out = plw_unify_vals(headv, ta[0], cx) && plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR;
         }
         if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
         rt_pl_tr_gc_sync(cx->tr);
@@ -28662,7 +28685,6 @@ static void *pl_db_and_key(DESCR_t *tgt, DESCR_t refv, void *root, char *key, si
     extern int rt_pl_db_term_key(void *, char *, size_t, int *);
     extern void *rt_pl_db_get_by_key(void *, const char *, int);
     int ar = 0;
-    if (rt_pl_db_term_key((void *)tgt, key, kn, &ar)) { void *db = rt_pl_db_get_by_key(root, key, 0); if (db) return db; }
     {
         DESCR_t r = rt_pl_deref_val(refv);
         if (pl_cell_is_clref(r)) {
@@ -28671,6 +28693,7 @@ static void *pl_db_and_key(DESCR_t *tgt, DESCR_t refv, void *root, char *key, si
             if (ks) { snprintf(key, kn, "%s", ks); return rt_pl_db_get_by_key(root, ks, 0); }
         }
     }
+    if (rt_pl_db_term_key((void *)tgt, key, kn, &ar)) return rt_pl_db_get_by_key(root, key, 0);
     return (void *)0;
 }
 DESCR_t rt_pl_dop_db_n_r_c(DESCR_t *args, int nargs, void *root) {
