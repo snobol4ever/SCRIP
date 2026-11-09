@@ -2236,6 +2236,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$mq_db_head'(_,T,T).\n"
     "'$mq_db_h1'(_,H,H):-var(H),!.\n"
     "'$mq_db_h1'(_,M2:H2,QH):-atom(M2),!,'$mq_db_head'(M2,H2,QH).\n"
+    "'$mq_db_h1'(M,H,H):-callable(H),functor(H,F,_),atom(F),atom_concat(M,':',P),sub_atom(F,0,_,_,P),!.\n"
     "'$mq_db_h1'(M,H,QH):-callable(H),!,H=..[F|As],atom_concat(M,':',P),atom_concat(P,F,QF),QH=..[QF|As].\n"
     "'$mq_db_h1'(_,H,H).\n"
     "'$mq_db_pi'(M,PI,QPI):-atom(M),M\\==user,nonvar(PI),PI=N/A,atom(N),!,atom_concat(M,':',P),atom_concat(P,N,QN),QPI=QN/A.\n"
