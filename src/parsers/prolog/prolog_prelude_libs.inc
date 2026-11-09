@@ -32186,6 +32186,8 @@ static const char PL_PRELUDE_LIB_67_SRC[] =
     "    instantiation_error(Name).\n"
     "'$sandbox_safe_global_var'(Name) :-\n"
     "    safe_global_variable(Name).\n"
+    "'$sandbox_safe_meta'('$apply':forall(Cond, Action), [Cond, Action]).\n"
+    "'$sandbox_safe_meta'(prolog_statistics:time(Goal), [Goal]).\n"
     "'$sandbox_safe_meta'(system:put_attr(V,M,A), Called) :-\n"
     "    !,\n"
     "    (   atom(M)\n"

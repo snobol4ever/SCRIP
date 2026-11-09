@@ -3507,6 +3507,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$pl_home'(partition,5,apply).\n"
     "'$pl_home'(phrase,2,'$dcg').\n"
     "'$pl_home'(phrase,3,'$dcg').\n"
+    "'$pl_home'(predicate_property,2,'$syspreds').\n"
     "'$pl_home'(plus,3,system).\n"
     "'$pl_home'(print_message,2,'$messages').\n"
     "'$pl_home'(put_attr,3,system).\n"
