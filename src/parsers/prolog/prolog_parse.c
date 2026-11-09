@@ -2295,6 +2295,8 @@ static const char * const PL_PRELUDE_SRC =
     "set_module(M:program_space(N)):-!,'$mod_space'(M,N).\n"
     "set_module(program_space(N)):-!,'$mod_space'(user,N).\n"
     "set_module(_).\n"
+    "current_module(M):-var(M),!,(M=user;M=system).\n"
+    "current_module(M):-atom(M),(M==user;M==system).\n"
     "'$mod_space'(M,N):-(integer(N)->true;throw(error(type_error(integer,N),context(system:set_module/1,_)))),(N>=0->true;throw(error(domain_error(not_less_than_zero,N),context(system:set_module/1,_)))),'$mod_set'(M,N,R),(R==0->true;throw(error(permission_error(limit,program_space,M),context(system:set_module/1,_)))).\n"
     "module_property(M,program_size(S)):-'$mod_get'(M,size,S).\n"
     "module_property(M,program_space(S)):-'$mod_get'(M,limit,S).\n"
