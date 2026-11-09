@@ -6711,6 +6711,15 @@ static void pl_poll_alpha_mark(int bb0) {
     ct_drop(beg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_choice_all_prelude(const tree_t * ch) {
+    if (!ch) return 0;
+    if (ch->t == TT_CLAUSE) return ch->line == 0;
+    if (ch->t != TT_CHOICE) return 0;
+    int k = 0;
+    for (int j = 0; j < ch->n; j++) if (ch->c[j] && ch->c[j]->t == TT_CLAUSE) { if (ch->c[j]->line != 0) return 0; k++; }
+    return k > 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
@@ -6909,10 +6918,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             const char *slash = strrchr(pe->key, '/');
             int ar = slash ? atoi(slash + 1) : 0;
             if (pl_bb_lookup(pe->key, ar)) continue;
+            int pre = pl_choice_all_prelude(pe->choice);
             int bb_idx = lower_pl_pred_graph(pe->key, pe->choice);
             if (bb_idx < 0) continue;
             pl_bb_register(pe->key, ar, bb_idx);
-            pl_new_proc(pe->key, ar, bb_idx);
+            int pi = pl_new_proc(pe->key, ar, bb_idx);
+            g_stage2.proc_table[pi].origin = pre;
         }
     }
     {

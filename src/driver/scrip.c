@@ -2553,7 +2553,7 @@ int main(int argc, char **argv) {
             for (int s = 0; s < seen_n; s++) if (seen_all[s] == (const IR_t *) all) { dup = 1; break; }
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
-            if (dump_ir) fprintf(stdout, "; proc %s\n", pname);
+            if (dump_ir) fprintf(stdout, "; proc %s origin=%s\n", pname, s2->proc_table[_pi].origin == 1 ? "prelude" : "program");
             zls_graph_name(s2->bbp.table[idx], pname);
             if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }

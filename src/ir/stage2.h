@@ -42,6 +42,7 @@ typedef struct ProcEntry {
     unsigned thunk_flags;
     const char *stage_var;
     int port_exit;
+    int origin;
 } ProcEntry;
 struct Resolve_PredEntry_t;
 typedef struct Resolve_PredTable { struct Resolve_PredEntry_t *buckets[STAGE2_PL_PRED_TABLE_SIZE]; } Resolve_PredTable;
