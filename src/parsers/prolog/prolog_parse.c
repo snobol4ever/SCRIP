@@ -3221,6 +3221,13 @@ static const char * const PL_PRELUDE_SRC =
     "'$clprop_head'(M:H,M,N,A):-!,functor(H,N,A).\n"
     "'$clprop_head'(H,user,N,A):-functor(H,N,A).\n"
     "clause_info(R,F,TP,VO):-clause_info(R,F,TP,VO,[]).\n"
+    "'$qq_expand'(S,T,B,V):-S=..[N|A],call(N,'$qq_content'(T),A,B,R),'$qq_value'(R,V).\n"
+    "'$qq_value'(R,V):-nonvar(R),R='.'(D,F),!,'$dict_eval'(D,F,V).\n"
+    "'$qq_value'(V,V).\n"
+    "with_quasi_quotation_input('$qq_content'(T),S,G):-open_string(T,S),(call(G)->true;close(S),throw(error(syntax_error(quasi_quotation_parser_failed),_))),close(S).\n"
+    "phrase_from_quasi_quotation(G,'$qq_content'(T)):-string_codes(T,Cs),(phrase(G,Cs)->true;throw(error(syntax_error(quasi_quotation_parser_failed),_))).\n"
+    "quasi_quotation_syntax(_).\n"
+    "quasi_quotation_syntax_error(E):-throw(error(syntax_error(E),_)).\n"
     "clause_info(R,F,TP,VO,Os):-clause_property(R,file(F)),clause_property(R,line_count(L)),'$read_term_at_line'(F,L,user,Rd,TP0,Ns),'$src_expand'(Rd,X),clause(H,B,R),'$ci_unify'(Rd,X,H,B),TP=TP0,VO=[],'$ci_opts'(Os,H,B,Ns).\n"
     "'$ci_unify'(Rd,_,H,B):-nonvar(Rd),Rd=(RH:-RB),'$ci_inl'(RB,B,RB1,B1,RH),RB1\\==RB,!,'$src_expand'((RH:-RB1),X1),'$ci_unify2'(X1,H,B1).\n"
     "'$ci_unify'(_,X,H,B):-'$ci_unify2'(X,H,B).\n"
@@ -5050,6 +5057,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); pl_cv_add(&referenced, "$load_items"); pl_cv_add(&refkeys, pl_pred_key("$load_items", 3)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) { pl_cv_add(&referenced, "$pl_pp_pcheck"); pl_cv_add(&referenced, "$pl_pp_enum"); }
     if (pl_cv_has(&referenced, "clause")) { pl_cv_add(&referenced, "$pl_clause_q"); pl_cv_add(&referenced, "$mod_q1"); }
+    if (pl_cv_has(&referenced, "$qq_expand")) {
+        pl_cv_add(&referenced, "$qq_value"); pl_cv_add(&referenced, "with_quasi_quotation_input"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "$dict_eval");
+        pl_cv_add(&refkeys, pl_pred_key("open_string", 2));
+    }
     if (pl_cv_has(&referenced, "predicate_property")) { pl_cv_add(&referenced, "$pl_decl_flag"); pl_cv_add(&referenced, "$pl_imported_from"); pl_cv_add(&referenced, "$mod_q1"); }
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
