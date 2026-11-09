@@ -1091,6 +1091,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_pchar_of", GC_RET_DESCR },
     { "pas_pdx", GC_RET_DESCR },
     { "pas_pf_assign", GC_RET_OTHER },
+    { "pas_pf_field_assign", GC_RET_OTHER },
     { "pas_pf_resolve", GC_RET_VOID },
     { "pas_pstr", GC_RET_DESCR },
     { "pas_pstrlen", GC_RET_DESCR },
