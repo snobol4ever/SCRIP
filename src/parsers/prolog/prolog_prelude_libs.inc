@@ -34994,6 +34994,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "$tbl_manswer", 4 },
     { "$tbl_madd", 6 },
     { "$tbl_mput", 6 },
+    { "$tbl_mfirst", 4 },
+    { "$tbl_mjoin", 6 },
+    { "$tbl_mwrite", 4 },
     { "$tbl_same", 2 },
     { "$tbl_mupd", 4 },
     { "$tbl_mupds", 4 },
@@ -35047,7 +35050,12 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_sl_sk'(_,G,Sk):-term_variables(G,Vs),Sk=..[ret|Vs].\n"
     "'$tbl_sl_kins'(moded(Ms,_,Mv),T,Sk,D):-!,'$tbl_sl_mins'(T,Sk,Ms,Mv,D).\n"
     "'$tbl_sl_kins'(_,T,Sk,D):-'$tbl_sl_ins'(T,Sk,D).\n"
-    "'$tbl_sl_mins'(T,Sk,Ms,M,D):-('$trie_lookup'(T,Sk,_)->E=1;E=0),'$tbl_mput'(T,Sk,Ms,M,0,N),(N>0,D==[]->'$tbl_sl'(7,T,_);true),(E==0,D\\==[]->reverse(D,D1),'$trie_insert'(T,1,Sk,mu(M,D1),_);true).\n"
+    "'$tbl_sl_mins'(T,Sk,Ms,M,D):-reverse(D,D1),('$trie_lookup'(T,Sk,Old0)->'$tbl_mjoin'(T,Sk,Ms,Old0,M,D1);'$tbl_mfirst'(T,Sk,M,D1)).\n"
+    "'$tbl_mfirst'(T,Sk,M,[]):-!,'$trie_insert'(T,0,Sk,M,_),'$tbl_sl'(7,T,_).\n"
+    "'$tbl_mfirst'(T,Sk,M,D):-'$trie_insert'(T,0,Sk,mu(M,D),_).\n"
+    "'$tbl_mjoin'(T,Sk,Ms,Old0,M,D):-(nonvar(Old0),Old0=mu(Old,DL)->true;Old=Old0,DL=[]),('$tbl_mupd'(Ms,Old,M,New)->true;New=Old),('$tbl_same'(New,Old)->(DL\\==[],D==[]->'$tbl_mwrite'(T,Sk,New,[]);true);'$tbl_app'(DL,D,D2),'$tbl_mwrite'(T,Sk,New,D2)).\n"
+    "'$tbl_mwrite'(T,Sk,V,[]):-!,'$trie_delete'(T,Sk,_),'$trie_insert'(T,0,Sk,V,_),'$tbl_sl'(7,T,_).\n"
+    "'$tbl_mwrite'(T,Sk,V,D):-'$trie_delete'(T,Sk,_),'$trie_insert'(T,0,Sk,mu(V,D),_).\n"
     "'$tbl_sl_mread'(T,Xs,Ma,Gv):-term_variables(Xs,XVs),Sk=..[ret|XVs],'$trie_meta_get'(T,0,S),(S==complete->'$trie_entries'(T,L),member(e(_,Sk,V),L),'$tbl_sl_mval'(V,Ma,T,Sk,Gv);'$tbl_sl_mconsume'(T,Sk,Ma,Gv)).\n"
     "'$tbl_sl_mconsume'(A,Sk,Ma,Gv):-St=st(0,A,0,0,0),'$tbl_sl'(2,A,St),'$tbl_park'(St),repeat,('$tbl_sl_mnext'(A,St,Sk,V)->'$tbl_sl_mval'(V,Ma,A,Sk,Gv);'$tbl_park'(St)->fail;!,fail).\n"
     "'$tbl_sl_mnext'(A,St,Sk,V):-arg(3,St,C),'$trie_slice'(A,C,-1,N-L),(L=[e(J,K,V0)|_]->J1 is J+1,nb_setarg(3,St,J1),K=Sk,V=V0;nb_setarg(3,St,N),fail).\n"
@@ -37339,13 +37347,16 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$tbl_mcheck", 11, 1, 76 },
     { "$tbl_mclos", 10, 2, 76 },
     { "$tbl_mcond", 10, 3, 76 },
+    { "$tbl_mfirst", 11, 4, 76 },
     { "$tbl_mindex", 11, 1, 76 },
+    { "$tbl_mjoin", 10, 6, 76 },
     { "$tbl_mput", 9, 6, 76 },
     { "$tbl_msplit", 11, 7, 76 },
     { "$tbl_mterm", 10, 2, 76 },
     { "$tbl_mupd", 9, 4, 76 },
     { "$tbl_mupd1", 10, 4, 76 },
     { "$tbl_mupds", 10, 4, 76 },
+    { "$tbl_mwrite", 11, 4, 76 },
     { "$tbl_nest", 9, 4, 76 },
     { "$tbl_noattv", 11, 1, 76 },
     { "$tbl_ph", 7, 1, 76 },
