@@ -4368,7 +4368,12 @@ static const char *pas_pf_heading(const char *name, PNodeList *params, char k, c
     for (int i = 0; i < g_lower.pas.sem.pas_scope.npend; i++) {
         PasDef *d = &g_lower.pas.sem.pas_scope.pend[i];
         if (!d->name) ps = pas_pf_cat3(ps, *ps ? ";" : "", d->sig);
-        else if (name) { PasDef *f = pas_scope_push(&g_lower.pas.sem.pas_scope.fsig, &g_lower.pas.sem.pas_scope.nfsig, &g_lower.pas.sem.pas_scope.cfsig, d->name); f->sig = d->sig; f->owner = name; f->depth = d->depth; }
+        else if (name) {
+            PasDef *f = pas_scope_push(&g_lower.pas.sem.pas_scope.fsig, &g_lower.pas.sem.pas_scope.nfsig, &g_lower.pas.sem.pas_scope.cfsig, d->name);
+            f->sig = d->sig;
+            f->owner = name;
+            f->depth = d->depth;
+        }
     }
     g_lower.pas.sem.pas_scope.npend = 0;
     return pas_pf_sig(k, ps, rtype);
@@ -4645,7 +4650,8 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
     int lvl = d ? d->depth + 1 : 1;
     const char *pn = d && d->depth >= 1 ? pas_pf_named_formal(callee, pos - 1) : NULL;
     if (pn) {
-        fprintf(stderr, "pascal: the nested routine '%s' cannot be passed to the parameter '%s' of '%s': the parameter has a procedural type name, which takes no nested routine (fpc: is nested)\n", nm, pn, callee);
+        fprintf(stderr, "pascal: the nested routine '%s' cannot be passed to the parameter '%s' of '%s': the parameter has a procedural type name, which takes no nested routine (fpc: is nested)\n",
+            nm, pn, callee);
         g_lower.pas.sem.pas_iso_errors++;
     }
     if (lvl > 4) {
@@ -4683,6 +4689,33 @@ static tree_t *pas_pf_callthrough(const char *name, PNodeList *args) {
     for (int i = 0; args && i + 1 < args->count; i += 2) ast_push(e, args->items[i]);
     return e;
 }
+static pval E_expression(const tree_t *n);
+static pval E_selector(const tree_t *n);
+static const char *pas_pf_field_sig(const tree_t *f) {
+    const pty_t *r = (f && f->t == TT_FIELD && f->n == 2 && f->c[1] && f->c[1]->v.sval) ? pty_of_src(f->c[0]) : NULL;
+    if (r && r->k == PTK_POINTER) r = pty_pointee(r);
+    for (int i = 0; r && r->k == PTK_RECORD && i < pty_rec_nf(r); i++) {
+        struct pty_fld o;
+        const char *tn;
+        if (pty_rec_fld(r, i, &o) && o.name && !strcasecmp(o.name, f->c[1]->v.sval) && (tn = pty_fld_typename(r, i))) return pas_proctype_get(tn);
+    }
+    return NULL;
+}
+static tree_t *pas_pf_field_assign(const tree_t *n) {
+    const char *sg = pas_pf_field_sig(n->c[0]), *fn = n->c[0]->c[1]->v.sval;
+    tree_t *rhs = ilit(0);
+    if (!(IS(n->c[1], TT_VAR) && n->c[1]->v.sval && !strcasecmp(n->c[1]->v.sval, "nil"))) {
+        PNodeList *c = pnl_new();
+        pas_pf_closure(c, E_expression(n->c[1]).node, sg, fn, 1);
+        rhs = c->items[0];
+        for (int k = 1; k <= 3; k++) if (c->items[2 * k]->t != TT_ILIT) {
+            fprintf(stderr, "pascal: the procedural field '%s' holds a routine id alone: a nested routine or a method cannot be assigned to it\n", fn);
+            g_lower.pas.sem.pas_iso_errors++;
+            break;
+        }
+    }
+    return mk_assign(E_selector(n->c[0]).node, rhs);
+}
 static tree_t *pas_pf_envcall(tree_t *call, const char *pp, int lvl, int n) {
     tree_t *e = mk_fnc1("__pas_envcall", ilit(lvl));
     for (int k = 1; k <= 3; k++) ast_push(e, leaf_s(TT_VAR, pas_pf_env_name(pp, k)));
@@ -4694,7 +4727,8 @@ static void pas_pf_resolve(tree_t *e) {
     if (!e) return;
     for (int i = 0; i < e->n; i++) pas_pf_resolve(e->c[i]);
     if (e->t != TT_FNC || e->n < 4 || !e->c[0] || !e->c[0]->v.sval || strcmp(e->c[0]->v.sval, "__pas_pcall")) return;
-    const char *pp = e->c[1]->v.sval, *fs = e->c[2]->v.sval;
+    int ex = e->c[1]->t != TT_VAR;
+    const char *pp = ex ? NULL : e->c[1]->v.sval, *fs = e->c[2]->v.sval;
     int isf = fs[0] == 'F', n = g_lower.pas.sem.pas_scope.npf++;
     char tb[40];
     snprintf(tb, sizeof tb, "__pas_vptmp_pf%d", n);
@@ -4706,13 +4740,14 @@ static void pas_pf_resolve(tree_t *e) {
         const char *ns = (strcmp(c->sig, fs) && !strncmp(c->name, "__pc_", 5)) ? pas_pf_no_self(c->sig) : NULL;
         int meth = ns && !strcmp(ns, fs);
         if (strcmp(c->sig, fs) && !meth) continue;
+        if (ex && (meth || c->depth >= 1)) continue;
         PNodeList *al = pnl_new();
         if (meth) { pnl_push(al, leaf_s(TT_VAR, pas_pf_env_name(pp, 1))); pnl_push(al, ilit(-1)); }
         for (int i = 4; i < e->n; i++) { pnl_push(al, pas_tree_clone(e->c[i])); pnl_push(al, ilit(-1)); }
         tree_t *call = mk_call(c->name, al);
-        if (c->depth >= 1 && call && call->t == TT_FNC) call = pas_pf_envcall(call, pp, c->depth + 1, n);
+        if (!ex && c->depth >= 1 && call && call->t == TT_FNC) call = pas_pf_envcall(call, pp, c->depth + 1, n);
         tree_t *iff = ast_node_new(TT_IF);
-        ast_push(iff, bin(TT_EQ, leaf_s(TT_VAR, pp), ilit(c->rid)));
+        ast_push(iff, bin(TT_EQ, ex ? pas_tree_clone(e->c[1]) : leaf_s(TT_VAR, pp), ilit(c->rid)));
         ast_push(iff, isf ? mk_assign(leaf_s(TT_VAR, tmp), call) : call);
         ast_push(iff, chain);
         chain = iff;
@@ -5265,6 +5300,7 @@ static pval E_assignment(const tree_t *n) {
     memset(&out, 0, sizeof out);
     if (IS(n, TT_ASSIGN)) {
         if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && pas_pf_is_formal(n->c[0]->v.sval)) { out.node = pas_pf_assign(n); return out; }
+        if (n->n == 2 && IS(n->c[0], TT_FIELD) && pas_pf_field_sig(n->c[0])) { out.node = pas_pf_field_assign(n); return out; }
         v[1] = E_selector(n->c[0]);
         if (n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && !strcmp(n->c[2]->v.sval, "+=") && IS(n->c[1], TT_SET) && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
             return E_compound_statement(pas_dynarr_append_src(n->c[0], n->c[1]));
@@ -5522,6 +5558,15 @@ static pval E_call_with_args(const tree_t *n) {
             return out;
         }
         if (n->n >= 2 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *sh = pas_strhlp_call(n); if (sh) return pas_strhlp_eval(sh); }
+        if (n->n >= 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2 && pas_pf_field_sig(n->c[0])) {
+            tree_t *pc = mk_fnc1("__pas_pcall", E_selector(n->c[0]).node);
+            ast_push(pc, leaf_s(TT_QLIT, pas_pf_field_sig(n->c[0])));
+            ast_push(pc, ilit(0));
+            PNodeList *al = E_argument_list(n, 1, n->n).list;
+            for (int i = 0; al && i + 1 < al->count; i += 2) ast_push(pc, al->items[i]);
+            out.node = pc;
+            return out;
+        }
         const char *src0 = tok_s(n->c[0]);
         const char *dflt = NULL;
         int onp = 0;

@@ -8,7 +8,10 @@
 #include "lower_pascal_class.h"
 #include "lower_pascal_tree.h"
 #define PC_IS(x, k) ((x) && (x)->t == (k))
-static int pc_rec_methods(const tree_t *t) { for (int i = 0; PC_IS(t, TT_RECORD) && t->n > 0 && PC_IS(t->c[0], TT_FIELDS) && i < t->c[0]->n; i++) if (PC_IS(t->c[0]->c[i], TT_PROCEDURE) || PC_IS(t->c[0]->c[i], TT_FUNCTION)) return 1; return 0; }
+static int pc_rec_methods(const tree_t *t) {
+    for (int i = 0; PC_IS(t, TT_RECORD) && t->n > 0 && PC_IS(t->c[0], TT_FIELDS) && i < t->c[0]->n; i++) if (PC_IS(t->c[0]->c[i], TT_PROCEDURE) || PC_IS(t->c[0]->c[i], TT_FUNCTION)) return 1;
+    return 0;
+}
 typedef struct pc_class pc_class;
 typedef struct { const char *name; const char *kind; int isfunc; tree_t *params; tree_t *rtype; int virt, over, abst, has_impl, used; pc_class *owner; } pc_meth;
 typedef struct { const char *name; tree_t *type; tree_t *ip; const char *rd; const char *wr; int dflt; } pc_prop;
@@ -622,7 +625,12 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
             }
             if (pc_eq(n, "as") && e->n == 3 && !s) return pc_expr(x, e->c[1]);
             if (e->n == 2 && s && s->kind == 'k') return pc_expr(x, e->c[1]);
-            if (pc_ident_is_member(x, n)) { pc_class *c = pc_member_owner(x, n); pc_meth *m = pc_pick(x, c, n, e, 1); if (m) return pc_mcall(x, pc_self(x, n), m, e, 1, 0); }
+            if (pc_ident_is_member(x, n)) {
+                pc_class *c = pc_member_owner(x, n);
+                pc_meth *m = pc_pick(x, c, n, e, 1);
+                if (m) return pc_mcall(x, pc_self(x, n), m, e, 1, 0);
+                if (pc_find_field(c, n)) e->c[0] = pc_read_member(x, pc_self(x, n), c, n, NULL);
+            }
             for (int i = 1; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
             return e;
         }
@@ -636,6 +644,11 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
             }
             if (m) return pc_mcall(x, pc_expr(x, h->c[0]), m, e, 1, 0);
             if (b.cls && !b.ref && !pc_is_member(b.cls, n) && !pc_tobject_member(n)) { pc_no_member(b.cls, n); return pc_int(0); }
+            if (b.cls && !b.ref && pc_find_field(b.cls, n)) {
+                e->c[0] = pc_read_member(x, pc_expr(x, h->c[0]), b.cls, n, NULL);
+                for (int i = 1; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
+                return e;
+            }
             if (b.cls && !b.ref) return pc_read_member(x, pc_expr(x, h->c[0]), b.cls, n, e);
         }
         for (int i = 0; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
