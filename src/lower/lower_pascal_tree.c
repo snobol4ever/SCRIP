@@ -1648,7 +1648,7 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     for (int _li = 0; lnames && _li < lcount; _li++) {
         long long _hi;
         if (lnames[_li] && pas_array_high_get(lnames[_li], &_hi)) ast_push(body_prog, bin(TT_ASSIGN, leaf_s(TT_VAR, lnames[_li]), mk_array_init(lnames[_li], _hi)));
-        else if (lnames[_li] && pas_array_isdyn(lnames[_li])) ast_push(body_prog, bin(TT_ASSIGN, leaf_s(TT_VAR, lnames[_li]), mk_fnc2("arr_make", ilit(0), ilit(-1))));
+        else if (lnames[_li] && pas_array_isdyn(lnames[_li])) ast_push(body_prog, bin(TT_ASSIGN, leaf_s(TT_VAR, lnames[_li]), mk_array_init(lnames[_li], -1)));
     }
     if (body_stmt && body_stmt->t == TT_PROGRAM) { for (int i = 0; i < body_stmt->n; i++) ast_push(body_prog, body_stmt->c[i]); } else if (body_stmt) { ast_push(body_prog, body_stmt); }
     tree_t *proc = ast_node_new(TT_PROC_DECL);
