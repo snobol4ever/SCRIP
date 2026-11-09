@@ -9,14 +9,32 @@
 #include "lower_pascal_tree.h"
 #define PC_IS(x, k) ((x) && (x)->t == (k))
 static int pc_rec_methods(const tree_t *t) {
-    for (int i = 0; PC_IS(t, TT_RECORD) && t->n > 0 && PC_IS(t->c[0], TT_FIELDS) && i < t->c[0]->n; i++) if (PC_IS(t->c[0]->c[i], TT_PROCEDURE) || PC_IS(t->c[0]->c[i], TT_FUNCTION)) return 1;
+    if (!PC_IS(t, TT_RECORD)) return 0;
+    for (int k = 0; k < t->n; k++) {
+        if (PC_IS(t->c[k], TT_ARGS)) return 1;
+        for (int i = 0; PC_IS(t->c[k], TT_FIELDS) && i < t->c[k]->n; i++) if (PC_IS(t->c[k]->c[i], TT_PROCEDURE) || PC_IS(t->c[k]->c[i], TT_FUNCTION)) return 1;
+    }
     return 0;
 }
 typedef struct pc_class pc_class;
 typedef struct { const char *name; const char *kind; int isfunc; tree_t *params; tree_t *rtype; int virt, over, abst, has_impl, used; pc_class *owner; } pc_meth;
 typedef struct { const char *name; tree_t *type; tree_t *ip; const char *rd; const char *wr; int dflt; } pc_prop;
 typedef struct { const char *name; tree_t *type; } pc_field;
-struct pc_class { int isrec; const char *name; const char *raw; const char *pname; pc_class *parent; int id; pc_field *f; int nf, cf; pc_meth *m; int nm, cm; pc_prop *p; int np, cp; };
+struct pc_class {
+    int isrec, fixed;
+    tree_t *fl;
+    const char *name;
+    const char *raw;
+    const char *pname;
+    pc_class *parent;
+    int id;
+    pc_field *f;
+    int nf, cf;
+    pc_meth *m;
+    int nm, cm;
+    pc_prop *p;
+    int np, cp;
+};
 typedef struct { const char *name; int kind; tree_t *type; pc_class *cls; int depth; } pc_sym;
 typedef struct { const char *from; const char *to; } pc_ren;
 typedef struct { pc_class *cls; const char *tmp; tree_t *rtype; } pc_with;
@@ -226,9 +244,11 @@ static void pc_collect(pc_ctx *x, tree_t *t) {
         return;
     }
     if (PC_IS(t, TT_DECL) && pc_eq(pc_sv(t), "type") && t->n >= 2 && pc_rec_methods(t->c[1])) {
-        tree_t *fl = t->c[1]->c[0];
+        tree_t *fl = NULL, *rt = t->c[1];
         pc_class *c = pc_class_new(x, pc_sv(t->c[0]), pc_sv(t->c[0]));
         c->isrec = 1;
+        for (int i = 0; i < rt->n; i++) { if (PC_IS(rt->c[i], TT_FIELDS)) fl = rt->c[i]; else if (PC_IS(rt->c[i], TT_ARGS) && rt->c[i]->n > 0) { c->pname = pc_sv(rt->c[i]->c[0]); rt->c[i] = NULL; } }
+        c->fl = fl;
         pc_class_members(c, fl);
         int k = 0;
         for (int i = 0; i < fl->n; i++) if (!(PC_IS(fl->c[i], TT_PROCEDURE) || PC_IS(fl->c[i], TT_FUNCTION))) fl->c[k++] = fl->c[i];
@@ -267,10 +287,23 @@ static void pc_root_class(pc_ctx *x) {
     ast_push(ma, mad);
     pc_meth_add(r, "methodaddress", NULL, 1, ma, pc_var("pointer"))->has_impl = 1;
 }
+static void pc_rec_inherit(pc_class *c) {
+    if (c->fixed) return;
+    c->fixed = 1;
+    if (!c->isrec || !c->parent || !c->fl) return;
+    pc_rec_inherit(c->parent);
+    for (int j = c->parent->fl->n - 1; j >= 0; j--) {
+        if (!c->parent->fl->c[j]) continue;
+        ast_push(c->fl, NULL);
+        for (int i = c->fl->n - 1; i > 0; i--) c->fl->c[i] = c->fl->c[i - 1];
+        c->fl->c[0] = pc_clone(c->parent->fl->c[j]);
+    }
+}
 static void pc_link(pc_ctx *x) {
     for (int i = 0; i < x->ncls; i++) {
         pc_class *c = x->cls[i];
-        if (c == x->root || c->isrec) continue;
+        if (c == x->root) continue;
+        if (c->isrec) { c->parent = c->pname ? pc_class_named(x, c->pname) : NULL; if (c->parent == c || (c->parent && !c->parent->isrec)) c->parent = NULL; continue; }
         c->parent = c->pname ? pc_class_named(x, c->pname) : NULL;
         if (!c->parent || pc_descends(c->parent, c)) c->parent = x->root;
     }
@@ -1137,6 +1170,7 @@ tree_t *pas_classes_prepass(tree_t *prog) {
     pc_root_class(x);
     pc_collect(x, b);
     pc_link(x);
+    for (int i = 0; i < x->ncls; i++) pc_rec_inherit(x->cls[i]);
     pc_scan_impls(x, b);
     pc_sym_add(x, "tobject", 'k', NULL, x->root);
     pc_sym_add(x, "__pc_exc", 'v', pc_var("tobject"), NULL);

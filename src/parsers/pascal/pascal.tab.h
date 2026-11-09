@@ -174,20 +174,21 @@ tree_t *pascal_last_ident_qlit(void);
     CLASSSY = 335,                 /* CLASSSY  */
     ISOP = 336,                    /* ISOP  */
     ASOP = 337,                    /* ASOP  */
-    TRYSY = 338,                   /* TRYSY  */
-    EXCEPTSY = 339,                /* EXCEPTSY  */
-    FINALLYSY = 340,               /* FINALLYSY  */
-    RAISESY = 341,                 /* RAISESY  */
-    INHERITEDSY = 342,             /* INHERITEDSY  */
-    CONSTRUCTORSY = 343,           /* CONSTRUCTORSY  */
-    DESTRUCTORSY = 344,            /* DESTRUCTORSY  */
-    PROPERTYSY = 345,              /* PROPERTYSY  */
-    ONSY = 346,                    /* ONSY  */
-    GENERICSY = 347,               /* GENERICSY  */
-    GENERICTSY = 348,              /* GENERICTSY  */
-    SPECIALIZESY = 349,            /* SPECIALIZESY  */
-    GENLT = 350,                   /* GENLT  */
-    GENGT = 351                    /* GENGT  */
+    OBJECTSY = 338,                /* OBJECTSY  */
+    TRYSY = 339,                   /* TRYSY  */
+    EXCEPTSY = 340,                /* EXCEPTSY  */
+    FINALLYSY = 341,               /* FINALLYSY  */
+    RAISESY = 342,                 /* RAISESY  */
+    INHERITEDSY = 343,             /* INHERITEDSY  */
+    CONSTRUCTORSY = 344,           /* CONSTRUCTORSY  */
+    DESTRUCTORSY = 345,            /* DESTRUCTORSY  */
+    PROPERTYSY = 346,              /* PROPERTYSY  */
+    ONSY = 347,                    /* ONSY  */
+    GENERICSY = 348,               /* GENERICSY  */
+    GENERICTSY = 349,              /* GENERICTSY  */
+    SPECIALIZESY = 350,            /* SPECIALIZESY  */
+    GENLT = 351,                   /* GENLT  */
+    GENGT = 352                    /* GENGT  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -199,7 +200,7 @@ union PASCAL_YYSTYPE
 #line 195 "pascal.y"
  tree_t *node; 
 
-#line 203 "pascal.tab.h"
+#line 204 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

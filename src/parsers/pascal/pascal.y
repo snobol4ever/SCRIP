@@ -204,7 +204,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
 %token <node> SHIFTOP XOROP
 %token POWOP
-%token <node> CLASSSY ISOP ASOP
+%token <node> CLASSSY ISOP ASOP OBJECTSY
 %token TRYSY EXCEPTSY FINALLYSY RAISESY INHERITEDSY CONSTRUCTORSY DESTRUCTORSY PROPERTYSY ONSY GENERICSY GENERICTSY SPECIALIZESY GENLT GENGT
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
@@ -372,6 +372,8 @@ type:
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }
     |packed_opt FILESY { $$ = pt_add(pt_new(TT_FILE_TYPE), $1); }
     |packed_opt FILESY OFSY type { $$ = pt_add(pt_add(pt_new(TT_FILE_TYPE), $1), $4); }
+    |OBJECTSY record_body ENDSY { $$ = pt_add(pt_new(TT_RECORD), $2); }
+    |OBJECTSY LPARENT IDENT RPARENT record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $5), pt_add(pt_new(TT_ARGS), $3)); }
     |CLASSSY class_members ENDSY { $$ = pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), $2); }
     |CLASSSY LPARENT class_parents RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
     ;

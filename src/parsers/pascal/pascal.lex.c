@@ -1584,21 +1584,22 @@ static int pascal_context_keyword(const char *w) {
     return T[k];
 }
 static int pascal_oo_keyword(const char *w, int peek) {
-    static const char *K[] = { "class", "try", "except", "finally", "raise", "inherited", "constructor", "destructor", "property", "is", "as", "on" };
-    static const int T[] = { CLASSSY, TRYSY, EXCEPTSY, FINALLYSY, RAISESY, INHERITEDSY, CONSTRUCTORSY, DESTRUCTORSY, PROPERTYSY, ISOP, ASOP, ONSY };
+    static const char *K[] = { "class", "try", "except", "finally", "raise", "inherited", "constructor", "destructor", "property", "is", "as", "on", "object" };
+    static const int T[] = { CLASSSY, TRYSY, EXCEPTSY, FINALLYSY, RAISESY, INHERITEDSY, CONSTRUCTORSY, DESTRUCTORSY, PROPERTYSY, ISOP, ASOP, ONSY, OBJECTSY };
     int k = -1, d = pascal_dialect(), lt = pascal_last_tok();
-    for (int i = 0; i < 12; i++) if (!strcasecmp(w, K[i])) k = i;
+    for (int i = 0; i < 13; i++) if (!strcasecmp(w, K[i])) k = i;
     if (k < 0 || d == PAS_DIALECT_ISO) return 0;
     int oo = d == PAS_DIALECT_OBJFPC || d == PAS_DIALECT_DELPHI;
+    if (k == 12 && lt != EQOP) return 0;
     if (k == 11) return oo && (isalpha(peek) || peek == '_') ? ONSY : 0;
     if (!oo) {
         int stmt = lt == BEGINSY || lt == SEMICOLON || lt == DOSY || lt == THENSY || lt == ELSESY || lt == REPEATSY;
         int ident_next = peek == 0 || strchr(":,()[].^=;", peek) != NULL;
-        if (!((k == 0 && lt == EQOP) || ((k == 1 || k == 4) && stmt && !ident_next))) return 0;
+        if (!(((k == 0 || k == 12) && lt == EQOP) || ((k == 1 || k == 4) && stmt && !ident_next))) return 0;
         if (d == PAS_DIALECT_ISO_DEFAULT) pascal_event("seen_mode");
         pascal_dialect_set(PAS_DIALECT_OBJFPC);
     }
-    if (k == 0) pascal_yylval.node = pascal_last_ident_qlit();
+    if (k == 0 || k == 12) pascal_yylval.node = pascal_last_ident_qlit();
     if (k == 9 || k == 10) { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = ct_strdup(K[k]); }
     return T[k];
 }
