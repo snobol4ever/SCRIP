@@ -6395,7 +6395,15 @@ static tree_t * pl_ssu_nomatch(const tree_t * proto, const char * key, int ar) {
     g->v.sval = lp_strdup(qual ? colon + 1 : nm);
     for (int i = 0; i < ar; i++) ast_push(g, pl_ssu_var(i));
     tree_t * pi = pl_cc_pi_ar(lp_strdup(qual ? colon + 1 : nm), ar);
-    if (qual) { const char * mod = ct_strndup(nm, (size_t)(colon - nm)); g = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), g); pi = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), pi); }
+    if (qual) {
+        const char * mod = ct_strndup(nm, (size_t)(colon - nm));
+        g = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), g);
+        pi = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), pi);
+    } else {
+        extern const char *pl_prelude_lib_of(const char *, int);
+        const char * lib = !pl_user_defines(nm, ar) ? pl_prelude_lib_of(nm, ar) : (const char *) 0;
+        if (lib) { g = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(lib), g); pi = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(lib), pi); }
+    }
     tree_t * ex = pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("matching_rule"), g);
     ast_push(nc, pl_cc_fnc1("throw", pl_cc_fnc2("error", ex, pl_cc_fnc2("context", pi, pl_ssu_var(ar)))));
     return nc;

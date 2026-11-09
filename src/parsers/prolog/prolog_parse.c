@@ -5340,6 +5340,15 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     for (uint32_t i = 0; i < wanted.len; i++) pl_prelude_key_add_str(CV_AT(wanted, char *, i));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *pl_prelude_lib_of(const char *nm, int ar) {
+    if (!nm || ar < 0 || nm[0] == '$') return (const char *)0;
+    for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
+        if (!strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm[0]; e++) if (e->ar == ar && !strcmp(e->nm, nm)) return PL_PRELUDE_LIBS[li].lib;
+    }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_lib_exports(const char *nm, int ar) {
     if (!nm || ar < 0 || nm[0] == '$') return 0;
     for (int li = 0; PL_PRELUDE_LIBS[li].lib[0]; li++) {
