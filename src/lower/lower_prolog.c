@@ -3711,6 +3711,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (pl_tree_number(h)) return goal(cx, (g_stage2.pl_dialect == PL_DIALECT_SWI) ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
                 if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && g_stage2.pl_dialect != PL_DIALECT_SWI && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
+                if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME) && pp->v.sval && (!strcmp(pp->v.sval, "public") || !strcmp(pp->v.sval, "det")))
+                    return goal(cx, pl_cc_fnc2("$pl_decl_flag", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
                 if (!pn || ((g_stage2.pl_dialect == PL_DIALECT_GNU) && !(!strcmp(pn, "portray") && ar == 1))) {
                     int dyn0 = pn && ((pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar));
                     int def0 = pn && (dyn0 || pl_file_defines(pn, ar));
@@ -5779,7 +5781,7 @@ static const tree_t * pl_det_rewrite(const tree_t * prog) {
     np->line = prog->line;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * s = prog->c[i];
-        if (pl_det_dir(s)) continue;
+        if (pl_det_dir(s)) { ast_push(np, (tree_t *) s); continue; }
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
         int k = -1;
         if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) for (int j = 0; j < nf; j++) if (!strcmp(keys[j], subj->v.sval)) k = j;
@@ -6606,6 +6608,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
         if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "meta_predicate") || !strcmp(subj->v.sval, "$meta_spec")) && subj->n >= 1) {
             for (int k = 0; k < subj->n; k++) pl_decl_meta_record(subj->c[k]);
+            continue;
+        }
+        if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "public") || !strcmp(subj->v.sval, "det")) && subj->n == 1 && !pl_file_defines(subj->v.sval, 1)) {
+            init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) subj, dvn, &dvc);
             continue;
         }
         if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives) && !pl_file_defines(subj->v.sval, subj->n)) continue;

@@ -3340,8 +3340,18 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_inits'([G|Gs]):-'$consult_goal'(G),'$consult_inits'(Gs).\n"
     "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n"
     "load_files(S):-load_files(S,[]).\n"
-    "public(_).\n"
-    "det(_).\n"
+    "public(S):-'$pl_decl_add'(S,public).\n"
+    "det(S):-'$pl_decl_add'(S,det).\n"
+    "'$pl_decl_add'(S,_):-var(S),!.\n"
+    "'$pl_decl_add'(_:S,F):-!,'$pl_decl_add'(S,F).\n"
+    "'$pl_decl_add'((A,B),F):-!,'$pl_decl_add'(A,F),'$pl_decl_add'(B,F).\n"
+    "'$pl_decl_add'([],_):-!.\n"
+    "'$pl_decl_add'([A|B],F):-!,'$pl_decl_add'(A,F),'$pl_decl_add'(B,F).\n"
+    "'$pl_decl_add'(N/A,F):-!,catch(dynamic('$pl_decl'/3),_,true),('$pl_decl'(N,A,F)->true;assertz('$pl_decl'(N,A,F))).\n"
+    "'$pl_decl_add'(_,_).\n"
+    "'$pl_decl_flag'(H,F):-'$pl_decl_head'(H,N,A),catch('$pl_decl'(N,A,F),error(existence_error(_,_),_),fail),!.\n"
+    "'$pl_decl_head'(H,N,A):-nonvar(H),H=_:G,!,'$pl_decl_head'(G,N,A).\n"
+    "'$pl_decl_head'(H,N,A):-callable(H),functor(H,N,A).\n"
     "load_files(S,O0):-'$lf_check'(S,O0),'$lf_dia'(O0,O),'$lf_mod'(S,M,F),'$lf_list'(F,Fs),'$lf_all'(Fs,M,O).\n"
     "'$lf_dia'(O,O):-memberchk(dialect(_),O),!.\n"
     "'$lf_dia'(O,[dialect(xsb)|O]):-current_prolog_flag('$dialect',xsb),!.\n"
@@ -4758,6 +4768,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
+    if (pl_cv_has(&referenced, "predicate_property")) pl_cv_add(&referenced, "$pl_decl_flag");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "call_with_depth_limit")) pl_cv_add(&referenced, "$dl_findall");
