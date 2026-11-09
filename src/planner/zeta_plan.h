@@ -25,7 +25,7 @@ struct znode_t {
     int hrsp, dtk, dtph, dtd, f0f;
     int fres, xk, xw, xd, xa, sprec, gcell, tret, zsmown;
     int go0off, vp1off, cvnoff, pto, owno, vso, vp1vso, cft;
-    int wkoff, wkn, wke, unr;
+    int wkoff, wkn, wke, unr, adead;
     long zsmw;
 };
 enum { ZW_NONE = 0, ZW_NAFO = 1, ZW_BETA = 2, ZW_ALPHA = 3, ZW_GAMMA = 4, ZW_OMEGA = 5, ZW_REPALT = 6 };
@@ -51,6 +51,7 @@ struct zeta_plan_t {
     int * b;
     unsigned char * kn;
     unsigned char * unr;
+    unsigned char * adead;
     IR_t * entry;
     IR_graph_t * cfg;
     IR_t * key;
@@ -175,7 +176,7 @@ extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai);
 void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof,
-    int *zcut, int *fam, int *fbase);
+    int *zcut, int *fam, int *fbase, const unsigned char *adead);
 int zst_s_of(const IR_t * nd);
 void zst_finish(const IR_graph_t * cg, IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known);
 int zst_coord(const char * name);

@@ -325,7 +325,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         z->kown = zd_k_own_g(g, nd); z->upost = zd_upost_of(nd); z->djx = zd_djx_of(nd); z->djret = zls_dj_retains(nd); z->vdj = fc_vdj_active(nd);
         z->cfp = fc_cond_fp(nd); z->sact = fc_save_active(nd); z->o0off = (nd->n_operands > 0 && nd->operands[0]) ? zls_off(nd->operands[0]) : -1;
         z->vp1 = (op == IR_SCAN && nd->n_operands > 1) ? zd_value_producer_g(g, nd->operands[1]) : (IR_t *)0;
-        z->unr = rec->unr ? (int)rec->unr[i] : 0;
+        z->unr = rec->unr ? (int)rec->unr[i] : 0; z->adead = rec->adead ? (int)rec->adead[i] : 0;
         z->k = zd_k_g(g, nd); z->gt = zd_chase(nd->γ.node); z->ot = zd_chase(nd->ω.node); z->isusp = zd_icn_suspend_g(g, nd); z->trivb = pf_trivial_beta(nd); z->unwb = pf_unwind_beta(nd);
         z->gcall = (nd->γ.node != (IR_t *)0 && fc_call_active(nd->γ.node)) ? 1 : 0;
         z->armrbp = (rec->arm[i] >= 0) ? zls_dj_rbp_arms(nodes[rec->arm[i]]) : 0;

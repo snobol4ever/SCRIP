@@ -844,7 +844,7 @@ static int zd_pl_entry(const IR_graph_t * cg, IR_t **nodes, int n, const unsigne
     return hq;
 }
 void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof,
-    int *zcut, int *fam, int *fbase){
+    int *zcut, int *fam, int *fbase, const unsigned char *adead){
     int * rpo = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * ord = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * stk = (int *)alloca(sizeof(int) * (size_t)(2 * n + 2));
@@ -922,6 +922,17 @@ void zd_pl_bases(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char
     }
     };
     absolute_pass((const unsigned char *)0);
+    if (adead) for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) { moved = 0;
+        for (int i = 0; i < n; i++) { if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
+            IR_t * nd = nodes[i];
+            for (int v = 0; v < 2; v++) { int q, b; int l = zd_pl_land(cg, nodes, n, zon, zout, zgpop, zwpop, i, v, &q, &b);
+                if (q < 0 || !b || claim[q] < 0 || !adead[claim[q]] || known[claim[q]] || claim[q] == claim[i]) continue;
+                base[claim[q]] = base[claim[i]] + l - zout[q]; known[claim[q]] = 1; moved = 1;
+                if (zd_map_on()) fprintf(stderr, "[ZD-MAP] BETA-BASE run=%d (%s) from i=%d edge=%d l=%d base=%d\n", claim[q], bb_op_name(nodes[q]->op), i, v, l, base[claim[q]]); }
+            if (nd->op == IR_DISJUNCTION) for (int k = 1; k < nd->n_operands; k += 2) { int e = nd->operands[k] ? nidx(nodes, n, nd->operands[k]) : -1;
+                if (e < 0 || e == i || !zon[e] || claim[e] < 0 || !adead[claim[e]] || known[claim[e]] || claim[e] == claim[i]) continue;
+                base[claim[e]] = base[claim[i]] + zout[i] - zd_k_g(cg, nd) + zgpop[e] - zout[e]; known[claim[e]] = 1; moved = 1;
+                if (zd_map_on()) fprintf(stderr, "[ZD-MAP] BETA-BASE run=%d (%s) arm end of disjunction i=%d base=%d\n", claim[e], bb_op_name(nodes[e]->op), i, base[claim[e]]); } } }
     {
         unsigned char * indef = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * wl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
@@ -1759,7 +1770,7 @@ void zd_plan(const IR_graph_t * cg, IR_t **nodes, int n, unsigned char *zon, int
         int * aof = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         int * fam = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         int * fbase = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-        zd_pl_bases(cg, nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, (int *)0, fam, fbase);
+        zd_pl_bases(cg, nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, (int *)0, fam, fbase, (const unsigned char *)0);
         for (int i = 0; i < n; i++) {
             if (!zon[i] || claim[i] < 0) continue;
             int ci = claim[i], ki = known[ci] ? 1 : (fam[ci] >= 0 ? 2 : 0);
@@ -2636,22 +2647,33 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         } } if (!_add) break; zd_plan(cg, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
         }
     unsigned char * zd_unr = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
-    for (int i = 0; i < n; i++) zd_unr[i] = 0;
+    unsigned char * zd_adead = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n; i++) { zd_unr[i] = 0; zd_adead[i] = 0; }
     if (!(cg && cg->n_alts > 0) && !_stmt_seed && !zd_has_match(g_planner.codegen_flat_chain_body_nodes, n)) {
-        auto landed = [&](int h) -> int {
+        auto arm_yields = [&](int dj, int k) -> int { IR_t * d = g_planner.codegen_flat_chain_body_nodes[dj]; std::vector<IR_t *> st, seen; st.push_back(zd_chase(d->operands[k - 1]));
+            while (!st.empty()) { IR_t * x = st.back(); st.pop_back(); if (!x || x == d) continue; int dup = 0; for (IR_t * y : seen) if (y == x) { dup = 1; break;
+                } if (dup || seen.size() > (size_t)(2 * n + 2)) continue;
+                seen.push_back(x); if (x->op == IR_SUSPEND) return 1; st.push_back(zd_chase(x->γ.node)); st.push_back(zd_chase(x->ω.node)); } return 0; };
+        auto landed = [&](int h, int beta) -> int {
             for (int i = 0; i < n; i++) {
                 if (zd_claim[i] < 0 || zd_claim[i] == h || zd_unr[i]) continue;
                 for (int v = 0; v < 2; v++) { IR_t * t = zd_chase(v ? g_planner.codegen_flat_chain_body_nodes[i]->ω.node : g_planner.codegen_flat_chain_body_nodes[i]->γ.node);
                     int q = t ? nidx(g_planner.codegen_flat_chain_body_nodes, n, t) : -1;
                     IR_t * t0 = v ? g_planner.codegen_flat_chain_body_nodes[i]->ω.node : g_planner.codegen_flat_chain_body_nodes[i]->γ.node;
                         int q0 = t0 ? nidx(g_planner.codegen_flat_chain_body_nodes, n, t0) : -1;
-                    if ((q >= 0 && zd_claim[q] == h && !port_sz_beta(zd_edge_sz(g_planner.codegen_flat_chain_body_nodes[i], v))) || (q0 >= 0 && q0 != q && zd_claim[q0] == h)) return 1; }
+                    int bs = port_sz_beta(zd_edge_sz(g_planner.codegen_flat_chain_body_nodes[i], v)) ? 1 : 0;
+                    if ((q >= 0 && zd_claim[q] == h && bs == beta) || (!beta && q0 >= 0 && q0 != q && zd_claim[q0] == h)) return 1; }
                 IR_t * nd = g_planner.codegen_flat_chain_body_nodes[i]; int na = (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : -1;
                 for (int k = 0; k < nd->n_operands; k++) { int q = nd->operands[k] ? nidx(g_planner.codegen_flat_chain_body_nodes, n, nd->operands[k]) : -1;
-                    if (q >= 0 && zd_claim[q] == h && !(na >= 0 && (k >= 2 * na || (k & 1)))) return 1; } }
+                    if (q < 0 || zd_claim[q] != h || q == i) continue;
+                    if (!beta && !(na >= 0 && (k >= 2 * na || (k & 1)))) return 1;
+                    if (beta && na >= 0 && (k & 1) && arm_yields(i, k)) return 1; } }
             return 0; };
         for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) { moved = 0;
-            for (int h = 1; h < n; h++) { if (zd_claim[h] != h || zd_unr[h] || h == zd_claim[0] || ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[h]) || landed(h)) continue;
+            for (int h = 1; h < n; h++) { if (zd_claim[h] != h || zd_unr[h] || zd_adead[h] || h == zd_claim[0] || ir_floater_kind(g_planner.codegen_flat_chain_body_nodes[h]) || landed(h, 0)) continue;
+                if (landed(h, 1)) { for (int i = 0; i < n; i++) if (zd_claim[i] == h) zd_adead[i] = 1;
+                    if (zd_map_on()) fprintf(stderr, "[ZD-MAP] ADEAD run=%d (%s): entered only at beta; its alpha emits a trap, its base is the beta landing\n", h,
+                        bb_op_name(g_planner.codegen_flat_chain_body_nodes[h]->op)); continue; }
                 for (int i = 0; i < n; i++) if (zd_claim[i] == h) zd_unr[i] = 1; moved = 1;
                 if (zd_map_on()) fprintf(stderr, "[ZD-MAP] UNREACHED run=%d (%s): no alpha landing in the plan; its boxes emit a trap, no cell access\n", h,
                     bb_op_name(g_planner.codegen_flat_chain_body_nodes[h]->op)); } } }
@@ -2668,6 +2690,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     rec->claim = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->claim, zd_claim, sizeof(int) * (size_t)n);
     rec->vl = (int *)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(int)); memcpy(rec->vl, zd_vl, sizeof(int) * (size_t)n);
     rec->unr = (unsigned char *)ct_zalloc((size_t)(n > 0 ? n : 1), 1); memcpy(rec->unr, zd_unr, (size_t)n);
+    rec->adead = (unsigned char *)ct_zalloc((size_t)(n > 0 ? n : 1), 1); memcpy(rec->adead, zd_adead, (size_t)n);
     rec->chn = (int *)ct_zalloc((size_t)(2 * n + 2), sizeof(int)); memcpy(rec->chn, zd_chn, sizeof(int) * (size_t)(2 * n + 2));
     if (g_planner.g_zd_zarm_p == zd_arm) g_planner.g_zd_zarm_p = rec->arm;
     if (n > 0) {
@@ -2678,7 +2701,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         zd_cut = (int *)alloca(sizeof(int) * (size_t)n);
         int * zd_fam = (int *)alloca(sizeof(int) * (size_t)n);
         int * zd_fbase = (int *)alloca(sizeof(int) * (size_t)n);
-        zd_pl_bases(cg, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
+        zd_pl_bases(cg, g_planner.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase, zd_adead);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
         for (int _i = 0; _i < n; _i++) {
             IR_t * _u = g_planner.codegen_flat_chain_body_nodes[_i], * _gs = _u;
