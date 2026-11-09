@@ -3683,7 +3683,8 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         g_lower.pas.sem.pas_iso_errors++;
     }
     { long long _rd[4]; if (pas_row_designator(rhs, _rd)) rhs = mk_row_call("__pas_row_get", rhs, _rd, NULL); if (pas_row_designator(sel, _rd)) return mk_row_call("__pas_row_set", sel, _rd, rhs); }
-    if (rhs && rhs->t != TT_ILIT && !(sel && sel->t == TT_VAR && sel->v.sval && pas_array_isdyn(sel->v.sval))) {
+    int _rpatch = rhs && rhs->t == TT_FNC && rhs->n >= 1 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "__pas_rpatch");
+    if (rhs && rhs->t != TT_ILIT && !_rpatch && !(sel && sel->t == TT_VAR && sel->v.sval && pas_array_isdyn(sel->v.sval))) {
         const char *_tn = pas_store_tn(sel);
         long long _ad[4], _ah;
         int _arr = sel && sel->t == TT_VAR && sel->v.sval && (pas_array_dims(sel->v.sval, _ad) || pas_array_high_get(sel->v.sval, &_ah));
