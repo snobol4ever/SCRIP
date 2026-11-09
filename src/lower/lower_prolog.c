@@ -4784,6 +4784,20 @@ static int pl_name_is_scrip_own(const char * nm, int ar) {
     return ar >= 0 && pl_prelude_defines(nm, ar);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dyn_marker(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "dynamic"); }
+static void pl_dyn_spec_file(const tree_t * spec, const char * file) {
+    if (!spec || !file || file[0] == '<') return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_dyn_spec_file(spec->c[0], file); pl_dyn_spec_file(spec->c[1], file); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_dyn_spec_file(spec->c[i], file); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pl_dyn_spec_file(spec->c[1], file); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
+        spec->c[1]->t == TT_ILIT) {
+        char key[fmt_len("%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival)];
+        snprintf(key, sizeof key, "%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
+        for (Resolve_PredEntry * e = g_stage2.resolve_pred_table.buckets[resolve_pred_hash(key)]; e; e = e->next) if (!strcmp(e->key, key) && !e->file) e->file = file;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_db_decls_capture(void) {
     extern int prolog_atom_intern(const char *);
     extern int pl_prelude_lib_exports(const char *, int);
@@ -4808,7 +4822,7 @@ static void pl_db_decls_capture(void) {
         const char * slash;
         int ar;
         size_t nl;
-        if (!pe->key || !pe->choice || pe->choice->t != TT_CHOICE || pe->choice->n < 1) continue;
+        if (!pe->key || !pe->choice || (pe->choice->t != TT_CHOICE && !pl_dyn_marker(pe->choice)) || (pe->choice->t == TT_CHOICE && pe->choice->n < 1)) continue;
         slash = strrchr(pe->key, '/');
         if (!slash) continue;
         ar = atoi(slash + 1);
@@ -4821,6 +4835,11 @@ static void pl_db_decls_capture(void) {
                 if (pl_prelude_lib_exports(nm, ar) && !pl_iso_builtin(nm, ar) && pl_dyn_index(nm, ar) < 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(7); PL_DW(-1); }
                 continue;
             }
+            if (pl_decl_dyn_is(nm, ar) && pe->file && pe->file[0] != '<') {
+                char rp[PATH_MAX];
+                if (realpath(pe->file, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); }
+            }
+            if (pl_dyn_marker(pe->choice)) { if (pe->file && pe->file[0] != '<' && pe->choice->line > 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(5); PL_DW(pe->choice->line); } continue; }
             if (pl_dyn_index(nm, ar) < 0 && !pl_decl_dyn_is(nm, ar)) {
                 PL_DW(prolog_atom_intern(nm));
                 PL_DW(ar);
@@ -6733,7 +6752,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             }
         }
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "dynamic") && subj->n >= 1) {
-            for (int k = 0; k < (subj->n == 2 ? 1 : subj->n); k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj);
+            for (int k = 0; k < (subj->n == 2 ? 1 : subj->n); k++) {
+                pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj);
+                pl_dyn_spec_file(subj->c[k], stmt_attr_str(stmt_attr_find(s, ":file")));
+            }
             continue;
         }
         if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "multifile") || !strcmp(subj->v.sval, "discontiguous")) && subj->n >= 1) {

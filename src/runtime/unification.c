@@ -5202,7 +5202,7 @@ static int pl_db_key_current(void *root, pl_db_key_t *e);
 const char *rt_pl_db_key_file(void *root, const char *key) {
     extern const char *prolog_atom_name(int);
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
-    return (e && e->stat && e->file >= 0 && pl_db_key_current(root, e)) ? prolog_atom_name(e->file) : (const char *)0;
+    return (e && e->file >= 0 && pl_db_key_current(root, e)) ? prolog_atom_name(e->file) : (const char *)0;
 }
 int rt_pl_db_key_kind(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); if (!e || !pl_db_key_current(root, e)) return 0; return e->stat ? 1 : 2; }
 static pl_db_t * pl_db_cell_peek(void *root, int k);

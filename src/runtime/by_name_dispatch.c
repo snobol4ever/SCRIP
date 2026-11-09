@@ -28357,14 +28357,17 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         if (kind == 1) fp = rt_pl_db_key_file(root, key);
         if (pl_gnu_dialect()) {
             const char *gp[10];
-            int n = 0, ln = kind ? rt_pl_db_key_line(root, key) : 0;
+            int n = 0, ln = kind ? rt_pl_db_key_line(root, key) : 0, asv;
+            if (kind == 2) fp = rt_pl_db_key_file(root, key);
+            asv = kind == 2 && !fp;
+            if (asv) fp = "user_input";
             if (kind) {
                 gp[n++] = kind == 2 ? "dynamic" : "static";
                 gp[n++] = kind == 2 ? "public" : "private";
                 gp[n++] = rt_pl_db_key_mf(root, key) ? "multifile" : "monofile";
                 gp[n++] = "user";
                 if (fp) gp[n++] = "prolog_file";
-                if (ln > 0) gp[n++] = "prolog_line";
+                if (ln > 0 || asv) gp[n++] = "prolog_line";
                 if (fp) gp[n++] = "file";
                 gp[n++] = "defined";
             } else if (pl_pi_is_builtin(nm, ar) || pl_pp_ctl(nm, ar) || rt_proc_is_registered(key)) {
