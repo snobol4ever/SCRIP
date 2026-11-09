@@ -460,6 +460,10 @@ record_field_list:
     ;
 record_field:
     id_list COLON { } type { $$ = pt_decl("field", $1, $4); }
+    |PROCEDURESY IDENT pv_mark parameter_list_opt { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |CONSTRUCTORSY IDENT pv_mark parameter_list_opt { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "constructor"); }
+    |DESTRUCTORSY IDENT pv_mark parameter_list_opt { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "destructor"); }
     |{ $$ = NULL; }
     ;
 case_arm_mark:

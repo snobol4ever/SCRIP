@@ -8,11 +8,12 @@
 #include "lower_pascal_class.h"
 #include "lower_pascal_tree.h"
 #define PC_IS(x, k) ((x) && (x)->t == (k))
+static int pc_rec_methods(const tree_t *t) { for (int i = 0; PC_IS(t, TT_RECORD) && t->n > 0 && PC_IS(t->c[0], TT_FIELDS) && i < t->c[0]->n; i++) if (PC_IS(t->c[0]->c[i], TT_PROCEDURE) || PC_IS(t->c[0]->c[i], TT_FUNCTION)) return 1; return 0; }
 typedef struct pc_class pc_class;
 typedef struct { const char *name; const char *kind; int isfunc; tree_t *params; tree_t *rtype; int virt, over, abst, has_impl, used; pc_class *owner; } pc_meth;
 typedef struct { const char *name; tree_t *type; tree_t *ip; const char *rd; const char *wr; int dflt; } pc_prop;
 typedef struct { const char *name; tree_t *type; } pc_field;
-struct pc_class { const char *name; const char *raw; const char *pname; pc_class *parent; int id; pc_field *f; int nf, cf; pc_meth *m; int nm, cm; pc_prop *p; int np, cp; };
+struct pc_class { int isrec; const char *name; const char *raw; const char *pname; pc_class *parent; int id; pc_field *f; int nf, cf; pc_meth *m; int nm, cm; pc_prop *p; int np, cp; };
 typedef struct { const char *name; int kind; tree_t *type; pc_class *cls; int depth; } pc_sym;
 typedef struct { const char *from; const char *to; } pc_ren;
 typedef struct { pc_class *cls; const char *tmp; tree_t *rtype; } pc_with;
@@ -220,6 +221,16 @@ static void pc_collect(pc_ctx *x, tree_t *t) {
         for (int i = 1; i < cd->n; i++) { if (PC_IS(cd->c[i], TT_ARGS) && cd->c[i]->n > 0) c->pname = pc_sv(cd->c[i]->c[0]); else if (PC_IS(cd->c[i], TT_VLIST)) pc_class_members(c, cd->c[i]); }
         return;
     }
+    if (PC_IS(t, TT_DECL) && pc_eq(pc_sv(t), "type") && t->n >= 2 && pc_rec_methods(t->c[1])) {
+        tree_t *fl = t->c[1]->c[0];
+        pc_class *c = pc_class_new(x, pc_sv(t->c[0]), pc_sv(t->c[0]));
+        c->isrec = 1;
+        pc_class_members(c, fl);
+        int k = 0;
+        for (int i = 0; i < fl->n; i++) if (!(PC_IS(fl->c[i], TT_PROCEDURE) || PC_IS(fl->c[i], TT_FUNCTION))) fl->c[k++] = fl->c[i];
+        fl->n = k;
+        return;
+    }
     for (int i = 0; i < t->n; i++) pc_collect(x, t->c[i]);
 }
 static void pc_scan_impls(pc_ctx *x, tree_t *t) {
@@ -255,7 +266,7 @@ static void pc_root_class(pc_ctx *x) {
 static void pc_link(pc_ctx *x) {
     for (int i = 0; i < x->ncls; i++) {
         pc_class *c = x->cls[i];
-        if (c == x->root) continue;
+        if (c == x->root || c->isrec) continue;
         c->parent = c->pname ? pc_class_named(x, c->pname) : NULL;
         if (!c->parent || pc_descends(c->parent, c)) c->parent = x->root;
     }
@@ -884,7 +895,7 @@ static void pc_routine(pc_ctx *x, tree_t *r) {
             if (!cls_m) {
                 tree_t *np = ast_node_new(TT_PARAMS);
                 tree_t *sd = pc_n2(TT_DECL, pc_n1(TT_VLIST, pc_var("self")), pc_var(c->name));
-                sd->v.sval = "value";
+                sd->v.sval = c->isrec ? "var" : "value";
                 ast_push(np, sd);
                 for (int i = 0; ps && i < ps->n; i++) ast_push(np, ps->c[i]);
                 if (ps) { for (int k = 1; k < r->n; k++) if (r->c[k] == ps) r->c[k] = np; } else { ast_push(r, NULL); for (int k = r->n - 1; k > 1; k--) r->c[k] = r->c[k - 1]; r->c[1] = np; }
@@ -1089,7 +1100,7 @@ static void pc_gen_unhandled(pc_ctx *x, tree_t *fwd, tree_t *gen) {
     pc_emit(fwd, gen, 0, "__pc_unhandled", NULL, NULL, pc_blk(vars, body));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pc_has_class(const tree_t *t) { if (!t) return 0; if (PC_IS(t, TT_CLASS_DECL)) return 1; for (int i = 0; i < t->n; i++) if (pc_has_class(t->c[i])) return 1; return 0; }
+static int pc_has_class(const tree_t *t) { if (!t) return 0; if (PC_IS(t, TT_CLASS_DECL) || pc_rec_methods(t)) return 1; for (int i = 0; i < t->n; i++) if (pc_has_class(t->c[i])) return 1; return 0; }
 static int pc_has_exc(const tree_t *t) { if (!t) return 0; if (PC_IS(t, TT_TRY) || PC_IS(t, TT_DIE)) return 1; for (int i = 0; i < t->n; i++) if (pc_has_exc(t->c[i])) return 1; return 0; }
 static void pc_impl_fwds(pc_ctx *x, tree_t *b, tree_t *fwd) {
     for (int i = 0; i < b->n; i++) {
