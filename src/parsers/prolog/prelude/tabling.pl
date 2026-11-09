@@ -370,12 +370,14 @@ get_returns(T,R,N):-'$trie_id'(T,I),'$trie_entries'(I,As),'$gr_idx'(As,1,R,N).
 get_returns_for_call(MV,A0):-'$tbl_strip'(A0,_,A),current_table(MV,T),'$tbl_table_status'(T,_,_:A,Sk),'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,Sk,_),As).
 '$tbl_unql'([],[]).
 '$tbl_unql'([E|Es],[F|Fs]):-'$tbl_unqe'(E,F),'$tbl_unql'(Es,Fs).
+'$tbl_unqe'(pos(_,_,G),G2):-!,'$tbl_unqe'(G,G2).
 '$tbl_unqe'(tnot(G),tnot(G2)):-!,'$tbl_unqual'(G,_,G2).
 '$tbl_unqe'(G,G2):-'$tbl_unqual'(G,_,G2).
 call_delays(G,D):-'$call_delays_m'(user,G,D).
 '$call_delays_m'(M,G,D):-'$tbl_dl'(D0),'$tbl_dlset'([]),call(G),'$tbl_dl'(DL),reverse(DL,DL1),'$tbl_unqlm'(DL1,M,DL2),'$tbl_conj'(DL2,D),append(DL,D0,D1),'$tbl_dlset'(D1).
 '$tbl_unqlm'([],_,[]).
 '$tbl_unqlm'([E|Es],M,[F|Fs]):-'$tbl_unqem'(E,M,F),'$tbl_unqlm'(Es,M,Fs).
+'$tbl_unqem'(pos(_,_,G),M,G2):-!,'$tbl_unqem'(G,M,G2).
 '$tbl_unqem'(tnot(G),M,tnot(G2)):-!,'$tbl_unqem'(G,M,G2).
 '$tbl_unqem'(G,M,G3):-'$tbl_unqual'(G,Mg,G2),(Mg==M->G3=G2;Mg==user->G3=G2;G3=Mg:G2).
 '$tbl_conj'([],true):-!.
