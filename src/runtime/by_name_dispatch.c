@@ -24593,7 +24593,7 @@ DESCR_t bt_ICNx24ULIST(DESCR_t *args, int nargs) {
         for (int i = 0; i < n; i++) if (table_icn_nth(args[0].tbl, i, &e)) mem[--k] = e->key_descr;
         return rt_make_list(mem, n);
     }
-    if (nargs == 1 && args[0].v == DT_DATA && rt_lv_is_list(args[0], &el, &n)) return rt_make_list(n > 0 ? el : NULL, n > 0 ? n : 0);
+    if (nargs == 1 && args[0].v == DT_DATA && rt_lv_is_list(args[0], &el, &n)) return n > 0 ? rt_make_list(el, n) : args[0];
     { DESCR_t out = FAILDESCR; if (icn_argtype_gate(BID_list, args, nargs, &out, 1)) return out; }
     if (nargs > 2) return FAILDESCR;
     if (nargs >= 1 && !IS_FAIL_fn(args[0]) && args[0].v != DT_SNUL) {
