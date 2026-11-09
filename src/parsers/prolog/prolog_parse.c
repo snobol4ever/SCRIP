@@ -3161,7 +3161,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$cc_chain'(_,_,_).\n"
     "'$cc_pick'([C-T|_],M,T):-catch(M:C,_,fail),!.\n"
     "'$cc_pick'([_|R],M,T):-'$cc_pick'(R,M,T).\n"
-    "'$cc_consult'(T,M,U):-(U=='[]'->T1=T;format(atom(T1),':- begin_tests(~q).~n~w~n:- end_tests(~q).~n',[U,T,U])),(M==user->T2=T1;format(atom(T2),':- ''$set_source_module''(~q).~n~w~n:- ''$set_source_module''(user).~n',[M,T1])),"
+    "'$cc_consult'(T,M,U):-U\\=='[]',!,(M==user->T2=T;format(atom(T2),':- ''$set_source_module''(~q).~n~w~n:- ''$set_source_module''(user).~n',[M,T])),open_string(T2,S),catch('$cc_unit_loop'(S,U),E,(close(S),throw(E))),close(S).\n"
+    "'$cc_unit_loop'(S,U):-read_term(S,T,[]),(T==end_of_file->true;expand_term(T,X),'$load_items'(X,U,'$cc_text'-0),'$cc_unit_loop'(S,U)).\n"
+    "'$cc_consult'(T,M,_):-(M==user->T2=T;format(atom(T2),':- ''$set_source_module''(~q).~n~w~n:- ''$set_source_module''(user).~n',[M,T])),"
         "open_string(T2,S),catch('$consult_loop'(S,'$cc_text',Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
     "consult(F):-'$consult_path'(F,P),absolute_file_name(P,A),open(P,read,S),catch('$consult_loop'(S,A,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
     "clause_property(R,_):-var(R),!,throw(error(instantiation_error,context(clause_property/2,_))).\n"
@@ -3954,7 +3956,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$load_items'(T,U,P):-'$load_one'(T,U,P).\n"
     "'$load_one'((:-D),_,_):-!,'$consult_goal'(D).\n"
     "'$load_one'((H-->B),U,P):-!,dcg_translate_rule((H-->B),C),'$load_one'(C,U,P).\n"
-    "'$load_one'(C,U,_):-U\\==0,'$load_test'(C,N,O,B0),!,'$load_qb'(U,B0,B),assertz(pj_test(U,N,O,B)),assertz(C).\n"
+    "'$load_one'(C,U,_):-U\\==0,'$load_test'(C,N,O,B0),!,'$load_qb'(U,B0,B),assertz(pj_test(U,N,O,B)).\n"
     "'$load_one'(C,_,F-L):-'$db_t_guard'(C,assertz),'$mu_clause'(C,C1),'$db_assertz_t'(C1,F,L).\n"
     "'$load_qb'(U,B0,B):-(nonvar(B0),B0=_:_->B=B0;atom_concat(plunit_,U,M),B=M:B0).\n"
     "'$mu_clause'(C,C1):-nonvar(C),C=(H:-B0),compound(H),H\\=(_:_),'$mu_unq'(B0,Q,B),'$mu_eqfirst'(B),current_prolog_flag('$dialect',swi),\\+predicate_property(H,dynamic),H=..[F|As],'$mu_flat'(B,Gs,[]),'$mu_ann'(Gs,As,0,[],Ann),Ann\\==[],!,'$mu_go'(F,As,Gs,Ann,H1,B1),'$mu_wrap'(Q,B1,B2),C1=(H1:-B2).\n"
@@ -4987,7 +4989,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     pl_module_imports_referenced(prog, &referenced, &modimp);
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
-    if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); }
+    if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); pl_cv_add(&referenced, "$load_items"); pl_cv_add(&refkeys, pl_pred_key("$load_items", 3)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "clause")) { pl_cv_add(&referenced, "$pl_clause_q"); pl_cv_add(&referenced, "$mod_q1"); }
     if (pl_cv_has(&referenced, "predicate_property")) { pl_cv_add(&referenced, "$pl_decl_flag"); pl_cv_add(&referenced, "$pl_imported_from"); }
