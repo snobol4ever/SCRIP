@@ -2643,7 +2643,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 if (zd_claim[i] < 0 || zd_claim[i] == h || zd_unr[i]) continue;
                 for (int v = 0; v < 2; v++) { IR_t * t = zd_chase(v ? g_planner.codegen_flat_chain_body_nodes[i]->ω.node : g_planner.codegen_flat_chain_body_nodes[i]->γ.node);
                     int q = t ? nidx(g_planner.codegen_flat_chain_body_nodes, n, t) : -1;
-                    if (q >= 0 && zd_claim[q] == h && !port_sz_beta(zd_edge_sz(g_planner.codegen_flat_chain_body_nodes[i], v))) return 1; }
+                    IR_t * t0 = v ? g_planner.codegen_flat_chain_body_nodes[i]->ω.node : g_planner.codegen_flat_chain_body_nodes[i]->γ.node;
+                        int q0 = t0 ? nidx(g_planner.codegen_flat_chain_body_nodes, n, t0) : -1;
+                    if ((q >= 0 && zd_claim[q] == h && !port_sz_beta(zd_edge_sz(g_planner.codegen_flat_chain_body_nodes[i], v))) || (q0 >= 0 && q0 != q && zd_claim[q0] == h)) return 1; }
                 IR_t * nd = g_planner.codegen_flat_chain_body_nodes[i]; int na = (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : -1;
                 for (int k = 0; k < nd->n_operands; k++) { int q = nd->operands[k] ? nidx(g_planner.codegen_flat_chain_body_nodes, n, nd->operands[k]) : -1;
                     if (q >= 0 && zd_claim[q] == h && !(na >= 0 && (k >= 2 * na || (k & 1)))) return 1; } }
