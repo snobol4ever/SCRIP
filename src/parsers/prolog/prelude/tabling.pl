@@ -208,7 +208,7 @@ incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),
 '$tbl_prop'([e(_,_,T2)|Es],T,New):-('$tbl_idg'(T2,idg(TK,Deps,_,_,_)),memberchk(T,Deps)->'$tbl_dact'(propagate,mono,TK,T2,T,New);true),'$tbl_prop'(Es,T,New).
 xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_mcall'(G,I,S):-'$tbl_mcall'(G,I,S,plain).
-'$tbl_mcall'(G,I,S,plain):-!,G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_noattv'(Gv),'$tbl_cycg'(Gv),'$tbl_vt'(VT),('$trie_lookup'(VT,Gv,T0)->'$tbl_valid'(T0,VT,Gv,T);T=none),'$tbl_sl_get'(T,VT,Gv,Iv,moded(Ms,Xs,Mv),T1),'$tbl_sl_mread'(T1,Xs,Ma,Gv).
+'$tbl_mcall'(G,I,S,plain):-!,G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_noattv'(Gv),'$tbl_cycg'(Gv),'$tbl_vt'(VT),('$trie_lookup'(VT,Gv,T0)->'$tbl_valid'(T0,VT,Gv,T);T=none),'$tbl_sl_get'(T,VT,Gv,Iv,moded(Ms,Xs,Mv),T1),'$tbl_sl_mread'(T1,Xs,Ma,G).
 '$tbl_mcall'(G,I,S,TK):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),TK,T),'$tbl_manswer'(T,Xs,Ma,G).
 '$tbl_get'(G,I,K,TK,T1):-'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_restrain'(T,G),'$tbl_enter'(T,VT,G,I,K,TK,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).
 '$tbl_valid'(T0,_,_,T0):-'$tbl_soft'(T0),!,'$tbl_force'(T0).
@@ -313,6 +313,7 @@ tnot(G):- \+ G.
 '$tnot_split'(M:G,G1):-atom(M),!,('$mod_cl'(M,G,0,G1)->true;G1=G).
 '$tnot_split'(G,G).
 '$tnot_impl'(undefined,'$tbl undefined'):-!.
+'$tnot_impl'(tabled_call(G),'$tbl tabled_call'(G)):-!.
 '$tnot_impl'(G,I):-callable(G),G=..[F|As],atom(F),atom_concat('$tbl ',F,TF),length(As,N),current_predicate(TF/N),I=..[TF|As].
 '$tnot_st'(complete,T,G):-!,'$trie_entries'(T,L),(member(e(_,_,true),L)->fail;L==[]->true;'$tbl_ph'(P),'$tnot_u'(P,G)).
 '$tnot_st'(_,T,G):-'$tbl_raise','$tbl_ph'(P),'$tnot_i'(P,T,G).
