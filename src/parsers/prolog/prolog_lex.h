@@ -25,6 +25,7 @@ typedef enum {
     TK_QUERY,
     TK_CUT,
     TK_SEMI,
+    TK_QQ_OPEN,
     TK_ERROR
 } TkKind;
 typedef struct {
@@ -68,6 +69,7 @@ typedef struct {
     int         ccm;
 } Lexer;
 void lexer_init(Lexer *lx, const char *src);
+Token lexer_qq_text(Lexer *lx);
 Token lexer_next(Lexer *lx);
 Token lexer_peek(Lexer *lx);
 Token lexer_expect(Lexer *lx, TkKind kind, const char *context);

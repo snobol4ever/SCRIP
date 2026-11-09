@@ -576,6 +576,7 @@ void prolog_dq_lower(tree_t *t, int mode) {
         }
         return;
     }
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$qq") && t->n == 3) { prolog_dq_lower(t->c[0], mode); prolog_dq_lower(t->c[2], mode); return; }
     for (int i = 0; i < t->n; i++) prolog_dq_lower(t->c[i], mode);
 }
 static int pl_dialect_marker(const tree_t *tr) {

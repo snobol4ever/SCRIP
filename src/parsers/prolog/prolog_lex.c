@@ -239,7 +239,8 @@ S_START:
     case D_COMMA:                                                    {  ADV(1); SYNC(); return tok(TK_COMMA,    (char *)",",  line);                               }
     case D_BANG:                                                     {  ADV(1); SYNC(); return tok(TK_CUT,      (char *)"!",  line);                               }
     case D_SEMI:                                                     {  ADV(1); SYNC(); return tok(TK_SEMI,     (char *)";",  line);                               }
-    case D_LBRACE:                                                   {  t = tok(TK_LBRACE, (char *)"{", line); t.adj = (p > lx->src && !is_layout((unsigned char)p[-1])); ADV(1); SYNC(); return t;                               }
+    case D_LBRACE:   if (PEEK(1) == '|')                            {  ADV(2); SYNC(); return tok(TK_QQ_OPEN, (char *)"{|", line);                               }
+                                                                     {  t = tok(TK_LBRACE, (char *)"{", line); t.adj = (p > lx->src && !is_layout((unsigned char)p[-1])); ADV(1); SYNC(); return t;                               }
     case D_RBRACE:                                                   {  ADV(1); SYNC(); return tok(TK_RBRACE,   (char *)"}",  line);                               }
     case D_DOT:     if (PEEK(1) == '\0' || is_layout(PEEK(1)) || PEEK(1) == '%') {  ADV(1); SYNC(); return tok(TK_DOT, (char *)".", line);                         }
                                                                      {  ADV(1);                                                                goto S_GRAPHIC;     }
@@ -393,6 +394,19 @@ Token lexer_peek(Lexer *lx) {
         lx->has_peek = 1;
     }
     return lx->peek;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+Token lexer_qq_text(Lexer *lx) {
+    const char *s = lx->src + lx->pos, *q = s;
+    int line = lx->line, n;
+    while (q[0] != '\0' && !(q[0] == '|' && q[1] == '}')) { if (q[0] == '\n') lx->line++; q++; }
+    if (q[0] == '\0') return err_tok(line, "unterminated quasi-quotation: expected |}");
+    n = (int)(q - s);
+    lx->pos = (int)(q + 2 - lx->src);
+    Token t = tok(TK_STRING, ct_strndup(s, (size_t)n), line);
+    t.len = n;
+    t.pc = pc_piece(TT_QLIT, s, n);
+    return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lx_marker_word(const char *q) { return !strncmp(q, "use_module(", 11) || !strncmp(q, "module(", 7); }

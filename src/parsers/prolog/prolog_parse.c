@@ -37,6 +37,7 @@ typedef struct {
     int         xsb;
     const char *synerr;
     int         wrap_tail;
+    cv_t        qq;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -329,7 +330,7 @@ static int lexer_functor_follows(Lexer *lx) {
 }
 static int prefix_arg_starts(Token pk) {
     switch (pk.kind) {
-        case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_BQSTRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
+        case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_BQSTRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_QQ_OPEN: case TK_CUT: return 1;
         case TK_ATOM: case TK_OP: return (find_prefix(pk.text) != NULL) || (find_binop(pk.text) == NULL) || !strcmp(pk.text, "-") || !strcmp(pk.text, "+");
         default: return 0;
     }
@@ -842,6 +843,26 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 n->v.sval = ct_strdup(tk.text);
                 return pt_stamp(n, ln);
             }
+        }
+        case TK_QQ_OPEN: {
+            tree_t *syn;
+            { int saved = p->in_args; p->in_args = 1; syn = pt_term(p, ts, 999); p->in_args = saved; }
+            if (!syn) syn = ast_node_new(TT_NUL);
+            Token b1 = lexer_next(&p->lx);
+            Token b2 = lexer_peek(&p->lx);
+            if (b1.kind != TK_PIPE || b2.kind != TK_PIPE || b2.start != b1.end) perror_syn(p, b1, SYN_CLOSE, "expected || after the quasi-quotation syntax");
+            else lexer_next(&p->lx);
+            Token tx = lexer_qq_text(&p->lx);
+            if (tx.kind == TK_ERROR) perror_syn(p, tx, SYN_CLOSE, tx.text);
+            tree_t *dq = ast_node_new(TT_DQLIT);
+            if (tx.pc) ast_push(dq, tx.pc);
+            tree_t *qq = ast_node_new(TT_FNC);
+            qq->v.sval = ct_strdup("$qq");
+            ast_push(qq, syn);
+            ast_push(qq, dq);
+            ast_push(qq, ast_node_new(TT_MAKELIST));
+            CV_PUSH(p->qq, tree_t *) = qq;
+            return pt_stamp(qq, ln);
         }
         case TK_LBRACE: {
             Token pk2 = lexer_peek(&p->lx);
@@ -1378,16 +1399,37 @@ static void xsb_directive(Parser *p, const tree_t *goal) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static PlClause *parse_clause0(Parser *p);
+static void qq_bindings(Parser *p) {
+    for (uint32_t i = 0; i < p->qq.len; i++) {
+        tree_t *bl = ast_node_new(TT_MAKELIST);
+        for (uint32_t j = 0; j < p->ts.e.len; j++) {
+            const char *nm = CV_AT(p->ts.e, TSEntry, j).name;
+            if (strcmp(nm, "_") == 0) continue;
+            tree_t *eq = ast_node_new(TT_FNC);
+            eq->v.sval = ct_strdup("=");
+            tree_t *nq = ast_node_new(TT_QLIT);
+            nq->v.sval = ct_strdup(nm);
+            ast_push(eq, nq);
+            ast_push(eq, ts_get(&p->ts, nm));
+            ast_push(bl, eq);
+        }
+        CV_AT(p->qq, tree_t *, i)->c[2] = bl;
+    }
+    p->qq.len = 0;
+}
+static PlClause *parse_clause0(Parser *p);
 static PlClause *parse_clause(Parser *p) {
     int s = lexer_peek(&p->lx).start;
     PlClause *cl = parse_clause0(p);
     if (cl) { cl->sstart = s; cl->send = p->lx.last_end; }
+    qq_bindings(p);
     return cl;
 }
 static PlClause *parse_clause0(Parser *p) {
     Token pk = lexer_peek(&p->lx);
     if (pk.kind == TK_EOF) return NULL;
     TreeScope *ts = &p->ts; ts->e.len = 0;
+    p->qq.len = 0;
     PlClause *cl = ct_zalloc(1, sizeof(PlClause));
     cl->lineno = pk.line;
     if (pk.kind == TK_NECK || pk.kind == TK_QUERY) {
@@ -4156,6 +4198,16 @@ static void pl_tree_collect_keys(const tree_t *t, cv_t *keys) {
     for (int i = 0; i < t->n; i++) pl_tree_collect_keys(t->c[i], keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_qq_refs(const tree_t *t, cv_t *referenced, cv_t *keys) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$qq") && t->n == 3) {
+        pl_cv_add(referenced, "$qq_expand");
+        const tree_t *syn = t->c[0];
+        if (syn && (syn->t == TT_FNC || syn->t == TT_QLIT || syn->t == TT_NAME) && syn->v.sval) pl_cv_add(keys, pl_pred_key(syn->v.sval, 4));
+    }
+    for (int i = 0; i < t->n; i++) pl_qq_refs(t->c[i], referenced, keys);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_pkey_split(const char *k, int *ar) {
     const char *s = strrchr(k, '/');
     *ar = s ? atoi(s + 1) : 0;
@@ -4986,7 +5038,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
         if (pl_clause_is_directive(cl) && cl->tr->c[1] && cl->tr->c[1]->t == TT_FNC && cl->tr->c[1]->v.sval && (!strcmp(cl->tr->c[1]->v.sval, "dynamic") || !strcmp(cl->tr->c[1]->v.sval, "discontiguous")))
             pl_tree_collect_declared(cl->tr->c[1], &user_defined);
-        if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); if (xsb_prog) pl_tree_seed_sysmod(cl->tr, &referenced); }
+        if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); pl_qq_refs(cl->tr, &referenced, &refkeys); if (xsb_prog) pl_tree_seed_sysmod(cl->tr, &referenced); }
         if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
         if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
@@ -5582,6 +5634,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     { extern int rt_pl_dialect_xsb(void); p.xsb = rt_pl_dialect_xsb(); if (p.xsb) p.lx.nlq = 1; }
     memset(&p.ts, 0, sizeof p.ts);
+    memset(&p.qq, 0, sizeof p.qq);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
     prog->nerrors = p.nerrors;
