@@ -19812,6 +19812,7 @@ DESCR_t pas_pview(DESCR_t *args, int nargs) {
     DESCR_t p = args[0];
     long long code = rk_ival(args[1]);
     if (p.v != DT_PCELL) return p;
+    if (p.src_node2 & PAS_VIEW_RAW) { p.src_node0 = (uint8_t)(code & 255); p.src_node1 = (uint8_t)((code >> 8) & 255); p.src_node2 = (uint8_t)(PAS_VIEW_RAW | ((code >> 16) & 32)); return p; }
     p = pas_pcell_at(p.ptr, (long long)(int32_t) p.slen * (code & 255), "__pas_pview");
     p.src_node0 = (uint8_t)(code & 255);
     p.src_node1 = (uint8_t)((code >> 8) & 255);
@@ -19906,6 +19907,7 @@ DESCR_t pas_pdx(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
     long long i = rk_ival(args[1]), lo = rk_ival(args[2]), hi = rk_ival(args[3]);
+    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_RAW)) { DESCR_t r = args[0]; r.slen = (uint32_t) ((int32_t) args[0].slen + (int32_t) ((i - lo) * args[0].src_node1)); return r; }
     DESCR_t *cell = pas_heap_ref(args[0], "__pas_pdx");
     if (cell->v == DT_A && cell->arr) {
         ARBLK_t *b = (ARBLK_t *) cell->arr;
@@ -19988,14 +19990,21 @@ DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
     if (args[0].src_node0 && args[0].ptr == args[1].ptr && args[1].src_node0) return INTVAL(((long long)(int32_t) args[0].slen - (int32_t) args[1].slen) / args[0].src_node1);
     return INTVAL((long long)((intptr_t) pas_ptr_word(args[0]) - (intptr_t) pas_ptr_word(args[1])) / 16);
 }
+static DESCR_t pas_raw_first(ARBLK_t *b) {
+    DESCR_t r = pas_pcell((void *) b->data, 0);
+    r.src_node0 = r.src_node1 = (uint8_t) b->ewidth;
+    r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (b->esigned ? 32 : 0));
+    return r;
+}
 DESCR_t pas_pchar_of(DESCR_t *args, int nargs) {
     (void) nargs;
     if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i <= g_runtime.pas.pas_heap_ctr) {
         DESCR_t *hc = pas_heap_cell(args[0].i, 0);
-        if (hc && hc->v == DT_A && hc->arr && ((ARBLK_t *) hc->arr)->data) return pas_pcell((void *) ((ARBLK_t *) hc->arr)->data, 0);
+        if (hc && hc->v == DT_A && hc->arr && ((ARBLK_t *) hc->arr)->data) return ((ARBLK_t *) hc->arr)->ewidth ? pas_raw_first((ARBLK_t *) hc->arr) :
+            pas_pcell((void *) ((ARBLK_t *) hc->arr)->data, 0);
     }
     if (args[0].v == DT_PCELL || IS_INT_fn(args[0])) return args[0];
-    if (args[0].v == DT_A && args[0].arr) return pas_pcell((void *) ((ARBLK_t *) args[0].arr)->data, 0);
+    if (args[0].v == DT_A && args[0].arr) return ((ARBLK_t *) args[0].arr)->ewidth ? pas_raw_first((ARBLK_t *) args[0].arr) : pas_pcell((void *) ((ARBLK_t *) args[0].arr)->data, 0);
     const char *c = VARVAL_fn(args[0]);
     size_t n = c ? pas_slen(args[0], c) : 0;
     DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr(n + 1);
@@ -20049,7 +20058,13 @@ DESCR_t pas_field_set(DESCR_t *args, int nargs) {
     DESCR_t *hc = pas_heap_ref(args[0], "__pas_field_set");
     long idx = rk_ival(args[1]);
     (void) nargs;
-    if (hc->v == DT_A && hc->arr) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2]; return args[2]; }
+    if (hc->v == DT_A && hc->arr) {
+        ARBLK_t *b = (ARBLK_t *) hc->arr;
+        long long rv = rk_ival(args[2]);
+        if (b->ewidth && idx >= b->lo && idx <= b->hi) { memcpy((char *) b->data + (idx - b->lo) * b->ewidth, &rv, (size_t) b->ewidth); return args[2]; }
+        if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2];
+        return args[2];
+    }
     *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
     return args[2];
 }
@@ -20707,6 +20722,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
             long long rdn = ((long long) rdb->hi - rdb->lo + 1 - rdk) * rdb->ewidth, rsn = ((long long) rsb->hi - rsb->lo + 1 - rsk) * rsb->ewidth, rn = bytes < rdn ? bytes : rdn;
             if (rn > rsn) rn = rsn;
             if (rdk >= 0 && rsk >= 0 && rn > 0) memmove((char *) rdb->data + rdk * rdb->ewidth, (char *) rsb->data + rsk * rsb->ewidth, (size_t) rn);
+            *out = args[0];
+            return 1;
+        }
+        if (rdb && rsb && (rdb->ewidth != 0) != (rsb->ewidth != 0)) {
+            long long mdi = IS_INT_fn(args[1]) ? (long long) args[1].i : rdb->lo, msi = IS_INT_fn(args[3]) ? (long long) args[3].i : rsb->lo;
+            for (long long t = 0; t < n; t++) {
+                DESCR_t g[2] = { args[2], INTVAL(msi + t) };
+                DESCR_t v = pas_arr_get(g, 2);
+                DESCR_t st[3] = { args[0], INTVAL(mdi + t), v };
+                if (v.v == DT_FAIL) break;
+                pas_arr_set(st, 3);
+            }
             *out = args[0];
             return 1;
         }
