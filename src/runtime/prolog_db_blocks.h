@@ -50,6 +50,8 @@ typedef struct {
     int modcap;
     int *kmod;
     int kmcap;
+    int *ncl;
+    int nclcap;
 } pl_db_reg_t;
 typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
 typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; pl_trie_sl_t sl; } pl_trie_t;

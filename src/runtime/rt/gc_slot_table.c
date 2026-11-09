@@ -30,7 +30,7 @@ _Static_assert(sizeof(pl_db_t) == 104 && offsetof(pl_db_t, s) == 0 && offsetof(p
     "HB_PLDB holds one pl_db_t: the pointer members are s (the PLDBS vector), ix (the index block) and src (the source record, two ints a slot); a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_key_t) == 48 && offsetof(pl_db_key_t, key) == 0 && offsetof(pl_db_key_t, db) == 16,
     "HB_PLDBK is a vector of pl_db_key_t whose pointer members are key and db; a new member means this row is re-read");
-_Static_assert(sizeof(pl_db_reg_t) == 120 && offsetof(pl_db_reg_t, e) == 0 && offsetof(pl_db_reg_t, ovf) == 24 && offsetof(pl_db_reg_t, tries) == 32 && offsetof(pl_db_reg_t, hix) == 56 &&
+_Static_assert(sizeof(pl_db_reg_t) == 136 && offsetof(pl_db_reg_t, e) == 0 && offsetof(pl_db_reg_t, ovf) == 24 && offsetof(pl_db_reg_t, tries) == 32 && offsetof(pl_db_reg_t, hix) == 56 &&
     offsetof(pl_db_reg_t, mtok) == 72, "HB_PLDBR holds one pl_db_reg_t: the pointer members are e, ovf, tries, hix and mtok; a new member means this row is re-read");
 _Static_assert(sizeof(pl_trie_node_t) == 72 && offsetof(pl_trie_node_t, tok) == 0 && offsetof(pl_trie_node_t, val) == 16 && offsetof(pl_trie_node_t, parent) == 32 &&
     offsetof(pl_trie_node_t, kids) == 40, "HB_TRIEN holds one pl_trie_node_t: tok and val are DESCR_t cells, parent and kids are pointers; a new member means this row is re-read");

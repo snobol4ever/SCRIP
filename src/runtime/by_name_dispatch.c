@@ -28367,6 +28367,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
     extern int rt_pl_db_key_mf(void *, const char *);
     extern int rt_pl_db_key_kind(void *, const char *);
     extern const char *rt_pl_db_key_file(void *, const char *);
+    extern int rt_pl_db_key_nclauses(void *, const char *);
     extern int pl_pi_is_builtin(const char *, int);
     extern const char *prolog_atom_name(int);
     const char *nm, *fp = (const char *)0;
@@ -28428,6 +28429,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
             gp[n++] = "defined";
             gp[n++] = "static";
         }
+        if (kind) { char nk[strlen(nm) + 24]; snprintf(nk, sizeof nk, "%s/%d", nm, ar); if (rt_pl_db_key_nclauses(root, nk) >= 0) gp[n++] = "number_of_clauses"; }
         if (n) gp[n++] = "visible";
         { extern int pl_pi_is_iso(const char *, int); if (n && pl_pi_is_iso(nm, ar)) gp[n++] = "iso"; }
         if (pl_pp_meta(root, nm, ar, &mt, &mi)) gp[n++] = "meta_predicate";
@@ -28462,6 +28464,14 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
             const char *const *mt;
             const long *mi;
             ok = hn && pl_pp_meta(root, hn, ha, &mt, &mi) && plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_pp_meta_term(hn, ha, mt, mi)), cx);
+        } else if (pr && !strcmp(pr, "number_of_clauses")) {
+            extern int rt_pl_db_key_nclauses(void *, const char *);
+            DESCR_t hh = pl_pp_head(rt_pl_deref_val(args[1]), (DESCR_t *)0);
+            const char *hn = hh.v == (DTYPE_t)DT_PLREF ? prolog_atom_name(plc_fid_name(hh.slen)) : pl_atom_str(hh);
+            int ha = hh.v == (DTYPE_t)DT_PLREF ? plc_fid_arity(hh.slen) : 0;
+            char hk[(hn ? strlen(hn) : 0) + 24];
+            snprintf(hk, sizeof hk, "%s/%d", hn ? hn : "", ha);
+            ok = hn && plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(rt_pl_db_key_nclauses(root, hk))), cx);
         } else if (pr && !strcmp(pr, "prolog_line")) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(ln)), cx);
         else if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_mk_atom_dup(fp, strlen(fp))), cx);
         else if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);

@@ -3810,6 +3810,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     {
                         tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
                         for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[i]), alt);
+                        if (def) alt = pl_cc_fnc2(";", alt, pl_cc_fnc2(",", pl_cc_fnc2("=", (tree_t *) t->c[1], pl_cc_fnc1("number_of_clauses", pl_cc_freshvar())), pl_pp_runtime(h, pp)));
                         return goal(cx, alt, γnext, ωfail, entry_out);
                     }
                 }
@@ -4858,6 +4859,7 @@ static void pl_db_decls_capture(void) {
                 { const char * pf = pl_pred_file(nm, ar); char rp[PATH_MAX]; if (pf && realpath(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); } }
             }
             if (pe->file && pe->file[0] != '<' && pe->choice->c[0] && pe->choice->c[0]->line > 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(5); PL_DW(pe->choice->c[0]->line); }
+            if (pe->choice->t == TT_CHOICE) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(9); PL_DW(pe->choice->n); }
         }
     }
     for (int i = 0; i < g_lower.pl.decl_other_n; i++) if (!pl_name_is_scrip_own(g_lower.pl.decl_other_name[i], g_lower.pl.decl_other_arity[i])) {

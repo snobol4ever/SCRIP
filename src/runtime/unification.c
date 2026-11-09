@@ -4595,6 +4595,18 @@ static void pl_db_kmod_set(pl_db_reg_t *r, int k, int mod) {
     r->kmod[k] = mod;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_ncl_set(pl_db_reg_t *r, int k, int n) {
+    extern void *ct_grow(void *, size_t);
+    if (!r || k < 0) return;
+    if (k >= r->nclcap) {
+        int nc = r->nclcap > 0 ? r->nclcap : 64;
+        while (nc <= k) nc *= 2;
+        r->ncl = (int *)ct_grow((void *)r->ncl, (size_t)nc * sizeof(int));
+        memset(r->ncl + r->nclcap, 0, (size_t)(nc - r->nclcap) * sizeof(int));
+        r->nclcap = nc;
+    }
+    r->ncl[k] = n;
+}
 static int pl_db_kmod_get(void *root, int64_t k) { pl_db_reg_t *r = pl_db_registry(root, 0); return (r && r->kmod && k >= 0 && k < r->kmcap) ? r->kmod[k] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int64_t pl_db_shape_cells(const pl_cell_t *t) {
@@ -5102,6 +5114,12 @@ static void pl_db_key_set_file(void *root, const char *name, int64_t arity, int6
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
     if (e) e->file = (int)file;
 }
+static void pl_db_key_set_ncl(void *root, const char *name, int64_t arity, int64_t v) {
+    PL_DB_KEY_VLA(key, name, arity);
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    pl_db_key_t *e = pl_db_reg_find(r, key);
+    if (e) pl_db_ncl_set(r, (int)(e - r->e), (int)v);
+}
 static void pl_db_key_set_meta(void *root, const char *name, int64_t arity, int64_t kind, int64_t v) {
     PL_DB_KEY_VLA(key, name, arity);
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
@@ -5176,6 +5194,7 @@ void rt_pl_db_decls_install(const long *tab, void *root) {
         const char *nm = prolog_atom_name((int)e[4 * i]);
         if (nm && e[4 * i + 2] == 4) pl_db_key_set_file(root, nm, e[4 * i + 1], e[4 * i + 3]);
         else if (nm && e[4 * i + 2] == 8) continue;
+        else if (nm && e[4 * i + 2] == 9) pl_db_key_set_ncl(root, nm, e[4 * i + 1], e[4 * i + 3]);
         else if (nm && e[4 * i + 2] >= 5 && e[4 * i + 2] != 7) pl_db_key_set_meta(root, nm, e[4 * i + 1], e[4 * i + 2], e[4 * i + 3]);
         else if (nm && e[4 * i + 2] > 0) rt_pl_db_decl(root, nm, e[4 * i + 1], e[4 * i + 2]);
     }
@@ -5231,6 +5250,18 @@ static int pl_db_key_current(void *root, pl_db_key_t *e) {
     db = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db;
     if (db) return db->killed ? 0 : 1;
     return e->decl ? 1 : 0;
+}
+int rt_pl_db_key_nclauses(void *root, const char *key) {
+    extern int rt_pl_db_live_count(void *);
+    pl_db_reg_t *r = pl_db_registry(root, 0);
+    pl_db_key_t *e = pl_db_reg_find(r, key);
+    pl_db_t *db;
+    int k;
+    if (!e || !pl_db_key_current(root, e)) return -1;
+    db = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db;
+    if (db) return rt_pl_db_live_count(db);
+    k = (int)(e - r->e);
+    return (r->ncl && k < r->nclcap && r->ncl[k] > 0) ? r->ncl[k] : -1;
 }
 int rt_pl_db_mod_get(void *root, const char *module, int which, int64_t *out) {
     extern int prolog_atom_intern(const char *);
