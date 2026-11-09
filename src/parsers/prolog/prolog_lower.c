@@ -695,6 +695,11 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
     if (set) g_stage2.pl_dq_mode = mode + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_src_name(PlProgram *pl, const char *file) {
+    if (!g_stage2.pl_source_path || g_parser.pl.consult_depth || !file || !pl->filename || strcmp(file, pl->filename)) return file;
+    return g_stage2.pl_source_path;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *file) {
     tree_t *st = ast_node_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", lineno)); ast_push(st, ast_attr_int(":lline", lineno)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", subj));
@@ -1754,7 +1759,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
         }
         if (is_assert) continue;
         if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval && strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) continue;
-        pl_stmt_push(prog, goal_tr, cl->lineno, cl->file ? cl->file : pl_prog->filename);
+        pl_stmt_push(prog, goal_tr, cl->lineno, pl_src_name(pl_prog, cl->file ? cl->file : pl_prog->filename));
     }
     if (pld_seed_n > 0) {
         for (uint32_t i = 0; i < keys.len; i++) {
@@ -1773,6 +1778,6 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             break;
         }
     }
-    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0, i < files.len ? CV_AT(files, const char *, i) : pl_prog->filename);
+    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0, pl_src_name(pl_prog, i < files.len ? CV_AT(files, const char *, i) : pl_prog->filename));
     return prog;
 }

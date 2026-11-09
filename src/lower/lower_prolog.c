@@ -2446,7 +2446,12 @@ static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_seed_file_term(const char * pf) { char rp[PATH_MAX]; if (pf && realpath(pf, rp)) return (tree_t *) pl_atom_goal(lp_strdup(rp)); return pl_cc_ilit(-1); }
+static int pl_file_key_path(const char *pf, char *rp) {
+    if (g_stage2.pl_source_path && !strcmp(pf, g_stage2.pl_source_path)) { snprintf(rp, PATH_MAX, "%s", pf); return 1; }
+    return realpath(pf, rp) != NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_seed_file_term(const char * pf) { char rp[PATH_MAX]; if (pf && pl_file_key_path(pf, rp)) return (tree_t *) pl_atom_goal(lp_strdup(rp)); return pl_cc_ilit(-1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_seed_line_term(const tree_t * cl) { return pl_cc_ilit(cl && cl->line > 0 ? cl->line : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3789,7 +3794,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (portray1) { if (!dyn) props_pt[npt++] = pl_atom_goal("dynamic"); props_pt[npt++] = pl_atom_goal("multifile"); }
                     if (dyn) props[np++] = pl_atom_goal("dynamic");
                     else if (def && !portray1) props[np++] = pl_atom_goal("static");
-                    if (pf && realpath(pf, rp)) props[np++] = pl_cc_fnc1("file", (tree_t *) pl_atom_goal(lp_strdup(rp)));
+                    if (pf && pl_file_key_path(pf, rp)) props[np++] = pl_cc_fnc1("file", (tree_t *) pl_atom_goal(lp_strdup(rp)));
                     if (def) props[np++] = pl_atom_goal("defined");
                     if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); props[np++] = pl_atom_goal("static"); }
                     if (def || bi) props[np++] = pl_atom_goal("visible");
@@ -4848,7 +4853,7 @@ static void pl_db_decls_capture(void) {
             }
             if (pl_decl_dyn_is(nm, ar) && pe->file && pe->file[0] != '<') {
                 char rp[PATH_MAX];
-                if (realpath(pe->file, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); }
+                if (pl_file_key_path(pe->file, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); }
             }
             if (pl_dyn_marker(pe->choice)) { if (pe->file && pe->file[0] != '<' && pe->choice->line > 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(5); PL_DW(pe->choice->line); } continue; }
             if (pl_dyn_index(nm, ar) < 0 && !pl_decl_dyn_is(nm, ar)) {
@@ -4856,7 +4861,11 @@ static void pl_db_decls_capture(void) {
                 PL_DW(ar);
                 PL_DW(1);
                 PL_DW(-1);
-                { const char * pf = pl_pred_file(nm, ar); char rp[PATH_MAX]; if (pf && realpath(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); } }
+                {
+                    const char * pf = pl_pred_file(nm, ar);
+                    char rp[PATH_MAX];
+                    if (pf && pl_file_key_path(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); }
+                }
             }
             if (pe->file && pe->file[0] != '<' && pe->choice->c[0] && pe->choice->c[0]->line > 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(5); PL_DW(pe->choice->c[0]->line); }
             if (pe->choice->t == TT_CHOICE) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(9); PL_DW(pe->choice->n); }

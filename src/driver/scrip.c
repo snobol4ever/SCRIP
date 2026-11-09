@@ -2050,6 +2050,10 @@ int main(int argc, char **argv) {
                     return 2;
                 }
                 argi++;
+            } else if (strncmp(argv[argi], "--source-path=", 14) == 0) {
+                if (argv[argi][14] != '/') { fprintf(stderr, "scrip: --source-path= needs an absolute path, got '%s'\n", argv[argi] + 14); return 2; }
+                g_stage2.pl_source_path = argv[argi] + 14;
+                argi++;
             } else if (strncmp(argv[argi], "--compat=", 9) == 0) {
                 fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");
                 return 2;
@@ -2228,6 +2232,7 @@ int main(int argc, char **argv) {
             "d as its compile_args, R-2110)\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
             "ns. Prolog: gnu, xsb. Icon: unicon, read a source that carries no class, package or import marker as a Unicon program, as if it carried one (a UniTests entry's compile_args, CTO-473)\n"
+            "  --source-path=PATH  Prolog: the name the main source reports for itself (predicate_property file, source_file/2); the text is still read from the file given\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
             "e tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace im"
             "ply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n" "\n"

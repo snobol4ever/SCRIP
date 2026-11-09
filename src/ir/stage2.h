@@ -82,6 +82,7 @@ typedef struct stage2_t {
     cv_t pl_decl_meta;
     int pl_dq_mode;
     int pl_dialect;
+    const char *pl_source_path;
     int pl_scc_aux_n;
     int pl_attv_armed;
     int pl_undo_armed;
