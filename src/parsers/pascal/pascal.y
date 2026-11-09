@@ -264,8 +264,8 @@ intf_part:
     |CONSTSY const_decl_list { $$ = $2; }
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
-    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     ;
 init_opt:
     INITIALIZATIONSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "initialization"), $2); }
