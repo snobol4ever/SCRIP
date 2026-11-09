@@ -1,6 +1,7 @@
 {$mode objfpc}{$H+}
 unit generics.collections;
 interface
+uses generics.defaults;
 type
   TDictionaryOwnership = (doOwnsKeys, doOwnsValues);
   TDictionaryOwnerships = set of TDictionaryOwnership;
@@ -139,8 +140,61 @@ type
     property Count: Integer read __sh_n;
     property Items[__sh_i: Integer]: T read GetItem write SetItem; default;
   end;
+  generic TArrayHelper<T> = class
+  public
+    class procedure QuickSort(var AValues: array of T; ALeft, ARight: Integer; const AComparer: specialize TComparer<T>);
+    class procedure Sort(var AValues: array of T; const AComparer: specialize TComparer<T>);
+  end;
 implementation
 uses SysUtils;
+class procedure TArrayHelper.QuickSort(var AValues: array of T; ALeft, ARight: Integer; const AComparer: specialize TComparer<T>);
+var
+  I, J: Integer;
+  P, Q: T;
+begin
+  if ((ARight - ALeft) <= 0) or (Length(AValues) = 0) then
+    Exit;
+  repeat
+    I := ALeft;
+    J := ARight;
+    P := AValues[ALeft + (ARight - ALeft) shr 1];
+    repeat
+      while AComparer.Compare(AValues[I], P) < 0 do
+        Inc(I);
+      while AComparer.Compare(AValues[J], P) > 0 do
+        Dec(J);
+      if I <= J then
+      begin
+        if I <> J then
+        begin
+          Q := AValues[I];
+          AValues[I] := AValues[J];
+          AValues[J] := Q;
+        end;
+        Inc(I);
+        Dec(J);
+      end;
+    until I > J;
+    if J - ALeft < ARight - I then
+    begin
+      if ALeft < J then
+        QuickSort(AValues, ALeft, J, AComparer);
+      ALeft := I;
+    end
+    else
+    begin
+      if I < ARight then
+        QuickSort(AValues, I, ARight, AComparer);
+      ARight := J;
+    end;
+  until ALeft >= ARight;
+end;
+class procedure TArrayHelper.Sort(var AValues: array of T; const AComparer: specialize TComparer<T>);
+begin
+  if Length(AValues) <= 1 then
+    Exit;
+  QuickSort(AValues, 0, High(AValues), AComparer);
+end;
 var
   __shg_crctab: array[0..255] of longword;
   __shg_crcok: Boolean;

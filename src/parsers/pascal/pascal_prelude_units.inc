@@ -1280,6 +1280,7 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit generics.collections;\n"
     "interface\n"
+    "uses generics.defaults;\n"
     "type\n"
     "  TDictionaryOwnership = (doOwnsKeys, doOwnsValues);\n"
     "  TDictionaryOwnerships = set of TDictionaryOwnership;\n"
@@ -1418,8 +1419,61 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "    property Count: Integer read __sh_n;\n"
     "    property Items[__sh_i: Integer]: T read GetItem write SetItem; default;\n"
     "  end;\n"
+    "  generic TArrayHelper<T> = class\n"
+    "  public\n"
+    "    class procedure QuickSort(var AValues: array of T; ALeft, ARight: Integer; const AComparer: specialize TComparer<T>);\n"
+    "    class procedure Sort(var AValues: array of T; const AComparer: specialize TComparer<T>);\n"
+    "  end;\n"
     "implementation\n"
     "uses SysUtils;\n"
+    "class procedure TArrayHelper.QuickSort(var AValues: array of T; ALeft, ARight: Integer; const AComparer: specialize TComparer<T>);\n"
+    "var\n"
+    "  I, J: Integer;\n"
+    "  P, Q: T;\n"
+    "begin\n"
+    "  if ((ARight - ALeft) <= 0) or (Length(AValues) = 0) then\n"
+    "    Exit;\n"
+    "  repeat\n"
+    "    I := ALeft;\n"
+    "    J := ARight;\n"
+    "    P := AValues[ALeft + (ARight - ALeft) shr 1];\n"
+    "    repeat\n"
+    "      while AComparer.Compare(AValues[I], P) < 0 do\n"
+    "        Inc(I);\n"
+    "      while AComparer.Compare(AValues[J], P) > 0 do\n"
+    "        Dec(J);\n"
+    "      if I <= J then\n"
+    "      begin\n"
+    "        if I <> J then\n"
+    "        begin\n"
+    "          Q := AValues[I];\n"
+    "          AValues[I] := AValues[J];\n"
+    "          AValues[J] := Q;\n"
+    "        end;\n"
+    "        Inc(I);\n"
+    "        Dec(J);\n"
+    "      end;\n"
+    "    until I > J;\n"
+    "    if J - ALeft < ARight - I then\n"
+    "    begin\n"
+    "      if ALeft < J then\n"
+    "        QuickSort(AValues, ALeft, J, AComparer);\n"
+    "      ALeft := I;\n"
+    "    end\n"
+    "    else\n"
+    "    begin\n"
+    "      if I < ARight then\n"
+    "        QuickSort(AValues, I, ARight, AComparer);\n"
+    "      ARight := J;\n"
+    "    end;\n"
+    "  until ALeft >= ARight;\n"
+    "end;\n"
+    "class procedure TArrayHelper.Sort(var AValues: array of T; const AComparer: specialize TComparer<T>);\n"
+    "begin\n"
+    "  if Length(AValues) <= 1 then\n"
+    "    Exit;\n"
+    "  QuickSort(AValues, 0, High(AValues), AComparer);\n"
+    "end;\n"
     "var\n"
     "  __shg_crctab: array[0..255] of longword;\n"
     "  __shg_crcok: Boolean;\n"
@@ -1934,6 +1988,29 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "  __shg_crcok := false;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_7_SRC[] =
+    "{$mode objfpc}{$H+}\n"
+    "unit generics.defaults;\n"
+    "interface\n"
+    "type\n"
+    "  generic TComparison<T> = function(constref L, R: T): Integer;\n"
+    "  generic TComparer<T> = class\n"
+    "  public\n"
+    "    FCmp: specialize TComparison<T>;\n"
+    "    class function Construct(const C: specialize TComparison<T>): TComparer;\n"
+    "    function Compare(constref L, R: T): Integer;\n"
+    "  end;\n"
+    "implementation\n"
+    "class function TComparer.Construct(const C: specialize TComparison<T>): TComparer;\n"
+    "begin\n"
+    "  Result := TComparer.Create;\n"
+    "  Result.FCmp := C\n"
+    "end;\n"
+    "function TComparer.Compare(constref L, R: T): Integer;\n"
+    "begin\n"
+    "  Result := FCmp(L, R)\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "{$H+}\n"
     "unit gmp;\n"
     "interface\n"
@@ -2528,7 +2605,7 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "  end\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_8_SRC[] =
+static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$H+}\n"
     "unit ioerr;\n"
     "interface\n"
@@ -2560,7 +2637,7 @@ static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "  __sh_rdiv := a / b\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_9_SRC[] =
+static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: extended): extended;\n"
@@ -2653,7 +2730,7 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_10_SRC[] =
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -2758,13 +2835,13 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -2938,7 +3015,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -2946,7 +3023,7 @@ static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_14_SRC[] =
+static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -3050,7 +3127,7 @@ static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_15_SRC[] =
+static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -4054,7 +4131,7 @@ static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_16_SRC[] =
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -4075,7 +4152,7 @@ static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -4101,7 +4178,7 @@ static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -4115,17 +4192,18 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "dynlibs", PAS_PRELUDE_UNIT_4_SRC },
     { "fgl", PAS_PRELUDE_UNIT_5_SRC },
     { "generics.collections", PAS_PRELUDE_UNIT_6_SRC },
-    { "gmp", PAS_PRELUDE_UNIT_7_SRC },
-    { "ioerr", PAS_PRELUDE_UNIT_8_SRC },
-    { "math", PAS_PRELUDE_UNIT_9_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_10_SRC },
-    { "strings", PAS_PRELUDE_UNIT_11_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_12_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_13_SRC },
-    { "system", PAS_PRELUDE_UNIT_14_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_15_SRC },
-    { "types", PAS_PRELUDE_UNIT_16_SRC },
-    { "unix", PAS_PRELUDE_UNIT_17_SRC },
-    { "variants", PAS_PRELUDE_UNIT_18_SRC },
+    { "generics.defaults", PAS_PRELUDE_UNIT_7_SRC },
+    { "gmp", PAS_PRELUDE_UNIT_8_SRC },
+    { "ioerr", PAS_PRELUDE_UNIT_9_SRC },
+    { "math", PAS_PRELUDE_UNIT_10_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_11_SRC },
+    { "strings", PAS_PRELUDE_UNIT_12_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_13_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_14_SRC },
+    { "system", PAS_PRELUDE_UNIT_15_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_16_SRC },
+    { "types", PAS_PRELUDE_UNIT_17_SRC },
+    { "unix", PAS_PRELUDE_UNIT_18_SRC },
+    { "variants", PAS_PRELUDE_UNIT_19_SRC },
     { 0, 0 }
 };
