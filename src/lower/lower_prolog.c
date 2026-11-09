@@ -3735,7 +3735,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     tree_t * meta = def ? (tree_t *) 0 : pl_meta_builtin_tree(pn, ar);
                     int nonpred = (g_stage2.pl_dialect == PL_DIALECT_SWI) && (!strcmp(pn, "?-") || !strcmp(pn, ":-") || !strcmp(pn, "|"));
                     int bi = !def && !nonpred && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
-                    const tree_t * props[8];
+                    const tree_t * props[12];
                     const char * pf = (def && !dyn) ? pl_pred_file(pn, ar) : (const char *) 0;
                     char rp[PATH_MAX];
                     int np = 0;
@@ -3748,7 +3748,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     else if (def && !portray1) props[np++] = pl_atom_goal("static");
                     if (pf && realpath(pf, rp)) props[np++] = pl_cc_fnc1("file", (tree_t *) pl_atom_goal(lp_strdup(rp)));
                     if (def) props[np++] = pl_atom_goal("defined");
-                    if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); }
+                    if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); props[np++] = pl_atom_goal("static"); }
+                    if (def || bi) props[np++] = pl_atom_goal("visible");
                     if (!portray1 && pl_decl_mf_is(pn, ar)) props[np++] = pl_atom_goal("multifile");
                     if (meta) props[np++] = pl_cc_fnc1("meta_predicate", meta);
                     if (um) {
@@ -3760,7 +3761,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         }
                         props[np++] = pl_cc_fnc1("meta_predicate", tm);
                     }
-                    for (int i = 0; i < npt && np < 8; i++) props[np++] = props_pt[i];
+                    for (int i = 0; i < npt && np < 12; i++) props[np++] = props_pt[i];
                     if (!np) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
                     {
                         tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);

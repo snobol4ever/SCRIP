@@ -28359,7 +28359,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         }
     }
     {
-        const char *gp[6];
+        const char *gp[10];
         int n = 0;
         if (kind) {
             char tk[strlen(nm) + 32];
@@ -28371,7 +28371,9 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         } else if (pl_pi_is_builtin(nm, ar) && !(!strcmp(nm, "?-") || !strcmp(nm, ":-") || !strcmp(nm, "|"))) {
             gp[n++] = "built_in";
             gp[n++] = "defined";
+            gp[n++] = "static";
         }
+        if (n) gp[n++] = "visible";
         if (pl_pp_meta(root, nm, ar, &mt, &mi)) gp[n++] = "meta_predicate";
         if (i > n) return (const char *)0;
         if (!strcmp(gp[i - 1], "file")) *file = fp;
