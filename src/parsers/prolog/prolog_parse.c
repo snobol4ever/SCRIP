@@ -3563,6 +3563,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$pl_home'(variant_sha1,2,system).\n"
     "'$pl_home'(with_output_to,2,system).\n"
     "'$pl_home'(writeln,1,system).\n"
+    "'$pl_clause_q'(M,X,B):-var(M),!,call(clause(M:X,B)).\n"
+    "'$pl_clause_q'(_,X,B):-nonvar(X),X=(M:Y),!,'$pl_clause_q'(M,Y,B).\n"
+    "'$pl_clause_q'(M,X,B):-(atom(M),'$mod_q1'(M,X,QX)->true;QX=X),clause(QX,B).\n"
+    "'$pl_clause_q'(M,X,B,R):-var(M),!,call(clause(M:X,B,R)).\n"
+    "'$pl_clause_q'(_,X,B,R):-nonvar(X),X=(M:Y),!,'$pl_clause_q'(M,Y,B,R).\n"
+    "'$pl_clause_q'(M,X,B,R):-(atom(M),'$mod_q1'(M,X,QX)->true;QX=X),clause(QX,B,R).\n"
     "'$pl_decl_flag'(H,F):-'$pl_decl_head'(H,N,A),catch('$pl_decl'(N,A,F),error(existence_error(_,_),_),fail),!.\n"
     "'$pl_decl_head'(H,N,A):-nonvar(H),H=_:G,!,'$pl_decl_head'(G,N,A).\n"
     "'$pl_decl_head'(H,N,A):-callable(H),functor(H,N,A).\n"
@@ -4982,6 +4988,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
+    if (pl_cv_has(&referenced, "clause")) { pl_cv_add(&referenced, "$pl_clause_q"); pl_cv_add(&referenced, "$mod_q1"); }
     if (pl_cv_has(&referenced, "predicate_property")) { pl_cv_add(&referenced, "$pl_decl_flag"); pl_cv_add(&referenced, "$pl_imported_from"); }
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");

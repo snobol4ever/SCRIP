@@ -5332,6 +5332,48 @@ static const tree_t * pl_blockop_rewrite(const tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_clauseq_goal_arg(const char * f, int n, int i) {
+    if (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->")) return n == 2;
+    if (!strcmp(f, ":") || !strcmp(f, "^")) return n == 2 && i == 1;
+    if (!strcmp(f, "\\+") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "not") || !strcmp(f, "call")) return n == 1 && i == 0;
+    if (!strcmp(f, "findall") || !strcmp(f, "bagof") || !strcmp(f, "setof")) return (n == 3 || n == 4) && i == 1;
+    if (!strcmp(f, "forall")) return n == 2;
+    if (!strcmp(f, "aggregate_all")) return (n == 3 && i == 1) || (n == 4 && i == 2);
+    if (!strcmp(f, "catch")) return n == 3 && (i == 0 || i == 2);
+    if (!strcmp(f, "setup_call_cleanup")) return n == 3;
+    if (!strcmp(f, "call_cleanup")) return n == 2;
+    return 0;
+}
+static const tree_t * pl_clauseq_walk(const tree_t * t, int g, int har) {
+    if (!t) return t;
+    {
+        const tree_t * k[t->n + 1];
+        int ch = 0;
+        int ar = (t->t == TT_CHOICE && t->v.sval && strrchr(t->v.sval, '/')) ? atoi(strrchr(t->v.sval, '/') + 1) : -1;
+        for (int i = 0; i < t->n; i++) {
+            int cg = 0;
+            if (t->t == TT_CLAUSE) cg = har >= 0 && i >= har;
+            else if (g && t->t == TT_FNC && t->v.sval) cg = pl_clauseq_goal_arg(t->v.sval, t->n, i);
+            else if (g && (t->t == TT_IF || t->t == TT_PROGRAM)) cg = 1;
+            k[i] = pl_clauseq_walk(t->c[i], cg, ar);
+            ch |= k[i] != t->c[i];
+        }
+        if (g && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "clause") && (t->n == 2 || t->n == 3) && k[0] && k[0]->t == TT_FNC && k[0]->v.sval && !strcmp(k[0]->v.sval, ":") && k[0]->n == 2 &&
+            k[0]->c[0] && k[0]->c[1]) {
+            tree_t * f = ast_node_new(TT_FNC);
+            f->v.sval = (char *) "$pl_clause_q";
+            f->line = t->line;
+            ast_push(f, (tree_t *) k[0]->c[0]);
+            ast_push(f, (tree_t *) k[0]->c[1]);
+            for (int i = 1; i < t->n; i++) ast_push(f, (tree_t *) k[i]);
+            return f;
+        }
+        if (!ch) return t;
+        { tree_t * c = ast_node_new(t->t); c->v = t->v; c->line = t->line; c->slen = t->slen; for (int i = 0; i < t->n; i++) ast_push(c, (tree_t *) k[i]); return c; }
+    }
+}
+static const tree_t * pl_clauseq_rewrite(const tree_t * t) { return pl_clauseq_walk(t, 0, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_rs_dyn(const tree_t * spec) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_rs_dyn(spec->c[0]); pl_rs_dyn(spec->c[1]); return; }
@@ -6566,6 +6608,7 @@ static void pl_poll_alpha_mark(int bb0) {
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
+    if (g_stage2.pl_dialect == PL_DIALECT_SWI) prog = pl_clauseq_rewrite(prog);
     prog = pl_ssu_rewrite(prog);
     prog = pl_det_rewrite(prog);
     prog = pl_dict_rewrite(prog);
