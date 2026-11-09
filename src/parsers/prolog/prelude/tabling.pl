@@ -10,9 +10,10 @@
     heap (they outlive the call), the current delay list is one trailed root word ('$tbl_dlget'/'$tbl_dlset', the cto's 2026-10-14 ruling), and the incremental
     predicates are '$tbl_incrp'/1 facts. THE GRAPH (ARCH-PROLOG-TABLING-IDG.md, the cto, R-1960): slot 1's d/6 carries idg(Kind,Deps,False,Queue,Forced) per table;
     cell 9 of a pass is its Deps; '$tbl_dcall' records a dynamic source and '$tbl_dchange' is the one change entry; a monotonic step is a semi-naive run under mono(Src,R,Delta) in cell 6. */
-:- module(tabling, [ '$tbl_call'/2, '$tbl_icall'/2, '$tbl_isincr'/1, '$tbl_incrs'/1, '$incr_inval'/0, '$incr_guard'/2, '$incr_drop'/3, subgoal_property/2, '$tbl_vmap'/2, incr_assert/1, incr_asserta/1, incr_assertz/1, incr_retract/1, incr_retractall/1, incr_invalidate_calls/1, incr_invalidate_call/1, xwam_state/2, '$tbl_mcall'/3, '$tbl_get'/4, '$tbl_valid'/4, '$tbl_noattv'/1, '$tbh_v'/3, '$tbl_dl'/1, '$tbl_msplit'/7, '$tbl_mindex'/1, '$tbl_mcheck'/1, '$tbl_mterm'/2, '$tbl_enter'/6, '$tbl_leading'/0, '$tbl_inprog'/1, '$tbl_lead'/1, '$tbl_eval1'/1, '$tbl_cycg'/1, '$tbl_restrain'/2, '$tbl_rs'/1, '$tbl_rsa'/2, '$tbl_gdeeper'/2, '$tbl_deeper'/2, '$tbl_atrip'/1, '$tbl_trip'/1, '$tbl_trip'/2, '$tbl_ans2'/3, '$tbl_chk'/2, '$tbl_chk2'/3, '$tbl_eval1n'/1, '$tbl_nest'/4, '$tbl_dup'/1, '$tbl_scc'/4, '$tbl_indep'/2, '$tbl_srounds'/1, '$tbl_upto'/4, '$tbl_fin_all'/1, '$tbl_depn'/1, '$tbl_pos'/2, '$tbl_idx'/4, '$tbl_dmin'/3, '$tbl_done'/1, '$tbl_wfsrun'/0, '$tbl_alt'/1, '$tbl_alt2'/2, '$tbl_reset'/1, '$tbl_renew'/3, '$tbl_count'/3, '$tbl_snapw'/2, '$tbl_snapins'/2, '$tbl_final'/1, '$tbl_final1'/1, '$tbl_wdrop'/1, '$tbl_finvals'/2, tnot/1, '$tnot_split'/2, '$tnot_impl'/2, '$tnot_st'/3, '$tnot_u'/2, '$tnot_i'/3, undefined/0, '$tbl undefined'/0, not_exists/1, tabled_call/1, '$tbl tabled_call'/1, use_subsumptive_tabling/0, get_residual/2, call_residual_program/2, '$call_residual_m'/3, '$tbl_rprog'/4, '$tbl_rshare'/3, '$tbl_rcls'/4, '$tbl_rneg'/2, '$tbl_ratoms'/2, '$tbl_resq'/2, '$tbl_rsk'/6, '$tbl_rval'/2, '$tbl_answered'/1, '$tbl_resid'/3, sk_not/1, get_calls/3, get_returns/2, get_call/3, get_returns_and_dls/3, '$grd'/3, '$grd_u'/3, excess_vars/4, '$xs_q'/4, '$xs_minus'/3, '$xs_memv'/2, get_returns/3, '$gr_idx'/4, get_returns_for_call/2, '$tbl_unql'/2, '$tbl_unqe'/2, call_delays/2, '$call_delays_m'/3, '$tbl_unqlm'/3, '$tbl_unqem'/3, '$tbl_conj'/2, '$tbl_del'/3, '$tbl_rounds'/0, '$tbl_round'/3, '$tbl_eval'/2, '$tbl_gshort'/2, '$tbl_runs'/5, '$tbl_run'/5, '$tbl_app'/3, '$tbl_snap'/2, '$tbl_snapat'/3, '$tbl_slice'/2, '$tbl_use'/1, '$tbl_range'/3, '$tbl_addk'/5, '$tbl_mcond'/3, '$tbl_unpair'/2, '$tbl_radd'/5, '$tbl_rput'/5, '$tbl_rhas'/2, '$tbl_fa'/3, '$tbl_ph'/1, '$tbl_raise'/0, '$tbl_dlpush'/1, '$tbl_w'/2, '$tbl_wany'/2, '$tbl_wtin'/2, '$tbl_add'/5, '$tbl_answer'/2, '$tbl_aval'/4, '$tbl_ucons'/2, '$tbl_manswer'/4, '$tbl_madd'/6, '$tbl_mput'/6, '$tbl_mfirst'/4, '$tbl_mjoin'/6, '$tbl_mwrite'/4,'$tbl_same'/2, '$tbl_mupd'/4, '$tbl_mupds'/4, '$tbl_mupd1'/4, '$tbl_mclos'/2, '$tbl_complete'/1, '$tbl_abort'/0, '$tbl_drop'/2, '$tbl_dgoal'/2, abolish_all_tables/0, '$tbl_drop_all'/1, '$tbl_local_variant_table'/1, current_table/2, '$tbl_strip'/3, '$tbl_lookup'/4, '$tbl_qual'/3, '$tbl_unqual'/3, '$tbl_table_status'/4, '$idg_forced'/1, '$idg_mono_affects_lazy'/5, transaction/1, transaction_updates/1, snapshot/1 ]).
+:- module(tabling, [ '$tbl_call'/2, '$tbl_icall'/2, '$tbl_isincr'/1, '$tbl_incrs'/1, '$incr_inval'/0, '$incr_guard'/2, '$incr_drop'/3, subgoal_property/2, '$tbl_vmap'/2, incr_assert/1, incr_asserta/1, incr_assertz/1, incr_retract/1, incr_retractall/1, incr_invalidate_calls/1, incr_invalidate_call/1, xwam_state/2, '$tbl_mcall'/3, '$tbl_get'/4, '$tbl_valid'/4, '$tbl_cmpl'/1, '$tbl_sameset'/2, '$tbl_rebind'/3, '$tbl_rebind1'/4, '$tbl_revalid'/2, '$tbl_revalid1'/2, '$tbl_depsok'/1, '$tbl_noattv'/1, '$tbh_v'/3, '$tbl_dl'/1, '$tbl_msplit'/7, '$tbl_mindex'/1, '$tbl_mcheck'/1, '$tbl_mterm'/2, '$tbl_enter'/6, '$tbl_leading'/0, '$tbl_inprog'/1, '$tbl_lead'/1, '$tbl_eval1'/1, '$tbl_cycg'/1, '$tbl_restrain'/2, '$tbl_rs'/1, '$tbl_rsa'/2, '$tbl_gdeeper'/2, '$tbl_deeper'/2, '$tbl_atrip'/1, '$tbl_trip'/1, '$tbl_trip'/2, '$tbl_ans2'/3, '$tbl_chk'/2, '$tbl_chk2'/3, '$tbl_eval1n'/1, '$tbl_nest'/4, '$tbl_dup'/1, '$tbl_scc'/4, '$tbl_indep'/2, '$tbl_srounds'/1, '$tbl_upto'/4, '$tbl_fin_all'/1, '$tbl_depn'/1, '$tbl_pos'/2, '$tbl_idx'/4, '$tbl_dmin'/3, '$tbl_done'/1, '$tbl_wfsrun'/0, '$tbl_alt'/1, '$tbl_alt2'/2, '$tbl_reset'/1, '$tbl_renew'/3, '$tbl_count'/3, '$tbl_snapw'/2, '$tbl_snapins'/2, '$tbl_final'/1, '$tbl_final1'/1, '$tbl_wdrop'/1, '$tbl_finvals'/2, tnot/1, '$tnot_split'/2, '$tnot_impl'/2, '$tnot_st'/3, '$tnot_u'/2, '$tnot_i'/3, undefined/0, '$tbl undefined'/0, not_exists/1, tabled_call/1, '$tbl tabled_call'/1, use_subsumptive_tabling/0, get_residual/2, call_residual_program/2, '$call_residual_m'/3, '$tbl_rprog'/4, '$tbl_rshare'/3, '$tbl_rcls'/4, '$tbl_rneg'/2, '$tbl_ratoms'/2, '$tbl_resq'/2, '$tbl_rsk'/6, '$tbl_rval'/2, '$tbl_answered'/1, '$tbl_resid'/3, sk_not/1, get_calls/3, get_returns/2, get_call/3, get_returns_and_dls/3, '$grd'/3, '$grd_u'/3, excess_vars/4, '$xs_q'/4, '$xs_minus'/3, '$xs_memv'/2, get_returns/3, '$gr_idx'/4, get_returns_for_call/2, '$tbl_unql'/2, '$tbl_unqe'/2, call_delays/2, '$call_delays_m'/3, '$tbl_unqlm'/3, '$tbl_unqem'/3, '$tbl_conj'/2, '$tbl_del'/3, '$tbl_rounds'/0, '$tbl_round'/3, '$tbl_eval'/2, '$tbl_gshort'/2, '$tbl_runs'/5, '$tbl_run'/5, '$tbl_app'/3, '$tbl_snap'/2, '$tbl_snapat'/3, '$tbl_slice'/2, '$tbl_use'/1, '$tbl_range'/3, '$tbl_addk'/5, '$tbl_mcond'/3, '$tbl_unpair'/2, '$tbl_radd'/5, '$tbl_rput'/5, '$tbl_rhas'/2, '$tbl_fa'/3, '$tbl_ph'/1, '$tbl_raise'/0, '$tbl_dlpush'/1, '$tbl_w'/2, '$tbl_wany'/2, '$tbl_wtin'/2, '$tbl_add'/5, '$tbl_answer'/2, '$tbl_aval'/4, '$tbl_ucons'/2, '$tbl_manswer'/4, '$tbl_madd'/6, '$tbl_mput'/6, '$tbl_mfirst'/4, '$tbl_mjoin'/6, '$tbl_mwrite'/4,'$tbl_same'/2, '$tbl_mupd'/4, '$tbl_mupds'/4, '$tbl_mupd1'/4, '$tbl_mclos'/2, '$tbl_complete'/1, '$tbl_abort'/0, '$tbl_drop'/2, '$tbl_dgoal'/2, abolish_all_tables/0, '$tbl_drop_all'/1, '$tbl_local_variant_table'/1, current_table/2, '$tbl_strip'/3, '$tbl_lookup'/4, '$tbl_qual'/3, '$tbl_unqual'/3, '$tbl_table_status'/4, '$idg_forced'/1, '$idg_mono_affects_lazy'/5, transaction/1, transaction_updates/1, snapshot/1 ]).
 '$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).
 '$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,plain,T1),'$tbl_sl_read'(T1,G).
+'$tbl_sl_get'(old(_),VT,G,I,K,T):-!,'$tbl_sl_get'(none,VT,G,I,K,T).
 '$tbl_sl_get'(none,VT,G,I,K,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),catch('$tbl_sl_run'(T),E,('$tbl_sl_abandon'(T),throw(E))).
 '$tbl_sl_abandon'(T):- \+ catch('$trie_meta_get'(T,0,incomplete),_,fail),!.
 '$tbl_sl_abandon'(T):-'$tbl_sl'(6,T,Ts),'$tbl_vt'(VT),forall(member(X,Ts),('$trie_meta_get'(X,1,d(G,_,_,_,_,_))->ignore('$trie_delete'(VT,G,_));true)).
@@ -212,7 +213,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_mcall'(G,I,S,TK):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),TK,T),'$tbl_manswer'(T,Xs,Ma,G).
 '$tbl_get'(G,I,K,TK,T1):-'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_restrain'(T,G),'$tbl_enter'(T,VT,G,I,K,TK,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).
 '$tbl_valid'(T0,_,_,T0):-'$tbl_soft'(T0),!,'$tbl_force'(T0).
-'$tbl_valid'(T0,VT,G,none):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).
+'$tbl_valid'(T0,VT,G,old(T0)):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).
 '$tbl_valid'(T,_,_,T).
 '$tbl_noattv'(G):-term_attvars(G,[]),!.
 '$tbl_noattv'(G):-throw(error(type_error(free_of_attvar,G),_)).
@@ -228,6 +229,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_mcheck'([C|Cs]):-(var(C)->'$tbl_mcheck'(Cs);throw(error(uninstantiation_error(C),_))).
 '$tbl_mterm'([X],X):-!.
 '$tbl_mterm'(L,T):-T=..[s|L].
+'$tbl_enter'(old(T0),VT,G,I,K,TK,T):-!,(TK==incr->Fo=old(T0);Fo=false),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(TK,[],0,[],Fo))),'$trie_insert'(VT,0,G,T,_),('$tbh_leading'->'$tbl_inprog'(Ts),'$tbh_set'(1,[T|Ts]),'$tbl_eval1n'(T);'$tbl_lead'(T)).
 '$tbl_enter'(none,VT,G,I,K,TK,T):-!,'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(TK,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),('$tbh_leading'->'$tbl_inprog'(Ts),'$tbh_set'(1,[T|Ts]),'$tbl_eval1n'(T);'$tbl_lead'(T)).
 '$tbl_enter'(T,_,_,_,_,_,T).
 '$tbl_leading':-'$tbh_leading'.
@@ -271,7 +273,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_upto'([],_,[],[]).
 '$tbl_upto'([K|Ks],T,Us,Rest):-(K==T->Us=[K],Rest=Ks;Us=[K|Us1],'$tbl_upto'(Ks,T,Us1,Rest)).
 '$tbl_fin_all'([]).
-'$tbl_fin_all'([K|Ks]):-('$tbl_ph'(r)->'$tbl_final1'(K);true),'$trie_meta_set'(K,0,complete),'$tbl_fin_all'(Ks).
+'$tbl_fin_all'([K|Ks]):-('$tbl_ph'(r)->'$tbl_final1'(K);true),'$trie_meta_set'(K,0,complete),'$tbl_cmpl'(K),'$tbl_fin_all'(Ks).
 '$tbl_depn'(T):-'$tbl_pos'(T,P),'$tbh_v'(5,false,D0),'$tbl_dmin'(D0,P,D),'$tbh_set'(5,D).
 '$tbl_pos'(T,P):-'$tbl_inprog'(Ts),length(Ts,L),'$tbl_idx'(Ts,T,0,I),!,P is L-I.
 '$tbl_pos'(_,0).
@@ -279,7 +281,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_dmin'(false,B,B):-!.
 '$tbl_dmin'(A,false,A):-!.
 '$tbl_dmin'(A,B,C):-C is min(A,B).
-'$tbl_done'(T):-('$tbl_ph'(r)->'$tbl_final1'(T);true),'$trie_meta_set'(T,0,complete),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),'$tbh_set'(1,Ts1).
+'$tbl_done'(T):-('$tbl_ph'(r)->'$tbl_final1'(T);true),'$trie_meta_set'(T,0,complete),'$tbl_cmpl'(T),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),'$tbh_set'(1,Ts1).
 '$tbl_wfsrun':-'$tbh_v'(2,false,F),(F==true->'$tbl_alt'(0);true).
 '$tbl_alt'(N0):-'$tbl_inprog'(Ts),'$tbl_snapw'(Ts,u),'$tbh_set'(4,false),'$tbl_reset'(t),'$tbl_rounds','$tbh_v'(4,false,WN),'$tbl_alt2'(WN,N0).
 '$tbl_alt2'(true,N0):-!,'$tbl_reset'(u),'$tbl_rounds','$tbl_alt'(N0).
@@ -301,6 +303,7 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).
 tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),'$tnot_kind'(G1,plain),!,'$tbl_sl_ncall'(G1,I).
 '$tbl_sl_ncall'(G,I):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_nget'(T,VT,G,I).
+'$tbl_sl_nget'(old(_),VT,G,I):-!,'$tbl_sl_nget'(none,VT,G,I).
 '$tbl_sl_nget'(none,VT,G,I):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_nrun'(T,G).
 '$tbl_sl_nget'(T,_,G,_):-'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).
 '$tbl_sl_nrun'(T,G):-('$tbl_sl_gen0'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T),'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).
@@ -467,7 +470,18 @@ call_delays(G,D):-'$call_delays_m'(user,G,D).
 '$tbl_mclos'(H,N):-compound(H),!,functor(H,N,_).
 '$tbl_mclos'(N,N).
 '$tbl_complete'([]).
-'$tbl_complete'([T|Ts]):-'$trie_meta_set'(T,0,complete),'$tbl_complete'(Ts).
+'$tbl_complete'([T|Ts]):-'$trie_meta_set'(T,0,complete),'$tbl_cmpl'(T),'$tbl_complete'(Ts).
+'$tbl_cmpl'(T):-'$tbl_idg'(T,idg(TK,Dp,Fc,Q,old(T0))),!,'$tbl_idg_put'(T,idg(TK,Dp,Fc,Q,false)),('$tbl_sameset'(T0,T)->'$tbl_revalid'(T0,T);'$tbl_rebind'(T0,T,dirty)),'$trie_destroy'(T0).
+'$tbl_cmpl'(_).
+'$tbl_sameset'(A,B):-'$trie_entries'(A,La),'$trie_entries'(B,Lb),length(La,N),length(Lb,N),'$tbl_chg'(Lb,La,[]).
+'$tbl_rebind'(T0,T,Mark):-'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$tbl_rebind1'(Es,T0,T,Mark).
+'$tbl_rebind1'([],_,_,_).
+'$tbl_rebind1'([e(_,_,T2)|Es],T0,T,Mark):-('$tbl_idg'(T2,idg(TK,Dp,Fc,Q,Fo)),memberchk(T0,Dp)->'$tbl_del'(Dp,T0,Dp1),(Mark==dirty,TK==incr->Fo1=dirty;Fo1=Fo),'$tbl_idg_put'(T2,idg(TK,[T|Dp1],Fc,Q,Fo1));true),'$tbl_rebind1'(Es,T0,T,Mark).
+'$tbl_revalid'(T0,T):-'$tbl_rebind'(T0,T,keep),'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$tbl_revalid1'(Es,T).
+'$tbl_revalid1'([],_).
+'$tbl_revalid1'([e(_,_,T2)|Es],T):-('$tbl_idg'(T2,idg(incr,Dp,_,_,Fo)),memberchk(T,Dp),Fo\==dirty,'$trie_meta_get'(T2,0,invalid),'$tbl_depsok'(Dp)->'$trie_meta_set'(T2,0,complete),'$tbl_revalid'(T2,T2);true),'$tbl_revalid1'(Es,T).
+'$tbl_depsok'([]).
+'$tbl_depsok'([D|Ds]):-(D=dyn(_)->true;'$trie_meta_get'(D,0,complete)),'$tbl_depsok'(Ds).
 '$tbl_abort':-'$tbl_inprog'(Ts),'$tbl_vt'(VT),'$tbl_drop'(Ts,VT),'$tbh_set'(1,[]).
 '$tbl_drop'([],_).
 '$tbl_drop'([T|Ts],VT):-('$tbl_dgoal'(T,G),'$trie_delete'(VT,G,_)->true;true),'$trie_destroy'(T),'$tbl_drop'(Ts,VT).

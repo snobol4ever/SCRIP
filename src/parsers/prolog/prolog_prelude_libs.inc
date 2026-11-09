@@ -34867,6 +34867,13 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "xwam_state", 2 },
     { "$tbl_mcall", 3 },
     { "$tbl_valid", 4 },
+    { "$tbl_cmpl", 1 },
+    { "$tbl_sameset", 2 },
+    { "$tbl_rebind", 3 },
+    { "$tbl_rebind1", 4 },
+    { "$tbl_revalid", 2 },
+    { "$tbl_revalid1", 2 },
+    { "$tbl_depsok", 1 },
     { "$tbl_noattv", 1 },
     { "$tbh_v", 3 },
     { "$tbl_dl", 1 },
@@ -35039,6 +35046,7 @@ static const pl_prelude_lib_meta_t PL_PRELUDE_LIB_76_METAS[] = {
 static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,plain):-!,'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_get'(T,VT,G,I,plain,T1),'$tbl_sl_read'(T1,G).\n"
+    "'$tbl_sl_get'(old(_),VT,G,I,K,T):-!,'$tbl_sl_get'(none,VT,G,I,K,T).\n"
     "'$tbl_sl_get'(none,VT,G,I,K,T):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),catch('$tbl_sl_run'(T),E,('$tbl_sl_abandon'(T),throw(E))).\n"
     "'$tbl_sl_abandon'(T):- \\+ catch('$trie_meta_get'(T,0,incomplete),_,fail),!.\n"
     "'$tbl_sl_abandon'(T):-'$tbl_sl'(6,T,Ts),'$tbl_vt'(VT),forall(member(X,Ts),('$trie_meta_get'(X,1,d(G,_,_,_,_,_))->ignore('$trie_delete'(VT,G,_));true)).\n"
@@ -35238,7 +35246,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_mcall'(G,I,S,TK):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),TK,T),'$tbl_manswer'(T,Xs,Ma,G).\n"
     "'$tbl_get'(G,I,K,TK,T1):-'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_restrain'(T,G),'$tbl_enter'(T,VT,G,I,K,TK,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).\n"
     "'$tbl_valid'(T0,_,_,T0):-'$tbl_soft'(T0),!,'$tbl_force'(T0).\n"
-    "'$tbl_valid'(T0,VT,G,none):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).\n"
+    "'$tbl_valid'(T0,VT,G,old(T0)):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).\n"
     "'$tbl_valid'(T,_,_,T).\n"
     "'$tbl_noattv'(G):-term_attvars(G,[]),!.\n"
     "'$tbl_noattv'(G):-throw(error(type_error(free_of_attvar,G),_)).\n"
@@ -35254,6 +35262,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_mcheck'([C|Cs]):-(var(C)->'$tbl_mcheck'(Cs);throw(error(uninstantiation_error(C),_))).\n"
     "'$tbl_mterm'([X],X):-!.\n"
     "'$tbl_mterm'(L,T):-T=..[s|L].\n"
+    "'$tbl_enter'(old(T0),VT,G,I,K,TK,T):-!,(TK==incr->Fo=old(T0);Fo=false),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(TK,[],0,[],Fo))),'$trie_insert'(VT,0,G,T,_),('$tbh_leading'->'$tbl_inprog'(Ts),'$tbh_set'(1,[T|Ts]),'$tbl_eval1n'(T);'$tbl_lead'(T)).\n"
     "'$tbl_enter'(none,VT,G,I,K,TK,T):-!,'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none,idg(TK,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),('$tbh_leading'->'$tbl_inprog'(Ts),'$tbh_set'(1,[T|Ts]),'$tbl_eval1n'(T);'$tbl_lead'(T)).\n"
     "'$tbl_enter'(T,_,_,_,_,_,T).\n"
     "'$tbl_leading':-'$tbh_leading'.\n"
@@ -35297,7 +35306,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_upto'([],_,[],[]).\n"
     "'$tbl_upto'([K|Ks],T,Us,Rest):-(K==T->Us=[K],Rest=Ks;Us=[K|Us1],'$tbl_upto'(Ks,T,Us1,Rest)).\n"
     "'$tbl_fin_all'([]).\n"
-    "'$tbl_fin_all'([K|Ks]):-('$tbl_ph'(r)->'$tbl_final1'(K);true),'$trie_meta_set'(K,0,complete),'$tbl_fin_all'(Ks).\n"
+    "'$tbl_fin_all'([K|Ks]):-('$tbl_ph'(r)->'$tbl_final1'(K);true),'$trie_meta_set'(K,0,complete),'$tbl_cmpl'(K),'$tbl_fin_all'(Ks).\n"
     "'$tbl_depn'(T):-'$tbl_pos'(T,P),'$tbh_v'(5,false,D0),'$tbl_dmin'(D0,P,D),'$tbh_set'(5,D).\n"
     "'$tbl_pos'(T,P):-'$tbl_inprog'(Ts),length(Ts,L),'$tbl_idx'(Ts,T,0,I),!,P is L-I.\n"
     "'$tbl_pos'(_,0).\n"
@@ -35305,7 +35314,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_dmin'(false,B,B):-!.\n"
     "'$tbl_dmin'(A,false,A):-!.\n"
     "'$tbl_dmin'(A,B,C):-C is min(A,B).\n"
-    "'$tbl_done'(T):-('$tbl_ph'(r)->'$tbl_final1'(T);true),'$trie_meta_set'(T,0,complete),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),'$tbh_set'(1,Ts1).\n"
+    "'$tbl_done'(T):-('$tbl_ph'(r)->'$tbl_final1'(T);true),'$trie_meta_set'(T,0,complete),'$tbl_cmpl'(T),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),'$tbh_set'(1,Ts1).\n"
     "'$tbl_wfsrun':-'$tbh_v'(2,false,F),(F==true->'$tbl_alt'(0);true).\n"
     "'$tbl_alt'(N0):-'$tbl_inprog'(Ts),'$tbl_snapw'(Ts,u),'$tbh_set'(4,false),'$tbl_reset'(t),'$tbl_rounds','$tbh_v'(4,false,WN),'$tbl_alt2'(WN,N0).\n"
     "'$tbl_alt2'(true,N0):-!,'$tbl_reset'(u),'$tbl_rounds','$tbl_alt'(N0).\n"
@@ -35327,6 +35336,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).\n"
     "tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),'$tnot_kind'(G1,plain),!,'$tbl_sl_ncall'(G1,I).\n"
     "'$tbl_sl_ncall'(G,I):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T0)->'$tbl_valid'(T0,VT,G,T);T=none),'$tbl_sl_nget'(T,VT,G,I).\n"
+    "'$tbl_sl_nget'(old(_),VT,G,I):-!,'$tbl_sl_nget'(none,VT,G,I).\n"
     "'$tbl_sl_nget'(none,VT,G,I):-!,'$tbl_restrain'(none,G),'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,plain,none,none,idg(plain,[],0,[],false))),'$trie_insert'(VT,0,G,T,_),'$tbl_sl'(1,T,_),'$tbl_sl_nrun'(T,G).\n"
     "'$tbl_sl_nget'(T,_,G,_):-'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).\n"
     "'$tbl_sl_nrun'(T,G):-('$tbl_sl_gen0'(T),fail;'$tbl_sl'(4,T,_),'$tbl_resume_all'(T);true),!,'$tbl_sl_after'(T),'$trie_meta_get'(T,0,S),'$tbl_sl_tnot'(S,T,G).\n"
@@ -35493,7 +35503,18 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tbl_mclos'(H,N):-compound(H),!,functor(H,N,_).\n"
     "'$tbl_mclos'(N,N).\n"
     "'$tbl_complete'([]).\n"
-    "'$tbl_complete'([T|Ts]):-'$trie_meta_set'(T,0,complete),'$tbl_complete'(Ts).\n"
+    "'$tbl_complete'([T|Ts]):-'$trie_meta_set'(T,0,complete),'$tbl_cmpl'(T),'$tbl_complete'(Ts).\n"
+    "'$tbl_cmpl'(T):-'$tbl_idg'(T,idg(TK,Dp,Fc,Q,old(T0))),!,'$tbl_idg_put'(T,idg(TK,Dp,Fc,Q,false)),('$tbl_sameset'(T0,T)->'$tbl_revalid'(T0,T);'$tbl_rebind'(T0,T,dirty)),'$trie_destroy'(T0).\n"
+    "'$tbl_cmpl'(_).\n"
+    "'$tbl_sameset'(A,B):-'$trie_entries'(A,La),'$trie_entries'(B,Lb),length(La,N),length(Lb,N),'$tbl_chg'(Lb,La,[]).\n"
+    "'$tbl_rebind'(T0,T,Mark):-'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$tbl_rebind1'(Es,T0,T,Mark).\n"
+    "'$tbl_rebind1'([],_,_,_).\n"
+    "'$tbl_rebind1'([e(_,_,T2)|Es],T0,T,Mark):-('$tbl_idg'(T2,idg(TK,Dp,Fc,Q,Fo)),memberchk(T0,Dp)->'$tbl_del'(Dp,T0,Dp1),(Mark==dirty,TK==incr->Fo1=dirty;Fo1=Fo),'$tbl_idg_put'(T2,idg(TK,[T|Dp1],Fc,Q,Fo1));true),'$tbl_rebind1'(Es,T0,T,Mark).\n"
+    "'$tbl_revalid'(T0,T):-'$tbl_rebind'(T0,T,keep),'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$tbl_revalid1'(Es,T).\n"
+    "'$tbl_revalid1'([],_).\n"
+    "'$tbl_revalid1'([e(_,_,T2)|Es],T):-('$tbl_idg'(T2,idg(incr,Dp,_,_,Fo)),memberchk(T,Dp),Fo\\==dirty,'$trie_meta_get'(T2,0,invalid),'$tbl_depsok'(Dp)->'$trie_meta_set'(T2,0,complete),'$tbl_revalid'(T2,T2);true),'$tbl_revalid1'(Es,T).\n"
+    "'$tbl_depsok'([]).\n"
+    "'$tbl_depsok'([D|Ds]):-(D=dyn(_)->true;'$trie_meta_get'(D,0,complete)),'$tbl_depsok'(Ds).\n"
     "'$tbl_abort':-'$tbl_inprog'(Ts),'$tbl_vt'(VT),'$tbl_drop'(Ts,VT),'$tbh_set'(1,[]).\n"
     "'$tbl_drop'([],_).\n"
     "'$tbl_drop'([T|Ts],VT):-('$tbl_dgoal'(T,G),'$trie_delete'(VT,G,_)->true;true),'$trie_destroy'(T),'$tbl_drop'(Ts,VT).\n"
@@ -37307,6 +37328,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$tbl_call", 9, 2, 76 },
     { "$tbl_chk", 8, 2, 76 },
     { "$tbl_chk2", 9, 3, 76 },
+    { "$tbl_cmpl", 9, 1, 76 },
     { "$tbl_complete", 13, 1, 76 },
     { "$tbl_conj", 9, 2, 76 },
     { "$tbl_count", 10, 3, 76 },
@@ -37314,6 +37336,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$tbl_deeper", 11, 2, 76 },
     { "$tbl_del", 8, 3, 76 },
     { "$tbl_depn", 9, 1, 76 },
+    { "$tbl_depsok", 11, 1, 76 },
     { "$tbl_dgoal", 10, 2, 76 },
     { "$tbl_dl", 7, 1, 76 },
     { "$tbl_dlpush", 11, 1, 76 },
@@ -37368,11 +37391,15 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$tbl_range", 10, 3, 76 },
     { "$tbl_ratoms", 11, 2, 76 },
     { "$tbl_rcls", 9, 4, 76 },
+    { "$tbl_rebind", 11, 3, 76 },
+    { "$tbl_rebind1", 12, 4, 76 },
     { "$tbl_renew", 10, 3, 76 },
     { "$tbl_reset", 10, 1, 76 },
     { "$tbl_resid", 10, 3, 76 },
     { "$tbl_resq", 9, 2, 76 },
     { "$tbl_restrain", 13, 2, 76 },
+    { "$tbl_revalid", 12, 2, 76 },
+    { "$tbl_revalid1", 13, 2, 76 },
     { "$tbl_rhas", 9, 2, 76 },
     { "$tbl_rneg", 9, 2, 76 },
     { "$tbl_round", 10, 3, 76 },
@@ -37387,6 +37414,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$tbl_runs", 9, 5, 76 },
     { "$tbl_rval", 9, 2, 76 },
     { "$tbl_same", 9, 2, 76 },
+    { "$tbl_sameset", 12, 2, 76 },
     { "$tbl_scc", 8, 4, 76 },
     { "$tbl_slice", 10, 2, 76 },
     { "$tbl_snap", 9, 2, 76 },
