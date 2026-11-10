@@ -22,6 +22,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <sys/prctl.h>
 #include "parsers/snobol4/scrip_cc.h"
 #include "parsers/snocone/snocone_driver.h"
 #include "parsers/prolog/prolog_driver.h"
@@ -1936,10 +1937,403 @@ static int scrip_harness_cli(char * self, const char * mode, int ac, char ** av)
     return keep;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct scrip_rl_t {
+    const char * name;
+    const char * ext;
+    const char * prog;
+    size_t plen;
+    const char * in;
+    size_t inlen;
+    char ** args;
+    int nargs;
+    char ** ca;
+    int nca;
+    const char * heap;
+    const char * stack;
+    double tmo;
+    int one;
+    int staged;
+    int nonl;
+    int sel;
+} scrip_rl_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_refuse(const char * why, const char * what) { fprintf(stderr, "scrip: REFUSE(2): %s '%s'\n", why, what ? what : ""); return 2; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * scrip_rl_slurp(const char * path, size_t * len) {
+    struct stat sb;
+    int fd = open(path, O_RDONLY);
+    if (fd < 0 || fstat(fd, &sb) < 0) { if (fd >= 0) close(fd); return (char *)0; }
+    char * b = (char *) ct_alloc((size_t) sb.st_size + 1);
+    ssize_t got = 0, r = 0;
+    while (got < sb.st_size && (r = read(fd, b + got, (size_t)(sb.st_size - got))) > 0) got += r;
+    close(fd);
+    b[got] = '\0';
+    *len = (size_t) got;
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_put(const char * path, const char * b, size_t n) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) return -1;
+    size_t got = 0;
+    ssize_t w = 0;
+    while (got < n && (w = write(fd, b + got, n - got)) > 0) got += (size_t) w;
+    return close(fd) == 0 && got == n ? 0 : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * scrip_rl_cell(char ** pp, char * end, int * eor) {
+    char * p = *pp, * w = p, * c = p;
+    if (p < end && *p == '"') { for (p++; p < end; p++) { if (*p == '"' && p + 1 < end && p[1] == '"') { *w++ = '"'; p++; } else if (*p == '"') { p++; break; } else *w++ = *p; } }
+    while (p < end && *p != ',' && *p != '\n') *w++ = *p++;
+    *eor = p >= end || *p == '\n';
+    if (p < end) p++;
+    *w = '\0';
+    *pp = p;
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_words(char * s, char *** out) {
+    int n = 0, k = 0;
+    for (char * q = s; *q; q++) if (*q != ' ' && (q == s || q[-1] == ' ')) n++;
+    char ** v = (char **) ct_alloc(sizeof(char *) * (size_t)(n + 1));
+    for (char * q = s; *q; q++) { if (*q == ' ') *q = '\0'; else if (q == s || q[-1] == '\0') v[k++] = q; }
+    v[k] = (char *)0;
+    *out = v;
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * scrip_rl_lang(const char * t, size_t n, int col) {
+    const char * const m[] = { "SNOBOL4", "sno", "Icon", "icn", "Prolog", "pl", "Raku", "raku", "Pascal", "pas", "Snocone", "sc", "Rebus", "reb" };
+    for (size_t i = 0; i < sizeof m / sizeof m[0]; i += 2) if (strlen(m[i + col]) == n && !strncmp(t, m[i + col], n)) return m[i + 1];
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_digits(const char * s) { if (!*s) return 0; for (; *s; s++) if (!isdigit((unsigned char) *s)) return 0; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout) {
+    char * p = b, * end = b + len;
+    int nh = 0, eor = 0, nr = 0;
+    for (char * q = b; q < end && *q != '\n'; q++) if (*q == ',') nh++;
+    char ** hd = (char **) ct_alloc(sizeof(char *) * (size_t)(nh + 1));
+    nh = 0;
+    for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
+    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args" };
+    int col[9];
+    for (int w = 0; w < 9; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+    if (col[0] < 0 || col[1] < 0) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
+    int cap = 1;
+    for (char * q = p; q < end; q++) if (*q == '\n') cap++;
+    scrip_rl_t * r = (scrip_rl_t *) ct_zalloc((size_t) cap, sizeof(scrip_rl_t));
+    char ** cv = (char **) ct_alloc(sizeof(char *) * (size_t) nh);
+    while (p < end) {
+        int nc = 0;
+        for (eor = 0; !eor; nc++) { char * c = scrip_rl_cell(&p, end, &eor); if (nc < nh) cv[nc] = c; }
+        for (int h = nc; h < nh; h++) cv[h] = "";
+        if (nc == 1 && !cv[0][0]) continue;
+        scrip_rl_t * t = &r[nr++];
+        t->name = cv[col[0]];
+        if (!strcmp(cv[col[1]], "one")) t->one = 1;
+        else if (strcmp(cv[col[1]], "multi")) return scrip_rl_refuse("the group cell is neither one nor multi for", t->name);
+        if (col[2] >= 0 && !strcmp(cv[col[2]], "staged")) t->staged = 1;
+        else if (col[2] >= 0 && cv[col[2]][0] && strcmp(cv[col[2]], "direct")) return scrip_rl_refuse("the road cell is neither direct nor staged for", t->name);
+        if (col[3] >= 0) { char ** v = (char **)0; int n = scrip_rl_words(cv[col[3]], &v); for (int j = 0; j < n; j++) t->nonl |= !strcmp(v[j], "program") ? 1 : !strcmp(v[j], "stdin") ? 2 : 0; }
+        t->tmo = col[4] >= 0 && cv[col[4]][0] ? atof(cv[col[4]]) : 120.0;
+        if (t->tmo <= 0) return scrip_rl_refuse("the timeout_s cell is not a positive number for", t->name);
+        t->heap = col[5] >= 0 && cv[col[5]][0] ? cv[col[5]] : (const char *)0;
+        t->stack = col[6] >= 0 && cv[col[6]][0] ? cv[col[6]] : (const char *)0;
+        if ((t->heap && !scrip_rl_digits(t->heap)) || (t->stack && !scrip_rl_digits(t->stack))) return scrip_rl_refuse("a heap_kb or stack_kb cell is not a whole number for", t->name);
+        t->nca = col[7] >= 0 ? scrip_rl_words(cv[col[7]], &t->ca) : 0;
+        if (col[8] >= 0 && cv[col[8]][0]) return scrip_rl_refuse("a run_args cell is not empty (format 2 holds arguments in the args fence) for", t->name);
+        t->sel = 1;
+    }
+    *out = r;
+    *nout = nr;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_one(char * b, size_t len, const char * ext, scrip_rl_t * r, int nr) {
+    char * p = b, * end = b + len;
+    int i = 0;
+    while (p < end) {
+        char * e = (char *) memchr(p, '\n', (size_t)(end - p));
+        char * nx = e ? e + 1 : end;
+        while (i < nr && !r[i].one) i++;
+        if (i == nr) return scrip_rl_refuse("ONE holds more lines than the index has one rows, first extra line", p);
+        r[i].prog = p;
+        r[i].plen = (size_t)(nx - p) - ((r[i].nonl & 1) && e ? 1 : 0);
+        r[i].ext = ext;
+        i++;
+        p = nx;
+    }
+    for (; i < nr; i++) if (r[i].one) return scrip_rl_refuse("ONE holds fewer lines than the index has one rows, first without a line", r[i].name);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_fence_tag(const char * t, size_t n, const char ** ext) {
+    const char * const parts[] = { "args", "stdin", "stdout", "stderr" };
+    *ext = scrip_rl_lang(t, n, 0);
+    if (*ext) return 0;
+    for (int k = 0; k < 4; k++) if (strlen(parts[k]) == n && !strncmp(t, parts[k], n)) return k + 1;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_rl_close(scrip_rl_t * t, int tp, int nlang, char * bs, char * cl, char * nx, char * ps) {
+    if (tp == 0 && nlang == 1) { t->prog = bs; t->plen = (size_t)(cl - bs) - ((t->nonl & 1) && cl > bs ? 1 : 0); }
+    if (tp == 0 && nlang > 1) { t->prog = ps; t->plen = (size_t)(nx - ps); t->ext = "md"; }
+    if (tp == 2) { t->in = bs; t->inlen = (size_t)(cl - bs) - ((t->nonl & 2) && cl > bs ? 1 : 0); }
+    if (tp != 1) return;
+    int n = 0, k = 0;
+    for (char * q = bs; q < cl; q++) if (*q == '\n') n++;
+    t->args = (char **) ct_alloc(sizeof(char *) * (size_t)(n + 1));
+    for (char * q = bs; q < cl; q++) if (*q == '\n') { t->args[k++] = bs; *q = '\0'; bs = q + 1; }
+    t->args[k] = (char *)0;
+    t->nargs = k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
+    char * p = b, * end = b + len, * bs = (char *)0, * ps = (char *)0;
+    scrip_rl_t * cur = (scrip_rl_t *)0;
+    int i = 0, in = 0, tp = -1, part = -1, nlang = 0;
+    size_t K = 0;
+    while (p < end) {
+        char * e = (char *) memchr(p, '\n', (size_t)(end - p));
+        char * nx = e ? e + 1 : end;
+        size_t ll = (size_t)((e ? e : end) - p), k = 0;
+        while (k < ll && p[k] == '`') k++;
+        if (in) {
+            if (k == ll && k == K) { in = 0; scrip_rl_close(cur, tp, nlang, bs, p, nx, ps); }
+        } else if (ll >= 3 && p[0] == '#' && p[1] == '#' && p[2] == ' ') {
+            while (i < nr && r[i].one) i++;
+            if (i == nr) return scrip_rl_refuse("MULTI.md holds a heading the index lacks", p + 3);
+            if (ll - 3 != strlen(r[i].name) || strncmp(p + 3, r[i].name, ll - 3)) return scrip_rl_refuse("a MULTI.md heading is not the next multi row of the index, which is", r[i].name);
+            cur = &r[i++];
+            part = -1;
+            nlang = 0;
+        } else if (k > 0) {
+            const char * ext = (const char *)0;
+            if (k < 3 || !cur) return scrip_rl_refuse("a line begins with a backtick and opens no fence in a section", cur ? cur->name : "(before the first heading)");
+            tp = scrip_rl_fence_tag(p + k, ll - k, &ext);
+            if (tp < 0) return scrip_rl_refuse("a fence has an unknown tag in the section", cur->name);
+            if ((tp == 0 && part > 0) || (tp > 0 && tp <= part)) return scrip_rl_refuse("a fence is out of order or repeated in the section", cur->name);
+            if (tp == 0 && nlang++ == 0) { ps = p; cur->ext = ext; }
+            part = tp;
+            in = 1;
+            K = k;
+            bs = nx;
+        } else if (ll && (!cur || part >= 0)) return scrip_rl_refuse("a non-empty line stands outside a fence in the section", cur ? cur->name : "(before the first heading)");
+        p = nx;
+    }
+    if (in) return scrip_rl_refuse("a fence is never closed in the section", cur->name);
+    for (; i < nr; i++) if (!r[i].one) return scrip_rl_refuse("a multi row of the index has no section in MULTI.md", r[i].name);
+    for (i = 0; i < nr; i++) if (!r[i].one && !r[i].prog) return scrip_rl_refuse("a section has no language fence", r[i].name);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_rl_rm(const char * dir, const char * file) {
+    if (file) unlink(file);
+    if (rmdir(dir) == 0 || errno == ENOENT) return;
+    pid_t pid = fork();
+    if (pid == 0) { execlp("rm", "rm", "-rf", "--", dir, (char *)0); _exit(127); }
+    if (pid > 0) waitpid(pid, (int *)0, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_rl_child(int fi, int fo, int fe, int wfd, const char * dir, long cap_mb, const sigset_t * old, char ** av) {
+    sigprocmask(SIG_SETMASK, old, (sigset_t *)0);
+    setpgid(0, 0);
+    struct rlimit rl = { (rlim_t) cap_mb << 20, (rlim_t) cap_mb << 20 }, nc = { 0, 0 };
+    if (chdir(dir) != 0 || setrlimit(RLIMIT_FSIZE, &rl) != 0 || setrlimit(RLIMIT_CORE, &nc) != 0 || prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0 || dup2(fi, 0) < 0 || dup2(fo, 1) < 0 || dup2(fe, 2) < 0) {
+        int en = errno;
+        ssize_t w = write(wfd, &en, sizeof en);
+        (void) w;
+        _exit(127);
+    }
+    if (fi > 2) close(fi);
+    if (fo > 2) close(fo);
+    if (fe > 2) close(fe);
+    close(wfd);
+    int ac = 0;
+    while (av[ac]) ac++;
+    exit(main(ac, av));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_report(const char * name, const char * type, long num, double wall, double cpu, long kb) {
+    printf("%s\t%s\t%ld\t%.3f\t%.3f\t%ld\n", name, type, num, wall, cpu, kb);
+    fflush(stdout);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * t, const char * src) {
+    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + t->nargs + 10));
+    int ac = 0;
+    av[ac++] = self;
+    av[ac++] = (char *) mode;
+    for (int j = 0; j < t->nca; j++) av[ac++] = t->ca[j];
+    if (t->heap) av[ac++] = ct_fmt("-d%sk", t->heap);
+    if (t->stack) av[ac++] = ct_fmt("-s%sk", t->stack);
+    if (t->nargs && !strcmp(t->ext, "sno")) {
+        size_t n = 1;
+        for (int j = 0; j < t->nargs; j++) n += strlen(t->args[j]) + 1;
+        char * u = (char *) ct_zalloc(n, 1);
+        for (int j = 0; j < t->nargs; j++) { if (j) strcat(u, " "); strcat(u, t->args[j]); }
+        av[ac++] = "-u";
+        av[ac++] = u;
+    }
+    av[ac++] = (char *) src;
+    if (t->nargs) av[ac++] = "--";
+    for (int j = 0; j < t->nargs; j++) av[ac++] = t->args[j];
+    av[ac] = (char *)0;
+    return av;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb) {
+    char * fn = ct_strdup(t->name);
+    for (char * q = fn; *q; q++) if (*q == '/') *q = '_';
+    const char * base = strrchr(t->name, '/');
+    base = base ? base + 1 : t->name;
+    char * dir = ct_fmt("%s/%04d", work, i), * src = ct_fmt("%s.%s", base, t->ext), * sp = ct_fmt("%s/%s", dir, src);
+    char * ip = t->in ? ct_fmt("%s/%04d.in", work, i) : (char *)0;
+    char * op = ct_fmt("%s/%s.%s", out, fn, strcmp(mode, "--compile") ? "out" : "s"), * ep = ct_fmt("%s/%s.err", out, fn);
+    int fi = -1, fo = -1, fe = -1, pf[2] = { -1, -1 };
+    int ok = mkdir(dir, 0755) == 0 && scrip_rl_put(sp, t->prog, t->plen) == 0 && (!ip || scrip_rl_put(ip, t->in, t->inlen) == 0);
+    ok = ok && (fi = open(ip ? ip : "/dev/null", O_RDONLY | O_CLOEXEC)) >= 0 && (fo = open(op, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0;
+    ok = ok && (fe = open(ep, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0 && pipe(pf) == 0;
+    ok = ok && fcntl(pf[0], F_SETFD, FD_CLOEXEC) == 0 && fcntl(pf[1], F_SETFD, FD_CLOEXEC) == 0;
+    int en = errno;
+    char ** av = scrip_rl_argv(self, mode, t, src);
+    struct timespec t0, t1;
+    sigset_t ss, old;
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &ss, &old);
+    fflush((FILE *)0);
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    pid_t pid = ok ? fork() : -1;
+    if (pid == 0) { close(pf[0]); scrip_rl_child(fi, fo, fe, pf[1], dir, cap_mb, &old, av); }
+    if (ok && pid < 0) en = errno;
+    int st = 0, hang = 0, cerr = 0;
+    struct rusage ru;
+    memset(&ru, 0, sizeof ru);
+    if (pf[1] >= 0) close(pf[1]);
+    if (pid > 0) setpgid(pid, pid);
+    for (; pid > 0;) {
+        if (wait4(pid, &st, WNOHANG, &ru) == pid) break;
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        double left = t->tmo - ((double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9);
+        if (left <= 0) { hang = 1; killpg(pid, SIGKILL); wait4(pid, &st, 0, &ru); break; }
+        struct timespec w = { 1, 0 };
+        if (left < 1.0) { w.tv_sec = 0; w.tv_nsec = (long)(left * 1e9) + 1; }
+        sigtimedwait(&ss, (siginfo_t *)0, &w);
+    }
+    sigprocmask(SIG_SETMASK, &old, (sigset_t *)0);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    if (pf[0] >= 0 && read(pf[0], &cerr, sizeof cerr) != (ssize_t) sizeof cerr) cerr = 0;
+    if (fi >= 0) close(fi);
+    if (fo >= 0) close(fo);
+    if (fe >= 0) close(fe);
+    if (pf[0] >= 0) close(pf[0]);
+    scrip_rl_rm(dir, sp);
+    if (ip) unlink(ip);
+    double wall = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
+    double cpu = (double) ru.ru_utime.tv_sec + (double) ru.ru_stime.tv_sec + ((double) ru.ru_utime.tv_usec + (double) ru.ru_stime.tv_usec) / 1e6;
+    if (pid < 0 || cerr) { scrip_rl_report(t->name, "REFUSED", cerr ? cerr : en, wall, cpu, ru.ru_maxrss); return 1; }
+    if (hang) return scrip_rl_report(t->name, cpu * 10.0 >= wall ? "TIMEOUT" : "HANG", (long) t->tmo, wall, cpu, ru.ru_maxrss);
+    if (WIFSIGNALED(st) && WTERMSIG(st) == SIGABRT) return scrip_rl_report(t->name, "ABORT", SIGABRT, wall, cpu, ru.ru_maxrss);
+    if (WIFSIGNALED(st) && WTERMSIG(st) == SIGXFSZ) return scrip_rl_report(t->name, "OVERFLOW", SIGXFSZ, wall, cpu, ru.ru_maxrss);
+    if (WIFSIGNALED(st)) return scrip_rl_report(t->name, "CRASH", WTERMSIG(st), wall, cpu, ru.ru_maxrss);
+    return scrip_rl_report(t->name, "EXIT", WEXITSTATUS(st), wall, cpu, ru.ru_maxrss);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * scrip_rl_container(const char * dir, int multi, const char ** ext, size_t * len) {
+    char * b = (char *)0, * c = (char *)0;
+    if (multi && (b = scrip_rl_slurp(ct_fmt("%s/MULTI.md", dir), len)) != (char *)0) return b;
+    if (multi) {
+        b = ct_strdup("");
+        *len = 0;
+        size_t n = 0;
+        for (int k = 1; (c = scrip_rl_slurp(ct_fmt("%s/MULTI.%02d.md", dir, k), &n)) != (char *)0; k++) {
+            char * j = (char *) ct_alloc(*len + n + 1);
+            memcpy(j, b, *len);
+            memcpy(j + *len, c, n + 1);
+            *len += n;
+            b = j;
+        }
+        return b;
+    }
+    const char * const exts[] = { "sno", "icn", "pl", "raku", "pas", "sc", "reb" };
+    const char * found = (const char *)0;
+    int many = 0;
+    for (size_t k = 0; k < sizeof exts / sizeof exts[0]; k++) {
+        if (access(ct_fmt("%s/ONE.%s", dir, exts[k]), R_OK) != 0) continue;
+        many += found != (const char *)0;
+        found = ct_fmt("ONE.%s", exts[k]);
+    }
+    if (many) { *ext = ""; return (char *)0; }
+    if (!found) { *len = 0; return ct_strdup(""); }
+    *ext = found + 4;
+    return scrip_rl_slurp(ct_fmt("%s/%s", dir, found), len);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_only(const char * path, scrip_rl_t * r, int nr, int multi) {
+    size_t len = 0;
+    char * b = scrip_rl_slurp(path, &len), * p = b;
+    if (!b) return scrip_rl_refuse("--only cannot read", path);
+    for (int i = 0; i < nr; i++) r[i].sel = 0;
+    while (p && *p) {
+        char * e = strchr(p, '\n');
+        if (e) *e = '\0';
+        int hit = 0;
+        for (int i = 0; *p && i < nr; i++) if (r[i].one != multi && !strcmp(r[i].name, p)) { r[i].sel = 1; hit = 1; }
+        if (*p && !hit) return scrip_rl_refuse("--only names an entry the group lacks", p);
+        p = e ? e + 1 : (char *)0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_cli(char * self, const char * mode, int multi, int ac, char ** av) {
+    const char * dir = (const char *)0, * out = (const char *)0, * only = (const char *)0, * work = (const char *)0, * ext = (const char *)0;
+    for (int i = 0; i < ac; i++) {
+        if (!strcmp(av[i], "--out") && i + 1 < ac) out = av[++i];
+        else if (!strcmp(av[i], "--only") && i + 1 < ac) only = av[++i];
+        else if (!strcmp(av[i], "--work") && i + 1 < ac) work = av[++i];
+        else if (!dir && av[i][0] != '-') dir = av[i];
+        else return scrip_rl_refuse("the run-liners switches take DIR --out OUT [--only FILE] [--work DIR]; not understood:", av[i]);
+    }
+    if (!dir || !out) return scrip_rl_refuse("the run-liners switches need a container DIR and --out OUT", dir);
+    size_t ilen = 0, clen = 0;
+    char * ib = scrip_rl_slurp(ct_fmt("%s/ALL.csv", dir), &ilen);
+    if (!ib) return scrip_rl_refuse("cannot read the index", ct_fmt("%s/ALL.csv", dir));
+    scrip_rl_t * r = (scrip_rl_t *)0;
+    int nr = 0, refused = 0, own = !work;
+    if (scrip_rl_index(ib, ilen, &r, &nr)) return 2;
+    char * cb = scrip_rl_container(dir, multi, &ext, &clen);
+    if (!cb) return scrip_rl_refuse(ext ? "the container holds more than one ONE file of a known extension" : "cannot read the container file in", dir);
+    if (multi ? scrip_rl_multi(cb, clen, r, nr) : scrip_rl_one(cb, clen, ext ? ext : "", r, nr)) return 2;
+    if (only && scrip_rl_only(only, r, nr, multi)) return 2;
+    if (mkdir(out, 0755) != 0 && errno != EEXIST) return scrip_rl_refuse("cannot make the output directory", out);
+    if (own) {
+        const char * tp = getenv("TMPDIR");
+        char * w = ct_fmt("%s/scrip_rl_XXXXXX", tp && *tp ? tp : "/tmp");
+        work = mkdtemp(w);
+    } else if (mkdir(work, 0755) != 0 && errno != EEXIST) work = (const char *)0;
+    if (!work) return scrip_rl_refuse("cannot make the work directory under", own ? getenv("TMPDIR") : av[0]);
+    const char * cm = getenv("S4E_OUTPUT_CAP_MB");
+    long cap_mb = cm && atol(cm) > 0 ? atol(cm) : 256;
+    for (int i = 0; i < nr; i++) {
+        if (r[i].one == multi || !r[i].sel) continue;
+        if (r[i].staged) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
+        refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb);
+    }
+    if (own) scrip_rl_rm(work, (const char *)0);
+    return refused ? 2 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
     g_lower.icn.parse = icon_compile_parse;
     if (argc >= 3 && strcmp(argv[1], "--harness") == 0) return scrip_harness_cli(argv[0], "--run", argc - 2, argv + 2);
     if (argc >= 4 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0) return scrip_harness_cli(argv[0], "--compile", argc - 3, argv + 3);
+    if (argc >= 3 && (!strcmp(argv[1], "--run-one-liners") || !strcmp(argv[1], "--run-multi-liners"))) return scrip_rl_cli(argv[0], "--run", argv[1][6] == 'm', argc - 2, argv + 2);
+    if (argc >= 4 && !strcmp(argv[1], "--compile") && (!strcmp(argv[2], "--run-one-liners") || !strcmp(argv[2], "--run-multi-liners")))
+        return scrip_rl_cli(argv[0], "--compile", argv[2][6] == 'm', argc - 3, argv + 3);
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
     int mode_run = 0;
