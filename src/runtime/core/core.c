@@ -1447,6 +1447,12 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     _arg_str(args[0], &p, &len);
     if (!p || len < 4) return FAILDESCR;
     if (memcmp(p, "MON_", 4) == 0) { return (DESCR_t){ .v = DT_I, .i = 0 }; }
+    if (nargs >= 2) {
+        const char *lp;
+        int ll;
+        _arg_str(args[1], &lp, &ll);
+        if (lp && ll > 0) { char lpath[ll + 1]; memcpy(lpath, lp, (size_t)ll); lpath[ll] = 0; if (access(lpath, R_OK) != 0) core_runtime_error(142, "load function does not exist"); }
+    }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
