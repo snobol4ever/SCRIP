@@ -2073,15 +2073,16 @@ static int scrip_rl_fence_tag(const char * t, size_t n, const char ** ext) {
     const char * const parts[] = { "args", "stdin", "stdout", "stderr" };
     *ext = scrip_rl_lang(t, n, 0);
     if (*ext) return 0;
-    for (int k = 0; k < 4; k++) if (strlen(parts[k]) == n && !strncmp(t, parts[k], n)) return k + 1;
+    if (n > 5 && !strncmp(t, "file ", 5) && !memchr(t + 5, '/', n - 5) && !memchr(t + 5, ' ', n - 5)) return 1;
+    for (int k = 0; k < 4; k++) if (strlen(parts[k]) == n && !strncmp(t, parts[k], n)) return k + 2;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_rl_close(scrip_rl_t * t, int tp, int nlang, char * bs, char * cl, char * nx, char * ps) {
     if (tp == 0 && nlang == 1) { t->prog = bs; t->plen = (size_t)(cl - bs) - ((t->nonl & 1) && cl > bs ? 1 : 0); }
     if (tp == 0 && nlang > 1) { t->prog = ps; t->plen = (size_t)(nx - ps); t->ext = "md"; }
-    if (tp == 2) { t->in = bs; t->inlen = (size_t)(cl - bs) - ((t->nonl & 2) && cl > bs ? 1 : 0); }
-    if (tp != 1) return;
+    if (tp == 3) { t->in = bs; t->inlen = (size_t)(cl - bs) - ((t->nonl & 2) && cl > bs ? 1 : 0); }
+    if (tp != 2) return;
     int n = 0, k = 0;
     for (char * q = bs; q < cl; q++) if (*q == '\n') n++;
     t->args = (char **) ct_alloc(sizeof(char *) * (size_t)(n + 1));
@@ -2114,7 +2115,8 @@ static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
             if (k < 3 || !cur) return scrip_rl_refuse("a line begins with a backtick and opens no fence in a section", cur ? cur->name : "(before the first heading)");
             tp = scrip_rl_fence_tag(p + k, ll - k, &ext);
             if (tp < 0) return scrip_rl_refuse("a fence has an unknown tag in the section", cur->name);
-            if ((tp == 0 && part > 0) || (tp > 0 && tp <= part)) return scrip_rl_refuse("a fence is out of order or repeated in the section", cur->name);
+            if ((tp == 0 && part > 0) || (tp > 1 && tp <= part) || (tp == 1 && part > 1)) return scrip_rl_refuse("a fence is out of order or repeated in the section", cur->name);
+            if (tp == 1 && !cur->staged) return scrip_rl_refuse("a file fence stands in a section whose road is not staged", cur->name);
             if (tp == 0 && nlang++ == 0) { ps = p; cur->ext = ext; }
             part = tp;
             in = 1;
