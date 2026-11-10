@@ -3100,6 +3100,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_numbervars_cell", GC_RET_OTHER },
     { "rt_pl_pairs_keys_values_cell", GC_RET_OTHER },
     { "rt_pl_parse_number", GC_RET_OTHER },
+    { "rt_pl_prelude_so_load", GC_RET_OTHER },
     { "rt_pl_pseg_ball", GC_RET_VOID },
     { "rt_pl_pseg_ball_c", GC_RET_OTHER },
     { "rt_pl_pseg_next", GC_RET_OTHER },

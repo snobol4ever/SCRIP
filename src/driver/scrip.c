@@ -907,6 +907,11 @@ static void m4_emit_atom_table(void) {
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m4_emit_prelude_unit_exports(void) {
+    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n  .globl prolog_prelude_unit\nprolog_prelude_unit:\n  .quad .Lpl_atom_tab\n  .quad .Lpl_functor_tab\n");
+    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int m4_proc_startup_skip(stage2_t *s2, ProcEntry *pe, int ispat) {
     if (ispat) return 1;
     if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) return 2;
@@ -2370,6 +2375,12 @@ int main(int argc, char **argv) {
                 g_sc_module_name = argv[argi + 1];
                 { extern void rt_sc_module_compiling(void); rt_sc_module_compiling(); }
                 argi += 2;
+            } else if (strcmp(argv[argi], "--prolog-prelude-unit") == 0) {
+                g_sc_module_name = "prolog_prelude";
+                g_stage2.harness_warm = 1;
+                { extern void rt_sc_module_compiling(void); rt_sc_module_compiling(); }
+                { extern void emit_module_mode(int); emit_module_mode(1); }
+                argi++;
             } else if (strcmp(argv[argi], "--compile") == 0) {
                 mode_compile = 1;
                 if (!target_name) target_name = "x86";
@@ -2798,8 +2809,11 @@ int main(int argc, char **argv) {
             tree_t *sub_ast = NULL;
             if (lang_icon) icon_compile_as(src, input_path, &sub_ast, opt_unicon);
             else if (lang_raku) raku_compile(src, input_path, &sub_ast);
-            else if (lang_prolog) prolog_compile(src, input_path, &sub_ast);
-            else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
+            else if (lang_prolog) {
+                extern int rt_pl_prelude_so_load(void);
+                if (mode_run && n_sources == 1 && !g_stage2.harness_warm && rt_pl_prelude_so_load()) g_stage2.harness_warm = 2;
+                prolog_compile(src, input_path, &sub_ast);
+            } else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
             else snocone_compile(src, input_path, &sub_ast);
             if (lang_rebus) sub_ast = lower_rebus_tree(sub_ast);
@@ -3444,6 +3458,7 @@ int main(int argc, char **argv) {
             { extern const char *bcps_alpha_cellp_table_c(void); emit_textf("%s", bcps_alpha_cellp_table_c()); }
             { if (g_runtime.abi.monitor_bin || g_runtime.abi.trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_runtime.abi.mon_max_stno); }
             if (_pl_atoms) { m4_emit_atom_table(); m4_emit_functor_table(); }
+            if (_pl_atoms && g_stage2.harness_warm == 1) m4_emit_prelude_unit_exports();
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);
@@ -3474,7 +3489,7 @@ int main(int argc, char **argv) {
             extern int x86_diag_regs_on_c(void);
             if (x86_diag_regs_on_c()) { g_m4_dense_nid = 1; g_bb_alpha_seq_reset(); }
             int main_bb_idx = polyglot_main_bb_idx(s2);
-            rt_proc_reset();
+            if (g_stage2.harness_warm != 2) rt_proc_reset();
             g_frame_active = 1;
             void *m3_gva_arena = (void *)0;
             {

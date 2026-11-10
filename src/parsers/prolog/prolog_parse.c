@@ -4268,6 +4268,7 @@ static void pl_prelude_keys_seed(PlProgram *pre) {
         for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm[0]; e++) pl_prelude_key_add(e->nm, e->ar);
     }
 }
+void pl_prelude_keys_adopt(const char *const *keys, long n) { for (long i = 0; i < n; i++) if (keys[i]) pl_prelude_key_add_str(ct_strdup(keys[i])); }
 static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
     for (PlClause *cl = first; cl; cl = cl->next) {
         const char *cn; int car;
@@ -4843,6 +4844,32 @@ static void pl_attv_term_arms(const tree_t *t, unsigned char *seen) {
     for (int i = 0; i < t->n; i++) pl_attv_term_arms(t->c[i], seen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_src_call_args_at_least(const char *src, const char *w, int want) {
+    size_t wl = strlen(w);
+    for (const char *p = src; (p = strstr(p, w)) != NULL; p += wl) {
+        if ((p > src && (p[-1] == '_' || isalnum((unsigned char)p[-1]))) || p[wl] != '(') continue;
+        int depth = 0, args = 1;
+        for (const char *q = p + wl; *q; q++) {
+            if (*q == '(' || *q == '[' || *q == '{') depth++;
+            else if (*q == ')' || *q == ']' || *q == '}') { if (--depth == 0) break; }
+            else if (*q == ',' && depth == 1) args++;
+        }
+        if (args >= want) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_src_names_attv_api(const char *src) {
+    for (int i = 0; pl_attv_api[i]; i++) {
+        const char *sl = strchr(pl_attv_api[i], '/');
+        char nm[sl - pl_attv_api[i] + 1];
+        memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i]));
+        nm[sl - pl_attv_api[i]] = 0;
+        if (!strcmp(nm, "copy_term") ? pl_src_call_args_at_least(src, nm, 3) : pl_word_referenced(src, nm)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_tree_collect_declared(const tree_t *t, cv_t *keys) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "/") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && t->c[1] && t->c[1]->t == TT_ILIT) {
@@ -5213,6 +5240,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
     pl_prelude_keys_seed(pre);
+    int n_base = 0;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) n_base++;
     int agg_native = 0;
     for (PlClause *cl = prog->head; cl; cl = cl->next) agg_native += pl_agg_native_calls(cl->tr);
     const char *native_only = (agg_native && agg_native == pl_word_count(user_src, "aggregate_all")) ? "aggregate_all" : NULL;
@@ -5226,7 +5255,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
         int xsb = pl_program_is_xsb(prog);
-        pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
+        if (g_stage2.harness_warm != 1) pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
         pl_libs_meta_specs(pre, &referenced);
         for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
@@ -5305,6 +5334,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             gid[so[b].i] = ng++;
         }
     }
+    if (g_stage2.harness_warm == 1) for (int g = 0; g < ng; g++) if (!wf[g] && strcmp(gkey[g], "$wakeup/0")) { wf[g] = 1; CV_PUSH(wanted, char *) = gkey[g]; }
     while (changed) {
         changed = 0;
         for (int i = 0; i < n; i++) {
@@ -5330,9 +5360,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             }
         }
     }
+    if (g_stage2.harness_warm == 2 && pl_cv_has(&wanted, "$wakeup/0")) g_stage2.harness_warm = 0;
     for (int i = 0; i < n; i++) {
         PlClause *cl = pc[i];
-        int keep = (gid[i] >= 0 && wf[gid[i]]) || ((pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) && cl->dq_forced == 3 + 1);
+        int keep = (g_stage2.harness_warm != 2 || i >= n_base) && ((gid[i] >= 0 && wf[gid[i]]) || ((pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) && cl->dq_forced == 3 + 1));
         if (keep) { cl->lineno = cl->lineno < 0 && pl_clause_is_load_hook(cl) ? -cl->lineno : 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);

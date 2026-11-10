@@ -172,3 +172,40 @@ __asm__(".globl rt_sc_outer_call\n.type rt_sc_outer_call, @function\n" "rt_sc_ou
     "  mov 0x70000000, %r12\n  movq g_rtccb@GOTPCREL(%rip), %r10\n  movq 48(%r10), %r9\n  leaq 1f(%rip), %rcx\n  push %rcx\n  push %rcx\n  xor %esi, %esi\n  xor %r13d, %r13d\n  xor %r14d, %r14d\n"
     "  xor %r15d, %r15d\n  jmp *%rax\n" "1:\n" "  leaq 1b(%rip), %rcx\n  mov (%rsp), %rax\n  cmp %rax, %rcx\n  jne 2f\n  add $8, %rsp\n" "2:\n"
     "  lea -40(%rbp), %rsp\n  pop %r15\n  pop %r14\n  pop %r13\n  pop %r12\n  pop %rbx\n  pop %rbp\n  ret\n" ".size rt_sc_outer_call, .-rt_sc_outer_call\n");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_prelude_so_load(void) {
+    const char *ev = getenv("SCRIP_PL_PRELUDE_SO");
+    if (ev && ev[0] == '0' && !ev[1]) return 0;
+    Dl_info di;
+    const char *so = dladdr((void *)rt_sc_module_busy, &di) && di.dli_fname ? di.dli_fname : "";
+    const char *sl = strrchr(so, '/');
+    size_t dl = sl ? (size_t)(sl - so) + 1 : 0;
+    char path[dl + sizeof "libscrip_prelude_prolog.so"];
+    memcpy(path, so, dl);
+    memcpy(path + dl, "libscrip_prelude_prolog.so", sizeof "libscrip_prelude_prolog.so");
+    const char *lp = ev && ev[0] == '/' ? ev : path;
+    void *h = dlopen(lp, RTLD_NOW | RTLD_LOCAL);
+    const sc_module_desc_t *d = h ? (const sc_module_desc_t *)dlsym(h, "prolog_prelude_sc_module") : (const sc_module_desc_t *)0;
+    void *const *u = h ? (void *const *)dlsym(h, "prolog_prelude_unit") : (void *const *)0;
+    if (!d || !u) { if (h) dlclose(h); return 0; }
+    core_lib_init();
+    {
+        extern int prolog_atom_count(void);
+        extern const char *prolog_atom_name(int);
+        const long *at = (const long *)u[0];
+        int na = prolog_atom_count();
+        int ok = at && na <= at[0];
+        for (int k = 0; ok && k < na; k++) ok = prolog_atom_name(k) && (const char *)at[1 + 2 * k] && !strcmp(prolog_atom_name(k), (const char *)at[1 + 2 * k]);
+        if (!ok) { if (getenv("SCRIP_PL_PRELUDE_SO_TRACE")) fprintf(stderr, "scrip: prolog prelude not loaded: %d atoms already interned\n", na); dlclose(h); return 0; }
+    }
+    { extern void rt_pl_atom_table_install(const long *); rt_pl_atom_table_install((const long *)u[0]); }
+    { extern void rt_pl_functor_table_install(const long *); rt_pl_functor_table_install((const long *)u[1]); }
+    { extern void prolog_op_cols_warm(void); prolog_op_cols_warm(); }
+    if (d->module_init) ((void (*)(void))d->module_init)();
+    if (d->proc_tab && d->proc_names && d->n_proc > 0) rt_proc_table_fill(d->proc_tab, d->proc_names, (int)d->n_proc);
+    if (d->alpha_tab) rt_ab_cell_bind_table(d->alpha_tab);
+    if (d->gc_maps) rt_gc_frame_maps_install_counted(d->gc_maps);
+    if (d->gc_sites) rt_gc_frame_sites_install_counted(d->gc_sites);
+    if (getenv("SCRIP_PL_PRELUDE_SO_TRACE")) fprintf(stderr, "scrip: prolog prelude loaded from %s\n", lp);
+    return 1;
+}

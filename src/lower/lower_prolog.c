@@ -1969,6 +1969,8 @@ static int pl_swi_library_leaf(const char * nm, int ar) {
     for (int i = 0; lib[i].nm; i++) if (lib[i].ar == ar && !strcmp(lib[i].nm, nm)) return 1;
     return 0;
 }
+static int pl_synth_have(const char * key) { extern int rt_proc_is_registered(const char *); return g_stage2.harness_warm == 2 && rt_proc_is_registered(key); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_swi_absent_leaf(const char * nm, int ar) {
     return g_stage2.pl_dialect == PL_DIALECT_SWI && (ar == 1 || ar == 2) && (!strcmp(nm, "unget_char") || !strcmp(nm, "unget_code") || !strcmp(nm, "unget_byte"));
 }
@@ -4322,7 +4324,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_attv_rt_armed(void) {
     extern int rt_proc_is_registered(const char *);
-    if (!g_stage2.pl_attv_armed && rt_proc_is_registered("$wakeup/0")) g_stage2.pl_attv_armed = 1;
+    if (!g_stage2.pl_attv_armed && g_stage2.harness_warm != 2 && rt_proc_is_registered("$wakeup/0")) g_stage2.pl_attv_armed = 1;
     return g_stage2.pl_attv_armed;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5337,6 +5339,7 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
     int top = 0;
     for (int i = 0; i < prog->n; i++) { const tree_t * s = prog->c[i]; const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL; if (pl_attv_is_key(subj, "$wakeup/0")) top = 1; }
     if (!top) return prog;
+    if (getenv("SCRIP_PL_ATTV_TRACE")) fprintf(stderr, "scrip: prolog attributes armed\n");
     int has_ct3 = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * s = prog->c[i];
@@ -6930,7 +6933,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         extern tree_t * pl_runtime_clause_tree(tree_t *);
         {
             const char * fk = "$fc/3";
-            if (!pl_bb_lookup(fk, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, fk)) {
+            if (!pl_bb_lookup(fk, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, fk) && !pl_synth_have(fk)) {
                 tree_t * ch = ast_node_new(TT_CHOICE);
                 ch->v.sval = ct_strdup(fk);
                 int nb = 0;
@@ -6988,7 +6991,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             char key[fmt_len("%s/2", wn)];
             int nclause;
             snprintf(key, sizeof key, "%s/2", wn);
-            if (pl_bb_lookup(key, 2)) continue;
+            if (pl_bb_lookup(key, 2) || pl_synth_have(key)) continue;
             if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
             nclause = !strcmp(wn, ";") ? 6 : !strcmp(wn, ",") ? 2 : 1;
             {
@@ -7073,7 +7076,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             if (!strcmp(bn, "halt") || bn[0] == '$' || pl_swi_absent_leaf(bn, ba)) continue;
             char key[fmt_len("%s/%d", bn, ba)];
             snprintf(key, sizeof key, "%s/%d", bn, ba);
-            if (pl_bb_lookup(key, ba)) continue;
+            if (pl_bb_lookup(key, ba) || pl_synth_have(key)) continue;
             if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
             {
                 tree_t * hd;

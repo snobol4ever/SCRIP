@@ -115,7 +115,7 @@ ifneq ($(BUILD_CACHE),)
 else
 	@$(JS_MAKE) --no-print-directory build-all
 endif
-build-all: scrip out/scrip-ipp
+build-all: scrip out/scrip-ipp out/libscrip_prelude_prolog.so
 
 pristine:  # A full rebuild, SCOPED TO THIS CONFIGURATION. ⛔ NO LONGER the per-landing gate law -- HQ-27 PRISTINE-BEFORE-VERDICT was loosened by Lon 2026-09-03 (RULES.md FACT RULE). This target is for the officer's audits, release points, and whenever the stale-binary refusal fires; an ordinary landing grades on incremental `make`.
 	# ⭐ WHY SCOPED IS STILL PRISTINE (Lon s258): it wipes every object THIS build can possibly link --
@@ -2121,6 +2121,25 @@ $(PARSER_TAGGED): out/libscrip_parser_%-$(RT_TAG).so: out/sc_mod/scmod_%.o
 	@mkdir -p out
 	$(CC) -shared $< -o $@
 $(PARSER_SOS): out/libscrip_parser_%.so: out/libscrip_parser_%-$(RT_TAG).so FORCE
+	@rm -f $@ && cp -f $< $@
+# ── THE PROLOG PRELUDE IS ONE SHARED OBJECT (Lon 2026-11-09, COO-500, verbatim: "Make Prolog run much faster by using a shared object for all the prelude
+# code." / "So you compile using mode 4 the *.pl into a shared object and make that code available to SCRIP executable."): ./scrip --prolog-prelude-unit compiles
+# the whole base prelude ONCE through the mode-4 road (an empty program, every base clause kept, no library appended) as module prolog_prelude, its g_rtccb loads
+# through the GOT; the object is linked alone like a parser module, its undefined names resolved against the runtime the process holds. A mode-3 Prolog run
+# dlopens it beside libscrip_rt.so (rt_pl_prelude_so_load, rt_sc_module.c), installs its atoms, functors, keys, procedures and GC tables before the program is
+# parsed, and compiles only the program's own clauses (SCRIP_PL_PRELUDE_SO=0 takes the source road). MEASURED (the coo, SCRIP 4d89b1093 + this landing): a
+# Prolog hello 4,735,032,215 instructions on the source road, 36,910,735 on this one; the unit compile is about 60 s and 546 MB, the object 46.7 MB.
+# The unit depends on what it is made of (the tagged runtime, which holds the compiler and the embedded prelude, and the driver that emits it), never on scrip or
+# out/libscrip_rt.so, which every make relinks or recopies: those are order-only, so a make with nothing changed does not recompile the unit.
+out/prelude/prolog_prelude.o: $(RT_SO) $(SRC)/driver/scrip.c $(SRC)/driver/kernel.c | scrip out/libscrip_rt.so
+	@mkdir -p out/prelude
+	@: > out/prelude/prolog_prelude_empty.pl
+	SCRIP_PL_PRELUDE_SO=0 ./scrip --prolog-prelude-unit --compile --out=out/prelude/prolog_prelude.s out/prelude/prolog_prelude_empty.pl < /dev/null
+	$(CC) -c out/prelude/prolog_prelude.s -o $@
+	@rm -f out/prelude/prolog_prelude.s
+out/libscrip_prelude_prolog-$(RT_TAG).so: out/prelude/prolog_prelude.o
+	$(CC) -shared $< -o $@
+out/libscrip_prelude_prolog.so: out/libscrip_prelude_prolog-$(RT_TAG).so FORCE
 	@rm -f $@ && cp -f $< $@
 
 # ── libscrip_rt.a — static-archive TWIN of libscrip_rt.so, for the OPT-IN m4 STATIC link arm ────
