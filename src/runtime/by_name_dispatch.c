@@ -22909,6 +22909,7 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
     long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
     if (k < 0) { *out = FAILDESCR; return 1; }
     size_t sl = sv_len(args[0], sv);
+    if (sl > 0 && k > g_runtime.abi.maxlngth / (int64_t)sl) { *out = FAILDESCR; return 1; }
     char *buf = (char *)rt_heap_alloc_c(sl * (size_t)k + 1);
     for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
     buf[sl * (size_t)k] = 0;

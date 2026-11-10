@@ -24,6 +24,7 @@ DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     if (times < 0) return FAILDESCR;
     if (times == 0 || !STRVAL_fn || !*STRVAL_fn) return STRVAL(rt_str_dup(""));
     size_t slen = strlen(STRVAL_fn);
+    if ((int64_t)slen > 0 && times > g_runtime.abi.maxlngth / (int64_t)slen) return FAILDESCR;
     char *r = rt_str_alloc((long)(slen * (size_t)times));
     r[0] = '\0';
     for (int64_t i = 0; i < times; i++) memcpy(r + i * slen, STRVAL_fn, slen);
