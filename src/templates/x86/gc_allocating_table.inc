@@ -162,6 +162,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "_Z17xa_flat_sig_namesPKcPiS1_S1_S1_", GC_RET_UNKNOWN },
     { "_ZL14call_marg_planiP4IR_tiS0_", GC_RET_UNKNOWN },
     { "_ZL26sig_prepare_define_columnsPKcS0_i", GC_RET_UNKNOWN },
+    { "_b_LOAD_stub", GC_RET_DESCR },
     { "_b_MON_OPEN", GC_RET_DESCR },
     { "_b_add", GC_RET_DESCR },
     { "_b_div", GC_RET_DESCR },
