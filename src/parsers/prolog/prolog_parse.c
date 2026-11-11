@@ -4452,7 +4452,7 @@ static void pl_libs_named(const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, ui
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi, cv_t *seen);
 static int pl_clause_is_attv_hook(PlClause *cl) {
     const tree_t *h = (cl && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 1) ? cl->tr->c[0] : (const tree_t *)0;
     if (!h || h->t != TT_FNC || !h->v.sval || strcmp(h->v.sval, ":") || h->n != 2 || !h->c[1] || h->c[1]->t != TT_FNC || !h->c[1]->v.sval) return 0;
@@ -4475,7 +4475,7 @@ static PlProgram *pl_prelude_parse(const char *src, int lib, const char *vis, in
     g_parser.pl.uinfix_n = un;
     g_parser.pl.uinfix_cap = uc;
     if (lib >= 0) register_lib_ops(PL_PRELUDE_LIBS[lib].lib);
-    if (p && lib >= 0) pl_preprocess_list(p, 1, -1);
+    if (p && lib >= 0) pl_preprocess_list(p, 1, -1, (cv_t *)0);
     return p;
 }
 static tree_t *pl_tree_dup(const tree_t *t);
@@ -5460,8 +5460,18 @@ static const char *pl_path_spec(const tree_t *t) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
-static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi) {
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi, cv_t *seen);
+typedef struct { dev_t d; ino_t i; } PlFid;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_fid_note(cv_t *seen, const char *path) {
+    struct stat st;
+    if (stat(path, &st)) return 1;
+    for (uint32_t k = 0; k < seen->len; k++) if (CV_AT(*seen, PlFid, k).d == st.st_dev && CV_AT(*seen, PlFid, k).i == st.st_ino) return 0;
+    PlFid * f = &CV_PUSH(*seen, PlFid); f->d = st.st_dev; f->i = st.st_ino;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi, cv_t *seen) {
     const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; PlProgram *sub;
     *is_include = 0;
     if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
@@ -5478,9 +5488,10 @@ static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, i
     if (depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
         pp->nerrors++; return (PlProgram *)0; }
+    if (!strcmp(g->v.sval, "use_module") && !pl_fid_note(seen, path)) { ct_drop(src); ct_drop(path); return (PlProgram *)0; }
     sub = prolog_parse_ex(src, path, pp->quiet);
     if (!sub) { pp->nerrors++; return (PlProgram *)0; }
-    pl_preprocess_list(sub, depth + 1, swi);
+    pl_preprocess_list(sub, depth + 1, swi, seen);
     pp->nerrors += sub->nerrors;
     return sub;
 }
@@ -5571,10 +5582,11 @@ static void pl_cc_declare_dynamic(PlProgram *prog, const cv_t *dk) {
         prev = d;
     }
 }
-static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
-    Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi, cv_t *seen) {
+    cv_t own = { 0 }; Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
     cv_t dkeys = { 0 }; int dfr = 0, dnest = 0, dstart = 0; const tree_t *dcond = (const tree_t *)0; tree_t *dl = (tree_t *)0; const char *dmod = "user", *dunit = (const char *)0, *cur_unit = (const char *)0;
     if (!prog) return;
+    if (!seen) { seen = &own; if (prog->filename) pl_fid_note(seen, prog->filename); }
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
     memset(&ix, 0, sizeof ix); ix.swi = swi;
     cl = prog->head;
@@ -5630,7 +5642,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
             if (prev) prev->next = (PlClause *)0; else prog->head = (PlClause *)0;
             break;
         } else {
-            PlProgram *sub = (pl_if_ctx_at(&ix, prog, cl), pl_include_expand(&q, cl, depth, &is_include, ix.swi > 0 ? 1 : -1));
+            PlProgram *sub = (pl_if_ctx_at(&ix, prog, cl), pl_include_expand(&q, cl, depth, &is_include, ix.swi > 0 ? 1 : -1, seen));
             if (is_include) {
                 drop = 1;
                 if (sub && sub->head) {
@@ -5664,7 +5676,7 @@ static void pl_autoload_as_use_module(PlProgram *prog) {
             g->v.sval = ct_strdup("use_module");
     }
 }
-void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0, -1); pl_autoload_as_use_module(prog); }
+void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0, -1, (cv_t *)0); pl_autoload_as_use_module(prog); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog) {
     for (;;) {
