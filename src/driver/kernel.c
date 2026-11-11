@@ -394,19 +394,36 @@ static void k_reply(kctx_t *k, void *sock, const kmsg_t *req, const char *conten
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_control_tick(kctx_t *k);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int k_run_cell(kctx_t *k, const char *code, size_t clen, const char *lang, cv_t *out, cv_t *err) {
+static void k_note(kctx_t *k, const kmsg_t *req, int silent, const char *a, const char *b, const char *c) {
+    cv_t t = { 0, 0, 0, 0 };
+    jw_raw(&t, a);
+    jw_raw(&t, b);
+    jw_raw(&t, c);
+    if (!silent) k_stream(k, req, "stderr", &t);
+    ct_drop(t.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t k_utf8_whole(const char *s, size_t n) {
+    for (size_t b = 1; b <= 3 && b <= n; b++) { unsigned char c = (unsigned char)s[n - b]; if (c < 0x80) return n; if (c >= 0xC0) return b < (size_t)(c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2) ? n - b : n; }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code, size_t clen, const char *lang) {
     const klang_t *L = 0;
     for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcasecmp(k_langs[i].tag, lang)) L = &k_langs[i];
-    if (!L) { jw_raw(err, "scrip: unknown language tag "); jw_raw(err, lang); jw_raw(err, " (SNOBOL4 Snocone Rebus Icon Unicon Prolog Pascal Raku scrip)\n"); return -1; }
+    if (!L) { k_note(k, req, silent, "scrip: unknown language tag ", lang, " (SNOBOL4 Snocone Rebus Icon Unicon Prolog Pascal Raku scrip)\n"); return -1; }
     char dir[] = "/tmp/scrip-cell-XXXXXX";
-    if (!mkdtemp(dir)) { jw_raw(err, "scrip: no temp dir\n"); return -1; }
+    if (!mkdtemp(dir)) { k_note(k, req, silent, "scrip: no temp dir\n", "", ""); return -1; }
     size_t pl = strlen(dir) + 6 + strlen(L->ext);
     char *path = (char *)ct_alloc(pl);
     snprintf(path, pl, "%s/cell%s", dir, L->ext);
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600), po[2], pe[2], st = 0, nopen = 2;
-    if (fd < 0 || (clen && write(fd, code, clen) != (ssize_t)clen) || (!(clen && code[clen - 1] == '\n') && write(fd, "\n", 1) != 1)) { jw_raw(err, "scrip: cannot write the cell\n"); return -1; }
+    if (fd < 0 || (clen && write(fd, code, clen) != (ssize_t)clen) || (!(clen && code[clen - 1] == '\n') && write(fd, "\n", 1) != 1)) {
+        k_note(k, req, silent, "scrip: cannot write the cell\n", "", "");
+        return -1;
+    }
     close(fd);
-    if (pipe(po) || pipe(pe)) { jw_raw(err, "scrip: no pipe\n"); return -1; }
+    if (pipe(po) || pipe(pe)) { k_note(k, req, silent, "scrip: no pipe\n", "", ""); return -1; }
     pid_t pid = fork();
     if (pid == 0) {
         int dn = open("/dev/null", O_RDONLY);
@@ -429,12 +446,20 @@ static int k_run_cell(kctx_t *k, const char *code, size_t clen, const char *lang
     close(pe[1]);
     k->child = pid;
     zmq_pollitem_t it[3] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 } };
-    char buf[4096];
+    char buf[2][4100];
+    size_t held[2] = { 0, 0 };
     while (nopen > 0 && pid > 0) {
         if (zmq_poll(it, 3, -1) < 0) { if (errno == EINTR) continue; break; }
         for (int i = 0; i < 2; i++) if (it[i].fd >= 0 && it[i].revents) {
-            ssize_t r = read(it[i].fd, buf, sizeof buf);
-            if (r <= 0) { close(it[i].fd); it[i].fd = -1; it[i].events = 0; nopen--; } else cv_puts(i == 0 ? out : err, buf, (size_t)r);
+            ssize_t r = read(it[i].fd, buf[i] + held[i], 4096);
+            size_t n = held[i] + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf[i], n) : n;
+            cv_t t = { 0, 0, 0, 0 };
+            if (r <= 0) { close(it[i].fd); it[i].fd = -1; it[i].events = 0; nopen--; }
+            cv_puts(&t, buf[i], cut);
+            if (!silent) k_stream(k, req, i == 0 ? "stdout" : "stderr", &t);
+            ct_drop(t.p);
+            memmove(buf[i], buf[i] + cut, n - cut);
+            held[i] = n - cut;
         }
         if (it[2].revents & ZMQ_POLLIN) k_control_tick(k);
     }
@@ -453,7 +478,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     const char *code = cj && cj->t == 4 ? cj->s : "", *lang = jn_str(jn_get(req->metadata, "scrip"), "language", 0);
     size_t clen = cj && cj->t == 4 ? cj->sl : 0;
     int silent = jn_bool(req->content, "silent", 0);
-    cv_t c = { 0, 0, 0, 0 }, out = { 0, 0, 0, 0 }, err = { 0, 0, 0, 0 };
+    cv_t c = { 0, 0, 0, 0 };
     char num[32];
     if (!silent) k->count++;
     snprintf(num, sizeof num, "%ld", k->count);
@@ -480,8 +505,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
         clen -= j;
     }
     if (!lang) lang = getenv("SCRIP_DEFAULT_LANG") ? getenv("SCRIP_DEFAULT_LANG") : "SNOBOL4";
-    int rc = k_run_cell(k, code, clen, lang, &out, &err);
-    if (!silent) { k_stream(k, req, "stdout", &out); k_stream(k, req, "stderr", &err); }
+    int rc = k_run_cell(k, req, silent, code, clen, lang);
     if (rc == 0) {
         jw_raw(&c, "{");
         jw_kv(&c, "status", "ok", 0);
@@ -515,8 +539,6 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     }
     k_reply(k, sock, req, cv_cstr(&c));
     ct_drop(c.p);
-    ct_drop(out.p);
-    ct_drop(err.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
