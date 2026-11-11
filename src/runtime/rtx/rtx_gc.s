@@ -8,6 +8,8 @@
 #define MK_MOVES 0x807FDE7
 #define GC_FRAME_MAP_TBL_HDR 128
 #define DATA_ELEMS_SLEN 1
+#define DATA_RVEC_I_SLEN 2
+#define DATA_RVEC_R_SLEN 3
 #define PROCVAL_SLEN 0xFFFFFFFE
 #define PROCVAL_BUILTIN_SLEN 0xFFFFFFFC
 #define PROCVAL_EXTERNAL_SLEN 0xFFFFFFFB
@@ -533,7 +535,22 @@ RTX_ENTRY(rt_gc_walk_words_a)
 #endif
 .Lmk_data:
     cmp     dword ptr [rsi + 4], DATA_ELEMS_SLEN
+    je      .Lmk_data_el
+    cmp     dword ptr [rsi + 4], DATA_RVEC_I_SLEN
+    je      .Lmk_data_rv
+    cmp     dword ptr [rsi + 4], DATA_RVEC_R_SLEN
     jne     .Lmk_dinst
+.Lmk_data_rv:
+    mov     r10, qword ptr [rsi + 8]
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lmk_loop
+    cmp     word ptr [rax + 12], HB_RVEC
+    jne     .Lmk_loop
+    MK_MARK_BLK
+    MK_SLOT rsi+8
+    jmp     .Lmk_loop
+.Lmk_data_el:
     mov     r10, qword ptr [rsi + 8]
     MK_BLK_OF r10
     test    rax, rax
@@ -1338,6 +1355,10 @@ RTX_ENTRY(rt_gc_walk_words_a)
     jmp     .Lsw_reject
 .Lsw_data:
     mov     edx, dword ptr [rsi + 4]
+    cmp     edx, DATA_RVEC_I_SLEN
+    je      .Lsw_data_rv
+    cmp     edx, DATA_RVEC_R_SLEN
+    je      .Lsw_data_rv
     cmp     edx, DATA_ELEMS_SLEN
     jne     .Lsw_data_inst
     test    r10, r10
@@ -1346,6 +1367,20 @@ RTX_ENTRY(rt_gc_walk_words_a)
     test    rax, rax
     je      .Lsw_reject
     cmp     word ptr [rax + 12], HB_DVEC
+    jne     .Lsw_reject
+    mov     rdx, r10
+    sub     rdx, rax
+    sub     rdx, 16
+    test    dl, 15
+    jne     .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_data_rv:
+    test    r10, r10
+    je      .Lsw_reject
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    cmp     word ptr [rax + 12], HB_RVEC
     jne     .Lsw_reject
     mov     rdx, r10
     sub     rdx, rax

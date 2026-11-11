@@ -2116,6 +2116,7 @@ static int gc_sniff_would_take(const DESCR_t *d) {
     if (d->v == DT_E && IS_PROCVAL_fn(*d)) { rt_hblk_t *eh = gc_blk_of(d->s); if (eh && d->s >= (char *)(eh + 1) && d->s < (char *)eh + HBLK_BYTES(eh)) return 1; }
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN) return gc_dvec_ref_ok(d);
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
+    if (d->v == DT_DATA && (d->slen == DATA_RVEC_I_SLEN || d->slen == DATA_RVEC_R_SLEN) && gc_block_exact((const char *)d->ptr, HB_RVEC)) return 1;
     if (d->v == DT_BIG || d->v == DT_CPLX || d->v == DT_EXTL) { rt_hblk_t *nh = gc_blk_of((const char *)d->p); if (nh && (char *)d->p == (char *)(nh + 1)) return 1; }
     if (d->v == DT_PCELL) { rt_hblk_t *ch = gc_blk_of(d->s); if (ch && d->s >= (char *)(ch + 1) && d->s < (char *)ch + HBLK_BYTES(ch)) return 1; }
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { rt_hblk_t *ph = gc_blk_of((const char *)d->p); if (ph) return 1; }
@@ -2245,6 +2246,7 @@ static int gc_cell_ok(const DESCR_t *d) {
     if (gc_dvec_ref_ok(d)) return 1;
     if (d->v == DT_DATA && d->slen == DATA_INST_SLEN && gc_block_exact((const char *)d->u, HB_DINST)) return 1;
     if (d->v == DT_DATA && d->slen == DATA_ELEMS_SLEN && gc_block_exact((const char *)d->ptr, HB_DVEC)) return 1;
+    if (d->v == DT_DATA && (d->slen == DATA_RVEC_I_SLEN || d->slen == DATA_RVEC_R_SLEN) && gc_block_exact((const char *)d->ptr, HB_RVEC)) return 1;
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) return gc_blk_of((const char *)d->p) ? 1 : 0;
     if (d->v == DT_BIG) { rt_hblk_t *bh = gc_blk_of((const char *)d->p); return (bh && bh->type == HB_WSB && (char *)d->p == (char *)(bh + 1)) ? 1 : 0; }
     if (d->v == DT_CPLX) { rt_hblk_t *ch = gc_blk_of((const char *)d->p); return (ch && ch->type == HB_WSB && (char *)d->p == (char *)(ch + 1)) ? 1 : 0; }
