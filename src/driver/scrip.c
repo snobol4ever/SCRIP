@@ -1967,6 +1967,7 @@ typedef struct scrip_rl_t {
     int defer;
     int omit;
     int merged;
+    int inplace;
     scrip_rl_file_t * f;
     int nf;
     int fcap;
@@ -2277,7 +2278,7 @@ static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * 
     return av;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb, const char * pkg) {
+static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb, const char * pkg, const char * root) {
     char * fn = ct_strdup(t->name);
     for (char * q = fn; *q; q++) if (*q == '/') *q = '_';
     const char * base = strrchr(t->name, '/');
@@ -2289,8 +2290,9 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
         const char * dt = strrchr(t->file, '.');
         sin = ct_fmt("%s/%.*s.in", pkg, dt && (!fs || dt > fs) ? (int)(dt - t->file) : (int) strlen(t->file), t->file);
         if (access(sin, R_OK) != 0) sin = (char *)0;
-        dir = fs ? ct_fmt("%s/tree/%.*s", work, (int)(fs - t->file), t->file) : ct_fmt("%s/tree", work);
-        from = fs ? ct_fmt("%s/%.*s", pkg, (int)(fs - t->file), t->file) : ct_strdup(pkg);
+        const char * sub = t->inplace ? "source" : "tree", * home = t->inplace ? root : pkg;
+        dir = fs ? ct_fmt("%s/%s/%.*s", work, sub, (int)(fs - t->file), t->file) : ct_fmt("%s/%s", work, sub);
+        from = fs ? ct_fmt("%s/%.*s", home, (int)(fs - t->file), t->file) : ct_strdup(home);
         src = ct_strdup(fs ? fs + 1 : t->file);
     }
     char * ip = t->in ? ct_fmt("%s/%04d.in", work, i) : (char *)0;
@@ -2428,6 +2430,44 @@ static void scrip_rl_pkg_omit(char * b, scrip_rl_t * r, int nr) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_pkg_source(char * b, const char ** root) {
+    const char * const keys[] = { "root", "origin", "version", "licence" };
+    int seen[4] = { 0, 0, 0, 0 };
+    struct stat sb;
+    for (char * p = b; p && *p;) {
+        char * e = strchr(p, '\n');
+        if (e) *e = '\0';
+        if (*p && *p != '#') {
+            char * tab = strchr(p, '\t');
+            int k = -1;
+            if (!tab) return scrip_rl_refuse("ALL.source is malformed: a line has no tab:", p);
+            *tab = '\0';
+            for (int i = 0; i < 4; i++) if (!strcmp(keys[i], p)) k = i;
+            if (k < 0) return scrip_rl_refuse("ALL.source is malformed: its keys are root, origin, version and licence, not", p);
+            if (seen[k]++) return scrip_rl_refuse("ALL.source is malformed: a key stands twice:", p);
+            if (!tab[1]) return scrip_rl_refuse("ALL.source is malformed: a key has no value:", p);
+            if (k == 0) *root = tab + 1;
+        }
+        p = e ? e + 1 : (char *)0;
+    }
+    for (int i = 0; i < 4; i++) if (!seen[i]) return scrip_rl_refuse("ALL.source is malformed: a key is missing:", keys[i]);
+    if ((*root)[0] != '/' || stat(*root, &sb) != 0 || !S_ISDIR(sb.st_mode)) return scrip_rl_refuse("the collection's root is absent:", *root);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_source_folder(const char * root, const char * work, const char * file, char *** list, int * n, int * cap, const char ** bad) {
+    const char * fs = strrchr(file, '/');
+    char * part = fs ? ct_fmt("%.*s", (int)(fs - file), file) : ct_strdup("");
+    size_t pl = strlen(part);
+    for (int i = 0; i < *n; i++) { size_t ll = strlen((*list)[i]); if (!ll || !strcmp((*list)[i], part) || (pl > ll && !strncmp((*list)[i], part, ll) && part[ll] == '/')) return 0; }
+    char * to = pl ? ct_fmt("%s/source/%s", work, part) : ct_fmt("%s/source", work);
+    for (char * q = to + strlen(work) + 1; *q; q++) if (*q == '/') { *q = '\0'; if (mkdir(to, 0755) != 0 && errno != EEXIST) { *bad = to; return -1; } *q = '/'; }
+    if (scrip_rl_copy_tree(pl ? ct_fmt("%s/%s", root, part) : root, to, bad) != 0) return -1;
+    if (*n >= *cap) { *cap = *cap ? 2 * *cap : 8; *list = (char **) ct_grow((void *) *list, sizeof(char *) * (size_t) *cap); }
+    (*list)[(*n)++] = part;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_kind(const char * a) { return !strcmp(a, "--run-one-liners") ? 0 : !strcmp(a, "--run-multi-liners") ? 1 : !strcmp(a, "--run-files") ? 2 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char ** av) {
@@ -2456,6 +2496,22 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     if (kind != 2 && !cb) return scrip_rl_refuse(ext ? "the container holds more than one ONE file of a known extension" : "cannot read the container file in", dir);
     if (kind != 2 && (kind ? scrip_rl_multi(cb, clen, r, nr) : scrip_rl_one(cb, clen, ext ? ext : "", r, nr))) return 2;
     if (only && scrip_rl_only(only, r, nr, kind)) return 2;
+    const char * root = (const char *)0;
+    int need_tree = 0, nsrc = 0, csrc = 0;
+    char ** src_done = (char **)0;
+    if (kind == 2) {
+        size_t sl = 0;
+        char * sb = scrip_rl_slurp(ct_fmt("%s/ALL.source", dir), &sl);
+        struct stat st;
+        if (sb && scrip_rl_pkg_source(sb, &root)) return 2;
+        for (int i = 0; i < nr; i++) {
+            if (!r[i].sel || r[i].omit || r[i].defer) continue;
+            if (!root || access(ct_fmt("%s/%s", dir, r[i].file), R_OK) == 0) { need_tree = 1; continue; }
+            char * rp = ct_fmt("%s/%s", root, r[i].file);
+            if (stat(rp, &st) != 0 || !S_ISREG(st.st_mode)) return scrip_rl_refuse("the program is neither in the package nor under the collection's root:", rp);
+            r[i].inplace = 1;
+        }
+    }
     if (mkdir(out, 0755) != 0 && errno != EEXIST) return scrip_rl_refuse("cannot make the output directory", out);
     if (own) {
         const char * tp = getenv("TMPDIR");
@@ -2465,14 +2521,20 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     if (!work) return scrip_rl_refuse("cannot make the work directory under", own ? getenv("TMPDIR") : av[0]);
     const char * cm = getenv("S4E_OUTPUT_CAP_MB"), * bad = (const char *)0;
     long cap_mb = cm && atol(cm) > 0 ? atol(cm) : 256;
-    char * tree = kind == 2 ? ct_fmt("%s/tree", work) : (char *)0;
+    char * tree = kind == 2 && need_tree ? ct_fmt("%s/tree", work) : (char *)0;
     if (tree && scrip_rl_copy_tree(dir, tree, &bad) != 0) { scrip_rl_rm(tree, (const char *)0); return scrip_rl_refuse("cannot copy the package tree at", bad); }
     for (int i = 0; i < nr; i++) {
         if ((kind != 2 && r[i].one == kind) || !r[i].sel || r[i].omit) continue;
         if (kind == 2 ? r[i].defer : (r[i].staged && !r[i].nf && !r[i].stage)) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
-        refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb, dir);
+        if (r[i].inplace && scrip_rl_source_folder(root, work, r[i].file, &src_done, &nsrc, &csrc, &bad) != 0) {
+            scrip_rl_rm(ct_fmt("%s/source", work), (const char *)0);
+            if (tree) scrip_rl_rm(tree, (const char *)0);
+            return scrip_rl_refuse("cannot copy the program's folder from the collection at", bad);
+        }
+        refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb, dir, root);
     }
     if (tree) scrip_rl_rm(tree, (const char *)0);
+    if (nsrc) scrip_rl_rm(ct_fmt("%s/source", work), (const char *)0);
     if (own) scrip_rl_rm(work, (const char *)0);
     return refused ? 2 : 0;
 }
