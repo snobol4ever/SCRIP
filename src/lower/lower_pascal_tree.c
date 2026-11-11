@@ -6754,7 +6754,7 @@ static pval E_program_in(const tree_t *n) {
                     const char *vn = g_lower.pas.sem.pas_scalarvartype[i].vname;
                     long long _ah;
                     if (!vn || !g_lower.pas.sem.pas_scalarvartype[i].is_global || pas_is_func(vn) || pas_is_proc(vn) || pas_array_high_get(vn, &_ah) || pas_array_isdyn(vn)) continue;
-                    if (pas_var_typename_is(vn, pas_is_int_typename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), ilit(0)));
+                    if (pas_var_typename_is(vn, pas_is_int_typename) || pas_var_typename_is(vn, pas_is_booltype)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), ilit(0)));
                     else if (pas_var_typename_is(vn, pas_is_realtypename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), flit(0.0)));
                 }
                 if (g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) for (int i = 0; i < g_lower.pas.sem.pas_nhdrfile; i++) {
