@@ -5492,7 +5492,7 @@ static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
     x->stop = cl;
     if (x->swi < 0) {
         extern int prolog_dialect_swi_selected(void);
-        x->swi = prolog_dialect_swi_selected();
+        x->swi = prolog_dialect_swi_selected() && (!prog->filename || strcmp(prog->filename, "<prelude>"));
         for (const PlClause *c = prog->head; c && !x->swi && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { x->swi = 1; break; }
         for (const PlClause *c = prog->head; c && x->swi; c = c->next) if (prolog_clause_marks_xsb(c)) x->swi = 0;
     }
