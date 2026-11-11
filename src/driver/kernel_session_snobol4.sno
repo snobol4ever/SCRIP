@@ -3,7 +3,8 @@
 *  cell is compiled by CODE into this live program and run. A cell of another language is handed, its lines
 *  joined by newlines, to SCRIP.UNIT(TAG, TEXT), the runtime's entry that compiles a unit of that language
 *  into this same image. One line on descriptor 4 says how the cell ended. The program's own INPUT and
-*  OUTPUT stay on the standard streams.
+*  OUTPUT stay on the standard streams. A cell is a snippet, not a program: it needs no END, and a line
+*  labelled END ends the cell's text (that line and the lines after it are not compiled), never the session.
         &ERRLIMIT = 1000000
         INPUT(.SCRIP.IN, 3, '[-f3]')                           :F(SCRIP.NOCH)
         OUTPUT(.SCRIP.CTL, 4, '[-f4]')                         :F(SCRIP.NOCH)
@@ -12,11 +13,15 @@ SCRIP.LOOP SCRIP.HDR = SCRIP.IN                                :F(END)
         SCRIP.TAG = 'SNOBOL4'
         SCRIP.HDR SPAN('0123456789') . SCRIP.N (' ' REM . SCRIP.TAG | RPOS(0))  :F(SCRIP.BADH)
         SCRIP.CELL =
+        SCRIP.ENDED =
         IDENT(SCRIP.TAG, 'SNOBOL4')                            :F(SCRIP.OTHER)
         SCRIP.K = 0
 SCRIP.RD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1            :F(SCRIP.RUN)
         SCRIP.LINE = SCRIP.IN                                  :F(END)
-        SCRIP.LINE POS(0) ('*' | '-')                          :S(SCRIP.RD)
+        DIFFER(SCRIP.ENDED)                                    :S(SCRIP.RD)
+        SCRIP.LINE POS(0) 'END' (ANY(' ' CHAR(9)) | RPOS(0))   :F(SCRIP.KEEP)
+        SCRIP.ENDED = 1                                        :(SCRIP.RD)
+SCRIP.KEEP SCRIP.LINE POS(0) ('*' | '-')                       :S(SCRIP.RD)
         IDENT(SCRIP.LINE)                                      :S(SCRIP.RD)
         SCRIP.LINE POS(0) ('+' | '.') =                        :S(SCRIP.CONT)
         SCRIP.CELL = IDENT(SCRIP.CELL) SCRIP.LINE              :S(SCRIP.RD)
