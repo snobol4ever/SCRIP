@@ -36705,6 +36705,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_EXPORTS[] = {
     { "str_cat", 3 },
     { "gc_strings", 0 },
     { "set_xsb_param", 2 },
+    { "parsort", 4 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_83_SHADOWS[] = {
@@ -36764,7 +36765,22 @@ static const char PL_PRELUDE_LIB_83_SRC[] =
     "    ; throw(error(existence_error('file/module', F), load_dyn/1)) ).\n"
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
-    "'$xsb_ld_one'(C) :- assertz(C).\n";
+    "'$xsb_ld_one'(C) :- assertz(C).\n"
+    "parsort(L, S, E, R) :- ( ( S == asc ; S == [] ) -> msort(L, T) ; S == desc -> msort(L, T0), '$xsb_parsort_rev'(T0, [], T) ; is_list(S) -> '$xsb_parsort_rev'(S, [], RS), '$xsb_parsort_specs'(RS, L, T) ; throw(error(domain_error(sort_spec, S), parsort/4)) ), ( E == 0 -> R = T ; '$xsb_parsort_dedup'(T, R) ).\n"
+    "'$xsb_parsort_specs'([], T, T).\n"
+    "'$xsb_parsort_specs'([Sp|Ss], L0, T) :- '$xsb_parsort_pass'(Sp, L0, T1), '$xsb_parsort_specs'(Ss, T1, T).\n"
+    "'$xsb_parsort_pass'(asc(I), L0, T) :- '$xsb_parsort_keys'(L0, I, KL), keysort(KL, KS), '$xsb_parsort_strip'(KS, T).\n"
+    "'$xsb_parsort_pass'(desc(I), L0, T) :- '$xsb_parsort_rev'(L0, [], R0), '$xsb_parsort_keys'(R0, I, KL), keysort(KL, KS), '$xsb_parsort_strip'(KS, T1), '$xsb_parsort_rev'(T1, [], T).\n"
+    "'$xsb_parsort_keys'([], _, []).\n"
+    "'$xsb_parsort_keys'([E|Es], I, [K-E|Ks]) :- arg(I, E, K), '$xsb_parsort_keys'(Es, I, Ks).\n"
+    "'$xsb_parsort_strip'([], []).\n"
+    "'$xsb_parsort_strip'([_-E|Ps], [E|Es]) :- '$xsb_parsort_strip'(Ps, Es).\n"
+    "'$xsb_parsort_rev'([], A, A).\n"
+    "'$xsb_parsort_rev'([X|Xs], A, R) :- '$xsb_parsort_rev'(Xs, [X|A], R).\n"
+    "'$xsb_parsort_dedup'([], []).\n"
+    "'$xsb_parsort_dedup'([E|Es], [E|R]) :- '$xsb_parsort_dedup_'(Es, E, R).\n"
+    "'$xsb_parsort_dedup_'([], _, []).\n"
+    "'$xsb_parsort_dedup_'([E|Es], P, R) :- ( E == P -> R = R1 ; R = [E|R1] ), '$xsb_parsort_dedup_'(Es, E, R1).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_EXPORTS[] = {
     { "abort", 0 },
     { "abort", 1 },
@@ -38308,6 +38324,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "pairs_values", 12, 2, 56 },
     { "parse_time", 10, 2, 25 },
     { "parse_time", 10, 3, 25 },
+    { "parsort", 7, 4, 83 },
     { "partial_list", 12, 1, 34 },
     { "partition", 9, 4, 2 },
     { "partition", 9, 5, 2 },

@@ -14,7 +14,7 @@
     found as named when the name has an extension, else as File.P, File.pl or File (search_module's order), each clause is asserted at the end (direction 1, z) and each
     directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, R-1960). gc_strings/0 (a no-op: SCRIP's strings are not collected by the program) and set_xsb_param/2 (float_display_format with precision(N) sets the digits write prints a float with, the flag $xsb_float_precision that the writer reads; other parameters are accepted and ignored) are XSB machine routines prolog_tests/test_float_io_precision calls. file_open/3 (a numeric or r, w, a mode; 3 opens the text as a stream), file_close/1, file_read/3 (the term and, in an open list as XSB leaves it, vv(Name, Var) for each variable, an anonymous one named _, syslib/xsb_read.P) and str_cat/3 are the XSB file_io and machine routines prolog_tests/readstrtest calls. read_canonical/1,2 are XSB syslib/consult.P's read of a term the canonical writer wrote (hq_packages 2026-10-29, prolog_tests/test_write_read), answered by SCRIP's reader, a superset of the canonical syntax. load_dync/1 is consult/1 and ensure_dync_loaded/1 consults a file once, both down the dialect(xsb) load_files road that reads
     the file's table directives (ARCH-PROLOG-WFS-TABLING.md section 8 R1, hq_packages 2026-10-28, R-2005). edb/1, ti/1, thread_shared/1 and document_export/1 are XSB's declarations (the package prelude declares their operators) that change nothing SCRIP answers, so each directive succeeds silently (hq_packages 2026-10-28). */
-:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1, edb/1, ti/1, thread_shared/1, document_export/1, read_canonical/1, read_canonical/2, file_open/3, file_close/1, file_read/3, str_cat/3, gc_strings/0, set_xsb_param/2 ]).
+:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1, edb/1, ti/1, thread_shared/1, document_export/1, read_canonical/1, read_canonical/2, file_open/3, file_close/1, file_read/3, str_cat/3, gc_strings/0, set_xsb_param/2, parsort/4 ]).
 import(_).
 export(_).
 index(_).
@@ -59,3 +59,18 @@ ensure_dync_loaded(File) :- '$lf_list'(File, Fs), '$xsb_edl'(Fs).
 '$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).
 '$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).
 '$xsb_ld_one'(C) :- assertz(C).
+parsort(L, S, E, R) :- ( ( S == asc ; S == [] ) -> msort(L, T) ; S == desc -> msort(L, T0), '$xsb_parsort_rev'(T0, [], T) ; is_list(S) -> '$xsb_parsort_rev'(S, [], RS), '$xsb_parsort_specs'(RS, L, T) ; throw(error(domain_error(sort_spec, S), parsort/4)) ), ( E == 0 -> R = T ; '$xsb_parsort_dedup'(T, R) ).
+'$xsb_parsort_specs'([], T, T).
+'$xsb_parsort_specs'([Sp|Ss], L0, T) :- '$xsb_parsort_pass'(Sp, L0, T1), '$xsb_parsort_specs'(Ss, T1, T).
+'$xsb_parsort_pass'(asc(I), L0, T) :- '$xsb_parsort_keys'(L0, I, KL), keysort(KL, KS), '$xsb_parsort_strip'(KS, T).
+'$xsb_parsort_pass'(desc(I), L0, T) :- '$xsb_parsort_rev'(L0, [], R0), '$xsb_parsort_keys'(R0, I, KL), keysort(KL, KS), '$xsb_parsort_strip'(KS, T1), '$xsb_parsort_rev'(T1, [], T).
+'$xsb_parsort_keys'([], _, []).
+'$xsb_parsort_keys'([E|Es], I, [K-E|Ks]) :- arg(I, E, K), '$xsb_parsort_keys'(Es, I, Ks).
+'$xsb_parsort_strip'([], []).
+'$xsb_parsort_strip'([_-E|Ps], [E|Es]) :- '$xsb_parsort_strip'(Ps, Es).
+'$xsb_parsort_rev'([], A, A).
+'$xsb_parsort_rev'([X|Xs], A, R) :- '$xsb_parsort_rev'(Xs, [X|A], R).
+'$xsb_parsort_dedup'([], []).
+'$xsb_parsort_dedup'([E|Es], [E|R]) :- '$xsb_parsort_dedup_'(Es, E, R).
+'$xsb_parsort_dedup_'([], _, []).
+'$xsb_parsort_dedup_'([E|Es], P, R) :- ( E == P -> R = R1 ; R = [E|R1] ), '$xsb_parsort_dedup_'(Es, E, R1).
