@@ -1973,6 +1973,9 @@ typedef struct scrip_rl_t {
     scrip_rl_file_t * f;
     int nf;
     int fcap;
+    const char * lang;
+    int over;
+    int top;
 } scrip_rl_t;
 typedef struct scrip_rl_launch_t { int kind; const char * before; const char * after; const char * driver; } scrip_rl_launch_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2027,6 +2030,12 @@ static const char * scrip_rl_lang(const char * t, size_t n, int col) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * scrip_lang_ext(const char * name) {
+    const char * const m[] = { "snobol4", ".sno", "snocone", ".sc", "rebus", ".reb", "icon", ".icn", "prolog", ".pl", "raku", ".raku", "pascal", ".pas" };
+    for (size_t i = 0; i < sizeof m / sizeof m[0]; i += 2) if (!strcmp(name, m[i])) return m[i + 1];
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_digits(const char * s) { if (!*s) return 0; for (; *s; s++) if (!isdigit((unsigned char) *s)) return 0; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, int kind) {
@@ -2037,9 +2046,9 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
     nh = 0;
     for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
     const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect", "path", "grader", "out_files", "stage",
-        "stderr" };
-    int col[16];
-    for (int w = 0; w < 16; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+        "stderr", "language" };
+    int col[17];
+    for (int w = 0; w < 17; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
     if (kind == 2 && (col[0] < 0 || col[11] < 0)) return scrip_rl_refuse("the index has no entry or no path column (not a package index)", "ALL.csv");
     if (kind != 2 && (col[0] < 0 || col[1] < 0)) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
     int cap = 1;
@@ -2071,6 +2080,11 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
             return scrip_rl_refuse("the dialect cell is not empty and compile_args also carries a dialect switch for", t->name);
         t->file = kind == 2 && cv[col[11]][0] ? cv[col[11]] : (const char *)0;
         if (t->file) { const char * dt = strrchr(t->file, '.'), * sl = strrchr(t->file, '/'); t->ext = dt && (!sl || dt > sl) ? dt + 1 : ""; }
+        t->lang = kind == 2 && col[16] >= 0 && cv[col[16]][0] ? cv[col[16]] : (const char *)0;
+        if (t->lang && !scrip_lang_ext(t->lang)) return scrip_rl_refuse("the language cell is none of snobol4, snocone, rebus, icon, prolog, raku and pascal for", t->name);
+        for (int j = 0; t->lang && j < t->nca; j++) if (!strncmp(t->ca[j], "--lang=", 7))
+            return scrip_rl_refuse("the language cell is not empty and compile_args also carries a language switch for", t->name);
+        if (t->lang) t->ext = scrip_lang_ext(t->lang) + 1;
         t->defer = kind == 2 && !t->file;
         for (int w = 13; kind == 2 && w < 15; w++) if (col[w] >= 0 && cv[col[w]][0]) t->defer = 1;
         t->grd = kind == 2 && col[12] >= 0 && cv[col[12]][0];
@@ -2260,12 +2274,13 @@ static int scrip_rl_report(const char * name, const char * type, long num, doubl
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * t, const char * src, const scrip_rl_launch_t * L) {
     int ac = 0, drv = L && L->kind == 2, nea = t->nargs + drv;
-    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + nea + 13)), ** ea = (char **) ct_alloc(sizeof(char *) * (size_t)(nea + 1));
+    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + nea + 14)), ** ea = (char **) ct_alloc(sizeof(char *) * (size_t)(nea + 1));
     const char * dx = drv ? strrchr(L->driver, '.') : (const char *)0, * mext = drv ? (dx ? dx + 1 : "") : t->ext;
     if (drv) ea[0] = (char *) src;
     for (int j = 0; j < t->nargs; j++) ea[drv + j] = t->args[j];
     av[ac++] = self;
     av[ac++] = (char *) mode;
+    if (t->lang) av[ac++] = ct_fmt("--lang=%s", t->lang);
     if (t->dialect) av[ac++] = ct_fmt("--dialect=%s", t->dialect);
     for (int j = 0; j < t->nca; j++) av[ac++] = t->ca[j];
     if (t->heap) av[ac++] = ct_fmt("-d%sk", t->heap);
@@ -2304,12 +2319,14 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
         dir = fs ? ct_fmt("%s/%s/%.*s", work, sub, (int)(fs - t->file), t->file) : ct_fmt("%s/%s", work, sub);
         from = fs ? ct_fmt("%s/%.*s", home, (int)(fs - t->file), t->file) : ct_strdup(home);
         src = ct_strdup(fs ? fs + 1 : t->file);
+        if (t->top) { dir = ct_fmt("%s/source", work); from = ct_strdup(root); src = ct_strdup(t->file); }
     }
     char * ip = t->in ? ct_fmt("%s/%04d.in", work, i) : (char *)0;
     char * op = ct_fmt("%s/%s.%s", out, fn, strcmp(mode, "--compile") ? "out" : "s"), * ep = ct_fmt("%s/%s.err", out, fn);
     int fi = -1, fo = -1, fe = -1, pf[2] = { -1, -1 };
     int ok = t->file || (mkdir(dir, 0755) == 0 && scrip_rl_put(sp, t->prog, t->plen) == 0 && (!ip || scrip_rl_put(ip, t->in, t->inlen) == 0));
     for (int j = 0; ok && j < t->nf; j++) ok = scrip_rl_put(ct_fmt("%s/%s", dir, t->f[j].nm), t->f[j].b, t->f[j].n) == 0;
+    if (t->over) { size_t on = 0; char * ob = scrip_rl_slurp(ct_fmt("%s/%s", pkg, t->file), &on); ok = ob && scrip_rl_put(ct_fmt("%s/source/%s", work, t->file), ob, on) == 0; }
     ok = ok && (fi = open(sin ? sin : ip ? ip : "/dev/null", O_RDONLY | O_CLOEXEC)) >= 0 && (fo = open(op, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0;
     ok = ok && (fe = open(ep, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0 && pipe(pf) == 0;
     ok = ok && fcntl(pf[0], F_SETFD, FD_CLOEXEC) == 0 && fcntl(pf[1], F_SETFD, FD_CLOEXEC) == 0;
@@ -2440,9 +2457,9 @@ static void scrip_rl_pkg_omit(char * b, scrip_rl_t * r, int nr) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_rl_pkg_source(char * b, const char ** root) {
-    const char * const keys[] = { "root", "origin", "version", "licence" };
-    int seen[4] = { 0, 0, 0, 0 };
+static int scrip_rl_pkg_source(char * b, const char ** root, int * whole, int * top) {
+    const char * const keys[] = { "root", "origin", "version", "licence", "copy", "cwd" };
+    int seen[6] = { 0, 0, 0, 0, 0, 0 };
     struct stat sb;
     for (char * p = b; p && *p;) {
         char * e = strchr(p, '\n');
@@ -2452,16 +2469,20 @@ static int scrip_rl_pkg_source(char * b, const char ** root) {
             int k = -1;
             if (!tab) return scrip_rl_refuse("ALL.source is malformed: a line has no tab:", p);
             *tab = '\0';
-            for (int i = 0; i < 4; i++) if (!strcmp(keys[i], p)) k = i;
-            if (k < 0) return scrip_rl_refuse("ALL.source is malformed: its keys are root, origin, version and licence, not", p);
+            for (int i = 0; i < 6; i++) if (!strcmp(keys[i], p)) k = i;
+            if (k < 0) return scrip_rl_refuse("ALL.source is malformed: its keys are root, origin, version, licence, copy and cwd, not", p);
             if (seen[k]++) return scrip_rl_refuse("ALL.source is malformed: a key stands twice:", p);
             if (!tab[1]) return scrip_rl_refuse("ALL.source is malformed: a key has no value:", p);
             if (k == 0) *root = tab + 1;
+            if (k >= 4 && strcmp(tab + 1, "folder") && strcmp(tab + 1, "root")) return scrip_rl_refuse("ALL.source is malformed: copy and cwd are folder or root, not", tab + 1);
+            if (k == 4) *whole = !strcmp(tab + 1, "root");
+            if (k == 5) *top = !strcmp(tab + 1, "root");
         }
         p = e ? e + 1 : (char *)0;
     }
     for (int i = 0; i < 4; i++) if (!seen[i]) return scrip_rl_refuse("ALL.source is malformed: a key is missing:", keys[i]);
     if ((*root)[0] != '/' || stat(*root, &sb) != 0 || !S_ISDIR(sb.st_mode)) return scrip_rl_refuse("the collection's root is absent:", *root);
+    if (*top && !*whole) return scrip_rl_refuse("ALL.source is malformed: cwd root needs copy root, the scratch copy does not hold the root of", *root);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2542,19 +2563,22 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     if (kind != 2 && (kind ? scrip_rl_multi(cb, clen, r, nr) : scrip_rl_one(cb, clen, ext ? ext : "", r, nr))) return 2;
     if (only && scrip_rl_only(only, r, nr, kind)) return 2;
     const char * root = (const char *)0;
-    int need_tree = 0, nsrc = 0, csrc = 0;
+    int need_tree = 0, nsrc = 0, csrc = 0, whole = 0, top = 0;
     char ** src_done = (char **)0;
     if (kind == 2) {
         size_t sl = 0;
         char * sb = scrip_rl_slurp(ct_fmt("%s/ALL.source", dir), &sl);
         struct stat st;
-        if (sb && scrip_rl_pkg_source(sb, &root)) return 2;
+        if (sb && scrip_rl_pkg_source(sb, &root, &whole, &top)) return 2;
         for (int i = 0; i < nr; i++) {
             if (!r[i].sel || r[i].omit || r[i].defer) continue;
-            if (!root || access(ct_fmt("%s/%s", dir, r[i].file), R_OK) == 0) { need_tree = 1; continue; }
+            int held = access(ct_fmt("%s/%s", dir, r[i].file), R_OK) == 0;
+            if (!root || (held && !whole)) { need_tree = 1; continue; }
             char * rp = ct_fmt("%s/%s", root, r[i].file);
-            if (stat(rp, &st) != 0 || !S_ISREG(st.st_mode)) return scrip_rl_refuse("the program is neither in the package nor under the collection's root:", rp);
+            if (!held && (stat(rp, &st) != 0 || !S_ISREG(st.st_mode))) return scrip_rl_refuse("the program is neither in the package nor under the collection's root:", rp);
             r[i].inplace = 1;
+            r[i].over = held;
+            r[i].top = top;
         }
     }
     if (mkdir(out, 0755) != 0 && errno != EEXIST) return scrip_rl_refuse("cannot make the output directory", out);
@@ -2571,7 +2595,7 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     for (int i = 0; i < nr; i++) {
         if ((kind != 2 && r[i].one == kind) || !r[i].sel || r[i].omit) continue;
         if (kind == 2 ? r[i].defer : (r[i].staged && !r[i].nf && !r[i].stage)) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
-        if (r[i].inplace && scrip_rl_source_folder(root, work, r[i].file, &src_done, &nsrc, &csrc, &bad) != 0) {
+        if (r[i].inplace && scrip_rl_source_folder(root, work, whole ? "" : r[i].file, &src_done, &nsrc, &csrc, &bad) != 0) {
             scrip_rl_rm(ct_fmt("%s/source", work), (const char *)0);
             if (tree) scrip_rl_rm(tree, (const char *)0);
             return scrip_rl_refuse("cannot copy the program's folder from the collection at", bad);
@@ -2605,6 +2629,7 @@ int main(int argc, char **argv) {
     int dump_transpile = 0;
     int opt_bench = 0;
     const char *opt_dialect = NULL;
+    const char *opt_lang_ext = NULL;
     int opt_unicon = 0;
     int opt_pl_subs = 0;
     int opt_pp_only = 0;
@@ -2706,6 +2731,10 @@ int main(int argc, char **argv) {
                         argv[argi] + 10);
                     return 2;
                 }
+                argi++;
+            } else if (strncmp(argv[argi], "--lang=", 7) == 0) {
+                opt_lang_ext = scrip_lang_ext(argv[argi] + 7);
+                if (!opt_lang_ext) { fprintf(stderr, "scrip: --lang=%s refused -- the languages are snobol4, snocone, rebus, icon, prolog, raku and pascal\n", argv[argi] + 7); return 2; }
                 argi++;
             } else if (strncmp(argv[argi], "--source-path=", 14) == 0) {
                 if (argv[argi][14] != '/') { fprintf(stderr, "scrip: --source-path= needs an absolute path, got '%s'\n", argv[argi] + 14); return 2; }
@@ -2889,6 +2918,7 @@ int main(int argc, char **argv) {
             "d as its compile_args, R-2110)\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
             "ns. Prolog: gnu, xsb. Icon: unicon, read a source that carries no class, package or import marker as a Unicon program, as if it carried one (a UniTests entry's compile_args, CTO-473)\n"
+            "  --lang=NAME      read every source file as NAME (snobol4, snocone, rebus, icon, prolog, raku, pascal) whatever its extension; without it the extension names the language\n"
             "  --source-path=PATH  Prolog: the name the main source reports for itself (predicate_property file, source_file/2); the text is still read from the file given\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
             "e tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace im"
@@ -2930,7 +2960,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[fi], "--") == 0) break;
         const char *bn = strrchr(argv[fi], '/');
         bn = bn ? bn + 1 : argv[fi];
-        const char *d = strrchr(bn, '.');
+        const char *d = opt_lang_ext ? opt_lang_ext : strrchr(bn, '.');
         if (!d) { saw_sno = 1; continue; }
         int ei = 0;
         while (ei < scrip_next && strcasecmp(d, scrip_exts[ei].ext) != 0) ei++;
@@ -3014,7 +3044,7 @@ int main(int argc, char **argv) {
             sno_add_include_dir(".");
             sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, ".");
         }
-        const char *dot = strrchr(input_path, '.');
+        const char *dot = opt_lang_ext ? opt_lang_ext : strrchr(input_path, '.');
         int lang_snocone = dot && strcasecmp(dot, ".sc") == 0;
         int lang_prolog = dot && (strcasecmp(dot, ".pl") == 0 || strcasecmp(dot, ".pro") == 0 || strcasecmp(dot, ".prolog") == 0 || strcasecmp(dot, ".plt") == 0);
         int lang_icon = dot && strcasecmp(dot, ".icn") == 0;
@@ -3066,6 +3096,7 @@ int main(int argc, char **argv) {
             } else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
             else snocone_compile(src, input_path, &sub_ast);
+            if (lang_pascal && !sub_ast) { fprintf(stderr, "scrip: parse failed for '%s'\n", input_path); return 1; }
             if (lang_rebus) sub_ast = lower_rebus_tree(sub_ast);
             if (lang_snocone && sub_ast) sub_ast = snocone_resolve_imports(sub_ast, input_path);
             if (lang_snocone && g_sc_module_name && sub_ast) { extern void emit_module_mode(int); sc_module_qualify(sub_ast); emit_module_mode(1); }
