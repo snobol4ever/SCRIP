@@ -32,7 +32,7 @@ typedef struct {
     pid_t child;
     int quit;
     pid_t sess;
-    int sess_in, sess_out, sess_err, sess_cell, sess_ctl;
+    int sess_in, sess_out, sess_err, sess_cell, sess_ctl, sess_note, allow, intr;
     unsigned said;
     int abort_q;
     long p_shell, p_iopub, p_stdin, p_hb, p_control;
@@ -535,14 +535,53 @@ static ssize_t k_pump(kctx_t *k, const kmsg_t *req, int silent, int fd, const ch
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *k_copy(const char *s, size_t n) { char *t = (char *)ct_alloc(n + 1); memcpy(t, s, n); t[n] = 0; return t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_ask_input(kctx_t *k, const kmsg_t *req, int *in) {
+    if (*in < 0) return;
+    if (!k->allow || !req) { close(*in); *in = -1; return; }
+    k_send(k, k->stdin_s, req, "input_request", "{\"prompt\":\"\",\"password\":false}");
+    zmq_pollitem_t it[4] = { { k->stdin_s, 0, ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 }, { k->iopub, 0, ZMQ_POLLIN, 0 } };
+    while (!k->intr && !k->quit) {
+        kmsg_t m;
+        if (k->z.poll(it, 4, -1) < 0) { if (errno == EINTR) continue; return; }
+        if (it[1].revents & ZMQ_POLLIN) k_control_tick(k);
+        if (it[2].revents & ZMQ_POLLIN) k_heartbeat(k);
+        if (it[3].revents & ZMQ_POLLIN) k_iopub_tick(k);
+        if (!(it[0].revents & ZMQ_POLLIN) || !k_recv(k, k->stdin_s, &m) || strcmp(jn_str(m.header, "msg_type", ""), "input_reply")) continue;
+        jn_t *v = jn_get(m.content, "value");
+        cv_t line = { 0, 0, 0, 0 };
+        size_t sent = 0;
+        if (v && v->t == 4) cv_puts(&line, v->s, v->sl);
+        cv_putc(&line, '\n');
+        while (sent < line.len) { ssize_t w = write(*in, (const char *)line.p + sent, line.len - sent); if (w < 0 && errno == EINTR) continue; if (w <= 0) break; sent += (size_t)w; }
+        ct_drop(line.p);
+        return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_cell_pump(kctx_t *k, const kmsg_t *req, int silent, zmq_pollitem_t *p, int i, char *buf, size_t *held, cv_t *cur, cv_t *ev, int *nopen) {
+    ssize_t r = read(p->fd, buf + *held, 4096);
+    if (i == 1 && r > 0) k_lastline(cur, ev, buf + *held, (size_t)r);
+    size_t n = *held + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf, n) : n;
+    cv_t t = { 0, 0, 0, 0 };
+    if (r <= 0) { close(p->fd); p->fd = -1; p->events = 0; (*nopen)--; }
+    cv_puts(&t, buf, cut);
+    if (k->cap && i == 0) cv_puts(k->cap, buf, cut);
+    else if (!silent) k_stream(k, req, i == 0 ? "stdout" : "stderr", &t);
+    ct_drop(t.p);
+    memmove(buf, buf + cut, n - cut);
+    *held = n - cut;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_session_drop(kctx_t *k) {
     if (k->sess <= 0) return;
     close(k->sess_out);
     close(k->sess_err);
     close(k->sess_cell);
     close(k->sess_ctl);
+    close(k->sess_note);
+    if (k->sess_in >= 0) close(k->sess_in);
     k->sess = 0;
-    k->sess_in = k->sess_out = k->sess_err = k->sess_cell = k->sess_ctl = -1;
+    k->sess_in = k->sess_out = k->sess_err = k->sess_cell = k->sess_ctl = k->sess_note = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_session_end(kctx_t *k) {
@@ -554,7 +593,7 @@ static void k_session_end(kctx_t *k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
-    int st = 0, po[2], pe[2], pc[2], pt[2];
+    int st = 0, po[2], pe[2], pc[2], pt[2], pi[2], pn[2];
     if (k->sess > 0 && waitpid(k->sess, &st, WNOHANG) == 0) return 1;
     if (k->sess > 0) { k_session_drop(k); k_note(k, req, silent, "scrip: the session had ended; a new one starts with this cell\n", "", ""); }
     const char *ev = getenv("SCRIP_SESSION_SNOBOL4");
@@ -563,17 +602,20 @@ static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
     if (ev && *ev) snprintf(path, PATH_MAX + 64, "%s", ev);
     else { path[el > 0 ? el : 0] = 0; char *sl = strrchr(path, '/'); snprintf(sl ? sl : path, 64, "/src/driver/kernel_session_snobol4.sno"); }
     if (access(path, R_OK)) { k_note(k, req, silent, "scrip: no session program at ", path, "\n"); ct_drop(path); return 0; }
-    if (pipe(po) || pipe(pe) || pipe(pc) || pipe(pt)) { k_note(k, req, silent, "scrip: no pipe for the session\n", "", ""); ct_drop(path); return 0; }
+    if (pipe(po) || pipe(pe) || pipe(pc) || pipe(pt) || pipe(pi) || pipe(pn)) { k_note(k, req, silent, "scrip: no pipe for the session\n", "", ""); ct_drop(path); return 0; }
     fcntl(po[0], F_SETFD, FD_CLOEXEC);
     fcntl(pe[0], F_SETFD, FD_CLOEXEC);
     fcntl(pc[1], F_SETFD, FD_CLOEXEC);
     fcntl(pt[0], F_SETFD, FD_CLOEXEC);
+    fcntl(pi[1], F_SETFD, FD_CLOEXEC);
+    fcntl(pn[0], F_SETFD, FD_CLOEXEC);
     pid_t pid = fork();
     if (pid == 0) {
-        int dn = open("/dev/null", O_RDONLY), a = fcntl(dn, F_DUPFD, 100), b = fcntl(po[1], F_DUPFD, 100), c = fcntl(pe[1], F_DUPFD, 100), d = fcntl(pc[0], F_DUPFD, 100),
-            e = fcntl(pt[1], F_DUPFD, 100);
+        int a = fcntl(pi[0], F_DUPFD, 100), b = fcntl(po[1], F_DUPFD, 100), c = fcntl(pe[1], F_DUPFD, 100), d = fcntl(pc[0], F_DUPFD, 100), e = fcntl(pt[1], F_DUPFD, 100),
+            f = fcntl(pn[1], F_DUPFD, 100);
         const char *av[3] = { "scrip", path, 0 };
-        close(dn);
+        close(pi[0]);
+        close(pn[1]);
         close(po[1]);
         close(pe[1]);
         close(pc[0]);
@@ -583,11 +625,13 @@ static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
         dup2(c, 2);
         dup2(d, 3);
         dup2(e, 4);
+        dup2(f, 5);
         close(a);
         close(b);
         close(c);
         close(d);
         close(e);
+        close(f);
         signal(SIGPIPE, SIG_DFL);
         execv("/proc/self/exe", (char *const *)av);
         _exit(127);
@@ -596,10 +640,13 @@ static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
     close(pe[1]);
     close(pc[0]);
     close(pt[1]);
+    close(pi[0]);
+    close(pn[1]);
     ct_drop(path);
-    if (pid < 0) { close(po[0]); close(pe[0]); close(pc[1]); close(pt[0]); k_note(k, req, silent, "scrip: cannot start the session\n", "", ""); return 0; }
+    if (pid < 0) { close(po[0]); close(pe[0]); close(pc[1]); close(pt[0]); close(pi[1]); close(pn[0]); k_note(k, req, silent, "scrip: cannot start the session\n", "", ""); return 0; }
     k->sess = pid;
-    k->sess_in = -1;
+    k->sess_in = pi[1];
+    k->sess_note = pn[0];
     k->sess_out = po[0];
     k->sess_err = pe[0];
     k->sess_cell = pc[1];
@@ -624,12 +671,17 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
     if (clen && code[clen - 1] != '\n') cv_putc(&f, '\n');
     while (sent < f.len) { ssize_t w = write(k->sess_cell, (const char *)f.p + sent, f.len - sent); if (w < 0 && errno == EINTR) continue; if (w <= 0) { rc = -3; break; } sent += (size_t)w; }
     ct_drop(f.p);
-    zmq_pollitem_t it[6] = { { 0, k->sess_out, ZMQ_POLLIN, 0 }, { 0, k->sess_err, ZMQ_POLLIN, 0 }, { 0, k->sess_ctl, ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 },
-        { k->iopub, 0, ZMQ_POLLIN, 0 } };
+    zmq_pollitem_t it[7] = { { 0, k->sess_out, ZMQ_POLLIN, 0 }, { 0, k->sess_err, ZMQ_POLLIN, 0 }, { 0, k->sess_ctl, ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 },
+        { k->iopub, 0, ZMQ_POLLIN, 0 }, { 0, k->sess_note, ZMQ_POLLIN, 0 } };
     k->child = k->sess;
     while (rc == -2) {
-        if (k->z.poll(it, 6, -1) < 0) { if (errno == EINTR) continue; break; }
+        if (k->z.poll(it, 7, -1) < 0) { if (errno == EINTR) continue; break; }
         for (int i = 0; i < 2; i++) if (it[i].revents) (void)k_pump(k, req, silent, it[i].fd, i == 0 ? "stdout" : "stderr", buf[i], &held[i]);
+        if (it[6].revents) {
+            if (read(it[6].fd, cb, 1) != 1) { it[6].fd = -1; it[6].events = 0; continue; }
+            for (int j = 0; j < 2; j++) while (k->z.poll(&it[j], 1, 0) > 0 && it[j].revents && k_pump(k, req, silent, it[j].fd, j == 0 ? "stdout" : "stderr", buf[j], &held[j]) > 0) { }
+            k_ask_input(k, req, &k->sess_in);
+        }
         if (it[2].revents) {
             ssize_t r = read(it[2].fd, cb, sizeof cb);
             if (r <= 0) rc = -3;
@@ -712,23 +764,34 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     size_t pl = strlen(dir) + 6 + strlen(L->ext);
     char *path = (char *)ct_alloc(pl);
     snprintf(path, pl, "%s/cell%s", dir, L->ext);
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600), po[2], pe[2], st = 0, nopen = 2;
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600), po[2], pe[2], pi[2], pn[2], st = 0, nopen = 2;
     if (fd < 0 || (clen && write(fd, code, clen) != (ssize_t)clen) || (!(clen && code[clen - 1] == '\n') && write(fd, "\n", 1) != 1)) {
         k_note(k, req, silent, "scrip: cannot write the cell\n", "", "");
         return -1;
     }
     close(fd);
-    if (pipe(po) || pipe(pe)) { k_note(k, req, silent, "scrip: no pipe\n", "", ""); return -1; }
+    if (pipe(po) || pipe(pe) || pipe(pi) || pipe(pn)) { k_note(k, req, silent, "scrip: no pipe\n", "", ""); return -1; }
+    fcntl(pi[1], F_SETFD, FD_CLOEXEC);
+    fcntl(pn[0], F_SETFD, FD_CLOEXEC);
     pid_t pid = fork();
     if (pid == 0) {
-        int dn = open("/dev/null", O_RDONLY);
+        int a = fcntl(pi[0], F_DUPFD, 100), b = fcntl(po[1], F_DUPFD, 100), c = fcntl(pe[1], F_DUPFD, 100), d = fcntl(pn[1], F_DUPFD, 100);
         const char *av[4];
         int n = 0;
-        dup2(dn, 0);
-        dup2(po[1], 1);
-        dup2(pe[1], 2);
+        close(pi[0]);
+        close(po[1]);
+        close(pe[1]);
+        close(pn[1]);
         close(po[0]);
         close(pe[0]);
+        dup2(a, 0);
+        dup2(b, 1);
+        dup2(c, 2);
+        dup2(d, 5);
+        close(a);
+        close(b);
+        close(c);
+        close(d);
         signal(SIGPIPE, SIG_DFL);
         av[n++] = "scrip";
         if (L->unicon) av[n++] = "--dialect=unicon";
@@ -739,25 +802,22 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     }
     close(po[1]);
     close(pe[1]);
+    close(pi[0]);
+    close(pn[1]);
     k->child = pid;
-    zmq_pollitem_t it[5] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 }, { k->iopub, 0, ZMQ_POLLIN, 0 } };
+    zmq_pollitem_t it[6] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 }, { k->iopub, 0, ZMQ_POLLIN, 0 }, { 0, pn[0],
+        ZMQ_POLLIN, 0 } };
     cv_t cur = { 0, 0, 0, 0 };
     char buf[2][4100];
     size_t held[2] = { 0, 0 };
     while (nopen > 0 && pid > 0) {
-        if (k->z.poll(it, 5, -1) < 0) { if (errno == EINTR) continue; break; }
-        for (int i = 0; i < 2; i++) if (it[i].fd >= 0 && it[i].revents) {
-            ssize_t r = read(it[i].fd, buf[i] + held[i], 4096);
-            if (i == 1 && r > 0) k_lastline(&cur, ev, buf[i] + held[i], (size_t)r);
-            size_t n = held[i] + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf[i], n) : n;
-            cv_t t = { 0, 0, 0, 0 };
-            if (r <= 0) { close(it[i].fd); it[i].fd = -1; it[i].events = 0; nopen--; }
-            cv_puts(&t, buf[i], cut);
-            if (k->cap && i == 0) cv_puts(k->cap, buf[i], cut);
-            else if (!silent) k_stream(k, req, i == 0 ? "stdout" : "stderr", &t);
-            ct_drop(t.p);
-            memmove(buf[i], buf[i] + cut, n - cut);
-            held[i] = n - cut;
+        if (k->z.poll(it, 6, -1) < 0) { if (errno == EINTR) continue; break; }
+        for (int i = 0; i < 2; i++) if (it[i].fd >= 0 && it[i].revents) k_cell_pump(k, req, silent, &it[i], i, buf[i], &held[i], &cur, ev, &nopen);
+        if (it[5].revents) {
+            char nb;
+            if (read(it[5].fd, &nb, 1) != 1) { it[5].fd = -1; it[5].events = 0; continue; }
+            for (int j = 0; j < 2; j++) while (it[j].fd >= 0 && k->z.poll(&it[j], 1, 0) > 0 && it[j].revents) k_cell_pump(k, req, silent, &it[j], j, buf[j], &held[j], &cur, ev, &nopen);
+            k_ask_input(k, req, &pi[1]);
         }
         if (it[2].revents & ZMQ_POLLIN) k_control_tick(k);
         if (it[3].revents & ZMQ_POLLIN) k_heartbeat(k);
@@ -769,6 +829,8 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     k->child = 0;
     if (it[0].fd >= 0) close(it[0].fd);
     if (it[1].fd >= 0) close(it[1].fd);
+    if (pi[1] >= 0) close(pi[1]);
+    close(pn[0]);
     unlink(path);
     rmdir(dir);
     ct_drop(path);
@@ -940,6 +1002,8 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     int silent = jn_bool(req->content, "silent", 0);
     cv_t c = { 0, 0, 0, 0 };
     char num[32];
+    k->allow = jn_bool(req->content, "allow_stdin", 0);
+    k->intr = 0;
     const char *dsp = k_cell_opt(code, clen, "display"), *did = k_cell_opt(code, clen, "id"), *upd = k_cell_opt(code, clen, "update");
     if (!silent && jn_bool(req->content, "store_history", 1)) {
         khist_t *h = &CV_PUSH(k->hist, khist_t);
@@ -1095,6 +1159,7 @@ static void k_inspect(kctx_t *k, void *sock, const kmsg_t *req) {
         for (uint32_t i = 0; i < k->ionames.len; i++) if (!strcmp(CV_AT(k->ionames, kmatch_t, i).s, nm)) io = 1;
         jw_raw(&text, nm);
         cv_putc(&text, '\n');
+        k->allow = 0;
         if (!io && k_session_exprs(k, req, 1, &text, &vals) == 0 && vals.len == 1 && CV_AT(vals, kval_t, 0).st == 0 && (CV_AT(vals, kval_t, 0).n || strcmp(CV_AT(vals, kval_t, 0).dt, "STRING"))) {
             jw_raw(&t, nm);
             jw_raw(&t, ": ");
@@ -1217,6 +1282,7 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
         k_reply(k, sock, req, cv_cstr(&c));
     } else if (!strcmp(t, "interrupt_request")) {
         if (k->child > 0) kill(k->child, SIGINT);
+        k->intr = 1;
         k_reply(k, sock, req, "{\"status\":\"ok\"}");
     } else if (!strcmp(t, "shutdown_request")) {
         if (k->child > 0) kill(k->child, SIGTERM);
@@ -1282,6 +1348,8 @@ int scrip_kernel_main(const char *connection_file) {
     const char *ip = jn_str(cf, "ip", "127.0.0.1"), *tr = jn_str(cf, "transport", "tcp"), *key = jn_str(cf, "key", ""), *scheme = jn_str(cf, "signature_scheme", "hmac-sha256");
     if (key[0] && strcmp(scheme, "hmac-sha256")) { fprintf(stderr, "scrip --kernel: signature scheme %s is not hmac-sha256\n", scheme); return 2; }
     memset(&k, 0, sizeof k);
+    k.sess_in = k.sess_out = k.sess_err = k.sess_cell = k.sess_ctl = k.sess_note = -1;
+    setenv("SCRIP_STDIN_NOTICE_FD", "5", 1);
     k.key = (const unsigned char *)key;
     k.keylen = strlen(key);
     k_uuid(k.session);
