@@ -21,7 +21,28 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "multi sub splice(@a, $start) { @a.splice($start) }\n"
     "multi sub splice(@a, $start, $n, *@new) { @a.splice($start, $n, |@new) }\n"
     "class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?\? '/' ~ $r !! ($r eq '' ?\? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }\n"
-    "my $*SPEC = IO::Spec::Unix;\n";
+    "my $*SPEC = IO::Spec::Unix;\n"
+    "multi sub floor(\\x) { x.floor }\n"
+    "multi sub ceiling(\\x) { x.ceiling }\n"
+    "multi sub round(\\x) { x.round }\n"
+    "multi sub truncate(\\x) { x.truncate }\n"
+    "multi sub sign(\\x) { x.sign }\n"
+    "multi sub log2(\\x) { x.log2 }\n"
+    "multi sub log10(\\x) { x.log10 }\n"
+    "multi sub sinh(\\x) { x.sinh }\n"
+    "multi sub cosh(\\x) { x.cosh }\n"
+    "multi sub tanh(\\x) { x.tanh }\n"
+    "multi sub asinh(\\x) { x.asinh }\n"
+    "multi sub acosh(\\x) { x.acosh }\n"
+    "multi sub atanh(\\x) { x.atanh }\n"
+    "multi sub asin(\\x) { x.asin }\n"
+    "multi sub acos(\\x) { x.acos }\n"
+    "multi sub sec(\\x) { x.sec }\n"
+    "multi sub cosec(\\x) { x.cosec }\n"
+    "multi sub cotan(\\x) { x.cotan }\n"
+    "multi sub is-prime(\\x) { x.is-prime }\n"
+    "multi sub atan2(\\y) { y.atan2 }\n"
+    "multi sub atan2(\\y, \\x) { y.atan2(x) }\n";
 static const char RK_SETTING_MODULE_1_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"
@@ -610,7 +631,7 @@ static const char RK_SETTING_MODULE_2_SRC[] =
     "    subtest $desc, { plan $plan; $tests() };\n"
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
-    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines keys values kv pairs elems end ords splice $*SPEC " },
+    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines keys values kv pairs elems end ords splice floor ceiling round truncate sign log2 log10 sinh cosh tanh asinh acosh atanh asin acos sec cosec cotan is-prime atan2 $*SPEC " },
     { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
     { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of " },
     { 0, 0, 0 }

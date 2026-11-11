@@ -20,3 +20,24 @@ multi sub splice(@a, $start) { @a.splice($start) }
 multi sub splice(@a, $start, $n, *@new) { @a.splice($start, $n, |@new) }
 class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?? '/' ~ $r !! ($r eq '' ?? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }
 my $*SPEC = IO::Spec::Unix;
+multi sub floor(\x) { x.floor }
+multi sub ceiling(\x) { x.ceiling }
+multi sub round(\x) { x.round }
+multi sub truncate(\x) { x.truncate }
+multi sub sign(\x) { x.sign }
+multi sub log2(\x) { x.log2 }
+multi sub log10(\x) { x.log10 }
+multi sub sinh(\x) { x.sinh }
+multi sub cosh(\x) { x.cosh }
+multi sub tanh(\x) { x.tanh }
+multi sub asinh(\x) { x.asinh }
+multi sub acosh(\x) { x.acosh }
+multi sub atanh(\x) { x.atanh }
+multi sub asin(\x) { x.asin }
+multi sub acos(\x) { x.acos }
+multi sub sec(\x) { x.sec }
+multi sub cosec(\x) { x.cosec }
+multi sub cotan(\x) { x.cotan }
+multi sub is-prime(\x) { x.is-prime }
+multi sub atan2(\y) { y.atan2 }
+multi sub atan2(\y, \x) { y.atan2(x) }

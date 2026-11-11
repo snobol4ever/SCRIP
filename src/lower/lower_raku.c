@@ -359,8 +359,7 @@ static IR_t * rk_loop_ctl(rcx_t * cx, const tree_t * t, const char * nm, IR_t * 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
     static const char * const names[] = { "lc", "uc", "samecase", "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index",
-        "rindex", "floor", "ceiling", "round", "truncate", "sign", "log2", "log10", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "asin", "acos", "sec", "cosec", "cotan", "atan2", "is-prime",
-        NULL };
+        "rindex", NULL };
     for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1;
     return 0;
 }
