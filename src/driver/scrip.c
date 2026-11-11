@@ -12,6 +12,7 @@
 #include <strings.h>
 #include <alloca.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -1968,10 +1969,12 @@ typedef struct scrip_rl_t {
     int omit;
     int merged;
     int inplace;
+    int grd;
     scrip_rl_file_t * f;
     int nf;
     int fcap;
 } scrip_rl_t;
+typedef struct scrip_rl_launch_t { int kind; const char * before; const char * after; const char * driver; } scrip_rl_launch_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_refuse(const char * why, const char * what) { fprintf(stderr, "scrip: REFUSE(2): %s '%s'\n", why, what ? what : ""); return 2; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2069,7 +2072,8 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
         t->file = kind == 2 && cv[col[11]][0] ? cv[col[11]] : (const char *)0;
         if (t->file) { const char * dt = strrchr(t->file, '.'), * sl = strrchr(t->file, '/'); t->ext = dt && (!sl || dt > sl) ? dt + 1 : ""; }
         t->defer = kind == 2 && !t->file;
-        for (int w = 12; kind == 2 && w < 15; w++) if (col[w] >= 0 && cv[col[w]][0]) t->defer = 1;
+        for (int w = 13; kind == 2 && w < 15; w++) if (col[w] >= 0 && cv[col[w]][0]) t->defer = 1;
+        t->grd = kind == 2 && col[12] >= 0 && cv[col[12]][0];
         t->merged = col[15] >= 0 && !strcmp(cv[col[15]], "merged");
         if (col[15] >= 0 && cv[col[15]][0] && !t->merged) return scrip_rl_refuse("the stderr cell is neither empty nor merged for", t->name);
         t->sel = 1;
@@ -2254,31 +2258,37 @@ static int scrip_rl_report(const char * name, const char * type, long num, doubl
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * t, const char * src) {
-    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + t->nargs + 11));
-    int ac = 0;
+static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * t, const char * src, const scrip_rl_launch_t * L) {
+    int ac = 0, drv = L && L->kind == 2, nea = t->nargs + drv;
+    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + nea + 13)), ** ea = (char **) ct_alloc(sizeof(char *) * (size_t)(nea + 1));
+    const char * dx = drv ? strrchr(L->driver, '.') : (const char *)0, * mext = drv ? (dx ? dx + 1 : "") : t->ext;
+    if (drv) ea[0] = (char *) src;
+    for (int j = 0; j < t->nargs; j++) ea[drv + j] = t->args[j];
     av[ac++] = self;
     av[ac++] = (char *) mode;
     if (t->dialect) av[ac++] = ct_fmt("--dialect=%s", t->dialect);
     for (int j = 0; j < t->nca; j++) av[ac++] = t->ca[j];
     if (t->heap) av[ac++] = ct_fmt("-d%sk", t->heap);
     if (t->stack) av[ac++] = ct_fmt("-s%sk", t->stack);
-    if (t->nargs && !strcmp(t->ext, "sno")) {
+    if (nea && mext && !strcmp(mext, "sno")) {
         size_t n = 1;
-        for (int j = 0; j < t->nargs; j++) n += strlen(t->args[j]) + 1;
+        for (int j = 0; j < nea; j++) n += strlen(ea[j]) + 1;
         char * u = (char *) ct_zalloc(n, 1);
-        for (int j = 0; j < t->nargs; j++) { if (j) strcat(u, " "); strcat(u, t->args[j]); }
+        for (int j = 0; j < nea; j++) { if (j) strcat(u, " "); strcat(u, ea[j]); }
         av[ac++] = "-u";
         av[ac++] = u;
     }
-    av[ac++] = (char *) src;
-    if (t->nargs) av[ac++] = "--";
-    for (int j = 0; j < t->nargs; j++) av[ac++] = t->args[j];
+    if (L && L->kind == 1 && L->before) av[ac++] = (char *) L->before;
+    av[ac++] = drv ? (char *) L->driver : (char *) src;
+    if (L && L->kind == 1 && L->after) av[ac++] = (char *) L->after;
+    if (nea) av[ac++] = "--";
+    for (int j = 0; j < nea; j++) av[ac++] = ea[j];
     av[ac] = (char *)0;
     return av;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb, const char * pkg, const char * root) {
+static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb, const char * pkg, const char * root, const scrip_rl_launch_t * L)
+    {
     char * fn = ct_strdup(t->name);
     for (char * q = fn; *q; q++) if (*q == '/') *q = '_';
     const char * base = strrchr(t->name, '/');
@@ -2304,7 +2314,7 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     ok = ok && (fe = open(ep, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0 && pipe(pf) == 0;
     ok = ok && fcntl(pf[0], F_SETFD, FD_CLOEXEC) == 0 && fcntl(pf[1], F_SETFD, FD_CLOEXEC) == 0;
     int en = errno;
-    char ** av = scrip_rl_argv(self, mode, t, src);
+    char ** av = scrip_rl_argv(self, mode, t, src, L);
     struct timespec t0, t1;
     sigset_t ss, old;
     sigemptyset(&ss);
@@ -2468,6 +2478,37 @@ static int scrip_rl_source_folder(const char * root, const char * work, const ch
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_pkg_path(const char * dir, const char * rel, const char ** out) {
+    struct stat sb;
+    char * j = ct_fmt("%s/%s", dir, rel), * abs = (char *) ct_alloc(PATH_MAX);
+    if (stat(j, &sb) != 0 || !S_ISREG(sb.st_mode) || !realpath(j, abs)) return scrip_rl_refuse("ALL.launch names a file the package does not hold:", j);
+    *out = abs;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_pkg_launch(char * b, const char * dir, scrip_rl_launch_t * L) {
+    int ln = 0, ss = 0, so = 0;
+    for (char * p = b; p && *p;) {
+        char * e = strchr(p, '\n'), * c[5] = { 0, 0, 0, 0, 0 };
+        int n = 0;
+        if (e) *e = '\0';
+        ln++;
+        if (*p && *p != '#') {
+            for (char * q = p; q && n < 5;) { char * t2 = strchr(q, '\t'); if (t2) *t2 = '\0'; c[n++] = q; q = t2 ? t2 + 1 : (char *)0; }
+            int sc = !strcmp(c[0], "scrip"), orc = !strcmp(c[0], "oracle"), ar = n == 4 && !strcmp(c[1], "around"), dr = n == 3 && !strcmp(c[1], "driver");
+            if ((!sc && !orc) || (!ar && !dr) || (sc && ss) || (orc && so)) return scrip_rl_refuse("ALL.launch is malformed at line", ct_fmt("%d", ln));
+            ss += sc;
+            so += orc;
+            if (sc && ar && strcmp(c[2], "-") && scrip_rl_pkg_path(dir, c[2], &L->before)) return 2;
+            if (sc && ar && strcmp(c[3], "-") && scrip_rl_pkg_path(dir, c[3], &L->after)) return 2;
+            if (sc && dr && scrip_rl_pkg_path(dir, c[2], &L->driver)) return 2;
+            if (sc) L->kind = ar ? 1 : 2;
+        }
+        p = e ? e + 1 : (char *)0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_kind(const char * a) { return !strcmp(a, "--run-one-liners") ? 0 : !strcmp(a, "--run-multi-liners") ? 1 : !strcmp(a, "--run-files") ? 2 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char ** av) {
@@ -2485,12 +2526,16 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     if (!ib) return scrip_rl_refuse("cannot read the index", ct_fmt("%s/ALL.csv", dir));
     scrip_rl_t * r = (scrip_rl_t *)0;
     int nr = 0, refused = 0, own = !work;
+    scrip_rl_launch_t L = { 0, (const char *)0, (const char *)0, (const char *)0 };
     if (scrip_rl_index(ib, ilen, &r, &nr, kind)) return 2;
     if (kind == 2) {
         size_t al = 0, ol = 0;
         char * ab = scrip_rl_slurp(ct_fmt("%s/ALL.args", dir), &al), * ob = scrip_rl_slurp(ct_fmt("%s/ALL.omit", dir), &ol);
         if (ob) scrip_rl_pkg_omit(ob, r, nr);
         if (ab && scrip_rl_pkg_args(ab, r, nr)) return 2;
+        char * lb = scrip_rl_slurp(ct_fmt("%s/ALL.launch", dir), &al);
+        if (lb && scrip_rl_pkg_launch(lb, dir, &L)) return 2;
+        for (int i = 0; i < nr; i++) if (r[i].grd && !L.kind) r[i].defer = 1;
     }
     char * cb = kind == 2 ? (char *)0 : scrip_rl_container(dir, kind, &ext, &clen);
     if (kind != 2 && !cb) return scrip_rl_refuse(ext ? "the container holds more than one ONE file of a known extension" : "cannot read the container file in", dir);
@@ -2531,7 +2576,7 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
             if (tree) scrip_rl_rm(tree, (const char *)0);
             return scrip_rl_refuse("cannot copy the program's folder from the collection at", bad);
         }
-        refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb, dir, root);
+        refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb, dir, root, &L);
     }
     if (tree) scrip_rl_rm(tree, (const char *)0);
     if (nsrc) scrip_rl_rm(ct_fmt("%s/source", work), (const char *)0);
