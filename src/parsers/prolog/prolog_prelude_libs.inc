@@ -37230,6 +37230,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_87_EXPORTS[] = {
     { "$xt_tv1", 2 },
     { "$xt_ntp", 1 },
     { "$tbl $xt_ntp", 1 },
+    { "trie_dynamic", 1 },
+    { "trie_assert", 1 },
+    { "trie_retract", 1 },
+    { "trie_retract_all", 1 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_87_SHADOWS[] = {
@@ -37316,7 +37320,11 @@ static const char PL_PRELUDE_LIB_87_SRC[] =
     "get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).\n"
     "u_not(G):-ground(G),acyclic_term(G),!,tnot(G).\n"
     "u_not(G):-'$tbl_call'(floundered(G),'$tbl floundered'(G)).\n"
-    "floundered_undefined(a):-'$tbl_call'(floundered_undefined(a),'$tbl floundered_undefined'(a)).\n";
+    "floundered_undefined(a):-'$tbl_call'(floundered_undefined(a),'$tbl floundered_undefined'(a)).\n"
+    "trie_dynamic(X):-dynamic(X).\n"
+    "trie_assert(T):-callable(T),functor(T,F,N),functor(T0,F,N),(clause(T0,true),T0=@=T->true;assertz(T)).\n"
+    "trie_retract(X):-retract(X).\n"
+    "trie_retract_all(X):-retractall(X).\n";
 static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "aggregate", PL_PRELUDE_LIB_0_EXPORTS, PL_PRELUDE_LIB_0_OPS, PL_PRELUDE_LIB_0_SHADOWS, PL_PRELUDE_LIB_0_QUIET, PL_PRELUDE_LIB_0_SRC, PL_PRELUDE_LIB_0_METAS, PL_PRELUDE_LIB_0_LOADS, 0 },
     { "ansi_term", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC, PL_PRELUDE_LIB_1_METAS, PL_PRELUDE_LIB_1_LOADS, 0 },
@@ -38823,7 +38831,11 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "transpose", 9, 2, 13 },
     { "transpose_pairs", 15, 2, 57 },
     { "transpose_ugraph", 16, 2, 80 },
+    { "trie_assert", 11, 1, 87 },
+    { "trie_dynamic", 12, 1, 87 },
     { "trie_insert_new", 15, 3, 5 },
+    { "trie_retract", 12, 1, 87 },
+    { "trie_retract_all", 16, 1, 87 },
     { "truth_value", 11, 2, 87 },
     { "tuples_in", 9, 2, 13 },
     { "type_error", 10, 2, 30 },

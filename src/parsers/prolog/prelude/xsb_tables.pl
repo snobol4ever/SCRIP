@@ -17,7 +17,7 @@
 :- module(xsb_tables, [ u_not/1, floundered_undefined/1, gc_tables/1,abolish_table_info/0, close_open_tables/1, xsb_error_get_tag/2, xsb_error_get_message/2, abolish_module_tables/1, '$amt_drop'/3, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
                         '$ats_split'/4, '$ats_close'/3, '$ats_dep'/4, '$ats_hits'/2, '$ats_lit'/2, '$ats_drop'/2, '$ats_opts'/1, '$atp_goal'/2,
                         variant_get_residual/2, table_state/4, truth_value/2, get_calls_for_table/2, abolish_table_subgoal/1, abolish_table_subgoal/2, abolish_nonincremental_tables/0, abolish_nonincremental_tables/1,
-                        delete_return/2, delete_return/3, get_returns_and_tvs/3, '$xt_state'/4, '$xt_tv1'/2, '$xt_ntp'/1, '$tbl $xt_ntp'/1 ]).
+                        delete_return/2, delete_return/3, get_returns_and_tvs/3, '$xt_state'/4, '$xt_tv1'/2, '$xt_ntp'/1, '$tbl $xt_ntp'/1, trie_dynamic/1, trie_assert/1, trie_retract/1, trie_retract_all/1 ]).
 gc_tables(0).
 abolish_table_info.
 close_open_tables(_).
@@ -89,3 +89,7 @@ get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).
 u_not(G):-ground(G),acyclic_term(G),!,tnot(G).
 u_not(G):-'$tbl_call'(floundered(G),'$tbl floundered'(G)).
 floundered_undefined(a):-'$tbl_call'(floundered_undefined(a),'$tbl floundered_undefined'(a)).
+trie_dynamic(X):-dynamic(X).
+trie_assert(T):-callable(T),functor(T,F,N),functor(T0,F,N),(clause(T0,true),T0=@=T->true;assertz(T)).
+trie_retract(X):-retract(X).
+trie_retract_all(X):-retractall(X).
