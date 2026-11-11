@@ -33,11 +33,14 @@ typedef struct {
     unsigned said;
     int abort_q;
 } kctx_t;
-typedef struct { const char *tag, *ext; int unicon; } klang_t;
+typedef struct { const char *tag, *ext; int unicon; const char *mime, *pygments, *codemirror; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
 static const ksess_t k_sess[] = { { "snobol4", "SNOBOL4" }, { "snobol", "SNOBOL4" }, { "spitbol", "SNOBOL4" } };
-static const klang_t k_langs[] = { { "snobol4", ".sno", 0 }, { "snobol", ".sno", 0 }, { "spitbol", ".spt", 0 }, { "snocone", ".sc", 0 }, { "rebus", ".reb", 0 }, { "icon", ".icn", 0 }, { "unicon",
-    ".icn", 1 }, { "prolog", ".pl", 0 }, { "pascal", ".pas", 0 }, { "raku", ".raku", 0 }, { "scrip", ".md", 0 }, { "polyglot", ".md", 0 }, { "md", ".md", 0 }, { "markdown", ".md", 0 } };
+static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "spitbol", ".spt", 0,
+    "text/x-snobol4", "snobol", "text/plain" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "text/plain" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
+    "text/x-icon", "icon", "text/plain" }, { "unicon", ".icn", 1, "text/x-unicon", "unicon", "text/plain" }, { "prolog", ".pl", 0, "text/x-prolog", "prolog", "text/plain" }, { "pascal", ".pas", 0,
+    "text/x-pascal", "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/markdown", "markdown", "markdown" }, { "polyglot", ".md", 0,
+    "text/markdown", "markdown", "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
 static const uint32_t k_sha[64] = { 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74,
     0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3,
     0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
@@ -656,6 +659,46 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     return pid < 0 ? -1 : WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *k_cell_lang(const char **codep, size_t *clenp, const char *lang) {
+    const char *code = *codep;
+    size_t clen = *clenp;
+    if (clen >= 2 && code[0] == '%' && code[1] == '%') {
+        size_t i = 2, j;
+        while (i < clen && code[i] == ' ') i++;
+        j = i;
+        while (j < clen && code[j] != '\n' && code[j] != ' ' && code[j] != '\r') j++;
+        char *tag = (char *)ct_alloc(j - i + 1);
+        memcpy(tag, code + i, j - i);
+        tag[j - i] = 0;
+        lang = tag;
+        while (j < clen && code[j] != '\n') j++;
+        if (j < clen) j++;
+        *codep = code + j;
+        *clenp = clen - j;
+    }
+    if (!lang) lang = getenv("SCRIP_DEFAULT_LANG") ? getenv("SCRIP_DEFAULT_LANG") : "SNOBOL4";
+    return lang;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_cell_complete(const char *code, size_t n, const char *lang) {
+    size_t last = n;
+    long depth = 0, fences = 0;
+    while (last > 0 && strchr(" \t\r\n", code[last - 1])) last--;
+    if (last == 0) return 1;
+    if (!strcasecmp(lang, "prolog")) return code[last - 1] == '.';
+    if (!strcasecmp(lang, "scrip") || !strcasecmp(lang, "polyglot") || !strcasecmp(lang, "md") || !strcasecmp(lang, "markdown")) {
+        for (size_t i = 0; i + 2 < n; i++) if ((i == 0 || code[i - 1] == '\n') && code[i] == '`' && code[i + 1] == '`' && code[i + 2] == '`') fences++;
+        return fences % 2 == 0;
+    }
+    if (strcasecmp(lang, "icon") && strcasecmp(lang, "unicon") && strcasecmp(lang, "snocone") && strcasecmp(lang, "rebus") && strcasecmp(lang, "raku") && strcasecmp(lang, "pascal")) return 1;
+    for (size_t i = 0; i < n; i++) {
+        char c = code[i];
+        if (c == '"' || c == '\'') { for (i++; i < n && code[i] != c; i++) if (code[i] == '\\') i++; } else if (c == '(' || c == '[' || c == '{') depth++;
+        else if (c == ')' || c == ']' || c == '}') depth--;
+    }
+    return depth <= 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     jn_t *cj = jn_get(req->content, "code");
     const char *code = cj && cj->t == 4 ? cj->s : "", *lang = jn_str(jn_get(req->metadata, "scrip"), "language", 0);
@@ -673,21 +716,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     jw_raw(&c, "}");
     if (!silent) k_send(k, k->iopub, req, "execute_input", cv_cstr(&c));
     c.len = 0;
-    if (clen >= 2 && code[0] == '%' && code[1] == '%') {
-        size_t i = 2, j;
-        while (i < clen && code[i] == ' ') i++;
-        j = i;
-        while (j < clen && code[j] != '\n' && code[j] != ' ' && code[j] != '\r') j++;
-        char *tag = (char *)ct_alloc(j - i + 1);
-        memcpy(tag, code + i, j - i);
-        tag[j - i] = 0;
-        lang = tag;
-        while (j < clen && code[j] != '\n') j++;
-        if (j < clen) j++;
-        code += j;
-        clen -= j;
-    }
-    if (!lang) lang = getenv("SCRIP_DEFAULT_LANG") ? getenv("SCRIP_DEFAULT_LANG") : "SNOBOL4";
+    lang = k_cell_lang(&code, &clen, lang);
     cv_t en = { 0, 0, 0, 0 }, ev = { 0, 0, 0, 0 };
     int rc = k_run_cell(k, req, silent, code, clen, lang, &en, &ev);
     if (rc == 0) {
@@ -743,14 +772,27 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
     k_status(k, req, "busy");
     if (!strcmp(t, "execute_request")) k_execute(k, sock, req);
     else if (!strcmp(t, "kernel_info_request")) {
-        jw_raw(&c,
-            "{\"status\":\"ok\",\"protocol_version\":\"5.3\",\"implementation\":\"SCRIP\",\"implementation_version\":\"0.2\",\"language_info\":{\"name\":\"scrip\",\"version\":\"0.2\",\"mimetype\":\""
-            "text/plain\",");
-        jw_raw(&c, "\"file_extension\":\".md\",\"pygments_lexer\":\"text\",\"codemirror_mode\":\"text\"},\"banner\":\"SCRIP kernel: SNOBOL4, Snocone, Rebus, Icon, Unicon, Prolog, Pascal, Raku. ");
+        const char *dl = getenv("SCRIP_DEFAULT_LANG");
+        const klang_t *L = 0;
+        for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcasecmp(k_langs[i].tag, dl && *dl ? dl : "scrip")) L = &k_langs[i];
+        if (!L) for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcmp(k_langs[i].tag, "scrip")) L = &k_langs[i];
+        jw_raw(&c, "{\"status\":\"ok\",\"protocol_version\":\"5.3\",\"implementation\":\"SCRIP\",\"implementation_version\":\"0.2\",\"language_info\":{");
+        jw_kv(&c, "name", L->tag, 0);
+        jw_kv(&c, "version", "0.2", 1);
+        jw_kv(&c, "mimetype", L->mime, 1);
+        jw_kv(&c, "file_extension", L->ext, 1);
+        jw_kv(&c, "pygments_lexer", L->pygments, 1);
+        jw_kv(&c, "codemirror_mode", L->codemirror, 1);
+        jw_raw(&c, "},\"banner\":\"SCRIP kernel: SNOBOL4, Snocone, Rebus, Icon, Unicon, Prolog, Pascal, Raku. ");
         jw_raw(&c, "Tag a cell with metadata scrip.language or a first line %%Prolog.\",\"help_links\":[]}");
         k_reply(k, sock, req, cv_cstr(&c));
-    } else if (!strcmp(t, "is_complete_request")) k_reply(k, sock, req, "{\"status\":\"complete\"}");
-    else if (!strcmp(t, "complete_request")) {
+    } else if (!strcmp(t, "is_complete_request")) {
+        jn_t *cj = jn_get(req->content, "code");
+        const char *code = cj && cj->t == 4 ? cj->s : "";
+        size_t clen = cj && cj->t == 4 ? cj->sl : 0;
+        const char *lang = k_cell_lang(&code, &clen, 0);
+        k_reply(k, sock, req, k_cell_complete(code, clen, lang) ? "{\"status\":\"complete\"}" : "{\"status\":\"incomplete\",\"indent\":\"\"}");
+    } else if (!strcmp(t, "complete_request")) {
         char b[128];
         long p = jn_int(req->content, "cursor_pos", 0);
         snprintf(b, sizeof b, "{\"status\":\"ok\",\"matches\":[],\"cursor_start\":%ld,\"cursor_end\":%ld,\"metadata\":{}}", p, p);
