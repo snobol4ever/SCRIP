@@ -263,7 +263,9 @@ static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
     long long sn;
     if (ss && ss->t && pt_const(s, (const tree_t *)ss->t->bnd, &sn) && sn >= 1 && sn <= 255) { pty_t *t = pt_new(PTK_STRING, "shortstring"); t->strmax = (int)sn; return t; }
     if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
-    return pt_named(s, n->v.sval);
+    pty_t *r = pt_named(s, n->v.sval);
+    if (!r && g_lower.pas.dump_types) fprintf(stderr, "PTY-UNKNOWN-TYPE %s\n", n->v.sval);
+    return r;
 }
 struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; int nev, evcap; int *ev; pty_vt_t *vt; int nvt, vtcap; };
 static void lb_ev(struct pty_lay *L, int code, int arg) {
