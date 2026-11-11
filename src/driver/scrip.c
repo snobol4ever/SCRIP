@@ -1962,6 +1962,7 @@ typedef struct scrip_rl_t {
     int nonl;
     int sel;
     const char * stage;
+    const char * dialect;
     scrip_rl_file_t * f;
     int nf;
     int fcap;
@@ -2027,9 +2028,9 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout) {
     char ** hd = (char **) ct_alloc(sizeof(char *) * (size_t)(nh + 1));
     nh = 0;
     for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
-    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name" };
-    int col[10];
-    for (int w = 0; w < 10; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect" };
+    int col[11];
+    for (int w = 0; w < 11; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
     if (col[0] < 0 || col[1] < 0) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
     int cap = 1;
     for (char * q = p; q < end; q++) if (*q == '\n') cap++;
@@ -2055,6 +2056,9 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout) {
         t->nca = col[7] >= 0 ? scrip_rl_words(cv[col[7]], &t->ca) : 0;
         if (col[8] >= 0 && cv[col[8]][0]) return scrip_rl_refuse("a run_args cell is not empty (format 2 holds arguments in the args fence) for", t->name);
         t->stage = col[9] >= 0 && cv[col[9]][0] ? cv[col[9]] : (const char *)0;
+        t->dialect = col[10] >= 0 && cv[col[10]][0] ? cv[col[10]] : (const char *)0;
+        for (int j = 0; t->dialect && j < t->nca; j++) if (!strncmp(t->ca[j], "--dialect=", 10))
+            return scrip_rl_refuse("the dialect cell is not empty and compile_args also carries a dialect switch for", t->name);
         t->sel = 1;
     }
     *out = r;
@@ -2181,10 +2185,11 @@ static int scrip_rl_report(const char * name, const char * type, long num, doubl
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * t, const char * src) {
-    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + t->nargs + 10));
+    char ** av = (char **) ct_alloc(sizeof(char *) * (size_t)(t->nca + t->nargs + 11));
     int ac = 0;
     av[ac++] = self;
     av[ac++] = (char *) mode;
+    if (t->dialect) av[ac++] = ct_fmt("--dialect=%s", t->dialect);
     for (int j = 0; j < t->nca; j++) av[ac++] = t->ca[j];
     if (t->heap) av[ac++] = ct_fmt("-d%sk", t->heap);
     if (t->stack) av[ac++] = ct_fmt("-s%sk", t->stack);
