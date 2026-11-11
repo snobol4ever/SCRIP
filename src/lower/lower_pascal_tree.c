@@ -5219,6 +5219,10 @@ static pval E_argument(const tree_t *n) {
     if (IS(n, TT_FMT) && n->n == 2) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
+        if (!g_lower.pas.sem.pas_dialect_fpc && v[3].node && v[3].node->t == TT_ILIT && v[3].node->v.ival < 1) {
+            fprintf(stderr, "pascal: ISO 7185 6.9.3.1 violation: the TotalWidth of a write-parameter shall be greater than or equal to one\n");
+            g_lower.pas.sem.pas_iso_errors++;
+        }
         { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool(v[1].node)); pnl_push(_al, v[3].node); out.list = _al; }
         return out;
     }
@@ -5226,6 +5230,14 @@ static pval E_argument(const tree_t *n) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
         v[5] = E_expression(n->c[2]);
+        if (!g_lower.pas.sem.pas_dialect_fpc && v[3].node && v[3].node->t == TT_ILIT && v[3].node->v.ival < 1) {
+            fprintf(stderr, "pascal: ISO 7185 6.9.3.1 violation: the TotalWidth of a write-parameter shall be greater than or equal to one\n");
+            g_lower.pas.sem.pas_iso_errors++;
+        }
+        if (!g_lower.pas.sem.pas_dialect_fpc && v[5].node && v[5].node->t == TT_ILIT && v[5].node->v.ival < 1) {
+            fprintf(stderr, "pascal: ISO 7185 6.9.3.1 violation: the FracDigits of a write-parameter shall be greater than or equal to one\n");
+            g_lower.pas.sem.pas_iso_errors++;
+        }
         { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool(v[1].node)); pnl_push(_al, ilit(-3)); pnl_push(_al, v[3].node); pnl_push(_al, v[5].node); out.list = _al; }
         return out;
     }
