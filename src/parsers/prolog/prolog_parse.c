@@ -5437,20 +5437,37 @@ static char *pl_include_read(const Parser *pp, const char *spec, char **path_out
     src[n] = 0; fclose(f); *path_out = cand; return src;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_path_spec(const tree_t *t) {
+    if (!t) return (const char *)0;
+    if ((t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) return t->v.sval;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "/") && t->n == 2) {
+        const char *a = pl_path_spec(t->c[0]), *b = pl_path_spec(t->c[1]);
+        size_t la, lb; char *p;
+        if (!a || !b) return (const char *)0;
+        la = strlen(a); lb = strlen(b);
+        p = (char *)ct_alloc(la + lb + 2);
+        if (!p) return (const char *)0;
+        memcpy(p, a, la); p[la] = '/'; memcpy(p + la + 1, b, lb + 1);
+        return p;
+    }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
 static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi) {
     const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; PlProgram *sub;
     *is_include = 0;
     if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
     g = t->c[1];
-    if (!g || g->t != TT_FNC || !g->v.sval || !g->c || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return (PlProgram *)0;
+    if (!g || g->t != TT_FNC || !g->v.sval || !g->c || !g->c[0]) return (PlProgram *)0;
+    spec = pl_path_spec(g->c[0]);
+    if (!spec) return (PlProgram *)0;
     if (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)) {
-        char *probe = (char *)0; char *psrc = pl_include_read(pp, g->c[0]->v.sval, &probe);
+        char *probe = (char *)0; char *psrc = pl_include_read(pp, spec, &probe);
         if (!psrc) return (PlProgram *)0;
         ct_drop(psrc); ct_drop(probe);
     } else if (strcmp(g->v.sval, "include") || g->n != 1) return (PlProgram *)0;
     *is_include = 1;
-    spec = g->c[0]->v.sval;
     if (depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
         pp->nerrors++; return (PlProgram *)0; }
