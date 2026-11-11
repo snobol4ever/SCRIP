@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <fcntl.h>
 #include "ir/descr.h"
 #include "runtime/core/core_error.h"
 /*====================================================================================================================================================================================================*/
@@ -23,6 +24,8 @@ typedef int (*icnx_fn_t)(int, icnx_descr_t *);
 typedef struct icnx_extlfuns { icnx_fn_t extlcmp, extlcopy, extlname, extlimage; } icnx_extlfuns_t;
 typedef struct icnx_extblk { icnx_word_t title, blksize, id; icnx_extlfuns_t *funcs; icnx_word_t data[]; } icnx_extblk_t;
 #define ICNX_D_Real ((icnx_word_t)3 | ICNX_D_Typecode | ICNX_F_Ptr)
+#define ICNX_D_File ((icnx_word_t)5 | ICNX_D_Typecode | ICNX_F_Ptr)
+typedef struct { icnx_word_t title; FILE *fp; icnx_word_t stat; icnx_descr_t fname; } icnx_fileblock_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icnx_is_string(const icnx_descr_t *d) { return d->dword >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -60,7 +63,24 @@ static void icn_extfn_unprovided(const char *what) {
     core_runtime_error(216, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *alcfile(void *fp, int stat, icnx_descr_t *name) { (void)fp; (void)stat; (void)name; icn_extfn_unprovided("alcfile"); return (void *)0; }
+char *alcstr(char *s, icnx_word_t len);
+static icnx_fileblock_t *icnx_fileblock(FILE *fp, icnx_word_t stat, const char *nm, icnx_word_t nlen) {
+    extern void *rt_wsb_alloc(size_t);
+    icnx_fileblock_t *b = (icnx_fileblock_t *)rt_wsb_alloc(sizeof *b);
+    if (!b) return b;
+    b->title = ICNX_D_File;
+    b->fp = fp;
+    b->stat = stat;
+    b->fname.dword = nlen;
+    b->fname.vword = (icnx_word_t)(void *)(nlen > 0 ? alcstr((char *)nm, nlen) : "");
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *alcfile(void *fp, int stat, icnx_descr_t *name) {
+    extern int fh_alloc(FILE *);
+    if (fh_alloc((FILE *)fp) < 0) { core_runtime_error(216, "alcfile: no file handle free"); return (void *)0; }
+    return icnx_fileblock((FILE *)fp, (icnx_word_t)stat, name && icnx_is_string(name) ? (const char *)(void *)name->vword : "", name && icnx_is_string(name) ? name->dword : 0);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *alcexternal(long nbytes, void *f, void *data) {
     extern void *rt_wsb_alloc(size_t);
@@ -163,6 +183,18 @@ static icnx_descr_t icn_extfn_marshal_in(DESCR_t v) {
     if (v.v == DT_R) { icnx_realblock_t *b = alcreal(v.r); if (b) { d.dword = ICNX_D_Real; d.vword = (icnx_word_t)(void *)b; } return d; }
     if (v.v == DT_S) { const char *s = v.s ? v.s : ""; d.dword = (icnx_word_t)descr_slen(v); d.vword = (icnx_word_t)(void *)s; return d; }
     if (v.v == DT_SNUL) { d.dword = 0; d.vword = (icnx_word_t)(void *)""; return d; }
+    if (v.v == DT_FH) {
+        extern FILE *fh_get(int);
+        extern int fh_is_closed(int);
+        extern const char *fh_alias_name(int);
+        FILE *fp = fh_get((int)v.i);
+        int fl = (fp && !fh_is_closed((int)v.i)) ? fcntl(fileno(fp), F_GETFL) : -1;
+        const char *nm = fh_alias_name((int)v.i);
+        icnx_word_t st = fl < 0 ? 0 : (fl & O_ACCMODE) == O_RDONLY ? 1 : (fl & O_ACCMODE) == O_WRONLY ? 2 : 3;
+        icnx_fileblock_t *b = icnx_fileblock(fp, st, nm ? nm : "", nm ? (icnx_word_t)strlen(nm) : 0);
+        if (b) { d.dword = ICNX_D_File; d.vword = (icnx_word_t)(void *)b; }
+        return d;
+    }
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -172,6 +204,7 @@ static DESCR_t icn_extfn_marshal_out(const icnx_descr_t *d) {
     if (d->dword == ICNX_D_Real) return REALVAL(((const icnx_realblock_t *)(const void *)d->vword)->rval);
     if (d->dword == ICNX_D_Lrgint) { extern DESCR_t rt_big_from_icnx_block(const void *); return rt_big_from_icnx_block((const void *)d->vword); }
     if (d->dword == ICNX_D_External) return (DESCR_t){ .v = DT_EXTL, .p = (void *)d->vword };
+    if (d->dword == ICNX_D_File) { extern int fh_find_fp(FILE *); int idx = fh_find_fp(((const icnx_fileblock_t *)(const void *)d->vword)->fp); return idx < 0 ? FAILDESCR : FHVAL(idx); }
     return (DESCR_t){ .v = DT_SNUL, .i = 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
