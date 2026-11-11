@@ -611,7 +611,6 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
         dup2(pe[1], 2);
         close(po[0]);
         close(pe[0]);
-        if (chdir(dir)) _exit(126);
         signal(SIGPIPE, SIG_DFL);
         av[n++] = "scrip";
         if (L->unicon) av[n++] = "--dialect=unicon";
