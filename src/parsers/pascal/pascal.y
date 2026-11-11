@@ -360,6 +360,7 @@ type_arg_list:
 type:
     simple_type { $$ = $1; }
     |ARROW IDENT { $$ = pt_add(pt_new(TT_PTR_TYPE), $2); }
+    |CLASSSY OFSY IDENT { $$ = pt_add(pt_sval(pt_new(TT_DECL), "classref"), $3); }
     |ARROW spec_ref { $$ = pt_add(pt_new(TT_PTR_TYPE), $2); }
     |packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY { } { } type { $$ = pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $9); }
     |packed_opt ARRAYSY OFSY type { $$ = pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4); }

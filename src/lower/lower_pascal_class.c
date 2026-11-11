@@ -329,7 +329,11 @@ static void pc_type_part(pc_ctx *x, tree_t *part, int with_root) {
     tree_t *out = ast_node_new(TT_PART);
     out->v.sval = part->v.sval;
     out->line = part->line;
-    if (with_root) { ast_push(out, pc_tdecl("tobject", pc_n1(TT_PTR_TYPE, pc_var("tobject__rec")))); ast_push(out, pc_tdecl("tobject__rec", pc_rec_type(x, x->root))); }
+    if (with_root) {
+        ast_push(out, pc_tdecl("tobject", pc_n1(TT_PTR_TYPE, pc_var("tobject__rec"))));
+        ast_push(out, pc_tdecl("tobject__rec", pc_rec_type(x, x->root)));
+        ast_push(out, pc_tdecl("tclass", pc_var("integer")));
+    }
     for (int i = 0; i < part->n; i++) {
         tree_t *d = part->c[i];
         if (PC_IS(d, TT_DECL) && d->n >= 2 && PC_IS(d->c[1], TT_CLASS_DECL)) {
@@ -339,6 +343,7 @@ static void pc_type_part(pc_ctx *x, tree_t *part, int with_root) {
     }
     for (int i = 0; i < part->n; i++) {
         tree_t *d = part->c[i];
+        if (PC_IS(d, TT_DECL) && d->n >= 2 && PC_IS(d->c[1], TT_DECL) && pc_eq(pc_sv(d->c[1]), "classref")) { ast_push(out, pc_tdecl(pc_sv(d->c[0]), pc_var("integer"))); continue; }
         if (!(PC_IS(d, TT_DECL) && d->n >= 2 && PC_IS(d->c[1], TT_CLASS_DECL))) { ast_push(out, d); continue; }
         if (pc_eq(pc_sv(d->c[1]), "forward")) continue;
         pc_class *c = pc_class_named(x, pc_sv(d->c[0]));
@@ -355,6 +360,7 @@ static int pc_part_has_class(const tree_t *p) {
 static pc_ty pc_resolve(pc_ctx *x, tree_t *t) {
     pc_ty r = { NULL, NULL, 0 };
     for (int guard = 0; t && guard < 16; guard++) {
+        if (PC_IS(t, TT_DECL) && pc_eq(pc_sv(t), "classref") && t->n == 1) { r = pc_resolve(x, t->c[0]); r.ref = 1; return r; }
         if (!PC_IS(t, TT_VAR)) { r.t = t; return r; }
         pc_sym *s = pc_sym_find(x, pc_sv(t));
         if (s && s->kind == 'k') { r.cls = s->cls; return r; }
@@ -597,7 +603,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
         if (x->curm && x->curm->isfunc && pc_eq(x->curm->name, n)) return e;
         if (pc_ident_is_member(x, n)) return pc_read_member(x, pc_self(x, n), pc_member_owner(x, n), n, NULL);
         pc_ty t = pc_ident_type(x, n);
-        if (t.ref && t.cls) return pc_int(t.cls->id);
+        if (t.ref && t.cls) { pc_sym *ks = pc_sym_find(x, n); if (!ks || ks->kind == 'k') return pc_int(t.cls->id); }
         return e;
     }
     if (PC_IS(e, TT_FIELD) && e->n == 2) {
@@ -659,7 +665,8 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
                 pc_ty t = pc_ident_type(x, pc_sv(e->c[2]));
                 tree_t *c = pc_fnc("__pc_isa");
                 ast_push(c, pc_expr(x, e->c[1]));
-                ast_push(c, pc_int(t.cls ? t.cls->id : 0));
+                pc_sym *rs = PC_IS(e->c[2], TT_VAR) ? pc_sym_find(x, pc_sv(e->c[2])) : NULL;
+                ast_push(c, rs && rs->kind == 'v' ? pc_expr(x, e->c[2]) : pc_int(t.cls ? t.cls->id : 0));
                 return c;
             }
             if (pc_eq(n, "as") && e->n == 3 && !s) return pc_expr(x, e->c[1]);
@@ -1197,6 +1204,7 @@ tree_t *pas_classes_prepass(tree_t *prog) {
     for (int i = 0; i < x->ncls; i++) pc_rec_inherit(x->cls[i]);
     pc_scan_impls(x, b);
     pc_sym_add(x, "tobject", 'k', NULL, x->root);
+    { tree_t *cr = pc_n1(TT_DECL, pc_var("tobject")); cr->v.sval = "classref"; pc_sym_add(x, "tclass", 't', cr, NULL); }
     pc_sym_add(x, "__pc_exc", 'v', pc_var("tobject"), NULL);
     int tp = -1;
     for (int i = 0; i < b->n; i++) if (PC_IS(b->c[i], TT_PART) && pc_eq(pc_sv(b->c[i]), "type")) { tp = i; break; }
@@ -1220,6 +1228,7 @@ tree_t *pas_classes_prepass(tree_t *prog) {
         for (int i = p->n - 1; i > 1; i--) p->c[i] = p->c[i - 2];
         p->c[0] = pc_tdecl("tobject", pc_n1(TT_PTR_TYPE, pc_var("tobject__rec")));
         p->c[1] = pc_tdecl("tobject__rec", pc_rec_type(x, x->root));
+        ast_push(p, pc_tdecl("tclass", pc_var("integer")));
     }
     tree_t *fwd = ast_node_new(TT_VLIST), *gen = ast_node_new(TT_VLIST);
     pc_impl_fwds(x, b, fwd);
