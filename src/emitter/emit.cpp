@@ -4583,6 +4583,14 @@ bb_box_fn emit_chain(zeta_plan_t * rec, FILE *out, const char *prefix) {
               FILE *_pmf = fopen(_pmp, "a");
               if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
                                   (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
+        { const char *_ds = getenv("SCRIP_DUMP_SLAB");
+          if (_ds && *_ds) {
+              char _hx[32]; snprintf(_hx, sizeof _hx, "%llx", (unsigned long long)(uintptr_t)buf);
+              std::string _fn = std::string("m3_") + _hx + "_" + ((prefix && *prefix) ? prefix : "chain") + ".bin";
+              FILE *_df = fopen((std::string(_ds) + "/" + _fn).c_str(), "wb");
+              if (_df) { fwrite(buf, 1, (size_t)nbytes, _df); fclose(_df); }
+              FILE *_mf = fopen((std::string(_ds) + "/MANIFEST").c_str(), "a");
+              if (_mf) { fprintf(_mf, "%s %d %s\n", _fn.c_str(), nbytes, _hx); fclose(_mf); } } }
             if (hole) bb_hole_return(buf, (size_t)nbytes, hcap); else bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
             bb_pool_last_set(buf, (size_t)nbytes);
             return (bb_box_fn)buf;
