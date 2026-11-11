@@ -508,8 +508,8 @@ var_decl:
     |id_list COLON type IDENT IDENT SEMICOLON { if (strcasecmp($4->v.sval, "absolute")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_decl("var", $1, $3), pt_add(pt_sval(pt_new(TT_DECL), "absolute"), $5)); }
     ;
 procedure_decl:
-    PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
+    PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $8); }
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $10); }
     |FUNCTIONSY IDENT pv_mark SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_FUNCTION), $2), $6); }
