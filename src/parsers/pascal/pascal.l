@@ -320,6 +320,47 @@ static int pas_codepage_parse(const char *s) {
 }
 static char pascal_minenumbuf[16];
 static int  pascal_minenumpos;
+static const char *pascal_incdir;
+static YY_BUFFER_STATE *pascal_inc_buf; static int *pascal_inc_line; static const char **pascal_inc_dir; static int pascal_ninc, pascal_cinc;
+void pascal_lex_set_dir(const char *d) { pascal_incdir = d; }
+static char *pascal_inc_read(const char *path, size_t *n) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long k = ftell(f);
+    rewind(f);
+    char *b = (char *)ct_alloc((size_t)(k > 0 ? k : 0) + 1);
+    *n = fread(b, 1, (size_t)(k > 0 ? k : 0), f);
+    b[*n] = '\0';
+    fclose(f);
+    return b;
+}
+static void pascal_include(const char *t) {
+    const char *q = t + 2;
+    while (isalpha((unsigned char)*q)) q++;
+    while (*q == ' ' || *q == '\t') q++;
+    size_t m = strcspn(q, "}");
+    while (m > 0 && (q[m - 1] == ' ' || q[m - 1] == '\t')) m--;
+    if (m >= 2 && q[0] == '\'' && q[m - 1] == '\'') { q++; m -= 2; }
+    size_t dl = pascal_incdir ? strlen(pascal_incdir) : 0;
+    char *path = (char *)ct_alloc(dl + m + 6);
+    if (q[0] == '/' || !dl) snprintf(path, m + 1, "%.*s", (int)m, q); else snprintf(path, dl + m + 2, "%s/%.*s", pascal_incdir, (int)m, q);
+    size_t n = 0;
+    char *src = pascal_inc_read(path, &n);
+    if (!src && !strchr(path + (strrchr(path, '/') ? strrchr(path, '/') - path : 0), '.')) { strcat(path, ".inc"); src = pascal_inc_read(path, &n); }
+    if (!src) { fprintf(stderr, "pascal: line %d: cannot open the include file '%.*s'\n", pascal_yylineno, (int)m, q); pascal_event("iso_error"); return; }
+    if (pascal_ninc >= pascal_cinc) {
+        pascal_cinc = pascal_cinc ? pascal_cinc * 2 : 8;
+        pascal_inc_buf = (YY_BUFFER_STATE *)ct_grow(pascal_inc_buf, (size_t)pascal_cinc * sizeof(YY_BUFFER_STATE));
+        pascal_inc_line = (int *)ct_grow(pascal_inc_line, (size_t)pascal_cinc * sizeof(int));
+        pascal_inc_dir = (const char **)ct_grow(pascal_inc_dir, (size_t)pascal_cinc * sizeof(char *));
+    }
+    pascal_inc_buf[pascal_ninc] = YY_CURRENT_BUFFER; pascal_inc_line[pascal_ninc] = pascal_yylineno; pascal_inc_dir[pascal_ninc] = pascal_incdir; pascal_ninc++;
+    char *slash = strrchr(path, '/');
+    pascal_incdir = slash ? ct_strndup(path, (size_t)(slash - path)) : pascal_incdir;
+    pascal_yy_scan_bytes(src, (int)n);
+    pascal_yylineno = 1;
+}
 static char pascal_packsetbuf[16];
 static int  pascal_packsetpos;
 static void pascal_mode_directive(const char *m) {
@@ -380,6 +421,8 @@ ALNUM    [A-Za-z0-9_]
 <MINENUM_HDR>[ \t]      { }
 <MINENUM_HDR>.          { if (pascal_minenumpos < (int)sizeof(pascal_minenumbuf) - 1) { pascal_minenumbuf[pascal_minenumpos++] = pascal_yytext[0]; pascal_minenumbuf[pascal_minenumpos] = '\0'; } }
 <MINENUM_HDR>\n         { }
+"{$"("i"|"include")[ \t]+[^%} \t\n][^}\n]*"}" { pascal_include(pascal_yytext); }
+<<EOF>>                 { if (!pascal_ninc) yyterminate(); pascal_ninc--; pascal_yy_delete_buffer(YY_CURRENT_BUFFER); pascal_yy_switch_to_buffer(pascal_inc_buf[pascal_ninc]); pascal_yylineno = pascal_inc_line[pascal_ninc]; pascal_incdir = pascal_inc_dir[pascal_ninc]; }
 "{$PackSet"             { pascal_packsetbuf[0] = '\0'; pascal_packsetpos = 0; BEGIN PACKSET_HDR; }
 <PACKSET_HDR>"}"        { if (atoi(pascal_packsetbuf) > 0) pascal_event_num("packset", atoi(pascal_packsetbuf)); BEGIN INITIAL; }
 <PACKSET_HDR>[ \t]      { }
@@ -545,4 +588,4 @@ ALNUM    [A-Za-z0-9_]
 ":"                     { return COLON; }
 .                       { pascal_lex_error("invalid character"); return PASCAL_YYUNDEF; }
 %%
-void pascal_lex_reset(void) { pascal_gen_pending = 0; pascal_gen_depth = 0; pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }
+void pascal_lex_reset(void) { pascal_ninc = 0; pascal_gen_pending = 0; pascal_gen_depth = 0; pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }

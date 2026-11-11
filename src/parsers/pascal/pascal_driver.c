@@ -12,7 +12,9 @@ extern tree_t *pascal_parse_string(const char *src);
 #include "pascal_prelude_units.inc"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *pascal_compile_parse(const char *src, const char *filename) {
-    (void)filename;
+    extern void pascal_lex_set_dir(const char *);
+    const char *sl = filename ? strrchr(filename, '/') : NULL;
+    pascal_lex_set_dir(sl ? ct_strndup(filename, (size_t)(sl - filename)) : ".");
     pascal_prog_result = NULL;
     return pascal_parse_string(src);
 }
@@ -87,6 +89,9 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
         char *path = pas_unit_file(dir, name);
         const char *src = path ? pas_slurp(path) : pas_prelude_src(name);
         if (!src) { fprintf(stderr, "pascal: uses %s in %s: no unit %s.pas beside it and no SCRIP prelude unit of that name\n", name, from, name); return 0; }
+        extern void pascal_lex_set_dir(const char *);
+        const char *usl = path ? strrchr(path, '/') : NULL;
+        pascal_lex_set_dir(usl ? ct_strndup(path, (size_t)(usl - path)) : dir);
         tree_t *u = pascal_parse_string(src);
         if (!u || u->t != TT_MODULE_DECL || u->n < 3) { fprintf(stderr, "pascal: uses %s in %s: %s does not parse as a unit\n", name, from, path ? path : "the prelude unit"); return 0; }
         if (!u->c[0]->v.sval || strcasecmp(u->c[0]->v.sval, name)) { fprintf(stderr, "pascal: uses %s in %s: the file declares unit %s\n", name, from, u->c[0]->v.sval ? u->c[0]->v.sval : "?"); return 0; }
