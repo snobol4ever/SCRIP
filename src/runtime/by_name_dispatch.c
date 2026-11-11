@@ -27728,6 +27728,8 @@ static void pl_st_put(DESCR_t st, int k, int64_t v) { DESCR_t *t = plw_cell_dere
 static pl_pseg_t * pl_pseg_of(DESCR_t st) { DESCR_t *a = pl_st_arg(st, 1); return (a && a->v == (DTYPE_t)DT_P) ? (pl_pseg_t *)a->p : (pl_pseg_t *)0; }
 static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
     void *root = (void *)(uintptr_t)s->r14;
+    pl_pseg_t *nb = (pl_pseg_t *)0;
+    DESCR_t nst = {0};
     for (int neg = 0; neg < 2; neg++) for (int64_t x = rt_pl_tbl_chain_get(root); x >= 0; ) {
         pl_trie_sl_t *sl = rt_pl_trie_sl(root, x);
         if (!sl) break;
@@ -27738,13 +27740,14 @@ static pl_pseg_t * pl_sched_pick(pl_psched_t *s) {
                 pl_pseg_t *b = pl_pseg_of(st);
                 if (!b) continue;
                 if (!neg && cnt > pl_st_int(st, 3)) return b;
-                if (neg && sl->uncond == 0 && pl_st_int(st, 5) == 0) { pl_st_put(st, 5, 1); return b; }
+                if (neg && sl->uncond == 0 && pl_st_int(st, 5) == 0) { nb = b; nst = st; }
             }
         }
         if (x == s->leader) break;
         x = sl->next;
     }
-    return (pl_pseg_t *)0;
+    if (nb) pl_st_put(nst, 5, 1);
+    return nb;
 }
 static void pl_pseg_unrebind(pl_pseg_t *b) {
     char *hi = b->orig_lo + b->clen, *lo_t = (char *)(uintptr_t)b->sched_t;
