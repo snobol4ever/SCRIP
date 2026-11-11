@@ -31,6 +31,7 @@ typedef struct {
     pid_t sess;
     int sess_in, sess_out, sess_err, sess_cell, sess_ctl;
     unsigned said;
+    int abort_q;
 } kctx_t;
 typedef struct { const char *tag, *ext; int unicon; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
@@ -662,7 +663,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     int silent = jn_bool(req->content, "silent", 0);
     cv_t c = { 0, 0, 0, 0 };
     char num[32];
-    if (!silent) k->count++;
+    if (!silent && jn_bool(req->content, "store_history", 1)) k->count++;
     snprintf(num, sizeof num, "%ld", k->count);
     jw_raw(&c, "{");
     jw_key(&c, "code", 0);
@@ -670,7 +671,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     jw_key(&c, "execution_count", 1);
     jw_raw(&c, num);
     jw_raw(&c, "}");
-    k_send(k, k->iopub, req, "execute_input", cv_cstr(&c));
+    if (!silent) k_send(k, k->iopub, req, "execute_input", cv_cstr(&c));
     c.len = 0;
     if (clen >= 2 && code[0] == '%' && code[1] == '%') {
         size_t i = 2, j;
@@ -697,6 +698,7 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
         jw_raw(&c, ",\"payload\":[],\"user_expressions\":{}}");
     } else {
         char xl[96];
+        if (jn_bool(req->content, "stop_on_error", 1)) k->abort_q = 1;
         snprintf(xl, sizeof xl, "%s cell exited %d%s", lang, rc, rc == 124 ? " (timeout)" : rc == 130 || rc == 143 ? " (interrupted)" : "");
         const char *ename = en.len ? cv_cstr(&en) : "scrip", *evalue = ev.len ? cv_cstr(&ev) : xl;
         cv_t e = { 0, 0, 0, 0 }, tb = { 0, 0, 0, 0 }, one = { 0, 0, 0, 0 };
@@ -733,6 +735,8 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     ct_drop(c.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_abort_waiting(kctx_t *k, void *sock);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
     const char *t = jn_str(req->header, "msg_type", "");
     cv_t c = { 0, 0, 0, 0 };
@@ -764,6 +768,21 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
     }
     k_status(k, req, "idle");
     ct_drop(c.p);
+    if (k->abort_q) { k->abort_q = 0; k_abort_waiting(k, sock); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_abort_waiting(kctx_t *k, void *sock) {
+    zmq_pollitem_t p = { sock, 0, ZMQ_POLLIN, 0 };
+    char b[160];
+    while (zmq_poll(&p, 1, 0) > 0 && (p.revents & ZMQ_POLLIN)) {
+        kmsg_t m;
+        if (!k_recv(k, sock, &m)) continue;
+        if (strcmp(jn_str(m.header, "msg_type", ""), "execute_request")) { k_dispatch(k, sock, &m); continue; }
+        k_status(k, &m, "busy");
+        snprintf(b, sizeof b, "{\"status\":\"error\",\"ename\":\"scrip\",\"evalue\":\"aborted\",\"traceback\":[],\"execution_count\":%ld}", k->count);
+        k_reply(k, sock, &m, b);
+        k_status(k, &m, "idle");
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_control_tick(kctx_t *k) { kmsg_t m; if (k_recv(k, k->control, &m)) k_dispatch(k, k->control, &m); }
