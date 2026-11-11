@@ -899,6 +899,14 @@ static int pl_tree_is_control(const tree_t * t) {
     return t && t->t == TT_FNC && t->v.sval && t->n == 2 && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_holds_cut(const tree_t * g) {
+    if (!g) return 0;
+    if (g->t == TT_CUT || ((g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "!"))) return 1;
+    if (!pl_tree_is_control(g) && g->t != TT_PROGRAM && g->t != TT_IF) return 0;
+    for (int i = 0; i < g->n; i++) if (pl_goal_holds_cut(g->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_tree_noncallable_goal(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_ILIT || t->t == TT_FLIT) return 1;
@@ -1606,7 +1614,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     IR_t * hc = pl_leaf_lv(cx, "$catch_handle", ct, 1, NULL, ig, &he);
     lc_γ_to(unmk, he ? he : hc);
     IR_t * arm_entry[2] = { NULL, NULL };
-    const tree_t * arms[2] = { G, R };
+    const tree_t * arms[2] = { pl_goal_holds_cut(G) ? pl_cc_fnc1("call", (tree_t *) G) : G, pl_goal_holds_cut(R) ? pl_cc_fnc1("call", (tree_t *) R) : R };
     for (int j = 0; j < 2; j++) {
         IR_t * ml = build(cx, IR_GATE_ARM, NULL, ig);
         IR_t * saveω = cx->cutω;
@@ -2879,6 +2887,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (!ext)
                     return goal(cx, pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("callable"), (tree_t *) t->c[0]), pl_cc_pi_ar(nm, t->n))), γnext, ωfail,
                     entry_out);
+                if (pl_goal_holds_cut(ext)) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
                 {
                     IR_t * callω = build(cx, IR_GOTO, ωfail, ωfail);
                     IR_t * saveω = cx->cutω;
