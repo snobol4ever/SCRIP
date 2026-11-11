@@ -7897,6 +7897,7 @@ static void pu_prune_routines(tree_t *nb, tree_t *ur) {
     if (g_lower.pas.sem.pas_ioflow) { pu_add(refs, leaf_s(TT_VAR, "__sh_iocheck")); pu_add(refs, leaf_s(TT_VAR, "__sh_iochecke")); }
     if (g_lower.pas.sem.pas_divchk) { pu_add(refs, leaf_s(TT_VAR, "__sh_divchk")); pu_add(refs, leaf_s(TT_VAR, "__sh_rdiv")); }
     if (g_lower.pas.sem.pas_crt_out) pu_add(refs, leaf_s(TT_VAR, "crt.crtwrite"));
+    if (pu_has(refs, "min") || pu_has(refs, "max")) { pu_add(refs, leaf_s(TT_VAR, "fpcmindouble")); pu_add(refs, leaf_s(TT_VAR, "fpcmaxdouble")); }
     for (int grew = 1; grew;) {
         grew = 0;
         for (int i = 0; i < cand->n; i++) {
