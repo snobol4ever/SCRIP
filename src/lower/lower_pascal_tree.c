@@ -4799,6 +4799,40 @@ static tree_t *pas_pf_envcall(tree_t *call, const char *pp, int lvl, int n) {
     for (int i = 0; i < call->n; i++) ast_push(e, call->c[i]);
     return e;
 }
+static pval E_expression(const tree_t *n);
+static int pas_tm_fits(const PasDef *c, const char *fs) { const char *ns = pas_pf_no_self(c->sig); return !strcmp(c->sig, fs) || (ns && !strcmp(ns, fs)); }
+static void pas_tm_candidates(const char *fs) {
+    for (int i = 0; i < g_lower.pas.sem.pas_scope.n; i++) {
+        const PasDef *d = &g_lower.pas.sem.pas_scope.defs[i];
+        if (!d->name || d->fld || !d->sig || strncmp(d->name, "__pc_", 5)) continue;
+        const char *ns = pas_pf_no_self(d->sig);
+        if (ns && !strcmp(ns, fs)) pas_pf_candidate(d);
+    }
+    const PasDef *ca = g_lower.pas.sem.pas_scope.cand;
+    for (int i = 0; i < g_lower.pas.sem.pas_scope.ncand; i++) for (int j = i + 1; j < g_lower.pas.sem.pas_scope.ncand; j++) {
+        if (strncmp(ca[i].name, "__pc_", 5) || strncmp(ca[j].name, "__pc_", 5) || !pas_tm_fits(&ca[i], fs) || !pas_tm_fits(&ca[j], fs)) continue;
+        if (strcmp(ca[i].name, ca[j].name) == 0 || pas_hash_stable(ca[i].name) != pas_hash_stable(ca[j].name)) continue;
+        fprintf(stderr, "pascal: the methods '%s' and '%s' have the same code value in one TMethod call; the call cannot tell them apart\n", ca[i].name, ca[j].name);
+        g_lower.pas.sem.pas_iso_errors++;
+    }
+}
+static tree_t *pas_tm_call(const char *name) {
+    char b[40];
+    snprintf(b, sizeof b, "__pas_vptmp_tm%d", g_lower.pas.sem.pas_scope.npf++);
+    const char *pp = ct_strdup(b);
+    tree_t *code = mk_fnc1("arr_get", leaf_s(TT_VAR, name));
+    ast_push(code, ilit(0));
+    tree_t *data = mk_fnc1("arr_get", leaf_s(TT_VAR, name));
+    ast_push(data, ilit(1));
+    tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+    ast_push(sq, mk_assign(leaf_s(TT_VAR, pp), code));
+    ast_push(sq, mk_assign(leaf_s(TT_VAR, pas_pf_env_name(pp, 1)), data));
+    tree_t *pc = mk_fnc1("__pas_pcall", leaf_s(TT_VAR, pp));
+    ast_push(pc, leaf_s(TT_QLIT, "P()"));
+    ast_push(pc, ilit(1));
+    ast_push(sq, pc);
+    return sq;
+}
 static void pas_pf_resolve(tree_t *e) {
     if (!e) return;
     for (int i = 0; i < e->n; i++) pas_pf_resolve(e->c[i]);
@@ -4811,6 +4845,8 @@ static void pas_pf_resolve(tree_t *e) {
     const char *tmp = ct_strdup(tb);
     tree_t *chain = mk_fnc1("__pas_rterr", leaf_s(TT_QLIT, "6.6.3.4"));
     ast_push(chain, leaf_s(TT_QLIT, "a procedural or functional parameter denotes no routine"));
+    int hm = e->c[3] && e->c[3]->t == TT_ILIT && e->c[3]->v.ival == 1;
+    if (hm) pas_tm_candidates(fs);
     for (int ci = g_lower.pas.sem.pas_scope.ncand - 1; ci >= 0; ci--) {
         const PasDef *c = &g_lower.pas.sem.pas_scope.cand[ci];
         const char *ns = (strcmp(c->sig, fs) && !strncmp(c->name, "__pc_", 5)) ? pas_pf_no_self(c->sig) : NULL;
@@ -4823,7 +4859,7 @@ static void pas_pf_resolve(tree_t *e) {
         tree_t *call = mk_call(c->name, al);
         if (!ex && c->depth >= 1 && call && call->t == TT_FNC) call = pas_pf_envcall(call, pp, c->depth + 1, n);
         tree_t *iff = ast_node_new(TT_IF);
-        ast_push(iff, bin(TT_EQ, ex ? pas_tree_clone(e->c[1]) : leaf_s(TT_VAR, pp), ilit(c->rid)));
+        ast_push(iff, bin(TT_EQ, ex ? pas_tree_clone(e->c[1]) : leaf_s(TT_VAR, pp), ilit(hm ? pas_hash_stable(c->name) : c->rid)));
         ast_push(iff, isf ? mk_assign(leaf_s(TT_VAR, tmp), call) : call);
         ast_push(iff, chain);
         chain = iff;
@@ -5524,7 +5560,8 @@ static pval E_call(const tree_t *n) {
         v[1].str = pas_alias_resolve(src0);
         { int onp = 0; const char *ov = pas_overload_pick(src0, NULL, &onp); if (ov) v[1].str = ov; }
         {
-            if (pas_pf_is_formal(v[1].str)) out.node = pas_pf_callthrough(v[1].str, NULL);
+            if (pty_name_type(v[1].str) && pty_name_type(v[1].str) == pty_type_by_name("tmethod")) out.node = pas_tm_call(v[1].str);
+            else if (pas_pf_is_formal(v[1].str)) out.node = pas_pf_callthrough(v[1].str, NULL);
             else if (pas_default_get(v[1].str, 0)) {
                 PNodeList *dl = pas_defaults_extend(v[1].str, NULL);
                 pas_call_arity(v[1].str, dl);
@@ -5720,6 +5757,10 @@ static pval E_call_with_args(const tree_t *n) {
             }
             pas_call_arity(v[1].str, v[3].list);
             pas_ordinal_fn_arg(v[1].str, v[3].list);
+            if (pty_name_type(v[1].str) && pty_name_type(v[1].str) == pty_type_by_name("tmethod") && v[3].list && v[3].list->count > 0) {
+                fprintf(stderr, "pascal: a call through the TMethod record '%s' with arguments is not implemented; only a call without arguments is\n", v[1].str);
+                g_lower.pas.sem.pas_iso_errors++;
+            }
             out.node = pas_pf_is_formal(v[1].str) ? pas_pf_callthrough(v[1].str, v[3].list) : pas_callee_require(v[1].str, mk_call(v[1].str, v[3].list));
         }
         return out;
