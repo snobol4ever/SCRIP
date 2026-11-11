@@ -7331,7 +7331,7 @@ DESCR_t dop_nl(DESCR_t *args, int nargs) {
     { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "parsers/prolog/prolog_parse.h"
+#include "runtime/rt_pl_reader.h"
 #include "runtime/core/core_errjmp.h"
 int rt_pl_keysort_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_compare_cell(void *, void *, void *, pl_tr_ctx_t *);
