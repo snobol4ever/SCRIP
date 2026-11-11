@@ -19387,7 +19387,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
             int is_class = IS_STR_fn(args[0]) && args[0].s && dat_find_type(args[0].s) != NULL;
             if (maybe) *out = NULVCL;
-            else if (!is_class && mname0 && rk_is_rakudo_method(mname0)) *out = FAILDESCR;
             else rk_method_missing(args[0], mname0 ? mname0 : "", out);
             return 1;
         }
