@@ -16,6 +16,7 @@
 #include "ir/ct_vec.h"
 #include "driver/zmq_abi.h"
 #include "driver/kernel.h"
+#include "runtime/builtin_table.h"
 typedef struct { uint32_t h[8]; uint64_t len; unsigned char buf[64]; uint32_t n; } sha256_t;
 typedef struct jn { int t; const char *s; uint32_t sl; double num; cv_t kids; cv_t keys; } jn_t;
 typedef struct { const char *p; uint32_t n; } kpart_t;
@@ -768,6 +769,56 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     ct_drop(c.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_offered(const char *nm, int kind) {
+    if (kind == 0 && !(nm[0] >= 'A' && nm[0] <= 'Z')) return 0;
+    if (kind != 0 && !(nm[0] >= 'a' && nm[0] <= 'z')) return 0;
+    for (const char *q = nm; *q; q++) {
+        int up = *q >= 'A' && *q <= 'Z', lo = *q >= 'a' && *q <= 'z', dg = (*q >= '0' && *q <= '9') || *q == '_';
+        if (kind == 0 ? !(up || dg) : kind == 1 ? !(lo || dg) : !(up || lo || dg || *q == '-')) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_complete(kctx_t *k, void *sock, const kmsg_t *req) {
+    jn_t *cj = jn_get(req->content, "code");
+    const char *code = cj && cj->t == 4 ? cj->s : "", *body = code;
+    size_t clen = cj && cj->t == 4 ? cj->sl : 0, blen = clen, off = 0, ws;
+    long pos = jn_int(req->content, "cursor_pos", 0), seen = 0;
+    const char *lang = k_cell_lang(&body, &blen, 0);
+    int kind = -1, v1 = -1, v2 = -1, n = 0;
+    cv_t c = { 0, 0, 0, 0 };
+    char tail[96];
+    while (off < clen && (seen < pos || ((unsigned char)code[off] & 0xC0) == 0x80)) { if (((unsigned char)code[off] & 0xC0) != 0x80) seen++; off++; }
+    for (ws = off; ws > 0 && ((code[ws - 1] >= 'A' && code[ws - 1] <= 'Z') || (code[ws - 1] >= 'a' && code[ws - 1] <= 'z') || (code[ws - 1] >= '0' && code[ws - 1] <= '9') || code[ws - 1] == '_');
+        ws--) {
+    }
+    if (!strcasecmp(lang, "snobol4") || !strcasecmp(lang, "snobol") || !strcasecmp(lang, "spitbol") || !strcasecmp(lang, "snocone") || !strcasecmp(lang, "rebus")) {
+        kind = 0;
+        v1 = BT_VOC_SNO;
+    } else if (!strcasecmp(lang, "icon") || !strcasecmp(lang, "unicon")) {
+        kind = 1;
+        v1 = BT_VOC_ICN;
+    } else if (!strcasecmp(lang, "raku")) {
+        kind = 2;
+        v1 = BT_VOC_RK;
+        v2 = BT_VOC_RKM;
+    }
+    jw_raw(&c, "{\"status\":\"ok\",\"matches\":[");
+    for (int i = 0; kind >= 0 && off > ws && i < BT_ROWS && n < 200; i++) {
+        const char *nm = g_builtins[i].name;
+        if ((g_builtins[i].vocab != v1 && g_builtins[i].vocab != v2) || !k_offered(nm, kind) || strncmp(nm, code + ws, off - ws)) continue;
+        if (n && !strcmp(nm, tail)) continue;
+        if (n) jw_raw(&c, ",");
+        jw_str(&c, nm, strlen(nm));
+        snprintf(tail, sizeof tail, "%s", nm);
+        n++;
+    }
+    snprintf(tail, sizeof tail, "],\"cursor_start\":%ld,\"cursor_end\":%ld,\"metadata\":{}}", pos - (long)(off - ws), pos);
+    jw_raw(&c, tail);
+    k_reply(k, sock, req, cv_cstr(&c));
+    ct_drop(c.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_abort_waiting(kctx_t *k, void *sock);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
@@ -796,12 +847,8 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
         size_t clen = cj && cj->t == 4 ? cj->sl : 0;
         const char *lang = k_cell_lang(&code, &clen, 0);
         k_reply(k, sock, req, k_cell_complete(code, clen, lang) ? "{\"status\":\"complete\"}" : "{\"status\":\"incomplete\",\"indent\":\"\"}");
-    } else if (!strcmp(t, "complete_request")) {
-        char b[128];
-        long p = jn_int(req->content, "cursor_pos", 0);
-        snprintf(b, sizeof b, "{\"status\":\"ok\",\"matches\":[],\"cursor_start\":%ld,\"cursor_end\":%ld,\"metadata\":{}}", p, p);
-        k_reply(k, sock, req, b);
-    } else if (!strcmp(t, "inspect_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"found\":false,\"data\":{},\"metadata\":{}}");
+    } else if (!strcmp(t, "complete_request")) k_complete(k, sock, req);
+    else if (!strcmp(t, "inspect_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"found\":false,\"data\":{},\"metadata\":{}}");
     else if (!strcmp(t, "history_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"history\":[]}");
     else if (!strcmp(t, "comm_info_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"comms\":{}}");
     else if (!strcmp(t, "interrupt_request")) {
