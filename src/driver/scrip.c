@@ -2616,6 +2616,7 @@ int main(int argc, char **argv) {
     if (argc >= 4 && !strcmp(argv[1], "--compile") && scrip_rl_kind(argv[2]) >= 0) return scrip_rl_cli(argv[0], "--compile", scrip_rl_kind(argv[2]), argc - 3, argv + 3);
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
     if (argc >= 3 && strcmp(argv[1], "--kernel") == 0) return scrip_kernel_main(argv[2]);
+    if (argc >= 2 && strcmp(argv[1], "--kernel-install") == 0) return scrip_kernel_install(argc >= 3 ? argv[2] : 0);
     int mode_run = 0;
     int opt_no_exec = 0, opt_input_after_end = 0;
     const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0;

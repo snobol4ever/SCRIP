@@ -35,6 +35,10 @@ typedef struct {
 } kctx_t;
 typedef struct { const char *tag, *ext; int unicon; const char *mime, *pygments, *codemirror; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
+typedef struct { const char *name, *display, *language, *deflang; } kspec_t;
+static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0 }, { "scrip-snobol4", "SCRIP SNOBOL4", "snobol4", "SNOBOL4" }, { "scrip-snocone", "SCRIP Snocone", "snocone", "Snocone" },
+    { "scrip-rebus", "SCRIP Rebus", "rebus", "Rebus" }, { "scrip-icon", "SCRIP Icon", "icon", "Icon" }, { "scrip-unicon", "SCRIP Unicon", "unicon", "Unicon" }, { "scrip-prolog", "SCRIP Prolog",
+    "prolog", "Prolog" }, { "scrip-pascal", "SCRIP Pascal", "pascal", "Pascal" }, { "scrip-raku", "SCRIP Raku", "raku", "Raku" } };
 static const ksess_t k_sess[] = { { "snobol4", "SNOBOL4" }, { "snobol", "SNOBOL4" }, { "spitbol", "SNOBOL4" } };
 static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "spitbol", ".spt", 0,
     "text/x-snobol4", "snobol", "text/plain" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "text/plain" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
@@ -890,5 +894,47 @@ int scrip_kernel_main(const char *connection_file) {
     zmq_close(k.iopub);
     zmq_close(k.hb);
     zmq_ctx_term(k.ctx);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_mkdirs(char *path) {
+    for (char *q = path + 1; *q; q++) if (*q == '/') { *q = 0; int bad = mkdir(path, 0755) && errno != EEXIST; *q = '/'; if (bad) return -1; }
+    return mkdir(path, 0755) && errno != EEXIST ? -1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int scrip_kernel_install(const char *dir) {
+    size_t cap = 256;
+    char *exe = (char *)ct_alloc(cap);
+    ssize_t el = readlink("/proc/self/exe", exe, cap - 1);
+    while (el >= 0 && (size_t)el >= cap - 1) { ct_drop(exe); cap *= 2; exe = (char *)ct_alloc(cap); el = readlink("/proc/self/exe", exe, cap - 1); }
+    if (el <= 0) { fprintf(stderr, "scrip --kernel-install: cannot read the path of the running binary\n"); return 2; }
+    exe[el] = 0;
+    const char *jd = getenv("JUPYTER_DATA_DIR"), *home = getenv("HOME");
+    cv_t base = { 0, 0, 0, 0 };
+    if (dir && *dir) jw_raw(&base, dir);
+    else if (jd && *jd) { jw_raw(&base, jd); jw_raw(&base, "/kernels"); } else { jw_raw(&base, home && *home ? home : "."); jw_raw(&base, "/.local/share/jupyter/kernels"); }
+    for (size_t i = 0; i < sizeof k_specs / sizeof *k_specs; i++) {
+        cv_t path = { 0, 0, 0, 0 }, js = { 0, 0, 0, 0 };
+        jw_raw(&path, cv_cstr(&base));
+        jw_raw(&path, "/");
+        jw_raw(&path, k_specs[i].name);
+        if (k_mkdirs((char *)cv_cstr(&path))) { fprintf(stderr, "scrip --kernel-install: cannot make the directory %s: %s\n", cv_cstr(&path), strerror(errno)); return 2; }
+        jw_raw(&path, "/kernel.json");
+        jw_raw(&js, "{\"argv\":[");
+        jw_str(&js, exe, strlen(exe));
+        jw_raw(&js, ",\"--kernel\",\"{connection_file}\"]");
+        jw_kv(&js, "display_name", k_specs[i].display, 1);
+        jw_kv(&js, "language", k_specs[i].language, 1);
+        jw_kv(&js, "interrupt_mode", "message", 1);
+        if (k_specs[i].deflang) { jw_raw(&js, ",\"env\":{"); jw_kv(&js, "SCRIP_DEFAULT_LANG", k_specs[i].deflang, 0); jw_raw(&js, "}"); }
+        jw_raw(&js, "}\n");
+        int fd = open(cv_cstr(&path), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0 || write(fd, js.p, js.len) != (ssize_t)js.len || close(fd)) { fprintf(stderr, "scrip --kernel-install: cannot write %s: %s\n", cv_cstr(&path), strerror(errno)); return 2; }
+        printf("KERNELSPEC %s %s\n", k_specs[i].name, cv_cstr(&path));
+        ct_drop(path.p);
+        ct_drop(js.p);
+    }
+    ct_drop(base.p);
+    ct_drop(exe);
     return 0;
 }
