@@ -15,7 +15,6 @@
 #include "lower_pascal_class.h"
 #include "lower_pascal_generics.h"
 #include "lower_pascal_types.h"
-#include "runtime/builtin_ids.h"
 #define IS(x, k) ((x) && (x)->t == (k))
 static void *pas_pool_grow(void *p, int *cap, size_t esz, int init) {
     int oc = *cap, nc = oc ? oc * 2 : init;
@@ -5552,24 +5551,6 @@ static pval E_body_stmt(const tree_t *n) {
 }
 static tree_t *pas_strhlp_prop(const tree_t *n);
 static pval pas_strhlp_eval(tree_t *sh);
-static int pas_callee_builtin(const char *name) {
-    size_t n = strlen(name);
-    char *pn = (char *) ct_zalloc(n + 7, 1);
-    memcpy(pn, "__pas_", 6);
-    memcpy(pn + 6, name, n);
-    int r = bid_of(pn, (unsigned) (n + 6)) > 0;
-    ct_drop(pn);
-    return r;
-}
-static tree_t *pas_callee_require(const char *name, tree_t *r) {
-    if (!name || !r || r->t != TT_FNC || r->n < 1 || !r->c[0] || !r->c[0]->v.sval || strcmp(r->c[0]->v.sval, name)) return r;
-    if (name[0] == '_' || !strcmp(name, "length") || !strcmp(name, "break") || !strcmp(name, "continue") || is_pas_io(map_io(name)) || pas_is_proc(name) || pas_is_func(name) ||
-        pas_pf_is_formal(name) || pas_scope_has(name)) return r;
-    if (bid_of(name, (unsigned) strlen(name)) > 0 || pas_callee_builtin(name)) return r;
-    fprintf(stderr, "pascal: Error: Identifier not found %s -- the routine '%s' is declared nowhere\n", name, name);
-    g_lower.pas.sem.pas_iso_errors++;
-    return r;
-}
 static pval E_call(const tree_t *n) {
     pval v[4];
     pval out;
@@ -5595,7 +5576,7 @@ static pval E_call(const tree_t *n) {
             } else {
                 pas_required_needs_params(v[1].str);
                 pas_call_arity(v[1].str, NULL);
-                out.node = pas_callee_require(v[1].str, mk_call(v[1].str, NULL));
+                out.node = mk_call(v[1].str, NULL);
             }
         }
         return out;
@@ -5782,7 +5763,7 @@ static pval E_call_with_args(const tree_t *n) {
                 fprintf(stderr, "pascal: a call through the TMethod record '%s' with arguments is not implemented; only a call without arguments is\n", v[1].str);
                 g_lower.pas.sem.pas_iso_errors++;
             }
-            out.node = pas_pf_is_formal(v[1].str) ? pas_pf_callthrough(v[1].str, v[3].list) : pas_callee_require(v[1].str, mk_call(v[1].str, v[3].list));
+            out.node = pas_pf_is_formal(v[1].str) ? pas_pf_callthrough(v[1].str, v[3].list) : mk_call(v[1].str, v[3].list);
         }
         return out;
     }
