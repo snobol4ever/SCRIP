@@ -36766,6 +36766,12 @@ static const char PL_PRELUDE_LIB_83_SRC[] =
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_EXPORTS[] = {
+    { "abort", 0 },
+    { "abort", 1 },
+    { "shell", 1 },
+    { "shell", 2 },
+    { "$xsb_sh_line", 2 },
+    { "$xsb_sh_atoms", 1 },
     { "term_new_mod", 3 },
     { "index", 2 },
     { "index", 3 },
@@ -36824,6 +36830,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_SHADOWS[] = {
     { "concat_atom", 2 },
     { "concat_atom", 3 },
     { "import", 1 },
+    { "shell", 1 },
+    { "shell", 2 },
     { "term_size", 2 },
     { "", 0 }
 };
@@ -36874,6 +36882,13 @@ static const char PL_PRELUDE_LIB_84_SRC[] =
     "print_file_contents(F) :- setup_call_cleanup(open(F, read, S), '$xsb_pfc'(S), close(S)).\n"
     "'$xsb_pfc'(S) :- get_char(S, C), ( C == end_of_file -> true ; put_char(C), '$xsb_pfc'(S) ).\n"
     "rm(F) :- '$gnu_os'(unlink, F, _).\n"
+    "abort :- throw(error(misc_error, context('Aborting...', _))).\n"
+    "abort(Msg) :- throw(error(misc_error, context(Msg, _))).\n"
+    "shell(Cmd) :- shell(Cmd, _).\n"
+    "shell(Cmd, Status) :- '$xsb_sh_line'(Cmd, Line), '$gnu_os'(shell, Line, S0), Status is S0 * 256.\n"
+    "'$xsb_sh_line'(Cmd, Line) :- ( atom(Cmd) -> Line = Cmd ; '$xsb_sh_atoms'(Cmd) -> atomic_list_concat(Cmd, Line) ; throw(error(misc_error, context('[shell/[1,2,5]] Non string list member in the Arg', _))) ).\n"
+    "'$xsb_sh_atoms'(L) :- L == [], !.\n"
+    "'$xsb_sh_atoms'(L) :- nonvar(L), L = [A|T], atom(A), '$xsb_sh_atoms'(T).\n"
     "xsb_configuration(os_type, 'linux-gnu').\n"
     "gc_dynamic(N) :- ( var(N) -> N = 0 ; throw(error(type_error(variable, N), gc_dynamic/1)) ).\n"
     "retract_nr(C) :- retract(C).\n"
@@ -37457,6 +37472,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$xsb_pbind", 10, 2, 84 },
     { "$xsb_psub", 9, 3, 84 },
     { "$xsb_qcall", 10, 2, 84 },
+    { "$xsb_sh_atoms", 13, 1, 84 },
+    { "$xsb_sh_line", 12, 2, 84 },
     { "$xt_ntp", 7, 1, 86 },
     { "$xt_tv1", 7, 2, 86 },
     { ":<", 2, 2, 27 },
@@ -37474,6 +37491,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "abolish_table_subgoal", 21, 2, 86 },
     { "abolish_table_subgoals", 22, 1, 86 },
     { "abolish_table_subgoals", 22, 2, 86 },
+    { "abort", 5, 0, 84 },
+    { "abort", 5, 1, 84 },
     { "abs", 3, 2, 62 },
     { "acos", 4, 2, 62 },
     { "add_edges", 9, 3, 79 },
@@ -38472,7 +38491,9 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "sformat", 7, 3, 5 },
     { "shadow_price", 12, 3, 69 },
     { "shell", 5, 1, 34 },
+    { "shell", 5, 1, 84 },
     { "shell", 5, 2, 34 },
+    { "shell", 5, 2, 84 },
     { "sign", 4, 2, 62 },
     { "simple", 6, 1, 62 },
     { "sin", 3, 2, 62 },
