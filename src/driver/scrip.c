@@ -1976,6 +1976,7 @@ typedef struct scrip_rl_t {
     const char * lang;
     int over;
     int top;
+    const char * feed;
 } scrip_rl_t;
 typedef struct scrip_rl_launch_t { int kind; const char * before; const char * after; const char * driver; } scrip_rl_launch_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2302,6 +2303,11 @@ static char ** scrip_rl_argv(char * self, const char * mode, const scrip_rl_t * 
     return av;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * scrip_rl_in_beside(const char * pkg, const char * file) {
+    const char * fs = strrchr(file, '/'), * dt = strrchr(file, '.');
+    return ct_fmt("%s/%.*s.in", pkg, dt && (!fs || dt > fs) ? (int)(dt - file) : (int) strlen(file), file);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, int i, const char * work, const char * out, long cap_mb, const char * pkg, const char * root, const scrip_rl_launch_t * L)
     {
     char * fn = ct_strdup(t->name);
@@ -2312,8 +2318,7 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     char * dir = ct_fmt("%s/%04d", work, i), * src = t->stage ? ct_strdup(t->stage) : ct_fmt("%s.%s", base, t->ext ? t->ext : ""), * sp = ct_fmt("%s/%s", dir, src), * from = (char *)0;
     char * sin = (char *)0;
     if (t->file) {
-        const char * dt = strrchr(t->file, '.');
-        sin = ct_fmt("%s/%.*s.in", pkg, dt && (!fs || dt > fs) ? (int)(dt - t->file) : (int) strlen(t->file), t->file);
+        sin = t->feed ? ct_strdup(t->feed) : scrip_rl_in_beside(pkg, t->file);
         if (access(sin, R_OK) != 0) sin = (char *)0;
         const char * sub = t->inplace ? "source" : "tree", * home = t->inplace ? root : pkg;
         dir = fs ? ct_fmt("%s/%s/%.*s", work, sub, (int)(fs - t->file), t->file) : ct_fmt("%s/%s", work, sub);
@@ -2446,6 +2451,31 @@ static int scrip_rl_pkg_args(char * b, scrip_rl_t * r, int nr) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_pkg_stdin(char * b, const char * dir, const char * root, scrip_rl_t * r, int nr) {
+    struct stat sb;
+    for (char * p = b; p && *p;) {
+        char * e = strchr(p, '\n');
+        if (e) *e = '\0';
+        if (*p && *p != '#') {
+            char * tab = strchr(p, '\t'), * f = tab ? tab + 1 : (char *)0;
+            int hit = -1, hits = 0, out = !f || *f == '/';
+            if (!f || !*f || strchr(f, '\t')) return scrip_rl_refuse("a line of ALL.stdin is an entry, one tab and a path from the collection's root; read", p);
+            *tab = '\0';
+            for (char * q = f; !out && q; q = strchr(q, '/') ? strchr(q, '/') + 1 : (char *)0) out = q[0] == '.' && q[1] == '.' && (q[2] == '/' || !q[2]);
+            for (int i = 0; i < nr; i++) if (!strcmp(r[i].name, p)) { hit = i; hits++; }
+            if (hits != 1) return scrip_rl_refuse("ALL.stdin names an entry the index lacks", p);
+            if (r[hit].feed) return scrip_rl_refuse("ALL.stdin names an entry twice", p);
+            if (!root) return scrip_rl_refuse("ALL.stdin names a file of a collection and the package has no ALL.source; the entry is", p);
+            if (out) return scrip_rl_refuse("ALL.stdin names a path that leaves the collection's root:", f);
+            r[hit].feed = ct_fmt("%s/%s", root, f);
+            if (stat(r[hit].feed, &sb) != 0 || !S_ISREG(sb.st_mode)) return scrip_rl_refuse("ALL.stdin names a file the collection does not hold:", r[hit].feed);
+            if (r[hit].file && access(scrip_rl_in_beside(dir, r[hit].file), F_OK) == 0) return scrip_rl_refuse("an entry has both a NAME.in in the package and a line of ALL.stdin:", p);
+        }
+        p = e ? e + 1 : (char *)0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_rl_pkg_omit(char * b, scrip_rl_t * r, int nr) {
     for (char * p = b; p && *p;) {
         char * e = strchr(p, '\n');
@@ -2570,6 +2600,8 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
         char * sb = scrip_rl_slurp(ct_fmt("%s/ALL.source", dir), &sl);
         struct stat st;
         if (sb && scrip_rl_pkg_source(sb, &root, &whole, &top)) return 2;
+        char * fb = scrip_rl_slurp(ct_fmt("%s/ALL.stdin", dir), &sl);
+        if (fb && scrip_rl_pkg_stdin(fb, dir, root, r, nr)) return 2;
         for (int i = 0; i < nr; i++) {
             if (!r[i].sel || r[i].omit || r[i].defer) continue;
             int held = access(ct_fmt("%s/%s", dir, r[i].file), R_OK) == 0;
