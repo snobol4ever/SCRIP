@@ -51,11 +51,11 @@ static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0, "S", "#444c56
     "SCRIP Unicon", "unicon", "Unicon", "Un", "#cf222e" }, { "scrip-prolog", "SCRIP Prolog", "prolog", "Prolog", "Pl", "#9a6700" }, { "scrip-pascal", "SCRIP Pascal", "pascal", "Pascal", "Pa",
     "#1a7f37" }, { "scrip-raku", "SCRIP Raku", "raku", "Raku", "Rk", "#bc4c00" } };
 static const ksess_t k_sess[] = { { "snobol4", "SNOBOL4" }, { "snobol", "SNOBOL4" }, { "spitbol", "SNOBOL4" } };
-static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "spitbol", ".spt", 0,
-    "text/x-snobol4", "snobol", "text/plain" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "text/plain" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
-    "text/x-icon", "icon", "text/plain" }, { "unicon", ".icn", 1, "text/x-unicon", "unicon", "text/plain" }, { "prolog", ".pl", 0, "text/x-prolog", "prolog", "text/plain" }, { "pascal", ".pas", 0,
-    "text/x-pascal", "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/markdown", "markdown", "markdown" }, { "polyglot", ".md", 0,
-    "text/markdown", "markdown", "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
+static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "snobol4" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "snobol4" }, { "spitbol", ".spt", 0,
+    "text/x-snobol4", "snobol", "snobol4" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "snocone" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
+    "text/x-icon", "icon", "icon" }, { "unicon", ".icn", 1, "text/x-unicon", "unicon", "icon" }, { "prolog", ".pl", 0, "text/x-prolog", "prolog", "prolog" }, { "pascal", ".pas", 0, "text/x-pascal",
+    "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/markdown", "markdown", "markdown" }, { "polyglot", ".md", 0, "text/markdown",
+    "markdown", "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
 static const char *const k_zmq_names[] = { "zmq_ctx_new", "zmq_ctx_term", "zmq_socket", "zmq_close", "zmq_bind", "zmq_setsockopt", "zmq_msg_init", "zmq_msg_init_size", "zmq_msg_close", "zmq_msg_data",
     "zmq_msg_size", "zmq_msg_more", "zmq_msg_recv", "zmq_msg_send", "zmq_poll" };
 static const kdisp_t k_disp[] = { { "html", "text/html", 0 }, { "svg", "image/svg+xml", 0 }, { "latex", "text/latex", 0 }, { "javascript", "application/javascript", 0 }, { "json", "application/json",
