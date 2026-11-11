@@ -424,6 +424,17 @@ static size_t k_utf8_whole(const char *s, size_t n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_heartbeat(void *hb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_lastline(cv_t *cur, cv_t *last, const char *s, size_t n) {
+    for (size_t i = 0; i <= n; i++) {
+        int blank = 1;
+        if (i < n && s[i] != '\n') { cv_putc(cur, s[i]); continue; }
+        for (uint32_t j = 0; j < cur->len; j++) if (!strchr(" \t\r", ((const char *)cur->p)[j])) blank = 0;
+        if (i == n) break;
+        if (!blank && !(last->len && cur->len && strchr(" \t", ((const char *)cur->p)[0]))) { last->len = 0; cv_puts(last, (const char *)cur->p, cur->len); }
+        cur->len = 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ssize_t k_pump(kctx_t *k, const kmsg_t *req, int silent, int fd, const char *name, char *buf, size_t *held) {
     ssize_t r = read(fd, buf + *held, 4096);
     size_t n = *held + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf, n) : n;
@@ -508,7 +519,7 @@ static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *head, const char *code, size_t clen) {
+static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *head, const char *code, size_t clen, cv_t *en, cv_t *ev) {
     size_t nl = 0, sent = 0, held[2] = { 0, 0 }, from = 0;
     cv_t f = { 0, 0, 0, 0 }, ctl = { 0, 0, 0, 0 };
     char hd[32], buf[2][4100], cb[512];
@@ -537,13 +548,13 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
                 size_t ll = i - from;
                 if (ll >= 7 && !strncmp(ln, "DONE ok", 7)) rc = 0;
                 else if (ll >= 4 && !strncmp(ln, "DONE", 4)) {
-                    cv_t t = { 0, 0, 0, 0 };
-                    jw_raw(&t, "scrip: ");
-                    cv_puts(&t, ln + (ll > 5 ? 5 : ll), ll - (ll > 5 ? 5 : ll));
-                    cv_putc(&t, '\n');
-                    for (int j = 0; j < 2; j++) while (zmq_poll(&it[j], 1, 0) > 0 && it[j].revents && k_pump(k, req, silent, it[j].fd, j == 0 ? "stdout" : "stderr", buf[j], &held[j]) > 0) { }
-                    if (!silent) k_stream(k, req, "stderr", &t);
-                    ct_drop(t.p);
+                    size_t a = ll > 5 ? 5 : ll, b;
+                    if (ll - a >= 6 && !strncmp(ln + a, "error ", 6)) a += 6;
+                    for (b = a; b < ll && ln[b] != ' '; b++) { }
+                    jw_raw(en, head);
+                    jw_raw(en, " error ");
+                    cv_puts(en, ln + a, b - a);
+                    cv_puts(ev, ln + (b < ll ? b + 1 : b), ll - (b < ll ? b + 1 : b));
                     rc = 1;
                 }
                 from = i + 1;
@@ -567,12 +578,13 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code, size_t clen, const char *lang) {
+static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code, size_t clen, const char *lang, cv_t *en, cv_t *ev) {
     const klang_t *L = 0;
     for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcasecmp(k_langs[i].tag, lang)) L = &k_langs[i];
     if (!L) { k_note(k, req, silent, "scrip: unknown language tag ", lang, " (SNOBOL4 Snocone Rebus Icon Unicon Prolog Pascal Raku scrip)\n"); return -1; }
-    for (size_t i = 0; i < sizeof k_sess / sizeof *k_sess; i++) if (!strcmp(k_sess[i].tag, L->tag)) return k_session_open(k, req, silent) ? k_session_cell(k, req, silent, k_sess[i].head, code, clen) :
-        -1;
+    for (size_t i = 0; i < sizeof k_sess / sizeof *k_sess; i++) if (!strcmp(k_sess[i].tag, L->tag)) {
+        return k_session_open(k, req, silent) ? k_session_cell(k, req, silent, k_sess[i].head, code, clen, en, ev) : -1;
+    }
     if (strcmp(L->ext, ".md") && !(k->said >> (unsigned)(L - k_langs) & 1u)) {
         k->said |= 1u << (unsigned)(L - k_langs);
         k_note(k, req, silent, "scrip: a cell tagged ", L->tag, " runs as its own program: SCRIP has no session road for that language yet (said once)\n");
@@ -611,13 +623,15 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     close(po[1]);
     close(pe[1]);
     k->child = pid;
-    zmq_pollitem_t it[3] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 } };
+    zmq_pollitem_t it[4] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 } };
+    cv_t cur = { 0, 0, 0, 0 };
     char buf[2][4100];
     size_t held[2] = { 0, 0 };
     while (nopen > 0 && pid > 0) {
-        if (zmq_poll(it, 3, -1) < 0) { if (errno == EINTR) continue; break; }
+        if (zmq_poll(it, 4, -1) < 0) { if (errno == EINTR) continue; break; }
         for (int i = 0; i < 2; i++) if (it[i].fd >= 0 && it[i].revents) {
             ssize_t r = read(it[i].fd, buf[i] + held[i], 4096);
+            if (i == 1 && r > 0) k_lastline(&cur, ev, buf[i] + held[i], (size_t)r);
             size_t n = held[i] + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf[i], n) : n;
             cv_t t = { 0, 0, 0, 0 };
             if (r <= 0) { close(it[i].fd); it[i].fd = -1; it[i].events = 0; nopen--; }
@@ -628,7 +642,10 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
             held[i] = n - cut;
         }
         if (it[2].revents & ZMQ_POLLIN) k_control_tick(k);
+        if (it[3].revents & ZMQ_POLLIN) k_heartbeat(k->hb);
     }
+    k_lastline(&cur, ev, "\n", 1);
+    ct_drop(cur.p);
     waitpid(pid, &st, 0);
     k->child = 0;
     if (it[0].fd >= 0) close(it[0].fd);
@@ -671,7 +688,8 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
         clen -= j;
     }
     if (!lang) lang = getenv("SCRIP_DEFAULT_LANG") ? getenv("SCRIP_DEFAULT_LANG") : "SNOBOL4";
-    int rc = k_run_cell(k, req, silent, code, clen, lang);
+    cv_t en = { 0, 0, 0, 0 }, ev = { 0, 0, 0, 0 };
+    int rc = k_run_cell(k, req, silent, code, clen, lang, &en, &ev);
     if (rc == 0) {
         jw_raw(&c, "{");
         jw_kv(&c, "status", "ok", 0);
@@ -679,30 +697,39 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
         jw_raw(&c, num);
         jw_raw(&c, ",\"payload\":[],\"user_expressions\":{}}");
     } else {
-        char ev[96];
-        snprintf(ev, sizeof ev, "%s cell exited %d%s", lang, rc, rc == 124 ? " (timeout)" : rc == 130 || rc == 143 ? " (interrupted)" : "");
-        cv_t e = { 0, 0, 0, 0 };
+        char xl[96];
+        snprintf(xl, sizeof xl, "%s cell exited %d%s", lang, rc, rc == 124 ? " (timeout)" : rc == 130 || rc == 143 ? " (interrupted)" : "");
+        const char *ename = en.len ? cv_cstr(&en) : "scrip", *evalue = ev.len ? cv_cstr(&ev) : xl;
+        cv_t e = { 0, 0, 0, 0 }, tb = { 0, 0, 0, 0 }, one = { 0, 0, 0, 0 };
+        jw_raw(&one, ename);
+        jw_raw(&one, ": ");
+        jw_raw(&one, evalue);
+        jw_raw(&tb, "[");
+        if (en.len) jw_str(&tb, (const char *)one.p, one.len);
+        else { if (ev.len) { jw_str(&tb, evalue, strlen(evalue)); jw_raw(&tb, ","); } jw_str(&tb, xl, strlen(xl)); }
+        jw_raw(&tb, "]");
         jw_raw(&e, "{");
-        jw_kv(&e, "ename", "scrip", 0);
-        jw_kv(&e, "evalue", ev, 1);
+        jw_kv(&e, "ename", ename, 0);
+        jw_kv(&e, "evalue", evalue, 1);
         jw_key(&e, "traceback", 1);
-        jw_raw(&e, "[");
-        jw_str(&e, ev, strlen(ev));
-        jw_raw(&e, "]}");
+        jw_raw(&e, cv_cstr(&tb));
+        jw_raw(&e, "}");
         if (!silent) k_send(k, k->iopub, req, "error", cv_cstr(&e));
         jw_raw(&c, "{");
         jw_kv(&c, "status", "error", 0);
-        jw_kv(&c, "ename", "scrip", 1);
-        jw_kv(&c, "evalue", ev, 1);
+        jw_kv(&c, "ename", ename, 1);
+        jw_kv(&c, "evalue", evalue, 1);
         jw_key(&c, "traceback", 1);
-        jw_raw(&c, "[");
-        jw_str(&c, ev, strlen(ev));
-        jw_raw(&c, "]");
+        jw_raw(&c, cv_cstr(&tb));
         jw_key(&c, "execution_count", 1);
         jw_raw(&c, num);
         jw_raw(&c, "}");
         ct_drop(e.p);
+        ct_drop(tb.p);
+        ct_drop(one.p);
     }
+    ct_drop(en.p);
+    ct_drop(ev.p);
     k_reply(k, sock, req, cv_cstr(&c));
     ct_drop(c.p);
 }
