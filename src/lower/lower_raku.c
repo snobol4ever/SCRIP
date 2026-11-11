@@ -1,4 +1,5 @@
 #include <string.h>
+#include "runtime/builtin_table.h"
 #include "runtime/core/g_runtime.h"
 #include <unistd.h>
 #include "ir/ct_arena.h"
@@ -386,6 +387,16 @@ static int rk_user_proc_exists(const char * nm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * const rk_shadowable_terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
+static int rk_proc_known(const char * name);
+static int rk_certainly_undeclared(const char * nm) {
+    extern int rt_builtin_is_known(const char *);
+    if (!isalpha((unsigned char) nm[0])) return 0;
+    for (const char * p = nm; *p; p++) if (!isalnum((unsigned char) *p) && *p != '-' && *p != '_') return 0;
+    extern int rk_is_core_routine(const char *);
+    return !rk_is_core_routine(nm) && bt_row_of(BT_VOC_RK, nm, (unsigned) strlen(nm)) < 0 && !rk_user_proc_exists(nm) && !rk_proc_known(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm) &&
+        !rt_builtin_is_known(nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
     static const char * const dyn[] = { "*DISTRO", "*KERNEL", "*VM", "*RAKU", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER",
@@ -2182,6 +2193,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = as;
                 return e;
             }
+            if (nm && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(2); }
             return lower_rcall(cx, t, nm, 1, γ, ω, res);
         }
         case TT_STMT:
