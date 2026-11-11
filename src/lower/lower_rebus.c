@@ -146,6 +146,8 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
         }
         case TT_IDX:
         { tree_t *idx = ast_node_new(TT_IDX); for (int i = 0; i < e->n; i++) expr_add_child(idx, lower_tree_expr(L, e->c[i])); return idx; }
+        case TT_SECTION_PLUS:
+        { tree_t *f = ast_node_new(TT_FNC); f->v.sval = ct_strdup("SUBSTR"); for (int i = 0; i < e->n; i++) expr_add_child(f, lower_tree_expr(L, e->c[i])); return f; }
         case TT_SCAN:
         return expr_binary(TT_SCAN, lower_tree_expr(L, e->c[0]), lower_tree_expr(L, e->c[1]));
         default:

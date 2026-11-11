@@ -126,7 +126,7 @@ primary = FENCE(  '"' (*DQ_body) . thx . *Shift('TT_QLIT', thx) '"'
                 | '(' *expr ')'
                );
 /* rebus.y postfix_expr is left-recursive: any chain of [subscripts], [a +: b], . primary and $ primary */
-postfix_tail = FENCE(  *$'[' *alt_expr *$'+:' *alt_expr *$']' . *Reduce('TT_IDX', 3) *postfix_tail
+postfix_tail = FENCE(  *$'[' *alt_expr *$'+:' *alt_expr *$']' . *Reduce('TT_SECTION_PLUS', 3) *postfix_tail
                      | *$'[' . *PushCounter() . *IncCounter() *X_sub *$']' . *Reduce('TT_IDX', nTop()) . *PopCounter() *postfix_tail
                      | *dot_capt    *primary . *Reduce('TT_CAPT_COND_ASGN', 2) *postfix_tail
                      | *dollar_capt *primary . *Reduce('TT_CAPT_IMMED_ASGN', 2) *postfix_tail

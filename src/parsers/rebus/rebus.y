@@ -491,7 +491,7 @@ postfix_expr
         }
     | postfix_expr '[' expr T_PLUSCOLON expr ']'
         {
-            tree_t *idx = ast_node_new(TT_IDX);
+            tree_t *idx = ast_node_new(TT_SECTION_PLUS);
             expr_add_child(idx, $1);
             expr_add_child(idx, $3);
             expr_add_child(idx, $5);
