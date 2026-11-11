@@ -1776,7 +1776,7 @@ static int pas_view_kind(const pty_t *t, long long *w) {
     return -1;
 }
 static tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
-    if (!g_lower.pas.sem.pas_dialect_fpc || !sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
+    if (!sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
     int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
     const pty_t *pt = (av || ae) ? pty_of_low(sel) : NULL;
     if (!pt || pt->k != PTK_POINTER || !pt->base || pty_is_pchar(pt)) return rhs;
@@ -8099,6 +8099,55 @@ static void pas_call_casts(tree_t *root, tree_t *t) {
 static void pas_rename_var(tree_t *t, const char *from, const char *to) {
     for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, from)) c->v.sval = (char *)to; pas_rename_var(c, from, to); }
 }
+static int pas_abs_flat_name(const char *n) {
+    if (!n) return 0;
+    if (!strcmp(n, "byte") || !strcmp(n, "shortint") || !strcmp(n, "char") || !strcmp(n, "boolean") || !strcmp(n, "word") || !strcmp(n, "smallint")) return 1;
+    return !strcmp(n, "integer") || !strcmp(n, "longword") || !strcmp(n, "cardinal") || !strcmp(n, "longint") || !strcmp(n, "int64") || !strcmp(n, "qword");
+}
+static const tree_t *pas_abs_decl_of(const tree_t *blk, const char *part_kind, const char *name) {
+    for (int k = 0; blk && name && k < blk->n; k++) {
+        const tree_t *part = blk->c[k];
+        if (!IS(part, TT_PART) || !part->v.sval || strcmp(part->v.sval, part_kind)) continue;
+        for (int j = 0; j < part->n; j++) {
+            const tree_t *d = part->c[j], *ids = IS(d, TT_DECL) && d->n >= 2 ? d->c[0] : NULL;
+            if (ids && IS(ids, TT_VAR) && ids->v.sval && !strcmp(ids->v.sval, name)) return d->c[1];
+            for (int q = 0; ids && IS(ids, TT_VLIST) && q < ids->n; q++) if (IS(ids->c[q], TT_VAR) && ids->c[q]->v.sval && !strcmp(ids->c[q]->v.sval, name)) return d->c[1];
+        }
+    }
+    return NULL;
+}
+static int pas_abs_flat_type(const tree_t *blk, const tree_t *ty, int left) {
+    if (!ty || left < 0) return 0;
+    if (IS(ty, TT_SUBRANGE)) return 1;
+    if (IS(ty, TT_ARRAY_TYPE)) return ty->n == 2 && IS(ty->c[0], TT_SUBRANGE) && pas_abs_flat_type(blk, ty->c[1], left - 1) == 1 ? 2 : 0;
+    if (!IS(ty, TT_VAR) || !ty->v.sval) return 0;
+    if (pas_abs_flat_name(ty->v.sval)) return 1;
+    return pas_abs_flat_type(blk, pas_abs_decl_of(blk, "type", ty->v.sval), left - 1);
+}
+static void pas_abs_deref_uses(tree_t *t, const char *name, const tree_t *skip) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (c == skip) continue;
+        if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, name)) t->c[i] = un(TT_DEREF, c);
+        else pas_abs_deref_uses(c, name, skip);
+    }
+}
+static int pas_abs_overlay(tree_t *t, tree_t *d, const tree_t *ab) {
+    tree_t *ids = d->c[0], *id = IS(ids, TT_VLIST) && ids->n == 1 ? ids->c[0] : IS(ids, TT_VAR) ? ids : NULL, *ty = d->c[1], *body = t->n ? t->c[t->n - 1] : NULL;
+    const char *tk = ab->c[0]->v.sval;
+    if (!id || !IS(id, TT_VAR) || !id->v.sval || !IS(ty, TT_VAR) || !pas_abs_flat_name(ty->v.sval) || !body || IS(body, TT_PART)) return 0;
+    const tree_t *kt = pas_abs_decl_of(t, "var", tk);
+    if (!kt || (IS(kt, TT_VAR) && kt->v.sval && !strcmp(kt->v.sval, ty->v.sval)) || !pas_abs_flat_type(t, kt, t->n)) return 0;
+    pas_abs_deref_uses(t, id->v.sval, d);
+    d->c[1] = un(TT_PTR_TYPE, ty);
+    d->n = 2;
+    tree_t *init = bin(TT_ASSIGN, leaf_s(TT_VAR, id->v.sval), un(TT_ADDR, leaf_s(TT_VAR, tk)));
+    if (!IS(body, TT_SEQ_EXPR)) { tree_t *s = ast_node_new(TT_SEQ_EXPR); ast_push(s, body); t->c[t->n - 1] = body = s; }
+    ast_push(body, init);
+    for (int q = body->n - 1; q > 0; q--) body->c[q] = body->c[q - 1];
+    body->c[0] = init;
+    return 1;
+}
 static void pas_absolute_vars(tree_t *t) {
     for (int i = 0; t && i < t->n; i++) pas_absolute_vars(t->c[i]);
     if (!IS(t, TT_BLOCK)) return;
@@ -8110,7 +8159,7 @@ static void pas_absolute_vars(tree_t *t) {
         for (int j = 0; j < part->n; j++) {
             tree_t *d = part->c[j];
             tree_t *ab = (IS(d, TT_DECL) && d->n >= 3 && IS(d->c[2], TT_DECL) && d->c[2]->v.sval && !strcmp(d->c[2]->v.sval, "absolute") && d->c[2]->n >= 1) ? d->c[2] : NULL;
-            if (!ab || !IS(ab->c[0], TT_VAR) || !ab->c[0]->v.sval) { part->c[w++] = d; continue; }
+            if (!ab || !IS(ab->c[0], TT_VAR) || !ab->c[0]->v.sval || pas_abs_overlay(t, d, ab)) { part->c[w++] = d; continue; }
             const tree_t *ids = d->c[0];
             if (IS(ids, TT_VLIST)) {
                 for (int q = 0; q < ids->n; q++) if (IS(ids->c[q], TT_VAR) && ids->c[q]->v.sval) pas_rename_var(t, ids->c[q]->v.sval, ab->c[0]->v.sval);
