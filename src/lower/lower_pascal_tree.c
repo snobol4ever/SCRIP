@@ -4677,7 +4677,14 @@ static char pas_pf_param(const char *sig, int idx, const char **fsig) {
     }
     return 0;
 }
-static int pas_pf_nactuals(const char *sig) { int n = 0; const char *f; char k; for (int i = 0; (k = pas_pf_param(sig, i, &f)) != 0; i++) n += (k == 'P' || k == 'F') ? 4 : 1; return n; }
+static const char *pas_pf_varproc(const char *sig, int idx) { const char *f, *t; return pas_pf_param(sig, idx, &f) == 'r' && (t = pas_sig_value_type(sig, idx, 1)) ? pas_proctype_get(t) : NULL; }
+static int pas_pf_nactuals(const char *sig) {
+    int n = 0;
+    const char *f;
+    char k;
+    for (int i = 0; (k = pas_pf_param(sig, i, &f)) != 0; i++) n += (k == 'P' || k == 'F' || pas_pf_varproc(sig, i)) ? 4 : 1;
+    return n;
+}
 static void pas_pf_candidate(const PasDef *d) {
     for (int i = 0; i < g_lower.pas.sem.pas_scope.ncand; i++) if (g_lower.pas.sem.pas_scope.cand[i].rid == d->rid && !strcmp(g_lower.pas.sem.pas_scope.cand[i].sig, d->sig)) return;
     PasDef *c = pas_scope_push(&g_lower.pas.sem.pas_scope.cand, &g_lower.pas.sem.pas_scope.ncand, &g_lower.pas.sem.pas_scope.ccand, d->name);
@@ -4749,12 +4756,26 @@ static PNodeList *pas_pf_actuals(const char *callee, PNodeList *args) {
     const PasDef *cd = pas_pf_lookup(callee);
     const char *fs;
     if (cd && args) pas_value_actuals_check(callee, cd, args);
-    if (!cd || !args || !strpbrk(cd->sig + 1, "PF")) return args;
+    if (!cd || !args || !strpbrk(cd->sig + 1, "PFr")) return args;
     PNodeList *out = pnl_new();
     for (int i = 0; i + 1 < args->count; i += 2) {
         char k = pas_pf_param(cd->sig, i / 2, &fs);
-        if (k == 'P' || k == 'F') pas_pf_closure(out, args->items[i], fs, callee, i / 2 + 1);
-        else { pnl_push(out, args->items[i]); pnl_push(out, args->items[i + 1]); }
+        tree_t *a = args->items[i];
+        const char *vs = k == 'r' ? pas_pf_varproc(cd->sig, i / 2) : NULL;
+        if (k == 'P' || k == 'F') pas_pf_closure(out, a, fs, callee, i / 2 + 1);
+        else if (vs && a && a->t == TT_VAR && a->v.sval && pas_pf_is_formal(a->v.sval)) {
+            if (strcmp(pas_pf_lookup(a->v.sval)->sig, vs)) {
+                fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: the actual-parameter %d of '%s' is not of the type of its variable-parameter\n", i / 2 + 1, callee);
+                g_lower.pas.sem.pas_iso_errors++;
+            }
+            for (int w = 0; w <= 3; w++) { pnl_push(out, leaf_s(TT_VAR, w ? pas_pf_env_name(a->v.sval, w) : a->v.sval)); pnl_push(out, args->items[i + 1]); }
+        } else if (vs) {
+            fprintf(stderr, "pascal: the actual-parameter %d of '%s' passes a procedural variable-parameter that is not a whole variable; that is not implemented\n", i / 2 + 1, callee);
+            g_lower.pas.sem.pas_iso_errors++;
+        } else {
+            pnl_push(out, a);
+            pnl_push(out, args->items[i + 1]);
+        }
     }
     return out;
 }
@@ -6495,6 +6516,20 @@ static pval E_parameter_decl(const tree_t *n) {
         v[3] = E_pf_params(hasp ? n->c[1] : NULL);
         v[5].str = tok_s(n->c[n->n - 1]);
         { out.list = pas_pf_formal(v[2].str, pas_pf_sig('F', v[3].str, v[5].str), 0); }
+        return out;
+    }
+    if (IS(n, TT_DECL) && !strcmp(n->v.sval, "var") && pas_proctype_get(tok_s(n->c[1]))) {
+        v[2] = E_id_list(n->c[0], 0, n->c[0]->n);
+        pas_pf_section('r', v[2].list, tok_s(n->c[1]));
+        PNodeList *all = pnl_new();
+        for (int i = 0; v[2].list && i < v[2].list->count; i++) if (v[2].list->items[i] && v[2].list->items[i]->v.sval) {
+            const char *nm = v[2].list->items[i]->v.sval;
+            pas_not_a_word_symbol(nm);
+            pas_pf_pend(nm, pas_proctype_get(tok_s(n->c[1])));
+            g_lower.pas.sem.pas_scope.pend[g_lower.pas.sem.pas_scope.npend - 1].depth = 1;
+            for (int k = 0; k <= 3; k++) { tree_t *lf = leaf_s(TT_VAR, k ? pas_pf_env_name(nm, k) : nm); ast_push(lf, ast_node_new(TT_SUCCEED)); pnl_push(all, lf); }
+        }
+        out.list = all;
         return out;
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "var")) {
