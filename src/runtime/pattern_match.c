@@ -844,7 +844,13 @@ static int _sort_type_rank(DESCR_t d) {
 static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb) {
     if (a.v == DT_I && b.v == DT_I) { if (a.i < b.i) return -1; if (a.i > b.i) return 1; return 0; }
     if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R)) { double x = a.v == DT_I ? (double)a.i : a.r, y = b.v == DT_I ? (double)b.i : b.r; return x < y ? -1 : (x > y ? 1 : 0); }
-    if ((a.v == DT_S || a.v == DT_SNUL) && (b.v == DT_S || b.v == DT_SNUL)) { return strcmp(sa ? sa : "", sb ? sb : ""); }
+    if ((a.v == DT_S || a.v == DT_SNUL) && (b.v == DT_S || b.v == DT_SNUL)) {
+        size_t la = descr_slen(a), lb = descr_slen(b), n = la < lb ? la : lb;
+        int c = n ? memcmp(a.s, b.s, n) : 0;
+        (void)sa;
+        (void)sb;
+        return c ? c : la < lb ? -1 : la > lb ? 1 : 0;
+    }
     int ra = _sort_type_rank(a), rb = _sort_type_rank(b);
     if (ra != rb) return ra - rb;
     if (a.v == DT_BIG && b.v == DT_BIG) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(a, b); }
