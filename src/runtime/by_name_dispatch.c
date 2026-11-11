@@ -6192,15 +6192,6 @@ int rt_pl_proc_defined_static(const char *name, long arity) {
     return (idx >= 0 && !rt_proc_is_generator(key)) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_iso_evaluable(DESCR_t v) {
-    extern const char *prolog_atom_name(int);
-    if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); return; }
-    if ((int)v.v == DT_PLATOM) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name((int)v.i), 0); return; }
-    if (v.v == DT_S) { rt_pl_iso_throw_pi("type_error", "evaluable", v.s, 0); return; }
-    if ((int)v.v == DT_PLREF) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name(plc_fid_name(v.slen)), plc_fid_arity(v.slen)); return; }
-    rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spec_need(const char *p) {
     int n = 2;
     while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { n++; p++; }
@@ -7270,7 +7261,7 @@ DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     {
         DESCR_t v = rt_pl_deref_val(args[1]);
         if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { if (ball && bl) *ball = bl; return FAILDESCR; } }
-        if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG && !pl_rat_is(v)) { pl_iso_evaluable(v); return FAILDESCR; }
+        if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG && !pl_rat_is(v)) { extern void *rt_pl_dop_ax_eguard_c(DESCR_t *, int); if (ball) *ball = rt_pl_dop_ax_eguard_c(&v, 1); return FAILDESCR; }
         return v;
     }
 }
