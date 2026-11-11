@@ -46,16 +46,13 @@ typedef struct { const char *tag, *text, *url; } khelp_t;
 typedef struct { const char *tag, *ext; int unicon; const char *mime, *pygments, *codemirror; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
 typedef struct { const char *name, *display, *language, *deflang, *mark, *tint; } kspec_t;
-static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0, "S", "#444c56" }, { "scrip-snobol4", "SCRIP SNOBOL4", "snobol4", "SNOBOL4", "S4", "#1f6feb" }, { "scrip-snocone", "SCRIP Snocone",
-    "snocone", "Snocone", "Sc", "#0a7d6e" }, { "scrip-rebus", "SCRIP Rebus", "rebus", "Rebus", "Rb", "#8250df" }, { "scrip-icon", "SCRIP Icon", "icon", "Icon", "Ic", "#bf3989" }, { "scrip-unicon",
-    "SCRIP Unicon", "unicon", "Unicon", "Un", "#cf222e" }, { "scrip-prolog", "SCRIP Prolog", "prolog", "Prolog", "Pl", "#9a6700" }, { "scrip-pascal", "SCRIP Pascal", "pascal", "Pascal", "Pa",
-    "#1a7f37" }, { "scrip-raku", "SCRIP Raku", "raku", "Raku", "Rk", "#bc4c00" } };
+static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0, "S", "#1f6feb" } };
 static const ksess_t k_sess[] = { { "snobol4", "SNOBOL4" }, { "snobol", "SNOBOL4" }, { "spitbol", "SNOBOL4" } };
 static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "snobol4" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "snobol4" }, { "spitbol", ".spt", 0,
     "text/x-snobol4", "snobol", "snobol4" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "snocone" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
     "text/x-icon", "icon", "icon" }, { "unicon", ".icn", 1, "text/x-unicon", "unicon", "icon" }, { "prolog", ".pl", 0, "text/x-prolog", "prolog", "prolog" }, { "pascal", ".pas", 0, "text/x-pascal",
-    "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/markdown", "markdown", "markdown" }, { "polyglot", ".md", 0, "text/markdown",
-    "markdown", "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
+    "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/x-scrip", "snobol", "scrip" }, { "polyglot", ".md", 0, "text/markdown", "markdown",
+    "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
 static const char *const k_zmq_names[] = { "zmq_ctx_new", "zmq_ctx_term", "zmq_socket", "zmq_close", "zmq_bind", "zmq_setsockopt", "zmq_msg_init", "zmq_msg_init_size", "zmq_msg_close", "zmq_msg_data",
     "zmq_msg_size", "zmq_msg_more", "zmq_msg_recv", "zmq_msg_send", "zmq_poll" };
 static const kdisp_t k_disp[] = { { "html", "text/html", 0 }, { "svg", "image/svg+xml", 0 }, { "latex", "text/latex", 0 }, { "javascript", "application/javascript", 0 }, { "json", "application/json",
