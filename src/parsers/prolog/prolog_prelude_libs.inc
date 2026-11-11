@@ -34932,6 +34932,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_76_EXPORTS[] = {
     { "$tnot_i", 3 },
     { "undefined", 0 },
     { "$tbl undefined", 0 },
+    { "$tbl floundered", 1 },
+    { "$tbl floundered_undefined", 1 },
     { "not_exists", 1 },
     { "tabled_call", 1 },
     { "$tbl tabled_call", 1 },
@@ -35351,6 +35353,7 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tnot_split'(M:G,G1):-atom(M),!,('$mod_cl'(M,G,0,G1)->true;G1=G).\n"
     "'$tnot_split'(G,G).\n"
     "'$tnot_impl'(undefined,'$tbl undefined'):-!.\n"
+    "'$tnot_impl'(floundered_undefined(a),'$tbl floundered_undefined'(a)):-!.\n"
     "'$tnot_impl'(tabled_call(G),'$tbl tabled_call'(G)):-!.\n"
     "'$tnot_impl'(G,I):-callable(G),G=..[F|As],atom(F),atom_concat('$tbl ',F,TF),length(As,N),current_predicate(TF/N),I=..[TF|As].\n"
     "'$tnot_st'(complete,T,G):-!,'$trie_entries'(T,L),(member(e(_,_,true),L)->fail;L==[]->true;'$tbl_ph'(P),'$tnot_u'(P,G)).\n"
@@ -35363,6 +35366,8 @@ static const char PL_PRELUDE_LIB_76_SRC[] =
     "'$tnot_i'(_,T,_):- \\+ '$tbl_wany'(T,t).\n"
     "undefined:-'$tbl_call'(undefined,'$tbl undefined').\n"
     "'$tbl undefined':-tnot(undefined).\n"
+    "'$tbl floundered_undefined'(a):-tnot(floundered_undefined(a)).\n"
+    "'$tbl floundered'(_):-'$tbl_call'(floundered_undefined(a),'$tbl floundered_undefined'(a)).\n"
     "not_exists(G):-'$tnot_split'(G,G1),ground(G1),'$tnot_impl'(G1,_),!,tnot(G1).\n"
     "not_exists(G):-'$tnot_split'(G,G1),'$tbl_unqual'(G1,M,G2),(tabled_call(M:G2),fail;tnot(tabled_call(M:G2))).\n"
     "tabled_call(G):-'$tbl_call'(tabled_call(G),'$tbl tabled_call'(G)).\n"
@@ -37083,6 +37088,8 @@ static const char PL_PRELUDE_LIB_85_SRC[] =
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_86_EXPORTS[] = {
+    { "u_not", 1 },
+    { "floundered_undefined", 1 },
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -37201,7 +37208,10 @@ static const char PL_PRELUDE_LIB_86_SRC[] =
     "'$xt_ani_drop'([e(_,V,T)|L],VT,Act):-'$tbl_unqual'(V,_,G),functor(G,F,N),(\\+ '$tbl_isincr'(F/N)->('$tbl_answered'(T)->('$trie_delete'(VT,V,_)->true;true),'$trie_destroy'(T);Act==error->throw(error(table_error('abolishing incomplete tabled call'),abolish_nonincremental_tables/0));true);true),'$xt_ani_drop'(L,VT,Act).\n"
     "delete_return(T,N):-'$trie_id'(T,I),'$trie_entries'(I,As),nth1(N,As,e(_,R,_)),('$trie_delete'(I,R,_)->true;true),!.\n"
     "delete_return(T,N,_):-delete_return(T,N).\n"
-    "get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).\n";
+    "get_returns_and_tvs(T,R,TV):-get_returns_and_dls(T,R,DLs),(DLs==[]->TV=t;TV=u).\n"
+    "u_not(G):-ground(G),acyclic_term(G),!,tnot(G).\n"
+    "u_not(G):-'$tbl_call'(floundered(G),'$tbl floundered'(G)).\n"
+    "floundered_undefined(a):-'$tbl_call'(floundered_undefined(a),'$tbl floundered_undefined'(a)).\n";
 static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "aggregate", PL_PRELUDE_LIB_0_EXPORTS, PL_PRELUDE_LIB_0_OPS, PL_PRELUDE_LIB_0_SHADOWS, PL_PRELUDE_LIB_0_QUIET, PL_PRELUDE_LIB_0_SRC, PL_PRELUDE_LIB_0_METAS, PL_PRELUDE_LIB_0_LOADS, 0 },
     { "ansi_term", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC, PL_PRELUDE_LIB_1_METAS, PL_PRELUDE_LIB_1_LOADS, 0 },
@@ -37376,6 +37386,8 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "$strip_module", 13, 3, 5 },
     { "$tbh_v", 6, 3, 76 },
     { "$tbl $xt_ntp", 12, 1, 86 },
+    { "$tbl floundered", 15, 1, 76 },
+    { "$tbl floundered_undefined", 25, 1, 76 },
     { "$tbl tabled_call", 16, 1, 76 },
     { "$tbl undefined", 14, 0, 76 },
     { "$tbl_abort", 10, 0, 76 },
@@ -37951,6 +37963,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "flatten", 7, 2, 47 },
     { "float", 5, 3, 26 },
     { "floor", 5, 2, 62 },
+    { "floundered_undefined", 20, 1, 86 },
     { "flush", 5, 0, 5 },
     { "fm_elim", 7, 3, 31 },
     { "fm_elim", 7, 3, 32 },
@@ -38702,6 +38715,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "truth_value", 11, 2, 86 },
     { "tuples_in", 9, 2, 13 },
     { "type_error", 10, 2, 29 },
+    { "u_not", 5, 1, 86 },
     { "ub", 2, 3, 8 },
     { "ub", 2, 3, 9 },
     { "udp_socket", 10, 1, 70 },
