@@ -723,6 +723,11 @@ static tree_t *pc_assign(pc_ctx *x, tree_t *s) {
             if (q && q->ip) return pc_write_member(x, pc_self(x, pc_sv(l->c[0])), c, q->name, l, pc_expr(x, rhs));
         }
     }
+    if (!op && rhs) {
+        pc_ty a = pc_type(x, l), b = pc_type(x, rhs);
+        pc_meth *m = a.cls && a.cls->isrec && !a.ref && b.t && b.cls != a.cls ? pc_find_meth(a.cls, "implicit") : NULL;
+        if (m && pc_eq(m->kind, "operator")) { tree_t *args = ast_node_new(TT_VLIST); ast_push(args, rhs); s->c[0] = pc_expr(x, l); s->c[1] = pc_mcall(x, NULL, m, args, 0, 0); return s; }
+    }
     s->c[0] = pc_expr(x, l);
     if (rhs) s->c[1] = pc_expr(x, rhs);
     return s;
