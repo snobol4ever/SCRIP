@@ -189,8 +189,31 @@ static ssize_t fh_std_write(void *c, const char *p, size_t n){
 }
 static int fh_std_seek(void *c, off64_t *pos, int whence){ off_t r=lseek((int)(intptr_t)c,(off_t)*pos,whence); if(r<0) return -1; *pos=(off64_t)r; return 0; }
 static int fh_std_close(void *c){ return close((int)(intptr_t)c); }
+static ssize_t fh_std_read(void *c, char *p, size_t n){
+    int nf=(int)(intptr_t)c;
+    char b='I';
+    ssize_t r;
+    fflush(stdout);
+    fflush(stderr);
+    while(write(nf,&b,1)<0&&errno==EINTR);
+    do r=read(0,p,n);
+    while(r<0&&errno==EINTR);
+    return r;
+}
+static void fh_std_notice(void){
+    const char *e=getenv("SCRIP_STDIN_NOTICE_FD");
+    int nf=e?atoi(e):0;
+    cookie_io_functions_t ri={ fh_std_read, NULL, NULL, NULL };
+    FILE *c;
+    if(nf<3) return;
+    c=fopencookie((void *)(intptr_t)nf,"r",ri);
+    if(!c) return;
+    c->_fileno=0;
+    stdin=c;
+}
 __attribute__((constructor)) static void fh_std_ctor(void){
     cookie_io_functions_t io={ NULL, fh_std_write, fh_std_seek, fh_std_close };
+    fh_std_notice();
     for(int i=1;i<3;i++){
         FILE *f=i==1?stdout:stderr, *c;
         struct stat st;
