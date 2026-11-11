@@ -1964,6 +1964,8 @@ typedef struct scrip_rl_t {
     const char * stage;
     const char * dialect;
     const char * file;
+    int defer;
+    int omit;
     scrip_rl_file_t * f;
     int nf;
     int fcap;
@@ -2029,9 +2031,9 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
     char ** hd = (char **) ct_alloc(sizeof(char *) * (size_t)(nh + 1));
     nh = 0;
     for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
-    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect", "path" };
-    int col[12];
-    for (int w = 0; w < 12; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect", "path", "grader", "out_files", "stage" };
+    int col[15];
+    for (int w = 0; w < 15; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
     if (kind == 2 && (col[0] < 0 || col[11] < 0)) return scrip_rl_refuse("the index has no entry or no path column (not a package index)", "ALL.csv");
     if (kind != 2 && (col[0] < 0 || col[1] < 0)) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
     int cap = 1;
@@ -2063,6 +2065,8 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
             return scrip_rl_refuse("the dialect cell is not empty and compile_args also carries a dialect switch for", t->name);
         t->file = kind == 2 && cv[col[11]][0] ? cv[col[11]] : (const char *)0;
         if (t->file) { const char * dt = strrchr(t->file, '.'), * sl = strrchr(t->file, '/'); t->ext = dt && (!sl || dt > sl) ? dt + 1 : ""; }
+        t->defer = kind == 2 && !t->file;
+        for (int w = 12; kind == 2 && w < 15; w++) if (col[w] >= 0 && cv[col[w]][0]) t->defer = 1;
         t->sel = 1;
     }
     *out = r;
@@ -2276,7 +2280,11 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     base = base ? base + 1 : t->name;
     const char * fs = t->file ? strrchr(t->file, '/') : (const char *)0;
     char * dir = ct_fmt("%s/%04d", work, i), * src = t->stage ? ct_strdup(t->stage) : ct_fmt("%s.%s", base, t->ext ? t->ext : ""), * sp = ct_fmt("%s/%s", dir, src), * from = (char *)0;
+    char * sin = (char *)0;
     if (t->file) {
+        const char * dt = strrchr(t->file, '.');
+        sin = ct_fmt("%s/%.*s.in", pkg, dt && (!fs || dt > fs) ? (int)(dt - t->file) : (int) strlen(t->file), t->file);
+        if (access(sin, R_OK) != 0) sin = (char *)0;
         dir = fs ? ct_fmt("%s/tree/%.*s", work, (int)(fs - t->file), t->file) : ct_fmt("%s/tree", work);
         from = fs ? ct_fmt("%s/%.*s", pkg, (int)(fs - t->file), t->file) : ct_strdup(pkg);
         src = ct_strdup(fs ? fs + 1 : t->file);
@@ -2286,7 +2294,7 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     int fi = -1, fo = -1, fe = -1, pf[2] = { -1, -1 };
     int ok = t->file || (mkdir(dir, 0755) == 0 && scrip_rl_put(sp, t->prog, t->plen) == 0 && (!ip || scrip_rl_put(ip, t->in, t->inlen) == 0));
     for (int j = 0; ok && j < t->nf; j++) ok = scrip_rl_put(ct_fmt("%s/%s", dir, t->f[j].nm), t->f[j].b, t->f[j].n) == 0;
-    ok = ok && (fi = open(ip ? ip : "/dev/null", O_RDONLY | O_CLOEXEC)) >= 0 && (fo = open(op, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0;
+    ok = ok && (fi = open(sin ? sin : ip ? ip : "/dev/null", O_RDONLY | O_CLOEXEC)) >= 0 && (fo = open(op, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0;
     ok = ok && (fe = open(ep, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0 && pipe(pf) == 0;
     ok = ok && fcntl(pf[0], F_SETFD, FD_CLOEXEC) == 0 && fcntl(pf[1], F_SETFD, FD_CLOEXEC) == 0;
     int en = errno;
@@ -2375,11 +2383,45 @@ static int scrip_rl_only(const char * path, scrip_rl_t * r, int nr, int kind) {
         char * e = strchr(p, '\n');
         if (e) *e = '\0';
         int hit = 0;
-        for (int i = 0; *p && i < nr; i++) if ((kind == 2 || r[i].one != kind) && !strcmp(r[i].name, p)) { r[i].sel = 1; hit = 1; }
+        for (int i = 0; *p && i < nr; i++) if ((kind == 2 ? !r[i].omit : r[i].one != kind) && !strcmp(r[i].name, p)) { r[i].sel = 1; hit = 1; }
         if (*p && !hit) return scrip_rl_refuse("--only names an entry the group lacks", p);
         p = e ? e + 1 : (char *)0;
     }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scrip_rl_pkg_args(char * b, scrip_rl_t * r, int nr) {
+    for (char * p = b; p && *p;) {
+        char * e = strchr(p, '\n'), * tab = (char *)0;
+        int n = 0, k = 0, any = 0, hit = -1, hits = 0;
+        if (e) *e = '\0';
+        if (*p && *p != '#') {
+            for (char * q = p; *q; q++) if (*q == '\t') n++;
+            tab = strchr(p, '\t');
+            if (tab) *tab = '\0';
+            for (int i = 0; i < nr; i++) if (!strcmp(r[i].name, p)) { hit = i; hits++; }
+            if (hits != 1) return scrip_rl_refuse("ALL.args names an entry the index lacks", p);
+            if (r[hit].nargs) return scrip_rl_refuse("ALL.args names an entry twice", p);
+            r[hit].args = (char **) ct_alloc(sizeof(char *) * (size_t)(n + 1));
+            for (char * a = tab ? tab + 1 : (char *)0; a;) { char * t2 = strchr(a, '\t'); if (t2) *t2 = '\0'; r[hit].args[k++] = a; any |= *a != '\0'; a = t2 ? t2 + 1 : (char *)0; }
+            r[hit].args[k] = (char *)0;
+            if (!any) return scrip_rl_refuse("an ALL.args line carries no argument for", p);
+            r[hit].nargs = k;
+        }
+        p = e ? e + 1 : (char *)0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_rl_pkg_omit(char * b, scrip_rl_t * r, int nr) {
+    for (char * p = b; p && *p;) {
+        char * e = strchr(p, '\n');
+        if (e) *e = '\0';
+        char * c = *p != '#' ? strstr(p, ": ") : (char *)0;
+        if (c) *c = '\0';
+        for (int i = 0; c && i < nr; i++) if (!strcmp(r[i].name, p)) r[i].omit = 1;
+        p = e ? e + 1 : (char *)0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_kind(const char * a) { return !strcmp(a, "--run-one-liners") ? 0 : !strcmp(a, "--run-multi-liners") ? 1 : !strcmp(a, "--run-files") ? 2 : -1; }
@@ -2400,6 +2442,12 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     scrip_rl_t * r = (scrip_rl_t *)0;
     int nr = 0, refused = 0, own = !work;
     if (scrip_rl_index(ib, ilen, &r, &nr, kind)) return 2;
+    if (kind == 2) {
+        size_t al = 0, ol = 0;
+        char * ab = scrip_rl_slurp(ct_fmt("%s/ALL.args", dir), &al), * ob = scrip_rl_slurp(ct_fmt("%s/ALL.omit", dir), &ol);
+        if (ob) scrip_rl_pkg_omit(ob, r, nr);
+        if (ab && scrip_rl_pkg_args(ab, r, nr)) return 2;
+    }
     char * cb = kind == 2 ? (char *)0 : scrip_rl_container(dir, kind, &ext, &clen);
     if (kind != 2 && !cb) return scrip_rl_refuse(ext ? "the container holds more than one ONE file of a known extension" : "cannot read the container file in", dir);
     if (kind != 2 && (kind ? scrip_rl_multi(cb, clen, r, nr) : scrip_rl_one(cb, clen, ext ? ext : "", r, nr))) return 2;
@@ -2416,8 +2464,8 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     char * tree = kind == 2 ? ct_fmt("%s/tree", work) : (char *)0;
     if (tree && scrip_rl_copy_tree(dir, tree, &bad) != 0) { scrip_rl_rm(tree, (const char *)0); return scrip_rl_refuse("cannot copy the package tree at", bad); }
     for (int i = 0; i < nr; i++) {
-        if ((kind != 2 && r[i].one == kind) || !r[i].sel) continue;
-        if (kind == 2 ? !r[i].file : (r[i].staged && !r[i].nf && !r[i].stage)) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
+        if ((kind != 2 && r[i].one == kind) || !r[i].sel || r[i].omit) continue;
+        if (kind == 2 ? r[i].defer : (r[i].staged && !r[i].nf && !r[i].stage)) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
         refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb, dir);
     }
     if (tree) scrip_rl_rm(tree, (const char *)0);
