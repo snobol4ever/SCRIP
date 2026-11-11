@@ -19328,6 +19328,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             const char *tname = rk_typeobj_name(args[0]) ? rk_typeobj_name(args[0]) : VARVAL_fn(args[0]);
             extern int rt_proc_has_native_fn(const char *name);
             if (tname && mname0 && !strcmp(mname0, "new") && dat_find_type(tname)) {
+                {
+                    DESCR_t *ma = rt_ws_alloc_descr((size_t) nargs);
+                    for (int k = 0; k < nargs; k++) ma[k] = args[k];
+                    ma[0] = STRVAL(rt_heap_strdup_c(tname));
+                    if (rt_multi_meth_dispatch(tname, "new", ma, nargs, out, rq)) return 1;
+                }
                 DESCR_t *na = rt_ws_alloc_descr((size_t)(nargs - 1));
                 na[0] = STRVAL(rt_heap_strdup_c(tname));
                 for (int k = 2; k < nargs; k++) na[k - 1] = args[k];

@@ -2645,16 +2645,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             mbase[0] = 0;
             if (cls) snprintf(mbase, sizeof mbase, "%s__new", cls);
             if (cls && rk_is_multi_name(mbase)) {
-                tree_t * mc = ast_node_new(TT_FNC);
-                mc->v.sval = (char *)"__multi_call";
-                tree_t * nmv = ast_node_new(TT_VAR);
-                nmv->v.sval = (char *)"__multi_call";
-                ast_push(mc, nmv);
-                tree_t * basq = ast_node_new(TT_QLIT);
-                basq->v.sval = (char *)intern(mbase);
-                ast_push(mc, basq);
+                tree_t * mc = ast_node_new(TT_METHCALL);
+                mc->line = t->line;
+                ast_push(mc, rk_typeobj_tree(cls));
+                ast_push(mc, leaf_sval2(TT_QLIT, "new"));
                 for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
-                return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res);
+                return lower_rv(cx, mc, γ, ω, res);
             }
             if (cls && !rk_is_class_name(cls) && (!strcmp(cls, "Int") || !strcmp(cls, "Num") || !strcmp(cls, "Str")) && t->n <= 2) {
                 if (t->n == 1 && cls[0] == 'S') { tree_t * e = leaf_sval2(TT_QLIT, ""); return lower_rv(cx, e, γ, ω, res); }
