@@ -1193,6 +1193,13 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
         n = dcg_expand_body(pushback, s, s_mid, ts, buf, n);
     } else {
         n = dcg_expand_body(dcg_body, s0, s, ts, buf, 0);
+        if (n > 0 && buf[0]->t == TT_FNC && buf[0]->v.sval && strcmp(buf[0]->v.sval, "=") == 0 && buf[0]->n == 2
+                && buf[0]->c[0]->t == TT_VAR && buf[0]->c[0]->v.sval && s0->v.sval && strcmp(buf[0]->c[0]->v.sval, s0->v.sval) == 0
+                && buf[0]->c[1]->t == TT_FNC && buf[0]->c[1]->v.sval && strcmp(buf[0]->c[1]->v.sval, ".") == 0 && buf[0]->c[1]->n == 2) {
+            new_head->c[head_tr->n] = buf[0]->c[1];
+            for (int i = 0; i < n - 1; i++) buf[i] = buf[i+1];
+            n--;
+        }
     }
     tree_t *new_head_final = ast_node_new(TT_FNC);
     new_head_final->v.sval = ct_strdup(new_head->v.sval ? new_head->v.sval : "");
