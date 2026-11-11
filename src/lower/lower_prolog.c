@@ -1920,7 +1920,13 @@ static int pl_rt_registered_static(const char * nm, int ar) {
     snprintf(key, sizeof key, "%s/%d", nm, ar);
     return g_stage2.rt_lowering && g_stage2.rt_root && rt_proc_is_registered(key) && !rt_pl_db_key_is_dynamic(g_stage2.rt_root, key);
 }
-static int pl_user_defines(const char * nm, int ar) { return pl_file_defines(nm, ar) || pl_rt_registered_static(nm, ar); }
+static int pl_object_defines(const char * nm, int ar) {
+    extern int rt_proc_is_registered(const char *);
+    char key[fmt_len("%s/%d", nm, ar)];
+    snprintf(key, sizeof key, "%s/%d", nm, ar);
+    return g_stage2.harness_warm == 2 && rt_proc_is_registered(key);
+}
+static int pl_user_defines(const char * nm, int ar) { return pl_file_defines(nm, ar) || pl_rt_registered_static(nm, ar) || pl_object_defines(nm, ar); }
 static tree_t * pl_between_own(tree_t * t) { return pl_user_defines("between", 3) ? pl_between_split(t) : t; }
 static int pl_user_file_defines(const char * nm, int ar) {
     extern int pl_prelude_defines(const char *, int);
