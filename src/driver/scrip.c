@@ -1942,6 +1942,7 @@ static int scrip_harness_cli(char * self, const char * mode, int ac, char ** av)
     return keep;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct scrip_rl_file_t { const char * nm; const char * b; size_t n; } scrip_rl_file_t;
 typedef struct scrip_rl_t {
     const char * name;
     const char * ext;
@@ -1960,6 +1961,10 @@ typedef struct scrip_rl_t {
     int staged;
     int nonl;
     int sel;
+    const char * stage;
+    scrip_rl_file_t * f;
+    int nf;
+    int fcap;
 } scrip_rl_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_refuse(const char * why, const char * what) { fprintf(stderr, "scrip: REFUSE(2): %s '%s'\n", why, what ? what : ""); return 2; }
@@ -2022,9 +2027,9 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout) {
     char ** hd = (char **) ct_alloc(sizeof(char *) * (size_t)(nh + 1));
     nh = 0;
     for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
-    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args" };
-    int col[9];
-    for (int w = 0; w < 9; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name" };
+    int col[10];
+    for (int w = 0; w < 10; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
     if (col[0] < 0 || col[1] < 0) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
     int cap = 1;
     for (char * q = p; q < end; q++) if (*q == '\n') cap++;
@@ -2049,6 +2054,7 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout) {
         if ((t->heap && !scrip_rl_digits(t->heap)) || (t->stack && !scrip_rl_digits(t->stack))) return scrip_rl_refuse("a heap_kb or stack_kb cell is not a whole number for", t->name);
         t->nca = col[7] >= 0 ? scrip_rl_words(cv[col[7]], &t->ca) : 0;
         if (col[8] >= 0 && cv[col[8]][0]) return scrip_rl_refuse("a run_args cell is not empty (format 2 holds arguments in the args fence) for", t->name);
+        t->stage = col[9] >= 0 && cv[col[9]][0] ? cv[col[9]] : (const char *)0;
         t->sel = 1;
     }
     *out = r;
@@ -2083,10 +2089,14 @@ static int scrip_rl_fence_tag(const char * t, size_t n, const char ** ext) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_rl_close(scrip_rl_t * t, int tp, int nlang, char * bs, char * cl, char * nx, char * ps) {
+static void scrip_rl_close(scrip_rl_t * t, int tp, int nlang, char * bs, char * cl, char * nx, char * ps, const char * fnm) {
     if (tp == 0 && nlang == 1) { t->prog = bs; t->plen = (size_t)(cl - bs) - ((t->nonl & 1) && cl > bs ? 1 : 0); }
     if (tp == 0 && nlang > 1) { t->prog = ps; t->plen = (size_t)(nx - ps); t->ext = "md"; }
     if (tp == 3) { t->in = bs; t->inlen = (size_t)(cl - bs) - ((t->nonl & 2) && cl > bs ? 1 : 0); }
+    if (tp == 1) {
+        if (t->nf >= t->fcap) { t->fcap = t->fcap ? 2 * t->fcap : 4; t->f = (scrip_rl_file_t *) ct_grow((void *) t->f, sizeof(scrip_rl_file_t) * (size_t) t->fcap); }
+        t->f[t->nf++] = (scrip_rl_file_t){ fnm, bs, (size_t)(cl - bs) };
+    }
     if (tp != 2) return;
     int n = 0, k = 0;
     for (char * q = bs; q < cl; q++) if (*q == '\n') n++;
@@ -2098,6 +2108,7 @@ static void scrip_rl_close(scrip_rl_t * t, int tp, int nlang, char * bs, char * 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
     char * p = b, * end = b + len, * bs = (char *)0, * ps = (char *)0;
+    const char * fnm = (const char *)0;
     scrip_rl_t * cur = (scrip_rl_t *)0;
     int i = 0, in = 0, tp = -1, part = -1, nlang = 0;
     size_t K = 0;
@@ -2107,7 +2118,7 @@ static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
         size_t ll = (size_t)((e ? e : end) - p), k = 0;
         while (k < ll && p[k] == '`') k++;
         if (in) {
-            if (k == ll && k == K) { in = 0; scrip_rl_close(cur, tp, nlang, bs, p, nx, ps); }
+            if (k == ll && k == K) { in = 0; scrip_rl_close(cur, tp, nlang, bs, p, nx, ps, fnm); }
         } else if (ll >= 3 && p[0] == '#' && p[1] == '#' && p[2] == ' ') {
             while (i < nr && r[i].one) i++;
             if (i == nr) return scrip_rl_refuse("MULTI.md holds a heading the index lacks", p + 3);
@@ -2121,7 +2132,7 @@ static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
             tp = scrip_rl_fence_tag(p + k, ll - k, &ext);
             if (tp < 0) return scrip_rl_refuse("a fence has an unknown tag in the section", cur->name);
             if ((tp == 0 && part > 0) || (tp > 1 && tp <= part) || (tp == 1 && part > 1)) return scrip_rl_refuse("a fence is out of order or repeated in the section", cur->name);
-            if (tp == 1 && !cur->staged) return scrip_rl_refuse("a file fence stands in a section whose road is not staged", cur->name);
+            if (tp == 1) fnm = ct_fmt("%.*s", (int)(ll - k - 5), p + k + 5);
             if (tp == 0 && nlang++ == 0) { ps = p; cur->ext = ext; }
             part = tp;
             in = 1;
@@ -2197,11 +2208,12 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     for (char * q = fn; *q; q++) if (*q == '/') *q = '_';
     const char * base = strrchr(t->name, '/');
     base = base ? base + 1 : t->name;
-    char * dir = ct_fmt("%s/%04d", work, i), * src = ct_fmt("%s.%s", base, t->ext), * sp = ct_fmt("%s/%s", dir, src);
+    char * dir = ct_fmt("%s/%04d", work, i), * src = t->stage ? ct_strdup(t->stage) : ct_fmt("%s.%s", base, t->ext), * sp = ct_fmt("%s/%s", dir, src);
     char * ip = t->in ? ct_fmt("%s/%04d.in", work, i) : (char *)0;
     char * op = ct_fmt("%s/%s.%s", out, fn, strcmp(mode, "--compile") ? "out" : "s"), * ep = ct_fmt("%s/%s.err", out, fn);
     int fi = -1, fo = -1, fe = -1, pf[2] = { -1, -1 };
     int ok = mkdir(dir, 0755) == 0 && scrip_rl_put(sp, t->prog, t->plen) == 0 && (!ip || scrip_rl_put(ip, t->in, t->inlen) == 0);
+    for (int j = 0; ok && j < t->nf; j++) ok = scrip_rl_put(ct_fmt("%s/%s", dir, t->f[j].nm), t->f[j].b, t->f[j].n) == 0;
     ok = ok && (fi = open(ip ? ip : "/dev/null", O_RDONLY | O_CLOEXEC)) >= 0 && (fo = open(op, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0;
     ok = ok && (fe = open(ep, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) >= 0 && pipe(pf) == 0;
     ok = ok && fcntl(pf[0], F_SETFD, FD_CLOEXEC) == 0 && fcntl(pf[1], F_SETFD, FD_CLOEXEC) == 0;
@@ -2238,6 +2250,7 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     if (fo >= 0) close(fo);
     if (fe >= 0) close(fe);
     if (pf[0] >= 0) close(pf[0]);
+    for (int j = 0; j < t->nf; j++) unlink(ct_fmt("%s/%s", dir, t->f[j].nm));
     scrip_rl_rm(dir, sp);
     if (ip) unlink(ip);
     double wall = (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9;
@@ -2327,7 +2340,7 @@ static int scrip_rl_cli(char * self, const char * mode, int multi, int ac, char 
     long cap_mb = cm && atol(cm) > 0 ? atol(cm) : 256;
     for (int i = 0; i < nr; i++) {
         if (r[i].one == multi || !r[i].sel) continue;
-        if (r[i].staged) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
+        if (r[i].staged && !r[i].nf && !r[i].stage) { scrip_rl_report(r[i].name, "DEFERRED", 0, 0.0, 0.0, 0L); continue; }
         refused |= scrip_rl_run(self, mode, &r[i], i, work, out, cap_mb);
     }
     if (own) scrip_rl_rm(work, (const char *)0);
