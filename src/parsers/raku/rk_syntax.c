@@ -4973,6 +4973,7 @@ static void add_use_lib(RkP *p, int from, int to) {
                 dir, lit_n, lit_s); }
             RK_GROW(p->libs, p->nlibs, p->clibs, char *);
             p->libs[p->nlibs++] = ct_strndup0(buf, (int) strlen(buf));
+            if (!prog && lit_n && lit_s[0] != '/') { RK_GROW(p->libs, p->nlibs, p->clibs, char *); p->libs[p->nlibs++] = ct_strndup0(lit_s, lit_n); }
         }
         q = e > q ? e : q + 1;
         while (q < to && (p->s[q] == ',' || asc_space((unsigned char) p->s[q]))) q++;
