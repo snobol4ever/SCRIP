@@ -605,6 +605,7 @@ int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
 int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
 int prolog_dialect_xsb_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_XSB; }
+int prolog_dialect_swi_selected(void) { return g_stage2.pl_swi_switch && g_stage2.pl_dialect != PL_DIALECT_GNU && g_stage2.pl_dialect != PL_DIALECT_XSB; }
 int prolog_xsb_sysmod(const char *m) { return m && (!strcmp(m, "basics") || !strcmp(m, "lists") || !strcmp(m, "standard") || !strcmp(m, "machine")); }
 static int pl_tree_has_dot2(const tree_t *t) {
     if (!t) return 0;
@@ -651,6 +652,7 @@ static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char
 }
 void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect = PL_DIALECT_GNU; }
 void prolog_select_dialect_xsb(void) { g_stage2.pl_dialect = PL_DIALECT_XSB; }
+void prolog_select_dialect_swi(void) { g_stage2.pl_swi_switch = 1; }
 static void pl_dq_lower_program(PlProgram *pl_prog) {
     int marker = 0, xsb = 0, line0 = 0, set = 0, am = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
@@ -659,6 +661,7 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
         if (cl->lineno && pl_xsb_marker(cl->tr)) xsb = 1;
     }
+    if (g_stage2.pl_swi_switch) marker = 1;
     if (g_stage2.pl_dialect == PL_DIALECT_GNU || xsb || g_stage2.pl_dialect == PL_DIALECT_XSB) {
         PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", g_stage2.pl_dialect == PL_DIALECT_GNU ? "gnu" : "xsb");
         d->next = pl_prog->head;

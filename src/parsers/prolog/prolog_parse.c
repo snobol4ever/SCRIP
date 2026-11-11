@@ -5252,7 +5252,9 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         {
             extern int prolog_clause_marks_swi(const PlClause *);
             extern int prolog_dialect_gnu_selected(void);
-            for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
+            extern int prolog_dialect_swi_selected(void);
+            swi = prolog_dialect_swi_selected();
+            for (const PlClause *c = prog->head; c && !swi && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
         int xsb = pl_program_is_xsb(prog);
         if (g_stage2.harness_warm != 1) pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
@@ -5489,8 +5491,9 @@ static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
     x->head = prog->head;
     x->stop = cl;
     if (x->swi < 0) {
-        x->swi = 0;
-        for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { x->swi = 1; break; }
+        extern int prolog_dialect_swi_selected(void);
+        x->swi = prolog_dialect_swi_selected();
+        for (const PlClause *c = prog->head; c && !x->swi && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { x->swi = 1; break; }
         for (const PlClause *c = prog->head; c && x->swi; c = c->next) if (prolog_clause_marks_xsb(c)) x->swi = 0;
     }
     return 1;
@@ -5689,6 +5692,12 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.wrap_tail = src && !strncmp(src, "'$rd'((", 7) ? (int)strlen(src) - 4 : -1;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     { extern int rt_pl_dialect_xsb(void); p.xsb = rt_pl_dialect_xsb(); if (p.xsb) p.lx.nlq = 1; }
+    {
+        extern int prolog_dialect_swi_selected(void);
+        extern int prolog_dialect_xsb_selected(void);
+        if (prolog_dialect_swi_selected() && strcmp(p.filename, "<prelude>")) { p.lx.swi = 1; p.lx.nlq = 1; }
+        if (prolog_dialect_xsb_selected()) register_lib_ops("xsb_dialect");
+    }
     memset(&p.ts, 0, sizeof p.ts);
     memset(&p.qq, 0, sizeof p.qq);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));

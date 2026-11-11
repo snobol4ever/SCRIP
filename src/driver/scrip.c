@@ -2586,11 +2586,12 @@ int main(int argc, char **argv) {
             } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
                 if (!strcmp(argv[argi] + 10, "gnu")) prolog_select_dialect_gnu();
                 else if (!strcmp(argv[argi] + 10, "xsb")) prolog_select_dialect_xsb();
+                else if (!strcmp(argv[argi] + 10, "swi")) prolog_select_dialect_swi();
                 else if (!strcmp(argv[argi] + 10, "unicon")) opt_unicon = 1;
                 else if (pascal_dialect_directive(argv[argi] + 10)) opt_dialect = argv[argi] + 10;
                 else {
                     fprintf(stderr,
-                        "scrip: --dialect=%s refused -- gnu and xsb are the Prolog dialects, unicon is the Icon one, and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n",
+                        "scrip: --dialect=%s refused -- the Prolog dialects are gnu, swi and xsb, the Icon one is unicon, the Pascal ones are iso, fpc, objfpc, delphi, tp, macpas and delphiunicode\n",
                         argv[argi] + 10);
                     return 2;
                 }

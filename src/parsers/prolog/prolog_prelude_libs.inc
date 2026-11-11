@@ -36839,6 +36839,37 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_QUIET[] = {
     { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_84_OPS[] = {
+    { 1050, "fy", "import" },
+    { 1100, "fx", "export" },
+    { 1040, "xfx", "from" },
+    { 1100, "fy", "index" },
+    { 1150, "xfy", "do_all" },
+    { 1150, "fx", "do_all" },
+    { 1150, "xfy", "if_none" },
+    { 1100, "fx", "use_variant_tabling" },
+    { 1100, "fx", "use_subsumptive_tabling" },
+    { 1100, "fx", "use_incremental_tabling" },
+    { 1100, "fx", "use_incremental_dynamic" },
+    { 1100, "fx", "use_opaque_tabling" },
+    { 1100, "fx", "thread_shared" },
+    { 1100, "fx", "thread_private" },
+    { 1100, "fx", "edb" },
+    { 1100, "fy", "ti" },
+    { 1100, "fy", "ti_off" },
+    { 1100, "fx", "mode" },
+    { 1100, "fx", "mode_on_success" },
+    { 1100, "fx", "annotation" },
+    { 1100, "fx", "document_export" },
+    { 1100, "fx", "parallel" },
+    { 1100, "fx", "local" },
+    { 1100, "fx", "foreign_pred" },
+    { 1100, "fx", "private_foreign_pred" },
+    { 1100, "fx", "compile_command" },
+    { 1100, "fx", "attribute" },
+    { 1050, "fy", "document_import" },
+    { 1045, "xfx", "as" },
+    { 900, "fy", "tnot" },
+    { 500, "yfx", "><" },
     { 0, "", "" }
 };
 static const char *const PL_PRELUDE_LIB_84_LOADS[] = { 0 };
