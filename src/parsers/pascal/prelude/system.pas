@@ -1,8 +1,11 @@
 {$H+}
 unit system;
 interface
+const LineEnding = #10;
 type TMethod = record Code, Data: Pointer; end;
+type TSystemCodePage = Word;
 var stdout, stderr, erroutput: text;
+var DefaultSystemCodePage: TSystemCodePage;
 function StrLen(const sv: string): integer;
 function BsrQWord(qv: int64): integer;
 function BsrDWord(qv: int64): integer;
