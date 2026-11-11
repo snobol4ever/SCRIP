@@ -1,0 +1,38 @@
+*  THE SCRIP NOTEBOOK SESSION (CTO-579, CTO-580): ONE PROGRAM, ONE IMAGE FOR EVERY CELL. A cell arrives on
+*  descriptor 3 as a header line (its line count, a blank, its language tag) and that many lines. A SNOBOL4
+*  cell is compiled by CODE into this live program and run. A cell of another language is handed, its lines
+*  joined by newlines, to SCRIP.UNIT(TAG, TEXT), the runtime's entry that compiles a unit of that language
+*  into this same image. One line on descriptor 4 says how the cell ended. The program's own INPUT and
+*  OUTPUT stay on the standard streams.
+        &ERRLIMIT = 1000000
+        INPUT(.SCRIP.IN, 3, '[-f3]')                           :F(SCRIP.NOCH)
+        OUTPUT(.SCRIP.CTL, 4, '[-f4]')                         :F(SCRIP.NOCH)
+        SETEXIT(.SCRIP.HAND)
+SCRIP.LOOP SCRIP.HDR = SCRIP.IN                                :F(END)
+        SCRIP.TAG = 'SNOBOL4'
+        SCRIP.HDR SPAN('0123456789') . SCRIP.N (' ' REM . SCRIP.TAG | RPOS(0))  :F(SCRIP.BADH)
+        SCRIP.CELL =
+        IDENT(SCRIP.TAG, 'SNOBOL4')                            :F(SCRIP.OTHER)
+        SCRIP.K = 0
+SCRIP.RD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1            :F(SCRIP.RUN)
+        SCRIP.LINE = SCRIP.IN                                  :F(END)
+        SCRIP.LINE POS(0) ('*' | '-')                          :S(SCRIP.RD)
+        IDENT(SCRIP.LINE)                                      :S(SCRIP.RD)
+        SCRIP.LINE POS(0) ('+' | '.') =                        :S(SCRIP.CONT)
+        SCRIP.CELL = IDENT(SCRIP.CELL) SCRIP.LINE              :S(SCRIP.RD)
+        SCRIP.CELL = SCRIP.CELL ';' SCRIP.LINE                 :(SCRIP.RD)
+SCRIP.CONT SCRIP.CELL = SCRIP.CELL SCRIP.LINE                  :(SCRIP.RD)
+SCRIP.RUN SCRIP.C = CODE(SCRIP.CELL '; :(SCRIP.DONE)')         :F(SCRIP.CERR)
+        :<SCRIP.C>
+SCRIP.DONE SCRIP.CTL = 'DONE ok'                               :(SCRIP.LOOP)
+SCRIP.OTHER SCRIP.K = 0
+SCRIP.ORD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1           :F(SCRIP.ORUN)
+        SCRIP.CELL = SCRIP.CELL SCRIP.IN CHAR(10)              :S(SCRIP.ORD)F(END)
+SCRIP.ORUN SCRIP.UNIT(SCRIP.TAG, SCRIP.CELL)                   :S(SCRIP.DONE)
+        SCRIP.CTL = 'DONE error 0 the ' SCRIP.TAG ' cell failed'  :(SCRIP.LOOP)
+SCRIP.BADH SCRIP.CTL = 'DONE error 0 bad cell header'          :(SCRIP.LOOP)
+SCRIP.CERR SCRIP.CTL = 'DONE error ' &ERRTYPE ' ' &ERRTEXT     :(SCRIP.LOOP)
+SCRIP.HAND SCRIP.CTL = 'DONE error ' &ERRTYPE ' ' &ERRTEXT
+        SETEXIT(.SCRIP.HAND)                                   :(SCRIP.LOOP)
+SCRIP.NOCH OUTPUT = 'scrip session: descriptors 3 and 4 are not open'
+END
