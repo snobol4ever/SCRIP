@@ -19739,6 +19739,32 @@ static size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, s
     return w;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_reset_close_line(FILE *fp) {
+    if (fp == stdin || fp == stdout || fp == stderr || fseek(fp, 0, SEEK_END) != 0) return;
+    long n = ftell(fp);
+    if (n <= 0 || fseek(fp, n - 1, SEEK_SET) != 0) return;
+    int c = fgetc(fp);
+    if (c != '\n' && c != EOF) { fseek(fp, 0, SEEK_END); fputc('\n', fp); fflush(fp); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *pas_reset_closed_copy(FILE *fp) {
+    if (fseek(fp, 0, SEEK_END) != 0) return fp;
+    long n = ftell(fp);
+    int c = (n > 0 && fseek(fp, n - 1, SEEK_SET) == 0) ? fgetc(fp) : '\n';
+    rewind(fp);
+    if (c == '\n' || c == EOF) return fp;
+    FILE *t = tmpfile();
+    if (!t) return fp;
+    char b[4096];
+    size_t k;
+    while ((k = fread(b, 1, sizeof b, fp)) > 0) fwrite(b, 1, k, t);
+    fputc('\n', t);
+    fflush(t);
+    rewind(t);
+    fclose(fp);
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_alloc_rec(DESCR_t *args, int nargs) {
     long n = pas_heap_take();
     DESCR_t *c = pas_heap_cell(n, 1);
@@ -21100,12 +21126,18 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
     }
     L_pbi_470:
     ;
-    if (id == PBI_reset && (nargs == 1 || nargs == 2)) {
+    if (id == PBI_reset && nargs >= 1 && nargs <= 3) {
+        int iso = nargs == 3;
         extern int fh_alloc(FILE *);
         const char *stale_nm = NULL;
-        if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { rewind(ofp); *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
+        if (IS_FH_fn(args[0])) {
+            int oidx = (int)args[0].i;
+            FILE *ofp = fh_get(oidx);
+            if (ofp) { if (iso) pas_reset_close_line(ofp); rewind(ofp); *out = args[0]; return 1; }
+            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
+        }
         int hvar = IS_INT_fn(args[0]) && args[0].i < 0;
-        long long hcode = hvar ? 2 * (-args[0].i) : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
+        long long hcode = hvar ? 2 * (-args[0].i) : (nargs >= 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : hvar ? NULL : VARVAL_fn(args[0]);
         if ((!nm || !nm[0]) && hcode >= 0) {
             extern const char *pas_main_arg(int);
@@ -21113,10 +21145,11 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
             if (pa) nm = pa;
             else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
         }
-        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if ((!nm || !nm[0]) && nargs >= 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (nm && !strcmp(nm, "input")) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(0); return 1; }
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r");
+        if (fp && iso) fp = pas_reset_closed_copy(fp);
         if (!fp && pas_io_fail(errno)) { *out = IS_FH_fn(args[0]) ? args[0] : STRVAL(rt_heap_strdup_c(nm)); return 1; }
         if (!fp) { fflush(stdout); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
         int idx = fh_alloc(fp);
