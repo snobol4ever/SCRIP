@@ -47,11 +47,11 @@ CXX     := $(CC_SLOT)g++
 # ⛔⭐ ONE COMPILE CACHE FOR THE WHOLE FLEET (R-1879; Lon 2026-10-21 18:5x CDT, in-chat, verbatim: "Why is the load so high? Why do recompiles re-compile everything all the
 # time?"; measured R-1876: sixteen trees compiled every commit separately, no cache on the box). ccache keys on the preprocessed source and the flags, so a hit is the same compile and
 # s150's per-tree objdir guard still holds. It enters through its wrapper directory on PATH, so every printed command still reads gcc/g++ (test_gate_no_implicit_declarations greps them).
-# CCACHE_BASEDIR=/home rewrites each tree's absolute paths relative to its own SCRIP, and DBGMAP maps the tree to "." in the debug info, so one tree's hit is another's and gdb reads the
-# tree it runs in. S4E_NO_CCACHE=1 on the command line or in the environment builds without it (the control arm). A tree outside /home (the /tmp placement watch) caches only with itself.
+# CCACHE_BASEDIR=/ rewrites each tree's absolute paths relative to its own SCRIP, and DBGMAP maps the tree to "." in the debug info, so one tree's hit is another's and gdb reads the
+# tree it runs in. S4E_NO_CCACHE=1 on the command line or in the environment builds without it (the control arm). Since 2026-11-11 the base is / (the coo, measured: with /home a worktree under /tmp/s4e shared no object with any other tree, 0 of 2 hits on a scratch pair against 1 of 2 with /), so every tree under /home or /tmp shares one cache.
 ifeq ($(S4E_NO_CCACHE)$(wildcard /usr/lib/ccache/gcc),/usr/lib/ccache/gcc)
 export PATH := /usr/lib/ccache:$(PATH)
-export CCACHE_BASEDIR := /home
+export CCACHE_BASEDIR := /
 export CCACHE_NOHASHDIR := true
 # ⛔⭐ A CACHE HIT TAKES NO COMPILE SLOT (R-2085). MEASURED 2026-10-31 11:08-14:33 CDT by progress/SLOT_WAITS.tsv: 9,728 compiles waited
 # for one of the 8 slots, about 17 s each, 45 compiler-hours in 3.4 h, while ccache answered 81 percent of calls from the cache: the slot wrapper
