@@ -477,6 +477,7 @@ record_field:
     |CLASSSY IDENT IDENT pv_mark parameter_list_opt COLON result_type { if (strcasecmp($2->v.sval, "operator")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "operator"); }
     |IDENT record_field { if (strcasecmp($1->v.sval, "public") && strcasecmp($1->v.sval, "private") && strcasecmp($1->v.sval, "protected") && strcasecmp($1->v.sval, "published") && strcasecmp($1->v.sval, "strict")) { pascal_yyerror("syntax error"); YYERROR; } $$ = $2; }
     |CLASSSY IDENT BECOMES pv_mark parameter_list_opt COLON result_type { if (strcasecmp($2->v.sval, "operator")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_sval(pt_new(TT_VAR), "implicit")), $5), $7), "operator"); }
+    |CLASSSY IDENT IDENT pv_mark parameter_list_opt { if (strcasecmp($2->v.sval, "operator") || (strcasecmp($3->v.sval, "initialize") && strcasecmp($3->v.sval, "finalize") && strcasecmp($3->v.sval, "copy") && strcasecmp($3->v.sval, "addref"))) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $3), $5), "operator"); }
     |{ $$ = NULL; }
     ;
 case_arm_mark:
@@ -537,6 +538,10 @@ procedure_decl:
     |CLASSSY IDENT IDENT PERIOD BECOMES pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
         if (strcasecmp($2->v.sval, "operator")) { pascal_yyerror("syntax error"); YYERROR; }
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), pt_sval(pt_new(TT_VAR), "implicit"))), $7), $9), $13), "operator");
+    }
+    |CLASSSY IDENT IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
+        if (strcasecmp($2->v.sval, "operator") || (strcasecmp($5->v.sval, "initialize") && strcasecmp($5->v.sval, "finalize") && strcasecmp($5->v.sval, "copy") && strcasecmp($5->v.sval, "addref"))) { pascal_yyerror("syntax error"); YYERROR; }
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $11), "operator");
     }
     |CLASSSY FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON routine_directives { } block SEMICOLON {
         $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $9), $13), "class");

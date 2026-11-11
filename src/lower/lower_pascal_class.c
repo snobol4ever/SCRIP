@@ -996,6 +996,24 @@ static void pc_routine(pc_ctx *x, tree_t *r) {
     x->cur_impl = si;
     x->mdepth = smd;
 }
+static pc_meth *pc_mgmt_op(pc_class *c, const char *op) { pc_meth *m = c && c->isrec ? pc_find_meth(c, op) : NULL; return m && pc_eq(m->kind, "operator") && !m->isfunc ? m : NULL; }
+static void pc_mgmt_inits(pc_ctx *x, tree_t *b) {
+    tree_t *body = b->n > 0 && PC_IS(b->c[b->n - 1], TT_SEQ_EXPR) ? b->c[b->n - 1] : NULL, *calls = pc_seq();
+    for (int i = 0; body && i < b->n; i++) {
+        tree_t *p = b->c[i];
+        for (int j = 0; PC_IS(p, TT_PART) && pc_eq(pc_sv(p), "var") && j < p->n; j++) {
+            tree_t *d = p->c[j];
+            if (!PC_IS(d, TT_DECL) || d->n < 2 || !PC_IS(d->c[0], TT_VLIST)) continue;
+            pc_class *c = pc_resolve(x, d->c[1]).cls;
+            pc_meth *m = pc_mgmt_op(c, "initialize");
+            for (int k = 0; m && k < d->c[0]->n; k++) { tree_t *call = pc_fnc(pc_impl_name(m->owner, m->name)); ast_push(call, pc_var(pc_sv(d->c[0]->c[k]))); ast_push(calls, call); }
+        }
+    }
+    if (!body || !calls->n) return;
+    for (int i = 0; i < body->n; i++) ast_push(calls, body->c[i]);
+    body->n = 0;
+    for (int i = 0; i < calls->n; i++) ast_push(body, calls->c[i]);
+}
 static void pc_block(pc_ctx *x, tree_t *b) {
     tree_t *sv = x->vars;
     x->vars = NULL;
@@ -1008,6 +1026,7 @@ static void pc_block(pc_ctx *x, tree_t *b) {
         else if (PC_IS(p, TT_PART) && pc_eq(pc_sv(p), "type") && pc_part_has_class(p)) pc_type_part(x, p, 0);
     }
     if (b->n > 0 && PC_IS(b->c[b->n - 1], TT_SEQ_EXPR)) b->c[b->n - 1] = pc_stmt(x, b->c[b->n - 1]);
+    pc_mgmt_inits(x, b);
     pc_insert_vars(b, x->vars);
     x->nsym = nsym;
     x->depth--;
