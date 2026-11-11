@@ -14,9 +14,13 @@ void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 #include "templates/x86/x86_armed.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
+#include "emitter/emit_str.h"
+#include "bb_templates.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_relop() {
-    return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
+    return IF(_.op_zres, bb_binop_relop_val())
+         + IF(!_.op_zres,
+           (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
              ? x86_alpha()
              + x86("comment", "IR_BINOP_TEST")
              + x86("mov", "eax", FR(_.op_sa))
@@ -110,5 +114,5 @@ std::string bb_binop_relop() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-         : x86_bomb("bb_binop_relop: shape mismatch");
+         : x86_bomb("bb_binop_relop: shape mismatch"));
 }

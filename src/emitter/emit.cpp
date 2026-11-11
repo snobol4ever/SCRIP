@@ -1228,7 +1228,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                    bb_emit_x86(bb_assign_local()); return 0; }
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op); return 1;
     }
-    case IR_BINOP_TEST: bb_emit_x86(g_emit.op_zres ? bb_binop_relop_val() : bb_binop_relop()); return 0;
+    case IR_BINOP_TEST: bb_emit_x86(bb_binop_relop()); return 0;
     case IR_BINOP_RELOP_VAL: bb_emit_x86(bb_binop_relop_val()); return 0;
     case IR_BINOP:
         { if (_zn->vw > 0 && _zn->vbin && !g_emit.op_zres) g_emit.op_wpop += _zn->vw; }
