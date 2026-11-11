@@ -89,7 +89,7 @@ NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(ROOT)/miscellaneous/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
-.PHONY: preflight all build-all scrip setup hooks pristine pristine-all buildinfo arena test-arena parsers-sc FORCE \
+.PHONY: preflight all build-all prelude-prolog scrip setup hooks pristine pristine-all buildinfo arena test-arena parsers-sc FORCE \
         test test-sequential test-postoffice test-boards \
         native codegen-emit-test \
         monitor-ipc \
@@ -115,7 +115,8 @@ ifneq ($(BUILD_CACHE),)
 else
 	@$(JS_MAKE) --no-print-directory build-all
 endif
-build-all: scrip out/scrip-ipp out/libscrip_prelude_prolog.so
+build-all: scrip out/scrip-ipp
+prelude-prolog: out/libscrip_prelude_prolog.so
 
 pristine:  # A full rebuild, SCOPED TO THIS CONFIGURATION. ⛔ NO LONGER the per-landing gate law -- HQ-27 PRISTINE-BEFORE-VERDICT was loosened by Lon 2026-09-03 (RULES.md FACT RULE). This target is for the officer's audits, release points, and whenever the stale-binary refusal fires; an ordinary landing grades on incremental `make`.
 	# ⭐ WHY SCOPED IS STILL PRISTINE (Lon s258): it wipes every object THIS build can possibly link --
