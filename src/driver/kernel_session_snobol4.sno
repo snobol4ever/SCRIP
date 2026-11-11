@@ -5,6 +5,10 @@
 *  into this same image. One line on descriptor 4 says how the cell ended. The program's own INPUT and
 *  OUTPUT stay on the standard streams. A cell is a snippet, not a program: it needs no END, and a line
 *  labelled END ends the cell's text (that line and the lines after it are not compiled), never the session.
+*  A cell tagged EXPR is not run: each of its lines is one expression, evaluated by EVAL in this image, and
+*  answered on descriptor 4 by VALUE, the datatype and the size of the value's string form, then that string
+*  on the next line; or by FAIL; or by ERROR, the error number and its text. The kernel asks this way for the
+*  user expressions of an execute request and for the value of the name under the cursor.
         &ERRLIMIT = 1000000
         INPUT(.SCRIP.IN, 3, '[-f3]')                           :F(SCRIP.NOCH)
         OUTPUT(.SCRIP.CTL, 4, '[-f4]')                         :F(SCRIP.NOCH)
@@ -14,6 +18,8 @@ SCRIP.LOOP SCRIP.HDR = SCRIP.IN                                :F(END)
         SCRIP.HDR SPAN('0123456789') . SCRIP.N (' ' REM . SCRIP.TAG | RPOS(0))  :F(SCRIP.BADH)
         SCRIP.CELL =
         SCRIP.ENDED =
+        SCRIP.MODE =
+        IDENT(SCRIP.TAG, 'EXPR')                               :S(SCRIP.XPR)
         IDENT(SCRIP.TAG, 'SNOBOL4')                            :F(SCRIP.OTHER)
         SCRIP.K = 0
 SCRIP.RD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1            :F(SCRIP.RUN)
@@ -35,9 +41,23 @@ SCRIP.ORD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1           :F(SCRIP.ORUN)
         SCRIP.CELL = SCRIP.CELL SCRIP.IN CHAR(10)              :S(SCRIP.ORD)F(END)
 SCRIP.ORUN SCRIP.UNIT(SCRIP.TAG, SCRIP.CELL)                   :S(SCRIP.DONE)
         SCRIP.CTL = 'DONE error 0 the ' SCRIP.TAG ' cell failed'  :(SCRIP.LOOP)
+SCRIP.XPR SCRIP.MODE = 'X'
+        SCRIP.K = 0
+SCRIP.XRD SCRIP.K = LT(SCRIP.K, SCRIP.N) SCRIP.K + 1           :F(SCRIP.DONE)
+        SCRIP.LINE = SCRIP.IN                                  :F(END)
+        SCRIP.V = EVAL(SCRIP.LINE)                             :F(SCRIP.XFL)
+        SCRIP.S = CONVERT(SCRIP.V, 'STRING')                   :S(SCRIP.XVL)
+        SCRIP.S =
+SCRIP.XVL SCRIP.S = GT(SIZE(SCRIP.S), 4000) SUBSTR(SCRIP.S, 1, 4000) '...'
+        SCRIP.CTL = 'VALUE ' DATATYPE(SCRIP.V) ' ' SIZE(SCRIP.S)
+        SCRIP.CTL = SCRIP.S                                    :(SCRIP.XRD)
+SCRIP.XFL SCRIP.CTL = 'FAIL'                                   :(SCRIP.XRD)
 SCRIP.BADH SCRIP.CTL = 'DONE error 0 bad cell header'          :(SCRIP.LOOP)
 SCRIP.CERR SCRIP.CTL = 'DONE error ' &ERRTYPE ' ' &ERRTEXT     :(SCRIP.LOOP)
-SCRIP.HAND SCRIP.CTL = 'DONE error ' &ERRTYPE ' ' &ERRTEXT
+SCRIP.HAND IDENT(SCRIP.MODE, 'X')                              :S(SCRIP.XER)
+        SCRIP.CTL = 'DONE error ' &ERRTYPE ' ' &ERRTEXT
         SETEXIT(.SCRIP.HAND)                                   :(SCRIP.LOOP)
+SCRIP.XER SCRIP.CTL = 'ERROR ' &ERRTYPE ' ' &ERRTEXT
+        SETEXIT(.SCRIP.HAND)                                   :(SCRIP.XRD)
 SCRIP.NOCH OUTPUT = 'scrip session: descriptors 3 and 4 are not open'
 END

@@ -36,9 +36,10 @@ typedef struct {
     unsigned said;
     int abort_q;
     long p_shell, p_iopub, p_stdin, p_hb, p_control;
-    cv_t hist, words, *cap;
+    cv_t hist, words, ionames, *cap, *vals;
 } kctx_t;
 typedef struct { long n; const char *code; } khist_t;
+typedef struct { int st; const char *dt, *s; size_t n; } kval_t;
 typedef struct { const char *s, *type; } kmatch_t;
 typedef struct { const char *tag, *mime; int kind; } kdisp_t;
 typedef struct { const char *tag, *text, *url; } khelp_t;
@@ -532,6 +533,8 @@ static ssize_t k_pump(kctx_t *k, const kmsg_t *req, int silent, int fd, const ch
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *k_copy(const char *s, size_t n) { char *t = (char *)ct_alloc(n + 1); memcpy(t, s, n); t[n] = 0; return t; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_session_drop(kctx_t *k) {
     if (k->sess <= 0) return;
     close(k->sess_out);
@@ -608,6 +611,8 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
     size_t nl = 0, sent = 0, held[2] = { 0, 0 }, from = 0;
     cv_t f = { 0, 0, 0, 0 }, ctl = { 0, 0, 0, 0 };
     char hd[32], buf[2][4100], cb[512];
+    const char *wdt = 0;
+    size_t want = (size_t)-1;
     int rc = -2, st = 0;
     for (size_t i = 0; i < clen; i++) nl += code[i] == '\n';
     if (clen && code[clen - 1] != '\n') nl++;
@@ -629,9 +634,22 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
             ssize_t r = read(it[2].fd, cb, sizeof cb);
             if (r <= 0) rc = -3;
             else cv_puts(&ctl, cb, (size_t)r);
-            for (size_t i = from; rc == -2 && i < ctl.len; i++) if (((const char *)ctl.p)[i] == '\n') {
+            for (size_t i = from; rc == -2 && i < ctl.len; i++) {
                 const char *ln = (const char *)ctl.p + from;
                 size_t ll = i - from;
+                if (want != (size_t)-1) {
+                    if (ctl.len - from < want + 1) break;
+                    kval_t *v = &CV_PUSH(*k->vals, kval_t);
+                    v->st = 0;
+                    v->dt = wdt;
+                    v->s = k_copy(ln, want);
+                    v->n = want;
+                    from += want + 1;
+                    i = from - 1;
+                    want = (size_t)-1;
+                    continue;
+                }
+                if (((const char *)ctl.p)[i] != '\n') continue;
                 if (ll >= 7 && !strncmp(ln, "DONE ok", 7)) rc = 0;
                 else if (ll >= 4 && !strncmp(ln, "DONE", 4)) {
                     size_t a = ll > 5 ? 5 : ll, b;
@@ -642,6 +660,19 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
                     cv_puts(en, ln + a, b - a);
                     cv_puts(ev, ln + (b < ll ? b + 1 : b), ll - (b < ll ? b + 1 : b));
                     rc = 1;
+                } else if (k->vals && ll >= 6 && !strncmp(ln, "VALUE ", 6)) {
+                    size_t b = 6;
+                    while (b < ll && ln[b] != ' ') b++;
+                    wdt = k_copy(ln + 6, b - 6);
+                    want = b < ll ? (size_t)strtoul(ln + b + 1, 0, 10) : 0;
+                } else if (k->vals && ((ll == 4 && !strncmp(ln, "FAIL", 4)) || (ll >= 6 && !strncmp(ln, "ERROR ", 6)))) {
+                    kval_t *v = &CV_PUSH(*k->vals, kval_t);
+                    size_t b = 6;
+                    while (b < ll && ln[b] != ' ') b++;
+                    v->st = ll == 4 ? 1 : 2;
+                    v->dt = ll == 4 ? "" : k_copy(ln + 6, b - 6);
+                    v->s = ll == 4 || b >= ll ? "" : k_copy(ln + b + 1, ll - b - 1);
+                    v->n = strlen(v->s);
                 }
                 from = i + 1;
             }
@@ -744,6 +775,57 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     return pid < 0 ? -1 : WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *k_sess_head(const char *lang) { for (size_t i = 0; i < sizeof k_sess / sizeof *k_sess; i++) if (!strcasecmp(k_sess[i].tag, lang)) return k_sess[i].head; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_session_exprs(kctx_t *k, const kmsg_t *req, int silent, cv_t *text, cv_t *vals) {
+    cv_t en = { 0, 0, 0, 0 }, ev = { 0, 0, 0, 0 };
+    int st = 0, rc;
+    if (k->sess <= 0 || waitpid(k->sess, &st, WNOHANG) != 0) return -1;
+    k->vals = vals;
+    rc = k_session_cell(k, req, silent, "EXPR", (const char *)text->p, text->len, &en, &ev);
+    k->vals = 0;
+    ct_drop(en.p);
+    ct_drop(ev.p);
+    return rc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_user_exprs(kctx_t *k, const kmsg_t *req, int silent, const char *lang, cv_t *c) {
+    jn_t *ux = jn_get(req->content, "user_expressions");
+    cv_t text = { 0, 0, 0, 0 }, vals = { 0, 0, 0, 0 };
+    uint32_t got = 0;
+    for (uint32_t i = 0; ux && ux->t == 6 && i < ux->kids.len; i++) {
+        jn_t *e = CV_AT(ux->kids, jn_t *, i);
+        if (e->t == 4 && !memchr(e->s, '\n', e->sl)) cv_puts(&text, e->s, e->sl);
+        cv_putc(&text, '\n');
+    }
+    if (text.len && k_sess_head(lang)) (void)k_session_exprs(k, req, silent, &text, &vals);
+    for (uint32_t i = 0; ux && ux->t == 6 && i < ux->kids.len; i++) {
+        jn_t *e = CV_AT(ux->kids, jn_t *, i), *key = CV_AT(ux->keys, jn_t *, i);
+        const kval_t *v = got < vals.len ? &CV_AT(vals, kval_t, got) : 0;
+        int one = e->t == 4 && !memchr(e->s, '\n', e->sl);
+        got++;
+        jw_key(c, key->s, i > 0);
+        if (v && one && v->st == 0) { jw_raw(c, "{\"status\":\"ok\",\"data\":{\"text/plain\":"); jw_str(c, v->s, v->n); jw_raw(c, "},\"metadata\":{}}"); continue; }
+        jw_raw(c, "{\"status\":\"error\",\"ename\":");
+        if (v && one && v->st == 2) {
+            cv_t n = { 0, 0, 0, 0 };
+            jw_raw(&n, "SNOBOL4 error ");
+            jw_raw(&n, v->dt);
+            jw_str(c, (const char *)n.p, n.len);
+            ct_drop(n.p);
+        } else jw_raw(c, v && one ? "\"SNOBOL4 failure\"" : "\"scrip\"");
+        jw_raw(c, ",\"evalue\":");
+        if (v && one && v->st == 2) jw_str(c, v->s, v->n);
+        else jw_raw(c,
+            v &&
+            one ? "\"the expression failed\"" : !one ? "\"an expression is one line of text\"" : k_sess_head(lang) ? "\"the session ended before the expression was evaluated\"" :
+            "\"no live session of this language evaluates an expression\"");
+        jw_raw(c, ",\"traceback\":[]}");
+    }
+    ct_drop(text.p);
+    ct_drop(vals.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *k_cell_lang(const char **codep, size_t *clenp, const char *lang) {
     const char *code = *codep;
     size_t clen = *clenp;
@@ -810,6 +892,15 @@ static void k_words(cv_t *w, const char *code, size_t n, size_t skip) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_ionames(cv_t *w, const char *code, size_t n) {
+    for (size_t i = 0, j; i + 7 < n; i++) {
+        size_t a = !strncmp(code + i, "INPUT(.", 7) ? i + 7 : !strncmp(code + i, "OUTPUT(.", 8) ? i + 8 : 0;
+        if (!a) continue;
+        for (j = a; j < n && (k_idc(code[j]) || code[j] == '.'); j++) { }
+        k_match(w, k_copy(code + a, j - a), "text");
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int k_vocab(const char *lang, int *v1, int *v2) {
     *v1 = *v2 = -1;
     if (!strcasecmp(lang, "snobol4") || !strcasecmp(lang, "snobol") || !strcasecmp(lang, "spitbol") || !strcasecmp(lang, "snocone") || !strcasecmp(lang, "rebus")) { *v1 = BT_VOC_SNO; return 0; }
@@ -850,7 +941,13 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     cv_t c = { 0, 0, 0, 0 };
     char num[32];
     const char *dsp = k_cell_opt(code, clen, "display"), *did = k_cell_opt(code, clen, "id"), *upd = k_cell_opt(code, clen, "update");
-    if (!silent && jn_bool(req->content, "store_history", 1)) { khist_t *h = &CV_PUSH(k->hist, khist_t); h->n = ++k->count; h->code = code; k_words(&k->words, code, clen, (size_t)-1); }
+    if (!silent && jn_bool(req->content, "store_history", 1)) {
+        khist_t *h = &CV_PUSH(k->hist, khist_t);
+        h->n = ++k->count;
+        h->code = code;
+        k_words(&k->words, code, clen, (size_t)-1);
+        k_ionames(&k->ionames, code, clen);
+    }
     snprintf(num, sizeof num, "%ld", k->count);
     jw_raw(&c, "{");
     jw_key(&c, "code", 0);
@@ -882,7 +979,9 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
         jw_kv(&c, "status", "ok", 0);
         jw_key(&c, "execution_count", 1);
         jw_raw(&c, num);
-        jw_raw(&c, ",\"payload\":[],\"user_expressions\":{}}");
+        jw_raw(&c, ",\"payload\":[],\"user_expressions\":{");
+        k_user_exprs(k, req, silent, lang, &c);
+        jw_raw(&c, "}}");
     } else {
         char xl[96];
         if (jn_bool(req->content, "stop_on_error", 1)) k->abort_q = 1;
@@ -989,15 +1088,34 @@ static void k_inspect(kctx_t *k, void *sock, const kmsg_t *req) {
         const char *nm = g_builtins[i].name;
         if ((g_builtins[i].vocab == v1 || g_builtins[i].vocab == v2) && k_offered(nm, kind) && strlen(nm) == we - ws && !strncmp(nm, code + ws, we - ws)) row = i;
     }
+    if (row < 0 && we > ws && k_sess_head(lang) && !(code[ws] >= '0' && code[ws] <= '9')) {
+        cv_t text = { 0, 0, 0, 0 }, vals = { 0, 0, 0, 0 };
+        const char *nm = k_copy(code + ws, we - ws);
+        int io = !strcmp(nm, "INPUT") || !strcmp(nm, "OUTPUT") || !strcmp(nm, "TERMINAL");
+        for (uint32_t i = 0; i < k->ionames.len; i++) if (!strcmp(CV_AT(k->ionames, kmatch_t, i).s, nm)) io = 1;
+        jw_raw(&text, nm);
+        cv_putc(&text, '\n');
+        if (!io && k_session_exprs(k, req, 1, &text, &vals) == 0 && vals.len == 1 && CV_AT(vals, kval_t, 0).st == 0 && (CV_AT(vals, kval_t, 0).n || strcmp(CV_AT(vals, kval_t, 0).dt, "STRING"))) {
+            jw_raw(&t, nm);
+            jw_raw(&t, ": ");
+            jw_raw(&t, CV_AT(vals, kval_t, 0).dt);
+            if (CV_AT(vals, kval_t, 0).n) { cv_putc(&t, '\n'); cv_puts(&t, CV_AT(vals, kval_t, 0).s, CV_AT(vals, kval_t, 0).n); }
+            row = BT_ROWS;
+        }
+        ct_drop(text.p);
+        ct_drop(vals.p);
+    }
     if (row < 0) { k_reply(k, sock, req, "{\"status\":\"ok\",\"found\":false,\"data\":{},\"metadata\":{}}"); return; }
-    jw_raw(&t, g_builtins[row].name);
-    jw_raw(&t, kind == 0 ? ": a builtin of SNOBOL4" : kind == 1 ? ": a builtin of Icon" : g_builtins[row].vocab == BT_VOC_RKM ? ": a builtin method of Raku" : ": a builtin of Raku");
-    if (g_builtins[row].conv == BT_CONV_GEN) jw_raw(&t, ", a generator");
-    if (g_builtins[row].min != BT_UNSTATED) {
-        jw_raw(&t, "\narguments: ");
-        jw_long(&t, g_builtins[row].min);
-        if (g_builtins[row].max == BT_UNSTATED || g_builtins[row].max < g_builtins[row].min) jw_raw(&t, " or more");
-        else if (g_builtins[row].max > g_builtins[row].min) { jw_raw(&t, " to "); jw_long(&t, g_builtins[row].max); }
+    if (row < BT_ROWS) {
+        jw_raw(&t, g_builtins[row].name);
+        jw_raw(&t, kind == 0 ? ": a builtin of SNOBOL4" : kind == 1 ? ": a builtin of Icon" : g_builtins[row].vocab == BT_VOC_RKM ? ": a builtin method of Raku" : ": a builtin of Raku");
+        if (g_builtins[row].conv == BT_CONV_GEN) jw_raw(&t, ", a generator");
+        if (g_builtins[row].min != BT_UNSTATED) {
+            jw_raw(&t, "\narguments: ");
+            jw_long(&t, g_builtins[row].min);
+            if (g_builtins[row].max == BT_UNSTATED || g_builtins[row].max < g_builtins[row].min) jw_raw(&t, " or more");
+            else if (g_builtins[row].max > g_builtins[row].min) { jw_raw(&t, " to "); jw_long(&t, g_builtins[row].max); }
+        }
     }
     jw_raw(&c, "{\"status\":\"ok\",\"found\":true,\"data\":{");
     jw_key(&c, "text/plain", 0);
