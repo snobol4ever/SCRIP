@@ -859,6 +859,36 @@ static void sn4_balias_register(const stage2_t *s2, const unsigned char *own, in
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const stage2_t *s2; const unsigned char *own; int owned; } m3_lbl_ctx_t;
+typedef struct { bb_box_fn fn; int nparams, zframe, cells, pl_root, frame_bytes; } m3_main_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m3_emit_main(stage2_t *s2, IR_graph_t *bbg, unsigned char *lbl_own, int register_name, m3_main_t *out) {
+    if (!bbg->entry) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n"); abort(); }
+    extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
+    extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
+    extern int g_last_flat_frame_bytes;
+    bb_box_fn fn;
+    { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
+    sn4_dentry_table_build(bbg, s2);
+    { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
+    sn4_balias_fill(bbg, s2, lbl_own, -1, 0);
+    fn = emit_chain(bbg->entry ? planner_chain_record(bbg, bbg->entry, "pat_flat") : (struct zeta_plan_t *)0, NULL, "pat_flat");
+    { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
+    if (fn) sn4_balias_register(s2, lbl_own, -1, (void *)fn, g_last_flat_frame_bytes);
+    if (fn && register_name && icn_main_callable(s2, bbg)) {
+        extern void rt_proc_set_fn(const char *, bb_box_fn);
+        extern void rt_proc_set_frame_bytes(const char *, int);
+        rt_proc_set_fn("main", fn);
+        rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes);
+        m3_seal_entry_cells("main", (void *)fn, 1);
+    }
+    { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
+    out->fn = fn;
+    out->nparams = bbg->nparams;
+    out->zframe = bbg->zframe_graph;
+    out->cells = bbg->cell_frame;
+    out->pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
+    out->frame_bytes = g_last_flat_frame_bytes;
+}
 static void m3_lbl_before(void *c, int pi, int idx) { m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c; (void) pi; if (x->owned) sn4_balias_fill(x->s2->bbp.table[idx], x->s2, x->own, idx, 0); }
 static void m3_lbl_after(void *c, int pi, int idx, void *fn) {
     m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c;
@@ -3894,30 +3924,13 @@ int main(int argc, char **argv) {
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) { extern void core_icn_startup_error_no_main(void); core_icn_startup_error_no_main(); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
-            if (!bbg->entry) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n"); abort(); }
-            extern bb_box_fn emit_chain(struct zeta_plan_t * rec, FILE * out, const char * prefix);
-            extern struct zeta_plan_t * planner_chain_record(IR_graph_t * g, IR_t * entry, const char * prefix);
-            bb_box_fn fn;
-            { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-            sn4_dentry_table_build(bbg, s2);
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
-            sn4_balias_fill(bbg, s2, _lbl_own, -1, 0);
-            fn = emit_chain(bbg->entry ? planner_chain_record(bbg, bbg->entry, "pat_flat") : (struct zeta_plan_t *)0, NULL, "pat_flat");
-            { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
-            if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
-            if (fn && icn_main_callable(s2, bbg)) {
-                extern void rt_proc_set_fn(const char *, bb_box_fn);
-                extern void rt_proc_set_frame_bytes(const char *, int);
-                extern int g_last_flat_frame_bytes;
-                rt_proc_set_fn("main", fn);
-                rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes);
-                m3_seal_entry_cells("main", (void *)fn, 1);
-            }
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
+            m3_main_t _m3m;
+            m3_emit_main(s2, bbg, _lbl_own, 1, &_m3m);
+            bb_box_fn fn = _m3m.fn;
             g_frame_active = 0;
             if (!fn) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n"); abort(); }
-            int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->cell_frame;
-            int _pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
+            int _nparams = _m3m.nparams, _zframe_graph = _m3m.zframe, _icn_cells_graph = _m3m.cells;
+            int _pl_root = _m3m.pl_root;
             ir_delete_all(s2);
             { extern void planner_table_clear(void); planner_table_clear(); }
             void *mf = NULL;
