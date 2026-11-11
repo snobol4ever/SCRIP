@@ -673,6 +673,13 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "get") && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval && !strcmp(args->items[0]->v.sval, "input") &&
         pas_is_stdstream("input") && !pas_ptrvar_target("input")) return mk_fnc0("__pas_read_c");
+    if (name && !strcmp(name, "put") && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval && !strcmp(args->items[0]->v.sval, "output") &&
+        pas_is_stdstream("output") && !pas_ptrvar_target("output")) {
+        PNodeList *pa = pnl_new();
+        pnl_push(pa, mk_chrlit(leaf_s(TT_VAR, "__pas_outbuf")));
+        pnl_push(pa, ilit(-1));
+        return mk_call_raw("write", pa);
+    }
     if (name && (!strcmp(name, "get") || !strcmp(name, "put")) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && args->items[0]->v.sval &&
         pas_is_filevar(args->items[0]->v.sval) && !pas_is_stdstream(args->items[0]->v.sval)) {
         return mk_fnc1(!strcmp(name, "get") ? "__pas_tget" : "__pas_tput", args->items[0]);
@@ -7127,7 +7134,8 @@ static pval E_selector_raw(const tree_t *n) {
             out.node = pas_is_tfile_node(v[1].node) ? mk_fnc1("__pas_fbuf_get", v[1].node) :
                 ((v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval && pas_is_filevar(v[1].node->v.sval) && !pas_is_stdstream(v[1].node->v.sval)) ? mk_fnc1("__pas_tbuf_get", v[1].node) :
                 ((v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval && !strcmp(v[1].node->v.sval, "input") && !pas_ptrvar_target(v[1].node->v.sval)) ? mk_fnc0("__pas_getbufch") :
-                mk_deref(v[1].node)));
+                ((v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval && !strcmp(v[1].node->v.sval, "output") && pas_is_stdstream("output") && !pas_ptrvar_target("output")) ?
+                leaf_s(TT_VAR, "__pas_outbuf") : mk_deref(v[1].node))));
         }
         return out;
     }
