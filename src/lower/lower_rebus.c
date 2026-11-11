@@ -155,6 +155,18 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static STMT_t *reb_cond_stmt(RebLow *L, tree_t *c) {
+    STMT_t *st = blank_stmt();
+    if (c && c->t == TT_SCAN && c->n >= 2) {
+        st->subject = lower_tree_expr(L, c->c[0]);
+        st->pattern = lower_tree_expr(L, c->c[1]);
+        if (c->n >= 3) { st->replacement = lower_tree_expr(L, c->c[2]); st->has_eq = 1; }
+        return st;
+    }
+    st->subject = lower_tree_expr(L, c);
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lower_tree_stmt(RebLow *L, tree_t *s) {
     if (!s) return;
     if (s->line) L->cur_line = s->line;
@@ -175,8 +187,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
             char *l_then = newlab(L);
             char *l_else = newlab(L);
             char *l_end = newlab(L);
-            STMT_t *cst = blank_stmt();
-            cst->subject = lower_tree_expr(L, s->c[0]);
+            STMT_t *cst = reb_cond_stmt(L, s->c[0]);
             cst->goto_s = ct_strdup(l_then);
             cst->goto_f = ct_strdup(l_else);
             emit(L, cst);
@@ -195,8 +206,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         {
             char *l_body = newlab(L);
             char *l_end = newlab(L);
-            STMT_t *cst = blank_stmt();
-            cst->subject = lower_tree_expr(L, s->c[0]);
+            STMT_t *cst = reb_cond_stmt(L, s->c[0]);
             cst->goto_s = ct_strdup(l_end);
             cst->goto_f = ct_strdup(l_body);
             emit(L, cst);
@@ -215,8 +225,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
             RebLoop lp = { l_top, l_end, L->loop };
             L->loop = &lp;
             emit_label(L, l_top);
-            STMT_t *cst = blank_stmt();
-            cst->subject = lower_tree_expr(L, s->c[0]);
+            STMT_t *cst = reb_cond_stmt(L, s->c[0]);
             cst->goto_s = ct_strdup(l_body);
             cst->goto_f = ct_strdup(l_end);
             emit(L, cst);
@@ -238,8 +247,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
             RebLoop lp = { l_top, l_end, L->loop };
             L->loop = &lp;
             emit_label(L, l_top);
-            STMT_t *cst = blank_stmt();
-            cst->subject = lower_tree_expr(L, s->c[0]);
+            STMT_t *cst = reb_cond_stmt(L, s->c[0]);
             cst->goto_s = ct_strdup(l_end);
             cst->goto_f = ct_strdup(l_body);
             emit(L, cst);
