@@ -1966,6 +1966,7 @@ typedef struct scrip_rl_t {
     const char * file;
     int defer;
     int omit;
+    int merged;
     scrip_rl_file_t * f;
     int nf;
     int fcap;
@@ -2031,9 +2032,10 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
     char ** hd = (char **) ct_alloc(sizeof(char *) * (size_t)(nh + 1));
     nh = 0;
     for (eor = 0; !eor;) hd[nh++] = scrip_rl_cell(&p, end, &eor);
-    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect", "path", "grader", "out_files", "stage" };
-    int col[15];
-    for (int w = 0; w < 15; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
+    const char * const want[] = { "entry", "group", "road", "nonl", "timeout_s", "heap_kb", "stack_kb", "compile_args", "run_args", "stage_name", "dialect", "path", "grader", "out_files", "stage",
+        "stderr" };
+    int col[16];
+    for (int w = 0; w < 16; w++) { col[w] = -1; for (int h = 0; h < nh; h++) if (!strcmp(hd[h], want[w])) col[w] = h; }
     if (kind == 2 && (col[0] < 0 || col[11] < 0)) return scrip_rl_refuse("the index has no entry or no path column (not a package index)", "ALL.csv");
     if (kind != 2 && (col[0] < 0 || col[1] < 0)) return scrip_rl_refuse("the index has no entry or no group column (not format 2)", "ALL.csv");
     int cap = 1;
@@ -2067,6 +2069,8 @@ static int scrip_rl_index(char * b, size_t len, scrip_rl_t ** out, int * nout, i
         if (t->file) { const char * dt = strrchr(t->file, '.'), * sl = strrchr(t->file, '/'); t->ext = dt && (!sl || dt > sl) ? dt + 1 : ""; }
         t->defer = kind == 2 && !t->file;
         for (int w = 12; kind == 2 && w < 15; w++) if (col[w] >= 0 && cv[col[w]][0]) t->defer = 1;
+        t->merged = col[15] >= 0 && !strcmp(cv[col[15]], "merged");
+        if (col[15] >= 0 && cv[col[15]][0] && !t->merged) return scrip_rl_refuse("the stderr cell is neither empty nor merged for", t->name);
         t->sel = 1;
     }
     *out = r;
@@ -2307,7 +2311,7 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
     fflush((FILE *)0);
     clock_gettime(CLOCK_MONOTONIC, &t0);
     pid_t pid = ok ? fork() : -1;
-    if (pid == 0) { close(pf[0]); scrip_rl_child(fi, fo, fe, pf[1], dir, cap_mb, &old, av); }
+    if (pid == 0) { close(pf[0]); scrip_rl_child(fi, fo, t->merged ? fo : fe, pf[1], dir, cap_mb, &old, av); }
     if (ok && pid < 0) en = errno;
     int st = 0, hang = 0, cerr = 0;
     struct rusage ru;
