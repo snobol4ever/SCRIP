@@ -26,6 +26,7 @@ typedef struct {
     int64_t kw_stcount;
     int64_t kw_anchor;
     int64_t kw_stlimit;
+    int64_t kw_stlimit_next;
     int64_t kw_trace;
     int core_stack_floor_raised;
     int core_err_active;

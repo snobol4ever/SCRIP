@@ -311,6 +311,7 @@ static int kwb_write_ent(const KWB_ENT_t *e, DESCR_t v) {
     if (!strcmp(e->name, "FULLSCAN") && iv == 0) return kwb_error(274, "value assigned to keyword fullscan is zero") ? 1 : -1;
     if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = iv;
+    if (!strcmp(e->name, "STLIMIT")) g_runtime.misc.kw_stlimit_next = g_runtime.abi.stcount + iv;
     if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : "") ? 1 : -1;
     if (!strcmp(e->name, "DUMP") && iv) { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
     return 1;
@@ -516,7 +517,13 @@ void rt_stmt_enter(long stno, long line) {
 #if RT_DIAG
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno); }
 #endif
-    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit && kwb_error(244, "statement count exceeds value of stlimit keyword")) g_runtime.misc.kw_stlimit += 10;
+    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_runtime.misc.kw_stlimit_next > 0 ? g_runtime.misc.kw_stlimit_next : g_runtime.misc.kw_stlimit + 1)) {
+        int64_t o = g_runtime.misc.kw_stlimit;
+        g_runtime.abi.stcount = o;
+        g_runtime.misc.kw_stlimit = o + 10;
+        g_runtime.misc.kw_stlimit_next = o + o + 10;
+        kwb_error(244, "statement count exceeds value of stlimit keyword");
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_stmt_enter_p, leaf, 0);
@@ -532,7 +539,13 @@ void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
 #if RT_DIAG
     { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno, pend); }
 #endif
-    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit && kwb_error(244, "statement count exceeds value of stlimit keyword")) g_runtime.misc.kw_stlimit += 10;
+    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_runtime.misc.kw_stlimit_next > 0 ? g_runtime.misc.kw_stlimit_next : g_runtime.misc.kw_stlimit + 1)) {
+        int64_t o = g_runtime.misc.kw_stlimit;
+        g_runtime.abi.stcount = o;
+        g_runtime.misc.kw_stlimit = o + 10;
+        g_runtime.misc.kw_stlimit_next = o + o + 10;
+        kwb_error(244, "statement count exceeds value of stlimit keyword");
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_keyword_gen, gen, 0);

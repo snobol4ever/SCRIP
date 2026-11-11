@@ -3888,7 +3888,7 @@ void NV_CLEAR_fn(const char **except, int nexcept) {
 int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
-    if (strcmp(kw_name, "STLIMIT") == 0) { g_runtime.misc.kw_stlimit = iv; return 1; }
+    if (strcmp(kw_name, "STLIMIT") == 0) { g_runtime.misc.kw_stlimit = iv; g_runtime.misc.kw_stlimit_next = g_runtime.abi.stcount + iv; return 1; }
     if (strcmp(kw_name, "ANCHOR") == 0) { g_runtime.misc.kw_anchor = iv; if (g_runtime.abi.rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
     if (strcmp(kw_name, "TRIM") == 0) { g_runtime.core.kw_trim = iv; return 1; }
     if (strcmp(kw_name, "FULLSCAN") == 0) { g_runtime.core.kw_fullscan = iv; return 1; }
