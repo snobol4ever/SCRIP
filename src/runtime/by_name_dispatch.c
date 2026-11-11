@@ -6610,6 +6610,7 @@ static int dop_ax_core(const char *op, DESCR_t *args, int nargs, DESCR_t *out, v
         return 1;
     }
     if (nargs == 3) return pl_ax_powm(args, out, ball);
+    if (nargs == 1 && (!strcmp(op, "inc") || !strcmp(op, "dec"))) { DESCR_t one[2] = { args[0], INTVAL(1) }; return dop_ax_core(op[0] == 'i' ? "add" : "sub", one, 2, out, ball); }
     DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v != DT_I && a.v != DT_R && a.v != DT_BIG) {
         void *bl = (void *)0;

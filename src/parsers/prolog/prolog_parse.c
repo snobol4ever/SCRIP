@@ -3142,6 +3142,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$ev'(floor(float),integer).\n"
     "'$ev'(gcd(integer,integer),integer).\n"
     "'$ev'(getbit(integer,integer),integer).\n"
+    "'$ev'(inc(number),number).\n"
+    "'$ev'(dec(number),number).\n"
     "'$ev'((integer div integer),integer).\n"
     "'$ev'((\\(integer)),integer).\n"
     "'$ev'((integer//integer),integer).\n"

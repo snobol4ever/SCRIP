@@ -67,6 +67,8 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "asin")) return "asin";
         if (!strcmp(s, "acos")) return "acos";
         if (!strcmp(s, "tan")) return "tan";
+        if (!strcmp(s, "inc")) return "inc";
+        if (!strcmp(s, "dec")) return "dec";
         if (!strcmp(s, "sinh")) return "sinh";
         if (!strcmp(s, "cosh")) return "cosh";
         if (!strcmp(s, "tanh")) return "tanh";
