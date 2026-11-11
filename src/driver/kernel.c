@@ -45,10 +45,11 @@ typedef struct { const char *tag, *mime; int kind; } kdisp_t;
 typedef struct { const char *tag, *text, *url; } khelp_t;
 typedef struct { const char *tag, *ext; int unicon; const char *mime, *pygments, *codemirror; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
-typedef struct { const char *name, *display, *language, *deflang; } kspec_t;
-static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0 }, { "scrip-snobol4", "SCRIP SNOBOL4", "snobol4", "SNOBOL4" }, { "scrip-snocone", "SCRIP Snocone", "snocone", "Snocone" },
-    { "scrip-rebus", "SCRIP Rebus", "rebus", "Rebus" }, { "scrip-icon", "SCRIP Icon", "icon", "Icon" }, { "scrip-unicon", "SCRIP Unicon", "unicon", "Unicon" }, { "scrip-prolog", "SCRIP Prolog",
-    "prolog", "Prolog" }, { "scrip-pascal", "SCRIP Pascal", "pascal", "Pascal" }, { "scrip-raku", "SCRIP Raku", "raku", "Raku" } };
+typedef struct { const char *name, *display, *language, *deflang, *mark, *tint; } kspec_t;
+static const kspec_t k_specs[] = { { "scrip", "SCRIP", "scrip", 0, "S", "#444c56" }, { "scrip-snobol4", "SCRIP SNOBOL4", "snobol4", "SNOBOL4", "S4", "#1f6feb" }, { "scrip-snocone", "SCRIP Snocone",
+    "snocone", "Snocone", "Sc", "#0a7d6e" }, { "scrip-rebus", "SCRIP Rebus", "rebus", "Rebus", "Rb", "#8250df" }, { "scrip-icon", "SCRIP Icon", "icon", "Icon", "Ic", "#bf3989" }, { "scrip-unicon",
+    "SCRIP Unicon", "unicon", "Unicon", "Un", "#cf222e" }, { "scrip-prolog", "SCRIP Prolog", "prolog", "Prolog", "Pl", "#9a6700" }, { "scrip-pascal", "SCRIP Pascal", "pascal", "Pascal", "Pa",
+    "#1a7f37" }, { "scrip-raku", "SCRIP Raku", "raku", "Raku", "Rk", "#bc4c00" } };
 static const ksess_t k_sess[] = { { "snobol4", "SNOBOL4" }, { "snobol", "SNOBOL4" }, { "spitbol", "SNOBOL4" } };
 static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "snobol", ".sno", 0, "text/x-snobol4", "snobol", "text/plain" }, { "spitbol", ".spt", 0,
     "text/x-snobol4", "snobol", "text/plain" }, { "snocone", ".sc", 0, "text/x-snocone", "text", "text/plain" }, { "rebus", ".reb", 0, "text/x-rebus", "text", "text/plain" }, { "icon", ".icn", 0,
@@ -592,15 +593,20 @@ static void k_session_end(kctx_t *k) {
     for (int i = 0; i < 20 && waitpid(pid, &st, WNOHANG) == 0; i++) { struct timespec w = { 0, 100000000 }; nanosleep(&w, 0); if (i == 19) { kill(pid, SIGKILL); waitpid(pid, &st, 0); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
-    int st = 0, po[2], pe[2], pc[2], pt[2], pi[2], pn[2];
-    if (k->sess > 0 && waitpid(k->sess, &st, WNOHANG) == 0) return 1;
-    if (k->sess > 0) { k_session_drop(k); k_note(k, req, silent, "scrip: the session had ended; a new one starts with this cell\n", "", ""); }
+static char *k_session_path(void) {
     const char *ev = getenv("SCRIP_SESSION_SNOBOL4");
     char *path = (char *)ct_alloc(PATH_MAX + 64);
     ssize_t el = ev && *ev ? -1 : readlink("/proc/self/exe", path, PATH_MAX - 1);
     if (ev && *ev) snprintf(path, PATH_MAX + 64, "%s", ev);
     else { path[el > 0 ? el : 0] = 0; char *sl = strrchr(path, '/'); snprintf(sl ? sl : path, 64, "/src/driver/kernel_session_snobol4.sno"); }
+    return path;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_session_open(kctx_t *k, const kmsg_t *req, int silent) {
+    int st = 0, po[2], pe[2], pc[2], pt[2], pi[2], pn[2];
+    if (k->sess > 0 && waitpid(k->sess, &st, WNOHANG) == 0) return 1;
+    if (k->sess > 0) { k_session_drop(k); k_note(k, req, silent, "scrip: the session had ended; a new one starts with this cell\n", "", ""); }
+    char *path = k_session_path();
     if (access(path, R_OK)) { k_note(k, req, silent, "scrip: no session program at ", path, "\n"); ct_drop(path); return 0; }
     if (pipe(po) || pipe(pe) || pipe(pc) || pipe(pt) || pipe(pi) || pipe(pn)) { k_note(k, req, silent, "scrip: no pipe for the session\n", "", ""); ct_drop(path); return 0; }
     fcntl(po[0], F_SETFD, FD_CLOEXEC);
@@ -1396,39 +1402,70 @@ static int k_mkdirs(char *path) {
     return mkdir(path, 0755) && errno != EEXIST ? -1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_put_file(const char *dir, const char *name, const void *d, size_t n) {
+    cv_t p = { 0, 0, 0, 0 };
+    jw_raw(&p, dir);
+    jw_raw(&p, "/");
+    jw_raw(&p, name);
+    int fd = open(cv_cstr(&p), O_WRONLY | O_CREAT | O_TRUNC, 0644), bad = fd < 0 || write(fd, d, n) != (ssize_t)n || close(fd);
+    if (bad) fprintf(stderr, "scrip --kernel-install: cannot write %s: %s\n", cv_cstr(&p), strerror(errno));
+    ct_drop(p.p);
+    return bad ? -1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_kernel_install(const char *dir) {
     size_t cap = 256;
-    char *exe = (char *)ct_alloc(cap);
+    char *exe = (char *)ct_alloc(cap), *sp = k_session_path();
     ssize_t el = readlink("/proc/self/exe", exe, cap - 1);
     while (el >= 0 && (size_t)el >= cap - 1) { ct_drop(exe); cap *= 2; exe = (char *)ct_alloc(cap); el = readlink("/proc/self/exe", exe, cap - 1); }
     if (el <= 0) { fprintf(stderr, "scrip --kernel-install: cannot read the path of the running binary\n"); return 2; }
     exe[el] = 0;
     const char *jd = getenv("JUPYTER_DATA_DIR"), *home = getenv("HOME");
-    cv_t base = { 0, 0, 0, 0 };
+    cv_t base = { 0, 0, 0, 0 }, sess = { 0, 0, 0, 0 };
+    struct stat sb;
+    int sf = open(sp, O_RDONLY);
+    if (sf >= 0 && !fstat(sf, &sb)) { cv_reserve(&sess, 1, (uint64_t)sb.st_size + 1, "kernel_bytes"); ssize_t got = read(sf, sess.p, (size_t)sb.st_size); sess.len = got > 0 ? (uint32_t)got : 0; }
+    if (sf >= 0) close(sf);
+    if (!sess.len) fprintf(stderr, "scrip --kernel-install: no session program at %s; a SNOBOL4 cell of an installed kernel needs SCRIP_SESSION_SNOBOL4 to name one\n", sp);
     if (dir && *dir) jw_raw(&base, dir);
     else if (jd && *jd) { jw_raw(&base, jd); jw_raw(&base, "/kernels"); } else { jw_raw(&base, home && *home ? home : "."); jw_raw(&base, "/.local/share/jupyter/kernels"); }
     for (size_t i = 0; i < sizeof k_specs / sizeof *k_specs; i++) {
-        cv_t path = { 0, 0, 0, 0 }, js = { 0, 0, 0, 0 };
+        cv_t path = { 0, 0, 0, 0 }, js = { 0, 0, 0, 0 }, svg = { 0, 0, 0, 0 };
         jw_raw(&path, cv_cstr(&base));
         jw_raw(&path, "/");
         jw_raw(&path, k_specs[i].name);
         if (k_mkdirs((char *)cv_cstr(&path))) { fprintf(stderr, "scrip --kernel-install: cannot make the directory %s: %s\n", cv_cstr(&path), strerror(errno)); return 2; }
-        jw_raw(&path, "/kernel.json");
         jw_raw(&js, "{\"argv\":[");
         jw_str(&js, exe, strlen(exe));
         jw_raw(&js, ",\"--kernel\",\"{connection_file}\"]");
         jw_kv(&js, "display_name", k_specs[i].display, 1);
         jw_kv(&js, "language", k_specs[i].language, 1);
         jw_kv(&js, "interrupt_mode", "message", 1);
-        if (k_specs[i].deflang) { jw_raw(&js, ",\"env\":{"); jw_kv(&js, "SCRIP_DEFAULT_LANG", k_specs[i].deflang, 0); jw_raw(&js, "}"); }
-        jw_raw(&js, "}\n");
-        int fd = open(cv_cstr(&path), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd < 0 || write(fd, js.p, js.len) != (ssize_t)js.len || close(fd)) { fprintf(stderr, "scrip --kernel-install: cannot write %s: %s\n", cv_cstr(&path), strerror(errno)); return 2; }
-        printf("KERNELSPEC %s %s\n", k_specs[i].name, cv_cstr(&path));
+        jw_raw(&js, ",\"metadata\":{\"debugger\":false},\"env\":{");
+        if (k_specs[i].deflang) jw_kv(&js, "SCRIP_DEFAULT_LANG", k_specs[i].deflang, 0);
+        if (sess.len) {
+            cv_t q = { 0, 0, 0, 0 };
+            jw_raw(&q, cv_cstr(&path));
+            jw_raw(&q, "/kernel_session_snobol4.sno");
+            jw_kv(&js, "SCRIP_SESSION_SNOBOL4", cv_cstr(&q), k_specs[i].deflang != 0);
+            ct_drop(q.p);
+        }
+        jw_raw(&js, "}}\n");
+        jw_raw(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\"><rect width=\"64\" height=\"64\" rx=\"12\" fill=\"");
+        jw_raw(&svg, k_specs[i].tint);
+        jw_raw(&svg, "\"/><text x=\"32\" y=\"43\" font-family=\"sans-serif\" font-size=\"30\" font-weight=\"700\" text-anchor=\"middle\" fill=\"#ffffff\">");
+        jw_raw(&svg, k_specs[i].mark);
+        jw_raw(&svg, "</text></svg>\n");
+        if (k_put_file(cv_cstr(&path), "kernel.json", js.p, js.len) || k_put_file(cv_cstr(&path), "logo-svg.svg", svg.p, svg.len)) return 2;
+        if (sess.len && k_put_file(cv_cstr(&path), "kernel_session_snobol4.sno", sess.p, sess.len)) return 2;
+        printf("KERNELSPEC %s %s/kernel.json\n", k_specs[i].name, cv_cstr(&path));
         ct_drop(path.p);
         ct_drop(js.p);
+        ct_drop(svg.p);
     }
     ct_drop(base.p);
+    ct_drop(sess.p);
     ct_drop(exe);
+    ct_drop(sp);
     return 0;
 }
