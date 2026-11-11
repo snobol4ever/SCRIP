@@ -154,7 +154,7 @@ static DESCR_t xr_str(long double x, long long w, long long p) {
     int n, sig = p < 0 && w >= 0 ? (w - 9 < 1 ? 1 : w - 9 > 20 ? 20 : (int)(w - 9)) + 1 : 21, de = 0;
     size_t pad;
     char *r;
-    if (!isfinite(x)) { const char *t = isnan(x) ? "Nan" : x < 0 ? "-Inf" : "Inf"; return xr_wrap(t, (int)strlen(t), w); }
+    if (!isfinite(x)) { const char *t = isnan(x) ? "Nan" : x < 0 ? "-Inf" : "+Inf"; return xr_wrap(t, (int)strlen(t), w < 0 ? 29 : w); }
     char dg[sig + 1];
     long double ax = fabsl(x);
     if (p >= 0) {

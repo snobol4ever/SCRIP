@@ -1604,7 +1604,7 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
                         val = leaf_s(TT_VAR, _tn);
                     }
                 }
-                if (val && val->t != TT_FLIT && pas_proc_param_is_real(name, _pidx)) val = bin(TT_ADD, val, flit(0.0));
+                if (val && val->t != TT_FLIT && pas_proc_param_is_real(name, _pidx)) val = bin(TT_MUL, val, flit(1.0));
                 if (val && val->t == TT_FNC && val->n == 2 && val->c[0] && val->c[0]->v.sval && !strcmp(val->c[0]->v.sval, "__pas_chrlit") && val->c[1] && val->c[1]->t == TT_ILIT &&
                     pas_proc_param_is_string(name, _pidx)) {
                     char _cb[2];
@@ -3062,6 +3062,7 @@ static int pas_not_a_set(tree_t *e) {
 }
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *pas_rdiv(tree_t *a, tree_t *b) {
+    if (a && b && (a->t == TT_ILIT || a->t == TT_FLIT) && (b->t == TT_ILIT ? b->v.ival == 0 : b->t == TT_FLIT && b->v.dval == 0)) return flit((a->t == TT_ILIT ? (double) a->v.ival : a->v.dval) / 0.0);
     tree_t *q = bin(TT_MUL, a, flit(1.0));
     if (!g_lower.pas.sem.pas_divchk || (b && ((b->t == TT_ILIT && b->v.ival != 0) || (b->t == TT_FLIT && b->v.dval != 0)))) return bin(TT_DIV, q, b);
     PNodeList *l = pnl_new();
