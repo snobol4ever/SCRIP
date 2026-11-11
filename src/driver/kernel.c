@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <dlfcn.h>
 #include "ir/ct_arena.h"
 #include "ir/ct_vec.h"
 #include "driver/zmq_abi.h"
@@ -22,6 +23,7 @@ typedef struct jn { int t; const char *s; uint32_t sl; double num; cv_t kids; cv
 typedef struct { const char *p; uint32_t n; } kpart_t;
 typedef struct { cv_t ids; kpart_t raw[5]; jn_t *header, *parent, *metadata, *content; } kmsg_t;
 typedef struct {
+    zmq_abi_t z;
     void *ctx, *shell, *control, *stdin_s, *iopub, *hb;
     const unsigned char *key;
     size_t keylen;
@@ -33,7 +35,13 @@ typedef struct {
     int sess_in, sess_out, sess_err, sess_cell, sess_ctl;
     unsigned said;
     int abort_q;
+    long p_shell, p_iopub, p_stdin, p_hb, p_control;
+    cv_t hist, words, *cap;
 } kctx_t;
+typedef struct { long n; const char *code; } khist_t;
+typedef struct { const char *s, *type; } kmatch_t;
+typedef struct { const char *tag, *mime; int kind; } kdisp_t;
+typedef struct { const char *tag, *text, *url; } khelp_t;
 typedef struct { const char *tag, *ext; int unicon; const char *mime, *pygments, *codemirror; } klang_t;
 typedef struct { const char *tag, *head; } ksess_t;
 typedef struct { const char *name, *display, *language, *deflang; } kspec_t;
@@ -46,6 +54,15 @@ static const klang_t k_langs[] = { { "snobol4", ".sno", 0, "text/x-snobol4", "sn
     "text/x-icon", "icon", "text/plain" }, { "unicon", ".icn", 1, "text/x-unicon", "unicon", "text/plain" }, { "prolog", ".pl", 0, "text/x-prolog", "prolog", "text/plain" }, { "pascal", ".pas", 0,
     "text/x-pascal", "delphi", "pascal" }, { "raku", ".raku", 0, "text/x-raku", "raku", "text/plain" }, { "scrip", ".md", 0, "text/markdown", "markdown", "markdown" }, { "polyglot", ".md", 0,
     "text/markdown", "markdown", "markdown" }, { "md", ".md", 0, "text/markdown", "markdown", "markdown" }, { "markdown", ".md", 0, "text/markdown", "markdown", "markdown" } };
+static const char *const k_zmq_names[] = { "zmq_ctx_new", "zmq_ctx_term", "zmq_socket", "zmq_close", "zmq_bind", "zmq_setsockopt", "zmq_msg_init", "zmq_msg_init_size", "zmq_msg_close", "zmq_msg_data",
+    "zmq_msg_size", "zmq_msg_more", "zmq_msg_recv", "zmq_msg_send", "zmq_poll" };
+static const kdisp_t k_disp[] = { { "html", "text/html", 0 }, { "svg", "image/svg+xml", 0 }, { "latex", "text/latex", 0 }, { "javascript", "application/javascript", 0 }, { "json", "application/json",
+    1 }, { "markdown", "text/markdown", 0 }, { "text", "text/plain", 0 }, { "png", "image/png", 2 }, { "jpeg", "image/jpeg", 2 }, { "gif", "image/gif", 2 }, { "pdf", "application/pdf", 2 } };
+static const khelp_t k_help[] = { { "snobol4", "SNOBOL4 resources", "https://www.regressive.org/snobol4/" }, { "snobol4", "SPITBOL", "https://github.com/spitbol/x64" }, { "snocone",
+    "SNOBOL4 resources", "https://www.regressive.org/snobol4/" }, { "rebus", "SNOBOL4 resources", "https://www.regressive.org/snobol4/" }, { "icon", "The Icon programming language",
+    "https://www.cs.arizona.edu/icon/" }, { "unicon", "Unicon", "https://unicon.sourceforge.io/" }, { "unicon", "The Icon programming language", "https://www.cs.arizona.edu/icon/" }, { "prolog",
+    "SWI-Prolog manual", "https://www.swi-prolog.org/pldoc/doc_for?object=manual" }, { "pascal", "Free Pascal documentation", "https://www.freepascal.org/docs.html" }, { "raku", "Raku documentation",
+    "https://docs.raku.org/" }, { "", "Jupyter documentation", "https://docs.jupyter.org/" } };
 static const uint32_t k_sha[64] = { 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74,
     0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3,
     0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
@@ -323,11 +340,18 @@ static void jw_str(cv_t *b, const char *s, size_t n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void jw_key(cv_t *b, const char *k, int comma) { if (comma) cv_putc(b, ','); jw_str(b, k, strlen(k)); cv_putc(b, ':'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void jw_long(cv_t *b, long v) { if (v < 0) { cv_putc(b, '-'); v = -v; } if (v >= 10) jw_long(b, v / 10); cv_putc(b, (char)('0' + v % 10)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void jw_kv(cv_t *b, const char *k, const char *v, int comma) { jw_key(b, k, comma); jw_str(b, v, strlen(v)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void k_frame(void *sock, const void *d, size_t n, int more) { zmq_msg_t m; zmq_msg_init_size(&m, n); memcpy(zmq_msg_data(&m), d, n); zmq_msg_send(&m, sock, more ? ZMQ_SNDMORE : 0); }
+static void k_frame(kctx_t *k, void *sock, const void *d, size_t n, int more) {
+    zmq_msg_t m;
+    k->z.msg_init_size(&m, n);
+    memcpy(k->z.msg_data(&m), d, n);
+    k->z.msg_send(&m, sock, more ? ZMQ_SNDMORE : 0);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void k_send(kctx_t *k, void *sock, const kmsg_t *req, const char *type, const char *content) {
+static void k_send_t(kctx_t *k, void *sock, const kmsg_t *req, const char *topic, size_t tlen, const char *type, const char *content) {
     cv_t h = { 0, 0, 0, 0 };
     char id[33], date[40], sig[65];
     time_t now = time(0);
@@ -341,17 +365,40 @@ static void k_send(kctx_t *k, void *sock, const kmsg_t *req, const char *type, c
     jw_kv(&h, "username", "kernel", 1);
     jw_kv(&h, "date", date, 1);
     jw_kv(&h, "msg_type", type, 1);
-    jw_kv(&h, "version", "5.3", 1);
+    jw_kv(&h, "version", "5.5", 1);
     jw_raw(&h, "}");
     kpart_t parts[4] = { { (const char *)h.p, h.len }, { req && req->raw[1].p ? req->raw[1].p : "{}", req && req->raw[1].p ? req->raw[1].n : 2 }, { "{}", 2 }, { content, (uint32_t)strlen(content) } };
     sig[0] = 0;
     if (k->keylen) { unsigned char d[32]; k_hmac(k->key, k->keylen, parts, 4, d); k_hex(d, 32, sig); }
-    if (sock == k->iopub) k_frame(sock, type, strlen(type), 1);
-    else if (req) for (uint32_t i = 0; i < req->ids.len; i++) k_frame(sock, CV_AT(req->ids, kpart_t, i).p, CV_AT(req->ids, kpart_t, i).n, 1);
-    k_frame(sock, "<IDS|MSG>", 9, 1);
-    k_frame(sock, sig, strlen(sig), 1);
-    for (int i = 0; i < 4; i++) k_frame(sock, parts[i].p, parts[i].n, i < 3);
+    if (sock == k->iopub) k_frame(k, sock, topic, tlen, 1);
+    else if (req) for (uint32_t i = 0; i < req->ids.len; i++) k_frame(k, sock, CV_AT(req->ids, kpart_t, i).p, CV_AT(req->ids, kpart_t, i).n, 1);
+    k_frame(k, sock, "<IDS|MSG>", 9, 1);
+    k_frame(k, sock, sig, strlen(sig), 1);
+    for (int i = 0; i < 4; i++) k_frame(k, sock, parts[i].p, parts[i].n, i < 3);
     ct_drop(h.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_send(kctx_t *k, void *sock, const kmsg_t *req, const char *type, const char *content) { k_send_t(k, sock, req, type, strlen(type), type, content); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_iopub_tick(kctx_t *k) {
+    zmq_pollitem_t p = { k->iopub, 0, ZMQ_POLLIN, 0 };
+    while (k->z.poll(&p, 1, 0) > 0 && (p.revents & ZMQ_POLLIN)) {
+        zmq_msg_t z;
+        k->z.msg_init(&z);
+        if (k->z.msg_recv(&z, k->iopub, 0) < 0) { k->z.msg_close(&z); return; }
+        size_t n = k->z.msg_size(&z);
+        const char *d = (const char *)k->z.msg_data(&z);
+        if (n >= 1 && d[0] == 1 && !k->z.msg_more(&z)) {
+            cv_t c = { 0, 0, 0, 0 };
+            jw_raw(&c, "{");
+            jw_key(&c, "subscription", 0);
+            jw_str(&c, d + 1, n - 1);
+            jw_raw(&c, "}");
+            k_send_t(k, k->iopub, 0, d + 1, n - 1, "iopub_welcome", cv_cstr(&c));
+            ct_drop(c.p);
+        }
+        k->z.msg_close(&z);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int k_recv(kctx_t *k, void *sock, kmsg_t *m) {
@@ -359,11 +406,11 @@ static int k_recv(kctx_t *k, void *sock, kmsg_t *m) {
     memset(m, 0, sizeof *m);
     for (;;) {
         zmq_msg_t z;
-        zmq_msg_init(&z);
-        if (zmq_msg_recv(&z, sock, 0) < 0) { zmq_msg_close(&z); return 0; }
-        size_t n = zmq_msg_size(&z);
-        const char *d = (const char *)zmq_msg_data(&z);
-        int more = zmq_msg_more(&z);
+        k->z.msg_init(&z);
+        if (k->z.msg_recv(&z, sock, 0) < 0) { k->z.msg_close(&z); return 0; }
+        size_t n = k->z.msg_size(&z);
+        const char *d = (const char *)k->z.msg_data(&z);
+        int more = k->z.msg_more(&z);
         if (phase == 0 && n == 9 && !memcmp(d, "<IDS|MSG>", 9)) phase = 1;
         else if (phase == 0 || np < 5) {
             char *c = (char *)ct_alloc(n + 1);
@@ -371,7 +418,7 @@ static int k_recv(kctx_t *k, void *sock, kmsg_t *m) {
             c[n] = 0;
             if (phase == 0) { kpart_t *f = &CV_PUSH(m->ids, kpart_t); f->p = c; f->n = (uint32_t)n; } else { m->raw[np].p = c; m->raw[np].n = (uint32_t)n; np++; }
         }
-        zmq_msg_close(&z);
+        k->z.msg_close(&z);
         if (!more) break;
     }
     if (phase == 0 || np < 5) return 0;
@@ -393,15 +440,43 @@ static void k_status(kctx_t *k, const kmsg_t *req, const char *st) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_stream(kctx_t *k, const kmsg_t *req, const char *name, cv_t *text) {
-    if (text->len == 0) return;
+    const char *t = (const char *)text->p;
     cv_t c = { 0, 0, 0, 0 };
-    jw_raw(&c, "{");
-    jw_kv(&c, "name", name, 0);
-    jw_key(&c, "text", 1);
-    jw_str(&c, (const char *)text->p, text->len);
-    jw_raw(&c, "}");
-    k_send(k, k->iopub, req, "stream", cv_cstr(&c));
+    for (size_t a = 0, b; a < text->len; a = b + 1) {
+        for (b = a; b < text->len && !(t[b] == '\f' && name[3] == 'o'); b++) { }
+        if (b > a) { c.len = 0; jw_raw(&c, "{"); jw_kv(&c, "name", name, 0); jw_key(&c, "text", 1); jw_str(&c, t + a, b - a); jw_raw(&c, "}"); k_send(k, k->iopub, req, "stream", cv_cstr(&c)); }
+        if (b < text->len) k_send(k, k->iopub, req, "clear_output", "{\"wait\":true}");
+    }
     ct_drop(c.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_b64(cv_t *b, const unsigned char *d, size_t n) {
+    const char *al = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (size_t i = 0; i < n; i += 3) {
+        uint32_t v = (uint32_t)d[i] << 16 | (i + 1 < n ? (uint32_t)d[i + 1] << 8 : 0) | (i + 2 < n ? d[i + 2] : 0);
+        cv_putc(b, al[v >> 18]);
+        cv_putc(b, al[v >> 12 & 63]);
+        cv_putc(b, i + 1 < n ? al[v >> 6 & 63] : '=');
+        cv_putc(b, i + 2 < n ? al[v & 63] : '=');
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const kdisp_t *k_disp_of(const char *tag) { for (size_t i = 0; tag && i < sizeof k_disp / sizeof *k_disp; i++) if (!strcasecmp(k_disp[i].tag, tag)) return &k_disp[i]; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_display(kctx_t *k, const kmsg_t *req, const char *mime, int kind, const char *d, size_t n, const char *id, int update) {
+    cv_t c = { 0, 0, 0, 0 };
+    if (kind == 1 && !jn_parse(d, n)) return 0;
+    jw_raw(&c, "{\"data\":{");
+    jw_key(&c, mime, 0);
+    if (kind == 1) cv_puts(&c, d, n);
+    else if (kind == 2) { cv_putc(&c, '"'); k_b64(&c, (const unsigned char *)d, n); cv_putc(&c, '"'); } else jw_str(&c, d, n);
+    if (strcmp(mime, "text/plain")) { jw_key(&c, "text/plain", 1); if (kind == 2) jw_str(&c, mime, strlen(mime)); else jw_str(&c, d, n); }
+    jw_raw(&c, "},\"metadata\":{},\"transient\":{");
+    if (id) jw_kv(&c, "display_id", id, 0);
+    jw_raw(&c, "}}");
+    k_send(k, k->iopub, req, update ? "update_display_data" : "display_data", cv_cstr(&c));
+    ct_drop(c.p);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_reply(kctx_t *k, void *sock, const kmsg_t *req, const char *content) {
@@ -431,7 +506,7 @@ static size_t k_utf8_whole(const char *s, size_t n) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void k_heartbeat(void *hb);
+static void k_heartbeat(kctx_t *k);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_lastline(cv_t *cur, cv_t *last, const char *s, size_t n) {
     for (size_t i = 0; i <= n; i++) {
@@ -449,7 +524,8 @@ static ssize_t k_pump(kctx_t *k, const kmsg_t *req, int silent, int fd, const ch
     size_t n = *held + (r > 0 ? (size_t)r : 0), cut = r > 0 ? k_utf8_whole(buf, n) : n;
     cv_t t = { 0, 0, 0, 0 };
     cv_puts(&t, buf, cut);
-    if (!silent) k_stream(k, req, name, &t);
+    if (k->cap && name[3] == 'o') cv_puts(k->cap, buf, cut);
+    else if (!silent) k_stream(k, req, name, &t);
     ct_drop(t.p);
     memmove(buf, buf + cut, n - cut);
     *held = n - cut;
@@ -543,10 +619,11 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
     if (clen && code[clen - 1] != '\n') cv_putc(&f, '\n');
     while (sent < f.len) { ssize_t w = write(k->sess_cell, (const char *)f.p + sent, f.len - sent); if (w < 0 && errno == EINTR) continue; if (w <= 0) { rc = -3; break; } sent += (size_t)w; }
     ct_drop(f.p);
-    zmq_pollitem_t it[5] = { { 0, k->sess_out, ZMQ_POLLIN, 0 }, { 0, k->sess_err, ZMQ_POLLIN, 0 }, { 0, k->sess_ctl, ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 } };
+    zmq_pollitem_t it[6] = { { 0, k->sess_out, ZMQ_POLLIN, 0 }, { 0, k->sess_err, ZMQ_POLLIN, 0 }, { 0, k->sess_ctl, ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 },
+        { k->iopub, 0, ZMQ_POLLIN, 0 } };
     k->child = k->sess;
     while (rc == -2) {
-        if (zmq_poll(it, 5, -1) < 0) { if (errno == EINTR) continue; break; }
+        if (k->z.poll(it, 6, -1) < 0) { if (errno == EINTR) continue; break; }
         for (int i = 0; i < 2; i++) if (it[i].revents) (void)k_pump(k, req, silent, it[i].fd, i == 0 ? "stdout" : "stderr", buf[i], &held[i]);
         if (it[2].revents) {
             ssize_t r = read(it[2].fd, cb, sizeof cb);
@@ -570,11 +647,12 @@ static int k_session_cell(kctx_t *k, const kmsg_t *req, int silent, const char *
             }
         }
         if (it[3].revents & ZMQ_POLLIN) k_control_tick(k);
-        if (it[4].revents & ZMQ_POLLIN) k_heartbeat(k->hb);
+        if (it[4].revents & ZMQ_POLLIN) k_heartbeat(k);
+        if (it[5].revents & ZMQ_POLLIN) k_iopub_tick(k);
     }
     k->child = 0;
     ct_drop(ctl.p);
-    for (int j = 0; j < 2; j++) while (zmq_poll(&it[j], 1, rc < 0 ? 200 : 0) > 0 && it[j].revents && k_pump(k, req, silent, it[j].fd, j == 0 ? "stdout" : "stderr", buf[j], &held[j]) > 0) { }
+    for (int j = 0; j < 2; j++) while (k->z.poll(&it[j], 1, rc < 0 ? 200 : 0) > 0 && it[j].revents && k_pump(k, req, silent, it[j].fd, j == 0 ? "stdout" : "stderr", buf[j], &held[j]) > 0) { }
     if (rc >= 0) return rc;
     {
         pid_t pid = k->sess;
@@ -631,12 +709,12 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     close(po[1]);
     close(pe[1]);
     k->child = pid;
-    zmq_pollitem_t it[4] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 } };
+    zmq_pollitem_t it[5] = { { 0, po[0], ZMQ_POLLIN, 0 }, { 0, pe[0], ZMQ_POLLIN, 0 }, { k->control, 0, ZMQ_POLLIN, 0 }, { k->hb, 0, ZMQ_POLLIN, 0 }, { k->iopub, 0, ZMQ_POLLIN, 0 } };
     cv_t cur = { 0, 0, 0, 0 };
     char buf[2][4100];
     size_t held[2] = { 0, 0 };
     while (nopen > 0 && pid > 0) {
-        if (zmq_poll(it, 4, -1) < 0) { if (errno == EINTR) continue; break; }
+        if (k->z.poll(it, 5, -1) < 0) { if (errno == EINTR) continue; break; }
         for (int i = 0; i < 2; i++) if (it[i].fd >= 0 && it[i].revents) {
             ssize_t r = read(it[i].fd, buf[i] + held[i], 4096);
             if (i == 1 && r > 0) k_lastline(&cur, ev, buf[i] + held[i], (size_t)r);
@@ -644,13 +722,15 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
             cv_t t = { 0, 0, 0, 0 };
             if (r <= 0) { close(it[i].fd); it[i].fd = -1; it[i].events = 0; nopen--; }
             cv_puts(&t, buf[i], cut);
-            if (!silent) k_stream(k, req, i == 0 ? "stdout" : "stderr", &t);
+            if (k->cap && i == 0) cv_puts(k->cap, buf[i], cut);
+            else if (!silent) k_stream(k, req, i == 0 ? "stdout" : "stderr", &t);
             ct_drop(t.p);
             memmove(buf[i], buf[i] + cut, n - cut);
             held[i] = n - cut;
         }
         if (it[2].revents & ZMQ_POLLIN) k_control_tick(k);
-        if (it[3].revents & ZMQ_POLLIN) k_heartbeat(k->hb);
+        if (it[3].revents & ZMQ_POLLIN) k_heartbeat(k);
+        if (it[4].revents & ZMQ_POLLIN) k_iopub_tick(k);
     }
     k_lastline(&cur, ev, "\n", 1);
     ct_drop(cur.p);
@@ -685,6 +765,64 @@ static const char *k_cell_lang(const char **codep, size_t *clenp, const char *la
     return lang;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *k_cell_opt(const char *code, size_t clen, const char *key) {
+    size_t kl = strlen(key), e = 0, i = 2;
+    if (clen < 2 || code[0] != '%' || code[1] != '%') return 0;
+    while (e < clen && code[e] != '\n' && code[e] != '\r') e++;
+    while (i < e) {
+        size_t j = i;
+        while (j < e && code[j] != ' ' && code[j] != '\t') j++;
+        if (j - i > kl && code[i + kl] == '=' && !strncasecmp(code + i, key, kl)) {
+            char *v = (char *)ct_alloc(j - i - kl);
+            memcpy(v, code + i + kl + 1, j - i - kl - 1);
+            v[j - i - kl - 1] = 0;
+            return v;
+        }
+        i = j + 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_idc(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t k_cursor(const char *code, size_t clen, long pos) {
+    size_t off = 0;
+    long seen = 0;
+    while (off < clen && (seen < pos || ((unsigned char)code[off] & 0xC0) == 0x80)) { if (((unsigned char)code[off] & 0xC0) != 0x80) seen++; off++; }
+    return off;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_match(cv_t *m, const char *s, const char *type) {
+    for (uint32_t i = 0; i < m->len; i++) if (!strcmp(CV_AT(*m, kmatch_t, i).s, s)) return;
+    kmatch_t *x = &CV_PUSH(*m, kmatch_t);
+    x->s = s;
+    x->type = type;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_words(cv_t *w, const char *code, size_t n, size_t skip) {
+    for (size_t i = 0, j; i < n; i = j + 1) {
+        for (j = i; j < n && k_idc(code[j]); j++) { }
+        if (j - i < 2 || (code[i] >= '0' && code[i] <= '9') || i == skip) continue;
+        char *t = (char *)ct_alloc(j - i + 1);
+        memcpy(t, code + i, j - i);
+        t[j - i] = 0;
+        k_match(w, t, "text");
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_vocab(const char *lang, int *v1, int *v2) {
+    *v1 = *v2 = -1;
+    if (!strcasecmp(lang, "snobol4") || !strcasecmp(lang, "snobol") || !strcasecmp(lang, "spitbol") || !strcasecmp(lang, "snocone") || !strcasecmp(lang, "rebus")) { *v1 = BT_VOC_SNO; return 0; }
+    if (!strcasecmp(lang, "icon") || !strcasecmp(lang, "unicon")) { *v1 = BT_VOC_ICN; return 1; }
+    if (!strcasecmp(lang, "raku")) { *v1 = BT_VOC_RK; *v2 = BT_VOC_RKM; return 2; }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int k_glob(const char *p, const char *s) {
+    for (; *p; p++, s++) { if (*p == '*') { for (;; s++) { if (k_glob(p + 1, s)) return 1; if (!*s) return 0; } } if (!*s || (*p != '?' && *p != *s)) return 0; }
+    return !*s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int k_cell_complete(const char *code, size_t n, const char *lang) {
     size_t last = n;
     long depth = 0, fences = 0;
@@ -711,7 +849,8 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     int silent = jn_bool(req->content, "silent", 0);
     cv_t c = { 0, 0, 0, 0 };
     char num[32];
-    if (!silent && jn_bool(req->content, "store_history", 1)) k->count++;
+    const char *dsp = k_cell_opt(code, clen, "display"), *did = k_cell_opt(code, clen, "id"), *upd = k_cell_opt(code, clen, "update");
+    if (!silent && jn_bool(req->content, "store_history", 1)) { khist_t *h = &CV_PUSH(k->hist, khist_t); h->n = ++k->count; h->code = code; k_words(&k->words, code, clen, (size_t)-1); }
     snprintf(num, sizeof num, "%ld", k->count);
     jw_raw(&c, "{");
     jw_key(&c, "code", 0);
@@ -721,9 +860,23 @@ static void k_execute(kctx_t *k, void *sock, const kmsg_t *req) {
     jw_raw(&c, "}");
     if (!silent) k_send(k, k->iopub, req, "execute_input", cv_cstr(&c));
     c.len = 0;
+    int magic = clen >= 2 && code[0] == '%' && code[1] == '%';
     lang = k_cell_lang(&code, &clen, lang);
-    cv_t en = { 0, 0, 0, 0 }, ev = { 0, 0, 0, 0 };
-    int rc = k_run_cell(k, req, silent, code, clen, lang, &en, &ev);
+    const kdisp_t *own = magic ? k_disp_of(lang) : 0, *D = own && strcasecmp(own->tag, "markdown") && own->kind != 2 ? own : k_disp_of(dsp);
+    const char *mime = D ? D->mime : dsp && strchr(dsp, '/') ? dsp : 0;
+    int kind = D ? D->kind : mime && (!strncmp(mime, "image/", 6) || !strncmp(mime, "audio/", 6) || !strncmp(mime, "video/", 6)) ? 2 : 0, rc = 0;
+    cv_t en = { 0, 0, 0, 0 }, ev = { 0, 0, 0, 0 }, cap = { 0, 0, 0, 0 };
+    if (D != own || !D) {
+        if (dsp && !mime) k_note(k, req, silent, "scrip: display=", dsp, " names no output type (html svg latex javascript json markdown text png jpeg gif pdf, or a MIME type)\n");
+        k->cap = mime ? &cap : 0;
+        rc = k_run_cell(k, req, silent, code, clen, lang, &en, &ev);
+        k->cap = 0;
+    } else cv_puts(&cap, code, clen);
+    if (mime && cap.len && !silent && !k_display(k, req, mime, kind, (const char *)cap.p, cap.len, upd ? upd : did, upd != 0)) {
+        k_note(k, req, silent, "scrip: the cell's output is not JSON; it is shown as text\n", "", "");
+        k_stream(k, req, "stdout", &cap);
+    }
+    ct_drop(cap.p);
     if (rc == 0) {
         jw_raw(&c, "{");
         jw_kv(&c, "status", "ok", 0);
@@ -782,41 +935,106 @@ static int k_offered(const char *nm, int kind) {
 static void k_complete(kctx_t *k, void *sock, const kmsg_t *req) {
     jn_t *cj = jn_get(req->content, "code");
     const char *code = cj && cj->t == 4 ? cj->s : "", *body = code;
-    size_t clen = cj && cj->t == 4 ? cj->sl : 0, blen = clen, off = 0, ws;
-    long pos = jn_int(req->content, "cursor_pos", 0), seen = 0;
+    size_t clen = cj && cj->t == 4 ? cj->sl : 0, blen = clen, ws, nl = 0;
+    long pos = jn_int(req->content, "cursor_pos", 0);
     const char *lang = k_cell_lang(&body, &blen, 0);
-    int kind = -1, v1 = -1, v2 = -1, n = 0;
-    cv_t c = { 0, 0, 0, 0 };
+    int v1, v2, kind = k_vocab(lang, &v1, &v2), n = 0;
+    size_t off = k_cursor(code, clen, pos);
+    cv_t c = { 0, 0, 0, 0 }, m = { 0, 0, 0, 0 }, here = { 0, 0, 0, 0 };
     char tail[96];
-    while (off < clen && (seen < pos || ((unsigned char)code[off] & 0xC0) == 0x80)) { if (((unsigned char)code[off] & 0xC0) != 0x80) seen++; off++; }
-    for (ws = off; ws > 0 && ((code[ws - 1] >= 'A' && code[ws - 1] <= 'Z') || (code[ws - 1] >= 'a' && code[ws - 1] <= 'z') || (code[ws - 1] >= '0' && code[ws - 1] <= '9') || code[ws - 1] == '_');
-        ws--) {
-    }
-    if (!strcasecmp(lang, "snobol4") || !strcasecmp(lang, "snobol") || !strcasecmp(lang, "spitbol") || !strcasecmp(lang, "snocone") || !strcasecmp(lang, "rebus")) {
-        kind = 0;
-        v1 = BT_VOC_SNO;
-    } else if (!strcasecmp(lang, "icon") || !strcasecmp(lang, "unicon")) {
-        kind = 1;
-        v1 = BT_VOC_ICN;
-    } else if (!strcasecmp(lang, "raku")) {
-        kind = 2;
-        v1 = BT_VOC_RK;
-        v2 = BT_VOC_RKM;
+    for (ws = off; ws > 0 && k_idc(code[ws - 1]); ws--) { }
+    while (nl < clen && code[nl] != '\n') nl++;
+    if (ws == 2 && off <= nl && code[0] == '%' && code[1] == '%') {
+        for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strncasecmp(k_langs[i].tag, code + ws, off - ws)) k_match(&m, k_langs[i].tag, "magic");
+        for (size_t i = 0; i < sizeof k_disp / sizeof *k_disp; i++) if (k_disp[i].kind != 2 && !strncasecmp(k_disp[i].tag, code + ws, off - ws)) k_match(&m, k_disp[i].tag, "magic");
+    } else if (off > ws) {
+        for (int i = 0; kind >= 0 && i < BT_ROWS && n < 200; i++) {
+            const char *nm = g_builtins[i].name;
+            if ((g_builtins[i].vocab != v1 && g_builtins[i].vocab != v2) || !k_offered(nm, kind) || strncmp(nm, code + ws, off - ws)) continue;
+            k_match(&m, nm, "function");
+            n++;
+        }
+        k_words(&here, code, clen, ws);
+        for (uint32_t i = 0; i < k->words.len; i++) if (!strncmp(CV_AT(k->words, kmatch_t, i).s, code + ws, off - ws)) k_match(&m, CV_AT(k->words, kmatch_t, i).s, "text");
+        for (uint32_t i = 0; i < here.len; i++) if (!strncmp(CV_AT(here, kmatch_t, i).s, code + ws, off - ws)) k_match(&m, CV_AT(here, kmatch_t, i).s, "text");
     }
     jw_raw(&c, "{\"status\":\"ok\",\"matches\":[");
-    for (int i = 0; kind >= 0 && off > ws && i < BT_ROWS && n < 200; i++) {
-        const char *nm = g_builtins[i].name;
-        if ((g_builtins[i].vocab != v1 && g_builtins[i].vocab != v2) || !k_offered(nm, kind) || strncmp(nm, code + ws, off - ws)) continue;
-        if (n && !strcmp(nm, tail)) continue;
-        if (n) jw_raw(&c, ",");
-        jw_str(&c, nm, strlen(nm));
-        snprintf(tail, sizeof tail, "%s", nm);
-        n++;
-    }
-    snprintf(tail, sizeof tail, "],\"cursor_start\":%ld,\"cursor_end\":%ld,\"metadata\":{}}", pos - (long)(off - ws), pos);
+    for (uint32_t i = 0; i < m.len; i++) { if (i) jw_raw(&c, ","); jw_str(&c, CV_AT(m, kmatch_t, i).s, strlen(CV_AT(m, kmatch_t, i).s)); }
+    snprintf(tail, sizeof tail, "],\"cursor_start\":%ld,\"cursor_end\":%ld,\"metadata\":{\"_jupyter_types_experimental\":[", pos - (long)(off - ws), pos);
     jw_raw(&c, tail);
+    for (uint32_t i = 0; i < m.len; i++) {
+        snprintf(tail, sizeof tail, "%s{\"start\":%ld,\"end\":%ld,", i ? "," : "", pos - (long)(off - ws), pos);
+        jw_raw(&c, tail);
+        jw_kv(&c, "text", CV_AT(m, kmatch_t, i).s, 0);
+        jw_kv(&c, "type", CV_AT(m, kmatch_t, i).type, 1);
+        jw_raw(&c, "}");
+    }
+    jw_raw(&c, "]}}");
     k_reply(k, sock, req, cv_cstr(&c));
     ct_drop(c.p);
+    ct_drop(m.p);
+    ct_drop(here.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_inspect(kctx_t *k, void *sock, const kmsg_t *req) {
+    jn_t *cj = jn_get(req->content, "code");
+    const char *code = cj && cj->t == 4 ? cj->s : "", *body = code;
+    size_t clen = cj && cj->t == 4 ? cj->sl : 0, blen = clen, ws, we, off = k_cursor(code, clen, jn_int(req->content, "cursor_pos", 0));
+    const char *lang = k_cell_lang(&body, &blen, 0);
+    int v1, v2, kind = k_vocab(lang, &v1, &v2), row = -1;
+    cv_t c = { 0, 0, 0, 0 }, t = { 0, 0, 0, 0 };
+    for (ws = off; ws > 0 && k_idc(code[ws - 1]); ws--) { }
+    for (we = off; we < clen && k_idc(code[we]); we++) { }
+    for (int i = 0; kind >= 0 && we > ws && row < 0 && i < BT_ROWS; i++) {
+        const char *nm = g_builtins[i].name;
+        if ((g_builtins[i].vocab == v1 || g_builtins[i].vocab == v2) && k_offered(nm, kind) && strlen(nm) == we - ws && !strncmp(nm, code + ws, we - ws)) row = i;
+    }
+    if (row < 0) { k_reply(k, sock, req, "{\"status\":\"ok\",\"found\":false,\"data\":{},\"metadata\":{}}"); return; }
+    jw_raw(&t, g_builtins[row].name);
+    jw_raw(&t, kind == 0 ? ": a builtin of SNOBOL4" : kind == 1 ? ": a builtin of Icon" : g_builtins[row].vocab == BT_VOC_RKM ? ": a builtin method of Raku" : ": a builtin of Raku");
+    if (g_builtins[row].conv == BT_CONV_GEN) jw_raw(&t, ", a generator");
+    if (g_builtins[row].min != BT_UNSTATED) {
+        jw_raw(&t, "\narguments: ");
+        jw_long(&t, g_builtins[row].min);
+        if (g_builtins[row].max == BT_UNSTATED || g_builtins[row].max < g_builtins[row].min) jw_raw(&t, " or more");
+        else if (g_builtins[row].max > g_builtins[row].min) { jw_raw(&t, " to "); jw_long(&t, g_builtins[row].max); }
+    }
+    jw_raw(&c, "{\"status\":\"ok\",\"found\":true,\"data\":{");
+    jw_key(&c, "text/plain", 0);
+    jw_str(&c, (const char *)t.p, t.len);
+    jw_raw(&c, "},\"metadata\":{}}");
+    k_reply(k, sock, req, cv_cstr(&c));
+    ct_drop(c.p);
+    ct_drop(t.p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void k_history(kctx_t *k, void *sock, const kmsg_t *req) {
+    const char *how = jn_str(req->content, "hist_access_type", "tail"), *pat = jn_str(req->content, "pattern", "*");
+    long n = jn_int(req->content, "n", -1), start = jn_int(req->content, "start", 1), stop = jn_int(req->content, "stop", -1), ses = jn_int(req->content, "session", 0);
+    int out = jn_bool(req->content, "output", 0), uniq = jn_bool(req->content, "unique", 0), first = 1;
+    cv_t c = { 0, 0, 0, 0 }, pick = { 0, 0, 0, 0 };
+    for (uint32_t i = 0; i < k->hist.len; i++) {
+        const khist_t *h = &CV_AT(k->hist, khist_t, i);
+        int dup = 0;
+        if (!strcmp(how, "range") && ((ses != 0 && ses != 1) || h->n < start || (stop >= 0 && h->n >= stop))) continue;
+        if (!strcmp(how, "search") && !k_glob(pat, h->code)) continue;
+        for (uint32_t j = i + 1; uniq && !strcmp(how, "search") && !dup && j < k->hist.len; j++) dup = !strcmp(CV_AT(k->hist, khist_t, j).code, h->code);
+        if (!dup) CV_PUSH(pick, uint32_t) = i;
+    }
+    jw_raw(&c, "{\"status\":\"ok\",\"history\":[");
+    for (uint32_t i = strcmp(how, "range") && n >= 0 && (long)pick.len > n ? pick.len - (uint32_t)n : 0; i < pick.len; i++) {
+        const khist_t *h = &CV_AT(k->hist, khist_t, CV_AT(pick, uint32_t, i));
+        jw_raw(&c, first ? "[1," : ",[1,");
+        jw_long(&c, h->n);
+        jw_raw(&c, out ? ",[" : ",");
+        jw_str(&c, h->code, strlen(h->code));
+        jw_raw(&c, out ? ",null]]" : "]");
+        first = 0;
+    }
+    jw_raw(&c, "]}");
+    k_reply(k, sock, req, cv_cstr(&c));
+    ct_drop(c.p);
+    ct_drop(pick.p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_abort_waiting(kctx_t *k, void *sock);
@@ -831,7 +1049,7 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
         const klang_t *L = 0;
         for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcasecmp(k_langs[i].tag, dl && *dl ? dl : "scrip")) L = &k_langs[i];
         if (!L) for (size_t i = 0; i < sizeof k_langs / sizeof *k_langs; i++) if (!strcmp(k_langs[i].tag, "scrip")) L = &k_langs[i];
-        jw_raw(&c, "{\"status\":\"ok\",\"protocol_version\":\"5.3\",\"implementation\":\"SCRIP\",\"implementation_version\":\"0.2\",\"language_info\":{");
+        jw_raw(&c, "{\"status\":\"ok\",\"protocol_version\":\"5.5\",\"implementation\":\"SCRIP\",\"implementation_version\":\"0.2\",\"language_info\":{");
         jw_kv(&c, "name", L->tag, 0);
         jw_kv(&c, "version", "0.2", 1);
         jw_kv(&c, "mimetype", L->mime, 1);
@@ -839,7 +1057,17 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
         jw_kv(&c, "pygments_lexer", L->pygments, 1);
         jw_kv(&c, "codemirror_mode", L->codemirror, 1);
         jw_raw(&c, "},\"banner\":\"SCRIP kernel: SNOBOL4, Snocone, Rebus, Icon, Unicon, Prolog, Pascal, Raku. ");
-        jw_raw(&c, "Tag a cell with metadata scrip.language or a first line %%Prolog.\",\"help_links\":[]}");
+        jw_raw(&c, "Tag a cell with metadata scrip.language or a first line %%Prolog.\",\"debugger\":false,\"supported_features\":[],\"help_links\":[");
+        for (size_t i = 0, n = 0; i < sizeof k_help / sizeof *k_help; i++) {
+            int dup = 0;
+            for (size_t j = 0; j < i; j++) if (!strcmp(k_help[j].url, k_help[i].url)) dup = 1;
+            if (k_help[i].tag[0] && strcmp(L->tag, k_help[i].tag) && (strcmp(L->ext, ".md") || dup)) continue;
+            jw_raw(&c, n++ ? ",{" : "{");
+            jw_kv(&c, "text", k_help[i].text, 0);
+            jw_kv(&c, "url", k_help[i].url, 1);
+            jw_raw(&c, "}");
+        }
+        jw_raw(&c, "]}");
         k_reply(k, sock, req, cv_cstr(&c));
     } else if (!strcmp(t, "is_complete_request")) {
         jn_t *cj = jn_get(req->content, "code");
@@ -848,10 +1076,28 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
         const char *lang = k_cell_lang(&code, &clen, 0);
         k_reply(k, sock, req, k_cell_complete(code, clen, lang) ? "{\"status\":\"complete\"}" : "{\"status\":\"incomplete\",\"indent\":\"\"}");
     } else if (!strcmp(t, "complete_request")) k_complete(k, sock, req);
-    else if (!strcmp(t, "inspect_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"found\":false,\"data\":{},\"metadata\":{}}");
-    else if (!strcmp(t, "history_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"history\":[]}");
+    else if (!strcmp(t, "inspect_request")) k_inspect(k, sock, req);
+    else if (!strcmp(t, "history_request")) k_history(k, sock, req);
     else if (!strcmp(t, "comm_info_request")) k_reply(k, sock, req, "{\"status\":\"ok\",\"comms\":{}}");
-    else if (!strcmp(t, "interrupt_request")) {
+    else if (!strcmp(t, "comm_open")) {
+        jw_raw(&c, "{");
+        jw_kv(&c, "comm_id", jn_str(req->content, "comm_id", ""), 0);
+        jw_raw(&c, ",\"data\":{}}");
+        k_send(k, k->iopub, req, "comm_close", cv_cstr(&c));
+    } else if (!strcmp(t, "connect_request")) {
+        jw_raw(&c, "{\"status\":\"ok\",\"shell_port\":");
+        jw_long(&c, k->p_shell);
+        jw_raw(&c, ",\"iopub_port\":");
+        jw_long(&c, k->p_iopub);
+        jw_raw(&c, ",\"stdin_port\":");
+        jw_long(&c, k->p_stdin);
+        jw_raw(&c, ",\"hb_port\":");
+        jw_long(&c, k->p_hb);
+        jw_raw(&c, ",\"control_port\":");
+        jw_long(&c, k->p_control);
+        jw_raw(&c, "}");
+        k_reply(k, sock, req, cv_cstr(&c));
+    } else if (!strcmp(t, "interrupt_request")) {
         if (k->child > 0) kill(k->child, SIGINT);
         k_reply(k, sock, req, "{\"status\":\"ok\"}");
     } else if (!strcmp(t, "shutdown_request")) {
@@ -867,12 +1113,12 @@ static void k_dispatch(kctx_t *k, void *sock, const kmsg_t *req) {
 static void k_abort_waiting(kctx_t *k, void *sock) {
     zmq_pollitem_t p = { sock, 0, ZMQ_POLLIN, 0 };
     char b[160];
-    while (zmq_poll(&p, 1, 0) > 0 && (p.revents & ZMQ_POLLIN)) {
+    while (k->z.poll(&p, 1, 0) > 0 && (p.revents & ZMQ_POLLIN)) {
         kmsg_t m;
         if (!k_recv(k, sock, &m)) continue;
         if (strcmp(jn_str(m.header, "msg_type", ""), "execute_request")) { k_dispatch(k, sock, &m); continue; }
         k_status(k, &m, "busy");
-        snprintf(b, sizeof b, "{\"status\":\"error\",\"ename\":\"scrip\",\"evalue\":\"aborted\",\"traceback\":[],\"execution_count\":%ld}", k->count);
+        snprintf(b, sizeof b, "{\"status\":\"aborted\",\"execution_count\":%ld}", k->count);
         k_reply(k, sock, &m, b);
         k_status(k, &m, "idle");
     }
@@ -880,25 +1126,27 @@ static void k_abort_waiting(kctx_t *k, void *sock) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void k_control_tick(kctx_t *k) { kmsg_t m; if (k_recv(k, k->control, &m)) k_dispatch(k, k->control, &m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void k_heartbeat(void *hb) {
+static void k_heartbeat(kctx_t *k) {
+    void *hb = k->hb;
     for (;;) {
         zmq_msg_t z;
-        zmq_msg_init(&z);
-        if (zmq_msg_recv(&z, hb, 0) < 0) { zmq_msg_close(&z); return; }
-        int more = zmq_msg_more(&z);
-        zmq_msg_send(&z, hb, more ? ZMQ_SNDMORE : 0);
+        k->z.msg_init(&z);
+        if (k->z.msg_recv(&z, hb, 0) < 0) { k->z.msg_close(&z); return; }
+        int more = k->z.msg_more(&z);
+        k->z.msg_send(&z, hb, more ? ZMQ_SNDMORE : 0);
         if (!more) return;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *k_bind(kctx_t *k, int type, const char *transport, const char *ip, long port) {
-    void *s = zmq_socket(k->ctx, type);
-    int linger = 0;
+    void *s = k->z.socket(k->ctx, type);
+    int linger = 0, verbose = 1;
     size_t n = strlen(transport) + strlen(ip) + 32;
     char *addr = (char *)ct_alloc(n);
-    snprintf(addr, n, "%s://%s:%ld", transport, ip, port);
-    zmq_setsockopt(s, ZMQ_LINGER, &linger, sizeof linger);
-    if (zmq_bind(s, addr)) { fprintf(stderr, "scrip --kernel: cannot bind %s: %s\n", addr, strerror(errno)); _exit(3); }
+    snprintf(addr, n, strcmp(transport, "ipc") ? "%s://%s:%ld" : "%s://%s-%ld", transport, ip, port);
+    k->z.setsockopt(s, ZMQ_LINGER, &linger, sizeof linger);
+    if (type == ZMQ_XPUB) k->z.setsockopt(s, ZMQ_XPUB_VERBOSE, &verbose, sizeof verbose);
+    if (k->z.bind(s, addr)) { fprintf(stderr, "scrip --kernel: cannot bind %s: %s\n", addr, strerror(errno)); _exit(3); }
     ct_drop(addr);
     return s;
 }
@@ -919,28 +1167,41 @@ int scrip_kernel_main(const char *connection_file) {
     k.key = (const unsigned char *)key;
     k.keylen = strlen(key);
     k_uuid(k.session);
-    k.ctx = zmq_ctx_new();
-    k.shell = k_bind(&k, ZMQ_ROUTER, tr, ip, jn_int(cf, "shell_port", 0));
-    k.control = k_bind(&k, ZMQ_ROUTER, tr, ip, jn_int(cf, "control_port", 0));
-    k.stdin_s = k_bind(&k, ZMQ_ROUTER, tr, ip, jn_int(cf, "stdin_port", 0));
-    k.iopub = k_bind(&k, ZMQ_PUB, tr, ip, jn_int(cf, "iopub_port", 0));
-    k.hb = k_bind(&k, ZMQ_REP, tr, ip, jn_int(cf, "hb_port", 0));
+    void *lib = dlopen("libzmq.so.5", RTLD_NOW | RTLD_LOCAL);
+    if (!lib) { fprintf(stderr, "scrip --kernel: cannot load libzmq.so.5, the library the Jupyter wire protocol needs: %s\n", dlerror()); return 3; }
+    for (size_t i = 0; i < sizeof k_zmq_names / sizeof *k_zmq_names; i++) {
+        void *fp = dlsym(lib, k_zmq_names[i]);
+        if (!fp) { fprintf(stderr, "scrip --kernel: libzmq.so.5 has no %s\n", k_zmq_names[i]); return 3; }
+        memcpy((char *)&k.z + i * sizeof fp, &fp, sizeof fp);
+    }
+    k.ctx = k.z.ctx_new();
+    k.p_shell = jn_int(cf, "shell_port", 0);
+    k.p_iopub = jn_int(cf, "iopub_port", 0);
+    k.p_stdin = jn_int(cf, "stdin_port", 0);
+    k.p_hb = jn_int(cf, "hb_port", 0);
+    k.p_control = jn_int(cf, "control_port", 0);
+    k.shell = k_bind(&k, ZMQ_ROUTER, tr, ip, k.p_shell);
+    k.control = k_bind(&k, ZMQ_ROUTER, tr, ip, k.p_control);
+    k.stdin_s = k_bind(&k, ZMQ_ROUTER, tr, ip, k.p_stdin);
+    k.iopub = k_bind(&k, ZMQ_XPUB, tr, ip, k.p_iopub);
+    k.hb = k_bind(&k, ZMQ_REP, tr, ip, k.p_hb);
     signal(SIGPIPE, SIG_IGN);
     k_status(&k, 0, "starting");
     while (!k.quit) {
-        zmq_pollitem_t it[3] = { { k.shell, 0, ZMQ_POLLIN, 0 }, { k.control, 0, ZMQ_POLLIN, 0 }, { k.hb, 0, ZMQ_POLLIN, 0 } };
-        if (zmq_poll(it, 3, -1) < 0) { if (errno == EINTR) continue; break; }
-        if (it[2].revents & ZMQ_POLLIN) k_heartbeat(k.hb);
+        zmq_pollitem_t it[4] = { { k.shell, 0, ZMQ_POLLIN, 0 }, { k.control, 0, ZMQ_POLLIN, 0 }, { k.hb, 0, ZMQ_POLLIN, 0 }, { k.iopub, 0, ZMQ_POLLIN, 0 } };
+        if (k.z.poll(it, 4, -1) < 0) { if (errno == EINTR) continue; break; }
+        if (it[3].revents & ZMQ_POLLIN) k_iopub_tick(&k);
+        if (it[2].revents & ZMQ_POLLIN) k_heartbeat(&k);
         if (it[1].revents & ZMQ_POLLIN) k_control_tick(&k);
         if (it[0].revents & ZMQ_POLLIN) { kmsg_t m; if (k_recv(&k, k.shell, &m)) k_dispatch(&k, k.shell, &m); }
     }
     k_session_end(&k);
-    zmq_close(k.shell);
-    zmq_close(k.control);
-    zmq_close(k.stdin_s);
-    zmq_close(k.iopub);
-    zmq_close(k.hb);
-    zmq_ctx_term(k.ctx);
+    k.z.close(k.shell);
+    k.z.close(k.control);
+    k.z.close(k.stdin_s);
+    k.z.close(k.iopub);
+    k.z.close(k.hb);
+    k.z.ctx_term(k.ctx);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
