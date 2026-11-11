@@ -2738,6 +2738,10 @@ static void rk_rsp_arg_num(DESCR_t a, long long *iv, double *dv, int *isint, con
     if (a.v == DT_BIG) { *big = rk_cstr(a); return; }
     if (IS_INT_fn(a) || a.v == DT_BOOL) { *iv = a.i; *dv = (double) a.i; return; }
     if (IS_REAL_fn(a)) { *isint = 0; *dv = a.r; *iv = (long long) a.r; return; }
+    extern int rk_rat_is(DESCR_t);
+    extern int rk_rat_method(const char *, DESCR_t, DESCR_t *, DESCR_t *);
+    extern int rk_rat_to_real(DESCR_t, double *);
+    if (rk_rat_is(a)) { DESCR_t t; rk_rat_to_real(a, dv); if (rk_rat_method("truncate", a, NULL, &t)) { if (t.v == DT_BIG) { *big = rk_cstr(t); return; } if (t.v == DT_I) { *iv = t.i; return; } } }
     double d;
     int ii;
     if (rk_range_num(a, &d, &ii)) { *dv = d; *iv = (long long) d; *isint = ii; return; }
