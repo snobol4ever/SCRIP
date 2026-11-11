@@ -7043,7 +7043,7 @@ static pval E_scalar_constant(const tree_t *n) {
     if (IS(n, TT_VAR)) {
         v[1].str = tok_s(n);
         {
-            pas_scope_applied(v[1].str);
+            if (n->slen != PAS_UNIT_QUAL_MARK) pas_scope_applied(v[1].str);
             long long cv = 0;
             if (v[1].str && !strcmp(v[1].str, "true")) cv = 1;
             else if (v[1].str && !strcmp(v[1].str, "false")) cv = 0;
@@ -7282,7 +7282,7 @@ static pval E_simple_type(const tree_t *n) {
         v[1].str = tok_s(n);
         if (v[1].str && !strcmp(v[1].str, "ansichar") && !pas_scope_uid("ansichar")) v[1].str = "char";
         {
-            pas_scope_applied(v[1].str);
+            if (n->slen != PAS_UNIT_QUAL_MARK) pas_scope_applied(v[1].str);
             long long _esz;
             if (!pas_sizeof_lookup(v[1].str, &_esz)) _esz = -1;
             g_lower.pas.sem.pas_pend_typename = ct_strdup(v[1].str);
@@ -7927,8 +7927,10 @@ static tree_t *pu_qualify(tree_t *t, const tree_t *units, const tree_t *qfrom, c
         size_t l = strlen(t->c[0]->v.sval) + strlen(t->c[1]->v.sval) + 2;
         char *q = ct_alloc(l);
         snprintf(q, l, "%s.%s", t->c[0]->v.sval, t->c[1]->v.sval);
-        for (int i = 0; i < qfrom->n; i++) if (!strcasecmp(qfrom->c[i]->v.sval, q)) return leaf_s(TT_VAR, qto->c[i]->v.sval);
-        return leaf_s(TT_VAR, t->c[1]->v.sval);
+        tree_t *lf = leaf_s(TT_VAR, t->c[1]->v.sval);
+        for (int i = 0; i < qfrom->n; i++) if (!strcasecmp(qfrom->c[i]->v.sval, q)) { lf->v.sval = qto->c[i]->v.sval; break; }
+        lf->slen = PAS_UNIT_QUAL_MARK;
+        return lf;
     }
     for (int i = 0; i < t->n; i++) t->c[i] = pu_qualify(t->c[i], units, qfrom, qto);
     return t;
