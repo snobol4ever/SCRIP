@@ -3032,6 +3032,7 @@ static int r_variable(RkP *p, int pos) {
             if (d < 0 && twig) { twig = 0; q = pos + 1; d = r_desigilname(p, q); }
             if (d >= 0) e = d;
             if (d >= 0) check_lexical_variable(p, pos, d, twig);
+            if (d >= 0 && twig == '*' && !p->in_decl) note_core_use(p, pos, d - pos);
             if (d >= 0 && twig == '?' && !p->in_decl && !memmem(p->s + pos, (size_t) (d - pos), "::", 2) && !compile_time_var_known(p->s + pos, d - pos))
                 panic_at(p, pos, "Variable '%.*s' is not declared", d - pos, p->s + pos);
             if (d < 0 && !twig) {

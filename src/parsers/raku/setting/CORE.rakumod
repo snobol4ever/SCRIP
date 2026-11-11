@@ -8,3 +8,5 @@ sub sech($x) { 1e0 / cosh($x) }
 sub cosech($x) { 1e0 / sinh($x) }
 sub cotanh($x) { 1e0 / tanh($x) }
 sub lines($what, |c) { $what.lines(|c) }
+class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?? '/' ~ $r !! ($r eq '' ?? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }
+my $*SPEC = IO::Spec::Unix;

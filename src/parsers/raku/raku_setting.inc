@@ -9,7 +9,9 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "sub sech($x) { 1e0 / cosh($x) }\n"
     "sub cosech($x) { 1e0 / sinh($x) }\n"
     "sub cotanh($x) { 1e0 / tanh($x) }\n"
-    "sub lines($what, |c) { $what.lines(|c) }\n";
+    "sub lines($what, |c) { $what.lines(|c) }\n"
+    "class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?\? '/' ~ $r !! ($r eq '' ?\? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }\n"
+    "my $*SPEC = IO::Spec::Unix;\n";
 static const char RK_SETTING_MODULE_1_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"
@@ -598,7 +600,7 @@ static const char RK_SETTING_MODULE_2_SRC[] =
     "    subtest $desc, { plan $plan; $tests() };\n"
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
-    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines " },
+    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines $*SPEC " },
     { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
     { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of " },
     { 0, 0, 0 }
