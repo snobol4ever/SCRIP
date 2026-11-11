@@ -27800,12 +27800,12 @@ pl_pseg_pair_t rt_pl_pseg_next(pl_psched_t *s) {
         }
         b->sched_t = (uint64_t)(uintptr_t)lo_t;
         rt_pl_tr_gc_sync((const char *)(uintptr_t)b->r12);
-        if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * 15 <= hi) {
+        if ((char *)(uintptr_t)b->hdr >= b->orig_lo && (char *)(uintptr_t)b->hdr + 16 * (PL_TBH_CELLS + 5) <= hi) {
             DESCR_t *c = (DESCR_t *)(pl_pseg_bytes(b) + ((char *)(uintptr_t)b->hdr - b->orig_lo));
-            c[12] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
-            *pl_tr_floor_slot(pl_tr_base_of(b->tbase)) = (char *)(uintptr_t)c[11].i;
+            c[PL_TBH_CELLS + 2] = (DESCR_t){ .v = DT_I, .i = (int64_t)(s->entry_rsp + 8) };
+            *pl_tr_floor_slot(pl_tr_base_of(b->tbase)) = (char *)(uintptr_t)c[PL_TBH_CELLS + 1].i;
             {
-                char *ra = (char *)(uintptr_t)c[13].i;
+                char *ra = (char *)(uintptr_t)c[PL_TBH_CELLS + 3].i;
                 if (ra >= b->orig_lo && ra + 24 <= hi) {
                     uint64_t *w = (uint64_t *)(pl_pseg_bytes(b) + (ra - b->orig_lo));
                     w[0] = s->ret_pc;
@@ -27861,9 +27861,12 @@ void * rt_pl_pseg_ball_c(void *root, char *r12) {
 }
 void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
     DESCR_t *h = rt_pl_tbh_current((void *)(uintptr_t)cx->r14);
-    if (nargs != 1 || !h || (int)h[10].v != DT_I || (int)h[11].v != DT_I) { fprintf(stderr, "FATAL rt_pl_pseg_park: no current tabling header with a carve top\n"); * (volatile char *) NULL; }
+    if (nargs != 1 || !h || (int)h[PL_TBH_CELLS].v != DT_I || (int)h[PL_TBH_CELLS + 1].v != DT_I) {
+        fprintf(stderr, "FATAL rt_pl_pseg_park: no current tabling header with a carve top\n");
+        * (volatile char *) NULL;
+    }
     {
-        char *xg = (char *)(uintptr_t)h[10].i, *tbase = (char *)(uintptr_t)h[11].i, *orig_lo = lrbp + 8, *top = cx->tr;
+        char *xg = (char *)(uintptr_t)h[PL_TBH_CELLS].i, *tbase = (char *)(uintptr_t)h[PL_TBH_CELLS + 1].i, *orig_lo = lrbp + 8, *top = cx->tr;
         pl_pseg_t *old = pl_pseg_of(args[0]);
         if (xg <= orig_lo || top < tbase) {
             fprintf(stderr, "FATAL rt_pl_pseg_park: carve top %p at or below the park %p, or trail top %p below the base %p\n", (void *)xg, (void *)orig_lo, (void *)top, (void *)tbase);

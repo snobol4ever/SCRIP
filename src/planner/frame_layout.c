@@ -13,6 +13,7 @@
 #include "ir/stage2.h"
 #include "ir/call_forms.h"
 #include "runtime/rt/pl_trail_layout.h"
+_Static_assert(TABLE_HDR_CELLS == PL_TBH_CELLS + 5, "the table header is its forwarded cells and a tail of five");
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
@@ -2611,7 +2612,7 @@ static int zls_tbl_hdr_q(const IR_graph_t * g, uint64_t * out, int cap, int m, u
     }
     if (at < 0) return m;
     if (m >= cap) return cap + 1;
-    out[m++] = GC_LAY_Q(at + 16 + 16 * 12, GC_LAY_DESCR, 48);
+    out[m++] = GC_LAY_Q(at + 16 + 16 * (TABLE_HDR_CELLS - 3), GC_LAY_DESCR, 48);
     if (flags) *flags |= GC_FRAME_MAP_TBL_HDR;
     return m;
 }
