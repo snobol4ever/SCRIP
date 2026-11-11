@@ -217,7 +217,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> param_type result_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
 %type <node> program_name routine_directives power
-%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw class_parents parent_item spec_gen spec_expr uses_list uses_name
+%type <node> guid_opt class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call type_arg_list spec_ref spec_kw class_parents parent_item spec_gen spec_expr uses_list uses_name
 %start compilation_unit
 %%
 compilation_unit:
@@ -320,6 +320,7 @@ type_decl:
     |GENERICTSY IDENT LTOP id_list GTOP EQOP type SEMICOLON { pascal_note_type_decl($2); $$ = pt_add(pt_decl("gtype", $2, $7), $4); }
     |IDENT LTOP id_list GTOP EQOP type SEMICOLON { pascal_note_type_decl($1); $$ = pt_add(pt_decl("gtype", $1, $6), $3); }
     |IDENT EQOP CLASSSY SEMICOLON { $$ = pt_decl("type", $1, pt_sval(pt_add(pt_new(TT_CLASS_DECL), $3), "forward")); }
+    |IDENT EQOP INTERFACESY SEMICOLON { $$ = pt_decl("type", $1, pt_sval(pt_add(pt_new(TT_CLASS_DECL), pt_new(TT_KEYWORD)), "forward")); }
     |IDENT EQOP CLASSSY LPARENT class_parents RPARENT SEMICOLON { $$ = pt_decl("type", $1, pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $3), pt_retag($5, TT_ARGS)), pt_new(TT_VLIST))); }
     ;
 uses_list:
@@ -377,11 +378,17 @@ type:
     |OBJECTSY LPARENT IDENT RPARENT record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $5), pt_add(pt_new(TT_ARGS), $3)); }
     |CLASSSY class_members ENDSY { $$ = pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), $2); }
     |CLASSSY LPARENT class_parents RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
+    |INTERFACESY guid_opt class_members ENDSY { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), pt_new(TT_KEYWORD)), $2), $3), "interface"); }
+    |INTERFACESY LPARENT class_parents RPARENT guid_opt class_members ENDSY { $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), pt_new(TT_KEYWORD)), pt_retag($3, TT_ARGS)), $5), $6), "interface"); }
     ;
 result_type:
     IDENT { $$ = $1; }
     |IDENT PERIOD IDENT { $$ = $3; }
     |spec_ref { $$ = $1; }
+    ;
+guid_opt:
+    { $$ = NULL; }
+    |LBRACK STRINGCONST RBRACK { $$ = pt_add(pt_sval(pt_new(TT_DECL), "guid"), $2); }
     ;
 class_members:
     { $$ = pt_new(TT_VLIST); }
