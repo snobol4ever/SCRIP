@@ -10,6 +10,16 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "sub cosech($x) { 1e0 / sinh($x) }\n"
     "sub cotanh($x) { 1e0 / tanh($x) }\n"
     "sub lines($what, |c) { $what.lines(|c) }\n"
+    "multi sub keys(\\x) { x.keys }\n"
+    "multi sub values(\\x) { x.values }\n"
+    "multi sub kv(\\x) { x.kv }\n"
+    "multi sub pairs(\\x) { x.pairs }\n"
+    "multi sub elems(\\x) { x.elems }\n"
+    "multi sub end(\\x) { x.end }\n"
+    "multi sub ords(\\x) { x.ords }\n"
+    "multi sub splice(@a) { @a.splice }\n"
+    "multi sub splice(@a, $start) { @a.splice($start) }\n"
+    "multi sub splice(@a, $start, $n, *@new) { @a.splice($start, $n, |@new) }\n"
     "class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?\? '/' ~ $r !! ($r eq '' ?\? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }\n"
     "my $*SPEC = IO::Spec::Unix;\n";
 static const char RK_SETTING_MODULE_1_SRC[] =
@@ -600,7 +610,7 @@ static const char RK_SETTING_MODULE_2_SRC[] =
     "    subtest $desc, { plan $plan; $tests() };\n"
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
-    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines $*SPEC " },
+    { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines keys values kv pairs elems end ords splice $*SPEC " },
     { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
     { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of " },
     { 0, 0, 0 }
