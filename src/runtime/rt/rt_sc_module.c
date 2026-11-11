@@ -175,7 +175,7 @@ __asm__(".globl rt_sc_outer_call\n.type rt_sc_outer_call, @function\n" "rt_sc_ou
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_prelude_so_load(void) {
     const char *ev = getenv("SCRIP_PL_PRELUDE_SO");
-    if (ev && ev[0] == '0' && !ev[1]) return 0;
+    if (!ev || !ev[0] || (ev[0] == '0' && !ev[1])) return 0;
     Dl_info di;
     const char *so = dladdr((void *)rt_sc_module_busy, &di) && di.dli_fname ? di.dli_fname : "";
     const char *sl = strrchr(so, '/');
