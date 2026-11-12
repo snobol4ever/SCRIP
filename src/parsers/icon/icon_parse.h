@@ -13,6 +13,8 @@ typedef struct {
     int         tb_col;
     int         had_error;
     char       *errmsg;
+    int         oracle_line;
+    const char *oracle_tok;
     IcnCrit    *crit;
 } IcnParser;
 void     icn_parse_init(IcnParser *p, IcnLexer *lex);

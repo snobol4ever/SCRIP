@@ -42,6 +42,10 @@ static void parser_error(IcnParser *p, const char *msg) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void parser_oracle_error(IcnParser *p, const char *msg) {
+    if (!p->had_error) { p->had_error = 1; p->errmsg = (char *)msg; p->oracle_line = p->cur.line; p->oracle_tok = icn_tk_name(p->cur.kind); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void case_sep(IcnParser *p);
 static IcnToken advance(IcnParser *p) {
     p->prev_kind = p->cur.kind; p->tb_line = p->cur.line; p->tb_col = p->cur.col;
@@ -198,7 +202,7 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         if (check(p, TK_RPAREN)) { advance(p); return ast_node_new(TT_SEQ_EXPR); }
         tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);
-        if (check(p, TK_SEMICOL)) parser_error(p, "parenthesised expression: a semicolon belongs in a compound expression { }, not in parentheses");
+        if (check(p, TK_SEMICOL)) parser_oracle_error(p, "missing right parenthesis");
         if (check(p, TK_COMMA)) {
             tree_t *seq = ast_node_new(TT_CONJ);
             push_child(seq, first);
