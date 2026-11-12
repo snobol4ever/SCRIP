@@ -16,7 +16,6 @@
 #include "g_runtime_bn.h"
 #include "g_runtime_gc.h"
 #include "g_runtime_abi.h"
-#include "g_runtime_entry.h"
 typedef struct {
     g_abi_t abi;
     g_atoms_t atoms;

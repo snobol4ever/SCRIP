@@ -3,7 +3,6 @@
 #include "runtime/rt/rt_diag.h"
 #include "runtime/core/g_runtime_misc.h"
 #include <stdint.h>
-#include "ir/descr.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

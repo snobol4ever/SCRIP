@@ -1,7 +1,6 @@
 #ifndef RUNTIME_SHIM_H
 #define RUNTIME_SHIM_H
 #include "runtime/rt/rt_arena.h"
-#include "ir/ct_arena.h"
 #include "core.h"
 #include <string.h>
 #include "runtime/core/array.h"

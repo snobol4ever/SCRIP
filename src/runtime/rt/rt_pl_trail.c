@@ -6,6 +6,7 @@
 #include "pl_trail_layout.h"
 #include "rt_pl_trail.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
 #include "rt_slab.h"
 extern void rt_gc_root_range_add_topword(const char *lo);
 extern void rt_gcheap_cap_road(void);

@@ -1,7 +1,6 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef RT_PL_READER_H
 #define RT_PL_READER_H
-#include "runtime/rt/prolog_atom.h"
 #include "ir/ast.h"
 #include <stdio.h>
 typedef struct PlClause PlClause;

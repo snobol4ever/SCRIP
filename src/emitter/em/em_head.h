@@ -17,6 +17,17 @@ extern "C" {
 #include <stdlib.h>
 #include <assert.h>
 #include "emitter/g_emitter.h"
+#include "emitter/bb_label.h"
+#include "ir/dtp.h"
+#include "templates/bb/bb_templates.h"
+#include "driver/scrip_sm.h"
+#include "ir/stage2.h"
+#include "templates/xa/xa_templates.h"
+#include "planner/g_planner.h"
+#include "ir/ir_fwd.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 #include "templates/x86/x86_call.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/rt/pl_trail_layout.h"

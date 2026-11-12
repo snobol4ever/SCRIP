@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 __attribute__((aligned(64))) uint64_t g_rtccb[32];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rtcc_init(void) { if (RTCC_GLOBAL_R9_GVA) g_rtccb[RTCC_SLOT_R9] = (uint64_t)(uintptr_t)(void *)RT_GVA_VA; }

@@ -1,4 +1,8 @@
 #include "const_fold.h"
+#include "ir/ir_graph.h"
+#include "ir/bb_box.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/rt/gc_heap.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"

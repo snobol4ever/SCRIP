@@ -1,11 +1,9 @@
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
 #include "ir/ast.h"
-#include "parsers/snobol4/scrip_cc.h"
 #include "ir/bb_box.h"
 #include "gen.h"
 #include "ir/ir_fwd.h"
-#include "ir/SM.h"
 #include "ir/stage2.h"
 struct GeneratorState;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -34,5 +32,4 @@ const char *cset_union(const char *a, int alen, int ablk, const char *b, int ble
 const char *cset_diff(const char *a, int alen, int ablk, const char *b, int blen, int bblk, int *outlen);
 const char *cset_inter(const char *a, int alen, int ablk, const char *b, int blen, int bblk, int *outlen);
 const char *cset_canonical(const char *cs, int len);
-#include "runtime/keywords.h"
 #endif

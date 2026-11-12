@@ -1,8 +1,8 @@
 #ifndef EMITTER_EMIT_REGIME_H
 #define EMITTER_EMIT_REGIME_H
 #include <stdint.h>
-#include "emitter/emit_state.h"
 #include "ir/bb_box.h"
+#include "emitter/emit_state.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -4,6 +4,11 @@
 #include "runtime/rt/rt.h"
 #include "parsers/prolog/pl_cell.h"
 #include "runtime/prolog_db_blocks.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
+#include "ir/ir_fwd.h"
 #include "runtime/rt/pl_rational.h"
 #define PL_CELL_ALLOC(n) (rt_ws_alloc_descr((size_t)(n) / sizeof(pl_cell_t)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

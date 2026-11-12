@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "runtime/builtins/gen.h"
+#include "ir/ir_fwd.h"
+#include "ir/bb_box.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "ir/descr.h"
+#include "runtime/rt/gc_heap.h"
 #include "ir/ast.h"
 #include "driver/driver.h"
 #include "ir/ct_vec.h"

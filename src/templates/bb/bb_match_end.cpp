@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"
+#include "ir/bb_box.h"
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"

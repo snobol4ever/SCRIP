@@ -10,6 +10,16 @@
 #define ICN_ARITY_UNKNOWN (-99)
 #define CALL_ARGS ((DESCR_t *)g_call_args.p)
 #include "runtime/builtins/gen_runtime.h"
+#include "ir/ct_vec.h"
+#include "ir/ir_fwd.h"
+#include "ir/bb_box.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/SM.h"
+#include "runtime/keywords.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
+#include "runtime/rt/gc_heap.h"
 #include "emitter/sil_macros.h"
 #include "runtime/rt/rt.h"
 #include "ir/gc_frame_map.h"

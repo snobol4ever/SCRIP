@@ -1,8 +1,9 @@
 #ifndef BB_PL_CELL_H
 #define BB_PL_CELL_H
 #include "templates/x86/x86_ops.h"
-#include "templates/x86/x86_jump.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "templates/x86/x86_jump.h"
 #include "runtime/rt/pl_trail_layout.h"
 #include "ir/stage2.h"
 #include "ir/stage2_pl.h"

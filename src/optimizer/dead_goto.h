@@ -2,6 +2,5 @@
 #ifndef DEAD_GOTO_H
 #define DEAD_GOTO_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 int dg_run(IR_graph_t * g);
 #endif

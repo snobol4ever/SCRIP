@@ -24,6 +24,11 @@ _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL,
     "rt_chain_enter/rt_chain_enter_v bound-test r12 against base+67108864 written literally in their asm to tell a LIVE pend top from C's own callee-saved value; if the island resizes the test admit"
     "s or rejects the wrong halves of it");
 #include "ir/stage2.h"
+#include "ir/ct_vec.h"
+#include "ir/ir_fwd.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/core_errjmp.h"
 extern void *rt_wsb_alloc(size_t n);
 extern const char *Σ;

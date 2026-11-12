@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/string_ops.h"
 #include "ir/dtp.h"
 #include "runtime/by_name_dispatch.h"
 #include "ir/rk_opname.h"

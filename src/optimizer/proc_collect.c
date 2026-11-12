@@ -1,4 +1,5 @@
 #include "proc_collect.h"
+#include "ir/ir_graph.h"
 #include "ir/ct_arena.h"
 #include "lower/g_lower.h"
 #include <string.h>

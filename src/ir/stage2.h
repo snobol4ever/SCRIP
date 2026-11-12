@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "bb_program.h"
 #include "ast.h"
-#include "ct_vec.h"
-#include "ir/ir_fwd.h"
 #define STAGE2_LABEL_MAX 4096
 #define STAGE2_PROC_TABLE_MAX 256
 #define STAGE2_PL_PRED_TABLE_SIZE 256

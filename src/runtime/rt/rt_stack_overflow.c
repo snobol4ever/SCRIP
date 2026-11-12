@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
 #include <signal.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
 #include "gc_heap.h"

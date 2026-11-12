@@ -1,7 +1,6 @@
 #ifndef PROLOG_DB_BLOCKS_H
 #define PROLOG_DB_BLOCKS_H
 #include "parsers/prolog/pl_cell.h"
-#include "runtime/rt/rt_pl_trail.h"
 typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int frag; } pl_db_slot_t;
 typedef struct {
     pl_db_slot_t *s;

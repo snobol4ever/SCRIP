@@ -2,6 +2,5 @@
 #ifndef CONST_FOLD_H
 #define CONST_FOLD_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 int cf_run(IR_graph_t * g);
 #endif

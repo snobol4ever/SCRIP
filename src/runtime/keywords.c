@@ -1,5 +1,7 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "ir/descr.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rt_diag.h"
 #include "runtime/core/core.h"

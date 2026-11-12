@@ -76,7 +76,6 @@ void *rt_wsb_realloc(void *p, size_t n);
 void *rt_ws_alloc_raw(size_t nbytes);
 void *rt_rvec_realloc(void *p, size_t nbytes);
 void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n);
-#include "runtime/core/g_runtime_vec.h"
 void gv_reserve(gv_t *v, uint16_t kind, uint32_t esz, uint64_t need, const char *name);
 void *gv_push(gv_t *v, uint16_t kind, uint32_t esz, const char *name);
 void gv_gc_root(gv_t *v);
@@ -86,7 +85,6 @@ void *rt_pvec_alloc(size_t n);
 void *rt_pvec_realloc(void *p, size_t n);
 void *rt_pm_struct_alloc(uint16_t type, size_t n);
 char *rt_str_dup(const char *s);
-#include "runtime/core/g_runtime_abi.h"
 extern rt_sxt_fr_t * const rt_sxt_fr_p;
 #define g_sxt_owner (g_runtime.abi.sxt_fr.owner)
 void rt_sxt_gva_count(int n);

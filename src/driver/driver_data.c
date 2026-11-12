@@ -1,5 +1,12 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/gc_heap.h"
+#include "ir/ir_fwd.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "ir/SM.h"
+#include "runtime/keywords.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 #include <stdio.h>
 #include <string.h>
 #include "runtime/core/core.h"

@@ -2,6 +2,11 @@
 #include "runtime/rt/rt.h"
 #include "runtime/rt/gc_heap.h"
 #include "runtime/builtins/gen.h"
+#include "ir/bb_box.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
+#include "ir/ir_fwd.h"
 #include "runtime/rt/rt_arena.h"
 #include "ir/dtp.h"
 #include <math.h>

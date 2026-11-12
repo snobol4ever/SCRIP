@@ -2,7 +2,6 @@
 #ifndef BRANCH_CHAIN_H
 #define BRANCH_CHAIN_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 #include "ir_index.h"
 #include "ir/ct_vec.h"
 typedef struct { int *gen; int *pos; int cur; cv_t list; } bc_walk_t;

@@ -2,7 +2,6 @@
 #ifndef PROC_COLLECT_H
 #define PROC_COLLECT_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 void proc_collect_reset(void);
 int proc_slot_of(const char *name);
 int proc_collect_add(const char *name);

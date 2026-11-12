@@ -5,6 +5,8 @@
 #include "prolog_lex.h"
 #include "runtime/rt/prolog_atom.h"
 #include "ir/stage2.h"
+#include "ir/ir_fwd.h"
+#include "runtime/core/g_runtime_entry.h"
 #include "ir/stage2_pl.h"
 #include "lower/pl_aggregate_names.h"
 #include <stdio.h>

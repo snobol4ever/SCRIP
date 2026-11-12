@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime_abi.inc"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)

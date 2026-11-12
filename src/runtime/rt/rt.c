@@ -1,6 +1,10 @@
 #define _GNU_SOURCE 1
 #include <errno.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_entry.h"
+#include "runtime/core/g_runtime_vec.h"
+#include "runtime/core/g_runtime_abi.h"
+#include "ir/ir_fwd.h"
 #include "runtime/core/g_runtime_misc.h"
 #include <dlfcn.h>
 #include "ir/ct_arena.h"

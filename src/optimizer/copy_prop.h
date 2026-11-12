@@ -2,6 +2,5 @@
 #ifndef COPY_PROP_H
 #define COPY_PROP_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 int cp_run(IR_graph_t * g);
 #endif

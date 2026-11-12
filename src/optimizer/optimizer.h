@@ -2,6 +2,5 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 void optimizer_run(IR_graph_t *g);
 #endif
