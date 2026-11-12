@@ -1,3 +1,4 @@
+#include "runtime/builtin_table.h"
 const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "++", "bt_x2Bx2B", 2, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "--",
     "bt_x2Dx2D", 3, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "<", "bt_x3C", 4, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "<<", "bt_x3Cx3C", 5, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128,
     -128, 0 }, { "<<=", "bt_x3Cx3Cx3D", 6, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "<=", "bt_x3Cx3D", 7, BT_VOC_SNO, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "=", "bt_x3D", 8, BT_VOC_SNO,

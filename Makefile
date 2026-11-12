@@ -1936,6 +1936,8 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_pascal_types.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
+    $(SRC)/runtime/builtin_table.c \
+    $(SRC)/runtime/builtin_leaf.c \
     $(SRC)/runtime/pas_xr.c \
     $(SRC)/runtime/posix_leaves.c \
     $(SRC)/runtime/posix_info.c \

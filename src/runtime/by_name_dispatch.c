@@ -184,8 +184,7 @@ void rt_call_args_clear_from(int n);
 extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include "runtime/core/utf8.h"
 #include "builtin_ids.h"
-#include "builtin_table.inc"
-#include "builtin_leaf.inc"
+#include "runtime/builtin_leaf.h"
 int icn_builtin_is_leaf_row(const char *name) { int r = name ? bt_row_of(BT_VOC_ICN, name, (unsigned) strlen(name)) : -1; return r >= 0 && g_builtins[r].conv == BT_CONV_LEAF; }
 #include "pattern_match.h"
 #include "runtime/rt/rt.h"
