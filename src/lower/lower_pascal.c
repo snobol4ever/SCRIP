@@ -400,6 +400,20 @@ static int pas_callee_is_func(const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_pd_is_func(const tree_t * pd) { return pd && pd->n > 3 && pd->c[3] && pd->c[3]->t == TT_VAR; }
+static const tree_t * pas_bind_pd(const tree_t * cur, const char * name) {
+    if (!name) return NULL;
+    for (const tree_t * s = cur; s; ) {
+        for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (PAS_PARENT(i) == s && PAS_PROC(i)->v.sval && !strcmp(PAS_PROC(i)->v.sval, name)) return PAS_PROC(i);
+        const tree_t * up = NULL;
+        for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (PAS_PROC(i) == s) { up = PAS_PARENT(i); break; }
+        s = up;
+    }
+    for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (!PAS_PARENT(i) && PAS_PROC(i)->v.sval && !strcmp(PAS_PROC(i)->v.sval, name)) return PAS_PROC(i);
+    return NULL;
+}
+static const char * pas_pd_regname(const tree_t * pd) { for (int i = 0; pd && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].proc == pd) return g_stage2.proc_table[i].name; return NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_display_node(pcx_t * cx, IR_e op, int lvl, IR_t * γ, IR_t * ω) { pas_res_t r = { -1, 1, lvl, "__pas_display" }; return pas_frame_node(cx, op, "__pas_display", &r, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_envcall_wrap(pcx_t * cx, const tree_t * t, IR_t * call, IR_t * γ, IR_t * ω) {
@@ -460,6 +474,9 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     if (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_display_get") && t->n == 2 && t->c[1]) { IR_t * nd = pas_display_node(cx, IR_VAR_FRAME, (int) t->c[1]->v.ival, γ, ω); *res = nd; return nd; }
     int env = (c0 && c0->v.sval && !strcmp(c0->v.sval, "__pas_envcall") && t->n >= 9) ? 8 : 0;
     const tree_t * cn = t->c[env];
+    const tree_t * bpd = cn ? pas_bind_pd(cx->pd, cn->v.sval) : NULL;
+    const char * bn = bpd ? pas_pd_regname(bpd) : NULL;
+    if (!bn) bn = cn ? cn->v.sval : NULL;
     if (c0 && c0->v.sval && !strcmp(c0->v.sval, "arr_make")) {
         IR_t * nd = build(cx, IR_CALL, γ, ω);
         IR_LIT(nd).sval = "arr_make";
@@ -467,7 +484,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         *res = nd;
         return e;
     }
-    uint64_t brm = pas_callee_byref_mask(cn ? cn->v.sval : NULL);
+    uint64_t brm = pas_callee_byref_mask(bn);
     if (brm && cn && cn->v.sval) {
         for (int i = env + 1; i < t->n; i++) {
             const tree_t * a = t->c[i];
@@ -570,9 +587,9 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             return lower(cx, seq, γ, ω, res);
         }
     }
-    int rtl = pas_callee_is_user_proc(cn ? cn->v.sval : NULL);
+    int rtl = pas_callee_is_user_proc(bn);
     IR_t * rdv = NULL, * rasg = NULL;
-    if ((rtl || env) && cx->unw && pas_callee_is_func(cn ? cn->v.sval : NULL)) {
+    if ((rtl || env) && cx->unw && (bpd ? pas_pd_is_func(bpd) : pas_callee_is_func(cn ? cn->v.sval : NULL))) {
         rdv = lower_var(cx, "__pas_crv", γ, ω);
         rasg = lower_assign_var(cx, "__pas_crv", pas_nlg_check(cx, rdv, ω), ω);
         γ = rasg;
@@ -580,7 +597,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     IR_t * nd = build(cx, IR_CALL, γ, ω);
     IR_t * tgt = env ? pas_envcall_wrap(cx, t, nd, γ, ω) : nd;
     IR_t * e = pas_call_args_brm_dir(cx, nd, tgt, brm, (const tree_t * const *) (t->n > env + 1 ? &t->c[env + 1] : NULL), (t->n > env) ? t->n - env - 1 : 0, ω, rtl);
-    IR_LIT(nd).sval = (cn && cn->v.sval) ? pas_builtin_alias(cn->v.sval, (t->n > env) ? t->n - env - 1 : 0) : NULL;
+    IR_LIT(nd).sval = (cn && cn->v.sval) ? pas_builtin_alias(bn, (t->n > env) ? t->n - env - 1 : 0) : NULL;
     if (rasg) ir_operand_push(rasg, nd);
     *res = rdv ? rdv : nd;
     return e;
@@ -1484,18 +1501,22 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
     }
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
+        if (!proc || proc->t != TT_PROC_DECL || g_stage2.proc_table[pi].bb_idx >= 0) continue;
+        for (int pj = 0; pj < pi; pj++) if (g_stage2.proc_table[pj].name && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pj].name, g_stage2.proc_table[pi].name)) {
+            size_t _dl = strlen(g_stage2.proc_table[pi].name) + 24;
+            char *_dn = (char *)ct_zalloc(_dl, 1);
+            snprintf(_dn, _dl, "%s$dup%d", g_stage2.proc_table[pi].name, pi);
+            g_stage2.proc_table[pi].name = _dn;
+            break;
+        }
+    }
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_PROC_DECL) continue;
         if (g_stage2.proc_table[pi].bb_idx >= 0) continue;
         int bb_idx = lower_pascal_body(prog, proc);
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
-            for (int pj = 0; pj < pi; pj++) if (g_stage2.proc_table[pj].name && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pj].name, g_stage2.proc_table[pi].name)) {
-                size_t _dl = strlen(g_stage2.proc_table[pi].name) + 24;
-                char *_dn = (char *)ct_zalloc(_dl, 1);
-                snprintf(_dn, _dl, "%s$dup%d", g_stage2.proc_table[pi].name, pi);
-                g_stage2.proc_table[pi].name = _dn;
-                break;
-            }
             g_stage2.bbp.table[bb_idx]->decl_level = (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) ? 0 : proc_decl_level(proc);
             g_stage2.bbp.table[bb_idx]->l3_ancestor_name = pas_l3_ancestor_name(proc, g_stage2.bbp.table[bb_idx]->decl_level);
             g_stage2.bbp.table[bb_idx]->caller_frame = 1;
