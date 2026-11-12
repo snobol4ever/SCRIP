@@ -206,11 +206,6 @@ _Static_assert(BID_LAST < BID_TABSZ,
     "a builtin id at or past BID_TABSZ reads outside g_bn_direct: rtx_misc.s indexes that BID_TABSZ-row table by the baked id masked BID_BAKE_MASK, so the id space must stay below BID_TABSZ -- grow "
     "BID_TABSZ, a power of two, with the new BID_LAST");
 #endif
-#ifdef __cplusplus
-static_assert(BT_BID_MAX < BID_TABSZ, "a builtin id at or past BID_TABSZ reads outside g_bn_direct: grow BID_TABSZ, a power of two, past BT_BID_MAX");
-#else
-_Static_assert(BT_BID_MAX < BID_TABSZ, "a builtin id at or past BID_TABSZ reads outside g_bn_direct: grow BID_TABSZ, a power of two, past BT_BID_MAX");
-#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bid_of(const char *s, unsigned len) { return bt_bid_legacy(s, len); }
 #endif

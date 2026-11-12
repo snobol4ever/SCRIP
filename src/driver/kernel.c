@@ -18,6 +18,7 @@
 #include "driver/zmq_abi.h"
 #include "driver/kernel.h"
 #include "runtime/builtin_table.h"
+#include "runtime/builtin_table_n.h"
 typedef struct { uint32_t h[8]; uint64_t len; unsigned char buf[64]; uint32_t n; } sha256_t;
 typedef struct jn { int t; const char *s; uint32_t sl; double num; cv_t kids; cv_t keys; } jn_t;
 typedef struct { const char *p; uint32_t n; } kpart_t;

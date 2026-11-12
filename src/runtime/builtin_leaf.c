@@ -1,4 +1,5 @@
 #include "runtime/builtin_leaf.h"
+#include "runtime/builtin_table_n.h"
 __attribute__((visibility("hidden"))) const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_x2Ax2A, bt_x2Bx2B, bt_x2Dx2D, bt_x3C, bt_x3Cx3C, bt_x3Cx3Cx3D, bt_x3Cx3D, bt_x3D, bt_x3Dx3D, bt_x3Dx3Dx3D, bt_x3E,
     bt_x3Ex3D, bt_x3Ex3E, bt_x3Ex3Ex3D, 0, 0, bt_ASGN, bt_CODE, 0, bt_DATA, bt_DATATYPE, 0, 0, 0, 0, bt_FAIL, bt_FIELD_GET, bt_FIELD_SET, bt_ICN_CASE_EQ, bt_ICN_NULL, bt_ICN_SCAN_POP,
     bt_ICN_SCAN_PUSH, bt_ICN_SWAP_TOP2, 0, bt_IDENTICAL, 0, bt_ITEM, 0, bt_MAKELIST, bt_NONNULL, bt_OPSYN, 0, bt_RECORD_MAKE, bt_RECORD_REGISTER, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_SNOx24NRET, 0, 0, 0, 0,
