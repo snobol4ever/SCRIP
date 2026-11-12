@@ -28306,7 +28306,7 @@ extern int rt_pl_db_match_erase(void *, void *, void *);
 DESCR_t rt_pl_dop_db_retractall_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); rt_pl_db_match_erase(root, db, (void *)&args[1]); return pl_ok(); }
+    { extern void rt_pl_db_define(void *); void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); rt_pl_db_define(db); rt_pl_db_match_erase(root, db, (void *)&args[1]); return pl_ok(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_killed(void *);
@@ -28951,13 +28951,25 @@ DESCR_t rt_pl_dop_db_retractall_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
     rt_pl_db_unqual_term((void *)&args[0]);
-    { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return pl_ok(); rt_pl_db_match_erase(root, db, (void *)&args[0]); return pl_ok(); }
+    {
+        extern void rt_pl_db_define(void *);
+        void *db = pl_db_of_term(&args[0], root, 1);
+        if (!db) return pl_ok();
+        rt_pl_db_define(db);
+        rt_pl_db_match_erase(root, db, (void *)&args[0]);
+        return pl_ok();
+    }
 }
 void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
     extern void *rt_pl_ball_existence(DESCR_t *, int);
     if (nargs != 2) return (void *)0;
     pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); if (!db || !rt_pl_db_killed(db)) return (void *)0; return rt_pl_ball_existence(&args[1], 1); }
+    extern int rt_pl_db_born_undef(void *, void *, const char *);
+    {
+        void *db = pl_db_cell_of(args, root);
+        if (!db || (rt_pl_db_killed(db) != 1 && !rt_pl_db_born_undef(root, db, pl_atom_str(rt_pl_deref_val(args[1]))))) return (void *)0;
+        return rt_pl_ball_existence(&args[1], 1);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_zguard_cold_c(DESCR_t *args, int nargs) {

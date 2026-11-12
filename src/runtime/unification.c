@@ -4350,7 +4350,7 @@ void * rt_pl_db_get(void *root, int64_t k) {
             if (!d) return (void *)0;
             d->cap = 8;
             d->n = 0;
-            d->killed = 0;
+            d->killed = 2;
             d->next_ref = 1;
             d->head_idx = -1;
             d->tail_idx = -1;
@@ -6247,3 +6247,20 @@ int rt_pl_db_match_erase(void *root, void *db_v, void *goal_term) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_killed(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->killed : 0; }
+void rt_pl_db_define(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; if (db && db->killed == 2) db->killed = 0; }
+int rt_pl_db_born_undef(void *root, void *db_v, const char *pi) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || db->killed != 2 || !pi || pi[0] == '$') return 0;
+    {
+        const char *sl = strrchr(pi, '/');
+        if (!sl) return 0;
+        {
+            size_t nl = (size_t)(sl - pi);
+            char nm[nl + 1];
+            memcpy(nm, pi, nl);
+            nm[nl] = 0;
+            PL_DB_KEY_VLA(key, nm, atol(sl + 1));
+            { pl_db_reg_t *r = pl_db_registry(root, 0); pl_db_key_t *e = r ? pl_db_reg_find(r, key) : (pl_db_key_t *)0; return !(e && e->decl); }
+        }
+    }
+}
