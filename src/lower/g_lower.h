@@ -47,6 +47,8 @@ typedef struct {
     } pas_scope;
     int pas_iso_errors;
     int pas_seen_mode_directive;
+    const char **pas_undef;
+    int pas_nundef;
     int pas_ptrcell;
     int pas_addr_int;
     int pas_ioquiet;

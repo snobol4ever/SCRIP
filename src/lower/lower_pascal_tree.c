@@ -3044,6 +3044,54 @@ static tree_t *pas_result_check(const char *fname, tree_t *body) {
     ast_push(body, bin(TT_IF, bin(TT_EQ, mk_fnc1("__pas_resundef", leaf_s(TT_VAR, fname)), ilit(1)), chain));
     return body;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_src_mentions(const tree_t *t, const char *v) {
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcasecmp(t->v.sval, v)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_src_mentions(t->c[i], v)) return 1;
+    return 0;
+}
+static int pas_src_assigns(const tree_t *t, const char *v) {
+    if (!t) return 0;
+    if (t->t == TT_ASSIGN && t->n >= 1 && pas_src_mentions(t->c[0], v)) return 1;
+    if (t->t == TT_FOR && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcasecmp(t->c[0]->v.sval, v)) return 1;
+    if (t->t == TT_WITH && t->n > 1) for (int i = 0; i + 1 < t->n; i++) if (pas_src_mentions(t->c[i], v)) return 1;
+    if (t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && strcasecmp(t->c[0]->v.sval, "write") && strcasecmp(t->c[0]->v.sval, "writeln")) for (int i = 1; i < t->n; i++)
+        if (pas_src_mentions(t->c[i], v)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_src_assigns(t->c[i], v)) return 1;
+    return 0;
+}
+static int pas_src_vlist_count(const tree_t *t, const char *v) {
+    int c = 0;
+    if (!t) return 0;
+    if (t->t == TT_VLIST) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_VAR && t->c[i]->v.sval && !strcasecmp(t->c[i]->v.sval, v)) c++;
+    for (int i = 0; i < t->n; i++) c += pas_src_vlist_count(t->c[i], v);
+    return c;
+}
+static void pas_undef_vars_scan(const tree_t *flat) {
+    if (g_lower.pas.sem.pas_seen_mode_directive || !flat) return;
+    for (int b = 0; b < flat->n; b++) {
+        const tree_t *blk = flat->c[b];
+        if (!blk || blk->t != TT_BLOCK) continue;
+        for (int pi = 0; pi < blk->n; pi++) {
+            const tree_t *pt = blk->c[pi];
+            if (!pt || pt->t != TT_PART || !pt->v.sval || strcmp(pt->v.sval, "var")) continue;
+            for (int di = 0; di < pt->n; di++) {
+                const tree_t *d = pt->c[di], *ids = d && d->n > 1 ? d->c[0] : NULL, *ty = d && d->n > 1 ? d->c[1] : NULL;
+                if (!ids || ids->t != TT_VLIST || !ty || ty->t != TT_VAR || !ty->v.sval) continue;
+                if (strcasecmp(ty->v.sval, "integer") && strcasecmp(ty->v.sval, "real") && strcasecmp(ty->v.sval, "boolean") && strcasecmp(ty->v.sval, "char")) continue;
+                for (int k = 0; k < ids->n; k++) {
+                    const char *nm = ids->c[k] && ids->c[k]->t == TT_VAR ? ids->c[k]->v.sval : NULL;
+                    if (!nm || pas_src_vlist_count(flat, nm) != 1 || pas_src_assigns(flat, nm)) continue;
+                    g_lower.pas.sem.pas_undef = (const char **)ct_grow(g_lower.pas.sem.pas_undef, (size_t)(g_lower.pas.sem.pas_nundef + 1) * sizeof(const char *));
+                    g_lower.pas.sem.pas_undef[g_lower.pas.sem.pas_nundef++] = nm;
+                }
+            }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pas_undef_var(const char *name) { for (int i = 0; name && i < g_lower.pas.sem.pas_nundef; i++) if (!strcasecmp(g_lower.pas.sem.pas_undef[i], name)) return 1; return 0; }
 static int pas_actual_is_tagfield(tree_t *a) {
     for (int i = g_lower.pas.sem.pas_nvt - 1; a && i >= 0; i--)
         if ((g_lower.pas.sem.pas_vt[i]->state == 7 || g_lower.pas.sem.pas_vt[i]->state == 5 || g_lower.pas.sem.pas_vt[i]->state == 8) && g_lower.pas.sem.pas_vt[i]->node == a) return 1;
@@ -8556,6 +8604,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_ptrcell = pas_takes_address(flat, flat);
     g_lower.pas.sem.pas_ioquiet = 0;
     pas_var_inits(flat);
+    pas_undef_vars_scan(flat);
     pty_run(flat, g_lower.pas.sem.pas_dialect_fpc);
     if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
     tree_t *root = E_program(flat).node;

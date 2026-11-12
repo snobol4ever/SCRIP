@@ -8,6 +8,7 @@
 #include "ir/stage2.h"
 #include "ir/ast.h"
 #include "lower/lower_pascal.h"
+#include "lower/lower_pascal_tree.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "ir/ir_graph.h"
@@ -140,6 +141,20 @@ static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, I
         cx->inchk++;
         rd = lower_var_r(cx, name, γ, ω, res);
         IR_t * ce = lower(cx, ck, rd, ω, NULL);
+        cx->inchk--;
+        return ce ? ce : rd;
+    }
+    if (!cx->inchk && pas_undef_var(name)) {
+        char * msg = (char *) ct_zalloc(strlen(name) + 60, 1);
+        snprintf(msg, strlen(name) + 60, "the variable '%s' is undefined at the time of its use", name);
+        tree_t * er = ast_node_new(TT_FNC);
+        ast_push(er, pas_lc_leaf(TT_VAR, "__pas_rterr"));
+        ast_push(er, pas_lc_leaf(TT_QLIT, "6.7.1"));
+        ast_push(er, pas_lc_leaf(TT_QLIT, msg));
+        IR_t * rd = NULL;
+        cx->inchk++;
+        rd = lower_var_r(cx, name, γ, ω, res);
+        IR_t * ce = lower(cx, er, rd, ω, NULL);
         cx->inchk--;
         return ce ? ce : rd;
     }
