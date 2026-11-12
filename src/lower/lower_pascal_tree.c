@@ -4337,7 +4337,7 @@ static void pas_formal_strtypes(const char *sig, PNodeList *params) {
         tree_t *id = params->items[i];
         if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 1);
-        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t) || pas_wrap_sbits_of_type(t) || pas_is_u64_typename(t))) pas_scalarvartype_add(id->v.sval, t);
+        if (t) pas_scalarvartype_add(id->v.sval, t);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

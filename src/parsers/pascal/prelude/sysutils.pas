@@ -81,6 +81,7 @@ type
     function ToString: string;
   end;
 function IntToStr(n: integer): string;
+function IntToStr(n: int64): string;
 function IntToStr(n: qword): string;
 function StrToInt(s: string): integer;
 function UpperCase(s: string): string;
@@ -331,6 +332,19 @@ begin
   ToString := FText
 end;
 function IntToStr(n: integer): string;
+var r: string; neg: boolean;
+begin
+  setlength(r, 0);
+  neg := n < 0;
+  if neg then n := -n;
+  repeat
+    r := chr(ord('0') + n mod 10) + r;
+    n := n div 10
+  until n = 0;
+  if neg then r := '-' + r;
+  IntToStr := r
+end;
+function IntToStr(n: int64): string;
 var r: string; neg: boolean;
 begin
   setlength(r, 0);
