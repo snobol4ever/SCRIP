@@ -2193,7 +2193,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = as;
                 return e;
             }
-            if (nm && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(2); }
+            if (nm && !g_lower.rk.eval_road && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(2); }
             return lower_rcall(cx, t, nm, 1, γ, ω, res);
         }
         case TT_STMT:
@@ -7965,7 +7965,9 @@ const char * lower_raku_eval_stage2(const tree_t * prog) {
         else { rk_wrap_bodies(st); ast_push(sd, rk_ph_of(u) ? (tree_t *) u : i == lastb ? rk_tail_return((tree_t *) u) : st); }
     }
     ast_push(p2, sd);
+    g_lower.rk.eval_road = 1;
     rk_stage2_core(p2, 0, 0);
+    g_lower.rk.eval_road = 0;
     lower_raku_eval_reads_are_globals(pc0);
     return nm;
 }
