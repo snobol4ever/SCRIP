@@ -190,7 +190,14 @@ int rt_pl_db_cand_last(void *db_v, int i, void *target, int g) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n) return 1;
     int64_t k = db->ix ? pl_ix_target_key(db, target) : 0;
-    for (int j = pl_db_cand_step(db, i, k); j >= 0; j = pl_db_cand_step(db, j, k)) if (db->s[j].ref < g && (db->s[j].erased == 0 || db->s[j].erased >= g)) return 0;
+    pl_cell_t *th = pl_db_target_head(db, target);
+    int na = th ? plc_fid_arity(th->slen) : 0, bj[na > 0 ? na : 1], nb;
+    pl_cell_t bv[na > 0 ? na : 1];
+    nb = pl_db_target_bound(th, bj, bv);
+    for (int j = pl_db_cand_step(db, i, k); j >= 0; j = pl_db_cand_step(db, j, k)) {
+        if (db->s[j].ref >= g || (db->s[j].erased != 0 && db->s[j].erased < g)) continue;
+        if (!nb || !pl_db_cand_rejects(db, j, th->slen, bj, bv, nb)) return 0;
+    }
     return 1;
 }
 int rt_pl_db_data_unify(void *db_v, int i, void *target, pl_tr_ctx_t *cx) {
