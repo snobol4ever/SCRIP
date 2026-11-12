@@ -294,6 +294,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt.c \
     $(RT)/rt/rt_sc_module.c \
     $(RT)/rt/gc_heap.c \
+    $(RT)/rt/gc_alloc_lookup.c \
     $(RT)/rt/gc_slot_table.c \
     $(RT)/rt/gc_audit_b.c \
     $(RT)/rt/rt_protected.c \

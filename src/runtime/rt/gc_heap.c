@@ -599,13 +599,8 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define GC_RET_VOID 0
-#define GC_RET_DESCR 1
-#define GC_RET_OTHER 2
-#define GC_RET_UNKNOWN 3
-#include "templates/x86/gc_allocating_table.inc"
-typedef struct { rt_emitted_regs_t r; uint64_t callee; int hit; } rt_uw_caller_t;
-static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a) {
+#include "runtime/rt/gc_uw_caller.h"
+_Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a) {
     extern void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
     rt_uw_caller_t *u = (rt_uw_caller_t *)a;
     uint64_t ip = (uint64_t)_Unwind_GetIP(c);
@@ -642,17 +637,6 @@ static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type) {
 void rt_gcheap_cap_road(void) { g_runtime.gc.hp_cap_road = 1; }
 void rt_gcheap_cap_raised(void) { if (g_runtime.gc.hp_cap_due == 1 || g_runtime.gc.hp_cap_due == 3) g_runtime.gc.hp_cap_due = 2; g_gc_pending = 1; }
 int rt_gcheap_cap_refused(void) { if (!g_runtime.gc.hp_cap_road) return 0; g_runtime.gc.hp_cap_due = 3; g_gc_pending = 1; return 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r) {
-    extern int rtx_entry_is(const char *sym);
-    rt_uw_caller_t u;
-    Dl_info di;
-    memset(&u, 0, sizeof u);
-    _Unwind_Backtrace(rt_uw_caller_step, &u);
-    if (!u.hit || !u.callee || !dladdr((void *)(uintptr_t)u.callee, &di) || !di.dli_sname || rtx_entry_is(di.dli_sname)) return 0;
-    for (int i = 0; i < GC_ALLOC_TAB_N; i++) if (!strcmp(GC_ALLOC_TAB[i].n, di.dli_sname)) { if (GC_ALLOC_TAB[i].rc != GC_RET_DESCR) return 0; *r = u.r; return 1; }
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *c_rt_str_alloc(long n) {
 #if RT_DIAG
