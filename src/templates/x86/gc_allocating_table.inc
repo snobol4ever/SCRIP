@@ -2394,6 +2394,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_db_assert", GC_RET_OTHER },
     { "rt_pl_db_assert_ref", GC_RET_OTHER },
     { "rt_pl_db_bind", GC_RET_OTHER },
+    { "rt_pl_db_born_undef", GC_RET_OTHER },
     { "rt_pl_db_cell_for", GC_RET_OTHER },
     { "rt_pl_db_cells_base", GC_RET_OTHER },
     { "rt_pl_db_clause_as_of", GC_RET_OTHER },
