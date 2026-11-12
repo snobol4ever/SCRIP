@@ -1,6 +1,7 @@
 #ifndef BUILTIN_LEAF_H
 #define BUILTIN_LEAF_H
 #include "ir/descr.h"
+#include "runtime/builtin_table.h"
 typedef DESCR_t (*bt_leaf_t)(DESCR_t * args, int nargs);
 extern DESCR_t bt_x2Ax2A(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_x2Bx2B(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
