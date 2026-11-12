@@ -323,7 +323,7 @@ RT_PIC_SRCS := \
     $(SRC)/ir/bb_pool.c \
     $(SRC)/ir/ct_arena.c \
     $(sort $(wildcard $(SRC)/emitter/em/em_*.cpp)) \
-    $(SRC)/planner/zeta_plan.cpp \
+    $(sort $(wildcard $(SRC)/planner/zeta_plan/zp_*.cpp)) \
     $(SRC)/planner/act_words.cpp \
     $(SRC)/planner/plan_facts.cpp \
     $(SRC)/planner/planner_report.cpp \
@@ -519,15 +519,15 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_common.c \
     $(SRC)/lower/lower_call_forms.c \
     $(SRC)/lower/tree_to_sno.c \
-    $(SRC)/lower/lower_icon.c \
+    $(sort $(wildcard $(SRC)/lower/lower_icon/lic_*.c)) \
     $(SRC)/lower/lower_icon_class.c \
-    $(SRC)/lower/lower_snobol4.c \
+    $(sort $(wildcard $(SRC)/lower/lower_snobol4/lsn_*.c)) \
     $(SRC)/lower/lower_snocone.c \
-    $(SRC)/lower/lower_prolog.c \
+    $(sort $(wildcard $(SRC)/lower/lower_prolog/lpl_*.c)) \
     $(SRC)/lower/lower_prolog_chr.c \
-    $(SRC)/lower/lower_raku.c \
+    $(sort $(wildcard $(SRC)/lower/lower_raku/lrk_*.c)) \
     $(SRC)/lower/lower_pascal.c \
-    $(SRC)/lower/lower_pascal_tree.c \
+    $(sort $(wildcard $(SRC)/lower/lower_pascal_tree/lpt_*.c)) \
     $(SRC)/lower/lower_pascal_class.c \
     $(SRC)/lower/lower_pascal_generics.c \
     $(SRC)/lower/lower_pascal_types.c \
@@ -543,7 +543,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/unicon_leaves.c \
     $(SRC)/runtime/rt_dir_snapshot.c \
     $(SRC)/runtime/icn_extfn.c \
-    $(SRC)/runtime/unification.c \
+    $(sort $(wildcard $(SRC)/runtime/unification/un_*.c)) \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/ir/scrip_ir.c \
     $(SRC)/planner/frame_layout.c \
@@ -579,8 +579,8 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/snocone/snocone_parse.tab.c \
     $(SRC)/parsers/snocone/snocone_driver.c \
     $(SRC)/parsers/raku/raku_driver.c \
-    $(SRC)/parsers/raku/rk_syntax.c \
-    $(SRC)/parsers/raku/rk_tree.c \
+    $(sort $(wildcard $(SRC)/parsers/raku/rk_syntax/rks_*.c)) \
+    $(sort $(wildcard $(SRC)/parsers/raku/rk_tree/rkt_*.c)) \
     $(SRC)/parsers/raku/rk_regex.c \
     $(SRC)/parsers/rebus/rebus.tab.c \
     $(SRC)/parsers/rebus/lex.rebus.c \
