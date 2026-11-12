@@ -786,6 +786,7 @@ static const tree_t * rk_catch_handler(const tree_t * c) {
 static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
 static void rk_arm_body(tree_t * seq, int from);
 static int rk_block_has_arm(const tree_t * t);
+static int rk_empty_body(const tree_t * t) { return !t || ((t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && t->n == 0); }
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** last_res) {
     if (t && (t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && t->slen != 78) {
         const tree_t * ct = rk_catch_of(t);
@@ -2214,7 +2215,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
             rk_loopfr_t lf;
             rk_loop_open(cx, &lf, γ, LOOP);
-            IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
+            IR_t * bentry = (t->n > 1 && !rk_empty_body(t->c[1])) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
             rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
             bb_src_note(centry, "rk_while_cond", 0);
@@ -2245,7 +2246,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * LOOP = build(cx, IR_GOTO, NULL, ω);
             rk_loopfr_t lf;
             rk_loop_open(cx, &lf, γ, LOOP);
-            IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
+            IR_t * bentry = (t->n > 1 && !rk_empty_body(t->c[1])) ? lower_rblock(cx, t->c[1], LOOP, ω, NULL) : LOOP;
             rk_loop_close(cx, &lf, bentry);
             IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
             bb_src_note(centry, "rk_until_cond", 0);
