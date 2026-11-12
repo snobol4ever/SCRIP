@@ -1935,7 +1935,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_pascal_generics.c \
     $(SRC)/lower/lower_pascal_types.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
-    $(SRC)/runtime/by_name_dispatch.c \
+    $(sort $(wildcard $(SRC)/runtime/lib/bn_*.c)) \
     $(SRC)/runtime/builtin_table.c \
     $(SRC)/runtime/builtin_leaf.c \
     $(SRC)/runtime/pas_xr.c \
