@@ -269,7 +269,25 @@ return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86_rsp_load64("rdx", 40)
          + x86("add", "rsp", (long)48));
 }
+static std::string x86_rt_gc_poll_rec_res_scan_regs(int reg) {
+return x86_gc_gate(x86_poll_open(32, reg)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + x86_rsp_store32(4, "r15d")
+         + x86_rsp_store64(8, "r13")
+         + x86_rsp_store64(16, "rax")
+         + x86_rsp_store64(24, "rdx")
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)2)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
+         + x86_rsp_load64("r13", 8)
+         + x86_rsp_load64("rax", 16)
+         + x86_rsp_load64("rdx", 24)
+         + x86_poll_close(32, reg));
+}
 std::string x86_rt_gc_poll_rec_res(int reg) {
+if (x86_scan_regs_graph()) return x86_rt_gc_poll_rec_res_scan_regs(reg);
 return x86_gc_gate(x86_poll_open(32, reg)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
