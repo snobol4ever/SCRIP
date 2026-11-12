@@ -3219,7 +3219,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$cc_unit_loop'(S,U):-read_term(S,T,[]),(T==end_of_file->true;expand_term(T,X),'$load_items'(X,U,'$cc_text'-0),'$cc_unit_loop'(S,U)).\n"
     "'$cc_consult'(T,M,_):-(M==user->T2=T;format(atom(T2),':- ''$set_source_module''(~q).~n~w~n:- ''$set_source_module''(user).~n',[M,T])),"
         "open_string(T2,S),catch('$consult_loop'(S,'$cc_text',Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
-    "consult(F):-'$consult_path'(F,P),absolute_file_name(P,A),open(P,read,S),catch('$consult_loop'(S,A,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
+    "consult(F):-'$consult_path'(F,P),absolute_file_name(P,A),'$db_unload_file'(A),open(P,read,S),catch('$consult_loop'(S,A,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
     "clause_property(R,_):-var(R),!,throw(error(instantiation_error,context(clause_property/2,_))).\n"
     "clause_property(R,P):-'$clprop'(R,P).\n"
     "'$clprop'(R,file(F)):-'$db_clause_src'(R,F,_).\n"
