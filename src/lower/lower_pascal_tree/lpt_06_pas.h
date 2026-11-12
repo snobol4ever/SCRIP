@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_06_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_06_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 #include "lower/lower_pascal_types.h"
 __attribute__((visibility("hidden"))) void pas_formal_subranges(const char *sig, PNodeList *params);
 __attribute__((visibility("hidden"))) void pas_formal_tfiles(const char *sig, PNodeList *params);

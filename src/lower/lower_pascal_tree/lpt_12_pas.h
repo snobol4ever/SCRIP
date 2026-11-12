@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_12_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_12_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 __attribute__((visibility("hidden"))) PNodeList *pas_defaults_extend(const char *routine, PNodeList *args);
 __attribute__((visibility("hidden"))) tree_t *pas_default_get(const char *routine, int idx);
 __attribute__((visibility("hidden"))) long long pas_decl_part_order(long long prev, long long cur);

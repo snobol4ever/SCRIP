@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_08_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_08_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 __attribute__((visibility("hidden"))) int pas_is_currencyexpr(tree_t *e);
 __attribute__((visibility("hidden"))) int pas_pchar_castname(tree_t *e);
 __attribute__((visibility("hidden"))) int pas_proc_param_is_var(const char *name, int idx);

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_04_SH_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_04_SH_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 __attribute__((visibility("hidden"))) void pas_scope_define(const char *name);
 __attribute__((visibility("hidden"))) int pas_scope_uid(const char *name);
 __attribute__((visibility("hidden"))) void pas_scope_define_list(PNodeList *ids);

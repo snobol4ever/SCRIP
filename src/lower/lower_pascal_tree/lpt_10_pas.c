@@ -1,4 +1,5 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
 #include "ir/ast.h"
@@ -38,7 +39,7 @@ tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
         if (P->k == PTK_UNKNOWN || e->k == PTK_UNKNOWN || (P->name && e->name && !strcmp(P->name, e->name))) return addr;
         fprintf(stderr, "pascal: a pointer to %s cannot view the storage of %s: only flat ordinal storage takes a pointer of another width (ARCH-PASCAL-REDESIGN R5 amended (5))\n",
             pty_name_of(P) ? pty_name_of(P) : pty_kind_name(P->k), pty_name_of(e) ? pty_name_of(e) : pty_kind_name(e->k));
-        g_lower.pas.sem.pas_iso_errors++;
+        g_lower_pas.sem.pas_iso_errors++;
         return rhs;
     }
     if (w == W && ek == pk) return addr;
@@ -113,7 +114,7 @@ void pas_forin_types(tree_t *root, tree_t *t, tree_t *blk) {
         ast_push(t, body);
     } else if (blk && pas_var_of_type(root, coll->v.sval, "tstringlist")) {
         char nm[32];
-        snprintf(nm, sizeof nm, "__pas_fi_%d", ++g_lower.pas.sem.pas_catmp_seq);
+        snprintf(nm, sizeof nm, "__pas_fi_%d", ++g_lower_pas.sem.pas_catmp_seq);
         char *iv = ct_strdup(nm);
         pas_add_hidden_var(blk, iv);
         tree_t *cnt = ast_node_new(TT_FIELD), *hi = ast_node_new(TT_SUB), *ix = ast_node_new(TT_IDX), *seq = ast_node_new(TT_SEQ_EXPR), *as = ast_node_new(TT_ASSIGN);

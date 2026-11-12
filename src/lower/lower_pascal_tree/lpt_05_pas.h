@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_05_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_05_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 __attribute__((visibility("hidden"))) int pas_trace_enabled(void);
 __attribute__((visibility("hidden"))) PNodeList *pnl_new(void);
 __attribute__((visibility("hidden"))) void pnl_push(PNodeList *l, tree_t *e);

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_HEAD_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_HEAD_H
 #include "lower/g_lower.h"
+#include "lower/g_lower_pas.h"
 #define IS(x, k) ((x) && (x)->t == (k))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { char *c; int n, cap, sp, depth; PNodeList *lv; } pas_xrf_t;

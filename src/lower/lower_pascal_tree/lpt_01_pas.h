@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_01_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_01_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 __attribute__((visibility("hidden"))) void *pas_pool_grow(void *p, int *cap, size_t esz, int init);
 __attribute__((visibility("hidden"))) const PasFwd *pas_scope_fwd_of(const char *name, PNodeList *params);
 __attribute__((visibility("hidden"))) const char *pas_ptrvar_target(const char *v);

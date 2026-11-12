@@ -1,4 +1,5 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
 #include "ir/ast.h"
@@ -124,7 +125,7 @@ tree_t *pas_crt_route(tree_t *t) {
     return mk_fnc1("crt.crtwrite", t);
 }
 static tree_t *pas_mod(tree_t *a, tree_t *b) {
-    if (g_lower.pas.sem.pas_dialect_fpc) return bin(TT_MOD, a, b);
+    if (g_lower_pas.sem.pas_dialect_fpc) return bin(TT_MOD, a, b);
     tree_t *b1 = b;
     if (!b || b->t != TT_ILIT || b->v.ival <= 0) { b1 = pas_ord_check(b, 1, 9223372036854775807LL, "i mod j with j zero or negative"); ast_push(b1, leaf_s(TT_QLIT, "6.7.2.2")); }
     return bin(TT_MOD, bin(TT_ADD, bin(TT_MOD, a, b1), pas_tree_clone(b)), pas_tree_clone(b));
@@ -146,7 +147,7 @@ static int pas_fixed_arr_bounds(const char *name, long long *lo, long long *hi) 
 }
 int pas_tfcomp_nonchar(const char *n) {
     if (!n) return 0;
-    for (int i = g_lower.pas.sem.pas_ntfcomp - 1; i >= 0; i--) if (g_lower.pas.sem.pas_tfcomp[i].name && !strcmp(g_lower.pas.sem.pas_tfcomp[i].name, n)) return !g_lower.pas.sem.pas_tfcomp[i].ischar;
+    for (int i = g_lower_pas.sem.pas_ntfcomp - 1; i >= 0; i--) if (g_lower_pas.sem.pas_tfcomp[i].name && !strcmp(g_lower_pas.sem.pas_tfcomp[i].name, n)) return !g_lower_pas.sem.pas_tfcomp[i].ischar;
     return 0;
 }
 tree_t *mk_chr_wrap(tree_t *e) { tree_t *r = ast_node_new(TT_FNC); ast_push(r, leaf_s(TT_VAR, "__pas_chr")); ast_push(r, e); return r; }
@@ -156,7 +157,7 @@ tree_t *pas_pf_callthrough(const char *name, PNodeList *args) {
     int na = args ? args->count / 2 : 0, nf = pas_pf_nactuals(d->sig);
     if (na != nf) {
         fprintf(stderr, "pascal: ISO 7185 %s violation: '%s' is activated with the wrong number of actual-parameters for its heading %s\n", d->sig[0] == 'F' ? "6.7.3" : "6.8.2.3", name, d->sig);
-        g_lower.pas.sem.pas_iso_errors++;
+        g_lower_pas.sem.pas_iso_errors++;
     }
     tree_t *e = mk_fnc1("__pas_pcall", leaf_s(TT_VAR, name));
     ast_push(e, leaf_s(TT_QLIT, d->sig));
@@ -186,7 +187,7 @@ tree_t *pas_pf_field_assign(const tree_t *n) {
         rhs = c->items[0];
         for (int k = 1; k <= 3 && !fr; k++) if (c->items[2 * k]->t != TT_ILIT) {
             fprintf(stderr, "pascal: the procedural field '%s' holds a routine id alone: a nested routine or a method cannot be assigned to it\n", fn);
-            g_lower.pas.sem.pas_iso_errors++;
+            g_lower_pas.sem.pas_iso_errors++;
             break;
         }
     }
@@ -194,7 +195,7 @@ tree_t *pas_pf_field_assign(const tree_t *n) {
 }
 tree_t *pas_tm_call(const char *name) {
     char b[40];
-    snprintf(b, sizeof b, "__pas_vptmp_tm%d", g_lower.pas.sem.pas_scope.npf++);
+    snprintf(b, sizeof b, "__pas_vptmp_tm%d", g_lower_pas.sem.pas_scope.npf++);
     const char *pp = ct_strdup(b);
     tree_t *code = mk_fnc1("arr_get", leaf_s(TT_VAR, name));
     ast_push(code, ilit(0));
@@ -349,8 +350,8 @@ pval E_expression_raw(const tree_t *n) {
     if (IS(n, TT_CHRLIT)) { v[1].ival = tok_i(n); { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit(v[1].ival)); out.node = _cl; } return out; }
     if (IS(n, TT_NOT)) { v[2] = E_expression(n->c[0]); { out.node = pas_is_signed_intexpr(v[2].node) ? bin(TT_SUB, ilit(-1), v[2].node) : pas_flip_rel(lpt_pas_cond(v[2].node)); } return out; }
     if (IS(n, TT_ADDR)) {
-        int _ai = g_lower.pas.sem.pas_addr_int;
-        g_lower.pas.sem.pas_addr_int = 0;
+        int _ai = g_lower_pas.sem.pas_addr_int;
+        g_lower_pas.sem.pas_addr_int = 0;
         v[2] = E_expression(n->c[0]);
         { out.node = _ai ? pas_addr_of_proc(v[2].node) : pas_addr_of(v[2].node); }
         return out;
@@ -372,7 +373,7 @@ pval E_for_statement(const tree_t *n) {
         pas_scope_require(x);
         tree_t *coll = v[4].node, *pre = NULL, *lo = NULL, *hi = NULL, *elem = NULL;
         char *iv = (char *)ct_zalloc(32, 1);
-        snprintf(iv, 32, "__pas_catmp_%d", ++g_lower.pas.sem.pas_catmp_seq);
+        snprintf(iv, 32, "__pas_catmp_%d", ++g_lower_pas.sem.pas_catmp_seq);
         pas_local_add(iv);
         long long ah;
         if (pas_is_setexpr(coll)) {
@@ -391,7 +392,7 @@ pval E_for_statement(const tree_t *n) {
             tree_t *base = coll;
             if (!(coll->t == TT_VAR && coll->v.sval)) {
                 char *cv = (char *)ct_zalloc(32, 1);
-                snprintf(cv, 32, "__pas_catmp_%d", ++g_lower.pas.sem.pas_catmp_seq);
+                snprintf(cv, 32, "__pas_catmp_%d", ++g_lower_pas.sem.pas_catmp_seq);
                 pas_local_add(cv);
                 pre = bin(TT_ASSIGN, leaf_s(TT_VAR, cv), coll);
                 base = leaf_s(TT_VAR, cv);
@@ -440,7 +441,7 @@ pval E_for_statement(const tree_t *n) {
             pas_value_compat(v[2].str, v[6].node, "6.8.3.9", "the control-variable");
             if (pas_var_is_real(v[2].str)) {
                 fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", v[2].str);
-                g_lower.pas.sem.pas_iso_errors++;
+                g_lower_pas.sem.pas_iso_errors++;
             }
             pas_for_const_bounds(v[2].str, v[4].node, v[6].node, 0);
             tree_t *e = ast_node_new(TT_FOR);
@@ -448,7 +449,7 @@ pval E_for_statement(const tree_t *n) {
             ast_push(e, v[4].node);
             ast_push(e, v[6].node);
             ast_push(e, pas_trace_wrap_for_body(v[2].str, v[8].node));
-            if (!g_lower.pas.sem.pas_seen_mode_directive) e->v.ival |= 2;
+            if (!g_lower_pas.sem.pas_seen_mode_directive) e->v.ival |= 2;
             out.node = pas_for_once(e);
         }
         return out;
@@ -464,7 +465,7 @@ pval E_for_statement(const tree_t *n) {
             pas_value_compat(v[2].str, v[6].node, "6.8.3.9", "the control-variable");
             if (pas_var_is_real(v[2].str)) {
                 fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", v[2].str);
-                g_lower.pas.sem.pas_iso_errors++;
+                g_lower_pas.sem.pas_iso_errors++;
             }
             pas_for_const_bounds(v[2].str, v[4].node, v[6].node, 1);
             tree_t *e = ast_node_new(TT_FOR);
@@ -473,7 +474,7 @@ pval E_for_statement(const tree_t *n) {
             ast_push(e, v[6].node);
             ast_push(e, pas_trace_wrap_for_body(v[2].str, v[8].node));
             e->v.ival = 1;
-            if (!g_lower.pas.sem.pas_seen_mode_directive) e->v.ival |= 2;
+            if (!g_lower_pas.sem.pas_seen_mode_directive) e->v.ival |= 2;
             out.node = pas_for_once(e);
         }
         return out;
@@ -610,9 +611,9 @@ static void pu_prune_routines(tree_t *nb, tree_t *ur) {
     tree_t *cand = ast_node_new(TT_VLIST), *refs = ast_node_new(TT_VLIST), *keep = ast_node_new(TT_VLIST);
     for (int i = 0; i < ur->n; i++) { const char *nm = pu_routine_name(ur->c[i]); if (nm && !strstr(nm, "__pc_")) ast_push(cand, ur->c[i]); }
     for (int i = 0; i < nb->n; i++) if (!pu_listed(cand, nb->c[i])) pu_idents(nb->c[i], refs);
-    if (g_lower.pas.sem.pas_ioflow) { pu_add(refs, leaf_s(TT_VAR, "__sh_iocheck")); pu_add(refs, leaf_s(TT_VAR, "__sh_iochecke")); }
-    if (g_lower.pas.sem.pas_divchk) { pu_add(refs, leaf_s(TT_VAR, "__sh_divchk")); pu_add(refs, leaf_s(TT_VAR, "__sh_rdiv")); }
-    if (g_lower.pas.sem.pas_crt_out) pu_add(refs, leaf_s(TT_VAR, "crt.crtwrite"));
+    if (g_lower_pas.sem.pas_ioflow) { pu_add(refs, leaf_s(TT_VAR, "__sh_iocheck")); pu_add(refs, leaf_s(TT_VAR, "__sh_iochecke")); }
+    if (g_lower_pas.sem.pas_divchk) { pu_add(refs, leaf_s(TT_VAR, "__sh_divchk")); pu_add(refs, leaf_s(TT_VAR, "__sh_rdiv")); }
+    if (g_lower_pas.sem.pas_crt_out) pu_add(refs, leaf_s(TT_VAR, "crt.crtwrite"));
     if (pu_has(refs, "min") || pu_has(refs, "max")) { pu_add(refs, leaf_s(TT_VAR, "fpcmindouble")); pu_add(refs, leaf_s(TT_VAR, "fpcmaxdouble")); }
     for (int grew = 1; grew;) {
         grew = 0;
@@ -642,7 +643,7 @@ tree_t *pas_flatten_units(tree_t *prog) {
     tree_t *unames = ast_node_new(TT_VLIST), *qfrom = ast_node_new(TT_VLIST), *qto = ast_node_new(TT_VLIST), *pnames = ast_node_new(TT_VLIST);
     tree_t *pubs = ast_node_new(TT_VLIST), *seen = ast_node_new(TT_VLIST), *conf = ast_node_new(TT_VLIST);
     for (int k = 0; k < nu; k++) pu_add(unames, forest->c[k]->c[0]);
-    for (int k = 0; k < nu; k++) if (forest->c[k]->c[0]->v.sval && !strcasecmp(forest->c[k]->c[0]->v.sval, "crt")) g_lower.pas.sem.pas_crt_out = 1;
+    for (int k = 0; k < nu; k++) if (forest->c[k]->c[0]->v.sval && !strcasecmp(forest->c[k]->c[0]->v.sval, "crt")) g_lower_pas.sem.pas_crt_out = 1;
     pu_part_names(block, pnames);
     for (int k = 0; k < nu; k++) {
         tree_t *pub = ast_node_new(TT_VLIST);

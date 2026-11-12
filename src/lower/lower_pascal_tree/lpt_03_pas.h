@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_03_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_03_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 #include "ir/ast.h"
 #include "lower/lower_pascal_types.h"
 __attribute__((visibility("hidden"))) const pty_t *pas_art(const char *a);

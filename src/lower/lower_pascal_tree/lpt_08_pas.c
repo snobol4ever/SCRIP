@@ -1,4 +1,5 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
 #include <stdlib.h>
@@ -31,7 +32,7 @@ int pas_has_user_call(const tree_t *x) {
 }
 int pas_is_func(const char *name) {
     if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nfunc; i++) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) return 1;
+    for (int i = 0; i < g_lower_pas.sem.pas_nfunc; i++) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) return 1;
     return 0;
 }
 tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clause) {
@@ -42,7 +43,7 @@ tree_t *pas_range_wrap(tree_t *val, long long lo, long long hi, const char *clau
     ast_push(e, ilit(hi));
     int isset = clause && !strcmp(clause, "set");
     const char *cl = isset ? "6.8.2.2" : clause;
-    if (g_lower.pas.sem.pas_range_check_on == 2 && cl) ast_push(e, leaf_s(TT_QLIT, cl));
+    if (g_lower_pas.sem.pas_range_check_on == 2 && cl) ast_push(e, leaf_s(TT_QLIT, cl));
     else if (isset) ast_push(e, leaf_s(TT_QLIT, ""));
     if (isset) ast_push(e, leaf_s(TT_QLIT, "set"));
     return e;
@@ -73,13 +74,13 @@ tree_t *pas_addr_of_proc(tree_t *e) {
 }
 void pas_proc_add(const char *name) {
     if (name) {
-        if (g_lower.pas.sem.pas_nproc >= g_lower.pas.sem.pas_procs_cap) g_lower.pas.sem.pas_procs =
-            pas_pool_grow(g_lower.pas.sem.pas_procs, &g_lower.pas.sem.pas_procs_cap, sizeof *g_lower.pas.sem.pas_procs, 16);
-        g_lower.pas.sem.pas_procs[g_lower.pas.sem.pas_nproc].name = ct_strdup(name);
-        g_lower.pas.sem.pas_procs[g_lower.pas.sem.pas_nproc].nvp = 0;
-        g_lower.pas.sem.pas_procs[g_lower.pas.sem.pas_nproc].nrp = 0;
-        g_lower.pas.sem.pas_procs[g_lower.pas.sem.pas_nproc].nsp = 0;
-        g_lower.pas.sem.pas_nproc++;
+        if (g_lower_pas.sem.pas_nproc >= g_lower_pas.sem.pas_procs_cap) g_lower_pas.sem.pas_procs =
+            pas_pool_grow(g_lower_pas.sem.pas_procs, &g_lower_pas.sem.pas_procs_cap, sizeof *g_lower_pas.sem.pas_procs, 16);
+        g_lower_pas.sem.pas_procs[g_lower_pas.sem.pas_nproc].name = ct_strdup(name);
+        g_lower_pas.sem.pas_procs[g_lower_pas.sem.pas_nproc].nvp = 0;
+        g_lower_pas.sem.pas_procs[g_lower_pas.sem.pas_nproc].nrp = 0;
+        g_lower_pas.sem.pas_procs[g_lower_pas.sem.pas_nproc].nsp = 0;
+        g_lower_pas.sem.pas_nproc++;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -119,16 +120,16 @@ static int pas_strparam_scan(PNodeList *params, int *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_proc_vparams(const char *name, PNodeList *params) {
     if (!name || !params) return;
-    for (int i = g_lower.pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) {
-        g_lower.pas.sem.pas_procs[i].nvp = pas_vparam_scan(params, g_lower.pas.sem.pas_procs[i].vp);
-        g_lower.pas.sem.pas_procs[i].nrp = pas_realparam_scan(params, g_lower.pas.sem.pas_procs[i].rp);
-        g_lower.pas.sem.pas_procs[i].nsp = pas_strparam_scan(params, g_lower.pas.sem.pas_procs[i].sp);
+    for (int i = g_lower_pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) {
+        g_lower_pas.sem.pas_procs[i].nvp = pas_vparam_scan(params, g_lower_pas.sem.pas_procs[i].vp);
+        g_lower_pas.sem.pas_procs[i].nrp = pas_realparam_scan(params, g_lower_pas.sem.pas_procs[i].rp);
+        g_lower_pas.sem.pas_procs[i].nsp = pas_strparam_scan(params, g_lower_pas.sem.pas_procs[i].sp);
         return;
     }
-    for (int i = g_lower.pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) {
-        g_lower.pas.sem.pas_funcs[i].nvp = pas_vparam_scan(params, g_lower.pas.sem.pas_funcs[i].vp);
-        g_lower.pas.sem.pas_funcs[i].nrp = pas_realparam_scan(params, g_lower.pas.sem.pas_funcs[i].rp);
-        g_lower.pas.sem.pas_funcs[i].nsp = pas_strparam_scan(params, g_lower.pas.sem.pas_funcs[i].sp);
+    for (int i = g_lower_pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) {
+        g_lower_pas.sem.pas_funcs[i].nvp = pas_vparam_scan(params, g_lower_pas.sem.pas_funcs[i].vp);
+        g_lower_pas.sem.pas_funcs[i].nrp = pas_realparam_scan(params, g_lower_pas.sem.pas_funcs[i].rp);
+        g_lower_pas.sem.pas_funcs[i].nsp = pas_strparam_scan(params, g_lower_pas.sem.pas_funcs[i].sp);
         return;
     }
 }
@@ -138,7 +139,7 @@ void pas_required_needs_params(const char *name) {
     const char *cl[] = { "6.6.5.2", "6.6.5.2", "6.6.5.2", "6.6.5.2", "6.6.5.3", "6.6.5.3", "6.6.5.4", "6.6.5.4", "6.9.1", "6.9.3" };
     for (size_t i = 0; name && i < sizeof nm / sizeof nm[0]; i++) if (!strcmp(name, nm[i])) {
         fprintf(stderr, "pascal: ISO 7185 %s violation: the required procedure '%s' is activated with no actual-parameters, and its activation takes at least one\n", cl[i], name);
-        g_lower.pas.sem.pas_iso_errors++;
+        g_lower_pas.sem.pas_iso_errors++;
         return;
     }
 }
@@ -151,57 +152,57 @@ void pas_call_arity(const char *name, PNodeList *args) {
     for (int i = 1; args && i < args->count; i += 2) if (!args->items[i] || args->items[i]->t != TT_ILIT || args->items[i]->v.ival != -1) return;
     int argc = args ? args->count / 2 : 0, nent = 0, formals = -1;
     const char *clause = NULL;
-    for (int i = 0; i < g_lower.pas.sem.pas_nproc; i++) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) {
-        if (g_lower.pas.sem.pas_procs[i].nvp >= 16 || g_lower.pas.sem.pas_procs[i].nvp == argc) return;
+    for (int i = 0; i < g_lower_pas.sem.pas_nproc; i++) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) {
+        if (g_lower_pas.sem.pas_procs[i].nvp >= 16 || g_lower_pas.sem.pas_procs[i].nvp == argc) return;
         nent++;
-        formals = g_lower.pas.sem.pas_procs[i].nvp;
+        formals = g_lower_pas.sem.pas_procs[i].nvp;
         clause = "6.8.2.3";
     }
-    for (int i = 0; i < g_lower.pas.sem.pas_nfunc; i++) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) {
-        if (g_lower.pas.sem.pas_funcs[i].nvp >= 16 || g_lower.pas.sem.pas_funcs[i].nvp == argc) return;
+    for (int i = 0; i < g_lower_pas.sem.pas_nfunc; i++) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) {
+        if (g_lower_pas.sem.pas_funcs[i].nvp >= 16 || g_lower_pas.sem.pas_funcs[i].nvp == argc) return;
         nent++;
-        formals = g_lower.pas.sem.pas_funcs[i].nvp;
+        formals = g_lower_pas.sem.pas_funcs[i].nvp;
         clause = "6.7.3";
     }
     if (!nent) return;
     fprintf(stderr, "pascal: ISO 7185 %s violation: '%s' is activated with %d actual-parameter(s), and the number of actual-parameters shall equal the number of its formal-parameters (%d)\n", clause,
         name, argc, formals);
-    g_lower.pas.sem.pas_iso_errors++;
+    g_lower_pas.sem.pas_iso_errors++;
 }
 int pas_proc_param_is_var(const char *name, int idx) {
     if (!name || idx < 0 || idx >= 16) return 0;
-    for (int i = g_lower.pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) return (idx < g_lower.pas.sem.pas_procs[i].nvp)
-        ? g_lower.pas.sem.pas_procs[i].vp[idx] : 0;
-    for (int i = g_lower.pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) return (idx < g_lower.pas.sem.pas_funcs[i].nvp)
-        ? g_lower.pas.sem.pas_funcs[i].vp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) return (idx < g_lower_pas.sem.pas_procs[i].nvp)
+        ? g_lower_pas.sem.pas_procs[i].vp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) return (idx < g_lower_pas.sem.pas_funcs[i].nvp)
+        ? g_lower_pas.sem.pas_funcs[i].vp[idx] : 0;
     return 0;
 }
 int pas_proc_param_is_string(const char *name, int idx) {
     if (!name || idx < 0 || idx >= 16) return 0;
-    for (int i = g_lower.pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) return (idx < g_lower.pas.sem.pas_procs[i].nsp)
-        ? g_lower.pas.sem.pas_procs[i].sp[idx] : 0;
-    for (int i = g_lower.pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) return (idx < g_lower.pas.sem.pas_funcs[i].nsp)
-        ? g_lower.pas.sem.pas_funcs[i].sp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) return (idx < g_lower_pas.sem.pas_procs[i].nsp)
+        ? g_lower_pas.sem.pas_procs[i].sp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) return (idx < g_lower_pas.sem.pas_funcs[i].nsp)
+        ? g_lower_pas.sem.pas_funcs[i].sp[idx] : 0;
     return 0;
 }
 int pas_proc_param_is_real(const char *name, int idx) {
     if (!name || idx < 0 || idx >= 16) return 0;
-    for (int i = g_lower.pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) return (idx < g_lower.pas.sem.pas_procs[i].nrp)
-        ? g_lower.pas.sem.pas_procs[i].rp[idx] : 0;
-    for (int i = g_lower.pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower.pas.sem.pas_funcs[i].name && !strcmp(g_lower.pas.sem.pas_funcs[i].name, name)) return (idx < g_lower.pas.sem.pas_funcs[i].nrp)
-        ? g_lower.pas.sem.pas_funcs[i].rp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nproc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) return (idx < g_lower_pas.sem.pas_procs[i].nrp)
+        ? g_lower_pas.sem.pas_procs[i].rp[idx] : 0;
+    for (int i = g_lower_pas.sem.pas_nfunc - 1; i >= 0; i--) if (g_lower_pas.sem.pas_funcs[i].name && !strcmp(g_lower_pas.sem.pas_funcs[i].name, name)) return (idx < g_lower_pas.sem.pas_funcs[i].nrp)
+        ? g_lower_pas.sem.pas_funcs[i].rp[idx] : 0;
     return 0;
 }
 int pas_is_proc(const char *name) {
     if (!name) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_nproc; i++) if (g_lower.pas.sem.pas_procs[i].name && !strcmp(g_lower.pas.sem.pas_procs[i].name, name)) return 1;
+    for (int i = 0; i < g_lower_pas.sem.pas_nproc; i++) if (g_lower_pas.sem.pas_procs[i].name && !strcmp(g_lower_pas.sem.pas_procs[i].name, name)) return 1;
     return 0;
 }
 static int pas_is_currencyvar(const char *name) {
     int u = pas_scope_uid(name);
-    for (int i = g_lower.pas.sem.pas_nscalarvartype - 1; name && i >= 0; i--)
-        if (g_lower.pas.sem.pas_scalarvartype[i].vname && g_lower.pas.sem.pas_scalarvartype[i].uid == u && !strcmp(g_lower.pas.sem.pas_scalarvartype[i].vname, name))
-        return !strcmp(g_lower.pas.sem.pas_scalarvartype[i].tname, "currency");
+    for (int i = g_lower_pas.sem.pas_nscalarvartype - 1; name && i >= 0; i--)
+        if (g_lower_pas.sem.pas_scalarvartype[i].vname && g_lower_pas.sem.pas_scalarvartype[i].uid == u && !strcmp(g_lower_pas.sem.pas_scalarvartype[i].vname, name))
+        return !strcmp(g_lower_pas.sem.pas_scalarvartype[i].tname, "currency");
     return 0;
 }
 int pas_is_currencyexpr(tree_t *e) {
@@ -221,10 +222,10 @@ void pas_ordinal_fn_arg(const char *name, PNodeList *args) {
         is_chr ? "integer-type" : "an ordinal-type");
     else fprintf(stderr, "pascal: ISO 7185 6.6.6.4 violation: the argument of %s is the variable '%s' of type real, and %s requires an expression of %s\n", name, a->v.sval, name,
         is_chr ? "integer-type" : "an ordinal-type");
-    g_lower.pas.sem.pas_iso_errors++;
+    g_lower_pas.sem.pas_iso_errors++;
 }
 void pas_string_assign_check(const char *vn, tree_t *rhs) {
-    if (g_lower.pas.sem.pas_seen_mode_directive || !vn || !pas_is_chararr(vn)) return;
+    if (g_lower_pas.sem.pas_seen_mode_directive || !vn || !pas_is_chararr(vn)) return;
     char k = pas_expr_lit_class(rhs);
     int i = pas_chararr_row(vn);
     if (i < 0 || (k != 'c' && k != 's')) return;
@@ -232,20 +233,20 @@ void pas_string_assign_check(const char *vn, tree_t *rhs) {
         fprintf(stderr,
             "pascal: ISO 7185 6.8.2.2 violation: the variable '%s' is an array and is given a char value, which is not assignment-compatible with it; a character-string of one character is of the ch"
             "ar-type (6.1.7, 6.4.6)\n", vn);
-        g_lower.pas.sem.pas_iso_errors++;
+        g_lower_pas.sem.pas_iso_errors++;
         return;
     }
     long long len = (long long)strlen(rhs->v.sval);
-    if (g_lower.pas.sem.pas_chararrs[i].nostr) {
+    if (g_lower_pas.sem.pas_chararrs[i].nostr) {
         fprintf(stderr,
             "pascal: ISO 7185 6.4.3.2 violation: the variable '%s' is given a character-string of %lld characters but is not of a string-type, which is a packed array [1..n] of char with n > 1; a ch"
             "aracter-string is assignment-compatible only with a string-type (6.4.6, 6.8.2.2)\n", vn, len);
-        g_lower.pas.sem.pas_iso_errors++;
-    } else if (g_lower.pas.sem.pas_chararrs[i].n >= 0 && len != g_lower.pas.sem.pas_chararrs[i].n) {
+        g_lower_pas.sem.pas_iso_errors++;
+    } else if (g_lower_pas.sem.pas_chararrs[i].n >= 0 && len != g_lower_pas.sem.pas_chararrs[i].n) {
         fprintf(stderr,
             "pascal: ISO 7185 6.4.6 violation: the variable '%s' is a string-type of %lld components and is given a character-string of %lld characters; assignment-compatible string-types have the s"
-            "ame number of components (6.8.2.2)\n", vn, g_lower.pas.sem.pas_chararrs[i].n, len);
-        g_lower.pas.sem.pas_iso_errors++;
+            "ame number of components (6.8.2.2)\n", vn, g_lower_pas.sem.pas_chararrs[i].n, len);
+        g_lower_pas.sem.pas_iso_errors++;
     }
 }
 static int pas_boolfam_width(const char *tn0) {
@@ -269,7 +270,7 @@ int pas_pchar_castname(tree_t *e) {
     return !strcmp(f, "pchar") || !strcmp(f, "pwidechar") || !strcmp(f, "pansichar");
 }
 tree_t *pas_pchar_assign(tree_t *sel, tree_t *rhs) {
-    if (!g_lower.pas.sem.pas_ptrcell || !sel || !rhs) return NULL;
+    if (!g_lower_pas.sem.pas_ptrcell || !sel || !rhs) return NULL;
     const pty_t *lt = pty_of_low(sel), *rt = pty_of_low(rhs);
     if (lt && pty_is_pchar(lt)) { tree_t *_se = pas_pchar_of_strelem(rhs); if (_se) return mk_assign(sel, _se); }
     if (lt && pty_is_pchar(lt) && rt && (rt->k == PTK_STRING || rt->k == PTK_ARRAY)) return mk_assign(sel, mk_fnc1("__pas_pchar_of", rhs));

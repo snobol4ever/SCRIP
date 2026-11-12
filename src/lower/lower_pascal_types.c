@@ -8,6 +8,7 @@
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
 #include "g_lower.h"
+#include "lower/g_lower_pas.h"
 #include "lower_pascal_types.h"
 #define PT_IS(x, k) ((x) && (x)->t == (k))
 typedef struct psym psym_t;
@@ -27,9 +28,9 @@ struct pty_state {
     long *stats;
     pty_t *tint, *tchar, *tbool, *treal, *tsingle, *textended, *tstr, *tshort, *ttext, *tnil, *tvoid, *tptr, *tqword, *tfile, *tpchar;
 };
-static struct pty_state *pt_st(void) { return g_lower.pas.sem.pty; }
+static struct pty_state *pt_st(void) { return g_lower_pas.sem.pty; }
 static void pt_prag_apply(struct pty_state *s, pty_t *t, const tree_t *n);
-static struct pty_state *pt_mk(void) { if (!g_lower.pas.sem.pty) g_lower.pas.sem.pty = (struct pty_state *)ct_zalloc(1, sizeof(struct pty_state)); return g_lower.pas.sem.pty; }
+static struct pty_state *pt_mk(void) { if (!g_lower_pas.sem.pty) g_lower_pas.sem.pty = (struct pty_state *)ct_zalloc(1, sizeof(struct pty_state)); return g_lower_pas.sem.pty; }
 static unsigned long pt_hash(const void *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ULL; return (unsigned long)(x >> 24); }
 static void pt_map_put(pty_map *m, const void *k, const pty_t *t, int line) {
     if (!k) return;
@@ -160,7 +161,7 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
             if (p) return 0;
             if (!strcmp(n->v.sval, "true")) { *v = 1; return 1; }
             if (!strcmp(n->v.sval, "false")) { *v = 0; return 1; }
-            if (!strcmp(n->v.sval, "maxint")) { *v = g_lower.pas.sem.pas_int16 ? 32767 : 2147483647; return 1; }
+            if (!strcmp(n->v.sval, "maxint")) { *v = g_lower_pas.sem.pas_int16 ? 32767 : 2147483647; return 1; }
             return 0;
         }
         case TT_PLS:
@@ -198,7 +199,7 @@ static int pt_const(struct pty_state *s, const tree_t *n, long long *v) {
             if (f && (!strcmp(f, "trunc") || !strcmp(f, "round")) && !ps_find_kind(s, f, 'f')) {
                 double x;
                 if (!pt_rconst(s, n->c[1], &x)) return 0;
-                double y = f[0] == 't' ? trunc(x) : g_lower.pas.sem.pas_dialect_fpc ? rint(x) : round(x);
+                double y = f[0] == 't' ? trunc(x) : g_lower_pas.sem.pas_dialect_fpc ? rint(x) : round(x);
                 if (!(y > -9223372036854775809.0 && y < 9223372036854775808.0)) return 0;
                 *v = (long long)y;
                 return 1;
@@ -264,7 +265,7 @@ static pty_t *pt_leaf(struct pty_state *s, const tree_t *n) {
     if (ss && ss->t && pt_const(s, (const tree_t *)ss->t->bnd, &sn) && sn >= 1 && sn <= 255) { pty_t *t = pt_new(PTK_STRING, "shortstring"); t->strmax = (int)sn; return t; }
     if (!ss && s->fpc && !strcmp(n->v.sval, "string") && !pt_leaf_ansi(n) && !ps_find_kind(s, "string", 't')) return s->tshort;
     pty_t *r = pt_named(s, n->v.sval);
-    if (!r && g_lower.pas.dump_types) fprintf(stderr, "PTY-UNKNOWN-TYPE %s\n", n->v.sval);
+    if (!r && g_lower_pas.dump_types) fprintf(stderr, "PTY-UNKNOWN-TYPE %s\n", n->v.sval);
     return r;
 }
 struct pty_lay { int nf, cap; const char **name; const pty_t **ft; long long *ov; unsigned char *named; int nev, evcap; int *ev; pty_vt_t *vt; int nvt, vtcap; };
@@ -914,7 +915,7 @@ void pty_run(tree_t *prog, int fpc) {
     struct pty_state *s = pt_mk();
     s->fpc = fpc;
     s->stats = (long *)ct_zalloc(80, sizeof(long));
-    s->tint = g_lower.pas.sem.pas_int16 ? pt_ord(PTK_INT, "integer", -32768LL, 32767LL) : pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
+    s->tint = g_lower_pas.sem.pas_int16 ? pt_ord(PTK_INT, "integer", -32768LL, 32767LL) : pt_ord(PTK_INT, "integer", -2147483648LL, 2147483647LL);
     s->tqword = pt_ord(PTK_INT, "qword", 0, 0);
     s->tqword->uns = 1;
     s->tqword->bounded = 0;
@@ -1094,7 +1095,7 @@ static const char *pt_what(const tree_t *h) {
 }
 void pty_census(const char *pred, const tree_t *low, int typer) {
     struct pty_state *s = pt_st();
-    if (!s || !g_lower.pas.dump_types) return;
+    if (!s || !g_lower_pas.dump_types) return;
     int id = !strcmp(pred, "char") ? 0 : !strcmp(pred, "string") ? 1 : !strcmp(pred, "bool") ? 2 : 3;
     s->stats[id]++;
     if (typer < 0) { fprintf(stderr, "PTY-UNK %s node=%d %s\n", pred, low ? (int)low->t : -1, pt_what(low)); return; }
@@ -1597,7 +1598,7 @@ const char *pty_fld_typename(const pty_t *r, int i) {
 }
 void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldfile, char **fldptrto, char **fldrec, char **fldenum) {
     struct pty_state *s = pt_st();
-    if (!s || !g_lower.pas.dump_types) return;
+    if (!s || !g_lower_pas.dump_types) return;
     const pty_ent *e = pt_map_get(&s->src, rec);
     const pty_t *t = e ? e->t : NULL;
     s->stats[64 + 0]++;
@@ -1633,7 +1634,7 @@ void pty_lay_check(const tree_t *rec, int nf, char **fields, int *fldfile, char 
 }
 void pty_census_report(void) {
     struct pty_state *s = pt_st();
-    if (!s || !g_lower.pas.dump_types) return;
+    if (!s || !g_lower_pas.dump_types) return;
     static const char *const nm[] = { "char", "string", "bool", "set" };
     for (int i = 0; i < 4; i++) fprintf(stderr, "PTY-STATS %s asked=%ld answered=%ld agreed=%ld\n", nm[i], s->stats[i], s->stats[4 + i], s->stats[8 + i]);
     fprintf(stderr, "PTYL-STATS checked=%ld clean=%ld\n", s->stats[64], s->stats[65]);
@@ -1683,4 +1684,4 @@ static long long pt_size(const pty_t *t) {
 long long pty_sizeof_low(const tree_t *low) { return pt_size(pty_of_low(low)); }
 long long pty_sizeof_flat(const pty_t *t) { long long s = 0; return t && ty_sizeof(t, &s, 0) ? s : -1; }
 long long pty_sizeof_name(const char *name) { const pty_t *t = name ? pty_name_type(name) : NULL; return t ? pt_size(t) : -1; }
-void lower_pascal_dump_types_on(void) { g_lower.pas.dump_types = 1; }
+void lower_pascal_dump_types_on(void) { g_lower_pas.dump_types = 1; }
