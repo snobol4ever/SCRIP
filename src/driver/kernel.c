@@ -760,7 +760,7 @@ static int k_run_cell(kctx_t *k, const kmsg_t *req, int silent, const char *code
     }
     if (strcmp(L->ext, ".md") && !(k->said >> (unsigned)(L - k_langs) & 1u)) {
         k->said |= 1u << (unsigned)(L - k_langs);
-        k_note(k, req, silent, "scrip: a cell tagged ", L->tag, " runs as its own program: SCRIP has no session road for that language yet (said once)\n");
+        fprintf(stderr, "scrip: a cell tagged %s runs as its own program: SCRIP has no session road for that language yet\n", L->tag);
     }
     char dir[] = "/tmp/scrip-cell-XXXXXX";
     if (!mkdtemp(dir)) { k_note(k, req, silent, "scrip: no temp dir\n", "", ""); return -1; }
