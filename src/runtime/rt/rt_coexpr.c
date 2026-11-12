@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
 #include <pthread.h>
 #include <semaphore.h>
@@ -494,7 +495,7 @@ int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UIDENT(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : INTVAL(44 + ++g_runtime.misc.mutex_serial); }
+DESCR_t bt_ICNx24UMUTEX(DESCR_t *args, int nargs) { return nargs == 1 ? args[0] : INTVAL(44 + ++g_rt_misc.mutex_serial); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *, int);
 DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
@@ -626,7 +627,7 @@ DESCR_t bt_ICNx24UNLOCK(DESCR_t *args, int nargs) {
     }
     return args[0];
 }
-DESCR_t bt_ICNx24UCONDVAR(DESCR_t *args, int nargs) { if (nargs == 1 && args[0].v != DT_SNUL && args[0].v != DT_I) return args[0]; return INTVAL(-(44 + ++g_runtime.misc.mutex_serial)); }
+DESCR_t bt_ICNx24UCONDVAR(DESCR_t *args, int nargs) { if (nargs == 1 && args[0].v != DT_SNUL && args[0].v != DT_I) return args[0]; return INTVAL(-(44 + ++g_rt_misc.mutex_serial)); }
 DESCR_t bt_ICNx24USIGNAL(DESCR_t *args, int nargs) {
     long long n = (nargs == 2 && args[1].v == DT_I) ? args[1].i : 1;
     if (!(args[0].v == DT_I && args[0].i < 0)) return FAILDESCR;

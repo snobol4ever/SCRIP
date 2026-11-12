@@ -21,12 +21,13 @@
 #include "ir/descr.h"
 #include "posix_leaves.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/table.h"
 #include "runtime/rt/rt_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void px_begin(void) { g_runtime.misc.posix_errno = 0; }
+void px_begin(void) { g_rt_misc.posix_errno = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t px_fail(void) { g_runtime.misc.posix_errno = errno; return FAILDESCR; }
+DESCR_t px_fail(void) { g_rt_misc.posix_errno = errno; return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *px_str(DESCR_t d) { return d.v == DT_S ? rt_cstr_d(d) : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -76,9 +77,9 @@ static FILE *px_dg_open(int fd, const struct addrinfo *ai) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int px_sock_bad(void) { g_runtime.misc.icn_errnumber = 1310; g_runtime.misc.icn_errtext = "bad socket attribute"; g_runtime.misc.icn_err_valid = 1; errno = 0; return -1; }
+static int px_sock_bad(void) { g_rt_misc.icn_errnumber = 1310; g_rt_misc.icn_errtext = "bad socket attribute"; g_rt_misc.icn_err_valid = 1; errno = 0; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int px_sock_errno(void) { g_runtime.misc.icn_errtext = strerror(errno); g_runtime.misc.icn_err_valid = 1; return -1; }
+static int px_sock_errno(void) { g_rt_misc.icn_errtext = strerror(errno); g_rt_misc.icn_err_valid = 1; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int px_sock_proto(const char *v) {
     const struct {

@@ -1,5 +1,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rt_diag.h"
 #include "runtime/core/core.h"
 #include "emitter/sil_macros.h"
@@ -180,7 +181,7 @@ static const KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_runtime
     "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_runtime.abi.dump, 0, (const char *)0 , "g_runtime.abi.dump" }, { "ERRLIMIT", KWB_INT, 0, &g_runtime.abi.kw_errlimit, 0,
     (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_runtime.kw.kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0,
     (const char *)0 , "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0,
-    (int64_t *)&g_runtime.abi.maxlngth, 16777216, (const char *)0 , "g_runtime.abi.maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" },
+    (int64_t *)&g_runtime.abi.maxlngth, 16777216, (const char *)0 , "g_runtime.abi.maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_rt_misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" },
     { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0, (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_runtime.kw.kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" },
     { "INPUT", KWB_INT, 0, &g_runtime.kw.kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &g_runtime.kw.kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE",
     KWB_INT, 0, &g_runtime.kw.kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_runtime.kw.kwb_own[6], 0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT,
@@ -205,6 +206,11 @@ const char *rt_kw_direct_sym(int idx, int *soff, const void **base) {
         *soff = (int)((char *)e->cell - (char *)&g_runtime);
         *base = (const void *)&g_runtime;
         return "g_runtime";
+    }
+    if ((char *)e->cell >= (char *)&g_rt_misc && (char *)e->cell < (char *)(&g_rt_misc + 1)) {
+        *soff = (int)((char *)e->cell - (char *)&g_rt_misc);
+        *base = (const void *)&g_rt_misc;
+        return "g_rt_misc";
     }
     long off = ((char *)e->cell >= (char *)g_runtime.kw.kwb_own && (char *)e->cell < (char *)(g_runtime.kw.kwb_own + 8)) ? (char *)e->cell - (char *)g_runtime.kw.kwb_own : 0;
     *soff = (int)off;
@@ -311,7 +317,7 @@ static int kwb_write_ent(const KWB_ENT_t *e, DESCR_t v) {
     if (!strcmp(e->name, "FULLSCAN") && iv == 0) return kwb_error(274, "value assigned to keyword fullscan is zero") ? 1 : -1;
     if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = iv;
-    if (!strcmp(e->name, "STLIMIT")) g_runtime.misc.kw_stlimit_next = g_runtime.abi.stcount + iv;
+    if (!strcmp(e->name, "STLIMIT")) g_rt_misc.kw_stlimit_next = g_runtime.abi.stcount + iv;
     if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : "") ? 1 : -1;
     if (!strcmp(e->name, "DUMP") && iv) { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
     return 1;
@@ -356,9 +362,9 @@ DESCR_t kw_read(const char *kw) {
         return CSETVAL(g_runtime.kw.kw_cset_names[csi].ptr);
     }
     {
-        if (!strcmp(kw,"errornumber")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return INTVAL(g_runtime.misc.icn_errnumber); }
-        if (!strcmp(kw,"errortext")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_runtime.misc.icn_errtext ? g_runtime.misc.icn_errtext : "")); }
-        if (!strcmp(kw,"errorvalue")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return g_runtime.misc.icn_errvalue; }
+        if (!strcmp(kw,"errornumber")) { if (!g_rt_misc.icn_err_valid) return FAILDESCR; return INTVAL(g_rt_misc.icn_errnumber); }
+        if (!strcmp(kw,"errortext")) { if (!g_rt_misc.icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_rt_misc.icn_errtext ? g_rt_misc.icn_errtext : "")); }
+        if (!strcmp(kw,"errorvalue")) { if (!g_rt_misc.icn_err_valid) return FAILDESCR; return g_rt_misc.icn_errvalue; }
         if (!strcmp(kw,"control")) return FAILDESCR;
     }
     {
@@ -386,7 +392,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"x")) return FAILDESCR;
     if (!strcmp(kw,"y")) return FAILDESCR;
     { if (!strcmp(kw,"level")) return INTVAL(g_runtime.abi.rt_k_level); }
-    if (!strcmp(kw,"errno")) return INTVAL(g_runtime.misc.posix_errno);
+    if (!strcmp(kw,"errno")) return INTVAL(g_rt_misc.posix_errno);
     if (!strcmp(kw,"lpress")) return INTVAL(-1);
     if (!strcmp(kw,"mpress")) return INTVAL(-2);
     if (!strcmp(kw,"rpress")) return INTVAL(-3);
@@ -511,17 +517,17 @@ void rt_stmt_enter(long stno, long line) {
     g_runtime.abi.lastline = g_runtime.abi.line;
     g_runtime.abi.line = line;
     g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
-    if (g_runtime.misc.kw_stlimit < 0) return;
+    if (g_rt_misc.kw_stlimit < 0) return;
     g_runtime.abi.stcount++;
     if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno); }
 #endif
-    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_runtime.misc.kw_stlimit_next > 0 ? g_runtime.misc.kw_stlimit_next : g_runtime.misc.kw_stlimit + 1)) {
-        int64_t o = g_runtime.misc.kw_stlimit;
+    if (g_rt_misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_rt_misc.kw_stlimit_next > 0 ? g_rt_misc.kw_stlimit_next : g_rt_misc.kw_stlimit + 1)) {
+        int64_t o = g_rt_misc.kw_stlimit;
         g_runtime.abi.stcount = o;
-        g_runtime.misc.kw_stlimit = o + 10;
-        g_runtime.misc.kw_stlimit_next = o + o + 10;
+        g_rt_misc.kw_stlimit = o + 10;
+        g_rt_misc.kw_stlimit_next = o + o + 10;
         kwb_error(244, "statement count exceeds value of stlimit keyword");
     }
 }
@@ -533,17 +539,17 @@ void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
     g_runtime.abi.lastline = g_runtime.abi.line;
     g_runtime.abi.line = line;
     g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
-    if (g_runtime.misc.kw_stlimit < 0) return;
+    if (g_rt_misc.kw_stlimit < 0) return;
     g_runtime.abi.stcount++;
     if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
     { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno, pend); }
 #endif
-    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_runtime.misc.kw_stlimit_next > 0 ? g_runtime.misc.kw_stlimit_next : g_runtime.misc.kw_stlimit + 1)) {
-        int64_t o = g_runtime.misc.kw_stlimit;
+    if (g_rt_misc.kw_stlimit > 0 && g_runtime.abi.stcount >= (g_rt_misc.kw_stlimit_next > 0 ? g_rt_misc.kw_stlimit_next : g_rt_misc.kw_stlimit + 1)) {
+        int64_t o = g_rt_misc.kw_stlimit;
         g_runtime.abi.stcount = o;
-        g_runtime.misc.kw_stlimit = o + 10;
-        g_runtime.misc.kw_stlimit_next = o + o + 10;
+        g_rt_misc.kw_stlimit = o + 10;
+        g_rt_misc.kw_stlimit_next = o + o + 10;
         kwb_error(244, "statement count exceeds value of stlimit keyword");
     }
 }
@@ -597,7 +603,7 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
     if (canon && !strcmp(lk,"error")) { g_runtime.abi.error = iv; return 1; }
-    if (canon && !strcmp(lk,"random")) { g_runtime.abi.random = iv; g_runtime.misc.bb_rnd_seed = (unsigned long)iv; return 1; }
+    if (canon && !strcmp(lk,"random")) { g_runtime.abi.random = iv; g_rt_misc.bb_rnd_seed = (unsigned long)iv; return 1; }
     {
         size_t bl = strlen(sval);
         char kb[bl + 2];

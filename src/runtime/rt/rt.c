@@ -1,6 +1,7 @@
 #define _GNU_SOURCE 1
 #include <errno.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include <dlfcn.h>
 #include "ir/ct_arena.h"
 #include "rt.h"
@@ -765,7 +766,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n, int first) {
         fprintf(stderr, "gva_register: first named slot %d of %d does not match the name table\n", first, n);
         abort();
     }
-    { extern long rt_sc_gva_reserve(void); extern void rt_sxt_gva_lo(int, int); long r = rt_sc_gva_reserve(); rt_sxt_gva_lo(g_runtime.misc.sc_mod.d ? 0 : (int)(r < k0 ? r : k0), 1); }
+    { extern long rt_sc_gva_reserve(void); extern void rt_sxt_gva_lo(int, int); long r = rt_sc_gva_reserve(); rt_sxt_gva_lo(g_rt_misc.sc_mod.d ? 0 : (int)(r < k0 ? r : k0), 1); }
     for (int k = k0; k < n; k++) { const char *nm = names[k]; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     {
         extern int rt_is_reassigned_builtin(const char *);
@@ -1599,8 +1600,8 @@ void rt_ab_cell_bind(const char *name, void **quad) {
 RT_ENTRY_DECL(rt_ab_cell_bind_table, leaf, 0);
 void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
 static void rt_proc_resolve_cells(rt_proc_t *p);
-static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_runtime.misc.monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_runtime.misc.monitor_quiet_depth--; return v; }
-static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_runtime.misc.monitor_quiet_depth++; NV_SET_fn(nm, v); g_runtime.misc.monitor_quiet_depth--; }
+static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_rt_misc.monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_rt_misc.monitor_quiet_depth--; return v; }
+static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_rt_misc.monitor_quiet_depth++; NV_SET_fn(nm, v); g_rt_misc.monitor_quiet_depth--; }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
 RT_ENTRY_DECL(rt_shim_nv_in, leaf, 0);
 void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {

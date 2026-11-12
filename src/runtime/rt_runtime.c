@@ -1,5 +1,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "runtime/rt/rt.h"
@@ -63,7 +64,7 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     }
     const char * pat = pat_lit ? pat_lit : "";
     int pat_len = (int)strlen(pat);
-    int max_start = g_runtime.misc.kw_anchor ? 0 : subj_len;
+    int max_start = g_rt_misc.kw_anchor ? 0 : subj_len;
     int matched = 0;
     int m_start = -1;
     int m_end = -1;

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_pleng.h"
 #include "runtime/rt/rt.h"
 #include "ir/ct_arena.h"
 #include "rt_pl_trail.h"
@@ -13,7 +14,7 @@ extern void rt_pl_tr_free_arena(const char *, void *);
 extern int rt_gc_weak_keep(const char **loc);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_ENG_TYPE "\001PlEngine"
-static g_pl_eng_t *E(void) { return &g_runtime.pl_eng; }
+static g_pl_eng_t *E(void) { return &g_rt_pl_eng; }
 static int pl_eng_is_inst(DESCR_t d) { return d.v == DT_DATA && d.u && IS_DATA_INST_fn(d) && d.u->type && d.u->type->name && !strcmp(d.u->type->name, PL_ENG_TYPE); }
 static g_pl_eng_ent_t *pl_eng_find(DESCR_t d) {
     g_pl_eng_t *e = E();

@@ -1,10 +1,10 @@
 #include <stddef.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
+#include "runtime/core/g_runtime_pleng.h"
 #include "runtime/rt/rt_diag.h"
 #include "runtime/core/g_runtime_abi.inc"
-g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .misc = { .sn4_direct_v = -1, .monitor_quiet_depth = 0, .kw_stcount = 0, .kw_anchor = 0, .kw_stlimit = -1, .kw_trace = 0,
-    .core_stack_floor_raised = 0, .core_err_active = 0, .kw_ctx = 0, .icn_errnumber = 0, .icn_errtext = "", .icn_err_valid = 0, .root = NULL, .bb_rnd_seed = 12345UL, .sno_defer_pair_hwm = 0,
-    .dcap_base = 0, }, .abi = { .hp_fr = { .zfull = -1 }, .sxt_fr = { .off = -1 }, .error = 0, .trace = 0, .dump = 0, .random = 0, .stno = 0, .stcount = 0, .lastno = 0, .line = 0, .lastline = 0,
+g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .abi = { .hp_fr = { .zfull = -1 }, .sxt_fr = { .off = -1 }, .error = 0, .trace = 0, .dump = 0, .random = 0, .stno = 0, .stcount = 0, .lastno = 0, .line = 0, .lastline = 0,
     .file = NULL, .kw_ftrace = 0, .kw_errlimit = 0, .kw_fnclevel = 0, .kw_rtntype = "", .trace_budget = 0, .call_fastpath_off = 0, .monitor_fd = -1, .monitor_bin = 0, .mon_max_stno = 0,
     .trace_set_n = 0, .comm_dbg = RT_DIAG ? -1 : 0, .sno_etrace_n = 0, .var_nbuckets = 0, .var_init_done = 0, .protected_pat_vars_armed = 0, .dcap_trace = RT_DIAG ? -1 : 0, .cap_gen = 1,
     .cap_gen_next = 1, .repl_trace = RT_DIAG ? -1 : 0, .rt_k_level = 1, .zdp_anchor_rsp = 0UL, .zdp_anchor_rbp = 0UL, .gc_polls = 0, .gc_poll_site = (const char *)0, .hp_gcline = (char *)0,
@@ -26,4 +26,8 @@ g_runtime_t __attribute__((visibility("protected"))) g_runtime = { .misc = { .sn
     .zsm_gamma_events = 0UL, .zsm_leaked_at_exit = 0UL, .zsm_alpha_while_live = 0UL, .zsm_rsp0 = 0UL, .zsm_stmt0 = 0UL, .zsm_seen_n = 0UL, .zdp_rbp_violations = 0UL, .zdp_rbp_nobank = 0UL, },
     .slab = { .pool_bytes = 0, .mx = PTHREAD_MUTEX_INITIALIZER, }, .agg = { .agg_list_ser = 1, .agg_table_ser = 1, .agg_set_ser = 1, .agg_external_ser = 1, .sno_dumpno = 0, },
     .atoms = { .atom_dot = -1, .atom_nil = -1, .atom_true = -1, .atom_fail = -1, .atom_cut = -1, .functor_dot2 = -1 }, };
+g_misc_t __attribute__((visibility("protected"))) g_rt_misc = { .sn4_direct_v = -1, .monitor_quiet_depth = 0, .kw_stcount = 0, .kw_anchor = 0, .kw_stlimit = -1, .kw_trace = 0,
+    .core_stack_floor_raised = 0, .core_err_active = 0, .kw_ctx = 0, .icn_errnumber = 0, .icn_errtext = "", .icn_err_valid = 0, .root = NULL, .bb_rnd_seed = 12345UL, .sno_defer_pair_hwm = 0,
+    .dcap_base = 0, };
+g_pl_eng_t __attribute__((visibility("protected"))) g_rt_pl_eng;
 #include "runtime/core/g_runtime_abi_check.inc"

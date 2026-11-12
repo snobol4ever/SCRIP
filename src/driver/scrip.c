@@ -1,4 +1,5 @@
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/g_runtime_abi.inc"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
@@ -2818,13 +2819,13 @@ int main(int argc, char **argv) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
                 g_runtime.scrip_env = 0;
                 g_runtime.abi.trace_budget = 2000000000L;
-                g_runtime.misc.kw_trace = 2000000000L;
+                g_rt_misc.kw_trace = 2000000000L;
                 argi++;
             } else if (strncmp(argv[argi], "--trace=", 8) == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
                 g_runtime.scrip_env = 0;
                 g_runtime.abi.trace_budget = atol(argv[argi] + 8);
-                g_runtime.misc.kw_trace = (int64_t) g_runtime.abi.trace_budget;
+                g_rt_misc.kw_trace = (int64_t) g_runtime.abi.trace_budget;
                 argi++;
             } else break;
         }
@@ -3258,7 +3259,7 @@ int main(int argc, char **argv) {
     extern void core_lib_init(void);
     {
         struct rlimit rl;
-        g_runtime.misc.core_stack_floor_raised = 1;
+        g_rt_misc.core_stack_floor_raised = 1;
         if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20);
     }
     core_lib_init();
@@ -3270,7 +3271,7 @@ int main(int argc, char **argv) {
     register_fn("CODE", _builtin_CODE, 1, 1);
     register_fn("DATA", _builtin_DATA, 1, 1);
     register_fn("print", _builtin_print, 0, 99);
-    g_runtime.misc.user_call_hook = _usercall_hook;
+    g_rt_misc.user_call_hook = _usercall_hook;
     {
         extern void sno_preeval_program(const tree_t *);
         extern int sno_nerrors;
@@ -3278,7 +3279,7 @@ int main(int argc, char **argv) {
         if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 231; }
     }
     { extern void core_set_label_exists_hook(int (*fn)(const char *)); core_set_label_exists_hook(_label_exists_fn); }
-    { g_runtime.misc.eval_str_hook = _eval_str_impl_fn; }
+    { g_rt_misc.eval_str_hook = _eval_str_impl_fn; }
     g_opt_dump_bb = dump_ir;
     if (dump_transpile) { extern int tree_to_sno(const tree_t *ast, FILE *out); tree_to_sno(ast_prog, stdout); return 0; }
     if (dump_ir || dump_zeta) {

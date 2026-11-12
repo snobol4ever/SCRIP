@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <signal.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
 #include "gc_heap.h"
 #include "ir/bb_pool.h"
@@ -48,7 +49,7 @@ static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_overflow_pc_emitted(uintptr_t ip) {
     if (ip >= (uintptr_t)bb_pool_base() && ip < (uintptr_t)bb_pool_base() + bb_pool_used()) return 1;
-    return g_runtime.misc.emitted_text_lo && ip >= (uintptr_t)g_runtime.misc.emitted_text_lo && ip < (uintptr_t)g_runtime.misc.emitted_text_hi;
+    return g_rt_misc.emitted_text_lo && ip >= (uintptr_t)g_rt_misc.emitted_text_lo && ip < (uintptr_t)g_rt_misc.emitted_text_hi;
 }
 static int rt_overflow_resume_at_catch(ucontext_t *uc) {
     uintptr_t r12 = (uintptr_t)uc->uc_mcontext.gregs[REG_R12], base = r12 & ~(PL_TR_ARENA_BYTES - 1), *rec;
@@ -147,7 +148,7 @@ void rt_stack_budget_apply(long budget, long extra) {
         if (getrlimit(RLIMIT_STACK, &rl) != 0) return;
         if (rl.rlim_max != RLIM_INFINITY && (rlim_t)want > rl.rlim_max) want = (long)rl.rlim_max;
         rl.rlim_cur = (rlim_t)want;
-        if (setrlimit(RLIMIT_STACK, &rl) == 0) { g_runtime.misc.stack_floor = (char *)(hi - (uintptr_t)want); g_runtime.misc.stack_ceil = (char *)hi; }
+        if (setrlimit(RLIMIT_STACK, &rl) == 0) { g_rt_misc.stack_floor = (char *)(hi - (uintptr_t)want); g_rt_misc.stack_ceil = (char *)hi; }
         (void)here;
     }
 }
@@ -186,7 +187,7 @@ static int rt_emitted_text_phdr(struct dl_phdr_info *info, size_t size, void *da
     for (int i = 0; i < info->dlpi_phnum; i++) {
         const ElfW(Phdr) *ph = &info->dlpi_phdr[i];
         uintptr_t lo = (uintptr_t)info->dlpi_addr + (uintptr_t)ph->p_vaddr, hi = lo + (uintptr_t)ph->p_memsz;
-        if (ph->p_type == PT_LOAD && (ph->p_flags & PF_X) && pc >= lo && pc < hi) { g_runtime.misc.emitted_text_lo = (char *)lo; g_runtime.misc.emitted_text_hi = (char *)hi; return 1; }
+        if (ph->p_type == PT_LOAD && (ph->p_flags & PF_X) && pc >= lo && pc < hi) { g_rt_misc.emitted_text_lo = (char *)lo; g_rt_misc.emitted_text_hi = (char *)hi; return 1; }
     }
     return 0;
 }
@@ -207,9 +208,9 @@ char *rt_main_stack_adopt(void) {
         (void)madvise(lo, (size_t)(top - lo), MADV_HUGEPAGE);
         rt_gc_stack_top_adopt(top);
         rt_emitted_text_note(__builtin_return_address(0));
-        g_runtime.misc.core_stack_floor_raised = 1;
-        g_runtime.misc.stack_floor = lo;
-        g_runtime.misc.stack_ceil = top;
+        g_rt_misc.core_stack_floor_raised = 1;
+        g_rt_misc.stack_floor = lo;
+        g_rt_misc.stack_ceil = top;
         return top - 8;
     }
 }
@@ -217,11 +218,11 @@ char *rt_main_stack_adopt(void) {
 #define RT_STACK_REFUSE_MARGIN (64L * 1024L)
 int rt_stack_refuses(long bytes) {
     char here = 0;
-    if (!g_runtime.misc.stack_refuse_armed) return 0;
-    if (g_runtime.misc.stack_refused) return 1;
-    if (!g_runtime.misc.stack_floor || &here < g_runtime.misc.stack_floor || &here >= g_runtime.misc.stack_ceil) return 0;
-    if ((long)(&here - g_runtime.misc.stack_floor) > bytes + RT_STACK_REFUSE_MARGIN) return 0;
-    g_runtime.misc.stack_refused = 1;
+    if (!g_rt_misc.stack_refuse_armed) return 0;
+    if (g_rt_misc.stack_refused) return 1;
+    if (!g_rt_misc.stack_floor || &here < g_rt_misc.stack_floor || &here >= g_rt_misc.stack_ceil) return 0;
+    if ((long)(&here - g_rt_misc.stack_floor) > bytes + RT_STACK_REFUSE_MARGIN) return 0;
+    g_rt_misc.stack_refused = 1;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

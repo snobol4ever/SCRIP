@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "ir/dtp.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/core/core_error.h"
@@ -2140,7 +2141,7 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
         struct stat _dst;
         if (!is_pipe && !strcmp(cmode, "r") && !stat(path, &_dst) && S_ISDIR(_dst.st_mode)) { fp = rt_dir_snapshot(path); if (!fp) { *out = FAILDESCR; return 1; } _isdir = 1; }
         if (!fp) fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
-        if (!fp) { g_runtime.misc.icn_errtext = strerror(errno); g_runtime.misc.icn_err_valid = 1; *out = FAILDESCR; return 1; }
+        if (!fp) { g_rt_misc.icn_errtext = strerror(errno); g_rt_misc.icn_err_valid = 1; *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) g_fh[idx].type = 'p';
@@ -2173,7 +2174,7 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
     }
     L_bidjmp_9997:
     ;
-    if ((_bid == BID_errorclear) && nargs == 0) { g_runtime.misc.icn_err_valid = 0; *out = NULVCL; return 1; }
+    if ((_bid == BID_errorclear) && nargs == 0) { g_rt_misc.icn_err_valid = 0; *out = NULVCL; return 1; }
     L_bidjmp_9998:
     ;
     if ((_bid == BID_serial) && nargs == 1) {

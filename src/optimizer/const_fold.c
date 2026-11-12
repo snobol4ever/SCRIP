@@ -1,5 +1,6 @@
 #include "const_fold.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"
 #include "ir/ct_arena.h"
 #include "runtime/builtins/gen.h"
@@ -48,10 +49,10 @@ static int cf_store_descr(IR_graph_t * g, IR_t * nd, DESCR_t r) {
 static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
     extern int g_core_errjmp_n;
     extern void core_icn_op_ctx_clear(void);
-    long snum = g_runtime.misc.icn_errnumber;
-    const char * stxt = g_runtime.misc.icn_errtext;
-    DESCR_t sval = g_runtime.misc.icn_errvalue;
-    int svalid = g_runtime.misc.icn_err_valid;
+    long snum = g_rt_misc.icn_errnumber;
+    const char * stxt = g_rt_misc.icn_errtext;
+    DESCR_t sval = g_rt_misc.icn_errvalue;
+    int svalid = g_rt_misc.icn_err_valid;
     long esv = g_runtime.abi.error;
     int my = g_core_errjmp_n;
     int folded = 0;
@@ -61,10 +62,10 @@ static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
     core_errjmp_pop(&ej, my);
     g_runtime.abi.error = esv;
     core_icn_op_ctx_clear();
-    g_runtime.misc.icn_errnumber = snum;
-    g_runtime.misc.icn_errtext = stxt;
-    g_runtime.misc.icn_errvalue = sval;
-    g_runtime.misc.icn_err_valid = svalid;
+    g_rt_misc.icn_errnumber = snum;
+    g_rt_misc.icn_errtext = stxt;
+    g_rt_misc.icn_errvalue = sval;
+    g_rt_misc.icn_err_valid = svalid;
     return folded;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

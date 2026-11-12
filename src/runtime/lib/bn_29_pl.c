@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/prolog_atom.h"
 #include "driver/driver_globals.h"
 #include "runtime/pl_rat.h"
@@ -87,14 +88,14 @@ PLR_WALK2(plu_walk, plu_leaf, plw_cell_deref) int rt_pl_unify_deep_c(DESCR_t *a,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_deep_top_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     extern void *rt_pl_cap_error(void);
-    int arm = !g_runtime.misc.stack_refuse_armed, ok;
-    if (arm) g_runtime.misc.stack_refuse_armed = 1;
+    int arm = !g_rt_misc.stack_refuse_armed, ok;
+    if (arm) g_rt_misc.stack_refuse_armed = 1;
     ok = rt_pl_unify_deep_c(a, b, cx);
     cx->ball = (void *)0;
     if (!arm) return ok;
-    g_runtime.misc.stack_refuse_armed = 0;
-    if (!g_runtime.misc.stack_refused) return ok;
-    g_runtime.misc.stack_refused = 0;
+    g_rt_misc.stack_refuse_armed = 0;
+    if (!g_rt_misc.stack_refused) return ok;
+    g_rt_misc.stack_refused = 0;
     cx->ball = rt_pl_cap_error();
     return 0;
 }

@@ -2,6 +2,7 @@
 #define G_RUNTIME_MISC_H
 #include <stdint.h>
 #include "ir/descr.h"
+#include "runtime/core/g_runtime_zsm.h"
 typedef struct {
     const void *d;
     DESCR_t *base;
@@ -81,4 +82,11 @@ typedef struct {
     char *emitted_text_hi;
     int pat_serial;
 } g_misc_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_misc_t g_rt_misc;
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +38,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog) {
     s2->proc_count = 0;
     s2->proc_ix_n = -1;
     { extern void global_reset(void); global_reset(); }
-    g_runtime.misc.root = NULL;
+    g_rt_misc.root = NULL;
     prolog_atom_init();
     memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
     memset(&s2->module_registry, 0, sizeof s2->module_registry);

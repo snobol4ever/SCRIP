@@ -16,8 +16,6 @@
 #include "g_runtime_bn.h"
 #include "g_runtime_gc.h"
 #include "g_runtime_abi.h"
-#include "g_runtime_misc.h"
-#include "g_runtime_pleng.h"
 #include "g_runtime_entry.h"
 typedef struct {
     g_abi_t abi;
@@ -35,8 +33,6 @@ typedef struct {
     g_pas_t pas;
     g_bn_t bn;
     g_gc_t gc;
-    g_misc_t misc;
-    g_pl_eng_t pl_eng;
     g_pasrnd_t pasrnd;
     g_atag_t atag;
     g_pasio_t pasio;

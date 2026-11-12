@@ -11,6 +11,7 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/rt_list_view.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int sig; } px_sig_t;
 static const px_sig_t px_sigs[] = { { "SIGABRT", SIGABRT }, { "SIGALRM", SIGALRM }, { "SIGBUS", SIGBUS }, { "SIGCHLD", SIGCHLD }, { "SIGCLD", SIGCHLD }, { "SIGCONT", SIGCONT }, { "SIGFPE", SIGFPE },
@@ -63,7 +64,7 @@ DESCR_t bt_ICNx24UKILL(DESCR_t *args, int nargs) {
     return kill((pid_t) args[0].i, sig) == 0 ? NULVCL : px_fail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void px_sig_pend(int sig) { __atomic_fetch_or(&g_runtime.misc.pending_signals, 1ULL << (sig - 1), __ATOMIC_SEQ_CST); }
+static void px_sig_pend(int sig) { __atomic_fetch_or(&g_rt_misc.pending_signals, 1ULL << (sig - 1), __ATOMIC_SEQ_CST); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24USIGTRAP(DESCR_t *args, int nargs) {
     int sig = nargs == 2 ? px_signal_number(args[0]) : -1;
@@ -81,10 +82,10 @@ DESCR_t bt_ICNx24USIGTAKE(DESCR_t *args, int nargs) {
     int b;
     (void) args;
     if (nargs != 0) return FAILDESCR;
-    p = __atomic_load_n(&g_runtime.misc.pending_signals, __ATOMIC_SEQ_CST);
+    p = __atomic_load_n(&g_rt_misc.pending_signals, __ATOMIC_SEQ_CST);
     if (p == 0) return FAILDESCR;
     b = __builtin_ctzll(p);
-    __atomic_fetch_and(&g_runtime.misc.pending_signals, ~(1ULL << b), __ATOMIC_SEQ_CST);
+    __atomic_fetch_and(&g_rt_misc.pending_signals, ~(1ULL << b), __ATOMIC_SEQ_CST);
     return INTVAL(b + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

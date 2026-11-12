@@ -1,6 +1,7 @@
 #ifndef TRACE_H
 #define TRACE_H
 #include "runtime/rt/rt_diag.h"
+#include "runtime/core/g_runtime_misc.h"
 #include <stdint.h>
 #include "ir/descr.h"
 #ifdef __cplusplus
@@ -18,7 +19,7 @@ void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
 #if RT_DIAG
-#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && \
+#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_rt_misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && \
     g_runtime.abi.trace == 0)
 #else
 #define rt_trace_layer_idle() (1)

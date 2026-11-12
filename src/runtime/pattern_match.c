@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"
 #include <errno.h>
 #include "ir/ct_arena.h"
@@ -34,13 +35,13 @@ void rt_bomb(const char *msg);
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
     ; abort(); } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void pm_lf_type_invalidate(void) { g_runtime.misc.lf_type = (DATBLK_t *)0; }
+void pm_lf_type_invalidate(void) { g_rt_misc.lf_type = (DATBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pm_lf_type_is(DATBLK_t *t) {
     if (!t) return 0;
-    if (t == g_runtime.misc.lf_type) return 1;
+    if (t == g_rt_misc.lf_type) return 1;
     if (t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0;
-    g_runtime.misc.lf_type = t;
+    g_rt_misc.lf_type = t;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -112,7 +113,7 @@ static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rc
 }
 static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
-static DTP_t *dtp_user(dtp_rcp_t *rcp) { DTP_t *h = dtp_new((void *)0, rcp); h->zpad = g_runtime.misc.pat_serial++; return h; }
+static DTP_t *dtp_user(dtp_rcp_t *rcp) { DTP_t *h = dtp_new((void *)0, rcp); h->zpad = g_rt_misc.pat_serial++; return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p && ((DTP_t *)d.p)->rcp) return ((DTP_t *)d.p)->rcp;
@@ -135,9 +136,9 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         NV_SET_fn(nb, d);
         { const char *pn = rt_heap_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
     }
-    if (d.v == DT_S && d.slen == 0xFFFFFFFFu && d.s) { g_runtime.misc.pat_serial++; return rcp_node(TT_ANY, d.s, (uint32_t)strlen(d.s), 0, 0, 0); }
-    if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; g_runtime.misc.pat_serial++; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
-    g_runtime.misc.pat_serial++;
+    if (d.v == DT_S && d.slen == 0xFFFFFFFFu && d.s) { g_rt_misc.pat_serial++; return rcp_node(TT_ANY, d.s, (uint32_t)strlen(d.s), 0, 0, 0); }
+    if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; g_rt_misc.pat_serial++; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
+    g_rt_misc.pat_serial++;
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
     if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); real_str(d.r, b, 40); return rcp_lit(b, (uint32_t)strlen(b)); }
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
@@ -350,7 +351,7 @@ DESCR_t pat_defer_text(const char *name, DESCR_t text, int k) {
     DESCR_t v = {0};
     v.v = DT_P;
     v.slen = 0;
-    if (k > 1) g_runtime.misc.pat_serial += k - 1;
+    if (k > 1) g_rt_misc.pat_serial += k - 1;
     dtp_rcp_t *l = (text.v == DT_S && text.s) ? rcp_lit(text.s, (uint32_t) text.slen) : 0;
     v.p = (void *)dtp_user(rcp_node(TT_DEFER, name ? name : "", name ? (uint32_t)strlen(name) : 0, 0, l, 0));
     return v;
@@ -367,7 +368,7 @@ DESCR_t pat_cat(DESCR_t left, DESCR_t right) {
     if (right.v == DT_P && right.p && pi_imm(((DTP_t *)right.p)->rcp) && left.v == DT_P && left.p) {
         DTP_t *h = dtp_new((void *)0, rcp_bin(TT_SEQ, rcp_of(left), rcp_of(right)));
         h->zpad = ((DTP_t *)left.p)->zpad;
-        g_runtime.misc.pat_serial--;
+        g_rt_misc.pat_serial--;
         v.p = (void *)h;
         return v;
     }
@@ -776,7 +777,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') { extern void rt_eval_syntax_raise(const char *); rt_eval_syntax_raise(s); return FAILDESCR; } }
     }
     eval_str:
-    if (g_runtime.misc.eval_str_hook) return g_runtime.misc.eval_str_hook(s);
+    if (g_rt_misc.eval_str_hook) return g_rt_misc.eval_str_hook(s);
     extern DESCR_t eval_string_transient(const char *s);
     return eval_string_transient(s);
 }
@@ -1026,8 +1027,8 @@ DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_defer_pairs_forget(void) {
-    for (int i = 0; i < g_runtime.misc.sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
-    g_runtime.misc.sno_defer_pair_hwm = 0;
+    for (int i = 0; i < g_rt_misc.sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
+    g_rt_misc.sno_defer_pair_hwm = 0;
 }
 #include "ir/pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
@@ -1047,14 +1048,14 @@ void rt_dcap_lazy_init(void) {
         size_t n = rt_dcap_island_bytes();
         char *m = (char *)mmap((void *)0, n + RT_DCAP_GUARD_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
         if (m == (char *)MAP_FAILED || mprotect(m + n, RT_DCAP_GUARD_BYTES, PROT_NONE) != 0) { fprintf(stderr, "rt_dcap: island reserve of %zu bytes failed\n", n); abort(); }
-        g_runtime.misc.dcap_base = m;
-        g_dcap_top = g_runtime.misc.dcap_base;
+        g_rt_misc.dcap_base = m;
+        g_dcap_top = g_rt_misc.dcap_base;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_dcap_guard_hit(uintptr_t a) {
-    if (!g_runtime.misc.dcap_base) return 0;
-    uintptr_t end = (uintptr_t)g_runtime.misc.dcap_base + rt_dcap_island_bytes();
+    if (!g_rt_misc.dcap_base) return 0;
+    uintptr_t end = (uintptr_t)g_rt_misc.dcap_base + rt_dcap_island_bytes();
     return a >= end && a < end + RT_DCAP_GUARD_BYTES;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1187,7 +1188,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dcap_marker_proc(const rt_dcf_t * c, const char ** pn, const char ** base) {
-    const rt_dcap_e * lo = (const rt_dcap_e *) g_runtime.misc.dcap_base, * q = (const rt_dcap_e *) c->cur;
+    const rt_dcap_e * lo = (const rt_dcap_e *) g_rt_misc.dcap_base, * q = (const rt_dcap_e *) c->cur;
     *pn = *base = (const char *) 0;
     if (!lo || c->cur >= c->top || q < lo) return 0;
     while (q > lo && q->varname) q--;
@@ -1197,7 +1198,7 @@ static int dcap_marker_proc(const rt_dcf_t * c, const char ** pn, const char ** 
     return 1;
 }
 int rt_icn_scan_proc(const char ** pn, const char ** base) {
-    const rt_dcap_e * lo = (const rt_dcap_e *) g_runtime.misc.dcap_base, * q = (const rt_dcap_e *) g_dcap_top;
+    const rt_dcap_e * lo = (const rt_dcap_e *) g_rt_misc.dcap_base, * q = (const rt_dcap_e *) g_dcap_top;
     *pn = *base = (const char *) 0;
     if (!lo || !q) return 0;
     for (q--; q >= lo; q--) if (!q->varname && q->len && q->saved_delta) { *pn = (const char *) q->len; *base = (const char *) q->saved_delta; return 1; }
@@ -1427,7 +1428,7 @@ rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const ch
 int rt_icn_imm_assign(void) {
     extern const char * Σ;
     rt_dcf_t rec;
-    rt_dcap_e * top = (rt_dcap_e *) g_dcap_top, * lo = (rt_dcap_e *) g_runtime.misc.dcap_base, * e;
+    rt_dcap_e * top = (rt_dcap_e *) g_dcap_top, * lo = (rt_dcap_e *) g_rt_misc.dcap_base, * e;
     if (!top || !lo || top <= lo) return 0;
     e = top - 1;
     if (!e->varname || e->varname[0] != 5) return 0;
@@ -1801,7 +1802,7 @@ static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_init(rt_dfx_t *s) 
 long rt_cas_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int i = 0; i < g_runtime.misc.sno_defer_pair_hwm; i++) { uint64_t *slot = &g_runtime.abi.sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (int i = 0; i < g_rt_misc.sno_defer_pair_hwm; i++) { uint64_t *slot = &g_runtime.abi.sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2086,7 +2087,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
     if (!cell || !NV_CELL_IF_FASTSET_fn(varname)) return (DESCR_t *)0;
     slot[0] = (uint64_t)(uintptr_t)varname;
     slot[1] = (uint64_t)(uintptr_t)cell;
-    if ((int)site >= g_runtime.misc.sno_defer_pair_hwm) g_runtime.misc.sno_defer_pair_hwm = (int)site + 1;
+    if ((int)site >= g_rt_misc.sno_defer_pair_hwm) g_rt_misc.sno_defer_pair_hwm = (int)site + 1;
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

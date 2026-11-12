@@ -17,4 +17,11 @@ typedef struct {
     int64_t nreaped_total;
     int64_t nfreed;
 } g_pl_eng_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_pl_eng_t g_rt_pl_eng;
+#ifdef __cplusplus
+}
+#endif
 #endif

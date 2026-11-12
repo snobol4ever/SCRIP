@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include <stdlib.h>
 #include "scrip_sm.h"
 #include "ir/stage2.h"
@@ -19,7 +20,7 @@ static void sm_resolve_proc_entry_pcs(stage2_t *s2) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *sm_preamble(const tree_t *ast_prog, const lower_seg_t *segs, int nsegs){
-    g_runtime.misc.core_err_active = 1;
+    g_rt_misc.core_err_active = 1;
     stage2_reset();
     { extern void gva_keyword_refuse_reset(void); gva_keyword_refuse_reset(); }
     polyglot_init(&g_stage2, ast_prog);

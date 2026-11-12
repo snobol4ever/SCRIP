@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 static const char g_sn4_system_fns[][10] = { "ANY","APPLY","ARBNO","ARG","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CLEAR","CODE","COLLECT","CONVERT","COPY","COS","DATA","DATATYPE","DATE",
     "DEFINE","DIFFER","DUMP","DUPL","ENDFILE","EQ","EVAL","EXP","FENCE","FIELD","GE","GT","HOST","IDENT","INPUT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LOAD","LOCAL",
     "LPAD","LT","MATCHAT","NE","NOTANY","OPSYN","OUTPUT","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RSORT","RTAB","SET","SETEXIT","SIN","SIZE","SORT","SPAN","SQRT","STOPTR","SUBSTR",
@@ -33,8 +34,8 @@ static const char g_sn4_leaf_fns[][11] = { "ANY","ARBNO","ARRAY","ATAN","BREAK",
 #define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((unused)) int sn4_direct_on(void) {
-    if (g_runtime.misc.sn4_direct_v < 0) { const char *e = getenv("SCRIP_SN4_DIRECT"); g_runtime.misc.sn4_direct_v = (e && *e == '0') ? 0 : 1; }
-    return g_runtime.misc.sn4_direct_v;
+    if (g_rt_misc.sn4_direct_v < 0) { const char *e = getenv("SCRIP_SN4_DIRECT"); g_rt_misc.sn4_direct_v = (e && *e == '0') ? 0 : 1; }
+    return g_rt_misc.sn4_direct_v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((unused)) int sn4_is_leaf_fn(const char *name) {

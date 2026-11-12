@@ -2,6 +2,7 @@
 #include "runtime/core/icn_builtins.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"
 #include "runtime/core/core.h"
 #include "runtime/rt/rt_list_view.h"
@@ -169,8 +170,8 @@ const char *icon_real_str(double r, char *buf, int bufsz) {
     int neg = (r < 0.0);
     double ar = fabs(r);
     if (ar == 0.0) { snprintf(buf, (size_t)bufsz, "%s", neg ? "-0.0" : "0.0"); return buf; }
-    if (g_runtime.misc.real_digits > 0) {
-        snprintf(buf, (size_t)bufsz, "%.*g", g_runtime.misc.real_digits, r);
+    if (g_rt_misc.real_digits > 0) {
+        snprintf(buf, (size_t)bufsz, "%.*g", g_rt_misc.real_digits, r);
         size_t bl = strlen(buf);
         if (!strpbrk(buf, ".e") && bl + 2 < (size_t)bufsz) { buf[bl] = '.'; buf[bl + 1] = '0'; buf[bl + 2] = '\0'; }
         return buf;
@@ -219,4 +220,4 @@ const char *icon_real_str(double r, char *buf, int bufsz) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) { g_runtime.misc.real_digits = (nargs == 1 && IS_INT_fn(args[0])) ? (int)args[0].i : 0; g_runtime.misc.pat_serial = 0; return NULVCL; }
+DESCR_t bt_ICNx24UDIGITS(DESCR_t *args, int nargs) { g_rt_misc.real_digits = (nargs == 1 && IS_INT_fn(args[0])) ? (int)args[0].i : 0; g_rt_misc.pat_serial = 0; return NULVCL; }

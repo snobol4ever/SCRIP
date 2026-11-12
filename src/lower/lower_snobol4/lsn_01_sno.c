@@ -1,5 +1,6 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_misc.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
@@ -88,16 +89,16 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     extern DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
     extern DESCR_t c_sno_concat_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
-    long snum = g_runtime.misc.icn_errnumber;
-    const char * stxt = g_runtime.misc.icn_errtext;
-    DESCR_t sval = g_runtime.misc.icn_errvalue;
-    int svalid = g_runtime.misc.icn_err_valid;
+    long snum = g_rt_misc.icn_errnumber;
+    const char * stxt = g_rt_misc.icn_errtext;
+    DESCR_t sval = g_rt_misc.icn_errvalue;
+    int svalid = g_rt_misc.icn_err_valid;
     long esv = g_runtime.abi.error;
     int my = g_core_errjmp_n;
     DESCR_t r = FAILDESCR;
     core_errjmp_t ej;
     g_runtime.abi.error = -2;
-    g_runtime.misc.icn_err_valid = 0;
+    g_rt_misc.icn_err_valid = 0;
     int jc = setjmp(ej.jb);
     if (!jc) {
         core_errjmp_push(&ej);
@@ -108,11 +109,11 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     core_errjmp_pop(&ej, my);
     g_runtime.abi.error = esv;
     core_icn_op_ctx_clear();
-    if (g_runtime.misc.icn_err_valid) { e->code = (int)g_runtime.misc.icn_errnumber; e->msg = g_runtime.misc.icn_errtext; } else if (jc) { e->code = jc; e->msg = ""; }
-    g_runtime.misc.icn_errnumber = snum;
-    g_runtime.misc.icn_errtext = stxt;
-    g_runtime.misc.icn_errvalue = sval;
-    g_runtime.misc.icn_err_valid = svalid;
+    if (g_rt_misc.icn_err_valid) { e->code = (int)g_rt_misc.icn_errnumber; e->msg = g_rt_misc.icn_errtext; } else if (jc) { e->code = jc; e->msg = ""; }
+    g_rt_misc.icn_errnumber = snum;
+    g_rt_misc.icn_errtext = stxt;
+    g_rt_misc.icn_errvalue = sval;
+    g_rt_misc.icn_err_valid = svalid;
     if (jc || e->code || r.v == DT_FAIL) return 0;
     *out = r;
     return 1;
