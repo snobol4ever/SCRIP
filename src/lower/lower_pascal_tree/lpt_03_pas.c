@@ -669,7 +669,6 @@ tree_t *mk_ident(const char *name) {
     const char *sv = pas_sconst_get(name);
     if (sv) return leaf_s(TT_QLIT, sv);
     { tree_t *sc = pas_setconst_get(name); if (sc) return pas_tree_clone(sc); }
-    if (pas_is_func(name)) return lpt_mk_call(name, pas_defaults_extend(name, NULL));
     if (name && !strcmp(name, "pi") && !pas_scope_uid("pi") && !pas_scalarvartype_get(name)) return flit(3.141592653589793);
     if (name && !strcmp(name, "random") && !pas_scope_uid("random") && !pas_scalarvartype_get(name) && g_lower_pas.sem.pas_seen_mode_directive && !g_lower_pas.sem.pas_mode_iso)
         return mk_fnc0("__pas_random");
@@ -700,6 +699,7 @@ tree_t *mk_ident(const char *name) {
             return pas_field_region(wsel, rt, fi, e);
         }
     }
+    if (pas_is_func(name) && !pas_name_is_data(name)) return lpt_mk_call(name, pas_defaults_extend(name, NULL));
     pas_scope_require(name);
     return leaf_s(TT_VAR, name);
 }

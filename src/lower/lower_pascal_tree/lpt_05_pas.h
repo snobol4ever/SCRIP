@@ -31,6 +31,7 @@ __attribute__((visibility("hidden"))) const char *pas_pf_env_name(const char *fo
 __attribute__((visibility("hidden"))) const char *pas_pf_heading(const char *name, PNodeList *params, char k, const char *rtype);
 __attribute__((visibility("hidden"))) void pas_pf_define_routine(const char *name, const char *sig);
 __attribute__((visibility("hidden"))) const char *pas_alias_resolve(const char *name);
+__attribute__((visibility("hidden"))) int pas_name_is_data(const char *name);
 __attribute__((visibility("hidden"))) const char *pas_shadow_name(const char *src);
 __attribute__((visibility("hidden"))) void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const char *callee, int pos);
 __attribute__((visibility("hidden"))) pval E_selector(const tree_t *n);

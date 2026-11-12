@@ -178,6 +178,7 @@ static const PasDef *pas_innermost_def(const char *name) {
     return NULL;
 }
 const char *pas_alias_resolve(const char *name) { const PasDef *d = pas_innermost_def(name); return (d && d->alias) ? d->alias : name; }
+int pas_name_is_data(const char *name) { const PasDef *d = pas_innermost_def(name); return d && !d->rid; }
 const char *pas_shadow_name(const char *src) {
     const PasDef *d = pas_innermost_def(src);
     if (!d || (!d->rid && !d->alias)) return src;
