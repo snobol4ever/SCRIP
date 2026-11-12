@@ -2,6 +2,10 @@
 unit system;
 interface
 const LineEnding = #10;
+const DirectorySeparator = '/';
+const DriveSeparator = '';
+const ExtensionSeparator = '.';
+const PathSeparator = ':';
 type TMethod = record Code, Data: Pointer; end;
 type TSystemCodePage = Word;
 var stdout, stderr, erroutput: text;
