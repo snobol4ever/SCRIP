@@ -2972,7 +2972,7 @@ int main(int argc, char **argv) {
             "  --out=FILE       write the --compile assembly to FILE instead of stdout (SPITBOL's -o=file is the listing sink, a different switch)\n" "\n" "Diagnostic options:\n"
             "  --dump-ast       print AST after frontend\n" "  --syntax FILE    check a Raku source file's syntax only (as raku -c): rc 0 accept, rc 1 reject with the error, rc 2 not a Raku file\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
-            "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
+            "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for harness/scripts/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n" "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --dump-plan      print the planner's table, one PLAN line per chain and one PLAN_ROW per node, on stdout (compiles to /dev/null)\n"
