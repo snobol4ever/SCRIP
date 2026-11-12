@@ -488,6 +488,7 @@ case_open:
     ;
 record_case_opt:
     CASESY IDENT COLON IDENT OFSY case_open record_case_list { $$ = pt_cat(pt_add(pt_add(pt_new(TT_CASE), $2), $4), $7); }
+    |CASESY IDENT COLON LPARENT enum_list RPARENT OFSY case_open record_case_list { tree_t *_e = pt_retag($5, TT_ENUM_TYPE); for (int _i = 0; _e && _i < _e->n; _i++) cenv_int(_e->c[_i]->v.sval, _i); $$ = pt_cat(pt_add(pt_add(pt_new(TT_CASE), $2), _e), $9); }
     |CASESY IDENT OFSY case_open record_case_list { $$ = pt_cat(pt_add(pt_new(TT_CASE), $2), $5); }
     |{ $$ = NULL; }
     ;

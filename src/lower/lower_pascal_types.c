@@ -336,9 +336,9 @@ static void pt_rec_fields(struct pty_state *s, pty_t *r, const tree_t *body) {
             const char *tag = NULL;
             pty_t *tagt = NULL;
             r->var = 1;
-            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && PT_IS(c->c[1], TT_VAR)) {
+            if (c->n >= 2 && PT_IS(c->c[0], TT_VAR) && (PT_IS(c->c[1], TT_VAR) || PT_IS(c->c[1], TT_ENUM_TYPE))) {
                 tag = c->c[0]->v.sval;
-                tagt = pt_leaf(s, c->c[1]);
+                tagt = PT_IS(c->c[1], TT_VAR) ? pt_leaf(s, c->c[1]) : pt_type(s, c->c[1]);
                 pt_add_field(r, tag, tagt);
                 k = 2;
             } else if (c->n >= 1 && PT_IS(c->c[0], TT_VAR)) {

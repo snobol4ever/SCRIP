@@ -6876,6 +6876,14 @@ static pval E_record_case_opt(const tree_t *n) {
     pval out;
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
+    if (IS(n, TT_CASE) && n->n >= 2 && n->c[1] && n->c[1]->t == TT_ENUM_TYPE) {
+        v[2].str = tok_s(n->c[0]);
+        v[4] = E_simple_type(n->c[1]);
+        v[6] = E_case_open(NULL);
+        v[7] = E_record_case_list(n, 2, n->n);
+        { pas_scope_define(v[2].str); if (v[2].str) pas_pend_add(v[2].str); }
+        return out;
+    }
     if (IS(n, TT_CASE) && n->n >= 2 && n->c[1] && n->c[1]->t == TT_VAR) {
         v[2].str = tok_s(n->c[0]);
         v[4].str = tok_s(n->c[1]);
