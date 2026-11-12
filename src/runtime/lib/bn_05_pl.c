@@ -418,7 +418,8 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
         int i;
         DESCR_t lst;
         if (mode != 0 && n == 0) return 0;
-        DESCR_t el[n > 0 ? n : 1];
+        DESCR_t *el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
+        if (!el) return 0;
         for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
         rt_pl_residue_recopy(el, n, cx);
         lst = pl_list_from_arr(el, n);
@@ -438,7 +439,8 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         int i;
         DESCR_t *tv = (DESCR_t *)rt_ws_alloc_descr(1);
         DESCR_t tref = {0}, lst;
-        DESCR_t el[n > 0 ? n : 1];
+        DESCR_t *el = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
+        if (!el) return 0;
         pl_var_make(tv, cx, 0);
         tref = pl_make_ref(tv, 0);
         lst = tref;
