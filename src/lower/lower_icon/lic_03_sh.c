@@ -219,14 +219,19 @@ IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * �
 IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nullv = lic_build(cx, IR_VAR, γ, ω);
     IR_LIT(nullv).sval = (char *) "&null";
+    IR_t * mark = lic_build(cx, IR_BOUND, NULL, NULL);
+    IR_t * unmk = lic_build(cx, IR_UNMARK, ω, ω);
+    ir_operand_push(unmk, mark);
     IR_graph_t * g = cx->g;
     int before = g->n;
     IR_t * cr = NULL;
-    IR_t * ce = lic_lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
-    for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == ω) icn_mark_γ_fail_conduit(x); }
+    IR_t * ce = lic_lower(cx, (t->n > 0) ? t->c[0] : NULL, unmk, nullv, &cr);
+    lc_γ_to_α(mark, ce ? ce : unmk);
+    lc_ω_to_α(mark, ce ? ce : unmk);
+    for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && (x->γ.node == ω || x->γ.node == unmk)) icn_mark_γ_fail_conduit(x); }
     cx->beta = ω;
     *res = nullv;
-    return ce;
+    return mark;
 }
 int icn_is_icon_function(const char * nm) { for (int k = 0; nm && icn_builtin_nth(k); k++) if (!strcmp(icn_builtin_nth(k), nm)) return 1; return 0; }
 IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next) {
