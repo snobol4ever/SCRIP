@@ -21,6 +21,21 @@ static const char * const pl_pred_props[] = { "built_in", "dynamic", "static", "
     "synchronized", "file", "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", "user", "monofile", "native_code", "built_in_fd", "control_construct",
     "prolog_file", "prolog_line", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_agg_fold_goal(const char * kind, const tree_t * tmpl, const tree_t * goal, const tree_t * res) {
+    int ext = !strcmp(kind, "max") || !strcmp(kind, "min");
+    tree_t * sv = pl_cc_freshvar();
+    tree_t * a0 = pl_cc_freshvar();
+    tree_t * a1 = pl_cc_freshvar();
+    tree_t * val = !strcmp(kind, "count") ? pl_cc_ilit(1) : (tree_t *) tmpl;
+    tree_t * init = pl_cc_fnc1("state", ext ? pl_cc_freshvar() : pl_cc_ilit(0));
+    tree_t * op = !strcmp(kind, "max") ? pl_cc_fnc2("max", a0, val) : !strcmp(kind, "min") ? pl_cc_fnc2("min", a0, val) : pl_cc_fnc2("+", a0, val);
+    tree_t * setv = ext ? pl_cc_ite(pl_cc_fnc1("var", a0), pl_cc_fnc2("=", a1, val), pl_cc_fnc2("is", a1, op)) : pl_cc_fnc2("is", a1, op);
+    tree_t * upd = pl_cc_fnc3("nb_setarg", pl_cc_ilit(1), sv, a1);
+    tree_t * step = pl_cc_fnc2(",", (tree_t *) goal, pl_cc_fnc2(",", pl_cc_fnc3("arg", pl_cc_ilit(1), sv, a0), pl_cc_fnc2(",", setv, pl_cc_fnc2(",", upd, pl_atom_goal("fail")))));
+    tree_t * fin = pl_cc_fnc3("arg", pl_cc_ilit(1), sv, (tree_t *) res);
+    tree_t * done = ext ? pl_cc_fnc2(",", fin, pl_cc_fnc1("nonvar", (tree_t *) res)) : fin;
+    return pl_cc_fnc2(",", pl_cc_fnc2("=", sv, init), pl_cc_fnc2(";", step, done));
+}
 IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     int tpop = cx->tail_pop;
@@ -432,12 +447,13 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                     tree_t * so = pl_cc_fnc2("sort", lv, (tree_t *) t->c[2]);
                     return goal(cx, pl_cc_fnc2(",", fa, so), γnext, ωfail, entry_out);
                 }
-                if (kind) {
+                if (kind && !strcmp(kind, "bag")) {
                     tree_t * lv = pl_cc_freshvar();
                     tree_t * fa = pl_cc_fnc3("findall", (tree_t *) tmpl, (tree_t *) t->c[1], lv);
                     tree_t * rd = pl_cc_fnc3("$aggregate_reduce", (tree_t *) pl_atom_goal(kind), lv, (tree_t *) t->c[2]);
                     return goal(cx, pl_cc_fnc2(",", fa, rd), γnext, ωfail, entry_out);
                 }
+                if (kind) return goal(cx, pl_agg_fold_goal(kind, tmpl, t->c[1], t->c[2]), γnext, ωfail, entry_out);
             }
             if (g_stage2.depth_counted && !strcmp(nm, "findall") && t->n == 3 && !pl_dl_prelude_key(cx) && !(cx->cur_key && !strncmp(cx->cur_key, "$dl_", 4)))
                 return goal(cx, pl_cc_fnc3(cx->cur_key && !strncmp(cx->cur_key, "$mc:findall/", 12) ? "$dl_f2" : "$dl_findall", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext,
