@@ -22,6 +22,10 @@ type
 const
   LineEnding = #10;
   sLineBreak = #10;
+  DirectorySeparator = '/';
+  DriveSeparator = '';
+  ExtensionSeparator = '.';
+  PathSeparator = ':';
   faReadOnly = 1;
   faHidden = 2;
   faSysFile = 4;
