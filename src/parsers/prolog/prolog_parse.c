@@ -1176,7 +1176,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, tree_t *pushback, TreeScope *ts) {
+static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, tree_t *pushback, TreeScope *ts, int keep) {
     cl->is_dcg = 1;
     tree_t *s0 = dcg_fresh_var(ts);
     tree_t *s  = dcg_fresh_var(ts);
@@ -1193,7 +1193,7 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
         n = dcg_expand_body(pushback, s, s_mid, ts, buf, n);
     } else {
         n = dcg_expand_body(dcg_body, s0, s, ts, buf, 0);
-        if (n > 0 && buf[0]->t == TT_FNC && buf[0]->v.sval && strcmp(buf[0]->v.sval, "=") == 0 && buf[0]->n == 2
+        if (!keep && n > 0 && buf[0]->t == TT_FNC && buf[0]->v.sval && strcmp(buf[0]->v.sval, "=") == 0 && buf[0]->n == 2
                 && buf[0]->c[0]->t == TT_VAR && buf[0]->c[0]->v.sval && s0->v.sval && strcmp(buf[0]->c[0]->v.sval, s0->v.sval) == 0
                 && buf[0]->c[1]->t == TT_FNC && buf[0]->c[1]->v.sval && strcmp(buf[0]->c[1]->v.sval, ".") == 0 && buf[0]->c[1]->n == 2) {
             new_head->c[head_tr->n] = buf[0]->c[1];
@@ -1213,7 +1213,7 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     cl->tr = _cl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void prolog_dcg_expand(PlClause *cl) {
+void prolog_dcg_expand(PlClause *cl, int keep) {
     if (!cl || !cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n != 1) return;
     tree_t *arrow = cl->tr->c[0];
     if (!arrow || arrow->t != TT_FNC || !arrow->v.sval || strcmp(arrow->v.sval, "-->") != 0 || arrow->n != 2) return;
@@ -1223,7 +1223,7 @@ void prolog_dcg_expand(PlClause *cl) {
     tree_t *pushback = NULL;
     if (head_reshaped->t == TT_FNC && head_reshaped->v.sval && strcmp(head_reshaped->v.sval, ",") == 0 && head_reshaped->n == 2) { pushback = head_reshaped->c[1]; head_reshaped = head_reshaped->c[0]; }
     pt_stamp(head_reshaped, arrow->line > 0 ? arrow->line : cl->tr->line);
-    dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
+    dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts, keep);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const PlClause *head; const PlClause *stop; int swi; Parser *p; int lineno; int defer; const tree_t *dcond; } pl_ifcx_t;
@@ -5038,6 +5038,26 @@ static int pl_incremental_dynamics(PlProgram *prog, int rewrite) {
     return (int)(incr.len + mono.len);
 }
 void prolog_rewrite_incremental_dynamics(PlProgram *prog) { if (prog) pl_incremental_dynamics(prog, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pl_dcg_head_key(tree_t *h) {
+    h = rls(h);
+    if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ",") && h->n == 2) h = rls(h->c[0]);
+    return pl_pred_key(h->v.sval ? h->v.sval : "", (h->t == TT_FNC ? (int)h->n : 0) + 2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void prolog_dcg_expand_all(PlProgram *prog) {
+    cv_t dyn = { 0 };
+    for (PlClause *cl = prog->head; cl; cl = cl->next) {
+        int keep = 0;
+        tree_t *arrow = (cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n == 1) ? cl->tr->c[0] : NULL;
+        if (pl_clause_is_directive(cl) && cl->tr->c[1] && cl->tr->c[1]->t == TT_FNC && cl->tr->c[1]->v.sval && !strcmp(cl->tr->c[1]->v.sval, "dynamic") && cl->tr->c[1]->n >= 1) {
+            pl_tree_collect_declared(cl->tr->c[1]->c[0], &dyn);
+        }
+        if (arrow && arrow->t == TT_FNC && arrow->v.sval && !strcmp(arrow->v.sval, "-->") && arrow->n == 2) keep = pl_cv_has(&dyn, pl_dcg_head_key(arrow->c[0]));
+        prolog_dcg_expand(cl, keep);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_program_is_xsb(const PlProgram *prog) {
     extern int prolog_clause_marks_xsb(const PlClause *);
     extern int prolog_dialect_gnu_selected(void);

@@ -1565,7 +1565,7 @@ static void pl_yall_lower_program(PlProgram *pl_prog) {
 tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
     pl_dq_lower_program(pl_prog);
-    for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
+    prolog_dcg_expand_all(pl_prog);
     pl_dcg_nt_facts(pl_prog);
     pl_yall_lower_program(pl_prog);
     pl_drop_ill_bodies(pl_prog);
