@@ -2470,7 +2470,9 @@ static void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, in
                 { IR_t * pv = zd_conj_value_node_g(cg, p); int kv = pv != p ? nidx(nodes, n, pv) : -1; if (pv != p && zd_k_own_g(cg, pv) >= 16 && kv >= 0 && zon[kv]) p = pv; }
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
-                rd[j].dist = planner_read_distance(cg, nodes, n, zarm, i, k, zout, rec->xb);
+                int kd = k;
+                if (p->op == IR_ASSIGN && zd_k_own_g(cg, p) == 0 && !zd_icn_local_assign_g(cg, p)) { IR_t * pa = zd_value_producer_g(cg, p); int ka = (pa && pa != p) ? nidx(nodes, n, pa) : -1; if (ka >= 0 && ka < k && zon[ka] && zd_k_own_g(cg, pa) >= 16) kd = ka; }
+                rd[j].dist = planner_read_distance(cg, nodes, n, zarm, i, kd, zout, rec->xb);
                 if (nd->op == IR_MATCH_BEGIN) rd[j].dist -= zd_mframe_g(cg, nd);
                 if (rd[j].xf == -1 && zd_pl_home(cg) && rec->xb && zon[k] && rec->xb[k] != INT_MIN && nd->op == IR_UNMARK && p->op == IR_BOUND && planner_bound_spine(cg, p))
                     rd[j].xf = -(rec->xb[k] + zout[k]);
