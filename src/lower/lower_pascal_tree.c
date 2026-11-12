@@ -5302,6 +5302,7 @@ static pval E_argument(const tree_t *n) {
     if (IS(n, TT_FMT) && n->n == 2) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
+        if (v[3].node && ((v[3].node->t == TT_ILIT && v[3].node->v.ival < 0) || (v[3].node->t == TT_MNS && v[3].node->n == 1 && v[3].node->c[0] && v[3].node->c[0]->t == TT_ILIT))) v[3].node = ilit(0);
         { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool(v[1].node)); pnl_push(_al, v[3].node); out.list = _al; }
         return out;
     }
@@ -5309,6 +5310,7 @@ static pval E_argument(const tree_t *n) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
         v[5] = E_expression(n->c[2]);
+        if (v[3].node && ((v[3].node->t == TT_ILIT && v[3].node->v.ival < 0) || (v[3].node->t == TT_MNS && v[3].node->n == 1 && v[3].node->c[0] && v[3].node->c[0]->t == TT_ILIT))) v[3].node = ilit(0);
         { PNodeList *_al = pnl_new(); pnl_push(_al, pas_bool(v[1].node)); pnl_push(_al, ilit(-3)); pnl_push(_al, v[3].node); pnl_push(_al, v[5].node); out.list = _al; }
         return out;
     }

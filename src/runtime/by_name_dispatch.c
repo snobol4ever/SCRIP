@@ -21608,7 +21608,7 @@ static void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start)
             const char *_ps = VARVAL_fn(av);
             if (_ps) {
                 if (w == -2) pas_wput(k, _ps, 1);
-                else if (w >= 0) { size_t _l = strnlen(_ps, (size_t)w); pas_wpad(k, (long)w - (long)_l); pas_wput(k, _ps, _l); } else pas_wput(k, _ps, pas_slen(av, _ps));
+                else if (w >= 0) { size_t _l = pas_slen(av, _ps); pas_wpad(k, (long)w - (long)_l); pas_wput(k, _ps, _l); } else pas_wput(k, _ps, pas_slen(av, _ps));
             }
         }
     }
