@@ -4800,7 +4800,8 @@ static const char *pas_pf_field_sig(const tree_t *f) {
     for (int i = 0; r && r->k == PTK_RECORD && i < pty_rec_nf(r); i++) {
         struct pty_fld o;
         const char *tn;
-        if (pty_rec_fld(r, i, &o) && o.name && !strcasecmp(o.name, f->c[1]->v.sval) && (tn = pty_fld_typename(r, i))) return pas_proctype_get(tn);
+        if (pty_rec_fld(r, i, &o) && o.name && !strcasecmp(o.name, f->c[1]->v.sval)) return (tn = pty_fld_typename(r, i)) ? pas_proctype_get(tn) :
+            (pty_name_of(r) ? pas_proctype_get(pas_pf_cat3(pty_name_of(r), ".", o.name)) : NULL);
     }
     return NULL;
 }
@@ -6211,6 +6212,12 @@ static pval E_expression_raw(const tree_t *n) {
         { out.node = (pas_is_boolexpr(v[1].node) && pas_is_boolexpr(v[3].node)) ? bin(TT_CONJ, v[1].node, v[3].node) : mk_fnc2("iand", v[1].node, v[3].node); }
         return out;
     }
+    if (IS(n, TT_FIELD) && n->n == 2 && pas_pf_field_sig(n) && pas_pf_field_sig(n)[0] == 'F' && pas_pf_nactuals(pas_pf_field_sig(n)) == 0) {
+        out.node = mk_fnc1("__pas_pcall", E_selector(n).node);
+        ast_push(out.node, leaf_s(TT_QLIT, pas_pf_field_sig(n)));
+        ast_push(out.node, ilit(0));
+        return out;
+    }
     if (IS(n, TT_VAR) || IS(n, TT_IDX) || IS(n, TT_FIELD) || IS(n, TT_DEREF)) {
         v[1] = E_selector(n);
         {
@@ -6912,6 +6919,14 @@ static pval E_record_field(const tree_t *n) {
                 snprintf(_snm, sizeof _snm, "$anonset%d", ++g_lower.pas.sem.pas_scope.anonseq);
                 pas_settype_add(_snm, g_lower.pas.sem.pas_pend_set_hi);
                 g_lower.pas.sem.pas_pend_typename = ct_strdup(_snm);
+                _syn = 1;
+            }
+            if (g_lower.pas.sem.pas_pend_proctype && !g_lower.pas.sem.pas_pend_typename) {
+                char _snm[32];
+                snprintf(_snm, sizeof _snm, "$anonproc%d", ++g_lower.pas.sem.pas_scope.anonseq);
+                pas_proctype_add(_snm, g_lower.pas.sem.pas_pend_proctype);
+                g_lower.pas.sem.pas_pend_typename = ct_strdup(_snm);
+                g_lower.pas.sem.pas_pend_proctype = NULL;
                 _syn = 1;
             }
             if (v[1].list) {
@@ -7634,6 +7649,10 @@ static pval E_type_decl(const tree_t *n) {
             if (g_lower.pas.sem.pas_pend_sub_high >= 0 && _ty3 < 0 && g_lower.pas.sem.pas_pend_arr_ncols < 0)
                 pas_subtype_add(v[1].str, g_lower.pas.sem.pas_pend_sub_low, g_lower.pas.sem.pas_pend_sub_high);
             if (g_lower.pas.sem.pas_pend_proctype) pas_proctype_add(v[1].str, g_lower.pas.sem.pas_pend_proctype);
+            for (int _fi = 0; _fi < g_lower.pas.sem.pas_pend_nf; _fi++) {
+                const char *_ft = g_lower.pas.sem.pas_pend_fldtypename[_fi];
+                if (_ft && !strncmp(_ft, "$anonproc", 9)) pas_proctype_add(pas_pf_cat3(v[1].str, ".", g_lower.pas.sem.pas_pend_fields[_fi]), pas_proctype_get(_ft));
+            }
             if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget && g_lower.pas.sem.pas_pend_row_hi >= g_lower.pas.sem.pas_pend_row_lo)
                 pas_rows_add(v[1].str, g_lower.pas.sem.pas_pend_row_lo, g_lower.pas.sem.pas_pend_row_hi, 1, g_lower.pas.sem.pas_pend_row_kind);
             if (_ty3 == -1 && !g_lower.pas.sem.pas_pend_ptrtarget && g_lower.pas.sem.pas_pend_nf == 0 && g_lower.pas.sem.pas_pend_enum_max < 0 && g_lower.pas.sem.pas_pend_sub_high < 0 &&
