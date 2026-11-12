@@ -2187,8 +2187,8 @@ static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
             if (k == ll && k == K) { in = 0; scrip_rl_close(cur, tp, nlang, bs, p, nx, ps, fnm); }
         } else if (ll >= 3 && p[0] == '#' && p[1] == '#' && p[2] == ' ') {
             while (i < nr && r[i].one) i++;
-            if (i == nr) return scrip_rl_refuse("MULTI.md holds a heading the index lacks", p + 3);
-            if (ll - 3 != strlen(r[i].name) || strncmp(p + 3, r[i].name, ll - 3)) return scrip_rl_refuse("a MULTI.md heading is not the next multi row of the index, which is", r[i].name);
+            if (i == nr) return scrip_rl_refuse("MULTI-LINERS.md holds a heading the index lacks", p + 3);
+            if (ll - 3 != strlen(r[i].name) || strncmp(p + 3, r[i].name, ll - 3)) return scrip_rl_refuse("a MULTI-LINERS.md heading is not the next multi row of the index, which is", r[i].name);
             cur = &r[i++];
             part = -1;
             nlang = 0;
@@ -2208,7 +2208,7 @@ static int scrip_rl_multi(char * b, size_t len, scrip_rl_t * r, int nr) {
         p = nx;
     }
     if (in) return scrip_rl_refuse("a fence is never closed in the section", cur->name);
-    for (; i < nr; i++) if (!r[i].one) return scrip_rl_refuse("a multi row of the index has no section in MULTI.md", r[i].name);
+    for (; i < nr; i++) if (!r[i].one) return scrip_rl_refuse("a multi row of the index has no section in MULTI-LINERS.md", r[i].name);
     for (i = 0; i < nr; i++) if (!r[i].one && !r[i].prog) return scrip_rl_refuse("a section has no language fence", r[i].name);
     return 0;
 }
@@ -2414,12 +2414,12 @@ static int scrip_rl_run(char * self, const char * mode, const scrip_rl_t * t, in
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * scrip_rl_container(const char * dir, int multi, const char ** ext, size_t * len) {
     char * b = (char *)0, * c = (char *)0;
-    if (multi && (b = scrip_rl_slurp(ct_fmt("%s/MULTI.md", dir), len)) != (char *)0) return b;
+    if (multi && (b = scrip_rl_slurp(ct_fmt("%s/MULTI-LINERS.md", dir), len)) != (char *)0) return b;
     if (multi) {
         b = ct_strdup("");
         *len = 0;
         size_t n = 0;
-        for (int k = 1; (c = scrip_rl_slurp(ct_fmt("%s/MULTI.%02d.md", dir, k), &n)) != (char *)0; k++) {
+        for (int k = 1; (c = scrip_rl_slurp(ct_fmt("%s/MULTI-LINERS.%02d.md", dir, k), &n)) != (char *)0; k++) {
             char * j = (char *) ct_alloc(*len + n + 1);
             memcpy(j, b, *len);
             memcpy(j + *len, c, n + 1);
@@ -2432,9 +2432,9 @@ static char * scrip_rl_container(const char * dir, int multi, const char ** ext,
     const char * found = (const char *)0;
     int many = 0;
     for (size_t k = 0; k < sizeof exts / sizeof exts[0]; k++) {
-        if (access(ct_fmt("%s/ONE.%s", dir, exts[k]), R_OK) != 0) continue;
+        if (access(ct_fmt("%s/ONE-LINERS.%s", dir, exts[k]), R_OK) != 0) continue;
         many += found != (const char *)0;
-        found = ct_fmt("ONE.%s", exts[k]);
+        found = ct_fmt("ONE-LINERS.%s", exts[k]);
     }
     if (many) { *ext = ""; return (char *)0; }
     if (!found) { *len = 0; return ct_strdup(""); }
