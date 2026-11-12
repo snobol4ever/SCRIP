@@ -1,6 +1,7 @@
 #ifndef RUNTIME_LIB_BN_07_RK_H
 #define RUNTIME_LIB_BN_07_RK_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/rx.h"
 __attribute__((visibility("hidden"))) const char *rk_rx_pat(DESCR_t v);
 __attribute__((visibility("hidden"))) int rk_is_code(DESCR_t v);
 __attribute__((visibility("hidden"))) const char *rk_code_name(DESCR_t v);

@@ -1,4 +1,13 @@
 #include "planner/zeta_plan/zp_head.h"
+extern "C" {
+#include "ir/ir_graph.h"
+}
+extern "C" {
+#include "ir/ir_node_index.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+}
 #include "planner/zeta_plan/zp_01_sh.h"
 #include "planner/zeta_plan/zp_02_sh.h"
 #include "planner/zeta_plan/zp_03_sh.h"

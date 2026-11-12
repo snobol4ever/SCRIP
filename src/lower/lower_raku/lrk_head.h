@@ -1,25 +1,6 @@
 #ifndef LOWER_LOWER_RAKU_LRK_HEAD_H
 #define LOWER_LOWER_RAKU_LRK_HEAD_H
-#include <string.h>
-#include "runtime/builtin_table.h"
 #include "runtime/core/g_runtime.h"
-#include <unistd.h>
-#include "ir/ct_arena.h"
-#include "ir/ct_vec.h"
-#include <stdlib.h>
-#include <stdint.h>
-#include <math.h>
-#include "ir/ir_node.h"
-#include "ir/ir_graph.h"
-#include "ir/stage2.h"
-#include "ir/ast.h"
-#include "lower/lower_raku.h"
-#include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen_runtime.h"
-#include "ir/ir_graph.h"
-#include "ir/bb_box.h"
-#include "runtime/builtins/gen.h"
-#include "lower/lower_common.h"
 #include "lower/g_lower.h"
 typedef struct rk_loopfr_s { const char * label; IR_t * exit; IR_t * next; IR_t * redo; struct rk_loopfr_s * up; } rk_loopfr_t;
 typedef struct {
@@ -60,8 +41,6 @@ typedef struct { int maxp; int nnamed; const char ** named; } rkrx_groups_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "ir/stage2.h"
-#include "ir/bb_program.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char ** v; int n, cap; unsigned char * fl; } rk_ns_t;

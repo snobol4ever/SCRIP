@@ -1,6 +1,8 @@
 #ifndef LOWER_LOWER_PASCAL_TREE_LPT_03_PAS_H
 #define LOWER_LOWER_PASCAL_TREE_LPT_03_PAS_H
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include "ir/ast.h"
+#include "lower/lower_pascal_types.h"
 __attribute__((visibility("hidden"))) const pty_t *pas_art(const char *a);
 __attribute__((visibility("hidden"))) int pas_arf(const char *a, long idx, struct pty_fld *f);
 __attribute__((visibility("hidden"))) tree_t *mk_rec_block_of(const pty_t *r, int depth);

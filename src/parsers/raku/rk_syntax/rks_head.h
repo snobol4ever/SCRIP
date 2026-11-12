@@ -1,14 +1,8 @@
 #ifndef PARSERS_RAKU_RK_SYNTAX_RKS_HEAD_H
 #define PARSERS_RAKU_RK_SYNTAX_RKS_HEAD_H
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
 #include <setjmp.h>
-#include "ir/ct_arena.h"
 #include "parsers/raku/rk_syntax.h"
 #include "parsers/raku/rk_tree.h"
-#include "parsers/snobol4/scrip_cc.h"
 /*====================================================================================================================================================================================================*/
 enum { AS_LEFT = 1, AS_RIGHT, AS_NON, AS_LIST, AS_UNARY };
 enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_DOTTY = 32, OF_COMMA = 64, OF_WORD = 128 };

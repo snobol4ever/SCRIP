@@ -1,6 +1,9 @@
 #ifndef EMITTER_EM_EM_01_SH_H
 #define EMITTER_EM_EM_01_SH_H
 #include "emitter/em/em_head.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_walk.h"
 extern "C" { __attribute__((visibility("hidden"))) bb_label_t * emit_floater_label(int k); }
 extern "C" { bb_label_t *emit_label_alloc(const char *fmt, ...); }
 extern "C" { bb_label_t *emit_label_intern(const char *name); }

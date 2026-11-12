@@ -1,4 +1,10 @@
 #include "lower/lower_prolog/lpl_head.h"
+#include <stdio.h>
+#include "runtime/core/g_runtime.h"
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+#include "lower/lower_common.h"
+#include "optimizer/ir_query.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_03_pl.h"
 #include "lower/lower_prolog/lpl_04_pl.h"

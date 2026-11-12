@@ -1,6 +1,8 @@
 #ifndef LOWER_LOWER_ICON_LIC_02_SH_H
 #define LOWER_LOWER_ICON_LIC_02_SH_H
 #include "lower/lower_icon/lic_head.h"
+#include "ir/cset_block.h"
+#include "ir/stage2.h"
 __attribute__((visibility("hidden"))) const char * icn_synth_local(icx_t * cx);
 __attribute__((visibility("hidden"))) tree_t * icn_variable_lit_tree(const char * nm);
 __attribute__((visibility("hidden"))) tree_t * pm_node(tree_e k, tree_t * a, tree_t * b, tree_t * c);

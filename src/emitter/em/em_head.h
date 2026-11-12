@@ -7,71 +7,28 @@
 #include <string>
 #include <climits>
 #include "emitter/emit.h"
-#include "emitter/emit_state.h"
-#include "emitter/bb_label.h"
-#include "emitter/emit_medium.h"
-#include "emitter/emit_data.h"
-#include "emitter/emit_knobs.h"
-#include "emitter/emit_regime.h"
-#include "emitter/emit_rtx.h"
-#include "emitter/emit_walk.h"
-#include "emitter/emit_str.h"
-#include "emitter/emit_gc_site.h"
-#include "runtime/keywords.h"
 #include "planner/frame_layout.h"
-#include "lower/lower_prolog.h"
 #include "ir/gc_frame_map.h"
-#include "ir/dtp.h"
-#include "optimizer/ir_index.h"
-#include "ir/ir_node_index.h"
-#include "templates/bb/bb_templates.h"
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
 extern "C" {
-#include "ir/stage2.h"
-#include "templates/xa/xa_templates.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "emitter/g_emitter.h"
-#include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"
-#include "templates/x86/x86_frame.h"
-#include "templates/x86/x86_gc.h"
-#include "templates/x86/x86_icn.h"
-#include "templates/x86/x86_jump.h"
-#include "templates/x86/x86_rsp_tracker.h"
-#include "templates/x86/x86_rtcc.h"
-#include "templates/x86/x86_rodata.h"
-#include "templates/x86/x86_zverify.h"
-#include "ir/pin_va.h"
-#include "planner/zeta_plan.h"
-#include "planner/act_words.h"
-#include "lower/lower_common.h"
-#include "runtime/core/comm_var.h"
 #include "runtime/core/g_runtime.h"
-#include "runtime/core/trace.h"
 #include "runtime/rt/pl_trail_layout.h"
-#include "ir/call_forms.h"
-#include "ir/stno_map.h"
 #define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { bb_label_t * k; int head; uint32_t gen; } bb_patch_hent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define STNO_SRC(i) CV_AT(g_emit.stno_src, sno_stno_src_t, (i))
-#include "ir/ir_node.h"
-#include "ir/ir_graph.h"
 #define STRTAB(i) CV_AT(g_emitter.g_strtab, strtab_ent_t, (i))
 #define CSETTAB(i) CV_AT(g_emitter.g_csettab, csettab_ent_t, (i))
-#include "templates/bb/bb_templates.h"
-#include "runtime/builtins/gen.h"
 #include "runtime/rt/rt.h"
-#include "ir/bb_box.h"
-#include "optimizer/gva_collect.h"
-#include "optimizer/proc_collect.h"
-#include "optimizer/ir_query.h"
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -196,12 +153,9 @@ extern "C" { int stage2_owner_varslot(const char * proc, const char * var); cons
 extern "C" int prolog_atom_intern_lit(const char *);
 extern "C" int prolog_functor_arity(int);
 extern "C" {
-#include "runtime/builtin_ids.h"
-#include "runtime/snobol4_system_fns.h"
 int rt_dat_field_of_any(const char * name);
 void * dat_find_type(const char * name);
 }
-#include "templates/bb/bb_pl_leaf_kinds.h"
 extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_flat_frame_floor; }
 extern "C" {
 DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *,

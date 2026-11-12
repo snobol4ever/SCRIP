@@ -1,4 +1,5 @@
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/prolog_atom.h"
 #include "runtime/unification/un_02_pl.h"
 #include "runtime/unification/un_03_pl.h"
 #include "runtime/unification/un_04_pl.h"

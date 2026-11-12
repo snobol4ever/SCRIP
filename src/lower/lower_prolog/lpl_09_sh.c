@@ -1,4 +1,10 @@
 #include "lower/lower_prolog/lpl_head.h"
+#include <stdio.h>
+#include "runtime/core/g_runtime.h"
+#include <limits.h>
+#include "ir/stage2.h"
+#include "lower/lower_common.h"
+#include "lower/pl_aggregate_names.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_02_pl.h"
 #include "lower/lower_prolog/lpl_03_pl.h"

@@ -1,4 +1,17 @@
 #include "runtime/lib/bn_head.h"
+#include "ir/dtp.h"
+#include "runtime/by_name_dispatch.h"
+#include "runtime/core/icn_builtins.h"
+#include "runtime/core/nv.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include "driver/driver_data.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/builtin_leaf.h"
+#include "runtime/rt/rt_list_view.h"
+#include <ctype.h>
+#include <termios.h>
 #include "runtime/lib/bn_01_sh.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_04_pl.h"

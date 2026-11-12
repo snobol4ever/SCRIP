@@ -1,4 +1,15 @@
 #include "lower/lower_prolog/lpl_head.h"
+#include <stdio.h>
+#include "runtime/core/g_runtime.h"
+#include <stdlib.h>
+#include "ir/ir_graph.h"
+#include "ir/ir_construct.h"
+#include "ir/stage2.h"
+#include "lower/lower_prolog.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "lower/lower_common.h"
+#include "planner/frame_layout.h"
+#include "lower/pl_control_names.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_02_pl.h"
 #include "lower/lower_prolog/lpl_03_pl.h"

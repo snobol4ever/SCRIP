@@ -1,4 +1,63 @@
 #include "emitter/em/em_head.h"
+#include "emitter/bb_label.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_walk.h"
+#include "ir/dtp.h"
+#include "ir/stage2.h"
+#include "templates/xa/xa_templates.h"
+#include "templates/x86/x86_ops.h"
+#include "templates/x86/x86_gc.h"
+#include "templates/x86/x86_icn.h"
+#include "templates/x86/x86_jump.h"
+#include "templates/x86/x86_rsp_tracker.h"
+#include "templates/x86/x86_rtcc.h"
+#include "templates/x86/x86_rodata.h"
+#include "templates/x86/x86_zverify.h"
+#include "ir/pin_va.h"
+#include "planner/act_words.h"
+#include "runtime/core/comm_var.h"
+#include "runtime/core/trace.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "runtime/builtins/gen.h"
+#include "ir/bb_box.h"
+#include "optimizer/proc_collect.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/snobol4_system_fns.h"
+#include "templates/bb/bb_pl_leaf_kinds.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_rtx.h"
+#include "emitter/emit_str.h"
+#include "emitter/emit_gc_site.h"
+#include "runtime/keywords.h"
+#include "lower/lower_prolog.h"
+#include "optimizer/ir_index.h"
+#include "ir/ir_node_index.h"
+#include "templates/bb/bb_templates.h"
+extern "C" {
+#include "templates/x86/x86_frame.h"
+}
+extern "C" {
+#include "planner/zeta_plan.h"
+}
+extern "C" {
+#include "lower/lower_common.h"
+}
+extern "C" {
+#include "ir/call_forms.h"
+}
+extern "C" {
+#include "ir/stno_map.h"
+}
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
+extern "C" {
+#include "optimizer/ir_query.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_02_sh.h"
 #include "emitter/em/em_03_sh.h"

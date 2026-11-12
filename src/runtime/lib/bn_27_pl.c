@@ -1,4 +1,15 @@
 #include "runtime/lib/bn_head.h"
+#include <math.h>
+#include "lower/pl_arith_names.h"
+#include "lower/pl_control_names.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/prolog_atom.h"
+#include "driver/driver_globals.h"
+#include "runtime/pl_rat.h"
+#include <errno.h>
+#include <ctype.h>
+#include <fenv.h>
+#include "runtime/rt_pl_reader.h"
 #include "runtime/lib/bn_04_pl.h"
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_06_pl.h"

@@ -1,6 +1,11 @@
 #ifndef EMITTER_EM_EM_04_SH_H
 #define EMITTER_EM_EM_04_SH_H
 #include "emitter/em/em_head.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_regime.h"
+extern "C" {
+#include "planner/zeta_plan.h"
+}
 extern "C" { FILE *emit_outf(void); }
 extern "C" { extern bb_buf_t bb_emit_buf; }
 extern "C" { extern int bb_emit_pos; }

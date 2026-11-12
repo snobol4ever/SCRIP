@@ -1,4 +1,15 @@
 #include "emitter/em/em_head.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_gc_site.h"
+extern "C" {
+#include "templates/x86/x86_frame.h"
+}
+extern "C" {
+#include "templates/x86/x86_gc.h"
+}
+extern "C" {
+#include "templates/x86/x86_rsp_tracker.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_03_sh.h"
 #include "emitter/em/em_04_sh.h"

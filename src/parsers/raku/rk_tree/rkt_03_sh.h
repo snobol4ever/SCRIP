@@ -1,6 +1,7 @@
 #ifndef PARSERS_RAKU_RK_TREE_RKT_03_SH_H
 #define PARSERS_RAKU_RK_TREE_RKT_03_SH_H
 #include "parsers/raku/rk_tree/rkt_head.h"
+#include "parsers/raku/rk_tree.h"
 __attribute__((visibility("hidden"))) void tl_add(TL *l, tree_t *t);
 __attribute__((visibility("hidden"))) tree_t *stmt_plain(RkB *b, RkList *L);
 __attribute__((visibility("hidden"))) tree_t *rk_tree_clone(tree_t *e);

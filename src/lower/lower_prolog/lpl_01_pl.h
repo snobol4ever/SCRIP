@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_01_PL_H
 #define LOWER_LOWER_PROLOG_LPL_01_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "ir/stage2.h"
 unsigned resolve_pred_hash(const char *s);
 Resolve_PredEntry *resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
 tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);

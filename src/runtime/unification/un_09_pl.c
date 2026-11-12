@@ -1,4 +1,10 @@
 #include "runtime/unification/un_head.h"
+#include "ir/ct_arena.h"
+#include "runtime/core/core.h"
+#include "ir/bb_pool.h"
+#include "runtime/rt/prolog_atom.h"
+#include "ir/gc_frame_map.h"
+#include <sys/mman.h>
 #include "runtime/unification/un_02_pl.h"
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_08_pl.h"

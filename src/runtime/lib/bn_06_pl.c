@@ -1,4 +1,12 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/by_name_dispatch.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include "runtime/pl_rat.h"
+#include <ctype.h>
+#include "runtime/rt_pl_reader.h"
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_06_pl.h"
 #include "runtime/lib/bn_09_rk.h"

@@ -13,23 +13,10 @@
 #include <assert.h>
 #include <math.h>
 extern "C" {
-#include "ir/ct_arena.h"
-#include "ir/ct_vec.h"
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
-#include "ir/stage2.h"
-#include "optimizer/ir_index.h"
-#include "ir/ir_node_index.h"
-#include "optimizer/ir_query.h"
-#include "ir/call_forms.h"
-#include "planner/zeta_depth.h"
 }
 extern "C" {
-#include "planner/g_planner.h"
 #include "planner/zeta_plan.h"
-#include "planner/act_words.h"
-#include "planner/plan_facts.h"
-#include "lower/lower_common.h"
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
     BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE, BCS_PL_SPINE_RECORD, BCS_PL_GATE_ARM, BCS_PL_TO_TRAILED, BCS_PL_TO_DB, BCS_CALL_ARGV, BCS_CALL_ARGV_CUR, BCS_CALL_ARGV_REC,
         BCS_CALL_ARGV_CUR_REC, BCS_CALL_ARGV_RSP, BCS_RSP_FLAT, BCS_FLUSH_RSP_FLAT };

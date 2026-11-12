@@ -1,4 +1,16 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/by_name_dispatch.h"
+#include "runtime/core/nv.h"
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include "runtime/builtins/gen_value.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/builtin_leaf.h"
+#include "runtime/rt/rt_list_view.h"
+#include "runtime/rt/rt_protected.h"
+#include <errno.h>
 #include "runtime/lib/bn_01_sh.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_25_sh.h"

@@ -1,4 +1,12 @@
 #include "parsers/raku/rk_tree/rkt_head.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include "ir/ct_arena.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "parsers/raku/rk_tree.h"
+#include "parsers/raku/rk_syntax.h"
 #include "parsers/raku/rk_tree/rkt_01_sh.h"
 #include "parsers/raku/rk_tree/rkt_02_sh.h"
 #include "parsers/raku/rk_tree/rkt_03_sh.h"

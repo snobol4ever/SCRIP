@@ -1,31 +1,8 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_HEAD_H
 #define LOWER_LOWER_SNOBOL4_LSN_HEAD_H
-#include "runtime/core/g_runtime.h"
-#include "ir/ct_arena.h"
-#include "ir/ct_vec.h"
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include <setjmp.h>
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
-#include "ir/stage2.h"
-#include "ir/ast.h"
-#include "lower/lower_snobol4.h"
-#include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "ir/ir_graph.h"
-#include "ir/bb_box.h"
-#include "runtime/builtins/gen.h"
-#include "lower/lower_common.h"
 #include "lower/g_lower.h"
-#include "ir/dtp.h"
-#include "ir/bb_program.h"
-#include "parsers/icon/icon_lex.h"
-#include "runtime/snobol4_system_fns.h"
-#include "runtime/core/core_errjmp.h"
 extern void global_register(const char * name);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; int ppos; IR_t * prim2; } sprearg_t;
 typedef struct sno_kw_link { const char * nm; const struct sno_kw_link * up; } sno_kw_link_t;

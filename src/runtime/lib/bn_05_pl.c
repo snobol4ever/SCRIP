@@ -1,4 +1,13 @@
 #include "runtime/lib/bn_head.h"
+#include <sys/stat.h>
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include <errno.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include "runtime/rt_pl_reader.h"
 #include "runtime/lib/bn_04_pl.h"
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_06_pl.h"

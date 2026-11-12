@@ -1,4 +1,9 @@
 #include "runtime/unification/un_head.h"
+#include "ir/ct_arena.h"
+#include "runtime/pl_rat.h"
+#include "runtime/core/utf8.h"
+#include "runtime/rt/prolog_atom.h"
+#include <ctype.h>
 #include "runtime/unification/un_01_pl.h"
 #include "runtime/unification/un_02_pl.h"
 #include "runtime/unification/un_03_pl.h"

@@ -1,4 +1,10 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/by_name_dispatch.h"
+#include <math.h>
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/pl_rat.h"
+#include <fenv.h>
+#include <float.h>
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_27_pl.h"
 #include "runtime/lib/bn_28_sh.h"

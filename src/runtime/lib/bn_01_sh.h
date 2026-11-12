@@ -1,6 +1,7 @@
 #ifndef RUNTIME_LIB_BN_01_SH_H
 #define RUNTIME_LIB_BN_01_SH_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/by_name_dispatch.h"
 __attribute__((visibility("hidden"))) void icn_loadfunc_cstr_args(DESCR_t *args, int nargs);
 __attribute__((visibility("hidden"))) int icn_nxttab(int col, const int *stops, int nstops, int gap);
 __attribute__((visibility("hidden"))) int icn_numeric_tail_is_blank(const char *p);

@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/prolog_atom.h"
 #include "runtime/lib/bn_05_pl.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_store_k_c(DESCR_t *args, int nargs, void *root) {

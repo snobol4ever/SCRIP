@@ -1,4 +1,13 @@
 #include "runtime/lib/bn_head.h"
+#include <sys/stat.h>
+#include "runtime/rt/rt_arena.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver.h"
+#include "driver/driver_globals.h"
+#include "runtime/builtin_leaf.h"
+#include <errno.h>
+#include <ctype.h>
+#include <fcntl.h>
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_08_sh.h"
 #include "runtime/lib/bn_14_rk.h"

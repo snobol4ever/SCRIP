@@ -1,6 +1,9 @@
 #ifndef EMITTER_EM_EM_02_SH_H
 #define EMITTER_EM_EM_02_SH_H
 #include "emitter/em/em_head.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_str.h"
+#include "ir/dtp.h"
 extern "C" { __attribute__((visibility("hidden"))) void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j); }
 extern "C" { int emit_resumable_frame(void); }
 extern "C" { int bb_ab_sym_is_thunk_stem(const char * sym); }

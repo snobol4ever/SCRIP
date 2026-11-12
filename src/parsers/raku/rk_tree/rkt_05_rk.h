@@ -1,6 +1,7 @@
 #ifndef PARSERS_RAKU_RK_TREE_RKT_05_RK_H
 #define PARSERS_RAKU_RK_TREE_RKT_05_RK_H
 #include "parsers/raku/rk_tree/rkt_head.h"
+#include "parsers/raku/rk_tree.h"
 __attribute__((visibility("hidden"))) int rk_is_slice_key(const tree_t *k);
 __attribute__((visibility("hidden"))) tree_t *rk_arr_rhs(tree_t *rhs);
 __attribute__((visibility("hidden"))) tree_t *nctx(RkB *b, tree_t *e);

@@ -1,4 +1,9 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/core_error.h"
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include "runtime/core/runtime_shim.h"
+#include "runtime/rt/rt_list_view.h"
 #include "runtime/lib/bn_39_sh.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {

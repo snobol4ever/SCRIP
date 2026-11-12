@@ -1,4 +1,11 @@
 #include "lower/lower_icon/lic_head.h"
+#include <string.h>
+#include "ir/cset_block.h"
+#include <math.h>
+#include "ir/ir_node.h"
+#include "ir/stage2.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "lower/lower_common.h"
 #include "lower/lower_icon/lic_01_sh.h"
 #include "lower/lower_icon/lic_03_sh.h"
 #include "lower/lower_icon/lic_04_sh.h"

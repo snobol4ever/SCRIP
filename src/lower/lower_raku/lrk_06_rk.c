@@ -1,4 +1,10 @@
 #include "lower/lower_raku/lrk_head.h"
+#include <string.h>
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
 #include "lower/lower_raku/lrk_02_rk.h"
 #include "lower/lower_raku/lrk_03_rk.h"

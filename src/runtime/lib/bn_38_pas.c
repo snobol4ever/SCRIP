@@ -1,4 +1,12 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/core_error.h"
+#include <sys/stat.h>
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include "driver/driver_globals.h"
+#include <errno.h>
+#include <fcntl.h>
+#include "runtime/pas_bi_names.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_10_pas.h"
 #include "runtime/lib/bn_11_pl.h"

@@ -1,4 +1,15 @@
 #include "runtime/lib/bn_head.h"
+#include <sys/utsname.h>
+#include <sys/resource.h>
+#include <poll.h>
+#include <sys/stat.h>
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include <errno.h>
+#include <ctype.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_11_pl.h"
 #include "runtime/lib/bn_27_pl.h"

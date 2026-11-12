@@ -1,4 +1,31 @@
 #include "planner/zeta_plan/zp_head.h"
+extern "C" {
+#include "ir/ct_arena.h"
+}
+extern "C" {
+#include "ir/ct_vec.h"
+}
+extern "C" {
+#include "ir/ir_graph.h"
+}
+extern "C" {
+#include "ir/stage2.h"
+}
+extern "C" {
+#include "optimizer/ir_index.h"
+}
+extern "C" {
+#include "ir/ir_node_index.h"
+}
+extern "C" {
+#include "optimizer/ir_query.h"
+}
+extern "C" {
+#include "planner/g_planner.h"
+}
+extern "C" {
+#include "planner/plan_facts.h"
+}
 #include "planner/zeta_plan/zp_01_sh.h"
 #include "planner/zeta_plan/zp_02_sh.h"
 #include "planner/zeta_plan/zp_03_sh.h"

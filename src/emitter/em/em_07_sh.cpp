@@ -1,4 +1,29 @@
 #include "emitter/em/em_head.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
+#include "lower/lower_prolog.h"
+#include "ir/ir_node_index.h"
+#include "templates/bb/bb_templates.h"
+extern "C" {
+#include "templates/x86/x86_frame.h"
+}
+extern "C" {
+#include "templates/x86/x86_gc.h"
+}
+extern "C" {
+#include "templates/x86/x86_icn.h"
+}
+extern "C" {
+#include "templates/x86/x86_zverify.h"
+}
+extern "C" {
+#include "planner/zeta_plan.h"
+}
+extern "C" {
+#include "lower/lower_common.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_02_sh.h"
 #include "emitter/em/em_03_sh.h"

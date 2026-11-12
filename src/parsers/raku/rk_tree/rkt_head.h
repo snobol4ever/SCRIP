@@ -1,17 +1,6 @@
 #ifndef PARSERS_RAKU_RK_TREE_RKT_HEAD_H
 #define PARSERS_RAKU_RK_TREE_RKT_HEAD_H
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdarg.h>
-#include "ir/ct_arena.h"
 #include "ir/ast.h"
-#include "parsers/snobol4/scrip_cc.h"
-#include "parsers/raku/rk_tree.h"
-#include "parsers/raku/rk_regex.h"
-#include "parsers/raku/rk_syntax.h"
-#include "ir/rk_opname.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
 typedef struct { const char **k; int n, cap; } NS;

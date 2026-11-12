@@ -1,4 +1,12 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/core_error.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/runtime_shim.h"
+#include "driver/driver_globals.h"
+#include "driver/driver_data.h"
+#include "runtime/builtin_leaf.h"
+#include <fenv.h>
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_07_rk.h"

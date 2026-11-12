@@ -1,4 +1,10 @@
 #include "runtime/lib/bn_head.h"
+#include <math.h>
+#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/utf8.h"
+#include "runtime/pl_rat.h"
+#include <errno.h>
+#include "runtime/rt_pl_reader.h"
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_06_pl.h"
 #include "runtime/lib/bn_26_sh.h"

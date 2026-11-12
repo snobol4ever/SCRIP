@@ -1,35 +1,10 @@
 #ifndef RUNTIME_UNIFICATION_UN_HEAD_H
 #define RUNTIME_UNIFICATION_UN_HEAD_H
-#include <math.h>
-#include <errno.h>
 #include "runtime/rt/rt_arena.h"
-#include "ir/ct_arena.h"
 #include "runtime/rt/rt.h"
-#include "runtime/rt/gc_heap.h"
-#include "runtime/pl_rat.h"
-#include "runtime/core/core.h"
-#include "runtime/core/utf8.h"
-#include "ir/bb_pool.h"
-#include "runtime/rt/prolog_atom.h"
-#include "ir/gc_frame_map.h"
-#include <stdio.h>
-#include <time.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <locale.h>
-#include <wctype.h>
-#include <sys/mman.h>
 #include "parsers/prolog/pl_cell.h"
 #include "runtime/prolog_db_blocks.h"
-#include "runtime/rt/rt_pl_trail.h"
 #include "runtime/rt/pl_rational.h"
-#include "runtime/core/table.h"
-#include "runtime/core/g_runtime.h"
-#include "runtime/rt/pl_trail_layout.h"
-#include "runtime/rt/rt_pl_trail.h"
 #define PL_CELL_ALLOC(n) (rt_ws_alloc_descr((size_t)(n) / sizeof(pl_cell_t)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

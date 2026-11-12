@@ -1,4 +1,35 @@
 #include "emitter/em/em_head.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "runtime/keywords.h"
+#include "ir/ir_node_index.h"
+#include "templates/bb/bb_templates.h"
+extern "C" {
+#include "templates/x86/x86_zverify.h"
+}
+extern "C" {
+#include "planner/zeta_plan.h"
+}
+extern "C" {
+#include "planner/act_words.h"
+}
+extern "C" {
+#include "lower/lower_common.h"
+}
+extern "C" {
+#include "runtime/core/comm_var.h"
+}
+extern "C" {
+#include "ir/stno_map.h"
+}
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
+extern "C" {
+#include "optimizer/proc_collect.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_02_sh.h"
 #include "emitter/em/em_03_sh.h"

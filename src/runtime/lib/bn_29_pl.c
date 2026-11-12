@@ -1,4 +1,9 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/prolog_atom.h"
+#include "driver/driver_globals.h"
+#include "runtime/pl_rat.h"
+#include <ctype.h>
+#include "runtime/rt/pl_rational.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_04_pl.h"
 #include "runtime/lib/bn_05_pl.h"

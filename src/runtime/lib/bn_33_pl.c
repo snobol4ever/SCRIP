@@ -1,4 +1,11 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/rt_arena.h"
+#include "runtime/rt/prolog_atom.h"
+#include "driver/driver_globals.h"
+#include "runtime/core/utf8.h"
+#include <errno.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_11_pl.h"
 #include "runtime/lib/bn_20_pl.h"

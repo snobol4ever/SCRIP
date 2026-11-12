@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_05_PL_H
 #define LOWER_LOWER_PROLOG_LPL_05_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "runtime/core/g_runtime.h"
 __attribute__((visibility("hidden"))) int pl_var_nodes(const tree_t * t);
 __attribute__((visibility("hidden"))) int max_var_slot(const tree_t * t, int mx);
 __attribute__((visibility("hidden"))) void pl_collect_vars(const tree_t * t, int * slots, int * n, int cap);

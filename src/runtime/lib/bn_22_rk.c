@@ -1,4 +1,7 @@
 #include "runtime/lib/bn_head.h"
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include <ctype.h>
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_08_sh.h"
 #include "runtime/lib/bn_14_rk.h"

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_08_RK_H
 #define LOWER_LOWER_RAKU_LRK_08_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/stage2.h"
 __attribute__((visibility("hidden"))) IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω);
 __attribute__((visibility("hidden"))) tree_t * rk_state_desugar(const tree_t * t);
 __attribute__((visibility("hidden"))) int rk_diverges(const tree_t * t);

@@ -1,4 +1,9 @@
 #include "lower/lower_raku/lrk_head.h"
+#include <string.h>
+#include "ir/stage2.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
 #include "lower/lower_raku/lrk_03_rk.h"
 #include "lower/lower_raku/lrk_05_rk.h"

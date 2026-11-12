@@ -1,4 +1,7 @@
 #include "parsers/raku/rk_syntax/rks_head.h"
+#include <stdio.h>
+#include <string.h>
+#include "ir/ct_arena.h"
 #include "parsers/raku/rk_syntax/rks_01_sh.h"
 #include "parsers/raku/rk_syntax/rks_02_sh.h"
 #include "parsers/raku/rk_syntax/rks_03_sh.h"

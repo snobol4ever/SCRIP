@@ -1,4 +1,9 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
+#include <stdio.h>
+#include "runtime/core/g_runtime.h"
+#include <math.h>
+#include "ir/ast.h"
+#include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
 #include "lower/lower_pascal_tree/lpt_03_pas.h"
 #include "lower/lower_pascal_tree/lpt_04_sh.h"

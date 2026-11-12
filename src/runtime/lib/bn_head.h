@@ -2,93 +2,20 @@
 #define RUNTIME_LIB_BN_HEAD_H
 #include "runtime/core/core.h"
 #include <glob.h>
-#include <sys/utsname.h>
 #include "runtime/core/g_runtime.h"
-#include <sys/resource.h>
 #include "runtime/rt/rtx_try.h"
-#include "ir/dtp.h"
-#include "runtime/by_name_dispatch.h"
-#include "ir/rk_opname.h"
-#include "ir/ct_arena.h"
-#include "runtime/rt/rt_diag.h"
 #include "runtime/core/array.h"
-#include "runtime/core/core_error.h"
 #include "runtime/core/datatype.h"
-#include "runtime/core/icn_builtins.h"
-#include "runtime/core/nv.h"
 #include "runtime/core/table.h"
-#include "runtime/core/trace.h"
-#include "runtime/core/tree_blk.h"
 #define ICN_ARITY_UNKNOWN (-99)
-#include <unistd.h>
-#include <poll.h>
-#include <sys/stat.h>
-#include <utime.h>
-#include <setjmp.h>
-#include <math.h>
-#include "runtime/snobol4_system_fns.h"
-#include "lower/pl_arith_names.h"
-#include "lower/pl_control_names.h"
-#include "runtime/rt/rt_arena.h"
-#include "runtime/rt/gc_heap.h"
-#include "runtime/rt/prolog_atom.h"
-#include "ir/ct_vec.h"
 #define CALL_ARGS ((DESCR_t *)g_call_args.p)
-#include "runtime/builtins/gen_value.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "runtime/builtins/gen.h"
 #include "emitter/sil_macros.h"
-#include "runtime/core/runtime_shim.h"
-#include "ir/stage2.h"
-#include "ir/ast.h"
-#include "ir/bb_box.h"
-#include "driver/driver.h"
-#include "driver/driver_globals.h"
-#include "driver/driver_data.h"
-#include "runtime/re.h"
-#include "runtime/rx.h"
-#include "runtime/core/core.h"
-#include "runtime/core/utf8.h"
-#include "runtime/builtin_ids.h"
-#include "runtime/builtin_leaf.h"
-#include "runtime/pattern_match.h"
 #include "runtime/rt/rt.h"
-#include "runtime/rt/rt_list_view.h"
-#include "runtime/rt/rt_protected.h"
-#include "runtime/pl_rat.h"
 #include "ir/gc_frame_map.h"
-#include <stdio.h>
-#include <string.h>
-#include <limits.h>
-#include <errno.h>
-#include <time.h>
-#include <stdlib.h>
-#include <time.h>
-#include <ctype.h>
-#include <wctype.h>
-#include <fenv.h>
-#include <float.h>
-#include <sys/select.h>
-#include <termios.h>
-#include <dlfcn.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/tcp.h>
-#include <poll.h>
-#include <sys/syscall.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; int np; } icn_bi_ent_t;
 #include "parsers/prolog/pl_cell.h"
-#include "runtime/rt/pl_trail_layout.h"
-#include "runtime/rt/rt_pl_trail.h"
-#include "runtime/rt/pl_rational.h"
 RT_ENTRY_DECL(rt_pl_fresh_var_ref, leaf, 0);
 #define RK_RX '\x06'
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -152,7 +79,6 @@ _Static_assert((RT_TWEAK_IC_N & (RT_TWEAK_IC_N - 1)) == 0,
     "er generation");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_tweak_open, leaf, 0);
-#include "runtime/pas_bi_names.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { char opsym[6]; signed char ar; } icn_opproc_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -193,8 +119,6 @@ RT_ENTRY_DECL(dop_write, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(dop_nl, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#include "runtime/rt_pl_reader.h"
-#include "runtime/core/core_errjmp.h"
 void rt_pl_format_cell(const char *, void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_TYPE_LEAF(nm) DESCR_t dop_pl_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_type_test_cell(&args[0], #nm)) ? pl_ok() : FAILDESCR; }
@@ -340,7 +264,6 @@ RT_ENTRY_DECL(c_rt_rk_arr_at, leaf, 0);
 RT_ENTRY_DECL(rt_rk_undef, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(pas_slice, leaf, 0);
-#include "runtime/pas_bi_names.h"
 typedef struct pas_wsink_t { FILE *fp; char *b; size_t n; size_t cap; } pas_wsink_t;
 RT_ENTRY_DECL(rt_call_pas_bi, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

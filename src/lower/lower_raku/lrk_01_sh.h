@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_01_SH_H
 #define LOWER_LOWER_RAKU_LRK_01_SH_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ir_node.h"
 __attribute__((visibility("hidden"))) int lrk_rk_seq_is_logical_and(const tree_t * t);
 __attribute__((visibility("hidden"))) int rk_is_multi_name(const char * nm);
 __attribute__((visibility("hidden"))) void rk_multi_name_add(const char * base);

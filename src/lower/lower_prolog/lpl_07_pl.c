@@ -1,4 +1,9 @@
 #include "lower/lower_prolog/lpl_head.h"
+#include <stdio.h>
+#include "runtime/core/g_runtime.h"
+#include <stdlib.h>
+#include "ir/stage2.h"
+#include "lower/lower_common.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"

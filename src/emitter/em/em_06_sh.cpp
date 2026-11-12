@@ -1,4 +1,18 @@
 #include "emitter/em/em_head.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_regime.h"
+extern "C" {
+#include "planner/zeta_plan.h"
+}
+extern "C" {
+#include "lower/lower_common.h"
+}
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
+extern "C" {
+#include "optimizer/ir_query.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_02_sh.h"
 #include "emitter/em/em_03_sh.h"

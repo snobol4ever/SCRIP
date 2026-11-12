@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_01_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_01_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
+#include "ir/stage2.h"
 __attribute__((visibility("hidden"))) int sno_sub_val_on(void);
 __attribute__((visibility("hidden"))) int sno_kw_static_slot(const char * kw);
 __attribute__((visibility("hidden"))) int sno_binop_code(tree_e tt);

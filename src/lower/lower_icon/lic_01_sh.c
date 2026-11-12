@@ -1,4 +1,13 @@
 #include "lower/lower_icon/lic_head.h"
+#include <string.h>
+#include "ir/cset_block.h"
+#include "runtime/core/g_runtime.h"
+#include "ir/ir_node.h"
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "lower/lower_common.h"
+#include "lower/lc_vec.h"
 #include "lower/lower_icon/lic_01_sh.h"
 #include "lower/lower_icon/lic_02_sh.h"
 #include "lower/lower_icon/lic_03_sh.h"

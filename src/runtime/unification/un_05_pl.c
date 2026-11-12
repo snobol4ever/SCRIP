@@ -1,4 +1,10 @@
 #include "runtime/unification/un_head.h"
+#include <math.h>
+#include "ir/ct_arena.h"
+#include "runtime/pl_rat.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/prolog_atom.h"
+#include <ctype.h>
 #include "runtime/unification/un_01_pl.h"
 #include "runtime/unification/un_02_pl.h"
 #include "runtime/unification/un_03_pl.h"

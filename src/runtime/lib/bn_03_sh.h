@@ -1,6 +1,7 @@
 #ifndef RUNTIME_LIB_BN_03_SH_H
 #define RUNTIME_LIB_BN_03_SH_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/by_name_dispatch.h"
 int icn_builtin_is_known(const char *name);
 int rt_builtin_is_known(const char *name);
 __attribute__((visibility("hidden"))) char *rtos(double r, char *buf, size_t cap);

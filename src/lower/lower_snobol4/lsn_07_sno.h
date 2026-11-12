@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_07_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_07_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
+#include "ir/stage2.h"
 __attribute__((visibility("hidden"))) const tree_t * sgoto_expr(const tree_t * s, tree_e kind);
 __attribute__((visibility("hidden"))) const tree_t * sgoto_direct(const tree_t * s, tree_e kind);
 __attribute__((visibility("hidden"))) int sno_goto_specials_impossible(const tree_t * expr);

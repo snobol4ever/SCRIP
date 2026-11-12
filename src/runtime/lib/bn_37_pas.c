@@ -1,4 +1,7 @@
 #include "runtime/lib/bn_head.h"
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include <ctype.h>
 #include "runtime/lib/bn_17_pas.h"
 #include "runtime/lib/bn_37_pas.h"
 double pas_xr_todouble(DESCR_t d);

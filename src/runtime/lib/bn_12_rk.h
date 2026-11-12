@@ -1,6 +1,7 @@
 #ifndef RUNTIME_LIB_BN_12_RK_H
 #define RUNTIME_LIB_BN_12_RK_H
 #include "runtime/lib/bn_head.h"
+#include "driver/driver_globals.h"
 __attribute__((visibility("hidden"))) int gram_get_flavor(const char *qname);
 __attribute__((visibility("hidden"))) const char *gram_get(const char *qname);
 int rt_grammar_has_top(const char *gname);

@@ -1,4 +1,37 @@
 #include "emitter/em/em_head.h"
+#include "emitter/emit_state.h"
+#include "emitter/emit_medium.h"
+#include "emitter/emit_data.h"
+#include "emitter/emit_knobs.h"
+#include "emitter/emit_regime.h"
+#include "emitter/emit_walk.h"
+#include "emitter/emit_str.h"
+#include "lower/lower_prolog.h"
+#include "ir/ir_node_index.h"
+extern "C" {
+#include "templates/xa/xa_templates.h"
+}
+extern "C" {
+#include "templates/x86/x86_frame.h"
+}
+extern "C" {
+#include "templates/x86/x86_gc.h"
+}
+extern "C" {
+#include "templates/x86/x86_rtcc.h"
+}
+extern "C" {
+#include "templates/x86/x86_rodata.h"
+}
+extern "C" {
+#include "ir/pin_va.h"
+}
+extern "C" {
+#include "runtime/core/comm_var.h"
+}
+extern "C" {
+#include "optimizer/gva_collect.h"
+}
 #include "emitter/em/em_01_sh.h"
 #include "emitter/em/em_02_sh.h"
 #include "emitter/em/em_03_sh.h"

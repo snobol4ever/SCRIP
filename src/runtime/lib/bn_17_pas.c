@@ -1,4 +1,11 @@
 #include "runtime/lib/bn_head.h"
+#include <math.h>
+#include "runtime/rt/rt_arena.h"
+#include "driver/driver_globals.h"
+#include "runtime/builtin_ids.h"
+#include "runtime/builtin_leaf.h"
+#include <errno.h>
+#include "runtime/pas_bi_names.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_08_sh.h"
 #include "runtime/lib/bn_10_pas.h"

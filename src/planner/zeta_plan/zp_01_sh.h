@@ -1,6 +1,9 @@
 #ifndef PLANNER_ZETA_PLAN_ZP_01_SH_H
 #define PLANNER_ZETA_PLAN_ZP_01_SH_H
 #include "planner/zeta_plan/zp_head.h"
+extern "C" {
+#include "planner/g_planner.h"
+}
 extern "C" { extern g_planner_t g_planner; }
 extern "C" { int zst_s_of(const IR_t * nd); }
 extern "C" { int zd_edge_retains_g(const IR_graph_t * cg, const IR_t * nd); }

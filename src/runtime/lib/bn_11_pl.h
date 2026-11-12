@@ -1,6 +1,7 @@
 #ifndef RUNTIME_LIB_BN_11_PL_H
 #define RUNTIME_LIB_BN_11_PL_H
 #include "runtime/lib/bn_head.h"
+#include <sys/un.h>
 int junction_mirror_op(int op);
 __attribute__((visibility("hidden"))) void pas_heap_release(long m);
 __attribute__((visibility("hidden"))) int pl_alias_idx(const char *nm);

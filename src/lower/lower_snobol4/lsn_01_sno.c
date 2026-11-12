@@ -1,4 +1,12 @@
 #include "lower/lower_snobol4/lsn_head.h"
+#include "runtime/core/g_runtime.h"
+#include <stdlib.h>
+#include "ir/ir_graph.h"
+#include "ir/stage2.h"
+#include "lower/lower_snobol4.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "lower/lower_common.h"
+#include "runtime/core/core_errjmp.h"
 #include "lower/lower_snobol4/lsn_01_sno.h"
 #include "lower/lower_snobol4/lsn_02_sno.h"
 #include "lower/lower_snobol4/lsn_03_sno.h"

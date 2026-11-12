@@ -1,6 +1,8 @@
 #ifndef LOWER_LOWER_ICON_LIC_01_SH_H
 #define LOWER_LOWER_ICON_LIC_01_SH_H
 #include "lower/lower_icon/lic_head.h"
+#include "ir/stage2.h"
+#include "lower/lc_vec.h"
 __attribute__((visibility("hidden"))) icn_loop_fr * icn_loop_at(const icx_t * cx, int idx);
 __attribute__((visibility("hidden"))) IR_t * icn_scan_at(const icx_t * cx, int k);
 __attribute__((visibility("hidden"))) int icn_is_local(const icx_t * cx, const char * nm);
