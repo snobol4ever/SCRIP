@@ -242,7 +242,7 @@ function TreeDumpAt(x, level, outNm, i, line, kids) {
 /* ==================================================================================================================== */
 /* PARSER_TREE_HASH=1 (Lon 2026-09-29 18:5x CDT: "hashing the output tree is what I meant. In memory. Then output the one number   */
 /* per-test for comparison."): each line TreeDumpAt would print, and its newline, is folded into TreeHashH instead, byte by byte, */
-/* h = (h * 256 + byte) mod (2^55 - 55) -- the same fold, over the same bytes, as out/parser_<lang> (src/tools/parser_main.c).   */
+/* h = (h * 256 + byte) mod (2^55 - 55) -- the same fold, over the same bytes, as out/parser_<lang> (src/parsers/parser_main.c).   */
 /* TreeDumpEnd prints the one number for the file and resets it; unset, TreeDumpPut prints the line and TreeDumpEnd does nothing. */
 function TreeDumpPut(s, outNm, i, n) {
     if (~IDENT(TreeHashOn, '1')) { $outNm = s; return; }
