@@ -3,6 +3,7 @@
 #include "runtime/core/g_runtime.h"
 #include <limits.h>
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "lower/pl_aggregate_names.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
@@ -36,7 +37,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
         {
             const char * nm = t->v.sval ? t->v.sval : "?";
             if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1] && t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user") &&
-                g_stage2.pl_dialect == PL_DIALECT_XSB) {
+                g_stage2_pl.pl_dialect == PL_DIALECT_XSB) {
                 const char * mn = t->c[0]->v.sval;
                 char fp[fmt_len("%s.P", mn)], fl[fmt_len("%s.pl", mn)];
                 snprintf(fp, sizeof fp, "%s.P", mn);
@@ -48,7 +49,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 return goal(cx, pl_cc_fnc2(",", load, pl_cc_fnc2("$xsb_q", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user") && t->c[1] && t->c[1]->t == TT_VAR &&
-                g_stage2.pl_dialect != PL_DIALECT_XSB) return goal(cx, pl_cc_fnc2("$mod_call", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
+                g_stage2_pl.pl_dialect != PL_DIALECT_XSB) return goal(cx, pl_cc_fnc2("$mod_call", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
             if ((!strcmp(nm, ":") || !strcmp(nm, "$xsb_q")) && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) {
                 const char * sv = cx->umod;
                 IR_t * qr;
@@ -61,7 +62,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                     if (qh) ig = ig->n == 2 ? pl_cc_fnc2("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1]) :
                         pl_cc_fnc3("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1], (tree_t *) ig->c[2]);
                     if (qh) cx->umod = sv;
-                    if (!strcmp(nm, "$xsb_q") && g_stage2.pl_dialect == PL_DIALECT_XSB && pl_xsb_sysmod(t->c[0]->v.sval) && ig->t == TT_FNC && ig->v.sval && ig->n >= 1 && !strchr(ig->v.sval, ':') &&
+                    if (!strcmp(nm, "$xsb_q") && g_stage2_pl.pl_dialect == PL_DIALECT_XSB && pl_xsb_sysmod(t->c[0]->v.sval) && ig->t == TT_FNC && ig->v.sval && ig->n >= 1 && !strchr(ig->v.sval, ':') &&
                         pl_user_file_defines(ig->v.sval, ig->n)) {
                         char pn[fmt_len("system:%s", ig->v.sval)];
                         tree_t * pg = pl_tree_copy(ig);
@@ -129,7 +130,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                     xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term();
                     extra = xs;
                     nextra = 2;
-                    int chk = pl_phrase_rt_checked() || g_stage2.pl_apply_macros;
+                    int chk = pl_phrase_rt_checked() || g_stage2_pl.pl_apply_macros;
                     if (chk || !pl_phrase_plain_nt(t->c[0]))
                         return goal(cx, pl_cc_fnc3(chk ? "$phrase_rt" : "$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out);
                 } else {
@@ -197,7 +198,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 IR_t * xe = NULL;
                 IR_t * xl = term_lval_e(cx, t->c[0], &xe);
                 IR_t * ve = NULL;
-                IR_t * v = (g_stage2.pl_dialect == PL_DIALECT_XSB && t->c[1] && t->c[1]->t == TT_FNC && !pl_tree_is_big(t->c[1]) && !pl_var_nodes(t->c[1])) ? term_e(cx, t->c[1], &ve) :
+                IR_t * v = (g_stage2_pl.pl_dialect == PL_DIALECT_XSB && t->c[1] && t->c[1]->t == TT_FNC && !pl_tree_is_big(t->c[1]) && !pl_var_nodes(t->c[1])) ? term_e(cx, t->c[1], &ve) :
                     lower_arith_val(cx, t->c[1], ωfail, &ve);
                 lc_γ_to(xl, ve ? ve : v);
                 lc_ω_to(xl, ωfail);
@@ -684,7 +685,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 tree_t * g2 = ast_node_new(TT_FNC);
                 g2->v = t->v;
                 g2->line = t->line;
-                int mq_swi = g_stage2.pl_dialect == PL_DIALECT_SWI;
+                int mq_swi = g_stage2_pl.pl_dialect == PL_DIALECT_SWI;
                 if (mq_swi && strcmp(nm, "abolish")) { tree_t * mt = pl_db_mq_term((const char *) 0, t->c[0]); if (mt) { ast_push(g2, mt); return goal(cx, g2, γnext, ωfail, entry_out); } }
                 int mq_user = (t->c[0]->c[0]->t == TT_QLIT || t->c[0]->c[0]->t == TT_NAME) && t->c[0]->c[0]->v.sval && !strcmp(t->c[0]->c[0]->v.sval, "user");
                 if (t->c[0]->c[0] && (t->c[0]->c[0]->t == TT_VAR || (mq_swi && !mq_user))) {
@@ -699,7 +700,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 return goal(cx, g2, γnext, ωfail, entry_out);
             }
             if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && (t->n == 1 || t->n == 2)) {
-                tree_t * mt = (g_stage2.pl_dialect == PL_DIALECT_SWI && t->n == 1) ? pl_db_mq_term((const char *) 0, t->c[0]) : NULL;
+                tree_t * mt = (g_stage2_pl.pl_dialect == PL_DIALECT_SWI && t->n == 1) ? pl_db_mq_term((const char *) 0, t->c[0]) : NULL;
                 if (mt && mt != t->c[0]) *t->c[0] = *mt;
                 pl_clause_unqual_head(t->c[0]);
             }
@@ -815,15 +816,15 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                     return nd;
                 }
             }
-            if (!strcmp(nm, "display") && t->n == 1 && (g_stage2.pl_dialect == PL_DIALECT_SWI) && !pl_user_defines(nm, 1))
+            if (!strcmp(nm, "display") && t->n == 1 && (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) && !pl_user_defines(nm, 1))
                 return goal(cx, pl_cc_fnc1("$display_swi", (tree_t *) t->c[0]), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "arg") && t->n == 3 && (g_stage2.pl_dialect == PL_DIALECT_SWI) && t->c[0] && t->c[0]->t != TT_ILIT && !pl_user_defines(nm, 3) &&
+            if (!strcmp(nm, "arg") && t->n == 3 && (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) && t->c[0] && t->c[0]->t != TT_ILIT && !pl_user_defines(nm, 3) &&
                 !(cx->cur_key && !strncmp(cx->cur_key, "$arg_swi", 8))) return goal(cx, pl_cc_fnc3("$arg_swi", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "write_canonical") && (t->n == 1 || t->n == 2) && (g_stage2.pl_dialect == PL_DIALECT_SWI) && !pl_user_defines(nm, t->n))
+            if (!strcmp(nm, "write_canonical") && (t->n == 1 || t->n == 2) && (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) && !pl_user_defines(nm, t->n))
                 return goal(cx, t->n == 1 ? pl_cc_fnc1("$write_canonical_swi", (tree_t *) t->c[0]) : pl_cc_fnc2("$write_canonical_swi", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail,
                 entry_out);
             if (!strcmp(nm, "print") && (t->n == 1 || t->n == 2) && !pl_user_defines(nm, t->n) && !pl_user_defines("portray", 1) && !pl_db_owned("portray", 1)) {
-                const char * wn = (g_stage2.pl_dialect == PL_DIALECT_SWI) ? "writeq" : "write";
+                const char * wn = (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) ? "writeq" : "write";
                 return goal(cx, t->n == 1 ? pl_cc_fnc1(wn, (tree_t *) t->c[0]) : pl_cc_fnc2(wn, (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "put") && t->n == 1 && t->c[0] && (t->c[0]->t == TT_FNC || t->c[0]->t == TT_MAKELIST) && !pl_user_defines(nm, 1)) {
@@ -832,7 +833,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
             }
             if (!strcmp(nm, "abolish") && t->n == 2 && !pl_user_defines(nm, 2))
                 return goal(cx, pl_cc_fnc1("abolish", pl_cc_fnc2("/", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "abolish") && t->n == 1 && g_stage2.pl_dialect == PL_DIALECT_XSB && t->c[0] && t->c[0]->v.sval &&
+            if (!strcmp(nm, "abolish") && t->n == 1 && g_stage2_pl.pl_dialect == PL_DIALECT_XSB && t->c[0] && t->c[0]->v.sval &&
                 (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME || (t->c[0]->t == TT_FNC && strcmp(t->c[0]->v.sval, "/") && strcmp(t->c[0]->v.sval, ":"))))
                 return goal(cx, pl_cc_fnc1("abolish", pl_cc_fnc2("/", (tree_t *) pl_atom_goal(t->c[0]->v.sval), pl_cc_ilit(t->c[0]->t == TT_FNC ? t->c[0]->n : 0))), γnext, ωfail, entry_out);
             if (!strcmp(nm, "abolish") && t->n == 1) {
@@ -1020,7 +1021,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[1]) {
                     tree_t * pg = pl_cc_fnc2("predicate_property", (tree_t *) h->c[1], (tree_t *) t->c[1]);
                     int lm = h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME;
-                    if (lm && g_stage2.pl_dialect == PL_DIALECT_SWI && h->c[0]->v.sval && strcmp(h->c[0]->v.sval, "user")) {
+                    if (lm && g_stage2_pl.pl_dialect == PL_DIALECT_SWI && h->c[0]->v.sval && strcmp(h->c[0]->v.sval, "user")) {
                         tree_t * qh = pl_cc_freshvar();
                         tree_t * qg = pl_cc_ite(pl_cc_fnc3("$mod_q1", (tree_t *) h->c[0], (tree_t *) h->c[1], qh), pl_cc_fnc2("predicate_property", qh, (tree_t *) t->c[1]), pg);
                         return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_enum", (tree_t *) h), qg), γnext, ωfail, entry_out);
@@ -1031,12 +1032,12 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
                 int ar = (h && h->t == TT_FNC) ? h->n : 0;
                 const tree_t * pp = t->c[1];
-                if (pl_tree_number(h)) return goal(cx, (g_stage2.pl_dialect == PL_DIALECT_SWI) ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
-                if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && g_stage2.pl_dialect != PL_DIALECT_SWI && !pl_name_in(pp->v.sval, pl_pred_props))
+                if (pl_tree_number(h)) return goal(cx, (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
+                if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && g_stage2_pl.pl_dialect != PL_DIALECT_SWI && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
                 if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME) && pp->v.sval && (!strcmp(pp->v.sval, "public") || !strcmp(pp->v.sval, "det")))
                     return goal(cx, pl_cc_fnc2("$pl_decl_flag", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
-                if (!pn || ((g_stage2.pl_dialect == PL_DIALECT_GNU) && !(!strcmp(pn, "portray") && ar == 1))) {
+                if (!pn || ((g_stage2_pl.pl_dialect == PL_DIALECT_GNU) && !(!strcmp(pn, "portray") && ar == 1))) {
                     int dyn0 = pn && ((pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar));
                     int def0 = pn && (dyn0 || pl_file_defines(pn, ar));
                     tree_t * tm0 = (pn && !def0) ? pl_meta_builtin_tree(pn, ar) : (tree_t *) 0;
@@ -1056,7 +1057,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                     int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar);
                     int def = dyn || pl_file_defines(pn, ar);
                     tree_t * meta = def ? (tree_t *) 0 : pl_meta_builtin_tree(pn, ar);
-                    int nonpred = (g_stage2.pl_dialect == PL_DIALECT_SWI) && (!strcmp(pn, "?-") || !strcmp(pn, ":-") || !strcmp(pn, "|"));
+                    int nonpred = (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) && (!strcmp(pn, "?-") || !strcmp(pn, ":-") || !strcmp(pn, "|"));
                     int bi = !def && !nonpred && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
                     const tree_t * props[16];
                     const char * pf = (def && !dyn) ? pl_pred_file(pn, ar) : (const char *) 0;
@@ -1195,7 +1196,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
             }
             {
                 const char * ls = pl_det_leaf_sym(nm, t->n);
-                if (ls && (g_stage2.pl_dialect == PL_DIALECT_SWI || g_stage2.pl_dialect == PL_DIALECT_XSB) && pl_swi_library_leaf(nm, t->n) && pl_user_file_defines(nm, t->n)) ls = (const char *) 0;
+                if (ls && (g_stage2_pl.pl_dialect == PL_DIALECT_SWI || g_stage2_pl.pl_dialect == PL_DIALECT_XSB) && pl_swi_library_leaf(nm, t->n) && pl_user_file_defines(nm, t->n)) ls = (const char *) 0;
                 if (ls && pl_swi_absent_leaf(nm, t->n)) ls = (const char *) 0;
                 if (ls && !strcmp(nm, "print") && t->n == 1 && (pl_user_defines("portray", 1) || pl_db_owned("portray", 1))) ls = (const char *) 0;
                 if (ls && (pl_user_defines("portray", 1) || pl_db_owned("portray", 1))) {

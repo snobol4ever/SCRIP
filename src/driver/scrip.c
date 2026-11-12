@@ -46,6 +46,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "ir/ast.h"
 #include "lower/lower_icon.h"
 #include "lower/g_lower.h"
@@ -2802,7 +2803,7 @@ int main(int argc, char **argv) {
                 argi++;
             } else if (strncmp(argv[argi], "--source-path=", 14) == 0) {
                 if (argv[argi][14] != '/') { fprintf(stderr, "scrip: --source-path= needs an absolute path, got '%s'\n", argv[argi] + 14); return 2; }
-                g_stage2.pl_source_path = argv[argi] + 14;
+                g_stage2_pl.pl_source_path = argv[argi] + 14;
                 argi++;
             } else if (strncmp(argv[argi], "--compat=", 9) == 0) {
                 fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");

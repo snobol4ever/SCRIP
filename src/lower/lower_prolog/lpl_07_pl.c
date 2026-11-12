@@ -3,6 +3,7 @@
 #include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_04_pl.h"
@@ -219,7 +220,7 @@ int pl_rs_clause(tree_t * ch, int ci, const char * key, const char ** tk, int nt
     }
     return nout + nr;
 }
-static int pl_auto_user_key(const char * key) { for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) if (!strcmp(CV_AT(g_stage2.pl_user_keys_files, char *, i), key)) return 1; return 0; }
+static int pl_auto_user_key(const char * key) { for (uint32_t i = 0; i < g_stage2_pl.pl_user_keys_files.len; i++) if (!strcmp(CV_AT(g_stage2_pl.pl_user_keys_files, char *, i), key)) return 1; return 0; }
 static int pl_auto_find(const char ** keys, int n, const char * key) { for (int i = 0; i < n; i++) if (!strcmp(keys[i], key)) return i; return -1; }
 static int pl_auto_count(const tree_t * t) { int c = 1; if (!t) return 0; for (int i = 0; i < t->n; i++) c += pl_auto_count(t->c[i]); return c; }
 static const char * pl_auto_name(const tree_t * g) { return (g && (g->t == TT_FNC || g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval) ? g->v.sval : NULL; }

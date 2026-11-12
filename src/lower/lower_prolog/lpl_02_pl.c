@@ -5,6 +5,7 @@
 #include <limits.h>
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "ir/bb_box.h"
 #include "lower/lower_common.h"
 #include "emitter/emit_state.h"
@@ -18,8 +19,8 @@
 static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next);
 static tree_t * pl_dot_goal(const tree_t * g, int * next);
 int pl_decl_mf_is(const char * name, int arity) {
-    for (uint32_t i = 0; name && i < g_stage2.pl_decl_multifile.len; i++) {
-        const tree_t * m = CV_AT(g_stage2.pl_decl_multifile, const tree_t *, i);
+    for (uint32_t i = 0; name && i < g_stage2_pl.pl_decl_multifile.len; i++) {
+        const tree_t * m = CV_AT(g_stage2_pl.pl_decl_multifile, const tree_t *, i);
         if (m->c[1]->v.ival == arity && !strcmp(m->c[0]->v.sval, name)) return 1;
     }
     return 0;
@@ -35,7 +36,7 @@ void pl_decl_meta_record(const tree_t * spec) {
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_meta_record(spec->c[0]); pl_decl_meta_record(spec->c[1]); return; }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_meta_record(spec->c[i]); return; }
     if (spec->t == TT_FNC && spec->v.sval && spec->n > 0) {
-        CV_PUSH(g_stage2.pl_decl_meta, const tree_t *) = spec;
+        CV_PUSH(g_stage2_pl.pl_decl_meta, const tree_t *) = spec;
         if (g_stage2.rt_lowering && g_stage2.rt_root) {
             extern void rt_pl_db_meta_decl(void *, const char *, int64_t, const char * const *);
             const char * toks[spec->n];
@@ -45,7 +46,7 @@ void pl_decl_meta_record(const tree_t * spec) {
     }
 }
 const tree_t * pl_decl_meta_of(const char * name, int arity) {
-    for (uint32_t i = 0; name && i < g_stage2.pl_decl_meta.len; i++) { const tree_t * m = CV_AT(g_stage2.pl_decl_meta, const tree_t *, i); if (m->n == arity && !strcmp(m->v.sval, name)) return m; }
+    for (uint32_t i = 0; name && i < g_stage2_pl.pl_decl_meta.len; i++) { const tree_t * m = CV_AT(g_stage2_pl.pl_decl_meta, const tree_t *, i); if (m->n == arity && !strcmp(m->v.sval, name)) return m; }
     return (const tree_t *) 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -74,9 +75,9 @@ static int pl_iso_builtin(const char * nm, int ar) {
     return 0;
 }
 int pl_xsb_sysmod(const char * m) { extern int prolog_xsb_sysmod(const char *); return prolog_xsb_sysmod(m); }
-static int pl_xsb_library_replaces(const char * nm, int ar) { return g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(nm, "term_to_atom") && pl_file_defines(nm, ar); }
+static int pl_xsb_library_replaces(const char * nm, int ar) { return g_stage2_pl.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(nm, "term_to_atom") && pl_file_defines(nm, ar); }
 int pl_swi_user_redefines(const char * nm, int ar) {
-    return (g_stage2.pl_dialect == PL_DIALECT_SWI || g_stage2.pl_dialect == PL_DIALECT_XSB) && nm[0] != '$' && !pl_iso_builtin(nm, ar) &&
+    return (g_stage2_pl.pl_dialect == PL_DIALECT_SWI || g_stage2_pl.pl_dialect == PL_DIALECT_XSB) && nm[0] != '$' && !pl_iso_builtin(nm, ar) &&
         (pl_user_file_defines(nm, ar) || pl_xsb_library_replaces(nm, ar));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -96,7 +97,7 @@ const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extra, int 
     if (!g) return NULL;
     if (nextra <= 0) return pl_tree_is_callable(g) ? g : NULL;
     if (g->t != TT_FNC && g->t != TT_NAME && g->t != TT_QLIT) return NULL;
-    if (g_stage2.pl_dialect == PL_DIALECT_XSB && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, ":") && g->n == 2 && g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME)) {
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_XSB && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, ":") && g->n == 2 && g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME)) {
         const tree_t * in = pl_meta_goal(g->c[1], extra, nextra);
         return in ? pl_cc_fnc2(":", (tree_t *) g->c[0], (tree_t *) in) : NULL;
     }
@@ -149,8 +150,8 @@ void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int ari
         int lsv = g_stage2.rt_lowering;
         g_stage2.rt_root = rt_root;
         g_stage2.rt_lowering = 1;
-        if (g_stage2.pl_dialect != PL_DIALECT_SWI && rt_pl_dialect_swi()) g_stage2.pl_dialect = PL_DIALECT_SWI;
-        if (g_stage2.pl_dialect != PL_DIALECT_XSB && rt_pl_dialect_xsb()) g_stage2.pl_dialect = PL_DIALECT_XSB;
+        if (g_stage2_pl.pl_dialect != PL_DIALECT_SWI && rt_pl_dialect_swi()) g_stage2_pl.pl_dialect = PL_DIALECT_SWI;
+        if (g_stage2_pl.pl_dialect != PL_DIALECT_XSB && rt_pl_dialect_xsb()) g_stage2_pl.pl_dialect = PL_DIALECT_XSB;
         idx = lower_pl_pred_graph(key, choice);
         g_stage2.rt_root = rsv;
         g_stage2.rt_lowering = lsv;
@@ -368,10 +369,10 @@ void pl_db_decls_capture(void) {
     int n = 0, cap = 0;
 #define PL_DW(v) do { if (n >= cap) { cap = cap ? cap * 2 : 64; w = (long long *) ct_grow((void *) w, (size_t) cap * sizeof(long long)); } w[n++] = (long long) (v); } while (0)
     PL_DW(0);
-    PL_DW(g_stage2.pl_dyn_n > 0 ? g_stage2.pl_dyn_n : 1);
-    for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
-        const char * dn = g_stage2.pl_dyn_name[di];
-        int da = g_stage2.pl_dyn_arity[di];
+    PL_DW(g_stage2_pl.pl_dyn_n > 0 ? g_stage2_pl.pl_dyn_n : 1);
+    for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
+        const char * dn = g_stage2_pl.pl_dyn_name[di];
+        int da = g_stage2_pl.pl_dyn_arity[di];
         int kind = 0;
         if (!dn || (pl_name_is_scrip_own(dn, da) && strncmp(dn, "$pl_", 4))) continue;
         if (da >= 0) { if (pl_decl_dyn_is(dn, da)) kind = 2; else if (pl_file_defines(dn, da)) kind = 3; }
@@ -399,7 +400,7 @@ void pl_db_decls_capture(void) {
                     PL_DW(ar);
                     PL_DW(7);
                     PL_DW(-1);
-                } else if (g_stage2.pl_dialect == PL_DIALECT_GNU) {
+                } else if (g_stage2_pl.pl_dialect == PL_DIALECT_GNU) {
                     PL_DW(prolog_atom_intern(nm));
                     PL_DW(ar);
                     PL_DW(7);
@@ -433,12 +434,12 @@ void pl_db_decls_capture(void) {
         PL_DW(2);
         PL_DW(-1);
     }
-    for (uint32_t i = 0; i < g_stage2.pl_decl_meta.len; i++) {
-        const tree_t * m = CV_AT(g_stage2.pl_decl_meta, const tree_t *, i);
+    for (uint32_t i = 0; i < g_stage2_pl.pl_decl_meta.len; i++) {
+        const tree_t * m = CV_AT(g_stage2_pl.pl_decl_meta, const tree_t *, i);
         for (int k = 0; m && m->v.sval && k < m->n; k++) { PL_DW(prolog_atom_intern(m->v.sval)); PL_DW(m->n); PL_DW(8); PL_DW(prolog_atom_intern(pl_meta_tok_text(m->c[k]))); }
     }
-    for (uint32_t i = 0; i < g_stage2.pl_decl_multifile.len; i++) {
-        const tree_t * m = CV_AT(g_stage2.pl_decl_multifile, const tree_t *, i);
+    for (uint32_t i = 0; i < g_stage2_pl.pl_decl_multifile.len; i++) {
+        const tree_t * m = CV_AT(g_stage2_pl.pl_decl_multifile, const tree_t *, i);
         if (!m || !m->c[0] || !m->c[0]->v.sval || !m->c[1] || pl_name_is_scrip_own(m->c[0]->v.sval, (int) m->c[1]->v.ival)) continue;
         PL_DW(prolog_atom_intern(m->c[0]->v.sval));
         PL_DW(m->c[1]->v.ival);
@@ -447,8 +448,8 @@ void pl_db_decls_capture(void) {
     }
 #undef PL_DW
     w[0] = n - 2;
-    g_stage2.db_decls_words = w;
-    g_stage2.db_decls_n = n;
+    g_stage2_pl.db_decls_words = w;
+    g_stage2_pl.db_decls_n = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_dict_any(const tree_t * t) {
@@ -526,7 +527,7 @@ static const char * pl_dot_meta(const tree_t * g) {
         extern int rt_pl_meta_builtin(const char *, int, int, const char * const **);
         const char * const * toks;
         char m[g->n + 1];
-        if (g->n <= 0 || !rt_pl_meta_builtin(g->v.sval, g->n, (g_stage2.pl_dialect == PL_DIALECT_GNU), &toks)) return (const char *) 0;
+        if (g->n <= 0 || !rt_pl_meta_builtin(g->v.sval, g->n, (g_stage2_pl.pl_dialect == PL_DIALECT_GNU), &toks)) return (const char *) 0;
         for (int i = 0; i < g->n; i++) m[i] = (toks[i][0] >= '0' && toks[i][0] <= '9' && !toks[i][1]) ? (toks[i][0] == '0' ? '0' : '1') : toks[i][0] == '^' ? '^' : '?';
         m[g->n] = 0;
         return lp_strdup(m);

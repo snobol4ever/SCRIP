@@ -5,6 +5,7 @@
 #include "ir/ir_graph.h"
 #include "ir/ir_construct.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_prolog.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
@@ -58,21 +59,21 @@ pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
 void pl_dyn_mark(const char *name, int arity) {
     if (!name) return;
     if (pl_pi_is_static_builtin(name, arity) && !pl_swi_user_redefines(name, arity)) return;
-    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
-    if (g_stage2.pl_dyn_n >= g_stage2.pl_dyn_cap) {
-        int nc = g_stage2.pl_dyn_cap > 0 ? g_stage2.pl_dyn_cap * 2 : 64;
-        g_stage2.pl_dyn_name = (const char **) ct_grow((void *) g_stage2.pl_dyn_name, (size_t) nc * sizeof(const char *));
-        g_stage2.pl_dyn_arity = (int *) ct_grow((void *) g_stage2.pl_dyn_arity, (size_t) nc * sizeof(int));
-        g_stage2.pl_dyn_cap = nc;
+    for (int i = 0; i < g_stage2_pl.pl_dyn_n; i++) if (g_stage2_pl.pl_dyn_name[i] && !strcmp(g_stage2_pl.pl_dyn_name[i], name) && g_stage2_pl.pl_dyn_arity[i] == arity) return;
+    if (g_stage2_pl.pl_dyn_n >= g_stage2_pl.pl_dyn_cap) {
+        int nc = g_stage2_pl.pl_dyn_cap > 0 ? g_stage2_pl.pl_dyn_cap * 2 : 64;
+        g_stage2_pl.pl_dyn_name = (const char **) ct_grow((void *) g_stage2_pl.pl_dyn_name, (size_t) nc * sizeof(const char *));
+        g_stage2_pl.pl_dyn_arity = (int *) ct_grow((void *) g_stage2_pl.pl_dyn_arity, (size_t) nc * sizeof(int));
+        g_stage2_pl.pl_dyn_cap = nc;
     }
-    g_stage2.pl_dyn_name[g_stage2.pl_dyn_n] = name;
-    g_stage2.pl_dyn_arity[g_stage2.pl_dyn_n] = arity;
-    g_stage2.pl_dyn_n++;
+    g_stage2_pl.pl_dyn_name[g_stage2_pl.pl_dyn_n] = name;
+    g_stage2_pl.pl_dyn_arity[g_stage2_pl.pl_dyn_n] = arity;
+    g_stage2_pl.pl_dyn_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_dyn_is_marked(const char *name, int arity) {
     if (!name) return 0;
-    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
+    for (int i = 0; i < g_stage2_pl.pl_dyn_n; i++) if (g_stage2_pl.pl_dyn_name[i] && !strcmp(g_stage2_pl.pl_dyn_name[i], name) && g_stage2_pl.pl_dyn_arity[i] == arity) return 1;
     return 0;
 }
 void pl_decl_dyn_mark(const char * name, int arity) {
@@ -99,7 +100,7 @@ void pl_decl_other_record(const tree_t * spec, int mf) {
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_other_record(spec->c[i], mf); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
         spec->c[1]->t == TT_ILIT) {
-        if (mf) CV_PUSH(g_stage2.pl_decl_multifile, const tree_t *) = spec;
+        if (mf) CV_PUSH(g_stage2_pl.pl_decl_multifile, const tree_t *) = spec;
         if (g_lower.pl.decl_other_n >= g_lower.pl.decl_other_cap) {
             int nc = g_lower.pl.decl_other_cap > 0 ? g_lower.pl.decl_other_cap * 2 : 256;
             g_lower.pl.decl_other_name = (const char **) ct_grow((void *) g_lower.pl.decl_other_name, (size_t) nc * sizeof(const char *));
@@ -385,12 +386,12 @@ IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR
         if (!ch && !pl_db_live && !bbhit) {
             const char * ck = cx ? cx->cur_key : (const char *) 0;
             const char * colon = (ck && !strncmp(ck, "plunit_", 7)) ? strchr(ck, ':') : (const char *) 0;
-            if (colon && (g_stage2.pl_dialect == PL_DIALECT_SWI) && !(cx->umod && !cx->umod[0]) && strcmp(nm, "$mctx_call")) {
+            if (colon && (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) && !(cx->umod && !cx->umod[0]) && strcmp(nm, "$mctx_call")) {
                 tree_t * mq = ast_node_new(TT_QLIT);
                 mq->v.sval = cx->umod ? (char *) cx->umod : ct_strndup(ck, (size_t) (colon - ck));
                 return goal(cx, pl_cc_fnc2("$mctx_call", mq, (tree_t *) t), γnext, ωfail, entry_out);
             }
-            if (cx && cx->umod && cx->umod[0] && g_stage2.pl_dialect == PL_DIALECT_SWI && strcmp(nm, "$mod_callq")) {
+            if (cx && cx->umod && cx->umod[0] && g_stage2_pl.pl_dialect == PL_DIALECT_SWI && strcmp(nm, "$mod_callq")) {
                 const char * sv = cx->umod;
                 IR_t * qr;
                 cx->umod = "";

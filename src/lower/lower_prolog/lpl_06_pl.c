@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_prolog_chr.h"
 #include "parsers/snobol4/scrip_cc.h"
@@ -64,13 +65,13 @@ int pl_swi_library_leaf(const char * nm, int ar) {
 static int pl_synth_have(const char * key) { extern int rt_proc_is_registered(const char *); return g_stage2.harness_warm == 2 && rt_proc_is_registered(key); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_swi_absent_leaf(const char * nm, int ar) {
-    return g_stage2.pl_dialect == PL_DIALECT_SWI && (ar == 1 || ar == 2) && (!strcmp(nm, "unget_char") || !strcmp(nm, "unget_code") || !strcmp(nm, "unget_byte"));
+    return g_stage2_pl.pl_dialect == PL_DIALECT_SWI && (ar == 1 || ar == 2) && (!strcmp(nm, "unget_char") || !strcmp(nm, "unget_code") || !strcmp(nm, "unget_byte"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_attv_rt_armed(void) {
     extern int rt_proc_is_registered(const char *);
-    if (!g_stage2.pl_attv_armed && g_stage2.harness_warm != 2 && rt_proc_is_registered("$wakeup/0")) g_stage2.pl_attv_armed = 1;
-    return g_stage2.pl_attv_armed;
+    if (!g_stage2_pl.pl_attv_armed && g_stage2.harness_warm != 2 && rt_proc_is_registered("$wakeup/0")) g_stage2_pl.pl_attv_armed = 1;
+    return g_stage2_pl.pl_attv_armed;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_dir_number_vars(tree_t * t, const char ** names, int * n, int scope0) {
@@ -110,7 +111,7 @@ static tree_t * pl_dir_catch_wrap(tree_t * dirgoal, const char ** dvn, int * dvc
     return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pl_db_decls_words(long long ** out) { *out = g_stage2.db_decls_words; return g_stage2.db_decls_words ? g_stage2.db_decls_n : 0; }
+int pl_db_decls_words(long long ** out) { *out = g_stage2_pl.db_decls_words; return g_stage2_pl.db_decls_words ? g_stage2_pl.db_decls_n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_table_index_mode(const tree_t * m) { return !m || m->t == TT_VAR || ((m->t == TT_QLIT || m->t == TT_NAME) && m->v.sval && (!strcmp(m->v.sval, "index") || !strcmp(m->v.sval, "+"))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -288,7 +289,7 @@ static tree_t * pl_attv_clause(const tree_t * cl, const tree_t * mod, int lift) 
     return nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pl_attv_on(void) { return g_stage2.pl_attv_armed || pl_attv_rt_armed(); }
+int pl_attv_on(void) { return g_stage2_pl.pl_attv_armed || pl_attv_rt_armed(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_attv_dir(tree_t * g) { return pl_attv_on() ? pl_attv_goal(g) : g; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -328,7 +329,7 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
         if (pl_attv_is_key(subj, "copy_term/3")) has_ct3 = 1;
     }
-    g_stage2.pl_attv_armed = 1;
+    g_stage2_pl.pl_attv_armed = 1;
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -518,7 +519,7 @@ static int pl_choice_all_prelude(const tree_t * ch) {
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_chr_rewrite(prog);
     prog = pl_blockop_rewrite(prog);
-    if (g_stage2.pl_dialect == PL_DIALECT_SWI) prog = pl_clauseq_rewrite(prog);
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) prog = pl_clauseq_rewrite(prog);
     prog = pl_ssu_rewrite(prog);
     prog = pl_det_rewrite(prog);
     prog = pl_dict_rewrite(prog);
@@ -531,7 +532,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_mq_rewrite(prog);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * s = prog->c[i], * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
-        if (pl_attv_is_key(subj, "$undo_run/0")) g_stage2.pl_undo_armed = 1;
+        if (pl_attv_is_key(subj, "$undo_run/0")) g_stage2_pl.pl_undo_armed = 1;
     }
     prog = pl_attv_rewrite(prog);
     if (!g_stage2.depth_counted && pl_names_depth_limit(prog) && pl_prog_defines(prog, "$dl_findall/3")) g_stage2.depth_counted = 1;
@@ -562,8 +563,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     g_lower.pl.decl_dyn_n = 0;
     g_lower.pl.hook_dyn_n = 0;
     g_lower.pl.decl_other_n = 0;
-    g_stage2.pl_decl_multifile.len = 0;
-    g_stage2.pl_decl_meta.len = 0;
+    g_stage2_pl.pl_decl_multifile.len = 0;
+    g_stage2_pl.pl_decl_meta.len = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
@@ -629,9 +630,9 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             snprintf(hk, sizeof hk, "%s/%d", g_lower.pl.hook_dyn_name[i], g_lower.pl.hook_dyn_arity[i]);
             all_goals[nall++] = pl_cc_fnc2("$set_prolog_flag_declare", (tree_t *) pl_atom_goal("$tbl_hook"), (tree_t *) pl_atom_goal(lp_strdup(hk)));
         }
-        for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
-            const char * dn = g_stage2.pl_dyn_name[di];
-            int da = g_stage2.pl_dyn_arity[di];
+        for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
+            const char * dn = g_stage2_pl.pl_dyn_name[di];
+            int da = g_stage2_pl.pl_dyn_arity[di];
             if (!dn || da < 0 || pl_name_is_scrip_own(dn, da) || !pl_file_defines(dn, da)) continue;
             {
                 char key[fmt_len("%s/%d", dn, da)];
@@ -645,9 +646,9 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             int nseed = 0;
             int save_base = g_lower.pl.seed_var_base;
             g_lower.pl.seed_var_base = 0;
-            for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
-                const char * dn = g_stage2.pl_dyn_name[di];
-                int da = g_stage2.pl_dyn_arity[di];
+            for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
+                const char * dn = g_stage2_pl.pl_dyn_name[di];
+                int da = g_stage2_pl.pl_dyn_arity[di];
                 if (!dn || da < 0 || pl_name_is_scrip_own(dn, da)) continue;
                 if (pl_file_defines(dn, da)) {
                     char key[fmt_len("%s/%d", dn, da)];
@@ -903,9 +904,9 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             }
         }
     }
-    for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
-        const char * dn = g_stage2.pl_dyn_name[di];
-        int da = g_stage2.pl_dyn_arity[di];
+    for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
+        const char * dn = g_stage2_pl.pl_dyn_name[di];
+        int da = g_stage2_pl.pl_dyn_arity[di];
         if (!dn || da < 0 || pl_name_is_scrip_own(dn, da)) continue;
         {
             char key[fmt_len("%s/%d", dn, da)];

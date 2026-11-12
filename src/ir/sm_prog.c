@@ -2,10 +2,12 @@
 #include "ct_arena.h"
 #include "bb_program.h"
 #include "stage2.h"
+#include "ir/stage2_pl.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 stage2_t g_stage2;
+stage2_pl_t g_stage2_pl;
 static unsigned bb_proc_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
 static void bb_proc_index_build(stage2_t *s) {
     int cap = 16, nul = 0;

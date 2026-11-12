@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "runtime/rt/prolog_atom.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
@@ -36,7 +37,7 @@ static const tree_t * pl_undo_probe(void) {
 }
 int pl_undo_wrap(const lcx_t * cx, const tree_t * const * gl, int ng, const tree_t ** out) {
     int n = 0;
-    if (ng <= 0 || !g_stage2.pl_undo_armed || !cx->cur_key || cx->cur_key[0] == '$' || !strcmp(cx->cur_key, "undo/1")) return ng;
+    if (ng <= 0 || !g_stage2_pl.pl_undo_armed || !cx->cur_key || cx->cur_key[0] == '$' || !strcmp(cx->cur_key, "undo/1")) return ng;
     for (int k = 0; k < ng; k++) { if (!pl_undo_probe_tree(gl[k]) && !(k > 0 && pl_undo_probe_tree(gl[k - 1]))) out[n++] = pl_undo_probe(); out[n++] = gl[k]; }
     return n;
 }
@@ -302,7 +303,7 @@ IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_dyn_index(const char * name, int arity) {
     if (!name) return -1;
-    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return i;
+    for (int i = 0; i < g_stage2_pl.pl_dyn_n; i++) if (g_stage2_pl.pl_dyn_name[i] && !strcmp(g_stage2_pl.pl_dyn_name[i], name) && g_stage2_pl.pl_dyn_arity[i] == arity) return i;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -418,7 +419,7 @@ tree_t * pl_meta_builtin_tree(const char * pn, int ar) {
     extern int rt_pl_meta_builtin(const char *, int, int, const char * const **);
     const char * const * toks;
     tree_t * tm;
-    if (!pn || ar <= 0 || !rt_pl_meta_builtin(pn, ar, (g_stage2.pl_dialect == PL_DIALECT_GNU), &toks)) return (tree_t *) 0;
+    if (!pn || ar <= 0 || !rt_pl_meta_builtin(pn, ar, (g_stage2_pl.pl_dialect == PL_DIALECT_GNU), &toks)) return (tree_t *) 0;
     tm = ast_node_new(TT_FNC);
     tm->v.sval = (char *) pn;
     for (int i = 0; i < ar; i++) ast_push(tm, (toks[i][0] >= '0' && toks[i][0] <= '9' && !toks[i][1]) ? pl_cc_ilit(toks[i][0] - '0') : (tree_t *) pl_atom_goal(toks[i]));
@@ -565,7 +566,7 @@ tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar, int m
     tree_t * gl[ng > 0 ? ng : 1];
     for (int i = 0; i < ar; i++) ha[i] = (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_");
     for (int i = 0; i < ng; i++) gl[i] = pl_body_term(cl->c[ar + i]);
-    if (moved && ar > 0 && nc >= ar && g_stage2.pl_dialect == PL_DIALECT_SWI && !pl_ssu_clause(cl, ar)) ng = pl_moved_unify(ha, ar, gl, ng);
+    if (moved && ar > 0 && nc >= ar && g_stage2_pl.pl_dialect == PL_DIALECT_SWI && !pl_ssu_clause(cl, ar)) ng = pl_moved_unify(ha, ar, gl, ng);
     if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = ct_strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, ha[i]); } else { h = ast_node_new(TT_QLIT); h->v.sval = ct_strdup(pn); }
     for (int i = ng - 1; i >= 0; i--) { tree_t * g = gl[i]; if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
     if (!bt) { bt = ast_node_new(TT_QLIT); bt->v.sval = (char *) "true"; }
@@ -581,7 +582,7 @@ tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar, int m
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_file_key_path(const char *pf, char *rp) {
-    if (g_stage2.pl_source_path && !strcmp(pf, g_stage2.pl_source_path)) { snprintf(rp, PATH_MAX, "%s", pf); return 1; }
+    if (g_stage2_pl.pl_source_path && !strcmp(pf, g_stage2_pl.pl_source_path)) { snprintf(rp, PATH_MAX, "%s", pf); return 1; }
     return realpath(pf, rp) != NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

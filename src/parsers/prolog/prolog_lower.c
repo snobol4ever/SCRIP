@@ -6,6 +6,7 @@
 #include "runtime/rt/prolog_atom.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -298,7 +299,7 @@ static void pb_expand_goal(tree_t *t) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval) {
         const char *f = t->v.sval;
-        if (g_stage2.pl_apply_macros && !g_stage2.rt_lowering && ((!strcmp(f, "phrase") && (t->n == 2 || t->n == 3)) || (!strcmp(f, "call_dcg") && t->n == 3))) { pb_expand_phrase(t); return; }
+        if (g_stage2_pl.pl_apply_macros && !g_stage2.rt_lowering && ((!strcmp(f, "phrase") && (t->n == 2 || t->n == 3)) || (!strcmp(f, "call_dcg") && t->n == 3))) { pb_expand_phrase(t); return; }
         if ((!strcmp(f, "bagof") || !strcmp(f, "setof")) && t->n == 3) { pb_expand_bagof(t); return; }
         if ((!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "call")) && t->n >= 1) { pb_expand_goal(t->c[0]); return; }
         if ((!strcmp(f, "findall") || !strcmp(f, "aggregate_all")) && t->n == 3) { pb_expand_goal(t->c[1]); return; }
@@ -466,7 +467,7 @@ static void pld_mark_one(const char *mod, const char *nm, int ar) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pld_unqual(tree_t *t, const char **mod) {
     while (t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[0]->v.sval && t->c[1]) {
-        *mod = (g_stage2.pl_dialect == PL_DIALECT_SWI && strcmp(t->c[0]->v.sval, "user")) ? t->c[0]->v.sval : (const char *)0;
+        *mod = (g_stage2_pl.pl_dialect == PL_DIALECT_SWI && strcmp(t->c[0]->v.sval, "user")) ? t->c[0]->v.sval : (const char *)0;
         t = t->c[1];
     }
     return t;
@@ -603,9 +604,9 @@ static int pl_xsb_marker(const tree_t *tr) {
 }
 int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr)); }
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
-int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
-int prolog_dialect_xsb_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_XSB; }
-int prolog_dialect_swi_selected(void) { return g_stage2.pl_swi_switch && g_stage2.pl_dialect != PL_DIALECT_GNU && g_stage2.pl_dialect != PL_DIALECT_XSB; }
+int prolog_dialect_gnu_selected(void) { return g_stage2_pl.pl_dialect == PL_DIALECT_GNU; }
+int prolog_dialect_xsb_selected(void) { return g_stage2_pl.pl_dialect == PL_DIALECT_XSB; }
+int prolog_dialect_swi_selected(void) { return g_stage2_pl.pl_swi_switch && g_stage2_pl.pl_dialect != PL_DIALECT_GNU && g_stage2_pl.pl_dialect != PL_DIALECT_XSB; }
 int prolog_xsb_sysmod(const char *m) { return m && (!strcmp(m, "basics") || !strcmp(m, "lists") || !strcmp(m, "standard") || !strcmp(m, "machine")); }
 static int pl_tree_has_dot2(const tree_t *t) {
     if (!t) return 0;
@@ -627,8 +628,8 @@ static void pl_clause_swi_dot_rename(tree_t *tr) {
     for (int i = 1; i < tr->n; i++) pl_dot2_rename(tr->c[i]);
 }
 int prolog_program_swi_dot(const PlClause *head) {
-    int swi = g_stage2.pl_dialect == PL_DIALECT_SWI, dot = 0;
-    if (g_stage2.pl_dialect == PL_DIALECT_GNU || g_stage2.pl_dialect == PL_DIALECT_XSB) return 0;
+    int swi = g_stage2_pl.pl_dialect == PL_DIALECT_SWI, dot = 0;
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_GNU || g_stage2_pl.pl_dialect == PL_DIALECT_XSB) return 0;
     for (const PlClause *c = head; c; c = c->next) {
         if (prolog_clause_marks_xsb(c)) return 0;
         swi |= prolog_clause_marks_swi(c);
@@ -650,9 +651,9 @@ static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char
     c->tr = cl;
     return c;
 }
-void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect = PL_DIALECT_GNU; }
-void prolog_select_dialect_xsb(void) { g_stage2.pl_dialect = PL_DIALECT_XSB; }
-void prolog_select_dialect_swi(void) { g_stage2.pl_swi_switch = 1; }
+void prolog_select_dialect_gnu(void) { g_stage2_pl.pl_dialect = PL_DIALECT_GNU; }
+void prolog_select_dialect_xsb(void) { g_stage2_pl.pl_dialect = PL_DIALECT_XSB; }
+void prolog_select_dialect_swi(void) { g_stage2_pl.pl_swi_switch = 1; }
 static void pl_dq_lower_program(PlProgram *pl_prog) {
     int marker = 0, xsb = 0, line0 = 0, set = 0, am = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
@@ -661,14 +662,14 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
         if (cl->lineno && pl_xsb_marker(cl->tr)) xsb = 1;
     }
-    if (g_stage2.pl_swi_switch) marker = 1;
-    if (g_stage2.pl_dialect == PL_DIALECT_GNU || xsb || g_stage2.pl_dialect == PL_DIALECT_XSB) {
-        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", g_stage2.pl_dialect == PL_DIALECT_GNU ? "gnu" : "xsb");
+    if (g_stage2_pl.pl_swi_switch) marker = 1;
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_GNU || xsb || g_stage2_pl.pl_dialect == PL_DIALECT_XSB) {
+        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", g_stage2_pl.pl_dialect == PL_DIALECT_GNU ? "gnu" : "xsb");
         d->next = pl_prog->head;
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;
         pl_prog->nclauses++;
-        if (g_stage2.pl_dialect != PL_DIALECT_GNU) g_stage2.pl_dialect = PL_DIALECT_XSB;
+        if (g_stage2_pl.pl_dialect != PL_DIALECT_GNU) g_stage2_pl.pl_dialect = PL_DIALECT_XSB;
         marker = 0;
     }
     if (am) {
@@ -677,30 +678,30 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;
         pl_prog->nclauses++;
-        g_stage2.pl_apply_macros = 1;
+        g_stage2_pl.pl_apply_macros = 1;
     }
     for (int k = 0; k < 2; k++) {
-        if (!marker || g_stage2.pl_dialect == PL_DIALECT_SWI || (k == 0 && g_stage2.pl_dq_mode)) continue;
+        if (!marker || g_stage2_pl.pl_dialect == PL_DIALECT_SWI || (k == 0 && g_stage2_pl.pl_dq_mode)) continue;
         PlClause *d = k == 0 ? pl_dq_string_directive(line0 ? line0 : 1, "double_quotes", "string") : pl_dq_string_directive(line0 ? line0 : 1, "$dialect", "swi");
         d->next = pl_prog->head;
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;
         pl_prog->nclauses++;
     }
-    if (marker) g_stage2.pl_dialect = PL_DIALECT_SWI;
-    for (PlClause *cl = pl_prog->head; cl && g_stage2.pl_dialect == PL_DIALECT_SWI; cl = cl->next) if (pl_clause_swi_dot(cl)) pl_clause_swi_dot_rename(cl->tr);
-    int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
+    if (marker) g_stage2_pl.pl_dialect = PL_DIALECT_SWI;
+    for (PlClause *cl = pl_prog->head; cl && g_stage2_pl.pl_dialect == PL_DIALECT_SWI; cl = cl->next) if (pl_clause_swi_dot(cl)) pl_clause_swi_dot_rename(cl->tr);
+    int mode = g_stage2_pl.pl_dq_mode ? g_stage2_pl.pl_dq_mode - 1 : 2;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
         if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && (m = pl_dq_directive_mode(tr->c[1])) >= 0) { mode = m; set = 1; continue; }
         prolog_dq_lower(tr, cl->dq_forced ? cl->dq_forced - 1 : mode);
     }
-    if (set) g_stage2.pl_dq_mode = mode + 1;
+    if (set) g_stage2_pl.pl_dq_mode = mode + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_src_name(PlProgram *pl, const char *file) {
-    if (!g_stage2.pl_source_path || g_parser.pl.consult_depth || !file || !pl->filename || strcmp(file, pl->filename)) return file;
-    return g_stage2.pl_source_path;
+    if (!g_stage2_pl.pl_source_path || g_parser.pl.consult_depth || !file || !pl->filename || strcmp(file, pl->filename)) return file;
+    return g_stage2_pl.pl_source_path;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *file) {
@@ -1256,7 +1257,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && pl_mod_atomish(h->c[0])) { dm = h->c[0]->v.sval; h = h->c[1]; foreign = 1; }
             if (!h || !dm) continue;
             if (!strcmp(dm, "user")) {
-                if (g_stage2.pl_dialect == PL_DIALECT_SWI && !foreign && h->v.sval && (h->t == TT_FNC || pl_mod_atomish(h)) && !pl_mod_never_renamed(h->v.sval, h->t == TT_FNC ? h->n : 0, 0)) pl_mk_add(&udefs, "user", h->v.sval, h->t == TT_FNC ? h->n : 0);
+                if (g_stage2_pl.pl_dialect == PL_DIALECT_SWI && !foreign && h->v.sval && (h->t == TT_FNC || pl_mod_atomish(h)) && !pl_mod_never_renamed(h->v.sval, h->t == TT_FNC ? h->n : 0, 0)) pl_mk_add(&udefs, "user", h->v.sval, h->t == TT_FNC ? h->n : 0);
                 continue;
             }
             if (h->t == TT_FNC && h->n == 2 && h->v.sval && (!strcmp(h->v.sval, ":-") || !strcmp(h->v.sval, ",") || !strcmp(h->v.sval, ";") || !strcmp(h->v.sval, "->") || !strcmp(h->v.sval, ":"))) continue;
@@ -1270,7 +1271,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         }
     }
     if (!any) {
-        if (g_stage2.pl_dialect == PL_DIALECT_SWI) for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->lineno) pl_mod_strip_head(cl);
+        if (g_stage2_pl.pl_dialect == PL_DIALECT_SWI) for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->lineno) pl_mod_strip_head(cl);
         return;
     }
     {
@@ -1517,7 +1518,7 @@ static int pl_body_not_callable(const tree_t *b) {
 static void pl_drop_ill_bodies(PlProgram *pl_prog) {
     extern int rt_pl_dialect_swi(void);
     PlClause **pp = &pl_prog->head, *prev = (PlClause *)0;
-    if (g_stage2.pl_dialect != PL_DIALECT_SWI && !rt_pl_dialect_swi()) return;
+    if (g_stage2_pl.pl_dialect != PL_DIALECT_SWI && !rt_pl_dialect_swi()) return;
     while (*pp) {
         PlClause *cl = *pp;
         const tree_t *t = cl->tr;
@@ -1533,7 +1534,7 @@ static void pl_drop_ill_bodies(PlProgram *pl_prog) {
     }
 }
 static void pl_dcg_nt_facts(PlProgram *pl_prog) {
-    if (g_stage2.pl_dialect != PL_DIALECT_SWI || !pl_prog->src || !strstr(pl_prog->src, "expand_term")) return;
+    if (g_stage2_pl.pl_dialect != PL_DIALECT_SWI || !pl_prog->src || !strstr(pl_prog->src, "expand_term")) return;
     PlClause *last = pl_prog->head;
     while (last && last->next) last = last->next;
     pl_prog->tail = last;
@@ -1664,7 +1665,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                         }
                         tree_t *suite_tr = ast_node_new(TT_QLIT);
                         suite_tr->v.sval = ct_strdup(plunit_suite[clause_idx]);
-                        if (g_stage2.pl_apply_macros) {
+                        if (g_stage2_pl.pl_apply_macros) {
                             tree_t *shared = pb_shared_tuple(opts_src, body_tr), *shared_c = pb_shared_tuple(opts_src, body_tr), *bh = ast_node_new(TT_FNC), *call = ast_node_new(TT_FNC), *bcl = ast_node_new(TT_CLAUSE), *bs = ast_node_new(TT_QLIT), *bl = ast_node_new(TT_ILIT);
                             PredKey bk = { prolog_atom_intern("$plunit_body"), 3 };
                             int bfound;

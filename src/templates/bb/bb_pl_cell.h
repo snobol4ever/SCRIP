@@ -5,6 +5,7 @@
 #include "runtime/core/g_runtime.h"
 #include "runtime/rt/pl_trail_layout.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #define PL_SERIAL_DRAW(w) (x86("note", "creation serial: the next unbound cell's tag word is the root record's standing cell 255, which then advances by 512") \
                     + x86("mov", (w), RDQ("r14", -PL_SERIAL_OFF)) \
                     + x86("add", RDQ("r14", -PL_SERIAL_OFF), (long)PL_SERIAL_STEP))
@@ -60,7 +61,7 @@
                     + x86("cmp", "rsi", "rdi") \
                     + x86("je", L(lbind)) \
                     + x86("def", L(lbound)))
-#define PL_TRAIL(lstore, lrefuse, larm, lstk) (IF(g_stage2.pl_attv_armed, \
+#define PL_TRAIL(lstore, lrefuse, larm, lstk) (IF(g_stage2_pl.pl_attv_armed, \
                       x86("note", "attvar: a DT_PLVAR cell with bit 8 of its tag word set is always trailed and lowers the wake word at the trail header +48 to this entry's offset") \
                     + x86("mov", "edx", RDD("rdi", 0)) \
                     + x86("and", "edx", (long)(255 | PL_VAR_ATTV)) \

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
@@ -121,7 +122,7 @@ static tree_t * pl_scc_aux(const tree_t * g, tree_t ** work, int * nw, int cap) 
     int v[vc];
     int n = pl_scc_vars(g, v, 0, vc);
     char nm[32], key[48];
-    snprintf(nm, sizeof nm, "$scc_g%d", g_stage2.pl_scc_aux_n++);
+    snprintf(nm, sizeof nm, "$scc_g%d", g_stage2_pl.pl_scc_aux_n++);
     snprintf(key, sizeof key, "%s/%d", nm, n);
     tree_t * call = ast_node_new(n > 0 ? TT_FNC : TT_QLIT);
     call->v.sval = (char *) lp_strdup(nm);

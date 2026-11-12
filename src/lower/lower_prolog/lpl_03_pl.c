@@ -3,6 +3,7 @@
 #include "runtime/core/g_runtime.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "runtime/rt/prolog_atom.h"
 #include "lower/pl_arith_names.h"
@@ -15,7 +16,7 @@
 IR_t * lpl_build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
 static int pl_tree_is_engine(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_engine") && t->c[0] && t->c[0]->t == TT_ILIT; }
-static const char * pl_list_fname(const char * nm, int ar) { return (g_stage2.pl_dialect == PL_DIALECT_SWI && ar == 2 && nm && !strcmp(nm, "[|]")) ? "." : nm; }
+static const char * pl_list_fname(const char * nm, int ar) { return (g_stage2_pl.pl_dialect == PL_DIALECT_SWI && ar == 2 && nm && !strcmp(nm, "[|]")) ? "." : nm; }
 static int pl_tree_is_c0(const tree_t * t) { return t && t->t == TT_FNC && t->n == 0 && t->v.sval && strcmp(t->v.sval, "{}") != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
@@ -65,17 +66,17 @@ static int pl_tree_ground_nested(const tree_t * t) {
     return 0;
 }
 static int pl_ground_reserve(int n) {
-    int base = g_stage2.pl_ground_n;
-    if (base + n > g_stage2.pl_ground_cap) {
-        int cap = g_stage2.pl_ground_cap ? g_stage2.pl_ground_cap : 256;
+    int base = g_stage2_pl.pl_ground_n;
+    if (base + n > g_stage2_pl.pl_ground_cap) {
+        int cap = g_stage2_pl.pl_ground_cap ? g_stage2_pl.pl_ground_cap : 256;
         while (cap < base + n) cap *= 2;
-        g_stage2.pl_ground_words = (long long *)(g_stage2.pl_ground_words ? ct_grow(g_stage2.pl_ground_words, (size_t)cap * 16) : ct_alloc((size_t)cap * 16));
-        g_stage2.pl_ground_cap = cap;
+        g_stage2_pl.pl_ground_words = (long long *)(g_stage2_pl.pl_ground_words ? ct_grow(g_stage2_pl.pl_ground_words, (size_t)cap * 16) : ct_alloc((size_t)cap * 16));
+        g_stage2_pl.pl_ground_cap = cap;
     }
-    g_stage2.pl_ground_n = base + n;
+    g_stage2_pl.pl_ground_n = base + n;
     return base;
 }
-static void pl_ground_put(int at, uint64_t w0, uint64_t w1) { g_stage2.pl_ground_words[2 * at] = (long long)w0; g_stage2.pl_ground_words[2 * at + 1] = (long long)w1; }
+static void pl_ground_put(int at, uint64_t w0, uint64_t w1) { g_stage2_pl.pl_ground_words[2 * at] = (long long)w0; g_stage2_pl.pl_ground_words[2 * at + 1] = (long long)w1; }
 static uint64_t pl_ground_fid(const char * nm, int n) {
     extern int prolog_atom_intern(const char *);
     extern int prolog_functor_intern(int, int);
@@ -112,7 +113,7 @@ static IR_t * mkground_node(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     IR_t * id = lpl_build(cx, IR_LIT_INTEGER, NULL, cx->tω);
     IR_LIT(nd).sval = "$mkground";
     pl_ground_fill(t, base, base);
-    IR_LIT(id).ival = ((int64_t)(g_stage2.pl_ground_n - base) << 32) | (int64_t)base;
+    IR_LIT(id).ival = ((int64_t)(g_stage2_pl.pl_ground_n - base) << 32) | (int64_t)base;
     ir_operand_push(nd, id);
     lc_γ_to(id, nd);
     if (entry_out) *entry_out = id;
@@ -120,7 +121,7 @@ static IR_t * mkground_node(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
 }
 int pl_ground_words(long long id, long long ** out) {
     int base = (int)(id & 0xFFFFFFFFll), n = (int)(id >> 32);
-    *out = g_stage2.pl_ground_words ? g_stage2.pl_ground_words + 2 * base : (long long *)0;
+    *out = g_stage2_pl.pl_ground_words ? g_stage2_pl.pl_ground_words + 2 * base : (long long *)0;
     return *out ? 2 * n : 0;
 }
 static int pl_mkground_functor_is(const IR_t * f, const char * nm, int ar) {
@@ -384,8 +385,8 @@ const char * pl_cmp_op_suffix(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_ax_suffix(const char * s, int ar) {
-    if (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(s, "><")) return "xor";
-    if (g_stage2.pl_dialect == PL_DIALECT_XSB && ar == 1 && (!strcmp(s, "asin") || !strcmp(s, "acos") || !strcmp(s, "tan") || !strcmp(s, "log10"))) return pl_ax_suffix_ext(s, ar);
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_XSB && ar == 2 && !strcmp(s, "><")) return "xor";
+    if (g_stage2_pl.pl_dialect == PL_DIALECT_XSB && ar == 1 && (!strcmp(s, "asin") || !strcmp(s, "acos") || !strcmp(s, "tan") || !strcmp(s, "log10"))) return pl_ax_suffix_ext(s, ar);
     return pl_ax_suffix_of(s, ar);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

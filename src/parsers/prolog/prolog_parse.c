@@ -5,6 +5,7 @@
 #include "prolog_lex.h"
 #include "runtime/rt/prolog_atom.h"
 #include "ir/stage2.h"
+#include "ir/stage2_pl.h"
 #include "lower/pl_aggregate_names.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -1101,7 +1102,7 @@ static tree_t *dcg_make_unify(TreeScope *ts, tree_t *a, tree_t *b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_pass_unify(TreeScope *ts, tree_t *s_in, tree_t *s_out) {
     extern int rt_pl_dialect_swi(void);
-    return (g_stage2.pl_dialect == PL_DIALECT_SWI || rt_pl_dialect_swi()) ? dcg_make_unify(ts, s_out, s_in) : dcg_make_unify(ts, s_in, s_out);
+    return (g_stage2_pl.pl_dialect == PL_DIALECT_SWI || rt_pl_dialect_swi()) ? dcg_make_unify(ts, s_out, s_in) : dcg_make_unify(ts, s_in, s_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_out) {
@@ -4295,10 +4296,10 @@ static int pl_pkey_cmp(const char *e, const char *nm, int n, int ar) {
     return ear < ar ? -1 : ear > ar;
 }
 static uint32_t pl_prelude_key_at(const char *nm, int n, int ar, int *found) {
-    uint32_t lo = 0, hi = g_stage2.pl_prelude_keys.len;
+    uint32_t lo = 0, hi = g_stage2_pl.pl_prelude_keys.len;
     while (lo < hi) {
         uint32_t mid = (lo + hi) / 2;
-        int c = pl_pkey_cmp(CV_AT(g_stage2.pl_prelude_keys, char *, mid), nm, n, ar);
+        int c = pl_pkey_cmp(CV_AT(g_stage2_pl.pl_prelude_keys, char *, mid), nm, n, ar);
         if (!c) { *found = 1; return mid; }
         if (c < 0) lo = mid + 1; else hi = mid;
     }
@@ -4310,9 +4311,9 @@ static void pl_prelude_key_ins(const char *nm, int n, int ar, char *key) {
     int f;
     uint32_t at = pl_prelude_key_at(nm, n, ar, &f);
     if (f) return;
-    CV_PUSH(g_stage2.pl_prelude_keys, char *) = key;
-    memmove(&CV_AT(g_stage2.pl_prelude_keys, char *, at + 1), &CV_AT(g_stage2.pl_prelude_keys, char *, at), (size_t)(g_stage2.pl_prelude_keys.len - 1 - at) * sizeof(char *));
-    CV_AT(g_stage2.pl_prelude_keys, char *, at) = key;
+    CV_PUSH(g_stage2_pl.pl_prelude_keys, char *) = key;
+    memmove(&CV_AT(g_stage2_pl.pl_prelude_keys, char *, at + 1), &CV_AT(g_stage2_pl.pl_prelude_keys, char *, at), (size_t)(g_stage2_pl.pl_prelude_keys.len - 1 - at) * sizeof(char *));
+    CV_AT(g_stage2_pl.pl_prelude_keys, char *, at) = key;
 }
 static void pl_prelude_key_add(const char *nm, int ar) {
     int f, n = (int)strlen(nm);
@@ -4321,7 +4322,7 @@ static void pl_prelude_key_add(const char *nm, int ar) {
 }
 static void pl_prelude_key_add_str(char *k) { int ar, n = pl_pkey_split(k, &ar); pl_prelude_key_ins(k, n, ar, k); }
 static void pl_prelude_keys_seed(PlProgram *pre) {
-    if (g_stage2.pl_prelude_keys.len) return;
+    if (g_stage2_pl.pl_prelude_keys.len) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *cn; int car;
         if (pl_clause_key(cl, &cn, &car) && cn) pl_prelude_key_add(cn, car);
@@ -5154,7 +5155,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     int hooked_dyn = pl_incremental_dynamics(prog, 0);
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 }, modimp = { 0 };
     int xsb_prog = pl_program_is_xsb(prog);
-    for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) pl_cv_add(&user_defined, CV_AT(g_stage2.pl_user_keys_files, char *, i));
+    for (uint32_t i = 0; i < g_stage2_pl.pl_user_keys_files.len; i++) pl_cv_add(&user_defined, CV_AT(g_stage2_pl.pl_user_keys_files, char *, i));
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
@@ -5342,7 +5343,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         int xsb = pl_program_is_xsb(prog);
         if (g_stage2.harness_warm != 1) pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi, xsb);
         pl_libs_meta_specs(pre, &referenced);
-        for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
+        for (uint32_t i = 0; i < user_defined.len; i++) if (strcmp(CV_AT(user_defined, char *, i), ":/2") && !pl_cv_has(&g_stage2_pl.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2_pl.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
     {
         int exc = pl_cv_has(&user_defined, "exception/3");
@@ -5476,7 +5477,7 @@ int pl_prelude_lib_exports(const char *nm, int ar) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_prelude_defines(const char *nm, int ar) {
     if (!nm) return 0;
-    if (!g_stage2.pl_prelude_keys.len) {
+    if (!g_stage2_pl.pl_prelude_keys.len) {
         PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
         if (!pre) return 0;
         pl_prelude_keys_seed(pre);
