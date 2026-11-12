@@ -7814,7 +7814,10 @@ void pas_file_err(const char *clause, const char *what, const char *proc) {
     if (proc && !strncmp(proc, "__pas_", 6)) fprintf(stderr, " (in %s)", proc + 6);
     fputc('\n', stderr);
     fflush(stderr);
-    exit((clause && !strcmp(clause, "6.9.1") && what && (!strncmp(what, "end-of-file is true when a number", 33) || !strncmp(what, "the characters read do not form", 31))) ? 106 : 1);
+    int rc = 1;
+    if (clause && !strcmp(clause, "6.9.1") && what && (!strncmp(what, "end-of-file is true when a number", 33) || !strncmp(what, "the characters read do not form", 31))) rc = 106;
+    if (what && strstr(what, "is activated while f is undefined")) rc = 103;
+    exit(rc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_tf_write(FILE *fp, DESCR_t v) {
@@ -25390,7 +25393,14 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if ((_bid == BID___pas_read_i_f)) { *out = pas_read_number(f, 0, 0, fn); return 1; }
         if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
         if ((_bid == BID___pas_readln_f)) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
-        if ((_bid == BID___pas_eof_f)) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
+        if ((_bid == BID___pas_eof_f)) {
+            if (!IS_FH_fn(args[0])) pas_file_err("6.6.6.5", "eof(f) is activated while f is undefined", fn);
+            int c = fgetc(f);
+            if (c == EOF) { *out = INTVAL(1); return 1; }
+            ungetc(c, f);
+            *out = INTVAL(0);
+            return 1;
+        }
         if ((_bid == BID___pas_eoln_f)) {
             if (!IS_FH_fn(args[0])) pas_file_err("6.6.6.5", "eoln(f) is activated while f is undefined", fn);
             int c = fgetc(f);

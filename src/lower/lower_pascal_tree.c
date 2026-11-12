@@ -545,6 +545,7 @@ static int pas_setcons_elems(tree_t *v, tree_t *out) {
 static int pas_has_user_call(const tree_t *x) {
     if (!x) return 0;
     if (x->t == TT_FNC && x->n >= 1 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && (pas_is_func(x->c[0]->v.sval) || pas_is_proc(x->c[0]->v.sval))) return 1;
+    if (x->t == TT_FNC && x->n >= 1 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && (!strcmp(x->c[0]->v.sval, "__pas_eof_f") || !strcmp(x->c[0]->v.sval, "__pas_eoln_f"))) return 1;
     for (int i = 0; i < x->n; i++) if (pas_has_user_call(x->c[i])) return 1;
     return 0;
 }
