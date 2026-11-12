@@ -2733,6 +2733,13 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (t0->kind == TK_DECL && !t0->npost && !t0->npre && e0->nitem == 1) return build_decl(b, t0->decl, L, 1);
+    int dlv, dk;
+    if (t0->kind == TK_DECL && !t0->npost && !t0->npre && e0->nitem == 2 && op1 && !t0->decl->init_op && !t0->decl->type && t0->decl->sigil == '$' && rkb_compound_base(op1, &dlv, &dk)) {
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR), *rhs = el_rest(b, e0);
+        expr_add_child(seq, build_decl(b, t0->decl, L, 1));
+        expr_add_child(seq, expr_binary(TT_ASSIGN, var_node(b, t0->decl->name), rk_scalar_rhs(rkb_binop(b, dlv, dk, var_node(b, t0->decl->name), rhs))));
+        return seq;
+    }
     if (op1 && !strcmp(op1, "=") && t0->kind == TK_VAR && t0->npre == 1 && t0->pre && !strcmp(t0->pre[0], "temp") && !t0->npost && t0->t && t0->t->t == TT_VAR && t0->t->v.sval) {
         tree_t *vt = t0->t;
         t0->npre = 0;
