@@ -2377,6 +2377,7 @@ static const char * const PL_PRELUDE_SRC =
     "statistics(user_time,[T,D]):-!,'$cpu_ms'(T),'$stat_delta'('$stat_ut',T,D).\n"
     "statistics(system_time,[0,0]):-!.\n"
     "statistics(walltime,[T,D]):-!,wall_ms(W),'$stat_w0'(W0),T is W-W0,'$stat_delta'('$stat_wt',T,D).\n"
+    "cputime(T):-statistics(cputime,T).\n"
     "statistics(real_time,[T,D]):-!,wall_ms(W),T is W//1000,'$stat_delta'('$stat_re',T,D).\n"
     "statistics(cputime,S):-!,'$cpu_ms'(T),S is T/1000.\n"
     "statistics(process_cputime,S):-!,'$cpu_ms'(T),S is T/1000.\n"
