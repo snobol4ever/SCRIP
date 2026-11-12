@@ -915,6 +915,12 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
         return f;
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
+        if (args->items[0] && args->items[0]->t == TT_FNC && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->v.sval && !strcmp(args->items[0]->c[0]->v.sval, "__pas_deref") &&
+            args->items[0]->c[1]) {
+            const pty_t *_dpt = pty_of_low(args->items[0]->c[1]);
+            if (_dpt && _dpt->k == PTK_POINTER && pty_is_pchar(_dpt)) return ilit(1);
+            if (_dpt && _dpt->k == PTK_POINTER && _dpt->base && pty_sizeof_flat(_dpt->base) > 0) return ilit(pty_sizeof_flat(_dpt->base));
+        }
         { long long _tz = pty_sizeof_low(args->items[0]); if (_tz > 0) return ilit(_tz); }
         if (args->items[0] && args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR) {
             long long z = pas_elem_size(args->items[0]->c[0]->v.sval);
