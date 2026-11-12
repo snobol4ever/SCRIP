@@ -262,7 +262,7 @@ static void *icon_parse_dialect(const char *source, const char *filename, int un
     icn_parse_init(&parser, &lx);
     CODE_t *prog = icn_parse_file(&parser, out_ast);
     if (parser.had_error) {
-        if (parser.oracle_line) { size_t bn = strlen(filename) + 1; char *base = (char *) ct_alloc(bn); icn_pp_source_base(base, bn); fprintf(stderr, "File %s; Line %d # \"%s\": %s\n", base, parser.oracle_line, parser.oracle_tok, parser.errmsg); }
+        if (parser.oracle_line) { extern void core_error_voice_at(int, const char *, const char *, long, long); size_t bn = strlen(filename) + 1; char *base = (char *) ct_alloc(bn); icn_pp_source_base(base, bn); size_t tn = strlen(parser.oracle_tok) + strlen(parser.errmsg) + 8; char *tx = (char *) ct_alloc(tn); snprintf(tx, tn, "\"%s\": %s", parser.oracle_tok, parser.errmsg); core_error_voice_at(703, tx, base, parser.oracle_line, 0); }
         else fprintf(stderr, "icon: parse error in %s: %s\n", filename, parser.errmsg);
         ct_drop(prog);
         if (out_ast) *out_ast = NULL;
