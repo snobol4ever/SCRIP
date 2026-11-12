@@ -375,6 +375,7 @@ static void pascal_mode_directive(const char *m) {
     for (int i = 0; i < 6; i++) if (!strcasecmp(m, M[i]) && !pascal_seen_decl_start) {
         pascal_dialect_set(D[i]);
         pascal_mode_macro_set(MAC[i]);
+        pascal_event("mode_noniso");
         pascal_event("seen_mode");
         pascal_event_num("fnamecall", i != 0 && i != 3);
     }

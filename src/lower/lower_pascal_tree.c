@@ -3401,6 +3401,8 @@ static char pas_expr_lit_class(tree_t *e) {
 static char pas_typename_class(const char *t) {
     char c = 0;
     for (int guard = 0; t && guard < 8 && !c; guard++) {
+        const char *ua = pas_typealias_get(t);
+        if (ua && strcmp(ua, t)) { t = ua; continue; }
         if (pas_is_int_typename(t)) c = 'i';
         else if (pas_is_realtypename(t)) c = 'r';
         else if (!strcmp(t, "char")) c = 'c';
@@ -5023,14 +5025,14 @@ static void pas_sem_walk(const tree_t *root, int k, const tree_t *node, const ch
         const tree_t *b = pas_sem_proc_at(root, k);
         int lvl = pas_sem_level(b);
         int iso = g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive;
-        if (lvl >= 1 && !pas_sem_vlist_has(pas_sem_locals(b), cv) && (iso || !pas_sem_vlist_has(pas_sem_params(b), cv))) {
+        if (iso && lvl >= 1 && !pas_sem_vlist_has(pas_sem_locals(b), cv)) {
             fprintf(stderr,
                 "pascal: ISO 7185 6.8.3.9 violation in %s line %d: for-statement control-variable '%s' is not declared in the"
                 " variable-declaration-part of the block closest-containing the for-statement\n", fname, node->line, cv);
             (*nerr)++;
         }
-        int t = (node->n > 3) ? pas_sem_threatens(root, node->c[3], cv, node) : 0;
-        if (!t) t = pas_sem_threat_nested(root, k, cv);
+        int t = (iso && node->n > 3) ? pas_sem_threatens(root, node->c[3], cv, node) : 0;
+        if (!t && iso) t = pas_sem_threat_nested(root, k, cv);
         if (t) {
             const tree_t *_bp = pas_sem_proc_at(root, k);
             const char *_pn = (_bp && _bp->v.sval) ? _bp->v.sval : "(main)";
@@ -5148,6 +5150,7 @@ static void elab_bad(const char *nt, const tree_t *n) { fprintf(stderr, "pascal:
 static void pas_apply_event(const char *ev) {
     if (!strcmp(ev, "iso_error")) g_lower.pas.sem.pas_iso_errors++;
     else if (!strcmp(ev, "mode_iso")) g_lower.pas.sem.pas_mode_iso = 1;
+    else if (!strcmp(ev, "mode_noniso")) g_lower.pas.sem.pas_mode_iso = 0;
     else if (!strcmp(ev, "int16")) g_lower.pas.sem.pas_int16 = 1;
     else if (!strcmp(ev, "seen_mode")) g_lower.pas.sem.pas_seen_mode_directive = 1;
     else if (!strncmp(ev, "fnamecall ", 10)) g_lower.pas.sem.pas_fname_is_call = atoi(ev + 10);

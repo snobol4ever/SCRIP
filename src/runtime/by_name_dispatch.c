@@ -21407,7 +21407,8 @@ static int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DES
                     return 1;
                 }
                 fp = fopen(nm, "rb");
-                if (!fp) { *out = FAILDESCR; return 1; }
+                if (!fp && pas_io_fail(errno)) { *out = IS_FH_fn(args[0]) ? args[0] : STRVAL(rt_heap_strdup_c(nm)); return 1; }
+                if (!fp) { fflush(NULL); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
                 idx = fh_alloc(fp);
                 if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
             }
