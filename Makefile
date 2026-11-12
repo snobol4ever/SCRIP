@@ -324,7 +324,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/ir/bb_pool.c \
     $(SRC)/ir/ct_arena.c \
-    $(SRC)/emitter/emit.cpp \
+    $(sort $(wildcard $(SRC)/emitter/em/em_*.cpp)) \
     $(SRC)/planner/zeta_plan.cpp \
     $(SRC)/planner/act_words.cpp \
     $(SRC)/planner/plan_facts.cpp \
