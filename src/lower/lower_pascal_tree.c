@@ -1363,9 +1363,8 @@ static tree_t *mk_call_raw(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "reset") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
-        int iso = g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive;
-        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ? ((iso && pas_is_hdrfile(fv->v.sval)) ? ilit(2 * pas_hdrfile_index(fv->v.sval)) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
-        if (iso) return mk_assign(fv, mk_fnc3("__pas_reset", pas_tree_clone(fv), dflt ? dflt : leaf_s(TT_QLIT, ""), ilit(1)));
+        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ?
+            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(2 * pas_hdrfile_index(fv->v.sval)) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
         return mk_assign(fv, dflt ? mk_set_bin("__pas_reset", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) { return mk_fnc1("__pas_fclose", args->items[0]); }
@@ -3057,8 +3056,8 @@ static int pas_src_assigns(const tree_t *t, const char *v) {
     if (t->t == TT_ASSIGN && t->n >= 1 && pas_src_mentions(t->c[0], v)) return 1;
     if (t->t == TT_FOR && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcasecmp(t->c[0]->v.sval, v)) return 1;
     if (t->t == TT_WITH && t->n > 1) for (int i = 0; i + 1 < t->n; i++) if (pas_src_mentions(t->c[i], v)) return 1;
-    if (t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && strcasecmp(t->c[0]->v.sval, "write") && strcasecmp(t->c[0]->v.sval, "writeln")) for (int i = 1; i < t->n; i++)
-        if (pas_src_mentions(t->c[i], v)) return 1;
+    if (t->t == TT_FNC && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && strcasecmp(t->c[0]->v.sval, "write") && strcasecmp(t->c[0]->v.sval, "writeln"))
+        for (int i = 1; i < t->n; i++) if (pas_src_mentions(t->c[i], v)) return 1;
     for (int i = 0; i < t->n; i++) if (pas_src_assigns(t->c[i], v)) return 1;
     return 0;
 }
