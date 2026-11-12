@@ -2518,8 +2518,8 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                         goto again;
                     }
                 }
-                const char *gp = gc_seg_ptr(&cx->tr, (const char *)(uintptr_t)g);
-                if (g > 4095 && gp) {
+                const char *gp = gc_seg_ptr(&cx->tr, (const char *)(uintptr_t)g), *gtop = seg_top ? seg_top : g_runtime.gc.gc_stktop;
+                if (g > 4095 && gp && (cx->tr.olo || (gp >= r && gp + 16 <= gtop))) {
                     uint64_t sg = *(const uint64_t *)(gp + 8);
                     const gc_site_ent_t *y = (const gc_site_ent_t *)0;
                     const gc_site_blk_t *yb = gc_site_find(sg, &y);
