@@ -415,7 +415,8 @@ static int augop_code(int aop) {
 static IR_t * icn_augop_build(icx_t * cx, int aop, IR_t * asn, IR_t * ω, IR_t ** op, IR_t ** ca, IR_t ** cb) {
     int bc = augop_code(aop);
     int ar = (bc >= BINOP_ADD && bc <= BINOP_MOD) || bc == BINOP_POW;
-    *op = build(cx, (aop == AUGOP_ACTIVATE) ? IR_ACTIVATE : IR_BINOP, asn, ω);
+    int rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV;
+    *op = build(cx, (aop == AUGOP_ACTIVATE) ? IR_ACTIVATE : rel ? IR_BINOP_TEST : IR_BINOP, asn, ω);
     if (aop == AUGOP_ACTIVATE) IR_LIT(*op).sval = cx->pname;
     else IR_LIT(*op).ival = (bc == BINOP_ADD) ? BINOP_ADD_BIG : (bc == BINOP_SUB) ? BINOP_SUB_BIG : (bc == BINOP_MUL) ? BINOP_MUL_BIG : (bc == BINOP_CONCAT) ? BINOP_CONCAT_FRACDIGIT : bc;
     *cb = ar ? build(cx, IR_COERCE_NUMERIC, *op, ω) : NULL;
