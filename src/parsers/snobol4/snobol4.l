@@ -711,7 +711,7 @@ static tree_t *sno_parse_lexed(Lex *lx, CODE_t **code_out) {
     tree_t *ast = NULL;
     CODE_t *prog = parse_program_tokens_ast(lx, &ast);
     flex_lex_destroy(lx);
-    if (prog) { int saw_end = 0; STMT_t *p; for (p = prog->head; p; p = p->next) if (p->is_end) { saw_end = 1; break; } if (!saw_end) sno_error(prog->tail ? prog->tail->lineno : 0, "missing END statement"); }
+    if (prog) { int saw_end = 0; STMT_t *p; for (p = prog->head; p; p = p->next) if (p->is_end) { saw_end = 1; break; } if (!saw_end) { fprintf(stderr, "No END statement found in source file(s).\n"); exit(1); } }
     if (code_out) *code_out = prog;
     return ast;
 }
