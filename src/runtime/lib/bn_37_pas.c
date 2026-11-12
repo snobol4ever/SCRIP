@@ -307,8 +307,9 @@ void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start) {
         DESCR_t aw = args[_pi + 1];
         int w = IS_INT_fn(aw) ?
             (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i == -12 ? -12 : (aw.i >= 0 ? (int)aw.i : -1)))))))) : -1;
-        int _upper = 0, _uns = 0;
+        int _upper = 0, _uns = 0, _trunc = 0;
         if (IS_INT_fn(aw) && aw.i == -11 && _pi + 3 < nargs) { _uns = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
+        if (IS_INT_fn(aw) && aw.i == -13 && _pi + 3 < nargs) { _trunc = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
         if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
         if (w == -6) {
             double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
@@ -352,7 +353,12 @@ void pas_write_items(pas_wsink_t *k, DESCR_t *args, int nargs, int start) {
             const char *_ps = VARVAL_fn(av);
             if (_ps) {
                 if (w == -2) pas_wput(k, _ps, 1);
-                else if (w >= 0) { size_t _l = pas_slen(av, _ps); pas_wpad(k, (long)w - (long)_l); pas_wput(k, _ps, _l); } else pas_wput(k, _ps, pas_slen(av, _ps));
+                else if (w >= 0) {
+                    size_t _l = pas_slen(av, _ps);
+                    if (_trunc && _l > (size_t)w) _l = (size_t)w;
+                    pas_wpad(k, (long)w - (long)_l);
+                    pas_wput(k, _ps, _l);
+                } else pas_wput(k, _ps, pas_slen(av, _ps));
             }
         }
     }

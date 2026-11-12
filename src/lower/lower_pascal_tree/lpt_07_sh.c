@@ -94,7 +94,7 @@ tree_t *pas_split_writes(tree_t *e) {
     int i0 = (e->n >= 3 && e->c[2] && e->c[2]->t == TT_ILIT && e->c[2]->v.ival == -9) ? 3 : 1;
     int gs[e->n + 1], gcall[e->n + 1], ng = 0, needs = 0;
     for (int i = i0; i + 1 < e->n;) {
-        int g = (e->c[i + 1] && e->c[i + 1]->t == TT_ILIT && (e->c[i + 1]->v.ival == -10 || e->c[i + 1]->v.ival == -11 || e->c[i + 1]->v.ival == -3)) ? 4 : 2;
+        int g = (e->c[i + 1] && e->c[i + 1]->t == TT_ILIT && (e->c[i + 1]->v.ival == -10 || e->c[i + 1]->v.ival == -11 || e->c[i + 1]->v.ival == -13 || e->c[i + 1]->v.ival == -3)) ? 4 : 2;
         if (i + g > e->n) g = e->n - i;
         gs[ng] = i;
         gcall[ng] = 0;

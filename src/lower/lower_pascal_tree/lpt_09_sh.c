@@ -868,7 +868,7 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
             for (int i = _wstart; i + 1 < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 tree_t *wid = args->items[i + 1];
-                int is_char = pas_is_charexpr(val), _uw = 0;
+                int is_char = pas_is_charexpr(val), _uw = 0, _isstr = val && (val->t == TT_QLIT || (pty_of_low(val) && pty_of_low(val)->k == PTK_STRING));
                 const char *_enm = (val && val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
                 if (!_enm && g_lower_pas.sem.pas_dialect_fpc && val && !is_char) _enm = pty_enum_names(val);
                 if (_enm) {
@@ -908,8 +908,10 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     else _uw = 1;
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) {
                     val = pas_alpha_wrap(val);
+                    _isstr = 1;
                 } else if (pas_ca_is_read(val)) {
                     val = pas_alpha_wrap(val);
+                    _isstr = 1;
                 } else if (val && val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) {
                     tree_t *_w = ast_node_new(TT_FNC);
                     ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str"));
@@ -924,6 +926,13 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 if (!_cont && g_lower_pas.sem.pas_seen_mode_directive && !g_lower_pas.sem.pas_mode_iso && !(wid->t == TT_ILIT && wid->v.ival < 0)) {
                     ast_push(e, val);
                     ast_push(e, ilit(-10));
+                    ast_push(e, wid);
+                    ast_push(e, ilit(0));
+                    continue;
+                }
+                if (_isstr && !_cont && !(g_lower_pas.sem.pas_seen_mode_directive && !g_lower_pas.sem.pas_mode_iso) && !(wid->t == TT_ILIT && wid->v.ival < 0)) {
+                    ast_push(e, val);
+                    ast_push(e, ilit(-13));
                     ast_push(e, wid);
                     ast_push(e, ilit(0));
                     continue;
