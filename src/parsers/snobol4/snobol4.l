@@ -405,6 +405,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <BODY_START>[ \t]+      { }
+<BODY_START>"="/[ \t\n;] { sno_error_voice(221, "syntax error: missing operand", lineno); }
 <BODY_START>{CONT}      { lineno++; }
 <BODY_START>\n          { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START><<EOF>>     { BEGIN(INITIAL); return T_STMT_END; }
