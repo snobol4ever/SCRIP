@@ -363,6 +363,7 @@ tree_t *pas_alpha_wrap(tree_t *x) {
         ast_push(f, leaf_s(TT_VAR, "__pas_alpha_str"));
         ast_push(f, x);
         ast_push(f, ilit(pas_chararr_lo(x->v.sval)));
+        if (g_lower_pas.sem.pas_dialect_fpc) ast_push(f, ilit(1));
         return f;
     }
     if (x && x->t == TT_IDX && x->n >= 2 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && pas_is_strarr(x->c[0]->v.sval)) {

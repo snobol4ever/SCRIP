@@ -11,6 +11,7 @@ __attribute__((visibility("hidden"))) void pas_fill_from(DESCR_t v, long long id
 __attribute__((visibility("hidden"))) DESCR_t pas_dyn_block(long long n);
 __attribute__((visibility("hidden"))) DESCR_t pas_dynset(DESCR_t old, DESCR_t proto, int depth, DESCR_t *dims, int nd);
 __attribute__((visibility("hidden"))) DESCR_t pas_chars_of(DESCR_t v, long lo);
+__attribute__((visibility("hidden"))) DESCR_t pas_chars_full(DESCR_t v, long lo);
 __attribute__((visibility("hidden"))) size_t pas_slen(DESCR_t v, const char *s);
 __attribute__((visibility("hidden"))) DESCR_t pas_str_setch(DESCR_t v, long eidx, unsigned char ch);
 __attribute__((visibility("hidden"))) int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);

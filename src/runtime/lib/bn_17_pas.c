@@ -181,6 +181,18 @@ DESCR_t pas_chars_of(DESCR_t v, long lo) {
     o[oi] = '\0';
     return STRVAL(o);
 }
+DESCR_t pas_chars_full(DESCR_t v, long lo) {
+    if (IS_STR_fn(v)) return v;
+    if (v.v != DT_A || !v.arr) return STRVAL(rt_heap_strdup_c(""));
+    ARBLK_t *b = (ARBLK_t *) v.arr;
+    long from = lo > b->lo ? lo : b->lo;
+    long n = (long) b->hi - from + 1;
+    if (n < 0) n = 0;
+    char *o = rt_str_alloc(n);
+    for (long k = 0; k < n; k++) o[k] = (char) pas_ch_of(b->data[from + k - b->lo]);
+    o[n] = '\0';
+    return BSTRVAL(o, n);
+}
 size_t pas_slen(DESCR_t v, const char *s) { return (v.v == DT_S && v.slen != 0 && v.slen != 0xFFFFFFFFu) ? (size_t)v.slen : strlen(s); }
 DESCR_t pas_str_setch(DESCR_t v, long eidx, unsigned char ch) {
     char rb[64];

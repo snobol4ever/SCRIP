@@ -357,6 +357,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     L_pbi_90:
     ;
     if (id == PBI_alpha_str && nargs == 2) { *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
+    if (id == PBI_alpha_str && nargs == 3) { *out = pas_chars_full(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
     L_pbi_91:
     ;
     if (id == PBI_rdecode && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }

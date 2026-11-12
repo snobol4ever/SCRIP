@@ -982,7 +982,14 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 else if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx) && pas_is_aggregate_designator(val)) val = mk_fnc1("__pas_arr_copy", val);
                 if (val && val->t == TT_QLIT && val->v.sval && _pidx < 64 && ((_cam >> _pidx) & 1ULL)) {
                     long long _lo = pas_caparm_lo(name, _pidx);
-                    val = pas_str_to_alpha(val->v.sval, _lo, _lo + (long long)strlen(val->v.sval) - 1);
+                    long long _hi = _lo + (long long)strlen(val->v.sval) - 1;
+                    if (g_lower_pas.sem.pas_dialect_fpc) {
+                        const pty_t *_cf = pty_formal_type(name, _pidx);
+                        const char *_cn = _cf ? pty_name_of(_cf) : NULL;
+                        long long _th = _cn ? pas_arrtype_high(_cn) : -1;
+                        if (_th > _hi) _hi = _th;
+                    }
+                    val = pas_str_to_alpha(val->v.sval, _lo, _hi);
                 } else if (pas_ca_is_read(val) && _pidx < 64 && ((_cam >> _pidx) & 1ULL)) {
                     tree_t *_fld = val->n >= 2 ? val->c[1] : NULL;
                     tree_t *_en = ast_node_new(TT_FNC);
