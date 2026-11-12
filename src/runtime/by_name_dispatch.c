@@ -13499,6 +13499,16 @@ static DESCR_t pl_op_unqual(DESCR_t d) {
     while (pl_swi_dialect() && d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(d.slen)), ":")) d = rt_pl_deref_val(((DESCR_t *)d.p)[1]);
     return d;
 }
+static int pl_op_foreign(DESCR_t d) {
+    extern const char *prolog_atom_name(int);
+    const char *m = (const char *)0;
+    while (pl_swi_dialect() && d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(d.slen)), ":")) {
+        DESCR_t q = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
+        m = pl_val_unbound(q) ? (const char *)0 : pl_atom_str(q);
+        d = rt_pl_deref_val(((DESCR_t *)d.p)[1]);
+    }
+    return m && strcmp(m, "user") && strcmp(m, "system");
+}
 PL_CX_LEAF_HEAD(op, 3)
     {
         extern int prolog_op_table_add(const char *, int, const char *);
@@ -13533,7 +13543,7 @@ PL_CX_LEAF_HEAD(op, 3)
         for (cur = o; ; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
             e = pl_is_cons(cur) ? pl_op_unqual(rt_pl_deref_val(((DESCR_t *)cur.p)[0])) : cur;
             if (pl_is_cons(o) && pl_is_nil(cur)) break;
-            prolog_op_table_add(ct_strdup(pl_op_name(e)), (int)p.i, ty);
+            if (!pl_op_foreign(rt_pl_deref_val(args[2])) && !pl_op_foreign(pl_is_cons(cur) ? rt_pl_deref_val(((DESCR_t *)cur.p)[0]) : cur)) prolog_op_table_add(ct_strdup(pl_op_name(e)), (int)p.i, ty);
             if (!pl_is_cons(o)) break;
         }
         ok = 1;

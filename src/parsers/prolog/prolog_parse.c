@@ -38,6 +38,7 @@ typedef struct {
     const char *synerr;
     int         wrap_tail;
     cv_t        qq;
+    int         hdr;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -68,7 +69,7 @@ static void perror_at(Parser *p, int line, const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef enum { ASSOC_NONE, ASSOC_LEFT, ASSOC_RIGHT } Assoc;
 typedef enum { FIX_INFIX, FIX_PREFIX, FIX_POSTFIX } Fixity;
-typedef struct pl_op_entry { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEntry;
+typedef struct pl_op_entry { const char *name; int prec; Assoc assoc; Fixity fixity; const char *mod; } OpEntry;
 static const OpEntry BIN_OPS[] = {
     { ":-",   1200, ASSOC_NONE  },
     { "-->",  1200, ASSOC_NONE  },
@@ -156,17 +157,24 @@ static const OpEntry PREFIX_OPS[] = {
 };
 static const char *op_type_unclassify(Assoc assoc, Fixity fix);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) {
-    if (prolog_op_cols_ready()) prolog_op_col_set(prolog_atom_intern(name), prec, op_type_unclassify(assoc, fixity));
-    for (int i = 0; i < g_parser.pl.uinfix_n; i++) if (g_parser.pl.uinfix[i].fixity == fixity && strcmp(g_parser.pl.uinfix[i].name, name) == 0) { g_parser.pl.uinfix[i].prec = prec; g_parser.pl.uinfix[i].assoc = assoc; return; }
+static int op_mod_eq(const char *a, const char *b) { return a == b || (a && b && !strcmp(a, b)); }
+static void user_op_add_in(const char *mod, const char *name, int prec, Assoc assoc, Fixity fixity) {
+    if (!mod && prolog_op_cols_ready()) prolog_op_col_set(prolog_atom_intern(name), prec, op_type_unclassify(assoc, fixity));
+    for (int i = 0; i < g_parser.pl.uinfix_n; i++) {
+        OpEntry *e = &g_parser.pl.uinfix[i];
+        if (e->fixity == fixity && op_mod_eq(e->mod, mod) && !strcmp(e->name, name)) { e->prec = prec; e->assoc = assoc; return; }
+    }
     if (g_parser.pl.uinfix_n >= g_parser.pl.uinfix_cap) { g_parser.pl.uinfix_cap = g_parser.pl.uinfix_cap ? g_parser.pl.uinfix_cap * 2 : 8; g_parser.pl.uinfix = (OpEntry *)ct_grow(g_parser.pl.uinfix, g_parser.pl.uinfix_cap * sizeof(OpEntry)); }
-    g_parser.pl.uinfix[g_parser.pl.uinfix_n].name = ct_strdup(name); g_parser.pl.uinfix[g_parser.pl.uinfix_n].prec = prec; g_parser.pl.uinfix[g_parser.pl.uinfix_n].assoc = assoc; g_parser.pl.uinfix[g_parser.pl.uinfix_n].fixity = fixity; g_parser.pl.uinfix_n++;
+    OpEntry *e = &g_parser.pl.uinfix[g_parser.pl.uinfix_n++];
+    e->name = ct_strdup(name); e->prec = prec; e->assoc = assoc; e->fixity = fixity; e->mod = mod ? ct_strdup(mod) : (const char *)0;
 }
+static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) { user_op_add_in((const char *)0, name, prec, assoc, fixity); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const OpEntry *find_user(const char *name, Fixity fix) {
-    for (int i = 0; i < g_parser.pl.uinfix_n; i++) if (g_parser.pl.uinfix[i].fixity == fix && strcmp(g_parser.pl.uinfix[i].name, name) == 0) return &g_parser.pl.uinfix[i];
+static const OpEntry *find_user_in(const char *mod, const char *name, Fixity fix) {
+    for (int i = 0; i < g_parser.pl.uinfix_n; i++) if (g_parser.pl.uinfix[i].fixity == fix && op_mod_eq(g_parser.pl.uinfix[i].mod, mod) && !strcmp(g_parser.pl.uinfix[i].name, name)) return &g_parser.pl.uinfix[i];
     return NULL;
 }
+static const OpEntry *find_user(const char *name, Fixity fix) { const OpEntry *u = g_parser.pl.op_mod ? find_user_in(g_parser.pl.op_mod, name, fix) : NULL; return u ? u : find_user_in(NULL, name, fix); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_binop(const char *name) {
     const OpEntry *u = find_user(name, FIX_INFIX);
@@ -241,7 +249,7 @@ int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const cha
     const OpEntry *e;
     if (idx < 0 || idx >= nbin + npre + g_parser.pl.uinfix_n) return 0;
     e = (idx < nbin) ? &BIN_OPS[idx] : (idx < nbin + npre) ? &PREFIX_OPS[idx - nbin] : &g_parser.pl.uinfix[idx - nbin - npre];
-    if (e->prec <= 0 || (idx < nbin + npre && find_user(e->name, e->fixity))) return 0;
+    if (e->prec <= 0 || e->mod || (idx < nbin + npre && find_user_in((const char *)0, e->name, e->fixity))) return 0;
     if (name_out) *name_out = e->name;
     if (prec_out) *prec_out = e->prec;
     if (type_out) *type_out = op_type_unclassify(e->assoc, e->fixity);
@@ -271,7 +279,7 @@ int prolog_op_table_add(const char *name, int prec, const char *type) {
 int prolog_op_user_count(void) { return g_parser.pl.uinfix_n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char **type_out) {
-    if (i < 0 || i >= g_parser.pl.uinfix_n) return 0;
+    if (i < 0 || i >= g_parser.pl.uinfix_n || g_parser.pl.uinfix[i].mod) return 0;
     if (name_out) *name_out = g_parser.pl.uinfix[i].name;
     if (prec_out) *prec_out = g_parser.pl.uinfix[i].prec;
     if (type_out) *type_out = op_type_unclassify(g_parser.pl.uinfix[i].assoc, g_parser.pl.uinfix[i].fixity);
@@ -281,13 +289,19 @@ int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char *
 static void register_op_one(int prec, const char *type, tree_t *namenode, int swi) {
     if (!namenode) return;
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i], swi); return; }
-    if (swi && namenode->t == TT_FNC && namenode->n == 2 && namenode->v.sval && !strcmp(namenode->v.sval, ":")) { register_op_one(prec, type, namenode->c[1], swi); return; }
+    if (swi && namenode->t == TT_FNC && namenode->n == 2 && namenode->v.sval && !strcmp(namenode->v.sval, ":")) {
+        const char *om = g_parser.pl.op_mod, *qm = namenode->c[0] && namenode->c[0]->t == TT_QLIT ? namenode->c[0]->v.sval : (const char *)0;
+        if (qm) g_parser.pl.op_mod = strcmp(qm, "user") ? qm : (const char *)0;
+        register_op_one(prec, type, namenode->c[1], swi);
+        g_parser.pl.op_mod = om;
+        return;
+    }
     int blk = swi && namenode->t == TT_FNC && namenode->n == 0 && namenode->v.sval && !strcmp(namenode->v.sval, "{}");
     int cut = namenode->t == TT_CUT;
     const char *nm = cut ? "!" : namenode->v.sval;
     if ((namenode->t != TT_QLIT && !blk && !cut) || !nm || prec < 0 || prec > 1200 || (!blk && prolog_op_permission(nm, prec, type))) return;
     Assoc assoc; Fixity fix;
-    if (op_type_classify(type, &assoc, &fix)) user_op_add(nm, prec, assoc, fix);
+    if (op_type_classify(type, &assoc, &fix)) user_op_add_in(g_parser.pl.op_mod, nm, prec, assoc, fix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "prolog_prelude_libs.inc"
@@ -302,22 +316,62 @@ static void register_lib_ops(const char *lib) {
         return;
     }
 }
-static void register_op_directive(tree_t *goal, int swi) {
+static const char *pl_path_spec(const tree_t *t);
+static char *pl_include_read(const Parser *pp, const char *spec, char **path_out);
+static PlClause *parse_clause(Parser *p);
+static void register_op_one(int prec, const char *type, tree_t *namenode, int swi);
+static int op_scoped(const Parser *p) { return p && !p->xsb && strcmp(p->filename, "<prelude>"); }
+static int op_arg_match(const tree_t *a, const tree_t *b) {
+    if (!a || a->t == TT_VAR) return 1;
+    if (!b || a->t != b->t) return 0;
+    if (a->t == TT_ILIT) return a->v.ival == b->v.ival;
+    return a->t == TT_QLIT && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
+}
+static int op_listed(const tree_t *list, const tree_t *e) {
+    for (int i = 0; list && list->t == TT_MAKELIST && i < list->n; i++) {
+        const tree_t *x = list->c[i];
+        if (x && x->t == TT_FNC && x->v.sval && !strcmp(x->v.sval, "op") && x->n == 3 && op_arg_match(x->c[0], e->c[0]) && op_arg_match(x->c[1], e->c[1]) && op_arg_match(x->c[2], e->c[2])) return 1;
+    }
+    return 0;
+}
+static void register_file_import_ops(Parser *p, const tree_t *goal, int swi) {
+    const char *spec = pl_path_spec(goal->c[0]); char *path = (char *)0, *src; Parser q; const char *om = g_parser.pl.op_mod; PlClause *cl; const tree_t *t, *m;
+    if (!spec || !(src = pl_include_read(p, spec, &path))) return;
+    memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = 1; q.hdr = 1; q.wrap_tail = -1; q.lx.swi = p->lx.swi; q.lx.nlq = p->lx.nlq;
+    q.iso = p->iso; q.lx.iso = p->lx.iso;
+    cl = lexer_peek(&q.lx).kind == TK_EOF ? (PlClause *)0 : parse_clause(&q);
+    g_parser.pl.op_mod = om;
+    t = cl ? cl->tr : (const tree_t *)0;
+    m = (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL) ? t->c[1] : (const tree_t *)0;
+    if (q.clause_errs || !m || m->t != TT_FNC || !m->v.sval || strcmp(m->v.sval, "module") || m->n != 2 || !m->c[1] || m->c[1]->t != TT_MAKELIST) return;
+    for (int i = 0; i < m->c[1]->n; i++) {
+        const tree_t *e = m->c[1]->c[i];
+        if (!e || e->t != TT_FNC || !e->v.sval || strcmp(e->v.sval, "op") || e->n != 3 || !e->c[0] || e->c[0]->t != TT_ILIT || !e->c[1] || e->c[1]->t != TT_QLIT || !e->c[1]->v.sval) continue;
+        if (goal->n == 1 || op_listed(goal->c[1], e)) register_op_one((int)e->c[0]->v.ival, e->c[1]->v.sval, e->c[2], swi);
+    }
+}
+static void register_op_directive(Parser *p, tree_t *goal, int swi) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
-    if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(goal->c[0], swi); register_op_directive(goal->c[1], swi); return; }
+    if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(p, goal->c[0], swi); register_op_directive(p, goal->c[1], swi); return; }
     if (strcmp(goal->v.sval, "module") == 0 && goal->n == 2) {
         tree_t *exports = goal->c[1];
+        if (op_scoped(p) && goal->c[0] && goal->c[0]->t == TT_QLIT && goal->c[0]->v.sval) g_parser.pl.op_mod = strcmp(goal->c[0]->v.sval, "user") ? ct_strdup(goal->c[0]->v.sval) : (const char *)0;
         if (exports && exports->t == TT_MAKELIST)
-            for (int i = 0; i < exports->n; i++) register_op_directive(exports->c[i], swi);
+            for (int i = 0; i < exports->n; i++) register_op_directive((Parser *)0, exports->c[i], swi);
         return;
     }
     if ((!strcmp(goal->v.sval, "use_module") || !strcmp(goal->v.sval, "autoload")) && goal->n >= 1 && goal->c[0] && goal->c[0]->t == TT_FNC
         && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "library") && goal->c[0]->n == 1 && goal->c[0]->c[0]
         && (goal->c[0]->c[0]->t == TT_QLIT || goal->c[0]->c[0]->t == TT_NAME) && goal->c[0]->c[0]->v.sval) { register_lib_ops(goal->c[0]->c[0]->v.sval); return; }
+    if (!strcmp(goal->v.sval, "use_module") && (goal->n == 1 || goal->n == 2) && op_scoped(p) && !p->hdr) { register_file_import_ops(p, goal, swi); return; }
     if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
     register_op_one((int)pn->v.ival, tn->v.sval, nn, swi);
+    if (swi && op_scoped(p) && g_parser.pl.op_mod && nn && !(nn->t == TT_FNC && nn->n == 2 && nn->v.sval && !strcmp(nn->v.sval, ":"))) {
+        tree_t *q = ast_node_new(TT_FNC), *m = ast_node_new(TT_QLIT);
+        q->v.sval = ct_strdup(":"); m->v.sval = ct_strdup(g_parser.pl.op_mod); ast_push(q, m); ast_push(q, nn); goal->c[2] = q;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lexer_functor_follows(Lexer *lx) {
@@ -1454,7 +1508,7 @@ static PlClause *parse_clause0(Parser *p) {
             if (fdot.kind != TK_DOT) perror_syn(p, fdot, SYN_END, "expected . at end of clause");
             tree_t *_fcl = ast_node_new(TT_CLAUSE);
             if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
-            else if (fnc->n == 1) { register_op_directive(fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); xsb_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
+            else if (fnc->n == 1) { register_op_directive(p, fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); xsb_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
             else ast_push(_fcl, fnc);
             cl->tr = _fcl;
             return cl;
@@ -1463,7 +1517,7 @@ static PlClause *parse_clause0(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_syn(p, dot, SYN_END, "expected . after directive");
-        register_op_directive(body_tr, p->lx.swi); iso_directive(p, body_tr); xsb_directive(p, body_tr);
+        register_op_directive(p, body_tr, p->lx.swi); iso_directive(p, body_tr); xsb_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
@@ -5491,7 +5545,7 @@ static int pl_fid_note(cv_t *seen, const char *path) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi, cv_t *seen) {
+static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi, cv_t *seen, const char *inc_mod) {
     const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; PlProgram *sub;
     *is_include = 0;
     if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
@@ -5509,6 +5563,7 @@ static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, i
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
         pp->nerrors++; return (PlProgram *)0; }
     if (!strcmp(g->v.sval, "use_module") && !pl_fid_note(seen, path)) { ct_drop(src); ct_drop(path); return (PlProgram *)0; }
+    g_parser.pl.op_next = strcmp(g->v.sval, "use_module") && strcmp(inc_mod, "user") ? inc_mod : (const char *)0;
     sub = prolog_parse_ex(src, path, pp->quiet);
     if (!sub) { pp->nerrors++; return (PlProgram *)0; }
     pl_preprocess_list(sub, depth + 1, swi, seen);
@@ -5662,7 +5717,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth, int swi, cv_t *seen) 
             if (prev) prev->next = (PlClause *)0; else prog->head = (PlClause *)0;
             break;
         } else {
-            PlProgram *sub = (pl_if_ctx_at(&ix, prog, cl), pl_include_expand(&q, cl, depth, &is_include, ix.swi > 0 ? 1 : -1, seen));
+            PlProgram *sub = (pl_if_ctx_at(&ix, prog, cl), pl_include_expand(&q, cl, depth, &is_include, ix.swi > 0 ? 1 : -1, seen, cur_mod));
             if (is_include) {
                 drop = 1;
                 if (sub && sub->head) {
@@ -5734,6 +5789,9 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prolog_atom_init();
     Parser p;
     int xpp_errs = 0;
+    const char *op_mod_outer = g_parser.pl.op_mod;
+    g_parser.pl.op_mod = g_parser.pl.op_next;
+    g_parser.pl.op_next = (const char *)0;
     char *xpp_src = pl_xpp_expand(src, filename, quiet, &xpp_errs);
     if (xpp_src) src = xpp_src;
     lexer_init(&p.lx, src);
@@ -5747,6 +5805,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.incl_depth = 0;
     p.xsb      = 0;
     p.synerr   = (const char *)0;
+    p.hdr      = 0;
     p.wrap_tail = src && !strncmp(src, "'$rd'((", 7) ? (int)strlen(src) - 4 : -1;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     { extern int rt_pl_dialect_xsb(void); p.xsb = rt_pl_dialect_xsb(); if (p.xsb) p.lx.nlq = 1; }
@@ -5767,6 +5826,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prog->src = src;
     prog->filename = filename;
     prog->quiet = quiet;
+    g_parser.pl.op_mod = op_mod_outer;
     return prog;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
