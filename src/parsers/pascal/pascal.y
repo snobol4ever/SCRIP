@@ -678,6 +678,7 @@ call:
     IDENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |spec_expr { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
+    |call_with_args PERIOD IDENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args { $$ = $1; }
     ;
 recv_primary:
