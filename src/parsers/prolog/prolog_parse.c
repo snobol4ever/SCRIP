@@ -2604,8 +2604,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$flatten_'([H|T],Tl,L):-!,'$flatten_'(H,FT,L),'$flatten_'(T,Tl,FT).\n"
     "'$flatten_'(X,T,[X|T]).\n"
     "term_string(T,S,_):-var(S),!,term_string(T,S).\n"
-    "term_string(T,S,O):-'$ts_warn_opts'(O,O1,Ss),!,read_term_from_atom(S,T,O1),'$ts_singletons_warn'(Ss,T).\n"
-    "term_string(T,S,O):-read_term_from_atom(S,T,O).\n"
+    "term_string(T,S,O):-'$ts_warn_opts'(O,O1,Ss),!,read_term_from_atom(S,T0,O1),'$qq_read_expand'(T0,T),'$ts_singletons_warn'(Ss,T).\n"
+    "term_string(T,S,O):-read_term_from_atom(S,T0,O),'$qq_read_expand'(T0,T).\n"
     "'$ts_warn_opts'(O,_,_):-var(O),!,fail.\n"
     "'$ts_warn_opts'([X|R],[singletons(Ss)|R],Ss):-nonvar(X),X=singletons(W),W==warning,!.\n"
     "'$ts_warn_opts'([X|R],[X|R1],Ss):-'$ts_warn_opts'(R,R1,Ss).\n"
@@ -3291,6 +3291,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$clprop_head'(H,user,N,A):-functor(H,N,A).\n"
     "clause_info(R,F,TP,VO):-clause_info(R,F,TP,VO,[]).\n"
     "'$qq_expand'(S,T,B,V):-S=..[N|A],call(N,'$qq_content'(T),A,B,R),'$qq_value'(R,V).\n"
+    "'$qq_read_expand'(T0,T):-compound(T0),T0='$qq'(S,Txt,B),!,S=..[N|A],call(N,'$qq_content'(Txt),A,B,R),'$qq_value'(R,T).\n"
+    "'$qq_read_expand'(T0,T):-compound(T0),!,T0=..[F|As],'$qq_read_list'(As,Bs),T=..[F|Bs].\n"
+    "'$qq_read_expand'(T,T).\n"
+    "'$qq_read_list'([],[]).\n"
+    "'$qq_read_list'([A|As],[B|Bs]):-'$qq_read_expand'(A,B),'$qq_read_list'(As,Bs).\n"
     "'$qq_value'(R,V):-nonvar(R),R='.'(D,F),!,'$dict_eval'(D,F,V).\n"
     "'$qq_value'(V,V).\n"
     "with_quasi_quotation_input('$qq_content'(T),S,G):-open_string(T,S),(call(G)->true;close(S),throw(error(syntax_error(quasi_quotation_parser_failed),_))),close(S).\n"
@@ -5206,6 +5211,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); pl_cv_add(&referenced, "$load_items"); pl_cv_add(&refkeys, pl_pred_key("$load_items", 3)); }
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) { pl_cv_add(&referenced, "$pl_pp_pcheck"); pl_cv_add(&referenced, "$pl_pp_enum"); }
     if (pl_cv_has(&referenced, "clause")) { pl_cv_add(&referenced, "$pl_clause_q"); pl_cv_add(&referenced, "$mod_q1"); }
+    if (pl_cv_has(&referenced, "term_string")) { pl_cv_add(&referenced, "$qq_read_expand"); pl_cv_add(&referenced, "$qq_read_list"); pl_cv_add(&referenced, "$qq_value"); pl_cv_add(&referenced, "$dict_eval"); if (strstr(user_src, "{|")) { pl_cv_add(&referenced, "with_quasi_quotation_input"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); } }
     if (pl_cv_has(&referenced, "$qq_expand")) {
         pl_cv_add(&referenced, "$qq_value"); pl_cv_add(&referenced, "with_quasi_quotation_input"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "$dict_eval");
         pl_cv_add(&refkeys, pl_pred_key("open_string", 2));
