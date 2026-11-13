@@ -318,38 +318,39 @@ tree_t * rk_sort_helper(const char * hname, const char * cmp, int nref) {
         ast_push(sd, rp);
         ast_push(cc, rk_tv(lp_strdup(rn)));
     }
-    ast_push(cc, rk_tarr("@a", "r"));
-    ast_push(cc, rk_tarr("@a", "l"));
-    ast_push(sd, rk_tset("@a", rk_tv("@src")));
-    { tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@a")); ast_push(m, leaf_sval2(TT_QLIT, "elems")); ast_push(sd, rk_tset("n", m)); }
-    ast_push(sd, rk_tset("@b", rk_fnc2("__rk_undef", NULL, NULL)));
-    ast_push(sd, rk_tset("w", rk_ti(1)));
+    ast_push(cc, rk_tarr("@?sa", "$?sr"));
+    ast_push(cc, rk_tarr("@?sa", "$?sl"));
+    ast_push(sd, rk_tset("@?sa", rk_tv("@src")));
+    { tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@?sa")); ast_push(m, leaf_sval2(TT_QLIT, "elems")); ast_push(sd, rk_tset("$?sn", m)); }
+    ast_push(sd, rk_tset("@?sb", rk_fnc2("__rk_undef", NULL, NULL)));
+    ast_push(sd, rk_tset("$?sw", rk_ti(1)));
     tree_t * lt0 = rk_t2(TT_LT, cc, rk_ti(0));
     tree_t * ifc = ast_node_new(TT_IF);
     ast_push(ifc, lt0);
-    ast_push(ifc, rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "r")), rk_tinc("r", rk_ti(1)), NULL));
-    ast_push(ifc, rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "l")), rk_tinc("l", rk_ti(1)), NULL));
+    ast_push(ifc, rk_tsq(rk_tput("@?sb", "$?sk", rk_tarr("@?sa", "$?sr")), rk_tinc("$?sr", rk_ti(1)), NULL));
+    ast_push(ifc, rk_tsq(rk_tput("@?sb", "$?sk", rk_tarr("@?sa", "$?sl")), rk_tinc("$?sl", rk_ti(1)), NULL));
     tree_t * both = ast_node_new(TT_SEQ);
     both->v.ival = 1;
-    ast_push(both, rk_t2(TT_LT, rk_tv("l"), rk_tv("mid")));
-    ast_push(both, rk_t2(TT_LT, rk_tv("r"), rk_tv("hi")));
-    tree_t * w1 = rk_t2(TT_WHILE, both, rk_tsq(ifc, rk_tinc("k", rk_ti(1)), NULL));
-    tree_t * w2 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("l"), rk_tv("mid")), rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "l")), rk_tinc("l", rk_ti(1)), rk_tinc("k", rk_ti(1))));
-    tree_t * w3 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("r"), rk_tv("hi")), rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "r")), rk_tinc("r", rk_ti(1)), rk_tinc("k", rk_ti(1))));
-    tree_t * ib = rk_tsq(rk_tset("mid", rk_t2(TT_ADD, rk_tv("i"), rk_tv("w"))), rk_tclamp("mid", "n"), rk_tset("hi", rk_t2(TT_ADD, rk_tv("i"), rk_t2(TT_MUL, rk_ti(2), rk_tv("w")))));
-    rk_tadd(ib, rk_tclamp("hi", "n"));
-    rk_tadd(ib, rk_tset("l", rk_tv("i")));
-    rk_tadd(ib, rk_tset("r", rk_tv("mid")));
-    rk_tadd(ib, rk_tset("k", rk_tv("i")));
+    ast_push(both, rk_t2(TT_LT, rk_tv("$?sl"), rk_tv("$?smid")));
+    ast_push(both, rk_t2(TT_LT, rk_tv("$?sr"), rk_tv("$?shi")));
+    tree_t * w1 = rk_t2(TT_WHILE, both, rk_tsq(ifc, rk_tinc("$?sk", rk_ti(1)), NULL));
+    tree_t * w2 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("$?sl"), rk_tv("$?smid")), rk_tsq(rk_tput("@?sb", "$?sk", rk_tarr("@?sa", "$?sl")), rk_tinc("$?sl", rk_ti(1)), rk_tinc("$?sk", rk_ti(1))));
+    tree_t * w3 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("$?sr"), rk_tv("$?shi")), rk_tsq(rk_tput("@?sb", "$?sk", rk_tarr("@?sa", "$?sr")), rk_tinc("$?sr", rk_ti(1)), rk_tinc("$?sk", rk_ti(1))));
+    tree_t * ib =
+        rk_tsq(rk_tset("$?smid", rk_t2(TT_ADD, rk_tv("$?si"), rk_tv("$?sw"))), rk_tclamp("$?smid", "$?sn"), rk_tset("$?shi", rk_t2(TT_ADD, rk_tv("$?si"), rk_t2(TT_MUL, rk_ti(2), rk_tv("$?sw")))));
+    rk_tadd(ib, rk_tclamp("$?shi", "$?sn"));
+    rk_tadd(ib, rk_tset("$?sl", rk_tv("$?si")));
+    rk_tadd(ib, rk_tset("$?sr", rk_tv("$?smid")));
+    rk_tadd(ib, rk_tset("$?sk", rk_tv("$?si")));
     rk_tadd(ib, w1);
     rk_tadd(ib, w2);
     rk_tadd(ib, w3);
-    rk_tadd(ib, rk_tinc("i", rk_t2(TT_MUL, rk_ti(2), rk_tv("w"))));
-    tree_t * inner = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("i"), rk_tv("n")), ib);
-    tree_t * ob = rk_tsq(rk_tset("i", rk_ti(0)), inner, rk_tset("@a", rk_tv("@b")));
-    rk_tadd(ob, rk_tset("w", rk_t2(TT_MUL, rk_tv("w"), rk_ti(2))));
-    ast_push(sd, rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("w"), rk_tv("n")), ob));
-    { tree_t * r = ast_node_new(TT_RETURN); tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@a")); ast_push(m, leaf_sval2(TT_QLIT, "list")); ast_push(r, m); ast_push(sd, r); }
+    rk_tadd(ib, rk_tinc("$?si", rk_t2(TT_MUL, rk_ti(2), rk_tv("$?sw"))));
+    tree_t * inner = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("$?si"), rk_tv("$?sn")), ib);
+    tree_t * ob = rk_tsq(rk_tset("$?si", rk_ti(0)), inner, rk_tset("@?sa", rk_tv("@?sb")));
+    rk_tadd(ob, rk_tset("$?sw", rk_t2(TT_MUL, rk_tv("$?sw"), rk_ti(2))));
+    ast_push(sd, rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("$?sw"), rk_tv("$?sn")), ob));
+    { tree_t * r = ast_node_new(TT_RETURN); tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@?sa")); ast_push(m, leaf_sval2(TT_QLIT, "list")); ast_push(r, m); ast_push(sd, r); }
     return sd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

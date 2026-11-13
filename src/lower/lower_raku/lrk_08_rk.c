@@ -20,7 +20,12 @@ IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω) {
     extern int is_global(const char *);
     IR_t * r = NULL;
     const tree_t * v = (br && br->t == TT_ASSIGN && br->n >= 2) ? br->c[0] : NULL;
-    if (v && v->t == TT_VAR && v->v.sval && is_global(v->v.sval)) { IR_t * gv = lrk_build(cx, IR_VAR, at, ω); IR_LIT(gv).sval = v->v.sval; ir_operand_push(at, gv); return lower_rv(cx, br, gv, ω, &r); }
+    if (v && v->t == TT_VAR && v->v.sval && is_global(v->v.sval)) {
+        IR_t * gv = lrk_build(cx, IR_VAR, at, ω);
+        IR_LIT(gv).sval = v->v.sval;
+        ir_operand_push(at, gv);
+        return lower_rv(cx, br, gv, ω, &r);
+    }
     IR_t * e = lower_rv(cx, br, at, ω, &r);
     if (r) ir_operand_push(at, r);
     return e;
@@ -73,7 +78,7 @@ void rk_file_scope_reads_are_globals(void) {
         IR_graph_t * g = g_stage2.bbp.table[bi];
         for (int i = 0; g && i < g->n; i++) {
             IR_t * m = g->all[i];
-            const char * nm = (m && m->op == IR_VAR) ? IR_LIT(m).sval : NULL;
+            const char * nm = (m && (m->op == IR_VAR || m->op == IR_VAR_REF)) ? IR_LIT(m).sval : NULL;
             if (!nm || nm[0] == '&' || is_global(nm) || rk_graph_assigns(g, nm) || rk_graph_param(g, nm) || !rk_graph_assigns(mg, nm)) continue;
             int writer = 0;
             for (int pj = 0; pj < g_stage2.proc_count && !writer; pj++) {
@@ -88,9 +93,9 @@ void rk_file_scope_reads_are_globals(void) {
 static int rk_dyn_name(const char * nm) { return nm && (nm[0] == '*' || ((nm[0] == '@' || nm[0] == '%') && nm[1] == '*')); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_dyn_known(const char * nm) {
-    static const char * const dyn[] = { "*ARGFILES", "*AWAITER", "*COLLATION", "*CWD", "*DEFAULT-READ-ELEMS", "*DISTRO", "*ERR", "*EXCEPTION", "*EXECUTABLE", "*EXECUTABLE-NAME", "*EXIT",
-        "*GROUP", "*HOME", "*IN", "*INIT-INSTANT", "*KERNEL", "*OUT", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*RAKU", "*RAT-OVERFLOW", "*REPO", "*SCHEDULER", "*SPEC", "*THREAD",
-        "*TMPDIR", "*TOLERANCE", "*TZ", "*USER", "*VM", "*USAGE", "@*ARGS", "%*ENV", "&*chdir", "&*EXIT", NULL };
+    static const char * const dyn[] = { "*ARGFILES", "*AWAITER", "*COLLATION", "*CWD", "*DEFAULT-READ-ELEMS", "*DISTRO", "*ERR", "*EXCEPTION", "*EXECUTABLE", "*EXECUTABLE-NAME", "*EXIT", "*GROUP",
+        "*HOME", "*IN", "*INIT-INSTANT", "*KERNEL", "*OUT", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*RAKU", "*RAT-OVERFLOW", "*REPO", "*SCHEDULER", "*SPEC", "*THREAD", "*TMPDIR", "*TOLERANCE",
+        "*TZ", "*USER", "*VM", "*USAGE", "@*ARGS", "%*ENV", "&*chdir", "&*EXIT", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     return 0;
 }
@@ -101,10 +106,7 @@ static int rk_dyn_bound(const tree_t * t, const char * nm) {
     if (!t) return 0;
     if (t->t == TT_ASSIGN && t->n > 0 && rk_dyn_is(t->c[0], nm)) return 1;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_temp") && t->n > 1 && rk_dyn_is(t->c[1], nm)) return 1;
-    for (int i = 0; i < t->n; i++) {
-        if (t->t == TT_SUB_DECL && i > 0 && rk_dyn_is(t->c[i], nm)) return 1;
-        if (rk_dyn_bound(t->c[i], nm)) return 1;
-    }
+    for (int i = 0; i < t->n; i++) { if (t->t == TT_SUB_DECL && i > 0 && rk_dyn_is(t->c[i], nm)) return 1; if (rk_dyn_bound(t->c[i], nm)) return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -115,11 +117,7 @@ static int rk_dyn_unfound(const tree_t * c, const tree_t * prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_unfound_first(const tree_t * t, const tree_t * prog) {
-    for (int i = 0; t && i < t->n; i++) {
-        if (rk_dyn_unfound(t->c[i], prog)) return t->c[i]->v.sval;
-        const char * r = rk_unfound_first(t->c[i], prog);
-        if (r) return r;
-    }
+    for (int i = 0; t && i < t->n; i++) { if (rk_dyn_unfound(t->c[i], prog)) return t->c[i]->v.sval; const char * r = rk_unfound_first(t->c[i], prog); if (r) return r; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
