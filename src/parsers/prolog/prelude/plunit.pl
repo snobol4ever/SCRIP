@@ -27,38 +27,35 @@ pj_pairs_names([], []).
 pj_pairs_names([S-_|T], [S|R]) :- pj_pairs_names(T, R).
 pj_run(Suites) :-
     nb_setval(pj_p, 0), nb_setval(pj_f, 0),
-    current_output(Out),
-    set_output(user_error),
-    catch(pj_run_list(Suites), E, (set_output(Out), throw(E))),
+    pj_run_list(Suites),
     nb_getval(pj_p, P), nb_getval(pj_f, F),
     pj_summary(P, F),
-    set_output(Out),
     F =:= 0.
-pj_summary(P, 0) :- !, ( P =:= 1 -> format('% test passed~n') ; format('% All ~w tests passed~n', [P]) ).
-pj_summary(P, F) :- pj_s(F, SF), pj_s(P, SP), format('% ~w test~w failed~n% ~w test~w passed~n', [F, SF, P, SP]).
+pj_summary(P, 0) :- !, ( P =:= 1 -> format(user_error, '% test passed~n', []) ; format(user_error, '% All ~w tests passed~n', [P]) ).
+pj_summary(P, F) :- pj_s(F, SF), pj_s(P, SP), format(user_error, '% ~w test~w failed~n% ~w test~w passed~n', [F, SF, P, SP]).
 pj_s(1, '') :- !.
 pj_s(_, s).
 pj_run_list([]).
 pj_run_list([S|T]) :- ( pj_run_suite(S) -> true ; true ), !, pj_run_list(T).
 pj_run_suite(Suite) :-
-    format('% PL-Unit: ~w ', [Suite]),
+    format(user_error, '% PL-Unit: ~w ', [Suite]),
     pj_unit_opt(Suite, setup),
     findall(t(N, O, G), pj_test(Suite, N, O, G), Tests),
     ( pj_run_tests(Suite, Tests) -> true ; true ),
     pj_unit_opt(Suite, cleanup),
-    format(' done~n'), !.
+    format(user_error, ' done~n', []), !.
 pj_unit_opt(Suite, Kind) :-
     pj_suites(L),
     ( memberchk(Suite-Opts0, L) -> true ; Opts0 = [] ),
     ( is_list(Opts0) -> Opts = Opts0 ; Opts = [Opts0] ),
     Opt =.. [Kind, G],
-    ( memberchk(Opt, Opts) -> ( catch(G, E, (format('~nunit ~w ~w raised ~q~n', [Suite, Kind, E]), fail)) -> true ; format('~nunit ~w ~w failed~n', [Suite, Kind]) ) ; true ).
+    ( memberchk(Opt, Opts) -> ( catch(G, E, (format(user_error, '~nunit ~w ~w raised ~q~n', [Suite, Kind, E]), fail)) -> true ; format(user_error, '~nunit ~w ~w failed~n', [Suite, Kind]) ) ; true ).
 pj_run_tests(_, []).
 pj_run_tests(Suite, [t(N0, O, G)|Rest]) :- pj_name_text(N0, N), pj_run_verdict(Suite, N, O, G), pj_run_tests(Suite, Rest).
 pj_run_verdict(Suite, N, O, G) :- \+ \+ once(pj_run_one(Suite, N, O, G)), !.
 pj_run_verdict(Suite, N, _, _) :- pj_fail(Suite, N, 'no verdict').
-pj_pass :- nb_getval(pj_p, N), N1 is N + 1, nb_setval(pj_p, N1), format('.').
-pj_fail(Suite, Name, Why) :- nb_getval(pj_f, N), N1 is N + 1, nb_setval(pj_f, N1), format('~n~ttest ~w:~w: ~w~n', [Suite, Name, Why]).
+pj_pass :- nb_getval(pj_p, N), N1 is N + 1, nb_setval(pj_p, N1), format(user_error, '.', []).
+pj_fail(Suite, Name, Why) :- nb_getval(pj_f, N), N1 is N + 1, nb_setval(pj_f, N1), format(user_error, '~n~ttest ~w:~w: ~w~n', [Suite, Name, Why]).
 pj_fail_err(Suite, Name, E) :- pj_err_text(E, T), format(atom(W), 'received error: ~q', [T]), pj_fail(Suite, Name, W).
 pj_name_text(N0, N) :- pj_is_codes(N0), !, atom_codes(N, N0).
 pj_name_text(N, N).
