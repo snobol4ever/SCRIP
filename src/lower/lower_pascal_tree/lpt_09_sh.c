@@ -742,6 +742,23 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 narr++;
             }
         }
+        if (nderef == 2 && narr == 0) {
+            const tree_t *_pe = base[0];
+            if (_pe->t == TT_FNC && _pe->n > 1 && _pe->c[0] && _pe->c[0]->v.sval && !strcmp(_pe->c[0]->v.sval, "__pas_ptr_inc")) _pe = _pe->c[1];
+            const pty_t *_mp = pty_of_low(_pe);
+            long long z = _mp && _mp->k == PTK_POINTER && _mp->base ? pty_sizeof_flat(_mp->base) : 0;
+            if (z > 0) {
+                tree_t *f = ast_node_new(TT_FNC);
+                ast_push(f, leaf_s(TT_VAR, "__pas_move"));
+                ast_push(f, base[1]);
+                ast_push(f, idx[1]);
+                ast_push(f, base[0]);
+                ast_push(f, idx[0]);
+                ast_push(f, args->items[4]);
+                ast_push(f, ilit(z));
+                return f;
+            }
+        }
         if (nderef >= 1 && nderef + narr == 2 && arr) {
             long long z = pas_elem_size(arr);
             tree_t *f = ast_node_new(TT_FNC);

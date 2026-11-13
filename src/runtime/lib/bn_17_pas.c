@@ -473,6 +473,12 @@ static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn) {
     return pas_pcell(base, (long) idx);
 }
 static long long pas_raw_off(DESCR_t p) { return (long long)(int32_t) p.slen * (p.src_node1 ? p.src_node1 : 1) + (p.src_node2 & 7); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pas_move_raw(DESCR_t d, DESCR_t s, long long bytes) {
+    if (d.v != DT_PCELL || s.v != DT_PCELL || !d.ptr || !s.ptr || !(d.src_node2 & PAS_VIEW_RAW) || !(s.src_node2 & PAS_VIEW_RAW)) return 0;
+    if (bytes > 0) memmove((unsigned char *) d.ptr + pas_raw_off(d), (unsigned char *) s.ptr + pas_raw_off(s), (size_t) bytes);
+    return 1;
+}
 static DESCR_t pas_raw_at(void *base, long long off, int w, int W, int sgn, const char *fn) {
     long long u = W > 0 ? W : 1, q = off / u, m = off % u;
     if (m < 0) { m += u; q--; }

@@ -608,6 +608,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         long long dk = 0, sk = 0, dn = -1, sn = -1;
         long long bytes = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, esz = IS_INT_fn(args[5]) ? (long long)args[5].i : 0;
         long long n = esz > 0 ? bytes / esz : bytes;
+        { extern int pas_move_raw(DESCR_t d, DESCR_t s, long long bytes); if (pas_move_raw(args[0], args[2], bytes)) { *out = args[0]; return 1; } }
         ARBLK_t *rdb = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL, *rsb = (args[2].v == DT_A && args[2].arr) ? (ARBLK_t *) args[2].arr : NULL;
         if (rdb && rsb && rdb->ewidth && rsb->ewidth) {
             long long rdk = (IS_INT_fn(args[1]) ? (long long) args[1].i : rdb->lo) - rdb->lo, rsk = (IS_INT_fn(args[3]) ? (long long) args[3].i : rsb->lo) - rsb->lo;
