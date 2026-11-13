@@ -1668,7 +1668,18 @@ _Static_assert(sizeof(gc_site_ent_t) == 32 && __builtin_offsetof(gc_site_ent_t, 
     "mask = the word-kind bits of a rule 0 or 4 site (inline to 512 byt"
     "es of depth, else a byte offset from the table start into the pool after the entries) (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-" "per-blo"
     "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before") ;
-typedef struct gc_site_blk { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; uint64_t code; } gc_site_blk_t;
+typedef struct gc_site_blk {
+    const uint64_t *tab;
+    const gc_frame_map_t *map;
+    uint64_t lo, hi, maxhi;
+    int n;
+    int ckt;
+    int own;
+    int sig;
+    uint64_t link;
+    const gc_site_ent_t *ents;
+    uint64_t code;
+} gc_site_blk_t;
 _Static_assert(sizeof(gc_site_blk_t) == 80 && sizeof(gc_site_ent_t) == 32 && __builtin_offsetof(gc_site_blk_t, lo) == 16 && __builtin_offsetof(gc_site_blk_t, hi) == 24 &&
     __builtin_offsetof(gc_site_blk_t, maxhi) == 32 && __builtin_offsetof(gc_site_blk_t, n) == 40 && __builtin_offsetof(gc_site_blk_t, ents) == 64,
     "rt_gc_site_find_a (rtx_gc.s) searches the site blocks and their entries at these offsets");
@@ -1730,6 +1741,7 @@ static void gc_site_blk_add1(const void *tab, int dedup_n, int fix_maxhi) {
         if (code && lo != code) g_runtime.abi.gc_mk.code_unsorted = 1;
         g_runtime.gc.gc_sblk[i].n = k;
         g_runtime.gc.gc_sblk[i].ckt = m ? 0 : (int)t[2];
+        g_runtime.gc.gc_sblk[i].sig = m ? 0 : (int)((t[2] >> 32) & 1u);
         g_runtime.gc.gc_sblk[i].link = m ? t[2] : 0u;
         g_runtime.gc.gc_sblk[i].own = own;
         g_runtime.gc.gc_sblk[i].ents = e;
@@ -2506,7 +2518,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                     }
                 }
                 const char *gp = gc_seg_ptr(&cx->tr, (const char *)(uintptr_t)g), *gtop = seg_top ? seg_top : g_runtime.gc.gc_stktop;
-                if (g > 4095 && gp && (cx->tr.olo || (gp >= r && gp + 16 <= gtop))) {
+                if (g > 4095 && gp && (cx->tr.olo || b->sig || (gp >= r && gp + 16 <= gtop))) {
                     uint64_t sg = *(const uint64_t *)(gp + 8);
                     const gc_site_ent_t *y = (const gc_site_ent_t *)0;
                     const gc_site_blk_t *yb = gc_site_find(sg, &y);

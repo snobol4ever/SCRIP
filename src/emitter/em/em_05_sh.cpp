@@ -211,7 +211,8 @@ static void emit_gc_site_thirds(int n, const int * ord, std::vector<uint64_t> & 
 void emit_gc_sites_data(const char * fam, int frameless) {
      int n = (int)g_emitter.g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", g_emitter.emit_gc_sites_data_seq++);
     if (frameless && n == 0) { g_emitter.g_gc_sites_last_off = -1; return; }
-    const uint64_t ckt = frameless ? ((xa_flat_class_c_pred()) ? (uint64_t)g_emit.flat_frame_bytes : 0u) : g_emitter.g_gc_map_link;
+    const uint64_t sig = g_runtime.eval.rt_fragment_emit ? 0u : (uint64_t)1 << 32;
+    const uint64_t ckt = frameless ? ((xa_flat_class_c_pred()) ? ((uint64_t)g_emit.flat_frame_bytes | sig) : 0u) : g_emitter.g_gc_map_link;
     if (g_is_text) {
         std::string t =
             std::string(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n") + tl.name + ":\n .quad " + std::to_string(n) + "\n .quad " +
