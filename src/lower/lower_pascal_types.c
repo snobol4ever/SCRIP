@@ -93,8 +93,8 @@ static void ps_push(struct pty_state *s) { pscope_t *c = (pscope_t *)ct_zalloc(1
 static void ps_pop(struct pty_state *s) { if (s->cur && s->cur->up) s->cur = s->cur->up; }
 static int pt_in(const char *n, const char *const *list) { for (int i = 0; n && list[i]; i++) if (!strcmp(n, list[i])) return 1; return 0; }
 static pty_t *pt_builtin(struct pty_state *s, const char *n) {
-    static const char *const ints[] = { "integer", "longint", "int64", "nativeint", "ptrint", "sizeint", "int32", "valsint", "hresult", "thandle", "codepointer", 0 };
-    static const char *const uints[] = { "cardinal", "longword", "dword", "uint32", "nativeuint", "ptruint", "sizeuint", "valuint", 0 };
+    static const char *const ints[] = { "integer", "longint", "int64", "int32", "hresult", "thandle", "codepointer", 0 };
+    static const char *const uints[] = { "cardinal", "longword", "dword", "uint32", 0 };
     static const char *const chars[] = { "char", "ansichar", "widechar", "unicodechar", 0 };
     static const char *const bools[] = { "boolean", "boolean8", "boolean16", "boolean32", "boolean64", 0 };
     static const char *const wbools[] = { "bytebool", "wordbool", "longbool", 0 };
@@ -109,6 +109,8 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     if (!strcmp(n, "word") || !strcmp(n, "uint16")) return pt_ord(PTK_INT, n, 0, 65535);
     if (!strcmp(n, "smallint") || !strcmp(n, "int16")) return pt_ord(PTK_INT, n, -32768, 32767);
     if (!strcmp(n, "qword") || !strcmp(n, "uint64")) return s->tqword;
+    if (!strcmp(n, "nativeuint") || !strcmp(n, "ptruint") || !strcmp(n, "sizeuint") || !strcmp(n, "valuint")) return s->tqword;
+    if (!strcmp(n, "nativeint") || !strcmp(n, "ptrint") || !strcmp(n, "sizeint") || !strcmp(n, "valsint")) return pt_ord(PTK_INT, n, INT64_MIN, INT64_MAX);
     if (pt_in(n, chars)) return s->tchar;
     if (pt_in(n, bools)) return s->tbool;
     if (pt_in(n, wbools)) { pty_t *t = pt_ord(PTK_BOOL, n, 0, 1); t->wbool = 1; return t; }
@@ -434,6 +436,7 @@ static pty_t *pt_type(struct pty_state *s, const tree_t *n) {
             int ni = n->n - off - 1;
             pty_t *t = pt_new(PTK_ARRAY, NULL);
             t->packed = off;
+            t->bitp = off && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "bitpacked");
             if (ni <= 0) t->dyn = 1;
             else { t->nix = ni; t->ix = (pty_t **)ct_zalloc((size_t)ni, sizeof *t->ix); for (int i = 0; i < ni; i++) t->ix[i] = pt_type(s, n->c[off + i]); }
             t->base = n->n > off ? pt_type(s, n->c[n->n - 1]) : NULL;
@@ -1329,6 +1332,7 @@ static int ty_sizeof(const pty_t *t, long long *out, int depth) {
         case PTK_SET:
         { long long h = t->base ? (t->base->k == PTK_ENUM && t->base->nf > 0 ? t->base->nf - 1 : t->base->bounded ? t->base->hi : 255) : 255; *out = (h >= 0 && h <= 31) ? 4 : 32; return 1; }
         case PTK_POINTER:
+        case PTK_PROC:
         *out = 8;
         return 1;
         case PTK_RECORD:

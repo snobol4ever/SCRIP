@@ -275,7 +275,13 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
         tree_t *v = args->items[0];
         long long hi;
         if (v && v->t == TT_VAR && v->v.sval && pas_array_high_get(v->v.sval, &hi)) { return ilit(!strcmp(name, "low") ? pas_array_nonparam_low(v->v.sval) : hi); }
-        if (v && v->t == TT_VAR && v->v.sval) { long long lo2, hi2; if (pas_ordinal_bound_lookup(v->v.sval, &lo2, &hi2)) return ilit(!strcmp(name, "low") ? lo2 : hi2); }
+        if (v && v->t == TT_VAR && v->v.sval) {
+            long long lo2, hi2;
+            if (pas_ordinal_bound_lookup(v->v.sval, &lo2, &hi2)) {
+                if (hi2 == -1 && lo2 == 0 && !strcmp(name, "high")) return mk_fnc2("iand", ilit(-1), ilit(-1));
+                return ilit(!strcmp(name, "low") ? lo2 : hi2);
+            }
+        }
         if (v && v->t == TT_VAR && v->v.sval && pas_enumtype_high(v->v.sval) >= 0) return ilit(!strcmp(name, "low") ? 0 : pas_enumtype_high(v->v.sval));
         if (v && v->t == TT_VAR && v->v.sval && !pas_arrtype_isdyn(v->v.sval) && pas_arrtype_high(v->v.sval) >= 0 && pas_arrtype_ncols(v->v.sval) < 0)
             return ilit(!strcmp(name, "low") ? pas_arrtype_lo(v->v.sval) : pas_arrtype_high(v->v.sval));
@@ -330,6 +336,7 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
             if (_dpt && _dpt->k == PTK_POINTER && _dpt->base && pty_sizeof_flat(_dpt->base) > 0) return ilit(pty_sizeof_flat(_dpt->base));
         }
         { long long _tz = pty_sizeof_low(args->items[0]); if (_tz > 0) return ilit(_tz); }
+        { const pty_t *_ty = pty_of_low(args->items[0]); long long _fz = _ty ? pty_sizeof_flat(_ty) : -1; if (_fz > 0) return ilit(_fz); }
         if (args->items[0] && args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR) {
             long long z = pas_elem_size(args->items[0]->c[0]->v.sval);
             if (z > 0) return ilit(z);
@@ -342,7 +349,18 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
             if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz);
             const pty_t *vt = pty_name_type(a->v.sval);
             if (vt && vt->name && strcmp(vt->name, a->v.sval) && pas_sizeof_lookup(vt->name, &sz) && sz > 0) return ilit(sz);
+            if (vt && pty_sizeof_flat(vt) > 0) return ilit(pty_sizeof_flat(vt));
+            { const pty_t *tt = pty_type_by_name(a->v.sval); if (tt && pty_sizeof_flat(tt) > 0) return ilit(pty_sizeof_flat(tt)); }
         }
+    }
+    if (name && !strcmp(name, "bitsizeof") && !pas_is_func(name) && args && args->count >= 1) {
+        tree_t *a = args->items[0];
+        const pty_t *bt = a ? pty_of_low(a) : NULL;
+        if (!bt && a && a->t == TT_VAR && a->v.sval) bt = pty_name_type(a->v.sval);
+        long long bz = bt ? pty_sizeof_flat(bt) : -1;
+        if (bz <= 0 && a && a->t == TT_VAR && a->v.sval && !pas_sizeof_lookup(a->v.sval, &bz)) bz = -1;
+        if (bt && bt->k == PTK_BOOL && a && a->t == TT_IDX && a->n == 2) { const pty_t *at = pty_of_low(a->c[0]); if (at && at->k == PTK_ARRAY && at->bitp) return ilit(1); }
+        if (bz > 0) return ilit(bz * 8);
     }
     if (name && !strcmp(name, "stringcodepage") && args && args->count >= 1) return ilit(g_lower_pas.sem.pas_codepage);
     if (name && !strcmp(name, "ismanagedtype") && args && args->count >= 1) {

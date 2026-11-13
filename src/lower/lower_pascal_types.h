@@ -14,7 +14,7 @@ struct pty {
     const char *fwd;
     const void *bnd;
     int cap;
-    int var;
+    int var, bitp;
     int prec, pal, pmen;
     struct pty_lay *lay;
 };

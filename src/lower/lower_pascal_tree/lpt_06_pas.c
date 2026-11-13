@@ -499,8 +499,9 @@ static int pas_ordinal_builtin_bound(const char *n, long long *lo, long long *hi
         long long hi;
     } T[] = { {"byte",0,255},{"shortint",-128,127},{"word",0,65535},{"smallint",-32768,32767}, {"longword",0,4294967295LL},{"cardinal",0,4294967295LL},{"uint32",0,4294967295LL}, {"longint",
         -2147483648LL,2147483647LL},{"integer",-2147483648LL,2147483647LL}, {"int32",-2147483648LL,2147483647LL},{"int8",-128,127},{"uint8",0,255}, {"int16",-32768,32767},{"uint16",0,65535}, {"int64",
-        (long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL}, {"qword",0,-1},{"uint64",0,-1},{"nativeint",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL}, {"nativeuint",0,-1},{"char",0,255},
-        {"widechar",0,255},{"boolean",0,1},{"bytebool",0,255}, };
+        (long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL}, {"qword",0,-1},{"uint64",0,-1},{"nativeint",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL}, {"nativeuint",0,-1},{"ptruint",0,
+        -1},{"sizeuint",0,-1},{"ptrint",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL},{"sizeint",(long long)0x8000000000000000ULL,0x7FFFFFFFFFFFFFFFLL},{"char",0,255}, {"widechar",0,255},
+        {"boolean",0,1},{"bytebool",0,255}, };
     for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (!strcmp(n, T[i].n)) { *lo = T[i].lo; *hi = T[i].hi; return 1; }
     return 0;
 }
