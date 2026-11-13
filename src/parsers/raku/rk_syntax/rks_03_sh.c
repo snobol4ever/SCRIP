@@ -516,7 +516,11 @@ int r_statement_control(RkP *p, int pos) {
         int q = ws(p, e);
         int m = r_module_name(p, q);
         if (m < 0) panic_at(p, q, "Malformed import");
-        if (!is_pseudo_pkg(p->s + q, name_part_len(p, q, m))) p->myst_off = 1;
+        if (!is_pseudo_pkg(p->s + q, name_part_len(p, q, m))) {
+            const char *nm = ct_strndup0(p->s + q, name_part_len(p, q, m));
+            if (!import_module(p, nm) && p->load_depth < 4) panic_at(p, q, "Could not find module %s to import symbols from", nm);
+            p->myst_off = 1;
+        }
         int t = m;
         if (is_space_cp(cp_at(p, t)) || ch(p, t) == '#') { int u = ws(p, t); if (!stdstopper(p, u)) t = r_arglist(p, t); }
         p->tv = NULL;
