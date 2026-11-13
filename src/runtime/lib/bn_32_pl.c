@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/core/g_runtime_misc.h"
 #include "runtime/by_name_dispatch.h"
 #include <math.h>
 #include "runtime/rt/prolog_atom.h"
@@ -137,19 +138,17 @@ DESCR_t pl_os_cwd_atom(void) {
         if (errno != ERANGE) return FAILDESCR;
     }
 }
-PL_CX_LEAF_HEAD(compound0, 3)
-    {
-        extern void *rt_pl_compound_cell(const char *, int, void *);
-        extern int plc_swi_list_name(int, int);
-        const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
-        DESCR_t t = rt_pl_deref_val(args[1]);
-        ok = 0;
-        if (op && !strcmp(op, "build") && pl_atom_str(t)) ok = plw_unify_vals(args[2], *(DESCR_t *)rt_pl_compound_cell(pl_atom_str(t), 0, (void *)0), cx);
-        else if (op && !strcmp(op, "name") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], pl_mk_atom(prolog_atom_name(plc_swi_list_name(plc_fid_name(t.slen), plc_fid_arity(t.slen)))), cx);
-        else if (op && !strcmp(op, "arity") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], INTVAL((long long)plc_fid_arity(t.slen)), cx);
-    }
-PL_CX_LEAF_TAIL
-static int pl_dt_num(DESCR_t a, double *out) { DESCR_t d = rt_pl_deref_val(a); if (d.v == DT_I) { *out = (double)d.i; return 1; } if (d.v == DT_R) { *out = d.r; return 1; } return 0; }
+PL_CX_LEAF_HEAD(compound0, 3) {
+    extern void *rt_pl_compound_cell(const char *, int, void *);
+    extern int plc_swi_list_name(int, int);
+    const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
+    DESCR_t t = rt_pl_deref_val(args[1]);
+    ok = 0;
+    if (op && !strcmp(op, "build") && pl_atom_str(t)) ok = plw_unify_vals(args[2], *(DESCR_t *)rt_pl_compound_cell(pl_atom_str(t), 0, (void *)0), cx);
+    else if (op && !strcmp(op, "name") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], pl_mk_atom(prolog_atom_name(plc_swi_list_name(plc_fid_name(t.slen), plc_fid_arity(t.slen)))), cx);
+    else if (op && !strcmp(op, "arity") && t.v == (DTYPE_t)DT_PLREF) ok = plw_unify_vals(args[2], INTVAL((long long)plc_fid_arity(t.slen)), cx);
+}
+PL_CX_LEAF_TAIL static int pl_dt_num(DESCR_t a, double *out) { DESCR_t d = rt_pl_deref_val(a); if (d.v == DT_I) { *out = (double)d.i; return 1; } if (d.v == DT_R) { *out = d.r; return 1; } return 0; }
 static int pl_dt_int(DESCR_t a, long long *out) { DESCR_t d = rt_pl_deref_val(a); if (d.v != DT_I) return 0; *out = (long long)d.i; return 1; }
 static long long pl_dt_days(long long y, long long m, long long d) {
     long long mm = y * 12 + (m - 1), yy = mm >= 0 ? mm / 12 : -((-mm + 11) / 12), mo = mm - yy * 12 + 1, era, yoe, doy;
@@ -197,116 +196,110 @@ static int pl_dt_stamp(DESCR_t a, double *st, long long *off, const char **zone,
         return 1;
     }
 }
-PL_CX_LEAF_HEAD(date_time_stamp, 2)
-    {
-        double st = 0;
-        long long off;
-        const char *zone;
-        int local;
-        void *ball = (void *)0;
-        ok = 0;
-        if (pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "date");
-        else if (pl_dt_stamp(args[0], &st, &off, &zone, &local, &ball)) ok = plw_unify_vals(args[1], REALVAL(st), cx);
-        else cx->ball = ball;
-        pl_gnu_ctx(cx, "date_time_stamp", 2);
+PL_CX_LEAF_HEAD(date_time_stamp, 2) {
+    double st = 0;
+    long long off;
+    const char *zone;
+    int local;
+    void *ball = (void *)0;
+    ok = 0;
+    if (pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "date");
+    else if (pl_dt_stamp(args[0], &st, &off, &zone, &local, &ball)) ok = plw_unify_vals(args[1], REALVAL(st), cx);
+    else cx->ball = ball;
+    pl_gnu_ctx(cx, "date_time_stamp", 2);
+}
+PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(stamp_date_time, 3) {
+    DESCR_t z = rt_pl_deref_val(args[2]);
+    const char *zs = pl_atom_str(z);
+    int mode = z.v == DT_I ? 1 : (zs && !strcmp(zs, "UTC")) ? 2 : (zs && !strcmp(zs, "local")) ? 3 : 0;
+    double st = 0;
+    ok = 0;
+    if (!pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "number");
+    else if (!mode) cx->ball = pl_dt_bad(z, "atom");
+    else {
+        double fl = floor(st);
+        time_t t = (time_t)fl;
+        struct tm tm;
+        long long off = 0;
+        DESCR_t a[9];
+        a[7] = pl_mk_atom_dup("-", 1);
+        a[8] = pl_mk_atom_dup("-", 1);
+        if (mode == 1) {
+            off = (long long)z.i;
+            t -= (time_t)off;
+            gmtime_r(&t, &tm);
+        } else if (mode == 2) {
+            gmtime_r(&t, &tm);
+            a[7] = pl_mk_atom_dup("UTC", 3);
+        } else {
+            localtime_r(&t, &tm);
+            off = -(long long)tm.tm_gmtoff;
+            a[7] = tm.tm_zone ? pl_mk_atom_dup(tm.tm_zone, strlen(tm.tm_zone)) : a[7];
+            a[8] = tm.tm_isdst > 0 ? pl_mk_atom_dup("true", 4) : pl_mk_atom_dup("false", 5);
+        }
+        a[0] = INTVAL(tm.tm_year + 1900);
+        a[1] = INTVAL(tm.tm_mon + 1);
+        a[2] = INTVAL(tm.tm_mday);
+        a[3] = INTVAL(tm.tm_hour);
+        a[4] = INTVAL(tm.tm_min);
+        a[5] = REALVAL((double)tm.tm_sec + (st - fl));
+        a[6] = INTVAL(off);
+        ok = plw_unify_vals(args[1], pl_gnu_fn("date", 9, a), cx);
     }
-PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(stamp_date_time, 3)
-    {
-        DESCR_t z = rt_pl_deref_val(args[2]);
-        const char *zs = pl_atom_str(z);
-        int mode = z.v == DT_I ? 1 : (zs && !strcmp(zs, "UTC")) ? 2 : (zs && !strcmp(zs, "local")) ? 3 : 0;
-        double st = 0;
-        ok = 0;
-        if (!pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "number");
-        else if (!mode) cx->ball = pl_dt_bad(z, "atom");
-        else {
-            double fl = floor(st);
+    pl_gnu_ctx(cx, "stamp_date_time", 3);
+}
+PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(format_time_text, 3) {
+    const char *fm = pl_atom_str(rt_pl_deref_val(args[0]));
+    double st = 0;
+    long long off;
+    const char *zone;
+    int local;
+    void *ball = (void *)0;
+    ok = 0;
+    if (!fm) cx->ball = pl_dt_bad(args[0], "text");
+    else if (!pl_dt_stamp(args[1], &st, &off, &zone, &local, &ball)) cx->ball = ball;
+    else {
+        size_t cap = strlen(fm) * 64 + 64, n = 0;
+        char *out = pl_atom_carve_cx(cap, cx);
+        if (out) {
+            double fl = floor(st), frac = fabs(st - trunc(st));
             time_t t = (time_t)fl;
             struct tm tm;
-            long long off = 0;
-            DESCR_t a[9];
-            a[7] = pl_mk_atom_dup("-", 1);
-            a[8] = pl_mk_atom_dup("-", 1);
-            if (mode == 1) {
-                off = (long long)z.i;
-                t -= (time_t)off;
-                gmtime_r(&t, &tm);
-            } else if (mode == 2) {
-                gmtime_r(&t, &tm);
-                a[7] = pl_mk_atom_dup("UTC", 3);
-            } else {
-                localtime_r(&t, &tm);
-                off = -(long long)tm.tm_gmtoff;
-                a[7] = tm.tm_zone ? pl_mk_atom_dup(tm.tm_zone, strlen(tm.tm_zone)) : a[7];
-                a[8] = tm.tm_isdst > 0 ? pl_mk_atom_dup("true", 4) : pl_mk_atom_dup("false", 5);
-            }
-            a[0] = INTVAL(tm.tm_year + 1900);
-            a[1] = INTVAL(tm.tm_mon + 1);
-            a[2] = INTVAL(tm.tm_mday);
-            a[3] = INTVAL(tm.tm_hour);
-            a[4] = INTVAL(tm.tm_min);
-            a[5] = REALVAL((double)tm.tm_sec + (st - fl));
-            a[6] = INTVAL(off);
-            ok = plw_unify_vals(args[1], pl_gnu_fn("date", 9, a), cx);
-        }
-        pl_gnu_ctx(cx, "stamp_date_time", 3);
-    }
-PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(format_time_text, 3)
-    {
-        const char *fm = pl_atom_str(rt_pl_deref_val(args[0]));
-        double st = 0;
-        long long off;
-        const char *zone;
-        int local;
-        void *ball = (void *)0;
-        ok = 0;
-        if (!fm) cx->ball = pl_dt_bad(args[0], "text");
-        else if (!pl_dt_stamp(args[1], &st, &off, &zone, &local, &ball)) cx->ball = ball;
-        else {
-            size_t cap = strlen(fm) * 64 + 64, n = 0;
-            char *out = pl_atom_carve_cx(cap, cx);
-            if (out) {
-                double fl = floor(st), frac = fabs(st - trunc(st));
-                time_t t = (time_t)fl;
-                struct tm tm;
-                if (local) localtime_r(&t, &tm);
-                else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
-                for (const char *p = fm; *p && n + 64 < cap; p++) {
-                    int w = 0;
-                    if (*p != '%') { out[n++] = *p; continue; }
+            if (local) localtime_r(&t, &tm);
+            else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
+            for (const char *p = fm; *p && n + 64 < cap; p++) {
+                int w = 0;
+                if (*p != '%') { out[n++] = *p; continue; }
+                p++;
+                while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
+                if (*p == 'f') {
+                    long long us = llround(frac * 1e6), v = us > 999999 ? 999999 : us;
+                    if (!w) w = 6;
+                    if (w > 15) w = 15;
+                    for (int i = w; i < 6; i++) v /= 10;
+                    for (int i = 6; i < w; i++) v *= 10;
+                    n += (size_t)snprintf(out + n, cap - n, "%0*lld", w, v);
+                } else if (*p == ':' && p[1] == 'z') {
+                    long g = tm.tm_gmtoff, a = g < 0 ? -g : g;
                     p++;
-                    while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
-                    if (*p == 'f') {
-                        long long us = llround(frac * 1e6), v = us > 999999 ? 999999 : us;
-                        if (!w) w = 6;
-                        if (w > 15) w = 15;
-                        for (int i = w; i < 6; i++) v /= 10;
-                        for (int i = 6; i < w; i++) v *= 10;
-                        n += (size_t)snprintf(out + n, cap - n, "%0*lld", w, v);
-                    } else if (*p == ':' && p[1] == 'z') {
-                        long g = tm.tm_gmtoff, a = g < 0 ? -g : g;
-                        p++;
-                        n += (size_t)snprintf(out + n, cap - n, "%c%02ld:%02ld", g < 0 ? '-' : '+', a / 3600, a / 60 % 60);
-                    } else if (*p == 's') n += (size_t)snprintf(out + n, cap - n, "%lld", (long long)fl);
-                    else if (*p == '+') n += strftime(out + n, cap - n, "%a %b %e %H:%M:%S %Y", &tm);
-                    else if (*p) {
-                        char f2[5] = { '%', 0, 0, 0, 0 };
-                        int k = 1;
-                        if (*p == '-' || *p == '_' || *p == 'E' || *p == 'O') f2[k++] = *p++;
-                        f2[k] = *p;
-                        if (*p) n += strftime(out + n, cap - n, f2, &tm);
-                        else p--;
-                    } else p--;
-                }
-                ok = plw_unify_vals(args[2], pl_mk_atom_carved(out, cap, n), cx);
+                    n += (size_t)snprintf(out + n, cap - n, "%c%02ld:%02ld", g < 0 ? '-' : '+', a / 3600, a / 60 % 60);
+                } else if (*p == 's') n += (size_t)snprintf(out + n, cap - n, "%lld", (long long)fl);
+                else if (*p == '+') n += strftime(out + n, cap - n, "%a %b %e %H:%M:%S %Y", &tm);
+                else if (*p) {
+                    char f2[5] = { '%', 0, 0, 0, 0 };
+                    int k = 1;
+                    if (*p == '-' || *p == '_' || *p == 'E' || *p == 'O') f2[k++] = *p++;
+                    f2[k] = *p;
+                    if (*p) n += strftime(out + n, cap - n, f2, &tm);
+                    else p--;
+                } else p--;
             }
+            ok = plw_unify_vals(args[2], pl_mk_atom_carved(out, cap, n), cx);
         }
-        pl_gnu_ctx(cx, "format_time", 3);
     }
-PL_CX_LEAF_TAIL
-static uint32_t pl_gnu_rotl(uint32_t x, int r) { return (x << r) | (x >> (32 - r)); }
+    pl_gnu_ctx(cx, "format_time", 3);
+}
+PL_CX_LEAF_TAIL static uint32_t pl_gnu_rotl(uint32_t x, int r) { return (x << r) | (x >> (32 - r)); }
 static uint32_t pl_gnu_hblock(uint32_t k, uint32_t h) { k *= 0xcc9e2d51u; k = pl_gnu_rotl(k, 15); k *= 0x1b873593u; h ^= k; h = pl_gnu_rotl(h, 13); return h * 5 + 0xe6546b64u; }
 static uint32_t pl_gnu_hfinal(uint32_t h, uint32_t len) { h ^= len; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16; return h; }
 static uint32_t pl_gnu_atom_hash(const char *s) {
@@ -349,6 +342,8 @@ static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len, long depth) 
     DESCR_t *first = (DESCR_t *)0;
     long nmarked = 0;
     int ret = 1;
+    extern int rt_stack_refuses(long bytes);
+    if (rt_stack_refuses(256)) return 0;
     for (;;) {
         DESCR_t *d = plw_cell_deref(plw_entry(c));
         const char *s;
@@ -378,43 +373,54 @@ static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len, long depth) 
     for (DESCR_t *d = first; nmarked > 0; nmarked--) { d->v = (DTYPE_t)DT_PLREF; if (nmarked > 1) d = plw_cell_deref(plw_entry(&((DESCR_t *)d->p)[plc_fid_arity(d->slen) - 1])); }
     return ret;
 }
-PL_CX_LEAF_HEAD(gnu_term_hash, 2)
-    {
-        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-        DESCR_t hv = rt_pl_deref_val(args[1]);
-        uint32_t h = 1688943522u, len = 0;
-        ok = 0;
-        if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
-        else if (!pl_gnu_hash_walk(&args[0], &h, &len, -1)) ok = 1;
-        else ok = plw_unify_vals(args[1], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % (1u << 28))), cx);
-        pl_gnu_ctx(cx, "term_hash", 2);
-    }
-PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(gnu_term_hash4, 4)
-    {
-        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-        DESCR_t hv = rt_pl_deref_val(args[3]);
-        DESCR_t rv = rt_pl_deref_val(args[2]);
-        long dp = (long)rt_pl_deref_val(args[1]).i;
-        uint32_t h = 1688943522u, len = 0, m = (rv.i <= 0 || rv.i > ((int64_t)1 << 28)) ? (1u << 28) : (uint32_t)rv.i;
-        ok = 0;
-        if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
-        else if (dp != 0 && !pl_gnu_hash_walk(&args[0], &h, &len, dp)) ok = 1;
-        else ok = plw_unify_vals(args[3], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % m)), cx);
-        pl_gnu_ctx(cx, "term_hash", 4);
-    }
-PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(gnu_prolog_pid, 1)
-    {
-        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-        DESCR_t d = rt_pl_deref_val(args[0]);
-        ok = 0;
-        if (!pl_val_unbound(d) && d.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", d);
-        else ok = plw_unify_vals(args[0], INTVAL((int64_t)getpid()), cx);
-        pl_gnu_ctx(cx, "prolog_pid", 1);
-    }
-PL_CX_LEAF_TAIL
-int bnd_db_key_need(void *cell) {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_gnu_hash_top(DESCR_t *c, uint32_t *h, uint32_t *len, long depth, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_cap_error(void);
+    int arm = !g_rt_misc.stack_refuse_armed, r;
+    if (arm) g_rt_misc.stack_refuse_armed = 1;
+    r = pl_gnu_hash_walk(c, h, len, depth);
+    if (!arm) return r;
+    g_rt_misc.stack_refuse_armed = 0;
+    if (!g_rt_misc.stack_refused) return r;
+    g_rt_misc.stack_refused = 0;
+    cx->ball = rt_pl_cap_error();
+    return -1;
+}
+PL_CX_LEAF_HEAD(gnu_term_hash, 2) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t hv = rt_pl_deref_val(args[1]);
+    uint32_t h = 1688943522u, len = 0;
+    int hr = 1;
+    ok = 0;
+    if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
+    else if ((hr = pl_gnu_hash_top(&args[0], &h, &len, -1, cx)) < 0) ok = 0;
+    else if (!hr) ok = 1;
+    else ok = plw_unify_vals(args[1], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % (1u << 28))), cx);
+    pl_gnu_ctx(cx, "term_hash", 2);
+}
+PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(gnu_term_hash4, 4) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t hv = rt_pl_deref_val(args[3]);
+    DESCR_t rv = rt_pl_deref_val(args[2]);
+    long dp = (long)rt_pl_deref_val(args[1]).i;
+    uint32_t h = 1688943522u, len = 0, m = (rv.i <= 0 || rv.i > ((int64_t)1 << 28)) ? (1u << 28) : (uint32_t)rv.i;
+    int hr = 1;
+    ok = 0;
+    if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
+    else if (dp != 0 && (hr = pl_gnu_hash_top(&args[0], &h, &len, dp, cx)) < 0) ok = 0;
+    else if (dp != 0 && !hr) ok = 1;
+    else ok = plw_unify_vals(args[3], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % m)), cx);
+    pl_gnu_ctx(cx, "term_hash", 4);
+}
+PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(gnu_prolog_pid, 1) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t d = rt_pl_deref_val(args[0]);
+    ok = 0;
+    if (!pl_val_unbound(d) && d.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", d);
+    else ok = plw_unify_vals(args[0], INTVAL((int64_t)getpid()), cx);
+    pl_gnu_ctx(cx, "prolog_pid", 1);
+}
+PL_CX_LEAF_TAIL int bnd_db_key_need(void *cell) {
     extern const char *prolog_atom_name(int);
     pl_cell_t *t = pl_deref((pl_cell_t *)cell), *h = t;
     const char *nm = (const char *)0;
@@ -576,67 +582,66 @@ static int pl_shc_has(DESCR_t *c, int depth) {
         c = &((DESCR_t *)d->p)[1];
     }
 }
-PL_CX_LEAF_HEAD(shc, 1) ok = pl_shc_has(&args[0], 0); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(cutcall, 2)
-    {
-        extern tree_t *pl_runtime_clause_tree(tree_t *);
-        extern void *pl_runtime_define_pred(const char *, const void *, int, void *);
-        extern int prolog_atom_intern(const char *);
-        size_t len = 0;
-        int nleaf = 0, cuts = 0;
-        ok = 0;
-        if (pl_cutcall_walk(&args[0], (char *)0, &len, (DESCR_t **)0, &nleaf, &cuts, 0, (tree_t **)0) && cuts) {
-            char *nb = pl_atom_carve_cx(len + 3, cx);
-            DESCR_t *leaves[nleaf > 0 ? nleaf : 1];
-            size_t l2 = 0;
-            int n = 0, c2 = 0;
-            if (nb) memcpy(nb, "$cc", 3);
-            if (nb && !pl_cutcall_walk(&args[0], nb + 3, &l2, leaves, &n, &c2, 0, (tree_t **)0)) prolog_atom_uncarve(nb, len + 3);
-            else if (nb) {
-                {
-                    const char *nm = prolog_atom_name(prolog_atom_carved(nb, len + 3, l2 + 3));
-                    int kl = snprintf(NULL, 0, "%s/%d", nm, n) + 1;
-                    char key[kl];
-                    snprintf(key, (size_t)kl, "%s/%d", nm, n);
-                    int have = rt_proc_is_registered(key);
-                    if (!have) {
-                        tree_t *body = (tree_t *)0;
-                        size_t l3 = 0;
-                        int n3 = 0, c3 = 0;
-                        DESCR_t *lv3[nleaf > 0 ? nleaf : 1];
-                        if (pl_cutcall_walk(&args[0], (char *)0, &l3, lv3, &n3, &c3, 0, &body) && body) {
-                            tree_t *hd = ast_node_new(n ? TT_FNC : TT_QLIT), *raw = ast_node_new(TT_FNC), *cl;
-                            void *ch;
-                            hd->v.sval = pl_tree_name(nm);
-                            for (int i = 0; i < n; i++) {
-                                int vl = snprintf(NULL, 0, "_L%d", i) + 1;
-                                char vn[vl];
-                                tree_t *v = ast_node_new(TT_VAR);
-                                snprintf(vn, (size_t)vl, "_L%d", i);
-                                v->v.sval = pl_tree_name(vn);
-                                ast_push(hd, v);
-                            }
-                            raw->v.sval = pl_tree_name(":-");
-                            ast_push(raw, hd);
-                            ast_push(raw, body);
-                            cl = pl_runtime_clause_tree(raw);
-                            ch = cl ? rt_pl_choice_new(key) : (void *)0;
-                            if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n, (void *)(uintptr_t)cx->r14) != (void *)0; }
+PL_CX_LEAF_HEAD(shc, 1) ok = pl_shc_has(&args[0], 0);
+PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(cutcall, 2) {
+    extern tree_t *pl_runtime_clause_tree(tree_t *);
+    extern void *pl_runtime_define_pred(const char *, const void *, int, void *);
+    extern int prolog_atom_intern(const char *);
+    size_t len = 0;
+    int nleaf = 0, cuts = 0;
+    ok = 0;
+    if (pl_cutcall_walk(&args[0], (char *)0, &len, (DESCR_t **)0, &nleaf, &cuts, 0, (tree_t **)0) && cuts) {
+        char *nb = pl_atom_carve_cx(len + 3, cx);
+        DESCR_t *leaves[nleaf > 0 ? nleaf : 1];
+        size_t l2 = 0;
+        int n = 0, c2 = 0;
+        if (nb) memcpy(nb, "$cc", 3);
+        if (nb && !pl_cutcall_walk(&args[0], nb + 3, &l2, leaves, &n, &c2, 0, (tree_t **)0)) prolog_atom_uncarve(nb, len + 3);
+        else if (nb) {
+            {
+                const char *nm = prolog_atom_name(prolog_atom_carved(nb, len + 3, l2 + 3));
+                int kl = snprintf(NULL, 0, "%s/%d", nm, n) + 1;
+                char key[kl];
+                snprintf(key, (size_t)kl, "%s/%d", nm, n);
+                int have = rt_proc_is_registered(key);
+                if (!have) {
+                    tree_t *body = (tree_t *)0;
+                    size_t l3 = 0;
+                    int n3 = 0, c3 = 0;
+                    DESCR_t *lv3[nleaf > 0 ? nleaf : 1];
+                    if (pl_cutcall_walk(&args[0], (char *)0, &l3, lv3, &n3, &c3, 0, &body) && body) {
+                        tree_t *hd = ast_node_new(n ? TT_FNC : TT_QLIT), *raw = ast_node_new(TT_FNC), *cl;
+                        void *ch;
+                        hd->v.sval = pl_tree_name(nm);
+                        for (int i = 0; i < n; i++) {
+                            int vl = snprintf(NULL, 0, "_L%d", i) + 1;
+                            char vn[vl];
+                            tree_t *v = ast_node_new(TT_VAR);
+                            snprintf(vn, (size_t)vl, "_L%d", i);
+                            v->v.sval = pl_tree_name(vn);
+                            ast_push(hd, v);
                         }
+                        raw->v.sval = pl_tree_name(":-");
+                        ast_push(raw, hd);
+                        ast_push(raw, body);
+                        cl = pl_runtime_clause_tree(raw);
+                        ch = cl ? rt_pl_choice_new(key) : (void *)0;
+                        if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n, (void *)(uintptr_t)cx->r14) != (void *)0; }
                     }
-                    if (have) {
-                        DESCR_t g = pl_mk_atom(nm);
-                        if (n) {
-                            DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
-                            for (int i = 0; i < n; i++) kids[i] = pl_cell_unbound(leaves[i]) ? pl_make_ref((pl_cell_t *)leaves[i], 0) : *leaves[i];
-                            g.v = (DTYPE_t)DT_PLREF;
-                            g.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), n);
-                            g.p = (void *)kids;
-                        }
-                        ok = plw_unify_vals(args[1], g, cx);
+                }
+                if (have) {
+                    DESCR_t g = pl_mk_atom(nm);
+                    if (n) {
+                        DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
+                        for (int i = 0; i < n; i++) kids[i] = pl_cell_unbound(leaves[i]) ? pl_make_ref((pl_cell_t *)leaves[i], 0) : *leaves[i];
+                        g.v = (DTYPE_t)DT_PLREF;
+                        g.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), n);
+                        g.p = (void *)kids;
                     }
+                    ok = plw_unify_vals(args[1], g, cx);
                 }
             }
         }
     }
+}
 PL_CX_LEAF_TAIL

@@ -454,7 +454,7 @@ int plc_copy_run(void *wv) {
             pl_cell_t *fresh;
             uint64_t w0;
             int at = w->atts && pl_attv_is(d);
-            if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, plc_copy_run, w);
+            if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) { if (plr_refuses(&w->ag, &w->lg)) break; return plr_more(&w->ag, &w->lg, plc_copy_run, w); }
             fresh = (pl_cell_t *)rt_ws_alloc_descr(at ? 2 : 1);
             if (!fresh) *w->d = *d;
             else {
@@ -473,8 +473,10 @@ int plc_copy_run(void *wv) {
             pl_cell_t *aa = (pl_cell_t *)d->p, *na, *hit = ar > 0 ? plc_cc_get(w, aa, d->slen) : (pl_cell_t *)0;
             uint64_t w0;
             if (hit) *w->d = pl_make_compound(fn, ar, hit);
-            else if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) return plr_more(&w->ag, &w->lg, plc_copy_run, w);
-            else if (!(na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1)))) *w->d = *d;
+            else if (!plr_room(&w->lg) || (ar > 0 && !plr_room(&w->ag))) {
+                if (plr_refuses(&w->ag, &w->lg)) break;
+                return plr_more(&w->ag, &w->lg, plc_copy_run, w);
+            } else if (!(na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1)))) *w->d = *d;
             else {
                 if (ar > 0) plc_cc_put(w, aa, d->slen, na);
                 memcpy(&w0, d, 8);
@@ -516,7 +518,7 @@ int plc_copy_share_run(void *wv) {
             pl_cell_t *fresh;
             uint64_t w0;
             int at = w->atts && pl_attv_is(d);
-            if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) return plc_sh_more(w);
+            if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) { if (plr_refuses(&w->ag, &w->lg)) goto done; return plc_sh_more(w); }
             fresh = (pl_cell_t *)rt_ws_alloc_descr(at ? 2 : 1);
             if (at) pl_var_make(fresh, w->cx, 1);
             else pl_init_var(fresh, w->cx);
@@ -537,7 +539,7 @@ int plc_copy_share_run(void *wv) {
                 *w->d = pl_make_compound(plc_fid_name(d->slen), ar, na);
                 plc_sh_changed(w);
             } else {
-                if (!plr_room(&w->lg) || !plc_sh_room2(&w->ag)) return plc_sh_more(w);
+                if (!plr_room(&w->lg) || !plc_sh_room2(&w->ag)) { if (plr_refuses(&w->ag, &w->lg)) goto done; return plc_sh_more(w); }
                 na = (pl_cell_t *)rt_ws_alloc_descr((size_t)ar);
                 plc_cc_put(w, aa, d->slen, na);
                 memcpy(&w0, d, 8);

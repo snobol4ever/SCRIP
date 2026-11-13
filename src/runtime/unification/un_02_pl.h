@@ -9,4 +9,6 @@ __attribute__((visibility("hidden"))) int rt_pl_cell_compare(pl_cell_t *ca, pl_c
 __attribute__((visibility("hidden"))) int plc_var_occ(pl_cell_t *c);
 __attribute__((visibility("hidden"))) void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n);
 __attribute__((visibility("hidden"))) int pl_acyclic_walk(pl_cell_t *c);
+__attribute__((visibility("hidden"))) int plc_guard_arm(void);
+__attribute__((visibility("hidden"))) int plc_guard_refused(int arm, pl_tr_ctx_t *cx);
 #endif

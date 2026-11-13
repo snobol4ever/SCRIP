@@ -930,7 +930,9 @@ static pl_cell_t plc_copy_shared(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
 pl_cell_t rt_pl_cell_snapshot(void *cell) { return plc_copy((pl_cell_t *)cell); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
+    int garm = plc_guard_arm();
     pl_cell_t copy = plc_copy_cx((pl_cell_t *)term_cell, 1, cx);
+    if (plc_guard_refused(garm, cx)) return 0;
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }
     return 1;
 }
@@ -938,7 +940,9 @@ void rt_pl_undo_goal_copy(DESCR_t *g, DESCR_t *out, pl_tr_ctx_t *cx) { *out = pl
 void rt_pl_residue_recopy(DESCR_t *el, int n, pl_tr_ctx_t *cx) { if (pl_tr_residue_on(cx)) for (int i = 0; i < n; i++) el[i] = plc_copy_cx((pl_cell_t *)&el[i], 1, cx); }
 int rt_pl_copy_term_share_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     if (!rt_pl_dialect_swi()) return rt_pl_copy_term_cell(term_cell, copy_cell, cx);
+    int garm = plc_guard_arm();
     pl_cell_t copy = plc_copy_shared((pl_cell_t *)term_cell, 1, cx);
+    if (plc_guard_refused(garm, cx)) return 0;
     return plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx) ? 1 : 0;
 }
 int rt_pl_copy_keep_cell(void *keep_cell, void *src_cell, void *dst_cell, void *atts_cell, pl_tr_ctx_t *cx) {
@@ -948,10 +952,13 @@ int rt_pl_copy_keep_cell(void *keep_cell, void *src_cell, void *dst_cell, void *
         pl_cell_t *v = pl_deref(&((pl_cell_t *)l->p)[0]);
         if ((int)v->v == DT_PLVAR && v->p == (void *)v) v->v = PLR_VCOPY;
     }
+    int garm = plc_guard_arm();
     copy = plc_copy_shared((pl_cell_t *)src_cell, a->i != 0, cx);
+    int gref = plc_guard_refused(garm, cx);
     for (pl_cell_t *l = pl_deref((pl_cell_t *)keep_cell); (int)l->v == DT_PLREF && plc_fid_arity(l->slen) == 2; l = pl_deref(&((pl_cell_t *)l->p)[1])) {
         pl_cell_t *v = pl_deref(&((pl_cell_t *)l->p)[0]);
         if (v->v == PLR_VCOPY && v->p == (void *)v) v->v = (DTYPE_t)DT_PLVAR;
     }
+    if (gref) return 0;
     return plc_unify_cells_cx((pl_cell_t *)dst_cell, &copy, cx) ? 1 : 0;
 }

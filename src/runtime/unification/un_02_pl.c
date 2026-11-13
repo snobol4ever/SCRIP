@@ -42,8 +42,8 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell) {
     return c != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_guard_arm(void) { int a = !g_rt_misc.stack_refuse_armed; if (a) g_rt_misc.stack_refuse_armed = 1; return a; }
-static int plc_guard_refused(int arm, pl_tr_ctx_t *cx) {
+int plc_guard_arm(void) { int a = !g_rt_misc.stack_refuse_armed; if (a) g_rt_misc.stack_refuse_armed = 1; return a; }
+int plc_guard_refused(int arm, pl_tr_ctx_t *cx) {
     extern void *rt_pl_cap_error(void);
     if (!arm) return 0;
     g_rt_misc.stack_refuse_armed = 0;
