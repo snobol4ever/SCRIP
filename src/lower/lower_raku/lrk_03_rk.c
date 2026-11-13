@@ -240,7 +240,7 @@ static void rk_sort_cmp_walk(tree_t * prog, tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_var_scalar_name(const tree_t * v) {
     if (!v || v->t != TT_VAR || !v->v.sval || (v->slen & 4)) return 0;
-    char c = v->v.sval[0];
+    char c = v->v.sval[0] == '*' ? v->v.sval[1] : v->v.sval[0];
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 static void rk_var_container_walk(tree_t * t) {
@@ -263,7 +263,7 @@ static void rk_var_container_walk(tree_t * t) {
     ast_push(t, leaf_sval2(TT_QLIT, "of"));
     ast_push(t, rk_fnc2("__rk_typeobj", leaf_sval2(TT_QLIT, "Mu"), NULL));
     ast_push(t, leaf_sval2(TT_QLIT, "dynamic"));
-    ast_push(t, rk_fnc2("__rk_mkbool", rk_ti(0), NULL));
+    ast_push(t, rk_fnc2("__rk_mkbool", rk_ti(v->v.sval[0] == '*'), NULL));
     ast_push(t, leaf_sval2(TT_QLIT, "value"));
     ast_push(t, v);
 }
