@@ -1522,6 +1522,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "plc_fmt_text", GC_RET_OTHER },
     { "plc_fz_run", GC_RET_OTHER },
     { "plc_fz_var", GC_RET_DESCR },
+    { "plc_guard_refused", GC_RET_OTHER },
     { "plc_inplace_cmp", GC_RET_OTHER },
     { "plc_is_op_atom", GC_RET_OTHER },
     { "plc_last_char", GC_RET_OTHER },
