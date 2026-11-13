@@ -124,6 +124,47 @@ begin
   __sh_mtrim(__sh_t, na + 1);
   __sh_mmullimb := __sh_t
 end;
+function __sh_mmulv(const __sh_a: mpz_t; v: int64): mpz_t;
+var __sh_t: mpz_t; na, nt, i, c, s, v0, v1, v2, a0, a1, a2: int64;
+begin
+  na := __sh_mn(__sh_a);
+  v0 := v mod 1000000000;
+  v1 := (v div 1000000000) mod 1000000000;
+  v2 := v div 1000000000000000000;
+  nt := na + 3;
+  setlength(__sh_t, nt + 1);
+  __sh_t[0] := 0;
+  c := 0;
+  a1 := 0;
+  a2 := 0;
+  if v2 = 0 then begin
+    for i := 1 to na do begin
+      a0 := __sh_a[i];
+      s := a0 * v0 + a1 * v1 + c;
+      c := s div 1000000000;
+      __sh_t[i] := s - c * 1000000000;
+      a1 := a0
+    end
+  end else begin
+    for i := 1 to na do begin
+      a0 := __sh_a[i];
+      s := a0 * v0 + a1 * v1 + a2 * v2 + c;
+      c := s div 1000000000;
+      __sh_t[i] := s - c * 1000000000;
+      a2 := a1;
+      a1 := a0
+    end
+  end;
+  for i := na + 1 to nt do begin
+    s := a1 * v1 + a2 * v2 + c;
+    c := s div 1000000000;
+    __sh_t[i] := s - c * 1000000000;
+    a2 := a1;
+    a1 := 0
+  end;
+  __sh_mtrim(__sh_t, nt);
+  __sh_mmulv := __sh_t
+end;
 function __sh_mmul(const __sh_a, __sh_b: mpz_t): mpz_t;
 var __sh_t: mpz_t; na, nb, i, j, k: longint; c, s: int64; ai: int64;
 begin
@@ -383,10 +424,7 @@ begin
   __sh_neg := __sh_mneg(__sh_a);
   if (__sh_v shr 63) = 0 then begin
     if __sh_v < 1000000000 then __sh_t := __sh_mmullimb(__sh_a, __sh_v)
-    else begin
-      __sh_u := __sh_mfromu(__sh_v);
-      __sh_t := __sh_mmul(__sh_a, __sh_u)
-    end
+    else __sh_t := __sh_mmulv(__sh_a, __sh_v)
   end else begin
     __sh_u := __sh_mfromu(__sh_v);
     __sh_t := __sh_mmul(__sh_a, __sh_u)
