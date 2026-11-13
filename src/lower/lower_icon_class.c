@@ -98,6 +98,9 @@ static int cx_is_method(const cx_ctx * x, const char * nm) {
     for (int i = 0; i < x->cls->nmeth; i++) if (!strcmp(x->cls->meth[i].name, nm)) return 1;
     return 0;
 }
+static int cx_is_meth_field(const cx_ctx * x, const tree_t * f) {
+    return f && f->t == TT_FIELD && f->n > 1 && f->c[1] && f->c[1]->t == TT_VAR && f->c[1]->v.sval && cx_has(&x->st->gmeth, f->c[1]->v.sval);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * cx_clone(const tree_t * e) {
     if (!e) return NULL;
@@ -154,22 +157,25 @@ static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
         if (base->t == TT_VAR) {
             ref = cx_var(base->v.sval);
             mrec = cx_fld(base, "__m");
-            if (x->st->use_oprec) gv = cx_var(base->v.sval);
+            if (x->st->use_oprec || n->t == TT_BANG_BINARY) gv = cx_var(base->v.sval);
         } else {
             char buf[24];
             snprintf(buf, sizeof buf, "%d", ++x->st->tmp);
             char * tmp = cx_cat("__o", buf, "");
-            if (x->st->use_oprec) { pre = cx_bin(TT_ASSIGN, cx_var(tmp), base); gv = cx_var(tmp); mrec = cx_fld(cx_var(tmp), "__m"); } else mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
+            if (x->st->use_oprec || n->t == TT_BANG_BINARY) {
+                pre = cx_bin(TT_ASSIGN, cx_var(tmp), base);
+                gv = cx_var(tmp);
+                mrec = cx_fld(cx_var(tmp), "__m");
+            } else mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
             ref = cx_var(tmp);
         }
     }
     tree_t * pl = NULL;
-    if (gv) { pl = ast_node_new(TT_FNC); ast_push(pl, cx_fld(cx_var(ref->v.sval), m)); for (int i = 1; i < n->n; i++) ast_push(pl, cx_clone(n->c[i])); }
-    tree_t * out = ast_node_new(TT_FNC);
+    if (gv) { pl = ast_node_new(n->t); ast_push(pl, cx_fld(cx_var(ref->v.sval), m)); for (int i = 1; i < n->n; i++) ast_push(pl, cx_clone(n->c[i])); }
+    tree_t * out = ast_node_new(n->t);
     ast_push(out, cx_fld(mrec, m));
-    ast_push(out, ref);
-    for (int i = 1; i < n->n; i++) if (n->c[i]) ast_push(out, cx_expr(n->c[i], x));
-    else ast_push(out, NULL);
+    if (n->t == TT_BANG_BINARY) ast_push(out, cx_bin(TT_LCONCAT, cx_un(TT_MAKELIST, ref), cx_expr(n->c[1], x)));
+    else { ast_push(out, ref); for (int i = 1; i < n->n; i++) if (n->c[i]) ast_push(out, cx_expr(n->c[i], x)); else ast_push(out, NULL); }
     out->line = n->line;
     if (!gv) return out;
     for (int i = 1; i < pl->n; i++) if (pl->c[i]) pl->c[i] = cx_expr(pl->c[i], x);
@@ -202,8 +208,9 @@ static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
             out->line = n->line;
             return out;
         }
-        if (f->t == TT_FIELD && f->n > 1 && f->c[1] && f->c[1]->t == TT_VAR && f->c[1]->v.sval && cx_has(&x->st->gmeth, f->c[1]->v.sval)) return cx_dispatch(n, x);
+        if (cx_is_meth_field(x, f)) return cx_dispatch(n, x);
     }
+    if (n->t == TT_BANG_BINARY && n->n == 2 && cx_is_meth_field(x, n->c[0])) return cx_dispatch(n, x);
     cx_kids(n, x, 0);
     return n;
 }
