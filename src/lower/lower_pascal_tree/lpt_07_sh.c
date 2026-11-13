@@ -544,6 +544,17 @@ static tree_t *pu_qualify(tree_t *t, const tree_t *units, const tree_t *qfrom, c
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pu_drop_system(tree_t *t) {
+    if (!t) return t;
+    if (IS(t, TT_FIELD) && t->n == 2 && IS(t->c[0], TT_VAR) && IS(t->c[1], TT_VAR) && t->c[0]->v.sval && t->c[1]->v.sval && !strcasecmp(t->c[0]->v.sval, "system")) {
+        tree_t *lf = leaf_s(TT_VAR, t->c[1]->v.sval);
+        lf->slen = PAS_UNIT_QUAL_MARK;
+        return lf;
+    }
+    for (int i = 0; i < t->n; i++) t->c[i] = pu_drop_system(t->c[i]);
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pu_merge_part(tree_t **slot, const char *kind, const tree_t *from) {
     for (int i = 0; from && i < from->n; i++) {
         const tree_t *p = from->c[i];
@@ -631,6 +642,7 @@ static void pu_prune_routines(tree_t *nb, tree_t *ur) {
 }
 tree_t *pas_flatten_units(tree_t *prog) {
     if (!IS(prog, TT_PROGRAM)) return prog;
+    for (int i = 0; i < prog->n; i++) prog->c[i] = pu_drop_system(prog->c[i]);
     tree_t *forest = NULL;
     int bi = -1;
     for (int i = 0; i < prog->n; i++) { if (pu_is_part(prog->c[i], "units")) forest = prog->c[i]; else if (IS(prog->c[i], TT_BLOCK)) bi = i; }
