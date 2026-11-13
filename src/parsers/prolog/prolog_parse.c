@@ -4323,12 +4323,22 @@ static tree_t *pl_qq_lift(tree_t *t, cv_t *goals) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_qq_goal(tree_t *g) {
+    if (!g) return g;
+    if (g->t == TT_FNC && g->v.sval) {
+        const char *f = g->v.sval;
+        if (g->n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "|") || !strcmp(f, "->") || !strcmp(f, "*->"))) { g->c[0] = pl_qq_goal(g->c[0]); g->c[1] = pl_qq_goal(g->c[1]); return g; }
+        if (g->n == 1 && (!strcmp(f, "\\+") || !strcmp(f, "once") || !strcmp(f, "ignore"))) { g->c[0] = pl_qq_goal(g->c[0]); return g; }
+        if (g->n == 3 && !strcmp(f, "catch")) { g->c[0] = pl_qq_goal(g->c[0]); g->c[2] = pl_qq_goal(g->c[2]); return g; }
+    }
+    cv_t goals; memset(&goals, 0, sizeof goals);
+    tree_t *x = pl_qq_lift(g, &goals);
+    for (uint32_t i = goals.len; i > 0; i--) x = pt_binop(",", CV_AT(goals, tree_t *, i - 1), x);
+    return x;
+}
 static void pl_qq_expand_clause(PlClause *cl) {
     if (!cl || !cl->tr || cl->tr->n < 2 || !cl->tr->c[1] || pl_clause_dcg(cl)) return;
-    cv_t goals; memset(&goals, 0, sizeof goals);
-    tree_t *body = pl_qq_lift(cl->tr->c[1], &goals);
-    for (uint32_t i = goals.len; i > 0; i--) body = pt_binop(",", CV_AT(goals, tree_t *, i - 1), body);
-    cl->tr->c[1] = body;
+    cl->tr->c[1] = pl_qq_goal(cl->tr->c[1]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_pkey_split(const char *k, int *ar) {
