@@ -1463,71 +1463,17 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_8_SRC[] =
-    "{$mode objfpc}{$H+}\n"
-    "unit gdeque;\n"
-    "\n"
-    "{ SCRIP's own generic double-ended queue (row fpc-source-gdeque-is-a-prelude-unit): the surface the fpc-source\n"
-    "  members use, over a dynamic array. The observable behaviour mirrors fpc 3.2.2's gdeque.pp: Insert pushes back\n"
-    "  and shifts right, Erase shifts left and pops back, Size is the element count. Cut from fpc, not vendored. }\n"
-    "\n"
+    "{$mode objfpc}\n"
+    "unit fpwidestring;\n"
     "interface\n"
-    "\n"
-    "type\n"
-    "  generic TDeque<T> = class\n"
-    "  private\n"
-    "    FData: array of T;\n"
-    "    FCount: Integer;\n"
-    "  public\n"
-    "    constructor Create;\n"
-    "    function Size: Integer;\n"
-    "    procedure PushBack(Value: T);\n"
-    "    procedure Insert(Position: Integer; Value: T);\n"
-    "    procedure Erase(Position: Integer);\n"
-    "  end;\n"
-    "\n"
+    "var\n"
+    "  DefaultCollationName : UnicodeString;\n"
+    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
     "implementation\n"
-    "\n"
-    "constructor TDeque.Create;\n"
+    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
     "begin\n"
-    "  FCount := 0;\n"
+    "  Result := False;\n"
     "end;\n"
-    "\n"
-    "function TDeque.Size: Integer;\n"
-    "begin\n"
-    "  Size := FCount;\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.PushBack(Value: T);\n"
-    "begin\n"
-    "  if FCount = Length(FData) then\n"
-    "    SetLength(FData, 2 * Length(FData) + 4);\n"
-    "  FData[FCount] := Value;\n"
-    "  Inc(FCount);\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.Insert(Position: Integer; Value: T);\n"
-    "var\n"
-    "  I: Integer;\n"
-    "begin\n"
-    "  PushBack(Value);\n"
-    "  for I := FCount - 1 downto Position + 1 do\n"
-    "    FData[I] := FData[I - 1];\n"
-    "  FData[Position] := Value;\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.Erase(Position: Integer);\n"
-    "var\n"
-    "  I: Integer;\n"
-    "begin\n"
-    "  if Position <= FCount then\n"
-    "  begin\n"
-    "    if FCount > 1 then\n"
-    "      for I := Position to FCount - 2 do\n"
-    "        FData[I] := FData[I + 1];\n"
-    "    Dec(FCount);\n"
-    "  end;\n"
-    "end;\n"
-    "\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$mode objfpc}{$H+}\n"
@@ -5138,6 +5084,12 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "implementation\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_22_SRC[] =
+    "{$mode objfpc}\n"
+    "unit unicodeducet;\n"
+    "interface\n"
+    "implementation\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5163,7 +5115,24 @@ static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
+    "{$mode objfpc}{$H+}\n"
+    "unit uregexpr;\n"
+    "interface\n"
+    "uses RegExpr;\n"
+    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
+    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
+    "implementation\n"
+    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
+    "begin\n"
+    "  ExecRegExpr := RegExpr.ExecRegExpr(ARegExpr, AInputStr);\n"
+    "end;\n"
+    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
+    "begin\n"
+    "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5178,7 +5147,7 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "dos", PAS_PRELUDE_UNIT_5_SRC },
     { "dynlibs", PAS_PRELUDE_UNIT_6_SRC },
     { "fgl", PAS_PRELUDE_UNIT_7_SRC },
-    { "gdeque", PAS_PRELUDE_UNIT_8_SRC },
+    { "fpwidestring", PAS_PRELUDE_UNIT_8_SRC },
     { "generics.collections", PAS_PRELUDE_UNIT_9_SRC },
     { "generics.defaults", PAS_PRELUDE_UNIT_10_SRC },
     { "gmp", PAS_PRELUDE_UNIT_11_SRC },
@@ -5192,7 +5161,9 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "system", PAS_PRELUDE_UNIT_19_SRC },
     { "sysutils", PAS_PRELUDE_UNIT_20_SRC },
     { "types", PAS_PRELUDE_UNIT_21_SRC },
-    { "unix", PAS_PRELUDE_UNIT_22_SRC },
-    { "variants", PAS_PRELUDE_UNIT_23_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_22_SRC },
+    { "unix", PAS_PRELUDE_UNIT_23_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_24_SRC },
+    { "variants", PAS_PRELUDE_UNIT_25_SRC },
     { 0, 0 }
 };
