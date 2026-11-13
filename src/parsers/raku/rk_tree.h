@@ -61,6 +61,9 @@ typedef struct { int pos; RkList *last; int cnt; int end; } RkClosure;
 #define RKQ_UNSUP 512
 #define RKQ_QQ (RKQ_BS | RKQ_SC | RKQ_AR | RKQ_HS | RKQ_FN | RKQ_CLOS)
 RkB     *rkb_new(const char *src, int len);
+void     rkb_pod_block(RkB *b, int pos, const char *s, int len);
+void     rkb_pod_decl(RkB *b, int pos, int end, const char *s, int len);
+void     rkb_pod_claim(RkB *b, int pos, const char *name, int len);
 RkList  *rkb_list_new(void);
 RkEl    *rkb_list_el(RkList *L);
 void     rkb_list_end(RkList *L);

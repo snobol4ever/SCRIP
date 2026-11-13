@@ -521,6 +521,7 @@ int r_routine_def(RkP *p, int pos, int is_method) {
         if (n >= 0) { name_from = q; name_to = n; q = ws(p, n); check_category(p, name_from, name_to); }
     }
     int nuops_reg0 = p->nuops;
+    if (name_from >= 0 && p->build) rkb_pod_claim(p->B, name_from, p->s + name_from, name_to - name_from);
     if (name_from >= 0) register_user_op(p, name_from, name_to);
     int nuops_before_traits = p->nuops;
     int sm = p->has_self;

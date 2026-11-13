@@ -207,7 +207,13 @@ static int blank_line_at(RkP *p, int pos) {
     return q >= p->n || p->s[q] == '\n' || p->s[q] == '\r';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int r_pod(RkP *p, int pos) {
+static int src_has(RkP *p, const char *w) {
+    int k = (int) strlen(w);
+    for (int i = 0; i + k <= p->n; i++) if (!memcmp(p->s + i, w, (size_t) k)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int r_pod_span(RkP *p, int pos) {
     int q = pos;
     q = NSPAN(p, q, ck(is_hspace_cp));
     if (ch(p, q) != '=') return -1;
@@ -254,6 +260,8 @@ int r_pod(RkP *p, int pos) {
     }
     return l;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int r_pod(RkP *p, int pos) { int e = r_pod_span(p, pos); if (e >= 0 && p->build && !p->finished) rkb_pod_block(p->B, pos, p->s + pos, e - pos); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int r_block(RkP *p, int pos) {
     if (ch(p, pos) != '{') {
@@ -591,7 +599,7 @@ static int core_name_declared(RkP *p, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void import_core_used(RkP *p) {
-    if (!p->pair_imported && !p->load_depth && strncmp(p->file, "<setting>/", 10)) { p->pair_imported = 1; import_module(p, "Pair"); }
+    if (!p->pair_imported && !p->load_depth && strncmp(p->file, "<setting>/", 10)) { p->pair_imported = 1; import_module(p, "Pair"); if (src_has(p, "$=pod") || src_has(p, ".WHY")) import_module(p, "Pod"); }
     if (p->core_imported || (!p->ncore_uses && !p->want_core) || !strncmp(p->file, "<setting>/", 10)) return;
     if (p->want_core && !core_name_declared(p, "Supply", 6)) {
         p->core_imported = 1;

@@ -325,7 +325,9 @@ int r_comment(RkP *p, int pos) {
         int bi = bracket_index(c2);
         if (bi >= 0 && bi % 2 == 0) return skip_balanced_raw(p, pos + 2);
     }
-    return ALT(BREAK(p, pos + 1, ck(is_vspace_cp)), REM(p, pos + 1));
+    int e = ALT(BREAK(p, pos + 1, ck(is_vspace_cp)), REM(p, pos + 1));
+    if (c1 == '|' && p->build && is_hspace_cp(cp_at(p, pos + 2))) rkb_pod_decl(p->B, pos, e, p->s + pos + 2, e - pos - 2);
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pod_ident(RkP *p, int pos, int *len) {

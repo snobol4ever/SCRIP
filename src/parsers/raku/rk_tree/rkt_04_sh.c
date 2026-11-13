@@ -688,6 +688,163 @@ static void mark_arrays(RkB *b, tree_t *t) {
     for (int i = 0; i < t->n; i++) mark_arrays(b, t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *s; int n; } PodL;
+static tree_t *pod_new(const char *cls) { tree_t *n = ast_node_new(TT_NEW); ast_push(n, leaf_sval(TT_QLIT, cls)); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pod_attr(tree_t *n, const char *attr, tree_t *v) { ast_push(n, leaf_sval(TT_QLIT, attr)); ast_push(n, v); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pod_arr(tree_t *e) { tree_t *a = make_call("__rk_arr_lit"); if (e) expr_add_child(a, e); return a; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pod_para(const char *s) { tree_t *n = pod_new("Pod::Block::Para"); pod_attr(n, "contents", pod_arr(leaf_sval(TT_QLIT, s))); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pod_head(long long lv, const char *s) { tree_t *n = pod_new("Pod::Heading"); pod_attr(n, "level", rk_ilit(lv)); pod_attr(n, "contents", pod_arr(pod_para(s))); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pod_named(const char *nm, tree_t *cs) { tree_t *n = pod_new("Pod::Block::Named"); pod_attr(n, "name", leaf_sval(TT_QLIT, nm)); pod_attr(n, "contents", cs); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static PodL pod_trim(const char *s, int n) {
+    while (n > 0 && isspace((unsigned char) s[n - 1])) n--;
+    while (n > 0 && isspace((unsigned char) *s)) { s++; n--; }
+    PodL l = { s, n };
+    return l;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pod_directive(PodL l) { return l.n > 1 && l.s[0] == '=' && isalpha((unsigned char) l.s[1]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pod_word(PodL l, int from, char *w, int cap, long long *lv) {
+    int i = from, k = 0;
+    *lv = 0;
+    while (i < l.n && isalpha((unsigned char) l.s[i])) { if (k + 1 < cap) w[k++] = l.s[i]; i++; }
+    w[k] = 0;
+    while (i < l.n && isdigit((unsigned char) l.s[i])) { *lv = *lv * 10 + (l.s[i] - '0'); i++; }
+    return i;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pod_join(const PodL *v, int from, int to) {
+    SB b = { 0 };
+    for (int i = from; i < to; i++) {
+        if (i > from) sb_c(&b, ' ');
+        for (int k = 0; k < v[i].n; k++) sb_c(&b, v[i].s[k]);
+    }
+    return sb_str(&b) ? b.v : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pod_cont(const PodL *v, int n, int i) {
+    while (i < n && v[i].n && !pod_directive(v[i])) i++;
+    return i;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pod_chunks(const PodL *v, int n, tree_t *out) {
+    int i = 0;
+    while (i < n) {
+        PodL l = v[i];
+        if (!l.n) { i++; continue; }
+        if (!pod_directive(l)) { int e = pod_cont(v, n, i); expr_add_child(out, pod_para(pod_join(v, i, e))); i = e; continue; }
+        char w[16]; long long lv;
+        int k = pod_word(l, 1, w, sizeof w, &lv);
+        PodL rest = pod_trim(l.s + k, l.n - k);
+        if (!strcmp(w, "begin") || !strcmp(w, "for")) {
+            int nl = 0;
+            while (nl < rest.n && !isspace((unsigned char) rest.s[nl])) nl++;
+            char *nm = (char *) ct_alloc((size_t) nl + 1); memcpy(nm, rest.s, (size_t) nl); nm[nl] = 0;
+            tree_t *cs = pod_arr(NULL);
+            if (w[0] == 'b') {
+                int depth = 1, j = i + 1;
+                for (; j < n; j++) {
+                    char w2[16]; long long l2;
+                    if (!pod_directive(v[j])) continue;
+                    int k2 = pod_word(v[j], 1, w2, sizeof w2, &l2);
+                    PodL r2 = pod_trim(v[j].s + k2, v[j].n - k2);
+                    if (r2.n < nl || memcmp(r2.s, nm, (size_t) nl)) continue;
+                    if (!strcmp(w2, "begin")) depth++;
+                    else if (!strcmp(w2, "end") && --depth == 0) break;
+                }
+                pod_chunks(v + i + 1, j - i - 1, cs);
+                i = j + 1;
+            } else {
+                int e = pod_cont(v, n, i + 1);
+                PodL *tv = (PodL *) ct_alloc(sizeof(PodL) * (size_t) (e - i));
+                tv[0] = pod_trim(rest.s + nl, rest.n - nl);
+                for (int j = i + 1; j < e; j++) tv[j - i] = v[j];
+                expr_add_child(cs, pod_para(pod_join(tv, 0, e - i)));
+                i = e;
+            }
+            expr_add_child(out, pod_named(nm, cs));
+            continue;
+        }
+        int e = pod_cont(v, n, i + 1);
+        if (!strcmp(w, "head") || !strcmp(w, "para")) {
+            PodL *tv = (PodL *) ct_alloc(sizeof(PodL) * (size_t) (e - i));
+            tv[0] = rest;
+            for (int j = i + 1; j < e; j++) tv[j - i] = v[j];
+            const char *t = pod_join(tv, 0, e - i);
+            expr_add_child(out, w[0] == 'h' ? pod_head(lv ? lv : 1, t) : pod_para(t));
+        }
+        i = e;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pod_seen(RkB *b, int pos) { for (int i = 0; i < b->npod; i++) if (b->pod[i].pos == pos) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pod_add(RkB *b, int pos, int end, tree_t *node, tree_t *wh) {
+    GROW(b->pod, b->npod, b->cpod, __typeof__(*b->pod));
+    b->pod[b->npod].pos = pos; b->pod[b->npod].end = end; b->pod[b->npod].node = node; b->pod[b->npod].wh = wh; b->pod[b->npod].claimed = 0;
+    b->npod++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_pod_block(RkB *b, int pos, const char *s, int len) {
+    if (pod_seen(b, pos)) return;
+    int nl = 1;
+    for (int i = 0; i < len; i++) if (s[i] == '\n') nl++;
+    PodL *v = (PodL *) ct_alloc(sizeof(PodL) * (size_t) nl);
+    int n = 0, from = 0;
+    for (int i = 0; i <= len; i++) if (i == len || s[i] == '\n') { v[n++] = pod_trim(s + from, i - from); from = i + 1; }
+    tree_t *out = pod_arr(NULL);
+    pod_chunks(v, n, out);
+    if (out->n < 2) { pod_add(b, pos, pos + len, NULL, NULL); return; }
+    for (int i = 1; i < out->n; i++) pod_add(b, pos, pos + len, out->c[i], NULL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_pod_decl(RkB *b, int pos, int end, const char *s, int len) {
+    if (pod_seen(b, pos)) return;
+    PodL t = pod_trim(s, len);
+    char *tx = (char *) ct_alloc((size_t) t.n + 1); memcpy(tx, t.s, (size_t) t.n); tx[t.n] = 0;
+    tree_t *n = pod_new("Pod::Block::Declarator"), *wh = leaf_sval(TT_QLIT, "");
+    pod_attr(n, "WHEREFORE", wh);
+    pod_attr(n, "leading", pod_arr(pod_arr(leaf_sval(TT_QLIT, tx))));
+    pod_attr(n, "trailing", pod_arr(NULL));
+    pod_add(b, pos, end, n, wh);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_pod_claim(RkB *b, int pos, const char *name, int len) {
+    for (int i = b->npod - 1; i >= 0; i--) {
+        if (!b->pod[i].wh || b->pod[i].claimed || b->pod[i].end > pos) continue;
+        for (int k = b->pod[i].end; k < pos; k++) if (b->s[k] == ';' || b->s[k] == '{' || b->s[k] == '}') return;
+        char *nm = (char *) ct_alloc((size_t) len + 1); memcpy(nm, name, (size_t) len); nm[len] = 0;
+        b->pod[i].wh->v.sval = intern(nm); b->pod[i].claimed = 1;
+        return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pod_reads(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "=pod")) return 1;
+    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "WHY")) return 1;
+    for (int i = 0; i < t->n; i++) if (pod_reads(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pod_attach(RkB *b, tree_t *prog) {
+    if (!b->npod || !pod_reads(prog)) return;
+    for (int i = 1; i < b->npod; i++) for (int j = i; j > 0 && b->pod[j].pos < b->pod[j - 1].pos; j--) { __typeof__(*b->pod) t = b->pod[j]; b->pod[j] = b->pod[j - 1]; b->pod[j - 1] = t; }
+    tree_t *all = make_call("__rk_pods");
+    for (int i = 0; i < b->npod; i++) if (b->pod[i].node) expr_add_child(all, b->pod[i].node);
+    tree_t *st = ast_stmt_new(TT_STMT);
+    expr_add_child(st, ast_attr_int(":line", 0));
+    expr_add_child(st, ast_attr_int(":stno", 0));
+    expr_add_child(st, ast_attr_expr(":subj", all));
+    expr_add_child(prog, st);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_program(RkB *b, tree_t *list) {
     TL l = { 0 };
     for (int i = 0; list && i < list->n; i++) tl_add(&l, list->c[i]);
@@ -703,5 +860,6 @@ tree_t *rkb_program(RkB *b, tree_t *list) {
         expr_add_child(prog, st);
     }
     mark_arrays(b, prog);
+    pod_attach(b, prog);
     return prog;
 }

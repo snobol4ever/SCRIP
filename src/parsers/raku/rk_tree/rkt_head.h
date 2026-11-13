@@ -19,6 +19,7 @@ struct RkB {
     tree_t *rad_inner;
     tree_t **pt_blk; const char **pt_nm; int pt_n, pt_c;
     struct { char cat; const char *sym; const char *raw; const char *canon; int prec; } *uop; int nuop, cuop;
+    struct { int pos, end; tree_t *node, *wh; int claimed; } *pod; int npod, cpod;
 };
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/

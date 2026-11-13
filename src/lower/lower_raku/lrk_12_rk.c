@@ -275,11 +275,26 @@ int lrk_rk_reads_var(const tree_t * t, const char * nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_pod_list(tree_t * prog) {
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * st = prog->c[i];
+        if (st && st->t == TT_STMT) st = lrk_stmt_subj(st);
+        if (!st || st->t != TT_FNC || !st->v.sval || strcmp(st->v.sval, "__rk_pods")) continue;
+        tree_t * list = (tree_t *) st;
+        memmove(prog->c + i, prog->c + i + 1, (size_t) (prog->n - i - 1) * sizeof(tree_t *));
+        prog->n--;
+        return list;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_declare_pod(tree_t * prog) {
+    tree_t * pods = rk_pod_list(prog);
     if (!lrk_rk_reads_var(prog, "=pod")) return;
     tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
     arr->v.sval = (char *) "__rk_arr_lit";
     ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr_lit"));
+    for (int i = 1; pods && i < pods->n; i++) ast_push(arr, pods->c[i]);
     tree_t * pv = leaf_sval2(TT_VAR, "=pod");
     pv->slen |= 4;
     ast_push(as, pv);
