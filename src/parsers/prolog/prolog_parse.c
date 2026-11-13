@@ -353,6 +353,14 @@ static void register_file_import_ops(Parser *p, const tree_t *goal, int swi) {
         if (goal->n == 1 || op_listed(goal->c[1], e)) register_op_one((int)e->c[0]->v.ival, e->c[1]->v.sval, e->c[2], swi);
     }
 }
+static void pl_parse_loop(Parser *pp, PlProgram *prog);
+static void register_include_ops(Parser *p, const tree_t *goal) {
+    const char *spec = pl_path_spec(goal->c[0]); char *path = (char *)0, *src; Parser q; PlProgram tmp;
+    if (p->incl_depth >= 16 || !spec || !(src = pl_include_read(p, spec, &path))) return;
+    memset(&q, 0, sizeof q); memset(&tmp, 0, sizeof tmp); lexer_init(&q.lx, src); q.filename = path; q.quiet = 1; q.wrap_tail = -1; q.lx.swi = p->lx.swi; q.lx.nlq = p->lx.nlq;
+    q.iso = p->iso; q.lx.iso = p->lx.iso; q.xsb = p->xsb; q.incl_depth = p->incl_depth + 1;
+    pl_parse_loop(&q, &tmp);
+}
 static void register_op_directive(Parser *p, tree_t *goal, int swi) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
     if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(p, goal->c[0], swi); register_op_directive(p, goal->c[1], swi); return; }
@@ -367,6 +375,7 @@ static void register_op_directive(Parser *p, tree_t *goal, int swi) {
         && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "library") && goal->c[0]->n == 1 && goal->c[0]->c[0]
         && (goal->c[0]->c[0]->t == TT_QLIT || goal->c[0]->c[0]->t == TT_NAME) && goal->c[0]->c[0]->v.sval) { register_lib_ops(goal->c[0]->c[0]->v.sval); return; }
     if (!strcmp(goal->v.sval, "use_module") && (goal->n == 1 || goal->n == 2) && op_scoped(p) && !p->hdr) { register_file_import_ops(p, goal, swi); return; }
+    if (!strcmp(goal->v.sval, "include") && goal->n == 1 && op_scoped(p) && !p->hdr) { register_include_ops(p, goal); return; }
     if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
