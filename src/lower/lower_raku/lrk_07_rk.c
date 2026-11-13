@@ -422,7 +422,7 @@ static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl) {
         int topic = 0, nph = 0, phmax = rk_tree_size(body) + 1;
         const char ** ph = (const char **) ct_alloc(sizeof(const char *) * (size_t) phmax);
         rk_scan_implicit_params(body, &topic, ph, &nph, phmax);
-        for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+        for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && rk_ph_cmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
         if (nph > 0) { for (int k = 0; k < nph; k++) pl[np++] = leaf_sval2(TT_VAR, ph[k]); } else if (topic) pl[np++] = leaf_sval2(TT_VAR, intern("_"));
     }
     rk_cap_assign_through(B->c[0], &FR);

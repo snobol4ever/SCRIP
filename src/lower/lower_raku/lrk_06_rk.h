@@ -14,6 +14,8 @@ __attribute__((visibility("hidden"))) int rk_user_meth_named(const char * m);
 __attribute__((visibility("hidden"))) tree_t * rk_throw_desugar(rcx_t * cx, const tree_t * e);
 __attribute__((visibility("hidden"))) IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mname, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max);
+__attribute__((visibility("hidden"))) const char * rk_ph_id(const char * v);
+__attribute__((visibility("hidden"))) int rk_ph_cmp(const char * a, const char * b);
 __attribute__((visibility("hidden"))) void rk_topic_default(tree_t * seq);
 __attribute__((visibility("hidden"))) void rk_sub_placeholders(tree_t * t);
 __attribute__((visibility("hidden"))) void rk_ph_alias(tree_t * t);

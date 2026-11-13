@@ -661,7 +661,7 @@ void rk_hoist_anon_blocks(tree_t * prog) {
             int topic = 0, nph = 0;
             const char * ph[rk_var_nodes(body) + 1];
             rk_scan_implicit_params(body, &topic, ph, &nph, (int) (sizeof ph / sizeof ph[0]));
-            for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+            for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && rk_ph_cmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
             if (nph > 0) {
                 for (int k = 0; k < nph; k++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) ph[k]; ast_push(sd, pv); }
                 sd->v.ival = nph;

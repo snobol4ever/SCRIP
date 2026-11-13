@@ -384,6 +384,8 @@ IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mname, IR_t
     *res = fr;
     return esi;
 }
+const char * rk_ph_id(const char * v) { return v[0] == '^' ? v + 1 : ((v[0] == '@' || v[0] == '%' || v[0] == '&') && v[1] == '^') ? v + 2 : NULL; }
+int rk_ph_cmp(const char * a, const char * b) { const char * x = rk_ph_id(a), * y = rk_ph_id(b); return strcmp(x ? x : a, y ? y : b); }
 void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max) {
     if (!t) return;
     if (t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
@@ -391,7 +393,7 @@ void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, in
     if (t->t == TT_VAR && t->v.sval) {
         const char * v = t->v.sval;
         if (!strcmp(v, "_")) *topic |= 1;
-        else if (v[0] == '^') { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen && *nph < max) ph[(*nph)++] = v; }
+        else if (rk_ph_id(v)) { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen && *nph < max) ph[(*nph)++] = v; }
     }
     for (int i = 0; i < t->n; i++) rk_scan_implicit_params(t->c[i], topic, ph, nph, max);
 }
@@ -454,7 +456,7 @@ void rk_sub_placeholders(tree_t * t) {
     const char ** ph = (const char **) ct_alloc(sizeof(const char *) * (size_t) phmax);
     for (int i = 1; i < t->n; i++) rk_scan_implicit_params(t->c[i], &topic, ph, &nph, phmax);
     if (nph == 0) { rk_named_placeholders(t); return; }
-    for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+    for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && rk_ph_cmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
     int nbody = t->n - 1;
     tree_t ** body = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) nbody);
     for (int i = 0; i < nbody; i++) body[i] = t->c[i + 1];
