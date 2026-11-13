@@ -953,11 +953,11 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     tree_t *flat = pas_flatten_units(pruned);
     pas_forin_types(flat, flat, NULL);
     pas_absolute_vars(flat);
-    pas_untyped_formals(flat);
     pas_lvalue_casts(flat, flat);
     pas_call_casts(flat, flat);
     pas_shortstrings(flat);
     flat = pas_classes_prepass(flat);
+    pas_untyped_formals(flat);
     pas_defaults_prepass(flat);
     pas_param_prepass(flat);
     if (!g_lower_pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower_pas.sem.pas_seen_mode_directive = 1;

@@ -465,7 +465,7 @@ int pas_routine_named(const tree_t *t, const char *nm) {
 int pas_takes_address(const tree_t *root, const tree_t *t) {
     if (!t) return 0;
     if (IS(t, TT_ADDR) && t->n == 1 && t->c[0] && !(t->c[0]->t == TT_VAR && t->c[0]->v.sval && pas_routine_named(root, t->c[0]->v.sval))) return 1;
-    if (IS(t, TT_FNC) && t->n >= 2 && t->c[0] && t->c[0]->v.sval && !strcasecmp(t->c[0]->v.sval, "addr")) return 1;
+    if (IS(t, TT_FNC) && t->n >= 2 && t->c[0] && t->c[0]->v.sval && (!strcasecmp(t->c[0]->v.sval, "addr") || !strcmp(t->c[0]->v.sval, "__pas_preview"))) return 1;
     if (IS(t, TT_VAR) && t->v.sval && (!strcasecmp(t->v.sval, "pchar") || !strcasecmp(t->v.sval, "pansichar") || !strcasecmp(t->v.sval, "pwidechar"))) return 1;
     for (int i = 0; i < t->n; i++) if (pas_takes_address(root, t->c[i])) return 1;
     return 0;

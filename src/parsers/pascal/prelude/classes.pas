@@ -123,16 +123,35 @@ type
     function GetSize: Int64; virtual;
     procedure SetSize(NewSize: Int64); virtual;
   public
-    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; virtual;
+    function Read(var Buffer; Count: Longint): Longint; virtual;
+    function Write(const Buffer; Count: Longint): Longint; virtual;
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; virtual; overload;
+    function Seek(Offset: Longint; Origin: Word): Longint; overload;
+    procedure ReadBuffer(var Buffer; Count: Longint);
+    procedure WriteBuffer(const Buffer; Count: Longint);
     function ReadByte: Byte; virtual;
     procedure WriteByte(Value: Byte); virtual;
     function ReadWord: Word;
     procedure WriteWord(Value: Word);
     function ReadDWord: Cardinal;
     procedure WriteDWord(Value: Cardinal);
+    function ReadQWord: QWord;
+    procedure WriteQWord(Value: QWord);
+    function ReadAnsiString: string;
+    procedure WriteAnsiString(const S: string); virtual;
     function CopyFrom(Source: TStream; Count: Int64): Int64;
     property Position: Int64 read GetPosition write SetPosition;
     property Size: Int64 read GetSize write SetSize;
+  end;
+  TOwnerStream = class(TStream)
+  protected
+    FOwner: Boolean;
+    FSource: TStream;
+  public
+    constructor Create(ASource: TStream);
+    destructor Destroy; override;
+    property Source: TStream read FSource;
+    property SourceOwner: Boolean read FOwner write FOwner;
   end;
   TCustomMemoryStream = class(TStream)
   private
@@ -147,12 +166,14 @@ type
     function GetMemory: Pointer;
   public
     function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+    function Read(var Buffer; Count: Longint): Longint; override;
     function ReadByte: Byte; override;
     procedure SaveToStream(Stream: TStream);
     property Memory: Pointer read GetMemory;
   end;
   TMemoryStream = class(TCustomMemoryStream)
   public
+    function Write(const Buffer; Count: Longint): Longint; override;
     procedure WriteByte(Value: Byte); override;
     procedure Clear;
     procedure LoadFromStream(Stream: TStream);
@@ -196,6 +217,12 @@ type
     property Bits[Bit: Longint]: Boolean read Get write SetBit; default;
     property Size: Longint read FBSize write SetSize;
   end;
+const
+  soFromBeginning = 0;
+  soFromCurrent = 1;
+  soFromEnd = 2;
+  SReadError = 'Stream read error';
+  SWriteError = 'Stream write error';
 implementation
 procedure OpenForRead(var f: Text; const n: string);
 begin
@@ -804,13 +831,83 @@ begin
     Dec(N);
   end;
 end;
-function TStream.ReadByte: Byte;
+function TStream.Read(var Buffer; Count: Longint): Longint;
 begin
-  raise EReadError.Create('Stream read error');
+  raise EStreamError.Create(ClassName + '.Read not implemented');
+  Result := 0
+end;
+function TStream.Write(const Buffer; Count: Longint): Longint;
+begin
+  raise EStreamError.Create(ClassName + '.Write not implemented');
+  Result := 0
+end;
+function TStream.Seek(Offset: Longint; Origin: Word): Longint;
+begin
+  Result := Seek(Int64(Offset), TSeekOrigin(Origin))
+end;
+procedure TStream.ReadBuffer(var Buffer; Count: Longint);
+var r, t: Longint;
+begin
+  t := 0;
+  repeat
+    r := Read(PByte(@Buffer)[t], Count - t);
+    inc(t, r)
+  until (t = Count) or (r <= 0);
+  if t < Count then raise EReadError.Create(SReadError)
+end;
+procedure TStream.WriteBuffer(const Buffer; Count: Longint);
+var r, t: Longint;
+begin
+  t := 0;
+  repeat
+    r := Write(PByte(@Buffer)[t], Count - t);
+    inc(t, r)
+  until (t = Count) or (r <= 0);
+  if t < Count then raise EWriteError.Create(SWriteError)
+end;
+function TStream.ReadByte: Byte;
+var b: Byte;
+begin
+  ReadBuffer(b, 1);
+  Result := b
 end;
 procedure TStream.WriteByte(Value: Byte);
 begin
-  raise EWriteError.Create('Stream write error');
+  WriteBuffer(Value, 1)
+end;
+function TStream.ReadQWord: QWord;
+var q: QWord;
+begin
+  ReadBuffer(q, 8);
+  Result := q
+end;
+procedure TStream.WriteQWord(Value: QWord);
+begin
+  WriteBuffer(Value, 8)
+end;
+function TStream.ReadAnsiString: string;
+var n, k: Longint; b: Byte;
+begin
+  n := 0;
+  ReadBuffer(n, 4);
+  Result := '';
+  for k := 1 to n do begin ReadBuffer(b, 1); Result := Result + Chr(b) end
+end;
+procedure TStream.WriteAnsiString(const S: string);
+var n, k: Longint; b: Byte;
+begin
+  n := Length(S);
+  WriteBuffer(n, 4);
+  for k := 1 to n do begin b := Ord(S[k]); WriteBuffer(b, 1) end
+end;
+constructor TOwnerStream.Create(ASource: TStream);
+begin
+  FSource := ASource
+end;
+destructor TOwnerStream.Destroy;
+begin
+  if FOwner then FSource.Free;
+  inherited Destroy
 end;
 function TStream.ReadWord: Word;
 begin
@@ -852,6 +949,17 @@ function TCustomMemoryStream.GetMemory: Pointer;
 begin
   if FCapacity = 0 then Result := nil else Result := @FData[0];
 end;
+function TCustomMemoryStream.Read(var Buffer; Count: Longint): Longint;
+var k: Longint;
+begin
+  Result := 0;
+  if (FSize > 0) and (FPos < FSize) and (FPos >= 0) then begin
+    Result := Count;
+    if Result > FSize - FPos then Result := FSize - FPos;
+    for k := 0 to Result - 1 do PByte(@Buffer)[k] := FData[FPos + k];
+    FPos := FPos + Result
+  end
+end;
 function TCustomMemoryStream.ReadByte: Byte;
 begin
   if FPos >= FSize then raise EReadError.Create('Stream read error');
@@ -871,6 +979,17 @@ procedure TCustomMemoryStream.SaveToStream(Stream: TStream);
 var I: Longint;
 begin
   for I := 0 to FSize - 1 do Stream.WriteByte(FData[I]);
+end;
+function TMemoryStream.Write(const Buffer; Count: Longint): Longint;
+var NewPos, k: Longint;
+begin
+  if (Count <= 0) or (FPos < 0) then exit(0);
+  NewPos := FPos + Count;
+  if NewPos > FCapacity then SetCapacity((NewPos + (NewPos shr 2) + 4095) and not 4095);
+  for k := 0 to Count - 1 do FData[FPos + k] := PByte(@Buffer)[k];
+  FPos := NewPos;
+  if FPos > FSize then FSize := FPos;
+  Result := Count
 end;
 procedure TMemoryStream.WriteByte(Value: Byte);
 begin

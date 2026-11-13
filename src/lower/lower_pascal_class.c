@@ -299,6 +299,16 @@ static void pc_rec_inherit(pc_class *c) {
         c->fl->c[0] = pc_clone(c->parent->fl->c[j]);
     }
 }
+static void pc_over_slot(pc_meth *m) {
+    if (!m->over || !m->name) return;
+    const char *ov = strstr(m->name, "__ov");
+    char base[strlen(m->name) + 1];
+    snprintf(base, sizeof base, "%.*s", ov ? (int)(ov - m->name) : (int) strlen(m->name), m->name);
+    for (pc_class *c = m->owner->parent; c; c = c->parent) for (int i = 0; i < c->nm; i++) if ((c->m[i].virt || c->m[i].over) && pc_ovfam(c->m[i].name, base) && pc_sig_eq(c->m[i].params, m->params)) {
+        m->name = c->m[i].name;
+        return;
+    }
+}
 static void pc_link(pc_ctx *x) {
     for (int i = 0; i < x->ncls; i++) {
         pc_class *c = x->cls[i];
@@ -307,6 +317,7 @@ static void pc_link(pc_ctx *x) {
         c->parent = c->pname ? pc_class_named(x, c->pname) : NULL;
         if (!c->parent || pc_descends(c->parent, c)) c->parent = x->root;
     }
+    for (int i = 0; i < x->ncls; i++) for (int j = 0; j < x->cls[i]->nm; j++) pc_over_slot(&x->cls[i]->m[j]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pc_rec_type(pc_ctx *x, pc_class *c) {
@@ -465,11 +476,30 @@ static int pc_arraylike(pc_ctx *x, tree_t *a) {
     pc_ty t = pc_type(x, a);
     return PC_IS(t.t, TT_ARRAY_TYPE);
 }
+static tree_t *pc_enum_of(pc_ctx *x, tree_t *arg) {
+    pc_ty a = pc_type(x, arg);
+    if (PC_IS(a.t, TT_ENUM_TYPE)) return a.t;
+    if (!PC_IS(arg, TT_VAR) || !pc_sv(arg)) return NULL;
+    for (int i = x->nsym - 1; i >= 0; i--) {
+        if (x->sym[i].kind != 't') continue;
+        pc_ty r = pc_resolve(x, x->sym[i].type);
+        for (int k = 0; PC_IS(r.t, TT_ENUM_TYPE) && k < r.t->n; k++) if (PC_IS(r.t->c[k], TT_VAR) && pc_eq(pc_sv(r.t->c[k]), pc_sv(arg))) return r.t;
+    }
+    return NULL;
+}
+static int pc_int_tname(tree_t *t) {
+    static const char *const N[] = { "byte", "shortint", "word", "smallint", "longword", "cardinal", "dword", "longint", "integer", "int64", "qword", "ptrint", "ptruint", "sizeint", NULL };
+    for (int i = 0; PC_IS(t, TT_VAR) && N[i]; i++) if (pc_eq(pc_sv(t), N[i])) return 1;
+    return 0;
+}
 static int pc_argfit(pc_ctx *x, tree_t *pt, tree_t *arg) {
     pc_ty p = pc_resolve(x, pt), a = pc_type(x, arg);
     if (p.cls) return a.cls && !a.ref ? 3 : 0;
     if (PC_IS(p.t, TT_ARRAY_TYPE)) return pc_arraylike(x, arg) ? 3 : 0;
     if (PC_IS(p.t, TT_SET_TYPE)) return PC_IS(arg, TT_SET) || PC_IS(a.t, TT_SET_TYPE) ? 3 : 0;
+    tree_t *ae = pc_enum_of(x, arg);
+    if (PC_IS(p.t, TT_ENUM_TYPE)) return ae ? (ae == p.t ? 3 : 0) : (PC_IS(arg, TT_ILIT) ? 0 : 1);
+    if (ae && pc_int_tname(p.t)) return 0;
     return !a.cls && !pc_arraylike(x, arg) ? 1 : 0;
 }
 static pc_meth *pc_pick(pc_ctx *x, pc_class *c, const char *n, tree_t *call, int from) {
