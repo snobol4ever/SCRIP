@@ -517,6 +517,14 @@ const char *pas_store_tn(tree_t *sel) {
     if (sel->t == TT_IDX && sel->n == 2 && sel->c[0] && sel->c[1]) {
         tree_t *b = sel->c[0];
         struct pty_fld o;
+        if (sel->c[1]->t == TT_ILIT && b->t == TT_IDX && b->n == 2 && b->c[0] && b->c[0]->t == TT_VAR && b->c[0]->v.sval) {
+            const pty_t *_at = pty_name_type(b->c[0]->v.sval);
+            if (_at && _at->k == PTK_ARRAY && _at->base && _at->base->k == PTK_RECORD && pty_rec_fld(_at->base, (int) sel->c[1]->v.ival, &o)) return o.ft ? pty_name_of(o.ft) : NULL;
+        }
+        if (sel->c[1]->t == TT_ILIT && b->t == TT_FNC && b->n == 2 && b->c[0] && b->c[0]->v.sval && !strcmp(b->c[0]->v.sval, "__pas_deref") && b->c[1] && b->c[1]->t == TT_VAR && b->c[1]->v.sval) {
+            const pty_t *_pt = pty_name_type(b->c[1]->v.sval);
+            if (_pt && _pt->k == PTK_POINTER && _pt->base && _pt->base->k == PTK_RECORD && pty_rec_fld(_pt->base, (int) sel->c[1]->v.ival, &o)) return o.ft ? pty_name_of(o.ft) : NULL;
+        }
         if (sel->c[1]->t == TT_ILIT) {
             const char *rn = b->t == TT_VAR && b->v.sval ? NULL : pas_designator_rectype(b);
             if (b->t == TT_VAR && b->v.sval) {
