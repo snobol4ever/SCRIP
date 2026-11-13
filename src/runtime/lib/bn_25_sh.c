@@ -201,6 +201,23 @@ int bn_icn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = BSTRVAL(buf, sl);
     return 1;
 }
+DESCR_t bt_ICNx24UTRIM(DESCR_t *args, int nargs) {
+    DESCR_t out;
+    const char *s = VARVAL_fn(args[0]), *cset = " ";
+    int cl = 1, side = -1;
+    if (!s) s = "";
+    if (nargs >= 2 && args[1].v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(args[1], &cp, &cn)) { cset = cp; cl = cn; } }
+    if (nargs >= 3 && args[2].v == DT_I) side = args[2].i < 0 ? -1 : args[2].i > 0 ? 1 : 0;
+    int sl = icn_true_len(args[0], s), b = 0;
+    if (side <= 0) while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl - 1], (size_t)cl)) sl--;
+    if (side >= 0) while (b < sl && cl > 0 && memchr(cset, (unsigned char)s[b], (size_t)cl)) b++;
+    char *buf = rt_wsb_alloc(sl - b + 1);
+    memcpy(buf, s + b, (size_t)(sl - b));
+    buf[sl - b] = '\0';
+    out = BSTRVAL(buf, sl - b);
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bn_icn_put(DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t ld = args[0];
     if (ld.v != DT_DATA) return 0;

@@ -670,6 +670,7 @@ extern DESCR_t bt_ICNx24CV_WOKEN(DESCR_t * args, int nargs) __attribute__((weak,
 extern DESCR_t bt_ICNx24ULIST(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_arr_make_raw(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern DESCR_t bt_arr_slice(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
+extern DESCR_t bt_ICNx24UTRIM(DESCR_t * args, int nargs) __attribute__((weak, visibility("hidden")));
 extern __attribute__((visibility("hidden"))) const bt_leaf_t g_bt_leaf[];
 typedef int (*bt_open_t)(DESCR_t * args, int nargs, DESCR_t * out, long * rq);
 extern int bt_APPLY(DESCR_t * args, int nargs, DESCR_t * out, long * rq) __attribute__((weak, visibility("hidden")));
