@@ -351,6 +351,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         return 1;
     }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+    if (nmargs == 0 && !strcmp(meth, "gist") && rk_rx_pat(recv)) { *out = STRVAL(rt_heap_fmt("/%s/", rk_rx_pat(recv))); return 1; }
     if (nmargs == 0 && !strcmp(meth, "gist") && (IS_STR_fn(recv) || IS_INT_fn(recv) || IS_REAL_fn(recv) || recv.v == DT_BOOL || recv.v == DT_BIG)) {
         *out = STRVAL(rt_heap_strdup_c(recv.v == DT_SNUL ? "Nil" : s));
         return 1;
