@@ -45,9 +45,9 @@ tree_t *rk_ilit(long long v) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = v;
 static tree_t *rk_adverb_bool(int v) { tree_t *b = make_call("__rk_mkbool"); expr_add_child(b, rk_ilit(v)); return b; }
 static tree_t *rk_adverb_bool_n(int v, const char *name) { tree_t *b = rk_adverb_bool(v); if (name && *name) expr_add_child(b, leaf_sval(TT_QLIT, name)); return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_multi_mangle(const char *base, TL *params, int kind) {
+static const char *rk_multi_mangle(const char *base, TL *params) {
     int np = params ? params->n : 0, nnamed = 0;
-    for (int i = 0; kind == 0 && i < np; i++) if (params->v[i] && (params->v[i]->slen & RK_PV_NAMED)) nnamed++;
+    for (int i = 0; i < np; i++) if (params->v[i] && (params->v[i]->slen & RK_PV_NAMED)) nnamed++;
     SB b = { 0 };
     for (const char *c = fmt("%s$%d", base, np - nnamed); *c; c++) sb_c(&b, *c);
     for (int pass = 0; pass < (nnamed ? 2 : 1); pass++) for (int i = 0; i < np; i++) {
@@ -767,7 +767,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     nm = rk_op_name_canon(nm);
-    const char *mn = multi == 1 ? rk_multi_mangle(nm, &params, kind) : intern(nm);
+    const char *mn = multi == 1 ? rk_multi_mangle(nm, &params) : intern(nm);
     tree_t *e;
     if (kind == 0) { e = leaf_sval(TT_SUB_DECL, mn); e->v.ival = params.n; }
     else { e = ast_node_new(TT_SUB_DECL); e->v.ival = params.n + 1; }
