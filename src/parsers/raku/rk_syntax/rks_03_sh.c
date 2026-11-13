@@ -502,7 +502,7 @@ int r_statement_control(RkP *p, int pos) {
         for (;;) {
             if (r_version(p, q) >= 0) panic_at(p, q, "In case of using pragma, use \"use\" instead (e.g., \"use v6;\", \"use v6.c;\").");
             int m = r_module_name(p, q); if (m < 0) panic_at(p, q, "Malformed need");
-            import_module(p, ct_strndup0(p->s + q, name_part_len(p, q, m)));
+            { const char *nm = ct_strndup0(p->s + q, name_part_len(p, q, m)); if (!import_module(p, nm) && p->load_depth < 4) panic_at(p, q, "Could not find %s", nm); }
             q = ws(p, m);
             if (ch(p, q) == ',') { q = ws(p, q + 1); continue; }
             p->tv = NULL;
