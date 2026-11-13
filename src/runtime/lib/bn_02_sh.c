@@ -117,6 +117,7 @@ static DESCR_t bta_rk_write(DESCR_t *args, int nargs, int _bop) {
         DESCR_t tmp[nargs > 0 ? nargs : 1];
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
+            else if (rk_failure_is(args[_ri])) tmp[_ri] = rk_failure_str(args[_ri]);
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
             else if (args[_ri].v == DT_SNUL) tmp[_ri] = STRVAL(rt_heap_strdup_c("Nil"));
             else if ((_bop == 0) && rk_seq_is_lazy(args[_ri])) tmp[_ri] = STRVAL(rt_heap_strdup_c("(...)"));

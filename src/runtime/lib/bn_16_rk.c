@@ -449,9 +449,12 @@ void rk_failure_handle(DESCR_t d) { FIELD_SET_fn(d, "handled", INTVAL(1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_failure_sink(DESCR_t f) { if (FIELD_GET_fn(f, "handled").i) return; rk_failure_handle(f); rk_exc_throw(FIELD_GET_fn(f, "exception")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rk_failure_str(DESCR_t f) { return STRVAL(rt_heap_fmt("(HANDLED) %s\n", rk_exc_message(FIELD_GET_fn(f, "exception")))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_failure_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t f = args[0];
     (void) nargs;
+    if ((!strcmp(m, "Str") || !strcmp(m, "gist")) && FIELD_GET_fn(f, "handled").i) { *out = rk_failure_str(f); return 1; }
     if (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so")) { rk_failure_handle(f); *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
     if (!strcmp(m, "not")) { rk_failure_handle(f); *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
     if (!strcmp(m, "handled")) { *out = (DESCR_t){ .v = DT_BOOL, .i = FIELD_GET_fn(f, "handled").i ? 1 : 0 }; return 1; }

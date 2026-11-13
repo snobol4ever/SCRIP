@@ -23,6 +23,7 @@ __attribute__((visibility("hidden"))) int rk_io_fail(const char *cls, const char
 __attribute__((visibility("hidden"))) void rk_qh_refuse(const char *fmt, const char *a, const char *b);
 __attribute__((visibility("hidden"))) const char *rk_exc_message(DESCR_t ex);
 __attribute__((visibility("hidden"))) int rk_failure_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out);
+__attribute__((visibility("hidden"))) DESCR_t rk_failure_str(DESCR_t f);
 __attribute__((visibility("hidden"))) void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out);
 __attribute__((visibility("hidden"))) int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 __attribute__((visibility("hidden"))) DESCR_t rk_bindattr_impl(DESCR_t *args);
