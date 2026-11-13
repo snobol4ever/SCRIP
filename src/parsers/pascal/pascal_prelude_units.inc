@@ -1463,6 +1463,19 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_8_SRC[] =
+    "{$mode objfpc}\n"
+    "unit fpwidestring;\n"
+    "interface\n"
+    "var\n"
+    "  DefaultCollationName : UnicodeString;\n"
+    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
+    "implementation\n"
+    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
+    "begin\n"
+    "  Result := False;\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit generics.collections;\n"
     "interface\n"
@@ -2173,7 +2186,7 @@ static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "initialization\n"
     "  __shg_crcok := false;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_9_SRC[] =
+static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit generics.defaults;\n"
     "interface\n"
@@ -2196,7 +2209,7 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "  Result := FCmp(L, R)\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_10_SRC[] =
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$H+}\n"
     "unit gmp;\n"
     "interface\n"
@@ -2791,7 +2804,7 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "  end\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit ioerr;\n"
     "interface\n"
@@ -2823,7 +2836,7 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "  __sh_rdiv := a / b\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: extended): extended;\n"
@@ -2916,7 +2929,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit RegExpr;\n"
     "interface\n"
@@ -3552,7 +3565,7 @@ static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "  r.Free;\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_14_SRC[] =
+static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -3657,13 +3670,13 @@ static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_15_SRC[] =
+static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_16_SRC[] =
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -3837,7 +3850,7 @@ static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -3845,7 +3858,7 @@ static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -4027,7 +4040,7 @@ static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_19_SRC[] =
+static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -5049,7 +5062,7 @@ static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_20_SRC[] =
+static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -5070,7 +5083,13 @@ static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_21_SRC[] =
+static const char PAS_PRELUDE_UNIT_22_SRC[] =
+    "{$mode objfpc}\n"
+    "unit unicodeducet;\n"
+    "interface\n"
+    "implementation\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5096,24 +5115,7 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_22_SRC[] =
-    "{$mode objfpc}{$H+}\n"
-    "unit uregexpr;\n"
-    "interface\n"
-    "uses RegExpr;\n"
-    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
-    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
-    "implementation\n"
-    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
-    "begin\n"
-    "  ExecRegExpr := RegExpr.ExecRegExpr(ARegExpr, AInputStr);\n"
-    "end;\n"
-    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
-    "begin\n"
-    "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
-    "end;\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5128,21 +5130,22 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "dos", PAS_PRELUDE_UNIT_5_SRC },
     { "dynlibs", PAS_PRELUDE_UNIT_6_SRC },
     { "fgl", PAS_PRELUDE_UNIT_7_SRC },
-    { "generics.collections", PAS_PRELUDE_UNIT_8_SRC },
-    { "generics.defaults", PAS_PRELUDE_UNIT_9_SRC },
-    { "gmp", PAS_PRELUDE_UNIT_10_SRC },
-    { "ioerr", PAS_PRELUDE_UNIT_11_SRC },
-    { "math", PAS_PRELUDE_UNIT_12_SRC },
-    { "regexpr", PAS_PRELUDE_UNIT_13_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_14_SRC },
-    { "strings", PAS_PRELUDE_UNIT_15_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_16_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_17_SRC },
-    { "system", PAS_PRELUDE_UNIT_18_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_19_SRC },
-    { "types", PAS_PRELUDE_UNIT_20_SRC },
-    { "unix", PAS_PRELUDE_UNIT_21_SRC },
-    { "uregexpr", PAS_PRELUDE_UNIT_22_SRC },
-    { "variants", PAS_PRELUDE_UNIT_23_SRC },
+    { "fpwidestring", PAS_PRELUDE_UNIT_8_SRC },
+    { "generics.collections", PAS_PRELUDE_UNIT_9_SRC },
+    { "generics.defaults", PAS_PRELUDE_UNIT_10_SRC },
+    { "gmp", PAS_PRELUDE_UNIT_11_SRC },
+    { "ioerr", PAS_PRELUDE_UNIT_12_SRC },
+    { "math", PAS_PRELUDE_UNIT_13_SRC },
+    { "regexpr", PAS_PRELUDE_UNIT_14_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_15_SRC },
+    { "strings", PAS_PRELUDE_UNIT_16_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_17_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_18_SRC },
+    { "system", PAS_PRELUDE_UNIT_19_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_20_SRC },
+    { "types", PAS_PRELUDE_UNIT_21_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_22_SRC },
+    { "unix", PAS_PRELUDE_UNIT_23_SRC },
+    { "variants", PAS_PRELUDE_UNIT_24_SRC },
     { 0, 0 }
 };
