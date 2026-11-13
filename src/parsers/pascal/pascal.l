@@ -30,6 +30,11 @@ static tree_t *pascal_leaf(tree_e kind) {
     pascal_nev = 0;
     return l;
 }
+static int pascal_dir_word(const char *t, int n) {
+    static const char *const w[] = { "cdecl", "stdcall", "register", "pascal", "safecall", "inline", "far", "near", "ms_abi_default", "sysv_abi_default", "vectorcall", "oldfpccall", "interrupt", "hardfloat", "varargs", NULL };
+    for (int i = 0; w[i]; i++) if ((int) strlen(w[i]) == n && !strncasecmp(t, w[i], (size_t) n)) return 1;
+    return 0;
+}
 void pascal_flip_dialect(int d) { if (pascal_dialect() == PAS_DIALECT_ISO_DEFAULT) { pascal_dialect_set(d); pascal_event("seen_mode"); } }
 static int pascal_hstr_on(void) { if (*pascal_sw_set_p() & (1u << 7)) return (*pascal_sw_on_p() >> 7) & 1u; return pascal_dialect() == PAS_DIALECT_DELPHI; }
 void pascal_stamp_dialect(tree_t *leaf) { if (leaf && pascal_dialect() >= PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("seen_mode")); if (leaf && pascal_dialect() == PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("int16")); }
@@ -399,11 +404,15 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE SKIPC MODE_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR PACKREC_HDR CODEPAGE_HDR
+%x COMMENT BRACE SKIPC MODE_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR PACKREC_HDR CODEPAGE_HDR DIRSC
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
 %%
+<DIRSC>[ \t\r\n]+      { }
+<DIRSC>";"              { return SEMICOLON; }
+<DIRSC>{ALPHA}{ALNUM}*[ \t\r\n]*";" { int n = 0; while (n < (int) pascal_yyleng && (isalnum((unsigned char) pascal_yytext[n]) || pascal_yytext[n] == '_')) n++; if (!pascal_dir_word(pascal_yytext, n)) { BEGIN INITIAL; yyless(0); } else pascal_flip_dialect(PAS_DIALECT_FPC); }
+<DIRSC>.|\n             { BEGIN INITIAL; yyless(0); }
 [ \t\r\n]+              { }
 "(*"                    { BEGIN COMMENT; }
 <COMMENT>"*)"           { BEGIN INITIAL; }
@@ -593,4 +602,5 @@ ALNUM    [A-Za-z0-9_]
 ":"                     { return COLON; }
 .                       { pascal_lex_error("invalid character"); return PASCAL_YYUNDEF; }
 %%
+void pascal_dir_arm(void) { BEGIN(DIRSC); }
 void pascal_lex_reset(void) { pascal_ninc = 0; pascal_gen_pending = 0; pascal_gen_depth = 0; pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }

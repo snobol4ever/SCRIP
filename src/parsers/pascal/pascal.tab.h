@@ -67,6 +67,7 @@ void pascal_def_setval(const char *n, double v);
 int *pascal_cond_unknown_p(void);
 int *pascal_macro_on_p(void);
 void pascal_flip_dialect(int d);
+void pascal_dir_arm(void);
 void pascal_stamp_dialect(tree_t *leaf);
 void pascal_note_type_ident(tree_t *id);
 void pascal_note_type_decl(tree_t *id);
@@ -83,7 +84,7 @@ int pascal_last_tok(void);
 void pascal_last_ident_set(const char *p, int n);
 tree_t *pascal_last_ident_qlit(void);
 
-#line 87 "pascal.tab.h"
+#line 88 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -197,10 +198,10 @@ tree_t *pascal_last_ident_qlit(void);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 209 "pascal.y"
+#line 210 "pascal.y"
  tree_t *node; 
 
-#line 204 "pascal.tab.h"
+#line 205 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

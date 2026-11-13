@@ -12,6 +12,7 @@ void pascal_def_setval(const char *n, double v);
 int *pascal_cond_unknown_p(void);
 int *pascal_macro_on_p(void);
 void pascal_flip_dialect(int d);
+void pascal_dir_arm(void);
 void pascal_stamp_dialect(tree_t *leaf);
 void pascal_note_type_ident(tree_t *id);
 void pascal_note_type_decl(tree_t *id);
@@ -379,10 +380,10 @@ type:
     |ARROW spec_ref { $$ = pt_add(pt_new(TT_PTR_TYPE), $2); }
     |packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY { } { } type { $$ = pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $9); }
     |packed_opt ARRAYSY OFSY type { $$ = pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4); }
-    |PROCEDURESY pf_params { $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
-    |PROCEDURESY pf_params OFSY IDENT { if (strcasecmp($4->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
-    |FUNCTIONSY pf_params COLON result_type { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
-    |FUNCTIONSY pf_params COLON result_type OFSY IDENT { if (strcasecmp($6->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
+    |PROCEDURESY pf_params { pascal_dir_arm(); $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
+    |PROCEDURESY pf_params OFSY IDENT { pascal_dir_arm(); if (strcasecmp($4->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
+    |FUNCTIONSY pf_params COLON result_type { pascal_dir_arm(); pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
+    |FUNCTIONSY pf_params COLON result_type OFSY IDENT { pascal_dir_arm(); if (strcasecmp($6->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
     |packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $6), $9); }
     |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_record_or_helper($1, $4); }
     |TYPESY IDENT FORSY type class_members ENDSY { if (!pt_is_helper_word($2)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_type_helper($4, $5); }
@@ -604,10 +605,21 @@ param_type:
 routine_directives:
     { $$ = NULL; }
     |routine_directives IDENT SEMICOLON {
-        static const char *const ok[] = { "inline", "cdecl", "register", "stdcall", "pascal", "overload", "safecall", "far", "near", "noinline", "nostackframe" };
+        static const char *const ok[] = { "inline", "cdecl", "register", "stdcall", "pascal", "overload", "safecall", "far", "near", "noinline", "nostackframe", "ms_abi_default", "sysv_abi_default",
+            "vectorcall", "oldfpccall", "interrupt", "hardfloat", "varargs", "public" };
         int hit = 0;
         for (size_t k = 0; k < sizeof ok / sizeof ok[0]; k++) if ($2->v.sval && !strcasecmp($2->v.sval, ok[k])) hit = 1;
         if (!hit) { pascal_yyerror("syntax error"); YYERROR; }
+        pascal_flip_dialect(PAS_DIALECT_FPC);
+        $$ = NULL;
+    }
+    |routine_directives IDENT COLON STRINGCONST SEMICOLON {
+        if (!$2->v.sval || strcasecmp($2->v.sval, "alias")) { pascal_yyerror("syntax error"); YYERROR; }
+        pascal_flip_dialect(PAS_DIALECT_FPC);
+        $$ = NULL;
+    }
+    |routine_directives IDENT IDENT STRINGCONST SEMICOLON {
+        if (!$2->v.sval || !$3->v.sval || strcasecmp($2->v.sval, "public") || strcasecmp($3->v.sval, "name")) { pascal_yyerror("syntax error"); YYERROR; }
         pascal_flip_dialect(PAS_DIALECT_FPC);
         $$ = NULL;
     }
