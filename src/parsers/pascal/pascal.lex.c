@@ -1678,15 +1678,19 @@ static void pascal_include(const char *t) {
     const char *q = t + 2;
     while (isalpha((unsigned char)*q)) q++;
     while (*q == ' ' || *q == '\t') q++;
-    size_t m = strcspn(q, "}");
-    while (m > 0 && (q[m - 1] == ' ' || q[m - 1] == '\t')) m--;
-    if (m >= 2 && q[0] == '\'' && q[m - 1] == '\'') { q++; m -= 2; }
+    int quoted = *q == '\'' || *q == '"';
+    size_t m = quoted ? strcspn(q + 1, *q == '"' ? "\"}" : "'}") : strcspn(q, " \t\r}");
+    if (quoted) q++;
     size_t dl = pascal_incdir ? strlen(pascal_incdir) : 0;
     char *path = (char *)ct_alloc(dl + m + 6);
     if (q[0] == '/' || !dl) snprintf(path, m + 1, "%.*s", (int)m, q); else snprintf(path, dl + m + 2, "%s/%.*s", pascal_incdir, (int)m, q);
-    size_t n = 0;
+    size_t n = 0, pl = strlen(path);
     char *src = pascal_inc_read(path, &n);
-    if (!src && !strchr(path + (strrchr(path, '/') ? strrchr(path, '/') - path : 0), '.')) { strcat(path, ".inc"); src = pascal_inc_read(path, &n); }
+    const char *ext = strrchr(path + (strrchr(path, '/') ? strrchr(path, '/') - path : 0), '.');
+    int known = ext && (!strcasecmp(ext, ".inc") || !strcasecmp(ext, ".pp") || !strcasecmp(ext, ".pas"));
+    const char *const tries[] = { ".inc", ".pp", ".pas" };
+    for (int k = 0; !src && !known && k < 3; k++) { strcpy(path + pl, tries[k]); src = pascal_inc_read(path, &n); }
+    if (!src && pl >= 2 && path[pl - 1] == '.') { path[pl - 1] = '\0'; src = pascal_inc_read(path, &n); }
     if (!src) { fprintf(stderr, "pascal: line %d: cannot open the include file '%.*s'\n", pascal_yylineno, (int)m, q); pascal_event("iso_error"); return; }
     if (pascal_ninc >= pascal_cinc) {
         pascal_cinc = pascal_cinc ? pascal_cinc * 2 : 8;

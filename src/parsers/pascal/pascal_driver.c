@@ -68,6 +68,28 @@ static char *pas_unit_file(const char *dir, const char *name) {
     return found;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pas_unit_on_unitpath(const char *from, const char *name) {
+    const char *sl = from ? strrchr(from, '/') : NULL;
+    const char *s = (from && strchr(sl ? sl : from, '.')) ? pas_slurp(from) : NULL;
+    int fl = sl ? (int)(sl - from) : 1;
+    const char *fd = sl ? from : ".";
+    for (const char *p = s; p && *p; p++) {
+        if (strncasecmp(p, "{$unitpath", 10) || (p[10] != ' ' && p[10] != '\t')) continue;
+        for (p += 10; *p && *p != '}';) {
+            p += strspn(p, " \t\r\n;");
+            size_t m = strcspn(p, ";} \t\r\n");
+            if (!m) continue;
+            char *d = ct_alloc((size_t)fl + m + 2);
+            if (*p == '/') snprintf(d, m + 1, "%.*s", (int)m, p); else snprintf(d, (size_t)fl + m + 2, "%.*s/%.*s", fl, fd, (int)m, p);
+            char *u = pas_unit_file(d, name);
+            if (u) return u;
+            p += m;
+        }
+        if (!*p) break;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pas_prelude_src(const char *name) {
     for (int i = 0; PAS_PRELUDE_UNITS[i].name; i++) if (!strcasecmp(PAS_PRELUDE_UNITS[i].name, name)) return PAS_PRELUDE_UNITS[i].src;
     return NULL;
@@ -87,6 +109,7 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
         const char *name = uses->c[i] ? uses->c[i]->v.sval : NULL;
         if (!name || pas_named_in(forest, name) || pas_named_in(visiting, name)) continue;
         char *path = pas_unit_file(dir, name);
+        if (!path) path = pas_unit_on_unitpath(from, name);
         const char *src = path ? pas_slurp(path) : pas_prelude_src(name);
         if (!src) { fprintf(stderr, "pascal: uses %s in %s: no unit %s.pas beside it and no SCRIP prelude unit of that name\n", name, from, name); return 0; }
         extern void pascal_lex_set_dir(const char *);
