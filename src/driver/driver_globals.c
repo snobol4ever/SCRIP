@@ -262,7 +262,7 @@ int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
     fh_slot_t *s=&g_fh[idx];
     int r;
     if(idx!=0&&s->mode!='r') r=fh_out_position(s);
-    else { long off=ftell(s->fp); r=off<0?(idx==0?-2:fh_pipe_position(s)):fh_pos_scan(s,fileno(s->fp),off); }
+    else { long off=ftell(s->fp); r=off<0?fh_pipe_position(s):fh_pos_scan(s,fileno(s->fp),off); }
     if(r!=1) return r;
     *chars=s->pos_chars;
     *lines=s->pos_lines;
