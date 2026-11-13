@@ -593,7 +593,11 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
         tree_t * df = ast_node_new(TT_DIE);
         char msg[bl + 64];
         snprintf(msg, sizeof msg, "Cannot resolve caller %s(...); none of these signatures matches", base);
-        ast_push(df, leaf_sval2(TT_QLIT, intern(msg)));
+        tree_t * nw = ast_node_new(TT_NEW);
+        ast_push(nw, leaf_sval2(TT_QLIT, "X::Multi::NoMatch"));
+        ast_push(nw, leaf_sval2(TT_QLIT, "message"));
+        ast_push(nw, leaf_sval2(TT_QLIT, intern(msg)));
+        ast_push(df, nw);
         ast_push(disp, df);
         tree_t * ins = disp;
         if (t->c[idx[0]]->t == TT_STMT) {
