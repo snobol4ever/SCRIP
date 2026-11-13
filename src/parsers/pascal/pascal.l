@@ -511,6 +511,7 @@ ALNUM    [A-Za-z0-9_]
 "of"                    { return OFSY; }
 "record"                { return RECORDSY; }
 "packed"                { return PACKEDSY; }
+"bitpacked"             { return BITPACKEDSY; }
 "set"                   { return SETSY; }
 "file"                  { return FILESY; }
 "label"                 { return LABELSY; }
