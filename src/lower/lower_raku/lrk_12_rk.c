@@ -288,9 +288,37 @@ static tree_t * rk_pod_list(tree_t * prog) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_why_index(const tree_t * pods, const char * nm) {
+    for (int i = 1; pods && i < pods->n; i++) {
+        const tree_t * d = pods->c[i];
+        if (!d || d->t != TT_NEW || d->n < 3 || !d->c[0]->v.sval || strcmp(d->c[0]->v.sval, "Pod::Block::Declarator")) continue;
+        for (int k = 1; k + 1 < d->n; k += 2) if (d->c[k]->v.sval && !strcmp(d->c[k]->v.sval, "WHEREFORE") && d->c[k + 1]->v.sval && !strcmp(d->c[k + 1]->v.sval, nm)) return i - 1;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_why_walk(tree_t * t, const tree_t * pods) {
+    int hit = 0;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (!c) continue;
+        if (c->t == TT_METHCALL && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] == '&' && c->c[1] && c->c[1]->t == TT_QLIT && c->c[1]->v.sval && !strcmp(c->c[1]->v.sval, "WHY")) {
+            int k = rk_why_index(pods, c->c[0]->v.sval + 1);
+            tree_t * r = leaf_sval2(TT_VAR, "Nil");
+            if (k >= 0) { r = ast_node_new(TT_ARR_GET); tree_t * ix = ast_node_new(TT_ILIT); ix->v.ival = k; ast_push(r, leaf_sval2(TT_VAR, "=pod")); ast_push(r, ix); }
+            t->c[i] = r;
+            hit = 1;
+            continue;
+        }
+        hit |= rk_why_walk(c, pods);
+    }
+    return hit;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_declare_pod(tree_t * prog) {
     tree_t * pods = rk_pod_list(prog);
-    if (!lrk_rk_reads_var(prog, "=pod")) return;
+    int why = rk_why_walk(prog, pods);
+    if (!why && !lrk_rk_reads_var(prog, "=pod")) return;
     tree_t * arr = ast_node_new(TT_FNC), * as = ast_node_new(TT_ASSIGN);
     arr->v.sval = (char *) "__rk_arr_lit";
     ast_push(arr, leaf_sval2(TT_VAR, "__rk_arr_lit"));
