@@ -36,6 +36,15 @@ const
   faSymLink = 64;
   faAnyFile = 511;
 type
+  TBytes = array of Byte;
+  TEncoding = class
+  public
+    class function UTF8: TEncoding;
+    class function ANSI: TEncoding;
+    class function Default: TEncoding;
+    function GetBytes(const S: string): TBytes;
+    function GetString(const B: TBytes): string;
+  end;
   Exception = class
   private
     FMessage: string;
@@ -143,6 +152,36 @@ function __strhlp_split(const __sh_s: string; const __sh_seps: array of string; 
 function __strhlp_join(const __sh_sep: string; const __sh_v: array of string): string;
 function __strhlp_join_r(const __sh_sep: string; const __sh_v: array of string; __sh_start, __sh_cnt: integer): string;
 implementation
+class function TEncoding.UTF8: TEncoding;
+begin
+  UTF8 := TEncoding.Create
+end;
+class function TEncoding.ANSI: TEncoding;
+begin
+  ANSI := TEncoding.Create
+end;
+class function TEncoding.Default: TEncoding;
+begin
+  Default := TEncoding.Create
+end;
+function TEncoding.GetBytes(const S: string): TBytes;
+var
+  i: integer;
+begin
+  SetLength(Result, length(S));
+  for i := 1 to length(S) do
+    Result[i - 1] := Ord(S[i])
+end;
+function TEncoding.GetString(const B: TBytes): string;
+var
+  i: integer;
+  t: string;
+begin
+  t := '';
+  for i := 0 to high(B) do
+    t := t + Chr(B[i]);
+  Result := t
+end;
 function StringReplace(const __sh_s, __sh_old, __sh_new: string; __sh_flags: TReplaceFlags): string;
 var __sh_hay, __sh_pat, __sh_out: string; __sh_i, __sh_n, __sh_m: integer; __sh_all: boolean;
 begin
