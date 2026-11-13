@@ -128,6 +128,7 @@ static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
     tree_t * mrec;
     tree_t * ref;
     tree_t * gv = NULL;
+    tree_t * pre = NULL;
     if (obj->t == TT_FIELD && obj->n > 1 && obj->c[1] && obj->c[1]->t == TT_VAR && cx_find(x->st, obj->c[1]->v.sval)) {
         const char * sup = obj->c[1]->v.sval;
         tree_t * base = cx_expr(obj->c[0], x);
@@ -152,7 +153,7 @@ static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
             char buf[24];
             snprintf(buf, sizeof buf, "%d", ++x->st->tmp);
             char * tmp = cx_cat("__o", buf, "");
-            if (x->st->use_oprec) { gv = cx_bin(TT_ASSIGN, cx_var(tmp), base); mrec = cx_fld(cx_var(tmp), "__m"); } else mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
+            if (x->st->use_oprec) { pre = cx_bin(TT_ASSIGN, cx_var(tmp), base); gv = cx_var(tmp); mrec = cx_fld(cx_var(tmp), "__m"); } else mrec = cx_fld(cx_bin(TT_ASSIGN, cx_var(tmp), base), "__m");
             ref = cx_var(tmp);
         }
     }
@@ -167,7 +168,11 @@ static tree_t * cx_dispatch(tree_t * n, cx_ctx * x) {
     if (!gv) return out;
     for (int i = 1; i < pl->n; i++) if (pl->c[i]) pl->c[i] = cx_expr(pl->c[i], x);
     pl->line = n->line;
-    return cx_guard(gv, out, pl);
+    tree_t * g = cx_guard(gv, out, pl);
+    if (!pre) return g;
+    tree_t * cj = cx_bin(TT_CONJ, pre, g);
+    cj->line = n->line;
+    return cj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
@@ -180,7 +185,8 @@ static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
     }
     if (n->t == TT_FNC && n->n > 0 && n->c[0]) {
         tree_t * f = n->c[0];
-        if (x->st->use_image && f->t == TT_VAR && f->v.sval && !strcmp(f->v.sval, "image") && !cx_has(&x->shadow, "image") && !(x->cls && cx_is_method(x, "image"))) f->v.sval = "__uimage";
+        if (x->st->use_image && f->t == TT_VAR && f->v.sval &&
+            (!strcmp(f->v.sval, "::image") || (!strcmp(f->v.sval, "image") && !cx_has(&x->shadow, "image") && !(x->cls && cx_is_method(x, "image"))))) f->v.sval = "__uimage";
         if (f->t == TT_VAR && f->v.sval && cx_is_method(x, f->v.sval)) {
             tree_t * out = ast_node_new(TT_FNC);
             ast_push(out, cx_fld(cx_fld(cx_var("self"), "__m"), f->v.sval));
@@ -307,7 +313,7 @@ static void cx_sb_add(cx_sb * s, const char * t) {
 }
 static int cx_refs(const tree_t * n, const char * nm) {
     if (!n) return 0;
-    if (n->t == TT_VAR && n->v.sval && !strcmp(n->v.sval, nm)) return 1;
+    if (n->t == TT_VAR && n->v.sval && (!strcmp(n->v.sval, nm) || (n->v.sval[0] == ':' && n->v.sval[1] == ':' && !strcmp(n->v.sval + 2, nm)))) return 1;
     for (int i = 0; i < n->n; i++) if (cx_refs(n->c[i], nm)) return 1;
     return 0;
 }

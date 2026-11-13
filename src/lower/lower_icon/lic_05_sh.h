@@ -7,6 +7,7 @@ __attribute__((visibility("hidden"))) int icn_const_step(const tree_t * s, int64
 __attribute__((visibility("hidden"))) IR_t * lic_lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res);
+__attribute__((visibility("hidden"))) IR_t * lower_globalnames_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 __attribute__((visibility("hidden"))) int icn_field_hint(const tree_t * prog, const char * fn);

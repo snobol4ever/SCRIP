@@ -219,6 +219,34 @@ IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_t * lower_globalnames_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
+    int np = g_stage2.proc_count;
+    int total = 0;
+    for (int i = 0; i < np; i++) if (g_stage2.proc_table[i].name) total++;
+    for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !icn_is_proc(cx->gn[i])) total++;
+    if (!total) return NULL;
+    IR_t * fg = lic_build(cx, IR_ITERATE, γ, ω);
+    IR_t * ml = lic_build(cx, IR_MAKE_LIST, NULL, ω);
+    IR_t * prev = NULL;
+    IR_t * entry = NULL;
+    int emitted = 0;
+    for (int k = 0; k < np + cx->ngn; k++) {
+        const char * nm = k < np ? g_stage2.proc_table[k].name : (cx->gn[k - np] && !icn_is_proc(cx->gn[k - np]) ? cx->gn[k - np] : NULL);
+        if (!nm) continue;
+        IR_t * sn = lic_build(cx, IR_LIT_STRING, ++emitted == total ? ml : NULL, ω);
+        IR_LIT(sn).sval = (char *) nm;
+        if (!entry) entry = sn;
+        if (prev) lc_γ_to(prev, sn);
+        prev = sn;
+        ir_operand_push(ml, sn);
+    }
+    ir_operand_push(fg, ml);
+    lc_γ_to(ml, fg);
+    cx->beta = fg;
+    *res = fg;
+    return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * ml = lic_build(cx, IR_MAKE_LIST, γ, ω);
     if (res) *res = ml;

@@ -106,11 +106,7 @@ tree_t * icn_variable_case(icx_t * cx, const tree_t * t) {
     cx->varcase_arg = t->c[1];
     return e;
 }
-int icn_name_assigned(const char * nm) {
-    if (!nm) return 0;
-    for (int k = 0; k < g_lower.icn.reassigned.n; k++) if (!strcmp(LC_AT(&g_lower.icn.reassigned, const char *, k), nm)) return 1;
-    return 0;
-}
+int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_lower.icn.reassigned.n; k++) if (!strcmp(LC_AT(&g_lower.icn.reassigned, const char *, k), nm)) return 1; return 0; }
 int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
 static int icn_record_reassigned(const char * nm) { extern void * dat_find_type(const char *); return nm && !icn_is_proc(nm) && dat_find_type(nm) && icn_name_assigned(nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -338,6 +334,11 @@ IR_t * lic_lower_call(icx_t * cx, const char * name, const tree_t * t, int argba
     if (name && nargs <= 1 && cx->prog && cx->prog->v.ival && !strcmp(name, "mutex") && icn_callable_proc_index("mutex") < 0) name = "ICN$UMUTEX";
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lic_lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
+    if (name && !strcmp(name, "globalnames") && (nargs == 0 || (nargs == 1 && t->c[argbase] && t->c[argbase]->t == TT_VAR && t->c[argbase]->v.sval && t->c[argbase]->v.sval[0] == '&')) &&
+        icn_callable_proc_index("globalnames") < 0) {
+        IR_t * gg = lower_globalnames_gen(cx, γ, ω, res);
+        if (gg) return gg;
+    }
     if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
     if (name && !strcmp(name, "name") && nargs == 1) {
         const tree_t * na = t->c[argbase];
