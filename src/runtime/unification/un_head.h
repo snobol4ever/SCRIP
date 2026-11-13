@@ -130,7 +130,7 @@ _Static_assert(__builtin_offsetof(pl_db_t, src) == 96, "rtx_gc.s's HB_PLDB visit
 #define PL_IX_FUNC 3
 #define PL_IX_OTHER 4
 #define PL_IX_MIN 8
-typedef struct { int cap; int hcap; int hused; int pad; } pl_ix_t;
+typedef struct { int cap; int hcap; int hused[2]; int deep[2]; int np; int off2; } pl_ix_t;
 typedef struct { int64_t key; int first; int last; } pl_ix_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_first, leaf, 0);
