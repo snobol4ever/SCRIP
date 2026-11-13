@@ -572,6 +572,11 @@ DESCR_t bt_codes(DESCR_t *args, int nargs) {
     if ((nargs - 1) == 0) { return INTVAL((long) utf8_strlen(s)); }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
+static const char *rk_cp_map(unsigned cp, int m, char *buf) {
+    if (cp < 0x80) { buf[0] = (char) (m == 1 ? toupper((int) cp) : tolower((int) cp)); buf[1] = '\0'; return buf; }
+    return rk_case_one(cp, m);
+}
+static int rk_cp_changes(unsigned cp, int m) { char b[16], e[8]; const char *x = rk_cp_map(cp, m, b); e[rk_utf8_put(cp, e)] = '\0'; return x && strcmp(x, e) != 0; }
 DESCR_t bt_samecase(DESCR_t *args, int nargs) {
     char sb[64];
     const char *s = args[0].v == DT_A ? rk_av_joined(rk_av(args[0]), " ", "", "") : IS_REAL_fn(args[0]) ? rk_real_str(args[0].r, sb, (int)sizeof sb) : to_cstring(args[0], sb, sizeof sb);
@@ -582,12 +587,17 @@ DESCR_t bt_samecase(DESCR_t *args, int nargs) {
         const char *pat = to_cstring(args[1 + (0)], pb, sizeof pb);
         if (!pat) pat = "";
         size_t pn = strlen(pat);
-        char *r = (char *) rt_str_alloc(n * 2 + 1);
-        size_t o = 0, pi = 0;
-        for (size_t i = 0; i < n; i++) {
-            unsigned char c = (unsigned char) s[i], pc = pn ? (unsigned char) pat[pi < pn ? pi : pn - 1] : 0;
-            r[o++] = (char) (isupper(pc) ? toupper(c) : islower(pc) ? tolower(c) : c);
-            pi++;
+        char *r = (char *) rt_str_alloc(n * 3 + 1);
+        size_t o = 0, pi = 0, pl = 0, L = 0;
+        unsigned pcp = 0;
+        for (size_t i = 0; i < n; i += L) {
+            unsigned cp = rk_utf8_cp((const unsigned char *) s + i, n - i, &L);
+            char mb[16];
+            if (pi < pn) { pcp = rk_utf8_cp((const unsigned char *) pat + pi, pn - pi, &pl); pi += pl; }
+            const char *rep = rk_cp_changes(pcp, 2) ? rk_cp_map(cp, 1, mb) : rk_cp_changes(pcp, 1) ? rk_cp_map(cp, 2, mb) : NULL;
+            size_t rl = rep ? strlen(rep) : L;
+            memcpy(r + o, rep ? rep : s + i, rl);
+            o += rl;
         }
         r[o] = '\0';
         return STRVAL(r);
