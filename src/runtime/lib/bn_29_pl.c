@@ -551,7 +551,12 @@ int pl_gnu_position(DESCR_t s, long *ch, long *ln, long *lp, pl_tr_ctx_t *cx, co
     exit(2);
 }
 PL_CX_LEAF_HEAD(gnu_stream_line_column, 3)
-    { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "stream_line_column/3") && plw_unify_vals(args[1], INTVAL(l + 1), cx) && plw_unify_vals(args[2], INTVAL(p + 1), cx); }
+    {
+        long c, l, p;
+        extern void pl_gnu_ctx(pl_tr_ctx_t *, const char *, int);
+        ok = pl_gnu_position(args[0], &c, &l, &p, cx, "stream_line_column/3") && plw_unify_vals(args[1], INTVAL(l + 1), cx) && plw_unify_vals(args[2], INTVAL(p + 1), cx);
+        pl_gnu_ctx(cx, "stream_line_column", 3);
+    }
 PL_CX_LEAF_TAIL
 DESCR_t rt_pl_dop_mod_get_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     extern int rt_pl_db_mod_get(void *, const char *, int, int64_t *);

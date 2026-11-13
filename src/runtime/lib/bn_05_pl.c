@@ -708,9 +708,24 @@ PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, 3, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open4, 4) ok = pl_open_leaf(args, 4, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(keysort, 2) { void *b = pl_sort_args_ball(args, 1); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_keysort_cell(&args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_GNU_SORT1_LEAF(gnu_sort1, 0) PL_GNU_SORT1_LEAF(gnu_msort1, 1) PL_GNU_SORT1_LEAF(gnu_keysort1, 2)
-PL_CX_LEAF_HEAD(gnu_line_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_count/2") && plw_unify_vals(args[1], INTVAL(l), cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(gnu_line_position, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_position/2") && plw_unify_vals(args[1], INTVAL(p), cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(gnu_character_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "character_count/2") && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_line_count, 2) {
+    long c, l, p;
+    ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_count/2") && plw_unify_vals(args[1], INTVAL(l), cx);
+    pl_gnu_ctx(cx, "line_count", 2);
+}
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_line_position, 2) {
+    long c, l, p;
+    ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_position/2") && plw_unify_vals(args[1], INTVAL(p), cx);
+    pl_gnu_ctx(cx, "line_position", 2);
+}
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_character_count, 2) {
+    long c, l, p;
+    ok = pl_gnu_position(args[0], &c, &l, &p, cx, "character_count/2") && plw_unify_vals(args[1], INTVAL(c), cx);
+    pl_gnu_ctx(cx, "character_count", 2);
+}
+PL_CX_LEAF_TAIL
 const char *pl_gnu_path_arg(DESCR_t a, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -866,29 +881,62 @@ PL_CX_LEAF_HEAD(set_stream_position, 2)
         const char *nm;
         int si = -1;
         ok = 0;
-        if (pl_val_unbound(sd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+        if (pl_val_unbound(sd)) {
+            cx->ball = rt_pl_ball_instantiation();
+            pl_gnu_ctx(cx, "set_stream_position", 2);
+            return FAILDESCR;
+        }
         nm = pl_atom_str(sd);
         if (nm) {
             si = pl_sp_named(sd);
-            if (si < 0 || !fh_get(si)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; }
+            if (si < 0 || !fh_get(si)) {
+                cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd);
+                pl_gnu_ctx(cx, "set_stream_position", 2);
+                return FAILDESCR;
+            }
         } else if (sd.v == (DTYPE_t)DT_PLREF && plc_fid_name(sd.slen) == prolog_atom_intern("$stream") && plc_fid_arity(sd.slen) == 1) {
             DESCR_t a = rt_pl_deref_val(((DESCR_t *)sd.p)[0]);
-            if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_N || !fh_get((int)a.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; }
+            if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_N || !fh_get((int)a.i)) {
+                cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd);
+                pl_gnu_ctx(cx, "set_stream_position", 2);
+                return FAILDESCR;
+            }
             si = (int)a.i;
         } else {
             cx->ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", sd);
+            pl_gnu_ctx(cx, "set_stream_position", 2);
             return FAILDESCR;
         }
-        if (pl_val_unbound(pd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+        if (pl_val_unbound(pd)) {
+            cx->ball = rt_pl_ball_instantiation();
+            pl_gnu_ctx(cx, "set_stream_position", 2);
+            return FAILDESCR;
+        }
         if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || (plc_fid_arity(pd.slen) == 4 && pl_gnu_dialect())))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
+            pl_gnu_ctx(cx, "set_stream_position", 2);
             return FAILDESCR;
         }
         {
             DESCR_t off = rt_pl_deref_val(((DESCR_t *)pd.p)[0]);
-            if (off.v != DT_I) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd); return FAILDESCR; }
-            if (!fh_repos(si)) { cx->ball = rt_pl_ball_permission3("reposition", "stream", sd); return FAILDESCR; }
-            { FILE *fp = fh_get(si); if (!fp || fseek(fp, (long)off.i, SEEK_SET) != 0) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd); return FAILDESCR; } }
+            if (off.v != DT_I) {
+                cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
+                pl_gnu_ctx(cx, "set_stream_position", 2);
+                return FAILDESCR;
+            }
+            if (!fh_repos(si)) {
+                cx->ball = rt_pl_ball_permission3("reposition", "stream", sd);
+                pl_gnu_ctx(cx, "set_stream_position", 2);
+                return FAILDESCR;
+            }
+            {
+                FILE *fp = fh_get(si);
+                if (!fp || fseek(fp, (long)off.i, SEEK_SET) != 0) {
+                    cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
+                    pl_gnu_ctx(cx, "set_stream_position", 2);
+                    return FAILDESCR;
+                }
+            }
             ok = 1;
         }
     }
