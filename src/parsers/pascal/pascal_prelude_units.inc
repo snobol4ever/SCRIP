@@ -5097,6 +5097,23 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_22_SRC[] =
+    "{$mode objfpc}{$H+}\n"
+    "unit uregexpr;\n"
+    "interface\n"
+    "uses RegExpr;\n"
+    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
+    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
+    "implementation\n"
+    "function ExecRegExpr(const ARegExpr, AInputStr: string): boolean;\n"
+    "begin\n"
+    "  ExecRegExpr := RegExpr.ExecRegExpr(ARegExpr, AInputStr);\n"
+    "end;\n"
+    "function ReplaceRegExpr(const ARegExpr, AInputStr, AReplaceStr: string; AUseSubstitution: boolean): string;\n"
+    "begin\n"
+    "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5125,6 +5142,7 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "sysutils", PAS_PRELUDE_UNIT_19_SRC },
     { "types", PAS_PRELUDE_UNIT_20_SRC },
     { "unix", PAS_PRELUDE_UNIT_21_SRC },
-    { "variants", PAS_PRELUDE_UNIT_22_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_22_SRC },
+    { "variants", PAS_PRELUDE_UNIT_23_SRC },
     { 0, 0 }
 };
