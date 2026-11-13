@@ -528,12 +528,18 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
 int lower_raku_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_raku_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_collect_blocks(const tree_t * t, tree_t ** out, int * n, int max) {
-    if (!t || *n >= max) return;
+    if (!t || *n >= max || t->t == TT_HAS_DECL) return;
     if (t->t == TT_ANON_BLOCK && !t->v.sval) out[(*n)++] = (tree_t *) t;
     for (int i = 0; i < t->n; i++) rk_collect_blocks(t->c[i], out, n, max);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_count_blocks(const tree_t * t) { int n; if (!t) return 0; n = (t->t == TT_ANON_BLOCK && !t->v.sval); for (int i = 0; i < t->n; i++) n += rk_count_blocks(t->c[i]); return n; }
+static int rk_count_blocks(const tree_t * t) {
+    int n;
+    if (!t || t->t == TT_HAS_DECL) return 0;
+    n = (t->t == TT_ANON_BLOCK && !t->v.sval);
+    for (int i = 0; i < t->n; i++) n += rk_count_blocks(t->c[i]);
+    return n;
+}
 static int rk_var_nodes(const tree_t * t) { int n; if (!t) return 0; n = (t->t == TT_VAR); for (int i = 0; i < t->n; i++) n += rk_var_nodes(t->c[i]); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_block_tail_is_value(const tree_t * s) {
