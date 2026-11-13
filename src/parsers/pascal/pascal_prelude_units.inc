@@ -3042,115 +3042,6 @@ static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_16_SRC[] =
-    "unit objects;\n"
-    "interface\n"
-    "const\n"
-    "  stOk = 0;\n"
-    "  stError = -1;\n"
-    "  stInitError = -2;\n"
-    "  stReadError = -3;\n"
-    "  stWriteError = -4;\n"
-    "  stGetError = -5;\n"
-    "  stPutError = -6;\n"
-    "  stSeekError = -7;\n"
-    "  stOpenError = -8;\n"
-    "  stCreate = $3C00;\n"
-    "  stOpenRead = $3D00;\n"
-    "  stOpenWrite = $3D01;\n"
-    "  stOpen = $3D02;\n"
-    "  coIndexError = -1;\n"
-    "  coOverflow = -2;\n"
-    "type\n"
-    "  TObject = object\n"
-    "    constructor Init;\n"
-    "    destructor Done;\n"
-    "  end;\n"
-    "  PObject = ^TObject;\n"
-    "  TStream = object(TObject)\n"
-    "    Status: integer;\n"
-    "    ErrorInfo: integer;\n"
-    "    StreamSize: longint;\n"
-    "    Position: longint;\n"
-    "    constructor Init;\n"
-    "    destructor Done;\n"
-    "    function GetSize: longint;\n"
-    "    function GetPos: longint;\n"
-    "    procedure Seek(Pos: longint);\n"
-    "    procedure Error(Code, Info: integer);\n"
-    "  end;\n"
-    "  PStream = ^TStream;\n"
-    "var\n"
-    "  StreamError: pointer;\n"
-    "implementation\n"
-    "constructor TObject.Init;\n"
-    "begin\n"
-    "end;\n"
-    "destructor TObject.Done;\n"
-    "begin\n"
-    "end;\n"
-    "constructor TStream.Init;\n"
-    "begin\n"
-    "  Status := stOk;\n"
-    "  ErrorInfo := 0;\n"
-    "  StreamSize := 0;\n"
-    "  Position := 0\n"
-    "end;\n"
-    "destructor TStream.Done;\n"
-    "begin\n"
-    "end;\n"
-    "function TStream.GetSize: longint;\n"
-    "begin\n"
-    "  GetSize := StreamSize\n"
-    "end;\n"
-    "function TStream.GetPos: longint;\n"
-    "begin\n"
-    "  GetPos := Position\n"
-    "end;\n"
-    "procedure TStream.Seek(Pos: longint);\n"
-    "begin\n"
-    "  Position := Pos\n"
-    "end;\n"
-    "procedure TStream.Error(Code, Info: integer);\n"
-    "begin\n"
-    "  Status := Code;\n"
-    "  ErrorInfo := Info\n"
-    "end;\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
-    "unit process;\n"
-    "interface\n"
-    "uses sysutils;\n"
-    "type\n"
-    "  EProcess = class(Exception);\n"
-    "  TProcess = class\n"
-    "  private\n"
-    "    FActive: boolean;\n"
-    "    FExecutable: string;\n"
-    "    procedure SetActive(AValue: boolean);\n"
-    "  public\n"
-    "    constructor Create(AOwner: TObject);\n"
-    "    procedure Execute;\n"
-    "    property Active: boolean read FActive write SetActive;\n"
-    "    property Executable: string read FExecutable write FExecutable;\n"
-    "  end;\n"
-    "implementation\n"
-    "constructor TProcess.Create(AOwner: TObject);\n"
-    "begin\n"
-    "  FActive := false;\n"
-    "  FExecutable := ''\n"
-    "end;\n"
-    "procedure TProcess.Execute;\n"
-    "begin\n"
-    "  if FExecutable = '' then raise EProcess.Create('Executable not set');\n"
-    "  FActive := true\n"
-    "end;\n"
-    "procedure TProcess.SetActive(AValue: boolean);\n"
-    "begin\n"
-    "  if AValue then Execute\n"
-    "  else FActive := false\n"
-    "end;\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit RegExpr;\n"
     "interface\n"
@@ -3786,7 +3677,7 @@ static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "  r.Free;\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_19_SRC[] =
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -3891,13 +3782,13 @@ static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_20_SRC[] =
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_21_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -4071,7 +3962,7 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_22_SRC[] =
+static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -4079,7 +3970,7 @@ static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -4261,7 +4152,7 @@ static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_24_SRC[] =
+static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -5284,7 +5175,7 @@ static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_25_SRC[] =
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -5305,13 +5196,13 @@ static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_26_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "{$mode objfpc}\n"
     "unit unicodeducet;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_27_SRC[] =
+static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5337,7 +5228,7 @@ static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_28_SRC[] =
+static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit uregexpr;\n"
     "interface\n"
@@ -5354,7 +5245,7 @@ static const char PAS_PRELUDE_UNIT_28_SRC[] =
     "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_29_SRC[] =
+static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5377,19 +5268,17 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "gmp", PAS_PRELUDE_UNIT_13_SRC },
     { "ioerr", PAS_PRELUDE_UNIT_14_SRC },
     { "math", PAS_PRELUDE_UNIT_15_SRC },
-    { "objects", PAS_PRELUDE_UNIT_16_SRC },
-    { "process", PAS_PRELUDE_UNIT_17_SRC },
-    { "regexpr", PAS_PRELUDE_UNIT_18_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_19_SRC },
-    { "strings", PAS_PRELUDE_UNIT_20_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_21_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_22_SRC },
-    { "system", PAS_PRELUDE_UNIT_23_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_24_SRC },
-    { "types", PAS_PRELUDE_UNIT_25_SRC },
-    { "unicodeducet", PAS_PRELUDE_UNIT_26_SRC },
-    { "unix", PAS_PRELUDE_UNIT_27_SRC },
-    { "uregexpr", PAS_PRELUDE_UNIT_28_SRC },
-    { "variants", PAS_PRELUDE_UNIT_29_SRC },
+    { "regexpr", PAS_PRELUDE_UNIT_16_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_17_SRC },
+    { "strings", PAS_PRELUDE_UNIT_18_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_19_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_20_SRC },
+    { "system", PAS_PRELUDE_UNIT_21_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_22_SRC },
+    { "types", PAS_PRELUDE_UNIT_23_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_24_SRC },
+    { "unix", PAS_PRELUDE_UNIT_25_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_26_SRC },
+    { "variants", PAS_PRELUDE_UNIT_27_SRC },
     { 0, 0 }
 };
