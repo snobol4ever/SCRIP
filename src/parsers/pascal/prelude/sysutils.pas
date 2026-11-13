@@ -4,6 +4,7 @@ interface
 type
   TDateTime = double;
   TFileName = string;
+  Int128Rec = record Lo, Hi: QWord; end;
   TStringSplitOptions = (None, ExcludeEmpty, ExcludeLastEmpty);
   TStringArray = array of string;
   TReplaceFlag = (rfReplaceAll, rfIgnoreCase);

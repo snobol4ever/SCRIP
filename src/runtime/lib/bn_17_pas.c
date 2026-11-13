@@ -5,6 +5,7 @@
 #include "runtime/builtin_ids.h"
 #include "runtime/builtin_leaf.h"
 #include <errno.h>
+#include <cpuid.h>
 #include "runtime/pas_bi_names.h"
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_08_sh.h"
@@ -465,6 +466,20 @@ DESCR_t pas_preview(DESCR_t *args, int nargs) {
     p.src_node2 = (uint8_t)((p.src_node2 & (7 | PAS_VIEW_STR | PAS_VIEW_RAW)) | ((code >> 16) & 56));
     return p;
 }
+DESCR_t pas_cpuid(DESCR_t *args, int nargs) {
+    (void) nargs;
+    unsigned r[4] = { 0, 0, 0, 0 };
+    long long reg = rk_ival(args[2]);
+    if (reg < 0 || reg > 4) return INTVAL(0);
+    if (reg == 4) {
+        unsigned lo = 0, hi = 0;
+        if (!__get_cpuid_count(1, 0, &r[0], &r[1], &r[2], &r[3]) || !(r[2] & 0x08000000u)) return INTVAL(0);
+        __asm__ volatile("xgetbv" : "=a"(lo), "=d"(hi) : "c"(0));
+        return INTVAL((long long) lo);
+    }
+    if (!__get_cpuid_count((unsigned) rk_ival(args[0]), (unsigned) rk_ival(args[1]), &r[0], &r[1], &r[2], &r[3])) return INTVAL(0);
+    return INTVAL((long long) r[reg]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pas_pcell(void *base, long idx) { return (DESCR_t){ .v = DT_PCELL, .slen = (uint32_t)(int32_t) idx, .ptr = base }; }
 static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn) {
@@ -879,6 +894,8 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         return pas_pview(args, nargs);
         case PBI_preview:
         return pas_preview(args, nargs);
+        case PBI_cpuid:
+        return pas_cpuid(args, nargs);
         case PBI_pstrview:
         return pas_pstrview(args, nargs);
         case PBI_xr_cvt:

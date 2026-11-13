@@ -750,6 +750,51 @@ static const char PAS_PRELUDE_UNIT_1_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_2_SRC[] =
+    "unit cpu;\n"
+    "interface\n"
+    "uses sysutils;\n"
+    "function InterlockedCompareExchange128Support: boolean;\n"
+    "function AESSupport: boolean;\n"
+    "function AVXSupport: boolean;\n"
+    "function AVX2Support: boolean;\n"
+    "function FMASupport: boolean;\n"
+    "function POPCNTSupport: boolean;\n"
+    "var is_sse3_cpu: boolean;\n"
+    "function InterlockedCompareExchange128(var Target: Int128Rec; NewValue: Int128Rec; Comperand: Int128Rec): Int128Rec;\n"
+    "implementation\n"
+    "function InterlockedCompareExchange128Support: boolean;\n"
+    "begin\n"
+    "  InterlockedCompareExchange128Support := (__pas_cpuid(1, 0, 2) and $2000) <> 0\n"
+    "end;\n"
+    "function AESSupport: boolean;\n"
+    "begin\n"
+    "  AESSupport := (__pas_cpuid(1, 0, 2) and $2000000) <> 0\n"
+    "end;\n"
+    "function POPCNTSupport: boolean;\n"
+    "begin\n"
+    "  POPCNTSupport := (__pas_cpuid(1, 0, 2) and $800000) <> 0\n"
+    "end;\n"
+    "function AVXSupport: boolean;\n"
+    "begin\n"
+    "  AVXSupport := ((__pas_cpuid(1, 0, 2) and $8000000) <> 0) and ((__pas_cpuid(0, 0, 4) and 6) = 6) and ((__pas_cpuid(1, 0, 2) and $10000000) <> 0)\n"
+    "end;\n"
+    "function FMASupport: boolean;\n"
+    "begin\n"
+    "  FMASupport := AVXSupport and ((__pas_cpuid(1, 0, 2) and $1000) <> 0)\n"
+    "end;\n"
+    "function AVX2Support: boolean;\n"
+    "begin\n"
+    "  AVX2Support := AVXSupport and ((__pas_cpuid(7, 0, 1) and $20) <> 0)\n"
+    "end;\n"
+    "function InterlockedCompareExchange128(var Target: Int128Rec; NewValue: Int128Rec; Comperand: Int128Rec): Int128Rec;\n"
+    "begin\n"
+    "  InterlockedCompareExchange128 := Target;\n"
+    "  if (Target.Lo = Comperand.Lo) and (Target.Hi = Comperand.Hi) then Target := NewValue\n"
+    "end;\n"
+    "begin\n"
+    "  is_sse3_cpu := (__pas_cpuid(1, 0, 2) and 1) <> 0\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_3_SRC[] =
     "unit crt;\n"
     "interface\n"
     "const\n"
@@ -1105,7 +1150,7 @@ static const char PAS_PRELUDE_UNIT_2_SRC[] =
     "  CrtLastAnsi := false;\n"
     "  CrtAnsiCode := ''\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_3_SRC[] =
+static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "{$mode objfpc}\n"
     "unit cthreads;\n"
     "interface\n"
@@ -1115,7 +1160,7 @@ static const char PAS_PRELUDE_UNIT_3_SRC[] =
     "begin\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_4_SRC[] =
+static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "{$mode objfpc}\n"
     "unit cwstring;\n"
     "interface\n"
@@ -1125,7 +1170,7 @@ static const char PAS_PRELUDE_UNIT_4_SRC[] =
     "begin\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_5_SRC[] =
+static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "{$H+}\n"
     "unit dos;\n"
     "interface\n"
@@ -1154,7 +1199,7 @@ static const char PAS_PRELUDE_UNIT_5_SRC[] =
     "  __sh_c := __sh_c div 10\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_6_SRC[] =
+static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "{$H+}\n"
     "unit dynlibs;\n"
     "interface\n"
@@ -1164,7 +1209,7 @@ static const char PAS_PRELUDE_UNIT_6_SRC[] =
     "  NilHandle = 0;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_7_SRC[] =
+static const char PAS_PRELUDE_UNIT_8_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit fgl;\n"
     "interface\n"
@@ -1460,19 +1505,6 @@ static const char PAS_PRELUDE_UNIT_7_SRC[] =
     "  SetLength(__sh_vals, 0);\n"
     "  __sh_n := 0;\n"
     "  __sh_cap := 0;\n"
-    "end;\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_8_SRC[] =
-    "{$mode objfpc}\n"
-    "unit fpwidestring;\n"
-    "interface\n"
-    "var\n"
-    "  DefaultCollationName : UnicodeString;\n"
-    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
-    "implementation\n"
-    "function SetActiveCollation(const AName : UnicodeString) : Boolean;\n"
-    "begin\n"
-    "  Result := False;\n"
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_9_SRC[] =
@@ -4047,6 +4079,7 @@ static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "type\n"
     "  TDateTime = double;\n"
     "  TFileName = string;\n"
+    "  Int128Rec = record Lo, Hi: QWord; end;\n"
     "  TStringSplitOptions = (None, ExcludeEmpty, ExcludeLastEmpty);\n"
     "  TStringArray = array of string;\n"
     "  TReplaceFlag = (rfReplaceAll, rfIgnoreCase);\n"
@@ -5084,12 +5117,6 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "implementation\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_22_SRC[] =
-    "{$mode objfpc}\n"
-    "unit unicodeducet;\n"
-    "interface\n"
-    "implementation\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5115,7 +5142,7 @@ static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_24_SRC[] =
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5124,13 +5151,13 @@ static const char PAS_PRELUDE_UNIT_24_SRC[] =
 static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "classes", PAS_PRELUDE_UNIT_0_SRC },
     { "contnrs", PAS_PRELUDE_UNIT_1_SRC },
-    { "crt", PAS_PRELUDE_UNIT_2_SRC },
-    { "cthreads", PAS_PRELUDE_UNIT_3_SRC },
-    { "cwstring", PAS_PRELUDE_UNIT_4_SRC },
-    { "dos", PAS_PRELUDE_UNIT_5_SRC },
-    { "dynlibs", PAS_PRELUDE_UNIT_6_SRC },
-    { "fgl", PAS_PRELUDE_UNIT_7_SRC },
-    { "fpwidestring", PAS_PRELUDE_UNIT_8_SRC },
+    { "cpu", PAS_PRELUDE_UNIT_2_SRC },
+    { "crt", PAS_PRELUDE_UNIT_3_SRC },
+    { "cthreads", PAS_PRELUDE_UNIT_4_SRC },
+    { "cwstring", PAS_PRELUDE_UNIT_5_SRC },
+    { "dos", PAS_PRELUDE_UNIT_6_SRC },
+    { "dynlibs", PAS_PRELUDE_UNIT_7_SRC },
+    { "fgl", PAS_PRELUDE_UNIT_8_SRC },
     { "generics.collections", PAS_PRELUDE_UNIT_9_SRC },
     { "generics.defaults", PAS_PRELUDE_UNIT_10_SRC },
     { "gmp", PAS_PRELUDE_UNIT_11_SRC },
@@ -5144,8 +5171,7 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "system", PAS_PRELUDE_UNIT_19_SRC },
     { "sysutils", PAS_PRELUDE_UNIT_20_SRC },
     { "types", PAS_PRELUDE_UNIT_21_SRC },
-    { "unicodeducet", PAS_PRELUDE_UNIT_22_SRC },
-    { "unix", PAS_PRELUDE_UNIT_23_SRC },
-    { "variants", PAS_PRELUDE_UNIT_24_SRC },
+    { "unix", PAS_PRELUDE_UNIT_22_SRC },
+    { "variants", PAS_PRELUDE_UNIT_23_SRC },
     { 0, 0 }
 };

@@ -61,7 +61,7 @@ __attribute__((visibility("hidden"))) const bt_leaf_t g_bt_leaf[BT_ROWS] = { bt_
     bt_ICNx24UMAX, bt_ICNx24UMIN, bt_ICNx24UPCAT, bt_ICNx24URECEIVE, bt_ICNx24UUNION, bt_ICNx24UINTER, bt_ICNx24UDIFF, bt_ICNx24SEND, bt_ICNx24RECV, bt_ICNx24USEND, bt_ICNx24THREAD, bt_ICNx24SCHED,
     bt_ICNx24THREAD_END, bt_ICNx24DONE, bt_ICNx24UTABLE, bt_ICNx24LOCK_TRY, bt_ICNx24UNLOCK, bt_ICNx24UCURSOR, bt_ICNx24USIGTRAP, bt_ICNx24USIGTAKE, bt_ICNx24USIGNAME, bt_ICNx24UATTRIB,
     bt_ICNx24USERIAL, bt_ICNx24UCONDVAR, bt_ICNx24USIGNAL, bt_ICNx24CV_WAIT, bt_ICNx24CV_WOKEN, bt_ICNx24ULIST, bt_arr_make_raw, bt_arr_slice, 0, 0, 0, bt_ICNx24UTRIM, bt___rk_attr_assign,
-    bt___rk_dyn_notfound, };
+    bt___rk_dyn_notfound, 0, };
 __attribute__((visibility("hidden"))) const bt_open_t g_bt_open[BT_ROWS] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_APPLY, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt_EVAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -83,4 +83,4 @@ __attribute__((visibility("hidden"))) const bt_open_t g_bt_open[BT_ROWS] = { 0, 
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, bt___rk_meth_nc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };

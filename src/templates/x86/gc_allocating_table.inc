@@ -1023,6 +1023,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_ch_of", GC_RET_OTHER },
     { "pas_chars_full", GC_RET_DESCR },
     { "pas_chars_of", GC_RET_DESCR },
+    { "pas_cpuid", GC_RET_DESCR },
     { "pas_deref_set", GC_RET_DESCR },
     { "pas_dyn_block", GC_RET_DESCR },
     { "pas_dynset", GC_RET_DESCR },
