@@ -26,6 +26,7 @@ type PExtended = ^Extended;
 type TVarRec = record VType: Byte; VInteger: LongInt; VBoolean: Boolean; VChar: Char; VExtended: PExtended; VString: Pointer; VPointer: Pointer; VPChar: Pointer; VObject: TObject; VClass: Pointer; VAnsiString: Pointer; VCurrency: Pointer; VInt64: Int64; VQWord: QWord; VUnicodeString: Pointer; end;
 var stdout, stderr, erroutput: text;
 var DefaultSystemCodePage: TSystemCodePage;
+var IsMultiThread: boolean;
 function StrLen(const sv: string): integer;
 function BsrQWord(qv: int64): integer;
 function BsrDWord(qv: int64): integer;
