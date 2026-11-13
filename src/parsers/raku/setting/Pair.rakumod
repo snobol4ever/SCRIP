@@ -1,0 +1,1 @@
+class Pair { has $.key; has $!value; multi method new($k, $v) { $k => $v }; multi method new(:$key, :$value) { $key => $value }; method value is rw { $!value }; method kv { (self.key, $!value) }; method antipair { $!value => self.key } }

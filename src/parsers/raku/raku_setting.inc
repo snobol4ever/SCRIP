@@ -45,6 +45,8 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "multi sub atan2(\\y) { y.atan2 }\n"
     "multi sub atan2(\\y, \\x) { y.atan2(x) }\n";
 static const char RK_SETTING_MODULE_1_SRC[] =
+    "class Pair { has $.key; has $!value; multi method new($k, $v) { $k => $v }; multi method new(:$key, :$value) { $key => $value }; method value is rw { $!value }; method kv { (self.key, $!value) }; method antipair { $!value => self.key } }\n";
+static const char RK_SETTING_MODULE_2_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"
     "# Rakudo's lib/Test.rakumod (rakudo 2026.05), Artistic License 2.0, adapted for SCRIP's Raku setting\n"
@@ -561,7 +563,7 @@ static const char RK_SETTING_MODULE_1_SRC[] =
     "    exit($num_of_tests_failed min 254) if $num_of_tests_failed > 0;\n"
     "    exit(255) if !$no_plan && ($num_of_tests_planned or $num_of_tests_run) && $num_of_tests_planned != $num_of_tests_run;\n"
     "}\n";
-static const char RK_SETTING_MODULE_2_SRC[] =
+static const char RK_SETTING_MODULE_3_SRC[] =
     "unit module Test::Util;\n"
     "# roast's packages/Test-Helpers/lib/Test/Util.rakumod, Artistic License 2.0, adapted for SCRIP's Raku setting\n"
     "# (ARCH-RAKU-TO-100.md section 1.2 (c), R-2044): get_out runs the child through the __rk_run_child leaf\n"
@@ -656,7 +658,8 @@ static const char RK_SETTING_MODULE_2_SRC[] =
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
     { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines keys values kv pairs elems end ords splice floor ceiling round truncate sign log2 log10 sinh cosh tanh asinh acosh atanh asin acos sec cosec cotan is-prime atan2 $*SPEC " },
-    { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
-    { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of make-rand-path make-temp-path make-temp-file make-temp-dir " },
+    { "Pair", RK_SETTING_MODULE_1_SRC, "" },
+    { "Test", RK_SETTING_MODULE_2_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
+    { "Test::Util", RK_SETTING_MODULE_3_SRC, " get_out is_run is-eqv group-of make-rand-path make-temp-path make-temp-file make-temp-dir " },
     { 0, 0, 0 }
 };

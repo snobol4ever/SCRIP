@@ -689,6 +689,12 @@ int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs,
                 return script_try_call_builtin_by_name_rq("meth_call", fwd, nargs, out, rq);
             }
         }
+        if (!meth_is_user_proc(procname) && rk_is_pair(args[0])) {
+            DESCR_t *lfw = rt_ws_alloc_descr((size_t)nargs);
+            for (int k = 0; k < nargs; k++) lfw[k] = args[k];
+            lfw[0] = rk_pair_legacy(args[0]);
+            return script_try_call_builtin_by_name_rq("meth_call", lfw, nargs, out, rq);
+        }
         if (!meth_is_user_proc(procname) && rk_mu_method(mname, args[0], nargs - 2, out)) return 1;
         int nextra = nargs - 2;
         int total = 1 + nextra;

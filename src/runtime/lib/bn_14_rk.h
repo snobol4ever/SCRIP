@@ -21,6 +21,7 @@ __attribute__((visibility("hidden"))) int rk_is_sigval(DESCR_t v);
 __attribute__((visibility("hidden"))) int rk_is_paramval(DESCR_t v);
 __attribute__((visibility("hidden"))) DESCR_t rk_typeobj(const char *nm);
 extern __attribute__((visibility("hidden"))) const char rk_proto_pair[5];
+__attribute__((visibility("hidden"))) DESCR_t rk_pair_legacy(DESCR_t v);
 extern __attribute__((visibility("hidden"))) const char rk_proto_jct_any[4];
 extern __attribute__((visibility("hidden"))) const char rk_proto_jct_all[4];
 extern __attribute__((visibility("hidden"))) const char rk_proto_jct_one[4];

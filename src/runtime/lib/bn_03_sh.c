@@ -82,6 +82,7 @@ char *rtos(double r, char *buf, size_t cap) {
 const char *rk_cstr(DESCR_t v) {
     if (IS_REAL_fn(v)) { char *b = rt_wsb_alloc(64); return rk_real_str(v.r, b, 64); }
     if (v.v == DT_A && v.arr) return rk_arr_text(v);
+    if (v.v == DT_DATA && rk_is_pair(v)) return rk_arr_text(v);
     if (v.v == DT_T && v.tbl) return rk_tbl_text(v);
     if (v.v == DT_DATA && rk_match_is(v)) return rk_match_text(v);
     if (v.v == DT_DATA && rk_qh_is(v)) return rk_qh_render(v, 0);
@@ -98,6 +99,7 @@ DESCR_t rk_slot(const ARBLK_t *b, long k) { DESCR_t d = b->data[k]; return ((b->
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rk_av_t rk_av(DESCR_t v) {
     rk_av_t a = { 0, NULL };
+    if (IS_DATA_INST_fn(v) && v.u && rk_is_pair(v)) { a.n = 2; a.el = v.u->fields; return a; }
     if (rk_is_seq(v)) { rk_seq_reify(&v, -1L); v = ((ARBLK_t *) v.arr)->data[3]; }
     if (v.v == DT_A && v.arr) {
         ARBLK_t *b = (ARBLK_t *) v.arr;
@@ -572,8 +574,11 @@ DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v) {
     DESCR_t kv[2];
     kv[0] = IS_STR_fn(k) && !rk_typeobj_name(k) && !rk_is_slip(k) ? k : rk_one(k);
     kv[1] = IS_STR_fn(v) && !rk_typeobj_name(v) && !rk_is_slip(v) ? v : rk_one(v);
-    DESCR_t p = rk_mk_arr(kv, 2);
-    ((ARBLK_t *) p.arr)->proto = rk_proto_pair;
+    DESCR_t p = NULVCL;
+    { DATBLK_t *pt = dat_find_type(rk_proto_pair); if (pt && pt->nfields == 2 && !strcmp(pt->fields[0], "key")) p = DATCON_fn(rk_proto_pair, NULVCL); }
+    if (!IS_DATA_INST_fn(p)) { p = rk_mk_arr(kv, 2); ((ARBLK_t *) p.arr)->proto = rk_proto_pair; return p; }
+    p.u->fields[0] = kv[0];
+    p.u->fields[1] = kv[1];
     return p;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -877,6 +882,7 @@ DESCR_t proc_as_value(const char *name) {
 void out_write_str(FILE *dest, const char *s) { if (!s || !*s) return; fputs(s, dest); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
+    if (rk_is_pair(d)) return use_gist ? rk_gist_str(d) : rk_arr_text(d);
     { extern int rk_rat_is(DESCR_t); extern const char *rk_rat_str(DESCR_t, int); if (rk_rat_is(d)) return rk_rat_str(d, 0); }
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && rk_uni_is_name(d.u->type->name)) { DESCR_t ur; if (rk_uni_method(use_gist ? "gist" : "Str", d, 0, &ur)) return rk_cstr(ur); }

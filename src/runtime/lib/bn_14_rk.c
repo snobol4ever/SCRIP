@@ -57,7 +57,17 @@ const char rk_proto_jct_all[] = "all";
 const char rk_proto_jct_one[] = "one";
 const char rk_proto_jct_none[] = "none";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rk_is_pair(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_pair; }
+int rk_is_pair(DESCR_t v) {
+    return (v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_pair) ||
+        (IS_DATA_INST_fn(v) && v.u && v.u->type && v.u->type->name && !strcmp(v.u->type->name, rk_proto_pair) && v.u->type->nfields == 2 && !strcmp(v.u->type->fields[0], "key"));
+}
+DESCR_t rk_pair_legacy(DESCR_t v) {
+    if (!(IS_DATA_INST_fn(v) && v.u)) return v;
+    DESCR_t kv[2] = { v.u->fields[0], v.u->fields[1] };
+    DESCR_t p = rk_mk_arr(kv, 2);
+    ((ARBLK_t *) p.arr)->proto = rk_proto_pair;
+    return p;
+}
 int rk_hy_seq(DESCR_t v) { return v.v == DT_A && v.arr && !rk_is_pair(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_is_jct(DESCR_t v) {
@@ -716,6 +726,10 @@ DESCR_t bt___rk_unpack_named(DESCR_t *args, int nargs) {
     DESCR_t *const out = &_bo;
     if (nargs == 2) {
         if (args[0].v == DT_T && args[0].tbl) { int found = 0; DESCR_t v = table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found); return found ? v : rk_typeobj("Any"); }
+        if (IS_DATA_INST_fn(args[0]) && rk_is_pair(args[0]) && IS_STR_fn(args[1]) && args[1].s) {
+            if (!strcmp(args[1].s, "key")) return args[0].u->fields[0];
+            if (!strcmp(args[1].s, "value")) return args[0].u->fields[1];
+        }
         DESCR_t ma[2] = { args[0], args[1] };
         if (script_try_call_builtin_by_name("meth_call", ma, 2, out) && !IS_FAIL_fn(*out)) return _bo;
         return rk_typeobj("Any");

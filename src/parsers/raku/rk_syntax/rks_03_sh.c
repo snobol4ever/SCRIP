@@ -589,6 +589,7 @@ static int core_name_declared(RkP *p, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void import_core_used(RkP *p) {
+    if (!p->pair_imported && !p->load_depth && strncmp(p->file, "<setting>/", 10)) { p->pair_imported = 1; import_module(p, "Pair"); }
     if (p->core_imported || (!p->ncore_uses && !p->want_core) || !strncmp(p->file, "<setting>/", 10)) return;
     if (p->want_core && !core_name_declared(p, "Supply", 6)) {
         p->core_imported = 1;
@@ -766,6 +767,9 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     char **names = NULL; int nn = 0, cn = 0;
     rk_mod_names(t, &names, &nn, &cn);
     for (int i = 0; i < nb; i++) rk_mod_names(bgn[i], &names, &nn, &cn);
+    int user_pair = 0;
+    for (int i = 0; t && i < t->n; i++) { const tree_t * ud = rk_mod_subj(t->c[i]); const char * un = rk_mod_decl_name(ud); if (un && !strcmp(un, "Pair")) user_pair = 1; }
+    if (!user_pair) { RK_GROW(names, nn, cn, char *); names[nn++] = (char *) "Pair"; }
     char *taken = (char *) ct_alloc((size_t) nc + 1);
     memset(taken, 0, (size_t) nc + 1);
     for (int grew = 1; grew; ) {
@@ -774,6 +778,7 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
             if (taken[i]) continue;
             const tree_t *d = rk_mod_subj(cand[i]);
             if (!rk_mod_named(names, nn, rk_mod_decl_name(d))) continue;
+            if (user_pair && !strcmp(rk_mod_decl_name(d), "Pair")) continue;
             taken[i] = 1; grew = 1;
             rk_mod_names(d, &names, &nn, &cn);
         }
