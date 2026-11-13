@@ -983,7 +983,14 @@ RT_ENTRY_DECL(rt_trace_fail_hook, leaf, 0);
 void rt_trace_fail_hook(const char *fname) { rt_trace_fail_hook_ip(fname, 0, (trace_pend_t *)0, 0); }
 void rt_trace_return_hook_ip(const char *fname, DESCR_t retval, long island, trace_pend_t *pend, long long rstno) {
     extern const char *rt_proc_trace_canon(const char *);
-    if (!trace_idle()) rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_runtime.abi.stno, island, pend, rstno);
+    if (trace_idle()) return;
+    extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *);
+    DESCR_t *rc = IS_FAIL(retval) ? (DESCR_t *)0 : NV_CELL_IF_FASTSET_fn(rt_proc_trace_canon(fname));
+    DESCR_t old = rc ? *rc : NULVCL;
+    if (rc) *rc = retval;
+    rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_runtime.abi.stno, island, pend, rstno);
+    if (!rc) return;
+    if (pend && pend->args[0].v) { pend->val = old; pend->hook = INTVAL(0); pend->hook.slen = 2; } else *rc = old;
 }
 RT_ENTRY_DECL(rt_trace_return_hook_p, leaf, 0);
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno) { rt_trace_return_hook_ip(fname, retval, 0, pend, rstno); }
@@ -1526,6 +1533,7 @@ void rt_trace_pend_close(trace_pend_t *pend) {
     pend->saved_ftrace = INTVAL(0);
     pend->args[0].v = 0;
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
+    if (pend->hook.slen == 2) { extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *); DESCR_t *rc = NV_CELL_IF_FASTSET_fn(pend->args[1].s); if (rc) *rc = pend->val; }
     pend->hook.slen = 0;
 }
 RT_ENTRY_DECL(rt_call_pend_close, leaf, 0);

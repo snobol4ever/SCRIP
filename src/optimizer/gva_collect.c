@@ -76,7 +76,12 @@ int gva_trace_demoted(void) { return g_lower.opt.gva_trace_demote; }
 static int gva_trace_type_provably_non_access(IR_t *arg) {
     if (!arg) return 0;
     if (arg->op != IR_LIT_NAME && arg->op != IR_LIT_STRING) return 0;
-    { const char *t = IR_LIT(arg).sval; if (!t) return 0; if (strcasecmp(t, "A") == 0 || strcasecmp(t, "ACCESS") == 0) return 0; return 1; }
+    {
+        const char *t = IR_LIT(arg).sval;
+        if (!t) return 0;
+        if (strcasecmp(t, "A") == 0 || strcasecmp(t, "ACCESS") == 0 || strcasecmp(t, "FUNCTION") == 0 || strcasecmp(t, "CALL") == 0 || strcasecmp(t, "RETURN") == 0) return 0;
+        return 1;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_trace_demote_scan_graph(struct IR_graph_t *g) {

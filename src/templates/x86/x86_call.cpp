@@ -292,8 +292,9 @@ std::string x86_pl_tr_undo_prestep(int l_skip) { return x86("mov", "rax", "r12")
 std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86_pl_tr_undo_prestep(l_loop + 7) + x86("mov", "rsi", mark_mem) +
     x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_head() + x86("je", L(l_loop)) + x86_pl_tr_pop_restore() + x86("jmp", L(l_loop)) +
     x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
+extern "C" int gva_trace_demoted(void);
 int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN");
-    v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_runtime.abi.monitor_bin) ? 1 : 0); } return v; }
+    v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_runtime.abi.monitor_bin) ? 1 : 0); } return v || gva_trace_demoted(); }
 int x86_trace_taps_on() { return x86_trace_hooks_on() || (g_emit_cfg && g_emit_cfg->trace_taps); }
 int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
