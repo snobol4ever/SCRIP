@@ -574,7 +574,8 @@ static void rk_indirect_lit_names(tree_t * t) {
     const char * s = t->c[0]->v.sval;
     if (!isalpha((unsigned char) s[0]) || strpbrk(s, ":*?!<>[]()$@%&. ")) return;
     char nb[strlen(s) + 2];
-    snprintf(nb, sizeof nb, "&%s", s);
+    const char * pre = t->v.sval[0] == '$' ? "" : t->v.sval;
+    snprintf(nb, sizeof nb, "%s%s", pre, s);
     t->v.sval = (char *) intern(nb);
     t->slen &= ~RK_VAR_INDIRECT;
     t->n = 0;

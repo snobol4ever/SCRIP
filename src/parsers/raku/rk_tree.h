@@ -114,6 +114,7 @@ void     rkb_set_st_lookup(RkB *b, const char *(*look)(void *, const char *, int
 tree_t  *rkb_bracket(RkB *b, RkList *L);
 void     rkb_var(RkB *b, RkTerm *it, int from, int to, const char *named_capture, int nclen);
 void     rkb_indirect_code(RkB *b, RkTerm *it, tree_t *name);
+void     rkb_indirect_var(RkB *b, RkTerm *it, tree_t *name, char sig);
 void     rkb_number(RkB *b, RkTerm *it, int from, int to);
 void     rkb_set_rad_inner(RkB *b, tree_t *t);
 void     rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl, int bf, int bt, int qf);
