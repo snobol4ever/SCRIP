@@ -42,7 +42,10 @@ static int r_statement_prefix(RkP *p, int pos) {
     for (int i = 0; pre[i]; i++) {
         int e = kok(p, pos, pre[i]);
         if (e >= 0) {
+            int sd = p->sup_depth, sup = !strcmp(pre[i], "react") || !strcmp(pre[i], "supply");
+            p->sup_depth += sup;
             int f = r_blorst(p, e);
+            p->sup_depth = sd;
             if (p->build) { tree_t *t = taketv(p); int isblk = p->blk_n == -1 || ch(p, e) == '{'; rkb_sprefix_term(p->B, &p->tm, pos, f, pre[i], (int) strlen(pre[i]), isblk ? t : NULL,
                 isblk ? NULL : t); }
             return f;

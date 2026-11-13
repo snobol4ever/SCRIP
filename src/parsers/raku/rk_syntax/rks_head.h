@@ -32,7 +32,7 @@ typedef struct RkP {
     int hw;
     int *wsmark; unsigned char *endmark;
     int goal; int qsigil; int in_meta; int in_reduce; int invocant_ok; int in_decl; int leftsigil; int in_proto; int multiness;
-    int has_self; int scope; int in_regex_assert;
+    int has_self; int scope; int in_regex_assert; int sup_depth;
     const char *ustop; int ustop_len;
     int p5isms;
     char **libs; int nlibs; int clibs; int load_depth;

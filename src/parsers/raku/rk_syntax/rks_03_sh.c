@@ -477,7 +477,10 @@ int r_statement_control(RkP *p, int pos) {
         if (p->build) { rkb_set_after_line(p->B, q); p->tv = rkb_for(p->B, p->xb_cond, p->xb_sig, p->xb_blk); }
         return q;
     }
-    if ((e = kok(p, pos, "whenever")) >= 0) { int q = r_xblock(p, e, 2); p->tv = NULL; return q; }
+    if ((e = kok(p, pos, "whenever")) >= 0) {
+        if (!p->sup_depth) panic_at(p, pos, "Cannot have a 'whenever' block outside the scope of a 'supply' or 'react' block");
+        int q = r_xblock(p, e, 2); p->tv = NULL; return q;
+    }
     if ((e = kw_end(p, pos, "foreach")) >= 0) panic_at(p, pos, "Unsupported use of 'foreach'; in Raku please use 'for'");
     if ((e = kok(p, pos, "loop")) >= 0) {
         int q = e; RkList *le0 = NULL, *le1 = NULL, *le2 = NULL; int parens = 0;
