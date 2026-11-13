@@ -22,6 +22,7 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "multi sub splice(@a, $start, $n, *@new) { @a.splice($start, $n, |@new) }\n"
     "class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?\? '/' ~ $r !! ($r eq '' ?\? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }\n"
     "my $*SPEC = IO::Spec::Unix;\n"
+    "class Supply { has &.gen; method tap(&cb, :$done) { for self.gen.() -> $v { cb($v) }; $done() if $done.defined; Nil }; method list { self.gen.().list }; method Seq { self.gen.() } }\n"
     "multi sub floor(\\x) { x.floor }\n"
     "multi sub ceiling(\\x) { x.ceiling }\n"
     "multi sub round(\\x) { x.round }\n"

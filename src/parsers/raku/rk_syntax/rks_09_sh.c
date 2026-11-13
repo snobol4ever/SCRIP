@@ -43,6 +43,7 @@ static int r_statement_prefix(RkP *p, int pos) {
         int e = kok(p, pos, pre[i]);
         if (e >= 0) {
             int sd = p->sup_depth, sup = !strcmp(pre[i], "react") || !strcmp(pre[i], "supply");
+            if (!strcmp(pre[i], "supply")) p->want_core = 1;
             p->sup_depth += sup;
             int f = r_blorst(p, e);
             p->sup_depth = sd;

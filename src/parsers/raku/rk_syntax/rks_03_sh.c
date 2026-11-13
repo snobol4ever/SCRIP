@@ -589,7 +589,12 @@ static int core_name_declared(RkP *p, const char *s, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void import_core_used(RkP *p) {
-    if (p->core_imported || !p->ncore_uses || !strncmp(p->file, "<setting>/", 10)) return;
+    if (p->core_imported || (!p->ncore_uses && !p->want_core) || !strncmp(p->file, "<setting>/", 10)) return;
+    if (p->want_core && !core_name_declared(p, "Supply", 6)) {
+        p->core_imported = 1;
+        import_module(p, "CORE");
+        return;
+    }
     for (int i = 0; i < p->ncore_uses; i++) if (!core_name_declared(p, p->s + p->core_uses[i].pos, p->core_uses[i].len)) {
         p->core_imported = 1;
         import_module(p, "CORE");

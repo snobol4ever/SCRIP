@@ -231,3 +231,37 @@ void rk_gather_blockify(tree_t * t) {
         for (int k = 0; k < t->c[0]->n; k++) if (rk_subtree_has_nested_suspend(t->c[0]->c[k])) t->slen |= 128;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_supply_emits(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_supply_emits(t->c[i]);
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "emit") || t->n < 2) return;
+    tree_t * a = t->c[1];
+    if (t->n > 2) { a = ast_node_new(TT_FNC); a->v.sval = (char *) "__rk_arr"; ast_push(a, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(a, t->c[i]); }
+    t->t = TT_SUSPEND;
+    t->v.sval = NULL;
+    t->n = 0;
+    ast_push(t, a);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_supply_nodes(tree_t * t, int user_emit) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_supply_nodes(t->c[i], user_emit);
+    if (t->t != TT_GATHER || t->v.ival != 2 || t->n < 1) return;
+    tree_t * body = t->c[0];
+    if (!user_emit) rk_supply_emits(body);
+    tree_t * g = ast_node_new(TT_GATHER);
+    g->line = t->line;
+    ast_push(g, body);
+    tree_t * sq = ast_node_new(TT_SEQ_EXPR);
+    ast_push(sq, g);
+    tree_t * blk = ast_node_new(TT_ANON_BLOCK);
+    blk->line = t->line;
+    ast_push(blk, sq);
+    t->t = TT_NEW;
+    t->v.ival = 0;
+    t->n = 0;
+    ast_push(t, leaf_sval2(TT_QLIT, "Supply"));
+    ast_push(t, leaf_sval2(TT_QLIT, "gen"));
+    ast_push(t, blk);
+}

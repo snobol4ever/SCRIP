@@ -53,7 +53,7 @@ typedef struct RkP {
     RkPkg *roledb; int nroledb; int croledb;
     RkStrs exported; RkStrs exported_from;
     char **exports; int nexports; int cexports;
-    RkMyst *core_uses; int ncore_uses; int ccore_uses; int core_imported;
+    RkMyst *core_uses; int ncore_uses; int ccore_uses; int core_imported; int want_core;
     int build; RkB *B;
     tree_t *tv; RkList *lst; RkTerm tm; RkPf pf; int args_form;
     tree_t *cur_list; int bk; int next_bk; int xb_bk;

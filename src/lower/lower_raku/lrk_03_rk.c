@@ -560,6 +560,7 @@ static void rk_place_groups(tree_t * t, int * uid) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
+    rk_supply_nodes((tree_t *) prog, rk_user_sub_named(prog, "emit"));
     { rk_ns_t rns = { 0 }; rk_relaxed_collect(prog, &rns); rk_relaxed_walk((tree_t *) prog, &rns); }
     {
         rk_ns_t ss = { 0 }, cls = { 0 };

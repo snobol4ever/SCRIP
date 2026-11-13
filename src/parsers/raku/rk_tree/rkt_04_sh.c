@@ -669,6 +669,7 @@ void rkb_sprefix_term(RkB *b, RkTerm *it, int from, int to, const char *word, in
     if (is_phaser_word(w, blk != NULL)) { it->kind = TK_BSTMT; it->ck = blk ? 2 : 1; it->t = rk_phaser_mark(w, blk ? blk : seq1(stmt)); return; }
     if (!strcmp(w, "try")) { it->kind = blk ? TK_BSTMT : TK_TREE; tree_t *e = ast_node_new(TT_TRY); ast_push(e, blk ? blk : seq1(stmt)); it->t = e; return; }
     if (!strcmp(w, "gather")) { it->kind = TK_TREE; tree_t *g = ast_node_new(TT_GATHER); expr_add_child(g, blk ? blk : stmt); it->t = g; return; }
+    if (!strcmp(w, "supply") && blk) { it->kind = TK_TREE; tree_t *g = ast_node_new(TT_GATHER); g->v.ival = 2; expr_add_child(g, blk); expr_add_child(g, leaf_sval(TT_QLIT, "Supply")); it->t = g; return; }
     if (!strcmp(w, "eager") && !blk && stmt && (stmt->t == TT_GATHER || stmt->t == TT_FNC || stmt->t == TT_METHCALL)) {
         tree_t *m = ast_node_new(TT_METHCALL);
         ast_push(m, stmt);
