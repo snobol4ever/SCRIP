@@ -19,6 +19,7 @@
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/lower_prolog/lpl_08_pl.h"
 #include "lower/lower_prolog/lpl_09_sh.h"
+#include "lower/g_lower_pl.h"
 static int pl_trace_wanted(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned resolve_pred_hash(const char *s) { unsigned h = 5381; while (*s) h = h * 33 ^ (unsigned char)*s++; return h % STAGE2_PL_PRED_TABLE_SIZE; }
@@ -42,7 +43,7 @@ tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_bb_ent_t * pl_bb_lookup(const char * name, int arity) {
     if (!name) return NULL;
-    for (uint32_t i = 0; i < g_lower.pl.bb_cv.len; i++) { pl_bb_ent_t * e = &CV_AT(g_lower.pl.bb_cv, pl_bb_ent_t, i); if (e->arity == arity && e->name && strcmp(e->name, name) == 0) return e; }
+    for (uint32_t i = 0; i < g_lower_pl.bb_cv.len; i++) { pl_bb_ent_t * e = &CV_AT(g_lower_pl.bb_cv, pl_bb_ent_t, i); if (e->arity == arity && e->name && strcmp(e->name, name) == 0) return e; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -50,7 +51,7 @@ pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
     if (!name) return NULL;
     pl_bb_ent_t * existing = pl_bb_lookup(name, arity);
     if (existing) { existing->bb_idx = bb_idx; return existing; }
-    pl_bb_ent_t * e = &CV_PUSH(g_lower.pl.bb_cv, pl_bb_ent_t);
+    pl_bb_ent_t * e = &CV_PUSH(g_lower_pl.bb_cv, pl_bb_ent_t);
     e->name = ct_strdup(name);
     e->arity = arity;
     e->bb_idx = bb_idx;
@@ -78,20 +79,20 @@ int pl_dyn_is_marked(const char *name, int arity) {
 }
 void pl_decl_dyn_mark(const char * name, int arity) {
     if (!name) return;
-    for (int i = 0; i < g_lower.pl.decl_dyn_n; i++) if (g_lower.pl.decl_dyn_name[i] && !strcmp(g_lower.pl.decl_dyn_name[i], name) && g_lower.pl.decl_dyn_arity[i] == arity) return;
-    if (g_lower.pl.decl_dyn_n >= g_lower.pl.decl_dyn_cap) {
-        int nc = g_lower.pl.decl_dyn_cap > 0 ? g_lower.pl.decl_dyn_cap * 2 : 64;
-        g_lower.pl.decl_dyn_name = (const char **) ct_grow((void *) g_lower.pl.decl_dyn_name, (size_t) nc * sizeof(const char *));
-        g_lower.pl.decl_dyn_arity = (int *) ct_grow((void *) g_lower.pl.decl_dyn_arity, (size_t) nc * sizeof(int));
-        g_lower.pl.decl_dyn_cap = nc;
+    for (int i = 0; i < g_lower_pl.decl_dyn_n; i++) if (g_lower_pl.decl_dyn_name[i] && !strcmp(g_lower_pl.decl_dyn_name[i], name) && g_lower_pl.decl_dyn_arity[i] == arity) return;
+    if (g_lower_pl.decl_dyn_n >= g_lower_pl.decl_dyn_cap) {
+        int nc = g_lower_pl.decl_dyn_cap > 0 ? g_lower_pl.decl_dyn_cap * 2 : 64;
+        g_lower_pl.decl_dyn_name = (const char **) ct_grow((void *) g_lower_pl.decl_dyn_name, (size_t) nc * sizeof(const char *));
+        g_lower_pl.decl_dyn_arity = (int *) ct_grow((void *) g_lower_pl.decl_dyn_arity, (size_t) nc * sizeof(int));
+        g_lower_pl.decl_dyn_cap = nc;
     }
-    g_lower.pl.decl_dyn_name[g_lower.pl.decl_dyn_n] = ct_strdup(name);
-    g_lower.pl.decl_dyn_arity[g_lower.pl.decl_dyn_n] = arity;
-    g_lower.pl.decl_dyn_n++;
+    g_lower_pl.decl_dyn_name[g_lower_pl.decl_dyn_n] = ct_strdup(name);
+    g_lower_pl.decl_dyn_arity[g_lower_pl.decl_dyn_n] = arity;
+    g_lower_pl.decl_dyn_n++;
 }
 int pl_decl_dyn_is(const char * name, int arity) {
     if (!name) return 0;
-    for (int i = 0; i < g_lower.pl.decl_dyn_n; i++) if (g_lower.pl.decl_dyn_name[i] && !strcmp(g_lower.pl.decl_dyn_name[i], name) && g_lower.pl.decl_dyn_arity[i] == arity) return 1;
+    for (int i = 0; i < g_lower_pl.decl_dyn_n; i++) if (g_lower_pl.decl_dyn_name[i] && !strcmp(g_lower_pl.decl_dyn_name[i], name) && g_lower_pl.decl_dyn_arity[i] == arity) return 1;
     return 0;
 }
 void pl_decl_other_record(const tree_t * spec, int mf) {
@@ -101,20 +102,20 @@ void pl_decl_other_record(const tree_t * spec, int mf) {
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
         spec->c[1]->t == TT_ILIT) {
         if (mf) CV_PUSH(g_stage2_pl.pl_decl_multifile, const tree_t *) = spec;
-        if (g_lower.pl.decl_other_n >= g_lower.pl.decl_other_cap) {
-            int nc = g_lower.pl.decl_other_cap > 0 ? g_lower.pl.decl_other_cap * 2 : 256;
-            g_lower.pl.decl_other_name = (const char **) ct_grow((void *) g_lower.pl.decl_other_name, (size_t) nc * sizeof(const char *));
-            g_lower.pl.decl_other_arity = (int *) ct_grow((void *) g_lower.pl.decl_other_arity, (size_t) nc * sizeof(int));
-            g_lower.pl.decl_other_cap = nc;
+        if (g_lower_pl.decl_other_n >= g_lower_pl.decl_other_cap) {
+            int nc = g_lower_pl.decl_other_cap > 0 ? g_lower_pl.decl_other_cap * 2 : 256;
+            g_lower_pl.decl_other_name = (const char **) ct_grow((void *) g_lower_pl.decl_other_name, (size_t) nc * sizeof(const char *));
+            g_lower_pl.decl_other_arity = (int *) ct_grow((void *) g_lower_pl.decl_other_arity, (size_t) nc * sizeof(int));
+            g_lower_pl.decl_other_cap = nc;
         }
-        g_lower.pl.decl_other_name[g_lower.pl.decl_other_n] = spec->c[0]->v.sval;
-        g_lower.pl.decl_other_arity[g_lower.pl.decl_other_n] = (int) spec->c[1]->v.ival;
-        g_lower.pl.decl_other_n++;
+        g_lower_pl.decl_other_name[g_lower_pl.decl_other_n] = spec->c[0]->v.sval;
+        g_lower_pl.decl_other_arity[g_lower_pl.decl_other_n] = (int) spec->c[1]->v.ival;
+        g_lower_pl.decl_other_n++;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_var_name(int slot) {
-    if (slot >= 0 && slot < 1024) { if (!g_lower.pl.var_name_cache[slot]) g_lower.pl.var_name_cache[slot] = ct_fmt("G%d", slot); return g_lower.pl.var_name_cache[slot]; }
+    if (slot >= 0 && slot < 1024) { if (!g_lower_pl.var_name_cache[slot]) g_lower_pl.var_name_cache[slot] = ct_fmt("G%d", slot); return g_lower_pl.var_name_cache[slot]; }
     return ct_fmt("G%d", slot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -128,9 +129,9 @@ IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_param_name(int i) {
     if (i < 0) return ct_fmt("A%d", i);
-    cv_reserve(&g_lower.pl.param_name_cache, (uint32_t) sizeof(char *), (uint64_t) i + 1, "pl_param_name");
-    if (!CV_AT(g_lower.pl.param_name_cache, char *, i)) CV_AT(g_lower.pl.param_name_cache, char *, i) = ct_fmt("A%d", i);
-    return CV_AT(g_lower.pl.param_name_cache, char *, i);
+    cv_reserve(&g_lower_pl.param_name_cache, (uint32_t) sizeof(char *), (uint64_t) i + 1, "pl_param_name");
+    if (!CV_AT(g_lower_pl.param_name_cache, char *, i)) CV_AT(g_lower_pl.param_name_cache, char *, i) = ct_fmt("A%d", i);
+    return CV_AT(g_lower_pl.param_name_cache, char *, i);
 }
 const char * pl_vname(const lcx_t * cx, int slot) { if (cx && slot >= 0 && slot < cx->nvalias && cx->valias[slot]) return pl_param_name(cx->valias[slot] - 1); return pl_var_name(slot); }
 int pl_seal_branch_tail(int tail, int pop, IR_t * nd) {
@@ -160,7 +161,7 @@ static void pl_trace_number_goals(const tree_t * t) {
         return;
     }
     if (pl_trace_is_control(t, 1, "\\+") || pl_trace_is_control(t, 1, "call") || pl_trace_is_control(t, 1, "once")) { pl_trace_number_goals(t->c[0]); return; }
-    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME || t->t == TT_CUT) && t->line <= 0) ((tree_t *) t)->line = (int) ++g_lower.pl.trace_stmtno;
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME || t->t == TT_CUT) && t->line <= 0) ((tree_t *) t)->line = (int) ++g_lower_pl.trace_stmtno;
 }
 static IR_t * pl_trace_stmt_wrap(lcx_t * cx, long line, IR_t * entry, IR_t * ωfail) {
     if (line <= 0 || !pl_trace_wanted()) return entry;
@@ -496,7 +497,7 @@ IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** 
     cx->stmt_depth++;
     IR_t * nd = goal_inner(cx, t, γnext, ωfail, &e);
     cx->stmt_depth--;
-    IR_t * te = pl_trace_stmt_wrap(cx, (t->line > 0) ? (long) t->line : ++g_lower.pl.trace_stmtno, e ? e : nd, ωfail);
+    IR_t * te = pl_trace_stmt_wrap(cx, (t->line > 0) ? (long) t->line : ++g_lower_pl.trace_stmtno, e ? e : nd, ωfail);
     if (entry_out) *entry_out = te;
     return nd;
 }
@@ -581,16 +582,16 @@ IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_t * tnode = NULL;
     int maxlocal = -1;
     for (int i = 0; i < ng; i++) maxlocal = max_var_slot(gl[i], maxlocal);
-    int fresh_saved = g_lower.pl.fresh_next;
-    g_lower.pl.fresh_next = maxlocal + 1;
+    int fresh_saved = g_lower_pl.fresh_next;
+    g_lower_pl.fresh_next = maxlocal + 1;
     if (pl_trace_wanted()) for (int i = 0; i < ng; i++) pl_trace_number_goals(gl[i]);
     cx.tail = !pl_trace_wanted();
     int rel_from = cx.g->n;
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
     pl_register_releases(&cx, rel_from);
     if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
-    maxlocal = g_lower.pl.fresh_next - 1;
-    g_lower.pl.fresh_next = fresh_saved;
+    maxlocal = g_lower_pl.fresh_next - 1;
+    g_lower_pl.fresh_next = fresh_saved;
     g->entry = entry ? entry : (first ? first : succeed);
     pl_alt_alloc(g, 1);
     g->alt_entry[0] = g->entry;
@@ -669,7 +670,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     g->alt_fail = step;
     int arity = -1;
     int maxlocal = -1;
-    int fresh_saved = g_lower.pl.fresh_next;
+    int fresh_saved = g_lower_pl.fresh_next;
     for (int k = 0; k < nc; k++) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch; if (cl) { int ml = max_var_slot(cl, -1); if (ml > maxlocal) maxlocal = ml; } }
     if (maxlocal >= 900000) {
         tree_t * cc = pl_tree_copy(ch);
@@ -693,7 +694,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     memset(aliased, 0, sizeof aliased);
     cx.valias = valias;
     cx.nvalias = nva;
-    g_lower.pl.fresh_next = maxlocal + 1;
+    g_lower_pl.fresh_next = maxlocal + 1;
     for (int k = 0; k < nc; k++) {
         int clause_lo = g->n;
         const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch;
@@ -784,8 +785,8 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         g->alt_redo[k] = redo;
         if (nc > 1) ir_construct_add(g, IR_CK_CLAUSE, next, succeed, clause_lo, g->n);
     }
-    maxlocal = g_lower.pl.fresh_next - 1;
-    g_lower.pl.fresh_next = fresh_saved;
+    maxlocal = g_lower_pl.fresh_next - 1;
+    g_lower_pl.fresh_next = fresh_saved;
     if (arity < 0) arity = 0;
     g->entry = pl_trace_named_wrap(&cx, "__trace_call", trace_key, g->alt_entry[0], step);
     g->alt_entry[0] = g->entry;

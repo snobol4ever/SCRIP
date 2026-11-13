@@ -13,6 +13,7 @@
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
+#include "lower/g_lower_sno.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_ω_to(IR_t * nd, IR_t * t) { if (t) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -77,7 +78,7 @@ static int sno_tree_has_varext(const IR_t * n, int d) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void sno_cap_defer_reset(void) { g_lower.sno.scd.len = 0; }
+void sno_cap_defer_reset(void) { g_lower_sno.scd.len = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * sno_capt_name(const tree_t * tgt) {
     if (!tgt) return NULL;
@@ -109,8 +110,8 @@ const char * sno_cursor_target(const tree_t * tgt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_chase(const scx_t * cx, const char * nm) { for (const sno_kw_link_t * l = cx->kw_chain; l; l = l->up) if (!strcmp(l->nm, nm)) return 1; return 0; }
 static int sno_kw_nest_ok(const scx_t * cx, const char * nm) {
-    if (g_lower.sno.sno_kw_nest_ok_nn < 0) { const char * e = getenv("SCRIP_CONST_NEST"); g_lower.sno.sno_kw_nest_ok_nn = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_kw_nest_ok_nn ? !sno_kw_chase(cx, nm) : cx->kw_chain == NULL;
+    if (g_lower_sno.sno_kw_nest_ok_nn < 0) { const char * e = getenv("SCRIP_CONST_NEST"); g_lower_sno.sno_kw_nest_ok_nn = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_kw_nest_ok_nn ? !sno_kw_chase(cx, nm) : cx->kw_chain == NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
@@ -227,15 +228,15 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
                 return nd;
             }
             if (in && in->t == TT_KEYWORD && in->v.sval) {
-                if (g_lower.sno.sno_pat_node_cn < 0) { const char * e = getenv("SCRIP_CONST"); g_lower.sno.sno_pat_node_cn = (e && *e == '0') ? 0 : 1; }
-                if (g_lower.sno.sno_pat_node_cn) {
+                if (g_lower_sno.sno_pat_node_cn < 0) { const char * e = getenv("SCRIP_CONST"); g_lower_sno.sno_pat_node_cn = (e && *e == '0') ? 0 : 1; }
+                if (g_lower_sno.sno_pat_node_cn) {
                     char cb[fmt_len("&%s", in->v.sval[0] == '&' ? in->v.sval + 1 : in->v.sval)];
                     snprintf(cb, sizeof cb, "&%s", in->v.sval[0] == '&' ? in->v.sval + 1 : in->v.sval);
                     {
-                        if (g_lower.sno.sno_pat_node_ci < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower.sno.sno_pat_node_ci = (e && *e == '0') ? 0 : 1; }
-                        if (g_lower.sno.sno_pat_node_ci) {
+                        if (g_lower_sno.sno_pat_node_ci < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower_sno.sno_pat_node_ci = (e && *e == '0') ? 0 : 1; }
+                        if (g_lower_sno.sno_pat_node_ci) {
                             const tree_t * cp0 = sno_const_pat(cb);
-                            if (cp0 && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp0)) {
+                            if (cp0 && g_lower_sno.pat_match_ctx && !g_lower_sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp0)) {
                                 sno_kw_link_t l0 = { cb, cx->kw_chain };
                                 cx->kw_chain = &l0;
                                 IR_t * r0 = sno_pat_node(cx, cp0, succ, fail);
@@ -270,10 +271,10 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
             snprintf(cb, sizeof cb, "&%s", t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval);
             { const tree_t * cv = sno_const_val(cb); if (cv && cv->t == TT_QLIT) return sno_pat_node(cx, cv, succ, fail); }
             {
-                if (g_lower.sno.sno_pat_node_ck < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower.sno.sno_pat_node_ck = (e && *e == '0') ? 0 : 1; }
-                if (g_lower.sno.sno_pat_node_ck) {
+                if (g_lower_sno.sno_pat_node_ck < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower_sno.sno_pat_node_ck = (e && *e == '0') ? 0 : 1; }
+                if (g_lower_sno.sno_pat_node_ck) {
                     const tree_t * cp = sno_const_pat(cb);
-                    if (cp && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp)) {
+                    if (cp && g_lower_sno.pat_match_ctx && !g_lower_sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp)) {
                         sno_kw_link_t l = { cb, cx->kw_chain };
                         cx->kw_chain = &l;
                         IR_t * r = sno_pat_node(cx, cp, succ, fail);
@@ -338,14 +339,14 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
             IR_t * R = lc_build(g, IR_MATCH_ARBNO, succ, NULL);
             sno_ω_to(R, fail);
             int before = g->n;
-            g_lower.sno.in_arbno++;
+            g_lower_sno.in_arbno++;
             cx->seq_rlast = NULL;
             cx->seq_rlast_for = NULL;
             cx->ppos = 61;
             IR_t * ei = sno_pat_node(cx, t->c[0], R, R);
             IR_t * rl = (cx->seq_rlast && cx->seq_rlast_for == ei) ? cx->seq_rlast : NULL;
             IR_t * rtl = (rl && cx->seq_rtail) ? cx->seq_rtail : NULL;
-            g_lower.sno.in_arbno--;
+            g_lower_sno.in_arbno--;
             if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
             int _rb = before;
             while (_rb < g->n && g->all[_rb] && g->all[_rb]->op == IR_GOTO && g->all[_rb]->γ.node == R && g->all[_rb]->n_operands == 0) _rb++;
@@ -477,7 +478,7 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
                 if (sno_is_fence(elems[i])) {
                     const tree_t * inner = sno_is_fence1(elems[i]) ? elems[i]->c[0] : NULL;
                     if (!inner) right_sealed = 1;
-                    if (inner && g_lower.sno.in_arbno) {
+                    if (inner && g_lower_sno.in_arbno) {
                         IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;
                         int f_idx = g->n;
                         IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
@@ -502,7 +503,7 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
                         right_tail = F;
                         right_tail_idx = f_idx;
                         right_sealed = 0;
-                    } else if (inner && !g_lower.sno.in_arbno) {
+                    } else if (inner && !g_lower_sno.in_arbno) {
                         IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;
                         int f_idx = g->n;
                         IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
@@ -663,8 +664,8 @@ IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
                 }
             }
             {
-                if (g_lower.sno.sno_pat_node_ec < 0) { const char * e = getenv("SCRIP_PAT_EAGER_CALL"); g_lower.sno.sno_pat_node_ec = (!e || *e != '0') ? 1 : 0; }
-                if (g_lower.sno.sno_pat_node_ec && cx->npre >= 0 && cx->npre < 64) {
+                if (g_lower_sno.sno_pat_node_ec < 0) { const char * e = getenv("SCRIP_PAT_EAGER_CALL"); g_lower_sno.sno_pat_node_ec = (!e || *e != '0') ? 1 : 0; }
+                if (g_lower_sno.sno_pat_node_ec && cx->npre >= 0 && cx->npre < 64) {
                     IR_t * mvd = lc_build(g, IR_MATCH_DEFER, succ, NULL);
                     sno_defer_seal(cx, mvd);
                     sno_ω_to(mvd, fail);

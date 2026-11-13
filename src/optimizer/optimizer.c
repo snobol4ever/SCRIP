@@ -4,11 +4,11 @@
 #include "copy_prop.h"
 #include "dead_pure.h"
 #include "dead_goto.h"
-#include "lower/g_lower.h"
+#include "lower/g_lower_opt.h"
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int cf_spine_on(void) { if (g_lower.opt.cf_spine_on_s < 0) { const char * e = getenv("SCRIP_CF"); g_lower.opt.cf_spine_on_s = (!e || *e != '0') ? 1 : 0; } return g_lower.opt.cf_spine_on_s; }
+static int cf_spine_on(void) { if (g_lower_opt.cf_spine_on_s < 0) { const char * e = getenv("SCRIP_CF"); g_lower_opt.cf_spine_on_s = (!e || *e != '0') ? 1 : 0; } return g_lower_opt.cf_spine_on_s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_is_proc_or_pat(const IR_graph_t * g) {
     if (g->nparams > 0 || g->resumable_callable) return 1;

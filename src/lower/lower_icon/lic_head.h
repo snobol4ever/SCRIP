@@ -1,6 +1,8 @@
 #ifndef LOWER_LOWER_ICON_LIC_HEAD_H
 #define LOWER_LOWER_ICON_LIC_HEAD_H
-#include "lower/g_lower.h"
+#include "emitter/emit.h"
+#include "ir/ast.h"
+#include "ir/ir_graph.h"
 typedef struct icn_loop_fr { IR_t * exit; IR_t * next; IR_t * fail; struct icn_loop_fr * up; } icn_loop_fr;
 typedef struct icn_scan_fr { IR_t * enter; struct icn_scan_fr * up; } icn_scan_fr;
 typedef struct {

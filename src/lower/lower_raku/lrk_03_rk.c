@@ -19,10 +19,11 @@
 #include "lower/lower_raku/lrk_10_rk.h"
 #include "lower/lower_raku/lrk_11_rk.h"
 #include "lower/lower_raku/lrk_12_rk.h"
+#include "lower/g_lower_rk.h"
 static tree_t * rk_tv_check(rk_tvenv_t * e, tree_t * val, const char * type, const char * name, int element);
 int rk_is_class_name(const char * nm) {
     if (!nm) return 0;
-    for (uint32_t i = 0; i < g_lower.rk.class_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.class_names, const char *, i), nm)) return 1;
+    for (uint32_t i = 0; i < g_lower_rk.class_names.len; i++) if (!strcmp(CV_AT(g_lower_rk.class_names, const char *, i), nm)) return 1;
     return 0;
 }
 tree_t * leaf_sval2(tree_e kind, const char * s) { tree_t * n = ast_node_new(kind); n->v.sval = (char *)s; return n; }
@@ -135,7 +136,7 @@ static tree_t * rk_set_tail(tree_t * st, const char * tmp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_value_wrap(tree_t * st) {
     char nb[48];
-    snprintf(nb, sizeof nb, "__vf_%d", g_lower.rk.rk_case_desugar_cid++);
+    snprintf(nb, sizeof nb, "__vf_%d", g_lower_rk.rk_case_desugar_cid++);
     const char * tmp = intern(nb);
     tree_t * seq = ast_node_new(TT_SEQ);
     seq->line = st->line;
@@ -716,7 +717,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_discover_grammars(prog);
     rk_register_classes(prog);
     if (!want_main) rk_eval_host_classes(prog);
-    if (reset_multi) g_lower.rk.multi_names.len = 0;
+    if (reset_multi) g_lower_rk.multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = lrk_stmt_subj(d); if (!sub) continue; d = sub; }

@@ -12,6 +12,12 @@
 #include "lower/lower_common.h"
 #include "lower/lc_vec.h"
 #include "g_lower.h"
+#include "lower/g_lower_pl.h"
+#include "lower/g_lower_sno.h"
+#include "lower/g_lower_icn.h"
+#include "lower/g_lower_opt.h"
+#include "lower/g_lower_ir.h"
+#include "lower/g_lower_rk.h"
 #include "lower/g_lower_pas.h"
 #include "ir/bb_program.h"
 #include "runtime/core/coerce.h"
@@ -23,6 +29,12 @@
 #include "runtime/core/g_runtime_entry.h"
 #include <ctype.h>
 g_lower_t g_lower = G_LOWER_INIT;
+g_lower_pl_t g_lower_pl = G_LOWER_PL_INIT;
+g_lower_sno_t g_lower_sno = G_LOWER_SNO_INIT;
+g_lower_icn_t g_lower_icn = G_LOWER_ICN_INIT;
+g_lower_opt_t g_lower_opt = G_LOWER_OPT_INIT;
+g_lower_ir_t g_lower_ir = G_LOWER_IR_INIT;
+g_lower_rk_t g_lower_rk = G_LOWER_RK_INIT;
 g_lower_pas_t g_lower_pas = G_LOWER_PAS_INIT;
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);

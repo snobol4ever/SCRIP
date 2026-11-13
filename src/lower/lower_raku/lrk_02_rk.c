@@ -11,10 +11,11 @@
 #include "lower/lower_raku/lrk_04_rk.h"
 #include "lower/lower_raku/lrk_06_rk.h"
 #include "lower/lower_raku/lrk_09_sh.h"
+#include "lower/g_lower_rk.h"
 static void rk_register_proc_at(const tree_t * proc, const char * name, int nparams, int lastix);
 int rk_is_grammar_name(const char * nm) {
     if (!nm) return 0;
-    for (uint32_t i = 0; i < g_lower.rk.gram_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.gram_names, const char *, i), nm)) return 1;
+    for (uint32_t i = 0; i < g_lower_rk.gram_names.len; i++) if (!strcmp(CV_AT(g_lower_rk.gram_names, const char *, i), nm)) return 1;
     return 0;
 }
 const char * rk_qualified_type_gist(const char * nm) {
@@ -117,7 +118,7 @@ int rk_yields_list(const tree_t * t) {
         const char * f = t->c[0]->v.sval;
         return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick") || !strcmp(f, "__rk_hyper_meth");
     }
-    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) { int li = rk_listlike_idx(t->c[1]->v.sval); return li >= 0 && !g_lower.rk.listlike_overridden[li]; }
+    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) { int li = rk_listlike_idx(t->c[1]->v.sval); return li >= 0 && !g_lower_rk.listlike_overridden[li]; }
     if (t->t == TT_SORT || t->t == TT_REVERSE) return 1;
     return 0;
 }
@@ -324,7 +325,7 @@ static void rk_discover_lexical_regexes(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_discover_grammars(const tree_t * prog) {
     extern void rt_grammar_register(const char *qname, const char *body, int flavor);
-    g_lower.rk.gram_names.len = 0;
+    g_lower_rk.gram_names.len = 0;
     if (!prog) return;
     rk_discover_lexical_regexes(prog);
     for (int i = 0; i < prog->n; i++) {
@@ -333,7 +334,7 @@ void rk_discover_grammars(const tree_t * prog) {
         if (!d || d->t != TT_GRAMMAR_DECL) continue;
         const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!gname || !*gname) continue;
-        if (!rk_is_grammar_name(gname)) CV_PUSH(g_lower.rk.gram_names, const char *) = gname;
+        if (!rk_is_grammar_name(gname)) CV_PUSH(g_lower_rk.gram_names, const char *) = gname;
         for (int j = 1; j < d->n; j++) {
             const tree_t * rd = d->c[j];
             if (!rd || rd->t != TT_REGEX_DECL) continue;
@@ -350,18 +351,18 @@ void rk_discover_grammars(const tree_t * prog) {
 void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
-    g_lower.rk.class_names.len = 0;
-    g_lower.rk.user_write_meth = 0;
-    memset(g_lower.rk.listlike_overridden, 0, sizeof g_lower.rk.listlike_overridden);
+    g_lower_rk.class_names.len = 0;
+    g_lower_rk.user_write_meth = 0;
+    memset(g_lower_rk.listlike_overridden, 0, sizeof g_lower_rk.listlike_overridden);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = lrk_stmt_subj(d); if (!sub) continue; d = sub; }
         if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!cname || !*cname) continue;
-        if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_lower.rk.user_write_meth = 1;
-        for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_lower.rk.listlike_overridden[li] = 1;
-        if (!rk_is_class_name(cname)) CV_PUSH(g_lower.rk.class_names, const char *) = cname;
+        if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_lower_rk.user_write_meth = 1;
+        for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_lower_rk.listlike_overridden[li] = 1;
+        if (!rk_is_class_name(cname)) CV_PUSH(g_lower_rk.class_names, const char *) = cname;
         size_t specn = strlen(cname) + 3;
         for (int j = 1; j < d->n; j++) if (d->c[j] && d->c[j]->t != TT_SUB_DECL && d->c[j]->t != TT_REGEX_DECL) specn += 1 + (d->c[j]->v.sval ? strlen(d->c[j]->v.sval) : 0);
         char spec[specn];

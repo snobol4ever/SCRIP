@@ -15,6 +15,7 @@
 #include "lower/lower_prolog/lpl_07_pl.h"
 #include "lower/lower_prolog/lpl_08_pl.h"
 #include "lower/lower_prolog/lpl_09_sh.h"
+#include "lower/g_lower_pl.h"
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
 static const char * const pl_pred_props[] = { "built_in", "dynamic", "static", "defined", "multifile", "discontiguous", "meta_predicate", "exported", "imported_from", "foreign", "iso",
     "number_of_clauses", "public", "private", "native", "tabled", "incremental", "volatile", "transparent", "nodebug", "visible", "template", "alias", "declared_in", "defined_in", "scope",
@@ -779,7 +780,7 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
             if (!strcmp(nm, "erase") && t->n == 1) {
                 tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
                 tree_t * er = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr);
-                if (g_lower.pl.hook_dyn_n > 0) er = pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
+                if (g_lower_pl.hook_dyn_n > 0) er = pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
                 return goal(cx, er, γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {

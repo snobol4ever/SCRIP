@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "lower/g_lower.h"
+#include "lower/g_lower_ir.h"
 static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR",
     [IR_VAR_REF] = "IR_VAR_REF", [IR_VAR_FRAME] = "IR_VAR_FRAME", [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME", [IR_ACTIVATE] = "IR_ACTIVATE", [IR_ASSIGN] = "IR_ASSIGN", [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR",
     [IR_BINOP] = "IR_BINOP", [IR_BINOP_TEST] = "IR_BINOP_TEST", [IR_BINOP_RELOP_VAL] = "IR_BINOP_RELOP_VAL", [IR_UNOP] = "IR_UNOP", [IR_UNOP_TEST] = "IR_UNOP_TEST", [IR_CALL] = "IR_CALL",
@@ -232,7 +232,7 @@ int graph_has_local(const IR_graph_t * g, const char * name) {
     return *ir_lname_ix_find(w->lname_ix, w->lname_ix_cap, name) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_seq_of(int ix) { return (g_lower.ir.seq_of_node && ix >= 0 && ix < g_lower.ir.seq_of_node_n) ? g_lower.ir.seq_of_node[ix] : -1; }
+static int bb_seq_of(int ix) { return (g_lower_ir.seq_of_node && ix >= 0 && ix < g_lower_ir.seq_of_node_n) ? g_lower_ir.seq_of_node[ix] : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {
     if (!target) { snprintf(out, outsz, "."); return; }
@@ -360,8 +360,8 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
         for (int sq = 0; sq < norder; sq++) if (order0[sq] >= 0 && order0[sq] < nn0) seqmap[order0[sq]] = sq;
         int nxt = norder;
         for (int i = 0; i < nn0; i++) if (!vis0[i] && bbg->all[i] && seqmap[i] < 0) seqmap[i] = nxt++;
-        g_lower.ir.seq_of_node = seqmap;
-        g_lower.ir.seq_of_node_n = nn0;
+        g_lower_ir.seq_of_node = seqmap;
+        g_lower_ir.seq_of_node_n = nn0;
     }
     char ent[12];
     bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
@@ -381,15 +381,15 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     } else {
         for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i, verbose);
     }
-    g_lower.ir.seq_of_node = (const int *)0;
-    g_lower.ir.seq_of_node_n = 0;
+    g_lower_ir.seq_of_node = (const int *)0;
+    g_lower_ir.seq_of_node_n = 0;
     ct_drop(vis0);
     ct_drop(order0);
     ct_drop(seqmap);
     for (int i = 0; i < bbg->n; i++) { const IR_t * bb = bbg->all[i]; if (!bb) continue; IR_graph_t * pg = (IR_graph_t *)0; if (pg) bb_print(pg, fp); }
     {
-        if (g_lower.ir.bb_print_v_xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); g_lower.ir.bb_print_v_xd2 = (e && e[0] == '1') ? 1 : 0; }
-        if (g_lower.ir.bb_print_v_xd2) for (int i = 0; i < bbg->n; i++) {
+        if (g_lower_ir.bb_print_v_xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); g_lower_ir.bb_print_v_xd2 = (e && e[0] == '1') ? 1 : 0; }
+        if (g_lower_ir.bb_print_v_xd2) for (int i = 0; i < bbg->n; i++) {
             const IR_t * bb = bbg->all[i];
             if (!bb) continue;
             if (bb->op != IR_CALL) continue;

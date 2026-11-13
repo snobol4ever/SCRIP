@@ -1,7 +1,7 @@
 #define BB_DEFINE_NAMES
 #include "parsers/snobol4/scrip_cc.h"
 #include <stdint.h>
-#include "lower/g_lower.h"
+#include "lower/g_lower_ir.h"
 #define AST_PRINT_MAX_DEPTH 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void print_escaped(const char * s, FILE * f) {
@@ -77,7 +77,7 @@ static void print_node(const tree_t * e, FILE * f, int depth) {
     if (!e) { fputs("(null)", f); return; }
     if (depth > AST_PRINT_MAX_DEPTH) { fputs("(...)", f); return; }
     kname = (e->t >= 0 && e->t < TT_KIND_COUNT) ? tt_e_name[e->t] : "E_???";
-    int budget = g_lower.ir.ast_print_width - depth * 2;
+    int budget = g_lower_ir.ast_print_width - depth * 2;
     int inline_ok = (flat_length(e, budget) <= budget);
     if (inline_ok) {
         switch (e->t) {

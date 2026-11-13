@@ -18,6 +18,7 @@
 #include "lower/lower_raku/lrk_10_rk.h"
 #include "lower/lower_raku/lrk_11_rk.h"
 #include "lower/lower_raku/lrk_12_rk.h"
+#include "lower/g_lower_rk.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
@@ -739,7 +740,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 *res = as;
                 return e;
             }
-            if (nm && !g_lower.rk.eval_road && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(1); }
+            if (nm && !g_lower_rk.eval_road && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(1); }
             return lower_rcall(cx, t, nm, 1, γ, ω, res);
         }
         case TT_STMT:
@@ -848,7 +849,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
         case TT_EVERY:
         if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && (!t->c[0]->v.sval || !strcmp(t->c[0]->v.sval, "_"))) {
             char sn[48];
-            snprintf(sn, sizeof sn, "__forsv_%d", ++g_lower.rk.lower_rv_forlist_ctr);
+            snprintf(sn, sizeof sn, "__forsv_%d", ++g_lower_rk.lower_rv_forlist_ctr);
             const char * sv = intern(sn);
             tree_t * lp = ast_node_new(TT_EVERY);
             lp->line = t->line;
@@ -908,7 +909,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 return elo;
             }
             if (src && xfk == 0) {
-                int fid = ++g_lower.rk.lower_rv_forlist_ctr;
+                int fid = ++g_lower_rk.lower_rv_forlist_ctr;
                 char iname[48];
                 snprintf(iname, sizeof iname, "__foridx_%d", fid);
                 const char * in = intern(iname);
@@ -1175,7 +1176,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                     return lower_rv(cx, sq, γ, ω, res);
                 }
             }
-            if (mname && t->n == 2 && t->c[0] && !g_lower.rk.user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
+            if (mname && t->n == 2 && t->c[0] && !g_lower_rk.user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
                 const tree_t * inv = t->c[0];
                 const char * wfn = !strcmp(mname, "print") ? "rk_writes" : "rk_write";
                 if (!strcmp(mname, "say")) { if (rk_yields_array(inv)) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
@@ -1298,7 +1299,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
         case TT_TERNARY:
         if (t->n > 2) {
             char tn[32];
-            snprintf(tn, sizeof tn, "$?tern%d", g_lower.rk.lower_rv_tern_n++);
+            snprintf(tn, sizeof tn, "$?tern%d", g_lower_rk.lower_rv_tern_n++);
             const char * tname = lp_strdup(tn);
             IR_t * jv = lrk_build(cx, IR_VAR, γ, ω);
             IR_LIT(jv).sval = tname;

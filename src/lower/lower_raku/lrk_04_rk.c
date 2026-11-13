@@ -9,6 +9,7 @@
 #include "lower/lower_raku/lrk_04_rk.h"
 #include "lower/lower_raku/lrk_05_rk.h"
 #include "lower/lower_raku/lrk_06_rk.h"
+#include "lower/g_lower_rk.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
     if (!prog || !name) return NULL;
@@ -32,7 +33,7 @@ static tree_t * rk_gath_var(const char * pfx, int id, int decl) {
 tree_t * rk_gath_asg(tree_t * lhs, tree_t * rhs) { tree_t * a = ast_node_new(TT_ASSIGN); ast_push(a, lhs); ast_push(a, rhs); return a; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_gather_pump(tree_t * gcall, tree_t * limit) {
-    int id = ++g_lower.rk.rk_gather_ctr;
+    int id = ++g_lower_rk.rk_gather_ctr;
     tree_t * seq = ast_node_new(TT_SEQ_EXPR);
     seq->line = gcall->line;
     ast_push(seq, rk_gath_asg(rk_gath_var("@__pump", id, 1), rk_fnc2("__rk_undef", NULL, NULL)));
@@ -90,7 +91,7 @@ static tree_t * rk_sq_at(tree_t * arr, long long i) { return rk_t2(TT_ARR_GET, a
 static tree_t * rk_seq_to_gather(tree_t * t) {
     int excl = t->c[1] && t->c[1]->t == TT_ILIT && t->c[1]->v.ival;
     tree_t * seeds = t->c[2], * end = t->c[3];
-    int id = ++g_lower.rk.rk_gather_ctr;
+    int id = ++g_lower_rk.rk_gather_ctr;
     tree_t * body = ast_node_new(TT_SEQ_EXPR);
     body->line = t->line;
     tree_t * sq = rk_fnc2("__rk_arr", NULL, NULL);
@@ -196,7 +197,7 @@ void rk_lazy_stages(tree_t * t) {
     const char * m = t->c[1]->v.sval;
     int k = !strcmp(m, "map") ? 1 : !strcmp(m, "grep") ? 2 : !strcmp(m, "first") ? 3 : 0;
     if (!k) return;
-    int id = ++g_lower.rk.rk_gather_ctr;
+    int id = ++g_lower_rk.rk_gather_ctr;
     char vn[48];
     snprintf(vn, sizeof vn, "__lx%d", id);
     const char * lx = intern(vn);

@@ -14,6 +14,7 @@
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/lower_prolog/lpl_07_pl.h"
+#include "lower/g_lower_pl.h"
 int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
 const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "use_subsumptive_tabling",
     "module_transparent", "$module_restore", "public", "mode", NULL };
@@ -559,9 +560,9 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     int ndir = 0;
     const char * dvn[ndvn];
     int dvc = 0;
-    g_lower.pl.decl_dyn_n = 0;
-    g_lower.pl.hook_dyn_n = 0;
-    g_lower.pl.decl_other_n = 0;
+    g_lower_pl.decl_dyn_n = 0;
+    g_lower_pl.hook_dyn_n = 0;
+    g_lower_pl.decl_other_n = 0;
     g_stage2_pl.pl_decl_multifile.len = 0;
     g_stage2_pl.pl_decl_meta.len = 0;
     for (int i = 0; i < prog->n; i++) {
@@ -619,14 +620,14 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     IR_graph_t * top;
     {
-        const tree_t * all_goals[ndir + nearly + ninit + nmain + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK + g_lower.pl.hook_dyn_n];
+        const tree_t * all_goals[ndir + nearly + ninit + nmain + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK + g_lower_pl.hook_dyn_n];
         int nall = 0;
         int nseedv = 1;
         { tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(0)); all_goals[nall++] = dt; }
         for (int i = 0; i < nearly; i++) all_goals[nall++] = early_goals[i];
-        for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) {
-            char hk[fmt_len("%s/%d", g_lower.pl.hook_dyn_name[i], g_lower.pl.hook_dyn_arity[i])];
-            snprintf(hk, sizeof hk, "%s/%d", g_lower.pl.hook_dyn_name[i], g_lower.pl.hook_dyn_arity[i]);
+        for (int i = 0; i < g_lower_pl.hook_dyn_n; i++) {
+            char hk[fmt_len("%s/%d", g_lower_pl.hook_dyn_name[i], g_lower_pl.hook_dyn_arity[i])];
+            snprintf(hk, sizeof hk, "%s/%d", g_lower_pl.hook_dyn_name[i], g_lower_pl.hook_dyn_arity[i]);
             all_goals[nall++] = pl_cc_fnc2("$set_prolog_flag_declare", (tree_t *) pl_atom_goal("$tbl_hook"), (tree_t *) pl_atom_goal(lp_strdup(hk)));
         }
         for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
@@ -643,8 +644,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         {
             const tree_t * seeds[nseedv];
             int nseed = 0;
-            int save_base = g_lower.pl.seed_var_base;
-            g_lower.pl.seed_var_base = 0;
+            int save_base = g_lower_pl.seed_var_base;
+            g_lower_pl.seed_var_base = 0;
             for (int di = 0; di < g_stage2_pl.pl_dyn_n; di++) {
                 const char * dn = g_stage2_pl.pl_dyn_name[di];
                 int da = g_stage2_pl.pl_dyn_arity[di];
@@ -661,7 +662,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                     }
                 }
             }
-            g_lower.pl.seed_var_base = save_base;
+            g_lower_pl.seed_var_base = save_base;
             if (nseed > 0) {
                 IR_graph_t * sg = pl_body_graph(seeds, nseed);
                 int bb_idx = bb_program_add(&g_stage2.bbp, sg);

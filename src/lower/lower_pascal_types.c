@@ -7,7 +7,6 @@
 #include "ir/ast.h"
 #include "ir/bb_box.h"
 #include "runtime/builtins/gen.h"
-#include "g_lower.h"
 #include "lower/g_lower_pas.h"
 #include "lower_pascal_types.h"
 #define PT_IS(x, k) ((x) && (x)->t == (k))

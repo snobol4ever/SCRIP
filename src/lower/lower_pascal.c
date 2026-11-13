@@ -14,7 +14,6 @@
 #include "runtime/builtins/gen.h"
 #include "lower/lc_vec.h"
 #include "lower/lower_common.h"
-#include "g_lower.h"
 #include "lower/g_lower_pas.h"
 typedef struct pas_scope_s { const char ** names; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;

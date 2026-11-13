@@ -1,6 +1,9 @@
 #ifndef LOWER_LOWER_RAKU_LRK_HEAD_H
 #define LOWER_LOWER_RAKU_LRK_HEAD_H
-#include "lower/g_lower.h"
+#include <stdint.h>
+#include "emitter/emit.h"
+#include "ir/ast.h"
+#include "ir/ir_graph.h"
 typedef struct rk_loopfr_s { const char * label; IR_t * exit; IR_t * next; IR_t * redo; struct rk_loopfr_s * up; } rk_loopfr_t;
 typedef struct {
     int try_depth;

@@ -16,6 +16,7 @@
 #include "lower/lower_prolog/lpl_02_pl.h"
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"
+#include "lower/g_lower_pl.h"
 static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next);
 static tree_t * pl_dot_goal(const tree_t * g, int * next);
 int pl_decl_mf_is(const char * name, int arity) {
@@ -428,9 +429,9 @@ void pl_db_decls_capture(void) {
             if (pe->choice->t == TT_CHOICE) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(9); PL_DW(pe->choice->n); }
         }
     }
-    for (int i = 0; i < g_lower.pl.decl_other_n; i++) if (!pl_name_is_scrip_own(g_lower.pl.decl_other_name[i], g_lower.pl.decl_other_arity[i])) {
-        PL_DW(prolog_atom_intern(g_lower.pl.decl_other_name[i]));
-        PL_DW(g_lower.pl.decl_other_arity[i]);
+    for (int i = 0; i < g_lower_pl.decl_other_n; i++) if (!pl_name_is_scrip_own(g_lower_pl.decl_other_name[i], g_lower_pl.decl_other_arity[i])) {
+        PL_DW(prolog_atom_intern(g_lower_pl.decl_other_name[i]));
+        PL_DW(g_lower_pl.decl_other_arity[i]);
         PL_DW(2);
         PL_DW(-1);
     }

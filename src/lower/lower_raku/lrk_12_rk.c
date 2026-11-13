@@ -9,6 +9,7 @@
 #include "lower/lower_raku/lrk_03_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_12_rk.h"
+#include "lower/g_lower_rk.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_ss_is_check(const tree_t * d) { return d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0] && d->c[0]->v.sval && !strncmp(d->c[0]->v.sval, "__ssf_", 6); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -47,7 +48,7 @@ void rk_eval_host_classes(const tree_t * t) {
     extern void * dat_find_type(const char * name);
     if (!t) return;
     const char * nm = (t->t == TT_VAR && t->v.sval) ? t->v.sval + (t->v.sval[0] == ':' && t->v.sval[1] == ':' ? 2 : 0) : NULL;
-    if (nm && nm[0] >= 'A' && nm[0] <= 'Z' && !rk_is_class_name(nm) && dat_find_type(nm)) CV_PUSH(g_lower.rk.class_names, const char *) = nm;
+    if (nm && nm[0] >= 'A' && nm[0] <= 'Z' && !rk_is_class_name(nm) && dat_find_type(nm)) CV_PUSH(g_lower_rk.class_names, const char *) = nm;
     for (int i = 0; i < t->n; i++) rk_eval_host_classes(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

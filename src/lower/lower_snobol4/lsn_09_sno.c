@@ -10,6 +10,7 @@
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
+#include "lower/g_lower_sno.h"
 static const char * sno_pat_collect(const tree_t * pat);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_pat_dfree(const tree_t * t, int spine, int depth) {
@@ -73,22 +74,22 @@ int sno_pat_dfree(const tree_t * t, int spine, int depth) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_prologue_add(const char * nm) {
     if (!nm) return;
-    for (uint32_t i = 0; i < g_lower.sno.pro.len; i++) if (!strcmp(CV_AT(g_lower.sno.pro, const char *, i), nm)) return;
-    CV_PUSH(g_lower.sno.pro, const char *) = nm;
+    for (uint32_t i = 0; i < g_lower_sno.pro.len; i++) if (!strcmp(CV_AT(g_lower_sno.pro, const char *, i), nm)) return;
+    CV_PUSH(g_lower_sno.pro, const char *) = nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_cap_fc(IR_graph_t * g, IR_t * nd, IR_t * save, int before_i) {
     int fp_inner = 0;
     int walk_ok = fc_walk_range(g, before_i, g->n, 0, &fp_inner);
     if (!walk_ok) return;
-    if (g_lower.sno.in_arbno == 0) {
+    if (g_lower_sno.in_arbno == 0) {
         extern void fc_save_register(const IR_t *);
         extern void fc_cond_register_with_save(const IR_t *, const IR_t *, int);
         fc_save_register(save);
         fc_cond_register_with_save(nd, save, fp_inner);
         return;
     }
-    { sno_scd_t x; x.nd = nd; x.save = save; x.nd_idx = before_i - 2; x.save_idx = before_i - 1; x.i_end = g->n; x.fp_inner = fp_inner; x.promo = 0; CV_PUSH(g_lower.sno.scd, sno_scd_t) = x; }
+    { sno_scd_t x; x.nd = nd; x.save = save; x.nd_idx = before_i - 2; x.save_idx = before_i - 1; x.i_end = g->n; x.fp_inner = fp_inner; x.promo = 0; CV_PUSH(g_lower_sno.scd, sno_scd_t) = x; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_walk_range(IR_graph_t * g, int k0, int k1, int lit_ok, int * fp) {
@@ -136,8 +137,8 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
         if (!x) continue;
         if (x->op == IR_MATCH_ALTERNATE) { int _b = 0, _e = 0; if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > k + 1) k = _e - 1; continue; } return 0; }
         if (x->op == IR_MATCH_DEFER) {
-            if (g_lower.sno.fc_tail_walk_dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); g_lower.sno.fc_tail_walk_dtl = _e ? (atoi(_e) != 0) : 0; }
-            if (g_lower.sno.fc_tail_walk_dtl && x->seal == 2 && IR_LIT(x).sval && sno_name_prologue_bound(IR_LIT(x).sval)) {
+            if (g_lower_sno.fc_tail_walk_dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); g_lower_sno.fc_tail_walk_dtl = _e ? (atoi(_e) != 0) : 0; }
+            if (g_lower_sno.fc_tail_walk_dtl && x->seal == 2 && IR_LIT(x).sval && sno_name_prologue_bound(IR_LIT(x).sval)) {
                 const char * _pn = 0;
                 for (int _j = 0; _j < x->n_operands; _j++) {
                     IR_t * _o = x->operands[_j];
@@ -174,23 +175,23 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_patsalt_on(void) {
-    if (g_lower.sno.sno_patsalt_on_v < 0) { const char * e = getenv("SCRIP_PATSALT"); g_lower.sno.sno_patsalt_on_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_patsalt_on_v;
+    if (g_lower_sno.sno_patsalt_on_v < 0) { const char * e = getenv("SCRIP_PATSALT"); g_lower_sno.sno_patsalt_on_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_patsalt_on_v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_patname_salt_on(void) {
-    if (g_lower.sno.sno_patname_salt_on_v < 0) { const char * e = getenv("SCRIP_PATNAME_SALT"); g_lower.sno.sno_patname_salt_on_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_patname_salt_on_v;
+    if (g_lower_sno.sno_patname_salt_on_v < 0) { const char * e = getenv("SCRIP_PATNAME_SALT"); g_lower_sno.sno_patname_salt_on_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_patname_salt_on_v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_pat_collect(const tree_t * pat) {
-    for (int i = 0; i < (int) g_lower.sno.pats.len; i++)
-        if ((!sno_patsalt_on() || CV_AT(g_lower.sno.pats, sno_pat_ent_t, i).salt == g_lower.sno.expr_salt) && sno_expr_eq(CV_AT(g_lower.sno.pats, sno_pat_ent_t, i).pat, pat))
-        return CV_AT(g_lower.sno.pats, sno_pat_ent_t, i).name;
+    for (int i = 0; i < (int) g_lower_sno.pats.len; i++)
+        if ((!sno_patsalt_on() || CV_AT(g_lower_sno.pats, sno_pat_ent_t, i).salt == g_lower_sno.expr_salt) && sno_expr_eq(CV_AT(g_lower_sno.pats, sno_pat_ent_t, i).pat, pat))
+        return CV_AT(g_lower_sno.pats, sno_pat_ent_t, i).name;
     char buf[32];
-    if (sno_patname_salt_on() && g_lower.sno.expr_salt) snprintf(buf, sizeof buf, "PAT$%dF%d", (int) g_lower.sno.pats.len, g_lower.sno.expr_salt);
-    else snprintf(buf, sizeof buf, "PAT$%d", (int) g_lower.sno.pats.len);
-    { sno_pat_ent_t x; x.name = lp_strdup(buf); x.pat = pat; x.salt = g_lower.sno.expr_salt; CV_PUSH(g_lower.sno.pats, sno_pat_ent_t) = x; return x.name; }
+    if (sno_patname_salt_on() && g_lower_sno.expr_salt) snprintf(buf, sizeof buf, "PAT$%dF%d", (int) g_lower_sno.pats.len, g_lower_sno.expr_salt);
+    else snprintf(buf, sizeof buf, "PAT$%d", (int) g_lower_sno.pats.len);
+    { sno_pat_ent_t x; x.name = lp_strdup(buf); x.pat = pat; x.salt = g_lower_sno.expr_salt; CV_PUSH(g_lower_sno.pats, sno_pat_ent_t) = x; return x.name; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -328,18 +329,18 @@ IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl
     sno_cap_defer_reset();
     IR_t * pat_entry;
     {
-        int _mcsv = g_lower.sno.pat_match_ctx;
-        g_lower.sno.pat_match_ctx = 1;
+        int _mcsv = g_lower_sno.pat_match_ctx;
+        g_lower_sno.pat_match_ctx = 1;
         cx->ppos = 240;
         cx->capro = cx->capro_cand;
         pat_entry = sno_pat_node(cx, ptt, release, head);
         cx->capro = NULL;
-        g_lower.sno.pat_match_ctx = _mcsv;
+        g_lower_sno.pat_match_ctx = _mcsv;
     }
     lc_γ_to(head, pat_entry);
     {
         int fp_stmt = 0;
-        int fc_lin = (g_lower.sno.in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
+        int fc_lin = (g_lower_sno.in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
         if (!fc_lin) {
             int tail_ok = 0;
@@ -388,38 +389,38 @@ IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl
                             }
                         }
                         int cap_bad = 0;
-                        for (uint32_t d = 0; d < g_lower.sno.scd.len; d++) CV_AT(g_lower.sno.scd, sno_scd_t, d).promo = 0;
+                        for (uint32_t d = 0; d < g_lower_sno.scd.len; d++) CV_AT(g_lower_sno.scd, sno_scd_t, d).promo = 0;
                         {
                             extern int fc_alt_fpmax(const IR_t *);
                             extern int fc_alt_extent(const IR_t *, int *, int *);
                             extern int fc_cond_fp(const IR_t *);
-                            for (int d = 0; d < (int) g_lower.sno.scd.len && !cap_bad; d++) {
-                                if (CV_AT(g_lower.sno.scd, sno_scd_t, d).save_idx < i_b0 || CV_AT(g_lower.sno.scd, sno_scd_t, d).nd_idx >= g->n) { cap_bad = 1; break; }
+                            for (int d = 0; d < (int) g_lower_sno.scd.len && !cap_bad; d++) {
+                                if (CV_AT(g_lower_sno.scd, sno_scd_t, d).save_idx < i_b0 || CV_AT(g_lower_sno.scd, sno_scd_t, d).nd_idx >= g->n) { cap_bad = 1; break; }
                                 int in_arm = 0;
                                 for (int k = i_b0; k < g->n; k++) {
                                     IR_t * x = g->all[k];
                                     if (!x || x->op != IR_MATCH_ALTERNATE || fc_alt_fpmax(x) < 0) continue;
                                     int _b = 0, _e = 0;
-                                    if (fc_alt_extent(x, &_b, &_e) && CV_AT(g_lower.sno.scd, sno_scd_t, d).nd_idx >= _b && CV_AT(g_lower.sno.scd, sno_scd_t, d).nd_idx < _e) { in_arm = 1; break; }
+                                    if (fc_alt_extent(x, &_b, &_e) && CV_AT(g_lower_sno.scd, sno_scd_t, d).nd_idx >= _b && CV_AT(g_lower_sno.scd, sno_scd_t, d).nd_idx < _e) { in_arm = 1; break; }
                                 }
                                 int nested = 0;
-                                for (int e = 0; e < (int) g_lower.sno.scd.len; e++) {
+                                for (int e = 0; e < (int) g_lower_sno.scd.len; e++) {
                                     if (e == d) continue;
-                                    if (CV_AT(g_lower.sno.scd, sno_scd_t, e).nd_idx > CV_AT(g_lower.sno.scd, sno_scd_t, d).save_idx &&
-                                        CV_AT(g_lower.sno.scd, sno_scd_t, e).nd_idx < CV_AT(g_lower.sno.scd, sno_scd_t, d).i_end) {
+                                    if (CV_AT(g_lower_sno.scd, sno_scd_t, e).nd_idx > CV_AT(g_lower_sno.scd, sno_scd_t, d).save_idx &&
+                                        CV_AT(g_lower_sno.scd, sno_scd_t, e).nd_idx < CV_AT(g_lower_sno.scd, sno_scd_t, d).i_end) {
                                         nested = 1;
                                         break;
                                     }
                                 }
                                 if (in_arm || nested) cap_bad = 1;
-                                else CV_AT(g_lower.sno.scd, sno_scd_t, d).promo = 1;
+                                else CV_AT(g_lower_sno.scd, sno_scd_t, d).promo = 1;
                             }
                             if (!cap_bad) for (int k = i_b0; k < g->n; k++) {
                                 IR_t * x = g->all[k];
                                 if (!x || (x->op != IR_MATCH_ASSIGN_COND && x->op != IR_MATCH_ASSIGN_IMM)) continue;
                                 if (fc_cond_fp(x) >= 0) continue;
                                 int def_ok = 0;
-                                for (int d = 0; d < (int) g_lower.sno.scd.len; d++) if (CV_AT(g_lower.sno.scd, sno_scd_t, d).nd == x && CV_AT(g_lower.sno.scd, sno_scd_t, d).promo) {
+                                for (int d = 0; d < (int) g_lower_sno.scd.len; d++) if (CV_AT(g_lower_sno.scd, sno_scd_t, d).nd == x && CV_AT(g_lower_sno.scd, sno_scd_t, d).promo) {
                                     def_ok = 1;
                                     break;
                                 }
@@ -433,7 +434,7 @@ IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl
                             for (int k = before_pat; k < g->n && !_hd; k++) { IR_t * x = g->all[k]; if (x && x->op == IR_MATCH_DEFER) _hd = 1; }
                             if (_hd) {
                                 int _ap = 0;
-                                for (int d = 0; d < (int) g_lower.sno.scd.len && !_ap; d++) if (CV_AT(g_lower.sno.scd, sno_scd_t, d).promo) _ap = 1;
+                                for (int d = 0; d < (int) g_lower_sno.scd.len && !_ap; d++) if (CV_AT(g_lower_sno.scd, sno_scd_t, d).promo) _ap = 1;
                                 dfr_regs = (n_wrap > 0 || _ap);
                                 if (dfr_regs) tl_why = "defer-caps";
                             }
@@ -442,9 +443,9 @@ IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl
                             {
                                 extern void fc_save_register(const IR_t *);
                                 extern void fc_cond_register(const IR_t *, int);
-                                for (int d = 0; d < (int) g_lower.sno.scd.len; d++) if (CV_AT(g_lower.sno.scd, sno_scd_t, d).promo) {
-                                    fc_save_register(CV_AT(g_lower.sno.scd, sno_scd_t, d).save);
-                                    fc_cond_register(CV_AT(g_lower.sno.scd, sno_scd_t, d).nd, CV_AT(g_lower.sno.scd, sno_scd_t, d).fp_inner);
+                                for (int d = 0; d < (int) g_lower_sno.scd.len; d++) if (CV_AT(g_lower_sno.scd, sno_scd_t, d).promo) {
+                                    fc_save_register(CV_AT(g_lower_sno.scd, sno_scd_t, d).save);
+                                    fc_cond_register(CV_AT(g_lower_sno.scd, sno_scd_t, d).nd, CV_AT(g_lower_sno.scd, sno_scd_t, d).fp_inner);
                                 }
                                 for (int w = 0; w < n_wrap; w++) fc_save_register(wsv[w]);
                             }
@@ -460,12 +461,12 @@ IR_t * sno_lower_match_body(scx_t * cx, const tree_t * subj, const tree_t * repl
         }
     }
     IR_t * after = head;
-    if (g_lower.sno.sno_lower_match_preord < 0) { const char * e = getenv("SCRIP_PRE_ORDER"); g_lower.sno.sno_lower_match_preord = (e && *e == '0') ? 0 : 1; }
-    for (int pi = g_lower.sno.sno_lower_match_preord ? cx->npre - 1 : 0; g_lower.sno.sno_lower_match_preord ? (pi >= 0) : (pi < cx->npre); pi += g_lower.sno.sno_lower_match_preord ? -1 : 1) {
+    if (g_lower_sno.sno_lower_match_preord < 0) { const char * e = getenv("SCRIP_PRE_ORDER"); g_lower_sno.sno_lower_match_preord = (e && *e == '0') ? 0 : 1; }
+    for (int pi = g_lower_sno.sno_lower_match_preord ? cx->npre - 1 : 0; g_lower_sno.sno_lower_match_preord ? (pi >= 0) : (pi < cx->npre); pi += g_lower_sno.sno_lower_match_preord ? -1 : 1) {
         if (!cx->pre[pi].prim) { IR_t * av = NULL; after = sx_lower(cx, cx->pre[pi].arg, after, fJ, &av); continue; }
         if (cx->pre[pi].snapg) {
             char nb[32];
-            snprintf(nb, sizeof nb, "PATV$%d", g_lower.sno.sno_lower_match_snapctr++);
+            snprintf(nb, sizeof nb, "PATV$%d", g_lower_sno.sno_lower_match_snapctr++);
             char * gname = lp_strdup(nb);
             sno_reg_var(gname);
             IR_LIT(cx->pre[pi].prim).sval = gname;

@@ -3,7 +3,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "driver/driver_globals.h"
 #include "runtime/builtin_ids.h"
-#include "runtime/builtin_leaf.h"
 #include <errno.h>
 #include <cpuid.h>
 #include "runtime/pas_bi_names.h"

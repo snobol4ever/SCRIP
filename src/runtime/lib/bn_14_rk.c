@@ -4,7 +4,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/runtime_shim.h"
 #include "driver/driver_globals.h"
-#include "runtime/builtin_leaf.h"
 #include "runtime/rt/rt_list_view.h"
 #include <ctype.h>
 #include "runtime/lib/bn_02_sh.h"

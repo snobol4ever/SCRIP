@@ -8,6 +8,7 @@
 #include "lower/lower_snobol4/lsn_05_sno.h"
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include <time.h>
+#include "lower/g_lower_sno.h"
 extern int snobol4_list_event_count(void);
 extern int snobol4_list_event_nend(int);
 extern int snobol4_list_event_kind(int);
@@ -196,8 +197,8 @@ int sno_pat_inline_ok(const tree_t * t) {
         { for (int i = 0; i < t->n; i++) if (!sno_pat_inline_ok(t->c[i])) return 0; return 1; }
         case TT_ARBNO:
         {
-            if (g_lower.sno.sno_pat_inline_ok_ia < 0) { const char * e = getenv("SCRIP_PAT_INLINE_ARBNO"); g_lower.sno.sno_pat_inline_ok_ia = (!e || *e != '0') ? 1 : 0; }
-            return g_lower.sno.sno_pat_inline_ok_ia && t->n > 0 && sno_pat_inline_ok(t->c[0]);
+            if (g_lower_sno.sno_pat_inline_ok_ia < 0) { const char * e = getenv("SCRIP_PAT_INLINE_ARBNO"); g_lower_sno.sno_pat_inline_ok_ia = (!e || *e != '0') ? 1 : 0; }
+            return g_lower_sno.sno_pat_inline_ok_ia && t->n > 0 && sno_pat_inline_ok(t->c[0]);
         }
         default:
         return 0;

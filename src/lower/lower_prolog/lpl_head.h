@@ -2,7 +2,7 @@
 #define LOWER_LOWER_PROLOG_LPL_HEAD_H
 #include "ir/ir_node.h"
 #include "lower/lc_vec.h"
-#include "lower/g_lower.h"
+#include "ir/ast.h"
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SEAL_TAIL 1

@@ -15,15 +15,16 @@
 #include "lower/lower_snobol4/lsn_05_sno.h"
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
+#include "lower/g_lower_sno.h"
 int rt_kw_index(const char * kw);
 int sno_sub_val_on(void) {
-    if (g_lower.sno.sno_sub_val_on_v < 0) { const char * e = getenv("SCRIP_SUB_VAL"); g_lower.sno.sno_sub_val_on_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_sub_val_on_v;
+    if (g_lower_sno.sno_sub_val_on_v < 0) { const char * e = getenv("SCRIP_SUB_VAL"); g_lower_sno.sno_sub_val_on_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_sub_val_on_v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void sno_expr_salt_next(void) { g_lower.sno.expr_salt++; }
+void sno_expr_salt_next(void) { g_lower_sno.expr_salt++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_binop_code(tree_e tt) {
     switch (tt) {
@@ -333,8 +334,8 @@ IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbas
     IR_LIT(call).sval = (char *) lp_strdup(name);
     call->strict = 2;
     IR_t * sr0 = NULL;
-    if (g_lower.sno.sx_call_named_c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_lower.sno.sx_call_named_c2bb = (e2 && *e2 == '1') ? 1 : 0; }
-    if (g_lower.sno.sx_call_named_c2bb) { sr0 = lc_build(cx->g, IR_DEFINE_CALL, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
+    if (g_lower_sno.sx_call_named_c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_lower_sno.sx_call_named_c2bb = (e2 && *e2 == '1') ? 1 : 0; }
+    if (g_lower_sno.sx_call_named_c2bb) { sr0 = lc_build(cx->g, IR_DEFINE_CALL, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
     IR_t * tail = sr0 ? sr0 : call;
     if (bn) {
         IR_t * wm = lc_build(cx->g, IR_CALL, tail, ω);

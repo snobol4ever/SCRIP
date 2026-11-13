@@ -49,7 +49,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "ir/stage2_pl.h"
 #include "ir/ast.h"
 #include "lower/lower_icon.h"
-#include "lower/g_lower.h"
+#include "lower/g_lower_icn.h"
 #include "lower/lower_pascal.h"
 #include "runtime/rt/rt_proc_block.h"
 #include "runtime/rt/gc_heap.h"
@@ -2693,7 +2693,7 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
-    g_lower.icn.parse = icon_compile_parse;
+    g_lower_icn.parse = icon_compile_parse;
     if (argc >= 3 && strcmp(argv[1], "--harness") == 0) return scrip_harness_cli(argv[0], "--run", argc - 2, argv + 2);
     if (argc >= 4 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0) return scrip_harness_cli(argv[0], "--compile", argc - 3, argv + 3);
     if (argc >= 3 && scrip_rl_kind(argv[1]) >= 0) return scrip_rl_cli(argv[0], "--run", scrip_rl_kind(argv[1]), argc - 2, argv + 2);

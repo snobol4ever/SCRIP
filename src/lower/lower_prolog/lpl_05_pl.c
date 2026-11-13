@@ -10,6 +10,7 @@
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_06_pl.h"
+#include "lower/g_lower_pl.h"
 static tree_t * pl_cutto_goal(tree_t * g, const tree_t * cl, int body0);
 int pl_var_nodes(const tree_t * t) { int n; if (!t) return 0; n = (t->t == TT_VAR); for (int i = 0; i < t->n; i++) n += pl_var_nodes(t->c[i]); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -632,8 +633,8 @@ static tree_t * pl_load_directive_term(const tree_t * subj) {
     long long slots[occ];
     int nn = 0, n = 0;
     pl_dir_number_vars(tg, names, &nn, 0);
-    pl_tree_renumber_vars(tg, slots, &n, occ, g_lower.pl.seed_var_base);
-    g_lower.pl.seed_var_base += (n > 0 ? n : 1);
+    pl_tree_renumber_vars(tg, slots, &n, occ, g_lower_pl.seed_var_base);
+    g_lower_pl.seed_var_base += (n > 0 ? n : 1);
     return tg;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -665,9 +666,9 @@ static const char * pl_load_module_of(const tree_t * prog, const char * file) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int nit, cv_t * procs) {
     for (int lo = 0; lo < nit && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
-        int hi = lo + PL_SEED_CHUNK < nit ? lo + PL_SEED_CHUNK : nit, m = 0, save_base = g_lower.pl.seed_var_base;
+        int hi = lo + PL_SEED_CHUNK < nit ? lo + PL_SEED_CHUNK : nit, m = 0, save_base = g_lower_pl.seed_var_base;
         const tree_t ** sg = (const tree_t **) ct_zalloc((size_t) (hi - lo), sizeof(const tree_t *));
-        g_lower.pl.seed_var_base = 0;
+        g_lower_pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const char * u = it[i].expand ? pl_load_unit_at(prog, it[i].file, it[i].line) : NULL;
             tree_t * t = it[i].pn ? pl_static_clause_term(it[i].t, it[i].pn, it[i].ar, 0) : pl_load_directive_term(it[i].t);
@@ -678,7 +679,7 @@ void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int nit, cv_t
             ast_push(g, pl_seed_file_term(it[i].file));
             sg[m++] = g;
         }
-        g_lower.pl.seed_var_base = save_base;
+        g_lower_pl.seed_var_base = save_base;
         {
             IR_graph_t * g = pl_body_graph(sg, m);
             int bb_idx = bb_program_add(&g_stage2.bbp, g);

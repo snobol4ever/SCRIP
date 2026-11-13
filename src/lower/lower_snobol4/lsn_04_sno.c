@@ -8,10 +8,11 @@
 #include "lower/lower_snobol4/lsn_04_sno.h"
 #include "lower/lower_snobol4/lsn_05_sno.h"
 #include "lower/lower_snobol4/lsn_06_sh.h"
+#include "lower/g_lower_sno.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sx_sub_container_only(IR_t * sub) { const char * e = getenv("SCRIP_SUB_AGG"); if (!(e && *e == '0')) IR_LIT(sub).sval = "container-only"; }
 char * sno_scan_tmp(const char * pfx) {
-    int scv = g_lower.sno.sno_scan_tmp_scv_n++;
+    int scv = g_lower_sno.sno_scan_tmp_scv_n++;
     char nmb[fmt_len("%s$%d", pfx, scv)];
     snprintf(nmb, sizeof nmb, "%s$%d", pfx, scv);
     char * tn = (char *) lp_strdup(nmb);
@@ -66,7 +67,7 @@ IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR
     IR_t * rr = NULL;
     if (sno_tree_has_scan(t->c[1], 0)) {
         char nmb[24];
-        snprintf(nmb, sizeof nmb, "SCL$%d", g_lower.sno.sx_binop_scl_n++);
+        snprintf(nmb, sizeof nmb, "SCL$%d", g_lower_sno.sx_binop_scl_n++);
         char * tmpn = lp_strdup(nmb);
         sno_reg_var(tmpn);
         IR_t * asn = lc_build(cx->g, IR_ASSIGN, NULL, ω);
@@ -93,22 +94,22 @@ IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_predef_note(const char * fname) {
-    for (uint32_t k = 0; k < g_lower.sno.predef.len; k++) if (!strcmp(CV_AT(g_lower.sno.predef, const char *, k), fname)) return;
-    CV_PUSH(g_lower.sno.predef, const char *) = fname;
+    for (uint32_t k = 0; k < g_lower_sno.predef.len; k++) if (!strcmp(CV_AT(g_lower_sno.predef, const char *, k), fname)) return;
+    CV_PUSH(g_lower_sno.predef, const char *) = fname;
 }
 void sno_bare_pat_note(const char * fname) {
-    for (uint32_t k = 0; k < g_lower.sno.bare_pat.len; k++) if (!strcmp(CV_AT(g_lower.sno.bare_pat, const char *, k), fname)) return;
-    CV_PUSH(g_lower.sno.bare_pat, const char *) = fname;
+    for (uint32_t k = 0; k < g_lower_sno.bare_pat.len; k++) if (!strcmp(CV_AT(g_lower_sno.bare_pat, const char *, k), fname)) return;
+    CV_PUSH(g_lower_sno.bare_pat, const char *) = fname;
 }
-int sno_bare_pat_count(void) { return (int) g_lower.sno.bare_pat.len; }
-const char * sno_bare_pat_name(int k) { return CV_AT(g_lower.sno.bare_pat, const char *, k); }
+int sno_bare_pat_count(void) { return (int) g_lower_sno.bare_pat.len; }
+const char * sno_bare_pat_name(int k) { return CV_AT(g_lower_sno.bare_pat, const char *, k); }
 void sno_tdef_note(const char * fname) {
-    for (uint32_t k = 0; k < g_lower.sno.tdef.len; k++) if (!strcmp(CV_AT(g_lower.sno.tdef, const char *, k), fname)) return;
-    CV_PUSH(g_lower.sno.tdef, const char *) = lp_strdup(fname);
+    for (uint32_t k = 0; k < g_lower_sno.tdef.len; k++) if (!strcmp(CV_AT(g_lower_sno.tdef, const char *, k), fname)) return;
+    CV_PUSH(g_lower_sno.tdef, const char *) = lp_strdup(fname);
 }
 int sno_tdef_registered(const char * fname) {
     if (!fname) return 0;
-    for (uint32_t k = 0; k < g_lower.sno.tdef.len; k++) if (!strcmp(CV_AT(g_lower.sno.tdef, const char *, k), fname)) return 1;
+    for (uint32_t k = 0; k < g_lower_sno.tdef.len; k++) if (!strcmp(CV_AT(g_lower_sno.tdef, const char *, k), fname)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -195,8 +196,8 @@ IR_t * sno_arm_result(IR_t * rv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_ident_inline_on(void) {
-    if (g_lower.sno.sno_ident_inline_on_on < 0) { const char * e = getenv("SCRIP_IDENT_INLINE"); g_lower.sno.sno_ident_inline_on_on = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_ident_inline_on_on;
+    if (g_lower_sno.sno_ident_inline_on_on < 0) { const char * e = getenv("SCRIP_IDENT_INLINE"); g_lower_sno.sno_ident_inline_on_on = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_ident_inline_on_on;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_vl_quiet(const tree_t * t) {

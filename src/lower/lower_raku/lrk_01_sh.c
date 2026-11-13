@@ -16,6 +16,7 @@
 #include "lower/lower_raku/lrk_09_sh.h"
 #include "lower/lower_raku/lrk_10_rk.h"
 #include "runtime/core/g_runtime.h"
+#include "lower/g_lower_rk.h"
 static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
 static void rk_arm_body(tree_t * seq, int from);
 static int rk_block_has_arm(const tree_t * t);
@@ -28,10 +29,10 @@ int lrk_rk_seq_is_logical_and(const tree_t * t) { return t && t->t == TT_SEQ && 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_is_multi_name(const char * nm) {
     if (!nm) return 0;
-    for (uint32_t i = 0; i < g_lower.rk.multi_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.multi_names, const char *, i), nm)) return 1;
+    for (uint32_t i = 0; i < g_lower_rk.multi_names.len; i++) if (!strcmp(CV_AT(g_lower_rk.multi_names, const char *, i), nm)) return 1;
     return 0;
 }
-void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_lower.rk.multi_names, const char *) = nm; } }
+void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_lower_rk.multi_names, const char *) = nm; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_name_is_byref(rcx_t * cx, const char * name) {
     if (!cx || !cx->cur_proc || !cx->cur_byref_mask || !name) return 0;
@@ -312,7 +313,7 @@ static int rk_block_has_arm(const tree_t * t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t * rk_case_desugar(const tree_t * t) {
-    int cid = g_lower.rk.rk_case_desugar_cid++;
+    int cid = g_lower_rk.rk_case_desugar_cid++;
     char nb[48], sb[48];
     snprintf(nb, sizeof nb, "__case_%d", cid);
     snprintf(sb, sizeof sb, "__casesv_%d", cid);
@@ -644,7 +645,7 @@ void rk_hoist_anon_blocks(tree_t * prog) {
         extern int rt_proc_is_registered(const char *);
         tree_t * blk = blks[i];
         char nm[64];
-        do snprintf(nm, sizeof nm, "__blk_%d", ++g_lower.rk.rk_hoist_anon_blocks_blk_ctr);
+        do snprintf(nm, sizeof nm, "__blk_%d", ++g_lower_rk.rk_hoist_anon_blocks_blk_ctr);
         while (rt_proc_is_registered(nm));
         char * pn = lp_strdup(nm);
         blk->v.sval = pn;
@@ -739,9 +740,9 @@ const char * lower_raku_eval_stage2(const tree_t * prog) {
         else { rk_wrap_bodies(st); ast_push(sd, rk_ph_of(u) ? (tree_t *) u : i == lastb ? rk_tail_return((tree_t *) u) : st); }
     }
     ast_push(p2, sd);
-    g_lower.rk.eval_road = 1;
+    g_lower_rk.eval_road = 1;
     rk_stage2_core(p2, 0, 0);
-    g_lower.rk.eval_road = 0;
+    g_lower_rk.eval_road = 0;
     lower_raku_eval_reads_are_globals(pc0);
     return nm;
 }

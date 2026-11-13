@@ -7,7 +7,6 @@
 #include "driver/driver.h"
 #include "driver/driver_globals.h"
 #include "driver/driver_data.h"
-#include "runtime/builtin_leaf.h"
 #include <ctype.h>
 #include <fcntl.h>
 #include "runtime/lib/bn_03_sh.h"

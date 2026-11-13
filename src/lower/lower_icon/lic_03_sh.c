@@ -14,6 +14,7 @@
 #include "lower/lower_icon/lic_02_sh.h"
 #include "lower/lower_icon/lic_03_sh.h"
 #include "lower/lower_icon/lic_04_sh.h"
+#include "lower/g_lower_icn.h"
 extern int icn_builtin_is_known(const char *);
 extern int icn_builtin_arity(const char *);
 extern int icn_builtin_is_generator(const char *);
@@ -27,8 +28,8 @@ extern void icn_expand_deferred(tree_t * prog);
 const char * icn_static_mangled(const icx_t * cx, const char * nm) {
     if (!cx->pname) return NULL;
     size_t pl = strlen(cx->pname), nl = strlen(nm);
-    for (int i = 0; i < g_lower.icn.synth_excl.n; i++) {
-        const char * m = LC_AT(&g_lower.icn.synth_excl, const char *, i);
+    for (int i = 0; i < g_lower_icn.synth_excl.n; i++) {
+        const char * m = LC_AT(&g_lower_icn.synth_excl, const char *, i);
         if (m && !strncmp(m, cx->pname, pl) && !strncmp(m + pl, "__STATIC__", 10) && !strcmp(m + pl + 10, nm) && strlen(m) == pl + 10 + nl) return m;
     }
     return NULL;
@@ -59,7 +60,7 @@ static void icn_reassigned_walk(const tree_t * n) {
     if (n->t == TT_STMT) { icn_reassigned_walk(lic_stmt_subj(n)); return; }
     if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP) for (int i = 0; i < n->n; i++) {
         const tree_t * c = n->c[i];
-        if (c && c->t == TT_VAR && c->v.sval && !icn_name_assigned(c->v.sval)) lc_vec_push(&g_lower.icn.reassigned, &c->v.sval);
+        if (c && c->t == TT_VAR && c->v.sval && !icn_name_assigned(c->v.sval)) lc_vec_push(&g_lower_icn.reassigned, &c->v.sval);
         if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break;
     }
     for (int i = 0; i < n->n; i++) icn_reassigned_walk(n->c[i]);
@@ -87,25 +88,25 @@ static int icn_global_declared(const tree_t * prog, const char * nm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_collect_reassigned_procs(const tree_t * prog) {
-    if (g_lower.icn.reassigned_prog == prog) return;
-    lc_vec_init(&g_lower.icn.reassigned, (int) sizeof(const char *));
-    g_lower.icn.reassigned.n = 0;
+    if (g_lower_icn.reassigned_prog == prog) return;
+    lc_vec_init(&g_lower_icn.reassigned, (int) sizeof(const char *));
+    g_lower_icn.reassigned.n = 0;
     icn_reassigned_walk(prog);
-    g_lower.icn.reassigned_prog = prog;
+    g_lower_icn.reassigned_prog = prog;
     if (icn_tree_has_rtname_lv(prog)) for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) d = lic_stmt_subj(d);
-        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_lower.icn.reassigned, &d->v.sval);
+        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_lower_icn.reassigned, &d->v.sval);
     }
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) d = lic_stmt_subj(d);
-        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval) && icn_global_declared(prog, d->v.sval)) lc_vec_push(&g_lower.icn.reassigned, &d->v.sval);
+        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval) && icn_global_declared(prog, d->v.sval)) lc_vec_push(&g_lower_icn.reassigned, &d->v.sval);
     }
 }
 int icn_builtin_reassigned(const char * nm) {
-    if (!nm || !g_lower.icn.breassigned_prog) return 0;
-    for (int k = 0; k < g_lower.icn.breassigned.n; k++) if (!strcmp(LC_AT(&g_lower.icn.breassigned, const char *, k), nm)) return 1;
+    if (!nm || !g_lower_icn.breassigned_prog) return 0;
+    for (int k = 0; k < g_lower_icn.breassigned.n; k++) if (!strcmp(LC_AT(&g_lower_icn.breassigned, const char *, k), nm)) return 1;
     return 0;
 }
 int icn_never_pattern(const tree_t * a) {
@@ -132,7 +133,7 @@ static void icn_breassigned_note(const tree_t * prog, const tree_t * pd, const c
     if (nm && (icn_builtin_is_known(nm) || icn_is_icon_function(nm)) && !icn_is_proc(nm) && !dat_find_type(nm) && !icn_proc_declares(pd, nm) && !icn_builtin_reassigned(nm)) {
         int glob = 0;
         for (int g = 0; g < prog->n && !glob; g++) { const tree_t * d = prog->c[g]; if (d && d->t == TT_STMT) d = lic_stmt_subj(d); if (d && d->t == TT_GLOBAL && icn_decl_list_has(d, nm)) glob = 1; }
-        if (!glob) lc_vec_push(&g_lower.icn.breassigned, &nm);
+        if (!glob) lc_vec_push(&g_lower_icn.breassigned, &nm);
     }
 }
 static void icn_breassigned_walk(const tree_t * prog, const tree_t * pd, const tree_t * n, int every_ref) {
@@ -147,10 +148,10 @@ static void icn_breassigned_walk(const tree_t * prog, const tree_t * pd, const t
     for (int i = 0; i < n->n; i++) icn_breassigned_walk(prog, pd, n->c[i], every_ref);
 }
 static void icn_collect_reassigned_builtins(const tree_t * prog) {
-    if (g_lower.icn.breassigned_prog == prog) return;
-    lc_vec_init(&g_lower.icn.breassigned, (int) sizeof(const char *));
-    g_lower.icn.breassigned.n = 0;
-    g_lower.icn.breassigned_prog = prog;
+    if (g_lower_icn.breassigned_prog == prog) return;
+    lc_vec_init(&g_lower_icn.breassigned, (int) sizeof(const char *));
+    g_lower_icn.breassigned.n = 0;
+    g_lower_icn.breassigned_prog = prog;
     int every_ref = icn_tree_has_rtname_lv(prog);
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
@@ -184,7 +185,7 @@ int icn_arg_is_scan_fn(const tree_t * a) {
         !strcmp(nm, "bal"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void icn_note_record_name(const char * nm) { if (nm && g_lower.icn.icn_record_name_count < 512) g_lower.icn.icn_record_names[g_lower.icn.icn_record_name_count++] = nm; }
+void icn_note_record_name(const char * nm) { if (nm && g_lower_icn.icn_record_name_count < 512) g_lower_icn.icn_record_names[g_lower_icn.icn_record_name_count++] = nm; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
@@ -347,10 +348,10 @@ static void collect_procs_vec(const tree_t * t, lc_vec * out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fill_pnames(const tree_t * prog, lc_vec * pn) {
-    icn_vec_reuse(&g_lower.icn.fill_pnames_ps, (int) sizeof(const tree_t *));
-    collect_procs_vec(prog, &g_lower.icn.fill_pnames_ps);
-    for (int i = 0; i < g_lower.icn.fill_pnames_ps.n; i++) if (LC_AT(&g_lower.icn.fill_pnames_ps, const tree_t *, i)->v.sval)
-        lc_vec_push(pn, &LC_AT(&g_lower.icn.fill_pnames_ps, const tree_t *, i)->v.sval);
+    icn_vec_reuse(&g_lower_icn.fill_pnames_ps, (int) sizeof(const tree_t *));
+    collect_procs_vec(prog, &g_lower_icn.fill_pnames_ps);
+    for (int i = 0; i < g_lower_icn.fill_pnames_ps.n; i++) if (LC_AT(&g_lower_icn.fill_pnames_ps, const tree_t *, i)->v.sval)
+        lc_vec_push(pn, &LC_AT(&g_lower_icn.fill_pnames_ps, const tree_t *, i)->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** mangled, int cnt) {
@@ -377,7 +378,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
             char * m = ct_alloc(strlen(pname) + strlen(names[cnt]) + 12);
             sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
             { extern void global_register(const char *); global_register(m); }
-            { const char * mc = m; lc_vec_push(&g_lower.icn.synth_excl, &mc); }
+            { const char * mc = m; lc_vec_push(&g_lower_icn.synth_excl, &mc); }
             mangled[cnt] = m;
             cnt++;
         }
@@ -390,7 +391,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
             char * f = ct_alloc(strlen(pname) + 20);
             sprintf(f, "%s__INITFLAG__%d", pname, inits++);
             { extern void global_register(const char *); global_register(f); }
-            { const char * fc = f; lc_vec_push(&g_lower.icn.synth_excl, &fc); }
+            { const char * fc = f; lc_vec_push(&g_lower_icn.synth_excl, &fc); }
             tree_t * fv = ast_node_new(TT_VAR);
             fv->v.sval = f;
             tree_t * nz = ast_node_new(TT_NULL);
@@ -418,12 +419,12 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
     }
 }
 static int icn_progname_used_once(const tree_t * prog) {
-    if (prog != g_lower.icn.icn_progname_as_global_done_prog) {
-        g_lower.icn.icn_progname_as_global_done_prog = prog;
-        g_lower.icn.icn_progname_as_global_used = icn_progname_used(prog);
-        if (g_lower.icn.icn_progname_as_global_used) global_register("__icn_progname");
+    if (prog != g_lower_icn.icn_progname_as_global_done_prog) {
+        g_lower_icn.icn_progname_as_global_done_prog = prog;
+        g_lower_icn.icn_progname_as_global_used = icn_progname_used(prog);
+        if (g_lower_icn.icn_progname_as_global_used) global_register("__icn_progname");
     }
-    return g_lower.icn.icn_progname_as_global_used;
+    return g_lower_icn.icn_progname_as_global_used;
 }
 static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
     for (int i = 0; prog && i < prog->n; i++) {
@@ -470,9 +471,9 @@ static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g, const tree_t * pd) {
-    for (int k = 0; k < g_lower.icn.reassigned.n + g_lower.icn.breassigned.n; k++) {
-        const char * nm = (k < g_lower.icn.reassigned.n) ? LC_AT(&g_lower.icn.reassigned, const char *, k) : LC_AT(&g_lower.icn.breassigned, const char *, k - g_lower.icn.reassigned.n);
-        if (k < g_lower.icn.reassigned.n && !icn_is_proc(nm)) continue;
+    for (int k = 0; k < g_lower_icn.reassigned.n + g_lower_icn.breassigned.n; k++) {
+        const char * nm = (k < g_lower_icn.reassigned.n) ? LC_AT(&g_lower_icn.reassigned, const char *, k) : LC_AT(&g_lower_icn.breassigned, const char *, k - g_lower_icn.reassigned.n);
+        if (k < g_lower_icn.reassigned.n && !icn_is_proc(nm)) continue;
         if (icn_proc_declares(pd, nm)) continue;
         IR_t * asn = lic_build(cx, IR_ASSIGN, g->entry, g->entry);
         IR_LIT(asn).sval = (char *) nm;
@@ -485,38 +486,38 @@ static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g, const tree_t *
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     icn_collect_reassigned_procs(prog);
     icn_collect_reassigned_builtins(prog);
-    icn_vec_reuse(&g_lower.icn.synth_excl, (int) sizeof(const char *));
+    icn_vec_reuse(&g_lower_icn.synth_excl, (int) sizeof(const char *));
     icn_progname_as_global(prog, pd);
-    icn_vec_reuse(&g_lower.icn.lower_icon_proc_pnv, (int) sizeof(const char *));
-    fill_pnames(prog, &g_lower.icn.lower_icon_proc_pnv);
+    icn_vec_reuse(&g_lower_icn.lower_icon_proc_pnv, (int) sizeof(const char *));
+    fill_pnames(prog, &g_lower_icn.lower_icon_proc_pnv);
     icx_t cx;
     memset(&cx, 0, sizeof cx);
     cx.prog = prog;
-    cx.pn = (const char **) g_lower.icn.lower_icon_proc_pnv.data;
-    cx.npn = g_lower.icn.lower_icon_proc_pnv.n;
-    lc_vec_init(&g_lower.icn.lower_icon_proc_lnv, (int) sizeof(const char *));
-    g_lower.icn.lower_icon_proc_lnv.n = 0;
-    lc_vec_init(&g_lower.icn.synth_locals, (int) sizeof(const char *));
-    g_lower.icn.synth_locals.n = 0;
+    cx.pn = (const char **) g_lower_icn.lower_icon_proc_pnv.data;
+    cx.npn = g_lower_icn.lower_icon_proc_pnv.n;
+    lc_vec_init(&g_lower_icn.lower_icon_proc_lnv, (int) sizeof(const char *));
+    g_lower_icn.lower_icon_proc_lnv.n = 0;
+    lc_vec_init(&g_lower_icn.synth_locals, (int) sizeof(const char *));
+    g_lower_icn.synth_locals.n = 0;
     if (pd) {
         const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
-        for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &plist->c[i]->v.sval);
+        for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&g_lower_icn.lower_icon_proc_lnv, &plist->c[i]->v.sval);
         const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
         cx.body = body;
         icn_statics_prepass((tree_t *) body, pd->v.sval ? pd->v.sval : "anon");
         for (int i = 0; body && i < body->n; i++) {
             const tree_t * st = body->c[i];
             if (st && st->t == TT_STMT) st = lic_stmt_subj(st);
-            if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &st->c[k]->v.sval);
+            if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&g_lower_icn.lower_icon_proc_lnv, &st->c[k]->v.sval);
         }
     }
-    cx.ln = (const char **) g_lower.icn.lower_icon_proc_lnv.data;
-    cx.nln = g_lower.icn.lower_icon_proc_lnv.n;
+    cx.ln = (const char **) g_lower_icn.lower_icon_proc_lnv.data;
+    cx.nln = g_lower_icn.lower_icon_proc_lnv.n;
     {
-        icn_vec_reuse(&g_lower.icn.lower_icon_proc_gnv, (int) sizeof(const char *));
-        icn_collect_own_globals(prog, &g_lower.icn.lower_icon_proc_gnv);
-        cx.gn = (const char **) g_lower.icn.lower_icon_proc_gnv.data;
-        cx.ngn = g_lower.icn.lower_icon_proc_gnv.n;
+        icn_vec_reuse(&g_lower_icn.lower_icon_proc_gnv, (int) sizeof(const char *));
+        icn_collect_own_globals(prog, &g_lower_icn.lower_icon_proc_gnv);
+        cx.gn = (const char **) g_lower_icn.lower_icon_proc_gnv.data;
+        cx.ngn = g_lower_icn.lower_icon_proc_gnv.n;
         cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon";
     }
     cx.want_lines = icn_tree_mentions_kw(prog, "&trace");
@@ -541,9 +542,9 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         if (g) {
             int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0;
             g->nparams = np;
-            g->pnames = np > 0 ? (const char **)g_lower.icn.lower_icon_proc_lnv.data : NULL;
-            g->nlocals = g_lower.icn.lower_icon_proc_lnv.n - np;
-            g->lnames = (g_lower.icn.lower_icon_proc_lnv.n - np) > 0 ? (const char **)g_lower.icn.lower_icon_proc_lnv.data + np : NULL;
+            g->pnames = np > 0 ? (const char **)g_lower_icn.lower_icon_proc_lnv.data : NULL;
+            g->nlocals = g_lower_icn.lower_icon_proc_lnv.n - np;
+            g->lnames = (g_lower_icn.lower_icon_proc_lnv.n - np) > 0 ? (const char **)g_lower_icn.lower_icon_proc_lnv.data + np : NULL;
             if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1;
         }
         return g;
@@ -655,9 +656,9 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
     icn_collect_reassigned_procs(prog);
     int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);
-    for (int _rk = 0; _rk < g_lower.icn.reassigned.n; _rk++) { const char * _rn = LC_AT(&g_lower.icn.reassigned, const char *, _rk); if (icn_is_proc(_rn)) global_register(_rn); }
+    for (int _rk = 0; _rk < g_lower_icn.reassigned.n; _rk++) { const char * _rn = LC_AT(&g_lower_icn.reassigned, const char *, _rk); if (icn_is_proc(_rn)) global_register(_rn); }
     icn_collect_reassigned_builtins(prog);
-    for (int _rk = 0; _rk < g_lower.icn.breassigned.n; _rk++) global_register(LC_AT(&g_lower.icn.breassigned, const char *, _rk));
+    for (int _rk = 0; _rk < g_lower_icn.breassigned.n; _rk++) global_register(LC_AT(&g_lower_icn.breassigned, const char *, _rk));
     lc_vec _icn_own_globals;
     lc_vec_init(&_icn_own_globals, (int) sizeof(const char *));
     icn_collect_own_globals(prog, &_icn_own_globals);
@@ -709,22 +710,22 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                         if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval);
                     }
                 }
-                icn_vec_reuse(&g_lower.icn.lower_icon_stage2_excl, (int) sizeof(const char *));
-                for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &LC_AT(&_icn_own_globals, const char *, k));
-                for (int k = 0; k < sc->n; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &sc->e[k].name);
-                for (int k = 0; k < w; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &_ln[k]);
-                for (int k = 0; k < g_lower.icn.synth_excl.n; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &LC_AT(&g_lower.icn.synth_excl, const char *, k));
-                icn_vec_reuse(&g_lower.icn.lower_icon_stage2_impl, (int) sizeof(const char *));
-                icn_collect_implicit_locals(body, (const char **)g_lower.icn.lower_icon_stage2_excl.data, g_lower.icn.lower_icon_stage2_excl.n, &g_lower.icn.lower_icon_stage2_impl,
+                icn_vec_reuse(&g_lower_icn.lower_icon_stage2_excl, (int) sizeof(const char *));
+                for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&g_lower_icn.lower_icon_stage2_excl, &LC_AT(&_icn_own_globals, const char *, k));
+                for (int k = 0; k < sc->n; k++) lc_vec_push(&g_lower_icn.lower_icon_stage2_excl, &sc->e[k].name);
+                for (int k = 0; k < w; k++) lc_vec_push(&g_lower_icn.lower_icon_stage2_excl, &_ln[k]);
+                for (int k = 0; k < g_lower_icn.synth_excl.n; k++) lc_vec_push(&g_lower_icn.lower_icon_stage2_excl, &LC_AT(&g_lower_icn.synth_excl, const char *, k));
+                icn_vec_reuse(&g_lower_icn.lower_icon_stage2_impl, (int) sizeof(const char *));
+                icn_collect_implicit_locals(body, (const char **)g_lower_icn.lower_icon_stage2_excl.data, g_lower_icn.lower_icon_stage2_excl.n, &g_lower_icn.lower_icon_stage2_impl,
                     prog && prog->v.ival);
-                if (w > 0 || g_lower.icn.lower_icon_stage2_impl.n > 0 || g_lower.icn.synth_locals.n > 0) {
-                    int total = w + g_lower.icn.lower_icon_stage2_impl.n + g_lower.icn.synth_locals.n;
+                if (w > 0 || g_lower_icn.lower_icon_stage2_impl.n > 0 || g_lower_icn.synth_locals.n > 0) {
+                    int total = w + g_lower_icn.lower_icon_stage2_impl.n + g_lower_icn.synth_locals.n;
                     const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *));
                     int a = 0;
                     if (_all) {
                         for (int k = 0; k < w; k++) _all[a++] = _ln[k];
-                        for (int k = 0; k < g_lower.icn.lower_icon_stage2_impl.n; k++) _all[a++] = LC_AT(&g_lower.icn.lower_icon_stage2_impl, const char *, k);
-                        for (int k = 0; k < g_lower.icn.synth_locals.n; k++) _all[a++] = LC_AT(&g_lower.icn.synth_locals, const char *, k);
+                        for (int k = 0; k < g_lower_icn.lower_icon_stage2_impl.n; k++) _all[a++] = LC_AT(&g_lower_icn.lower_icon_stage2_impl, const char *, k);
+                        for (int k = 0; k < g_lower_icn.synth_locals.n; k++) _all[a++] = LC_AT(&g_lower_icn.synth_locals, const char *, k);
                         g_stage2.bbp.table[bb_idx]->lnames = _all;
                         g_stage2.bbp.table[bb_idx]->nlocals = total;
                     }

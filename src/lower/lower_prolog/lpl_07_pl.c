@@ -9,25 +9,26 @@
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/lower_prolog/lpl_07_pl.h"
+#include "lower/g_lower_pl.h"
 static int pl_det_specs(const tree_t * a, const char ** keys, int n, int cap);
 static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int need, int * memo);
 static void pl_hook_dyn_mark(const char * name, int arity) {
     if (!name) return;
-    for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) if (g_lower.pl.hook_dyn_name[i] && !strcmp(g_lower.pl.hook_dyn_name[i], name) && g_lower.pl.hook_dyn_arity[i] == arity) return;
-    if (g_lower.pl.hook_dyn_n >= g_lower.pl.hook_dyn_cap) {
-        int nc = g_lower.pl.hook_dyn_cap > 0 ? g_lower.pl.hook_dyn_cap * 2 : 16;
-        g_lower.pl.hook_dyn_name = (const char **) ct_grow((void *) g_lower.pl.hook_dyn_name, (size_t) nc * sizeof(const char *));
-        g_lower.pl.hook_dyn_arity = (int *) ct_grow((void *) g_lower.pl.hook_dyn_arity, (size_t) nc * sizeof(int));
-        g_lower.pl.hook_dyn_cap = nc;
+    for (int i = 0; i < g_lower_pl.hook_dyn_n; i++) if (g_lower_pl.hook_dyn_name[i] && !strcmp(g_lower_pl.hook_dyn_name[i], name) && g_lower_pl.hook_dyn_arity[i] == arity) return;
+    if (g_lower_pl.hook_dyn_n >= g_lower_pl.hook_dyn_cap) {
+        int nc = g_lower_pl.hook_dyn_cap > 0 ? g_lower_pl.hook_dyn_cap * 2 : 16;
+        g_lower_pl.hook_dyn_name = (const char **) ct_grow((void *) g_lower_pl.hook_dyn_name, (size_t) nc * sizeof(const char *));
+        g_lower_pl.hook_dyn_arity = (int *) ct_grow((void *) g_lower_pl.hook_dyn_arity, (size_t) nc * sizeof(int));
+        g_lower_pl.hook_dyn_cap = nc;
     }
-    g_lower.pl.hook_dyn_name[g_lower.pl.hook_dyn_n] = ct_strdup(name);
-    g_lower.pl.hook_dyn_arity[g_lower.pl.hook_dyn_n] = arity;
-    g_lower.pl.hook_dyn_n++;
+    g_lower_pl.hook_dyn_name[g_lower_pl.hook_dyn_n] = ct_strdup(name);
+    g_lower_pl.hook_dyn_arity[g_lower_pl.hook_dyn_n] = arity;
+    g_lower_pl.hook_dyn_n++;
 }
 void pl_lower_hook_dyn_mark(const char * name, int arity) { pl_hook_dyn_mark(name, arity); }
 int pl_hook_dyn_is(const char * name, int arity) {
     if (!name) return 0;
-    for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) if (g_lower.pl.hook_dyn_name[i] && !strcmp(g_lower.pl.hook_dyn_name[i], name) && g_lower.pl.hook_dyn_arity[i] == arity) return 1;
+    for (int i = 0; i < g_lower_pl.hook_dyn_n; i++) if (g_lower_pl.hook_dyn_name[i] && !strcmp(g_lower_pl.hook_dyn_name[i], name) && g_lower_pl.hook_dyn_arity[i] == arity) return 1;
     return 0;
 }
 void pl_hook_dyn_record(const tree_t * spec) {

@@ -13,6 +13,7 @@
 #include "lower/lower_icon/lic_04_sh.h"
 #include "lower/lower_icon/lic_05_sh.h"
 #include "lower/lower_icon/lic_06_sh.h"
+#include "lower/g_lower_icn.h"
 extern int icn_builtin_is_known(const char *);
 extern int icn_builtin_arity(const char *);
 extern int icn_builtin_is_generator(const char *);
@@ -50,7 +51,7 @@ int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++)
 int icn_call_yields_a_variable(icx_t * cx, const char * nm) { (void) cx; return nm && icn_is_proc(nm); }
 static int icn_is_static_mangled_name(const char * nm) {
     if (!nm || !strstr(nm, "__STATIC__")) return 0;
-    for (int i = 0; i < g_lower.icn.synth_excl.n; i++) { const char * m = LC_AT(&g_lower.icn.synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; }
+    for (int i = 0; i < g_lower_icn.synth_excl.n; i++) { const char * m = LC_AT(&g_lower_icn.synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; }
     return 0;
 }
 static int icn_ret_global_name(const icx_t * cx, const char * nm) { return nm && nm[0] != '&' && !icn_is_local(cx, nm) && (icn_is_own_global(cx, nm) || icn_is_static_mangled_name(nm)); }
@@ -105,7 +106,7 @@ tree_t * icn_variable_case(icx_t * cx, const tree_t * t) {
     cx->varcase_arg = t->c[1];
     return e;
 }
-int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_lower.icn.reassigned.n; k++) if (!strcmp(LC_AT(&g_lower.icn.reassigned, const char *, k), nm)) return 1; return 0; }
+int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_lower_icn.reassigned.n; k++) if (!strcmp(LC_AT(&g_lower_icn.reassigned, const char *, k), nm)) return 1; return 0; }
 int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
 static int icn_record_reassigned(const char * nm) { extern void * dat_find_type(const char *); return nm && !icn_is_proc(nm) && dat_find_type(nm) && icn_name_assigned(nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -293,7 +294,7 @@ static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
 static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, icn_arg_lower, vcx, a); }
 static int icn_is_proc_or_record_name(const char * nm) {
     if (icn_is_proc(nm)) return 1;
-    for (int ri = 0; ri < g_lower.icn.icn_record_name_count; ri++) if (!strcmp(g_lower.icn.icn_record_names[ri], nm)) return 1;
+    for (int ri = 0; ri < g_lower_icn.icn_record_name_count; ri++) if (!strcmp(g_lower_icn.icn_record_names[ri], nm)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

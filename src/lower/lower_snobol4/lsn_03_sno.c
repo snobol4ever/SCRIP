@@ -13,6 +13,7 @@
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
+#include "lower/g_lower_sno.h"
 static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_fatal(const char * what, const char * detail) {
@@ -79,7 +80,7 @@ static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
     long stno = cx->stno_base + (long) lp_s_int(s, ":stno");
     long line = (long) lp_s_int(s, ":line");
     if (!line) line = (long) lp_s_int(s, ":lline");
-    if (g_lower.sno.uses_stmtkw) {
+    if (g_lower_sno.uses_stmtkw) {
         IR_t * tj = lc_build(cx->g, IR_SETEXIT_TEST, body, body);
         IR_t * hook = lc_build(cx->g, IR_STMT_MARK, tj, tj);
         IR_LIT(hook).ival = (int64_t) stno;
@@ -91,8 +92,8 @@ static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_special_chain(IR_graph_t * g, const char * dn, IR_t * tail) {
-    if (g_lower.sno.sno_goto_special_chain_sp < 0) { const char * e = getenv("SCRIP_GOTO_SPECIAL_TRANSFER"); g_lower.sno.sno_goto_special_chain_sp = (e && *e == '0') ? 0 : 1; }
-    if (!g_lower.sno.sno_goto_special_chain_sp || !dn || (dn[0] != '$' && dn[0] != '@')) return tail;
+    if (g_lower_sno.sno_goto_special_chain_sp < 0) { const char * e = getenv("SCRIP_GOTO_SPECIAL_TRANSFER"); g_lower_sno.sno_goto_special_chain_sp = (e && *e == '0') ? 0 : 1; }
+    if (!g_lower_sno.sno_goto_special_chain_sp || !dn || (dn[0] != '$' && dn[0] != '@')) return tail;
     static const char sc[3] = { 'N', 'F', 'R' };
     static const char * const sn[3] = { "NRETURN", "FRETURN", "RETURN" };
     size_t dl = strlen(dn);
@@ -117,7 +118,7 @@ static int sno_label_reserved(const char * nm) {
     return 0;
 }
 static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land) {
-    if (!g_lower.sno.traces_a_label || !nm || !nm[0] || !land) return land;
+    if (!g_lower_sno.traces_a_label || !nm || !nm[0] || !land) return land;
     if (sno_label_reserved(nm)) return land;
     IR_t * hook = lc_build(g, IR_STMT_MARK, land, land);
     hook->seal = IR_SEAL_LABEL_HOOK;
@@ -128,7 +129,7 @@ static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land)
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
-    if (l && (g_rt_eval.rt_fragment_emit || g_lower.sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
+    if (l && (g_rt_eval.rt_fragment_emit || g_lower_sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
@@ -137,10 +138,10 @@ static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
-    if (g_lower.sno.sno_goto_computed_target_bn < 0) { const char * e = getenv("SCRIP_GOTO_CALL_BYNAME"); g_lower.sno.sno_goto_computed_target_bn = (e && *e == '0') ? 0 : 1; }
-    int by_name = g_lower.sno.sno_goto_computed_target_bn && expr && expr->t == TT_FNC;
+    if (g_lower_sno.sno_goto_computed_target_bn < 0) { const char * e = getenv("SCRIP_GOTO_CALL_BYNAME"); g_lower_sno.sno_goto_computed_target_bn = (e && *e == '0') ? 0 : 1; }
+    int by_name = g_lower_sno.sno_goto_computed_target_bn && expr && expr->t == TT_FNC;
     char nmb[24];
-    snprintf(nmb, sizeof nmb, "IGT$%d", g_lower.sno.sno_goto_computed_target_igt_n++);
+    snprintf(nmb, sizeof nmb, "IGT$%d", g_lower_sno.sno_goto_computed_target_igt_n++);
     char * tmpn = lp_strdup(nmb);
     sno_reg_var(tmpn);
     size_t ln = strlen(tmpn);
@@ -161,7 +162,7 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd, IR_t ** gdp, int retake) {
     char nmb[24];
-    snprintf(nmb, sizeof nmb, "DGT$%d", g_lower.sno.sno_goto_direct_target_dgt_n++);
+    snprintf(nmb, sizeof nmb, "DGT$%d", g_lower_sno.sno_goto_direct_target_dgt_n++);
     char * tmpn = lp_strdup(nmb);
     sno_reg_var(tmpn);
     size_t ln = strlen(tmpn);
@@ -252,7 +253,7 @@ IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const i
     IR_t ** asgn_land = (IR_t **) ct_zalloc((size_t) nst, sizeof(IR_t *));
     bb_label_registry_reset();
     IR_t * endnd = exitnd;
-    if (g_lower.sno.uses_stmtkw && end_line > 0) {
+    if (g_lower_sno.uses_stmtkw && end_line > 0) {
         IR_t * ehook = lc_build(g, IR_STMT_MARK, exitnd, exitnd);
         IR_LIT(ehook).ival = (int64_t)(nst + 1) + stno_base;
         ehook->pat_static = (int) end_line;
@@ -485,7 +486,7 @@ IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const i
         }
         if (subj->t == TT_INDIRECT && subj->n > 0) {
             IR_t * nv = NULL;
-            IR_t * e1 = (g_lower.sno.uses_xname && subj->c[0]->t == TT_VAR) ? sno_xname_lv(&cx, subj->c[0], fA, &nv) : sx_nameval(&cx, subj->c[0], NULL, fA, &nv);
+            IR_t * e1 = (g_lower_sno.uses_xname && subj->c[0]->t == TT_VAR) ? sno_xname_lv(&cx, subj->c[0], fA, &nv) : sx_nameval(&cx, subj->c[0], NULL, fA, &nv);
             IR_t * vv = NULL;
             IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(nv, e2);
@@ -655,8 +656,8 @@ IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const i
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }
         }
     }
-    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') { g_lower.sno.uses_stmtkw = 1; g_lower.sno.traces_a_label = 1; } }
-    if (g_lower.sno.uses_stmtkw) {
+    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') { g_lower_sno.uses_stmtkw = 1; g_lower_sno.traces_a_label = 1; } }
+    if (g_lower_sno.uses_stmtkw) {
         const char * _stmtkw_cur_file = (const char *) 0;
         for (int i = 0; i < nst; i++) {
             if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;

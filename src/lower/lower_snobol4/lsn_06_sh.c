@@ -12,6 +12,7 @@
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
+#include "lower/g_lower_sno.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (!t) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
@@ -334,7 +335,7 @@ IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
         case TT_INDIRECT:
         {
             if (t->n < 1) sno_fatal("indirect reference with no operand", NULL);
-            if (t->c[0] && t->c[0]->t == TT_NAME && !(g_lower.sno.uses_xname && sno_is_xname(t->c[0]))) {
+            if (t->c[0] && t->c[0]->t == TT_NAME && !(g_lower_sno.uses_xname && sno_is_xname(t->c[0]))) {
                 IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
                 IR_t * nr = NULL;
                 IR_t * ne = sx_lower(cx, t->c[0], NULL, ω, &nr);
@@ -343,7 +344,7 @@ IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 if (res) *res = dr;
                 return ne;
             }
-            if (g_lower.sno.uses_xname) {
+            if (g_lower_sno.uses_xname) {
                 IR_graph_t * g = cx->g;
                 char * tn = sno_scan_tmp("SNO$XR");
                 char * xn = sno_scan_tmp("SNO$XT");

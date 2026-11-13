@@ -4,7 +4,6 @@
 #include "runtime/core/runtime_shim.h"
 #include "driver/driver.h"
 #include "driver/driver_globals.h"
-#include "runtime/builtin_leaf.h"
 #include <errno.h>
 #include <ctype.h>
 #include <fcntl.h>

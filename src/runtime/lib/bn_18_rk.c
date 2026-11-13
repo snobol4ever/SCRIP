@@ -3,7 +3,6 @@
 #include "runtime/rt/rt_arena.h"
 #include "driver/driver_globals.h"
 #include "driver/driver_data.h"
-#include "runtime/builtin_leaf.h"
 #include <ctype.h>
 #include <sys/wait.h>
 #include <fcntl.h>

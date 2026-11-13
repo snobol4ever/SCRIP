@@ -4,7 +4,7 @@
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "runtime/builtins/gen.h"
-#include "g_lower.h"
+#include "lower/g_lower_icn.h"
 #include "parsers/snobol4/scrip_cc.h"
 typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
@@ -402,7 +402,7 @@ static void cx_prelude(cx_st * st, tree_t * prog) {
         "procedure __uimage(x)\n   local s, t;\n   t := type(x);\n   if not (t[-7:0] == \"__state\") then return image(x);\n   s := image(x);\n   return \"object \" || t[1:-7] || s[find(\"__state\","
         " s) + 7:find(\"(\", s)] || \"(\" || *x || \")\";\nend\n");
     if (!sb.n) return;
-    tree_t * pre = g_lower.icn.parse ? (tree_t *) g_lower.icn.parse(sb.b, "<unicon-prelude>") : (tree_t *) 0;
+    tree_t * pre = g_lower_icn.parse ? (tree_t *) g_lower_icn.parse(sb.b, "<unicon-prelude>") : (tree_t *) 0;
     for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -626,8 +626,8 @@ static void dq_walk(tree_t * n, tree_t * prog, tree_t ** pend, int * np) {
     }
     for (int i = 0; i < n->n; i++) dq_walk(n->c[i], prog, pend, np);
     if (n->t == TT_DEFER && n->n >= 1 && n->c[0] && !n->v.sval) {
-        char b[fmt_len("$df%d", g_lower.icn.pm_hidden_n + 1)];
-        snprintf(b, sizeof b, "$df%d", ++g_lower.icn.pm_hidden_n);
+        char b[fmt_len("$df%d", g_lower_icn.pm_hidden_n + 1)];
+        snprintf(b, sizeof b, "$df%d", ++g_lower_icn.pm_hidden_n);
         tree_t * inner = n->c[0];
         int gate = inner->t == TT_FNC && n->slen != -2;
         dq_upvars(inner, prog);

@@ -1,11 +1,11 @@
 #include "dead_goto.h"
 #include "ir/ct_arena.h"
 #include "ir_index.h"
-#include "lower/g_lower.h"
+#include "lower/g_lower_opt.h"
 #include <stdlib.h>
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dg_mon(void) { if (g_lower.opt.dg_mon_m < 0) g_lower.opt.dg_mon_m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return g_lower.opt.dg_mon_m; }
+static int dg_mon(void) { if (g_lower_opt.dg_mon_m < 0) g_lower_opt.dg_mon_m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return g_lower_opt.dg_mon_m; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dg_run(IR_graph_t * g) {
     if (!g || g->n <= 0) return 0;

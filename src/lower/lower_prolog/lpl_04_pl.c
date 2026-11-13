@@ -12,6 +12,7 @@
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_08_pl.h"
+#include "lower/g_lower_pl.h"
 static int pl_ssu_clause(const tree_t * cl, int ar);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_refuse(const char * what, const char * detail, int rung) {
@@ -67,7 +68,7 @@ tree_t * pl_cc_fnc4(const char * f, tree_t * a0, tree_t * a1, tree_t * a2, tree_
     return n;
 }
 tree_t * pl_cc_fnc5(const char * f, tree_t * a0, tree_t * a1, tree_t * a2, tree_t * a3, tree_t * a4) { tree_t * n = pl_cc_fnc4(f, a0, a1, a2, a3); ast_push(n, a4); return n; }
-tree_t * pl_cc_freshvar(void) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = g_lower.pl.fresh_next++; return v; }
+tree_t * pl_cc_freshvar(void) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = g_lower_pl.fresh_next++; return v; }
 tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_t * a0, tree_t * a1, tree_t * a2) {
     tree_t * cv = pl_cc_freshvar();
     tree_t * cv2 = pl_cc_freshvar();
@@ -574,8 +575,8 @@ tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar, int m
         int occ = pl_tree_var_occ(tg) + 1;
         long long slots[occ];
         int n = 0;
-        pl_tree_renumber_vars(tg, slots, &n, occ, g_lower.pl.seed_var_base);
-        g_lower.pl.seed_var_base += (n > 0 ? n : 1);
+        pl_tree_renumber_vars(tg, slots, &n, occ, g_lower_pl.seed_var_base);
+        g_lower_pl.seed_var_base += (n > 0 ? n : 1);
         return tg;
     }
 }
@@ -780,16 +781,16 @@ void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * procs) {
     n = ch->t == TT_CHOICE ? ch->n : 1;
     kn = ct_strdup(key);
     for (int lo = 0; lo < n && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
-        int hi = lo + PL_SEED_CHUNK < n ? lo + PL_SEED_CHUNK : n, m = 0, save_base = g_lower.pl.seed_var_base;
+        int hi = lo + PL_SEED_CHUNK < n ? lo + PL_SEED_CHUNK : n, m = 0, save_base = g_lower_pl.seed_var_base;
         const tree_t ** sg = (const tree_t **) ct_zalloc((size_t) (hi - lo), sizeof(const tree_t *));
-        g_lower.pl.seed_var_base = 0;
+        g_lower_pl.seed_var_base = 0;
         for (int i = lo; i < hi; i++) {
             const tree_t * sc = ch->t == TT_CHOICE ? ch->c[i] : ch;
             sg[m++] =
                 pl_cc_fnc5("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_seed_clause_unmod(pl_static_clause_term(sc, nm, ar, 1), mod, ml), pl_seed_file_term(pl_pred_file(nm, ar)),
                 pl_seed_line_term(sc));
         }
-        g_lower.pl.seed_var_base = save_base;
+        g_lower_pl.seed_var_base = save_base;
         {
             IR_graph_t * g = pl_body_graph(sg, m);
             int bb_idx = bb_program_add(&g_stage2.bbp, g);

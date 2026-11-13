@@ -12,13 +12,14 @@
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
+#include "lower/g_lower_sno.h"
 int rt_kw_index(const char * kw);
 extern int stage2_proc_grow(stage2_t * s2);
 static int sno_pat_right_sealed(const tree_t * t);
 static int sno_null_lit(const tree_t * t);
 int sno_predef_registered(const char * fname) {
     if (!fname) return 0;
-    for (uint32_t k = 0; k < g_lower.sno.predef.len; k++) if (!strcmp(CV_AT(g_lower.sno.predef, const char *, k), fname)) return 1;
+    for (uint32_t k = 0; k < g_lower_sno.predef.len; k++) if (!strcmp(CV_AT(g_lower_sno.predef, const char *, k), fname)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -69,30 +70,30 @@ void sno_seq_flatten_pat(const tree_t * t, sno_tvec_t * e) { sno_seq_flatten_rc(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_seal_note(const char * nm, const tree_t * pat) {
     if (!nm || !pat) return;
-    for (uint32_t i = 0; i < g_lower.sno.seal.len; i++) if (!strcmp(CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).name, nm)) return;
-    { sno_seal_ent_t x; x.name = nm; x.pat = pat; x.val = NULL; CV_PUSH(g_lower.sno.seal, sno_seal_ent_t) = x; }
+    for (uint32_t i = 0; i < g_lower_sno.seal.len; i++) if (!strcmp(CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).name, nm)) return;
+    { sno_seal_ent_t x; x.name = nm; x.pat = pat; x.val = NULL; CV_PUSH(g_lower_sno.seal, sno_seal_ent_t) = x; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_const_feature(int set_off) {
-    if (set_off) { g_lower.sno.sno_const_feature_cs = 0; return 0; }
-    if (g_lower.sno.sno_const_feature_cs < 0) { const char * e = getenv("SCRIP_CONST_STATIC"); g_lower.sno.sno_const_feature_cs = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_const_feature_cs;
+    if (set_off) { g_lower_sno.sno_const_feature_cs = 0; return 0; }
+    if (g_lower_sno.sno_const_feature_cs < 0) { const char * e = getenv("SCRIP_CONST_STATIC"); g_lower_sno.sno_const_feature_cs = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_const_feature_cs;
 }
 int sno_const_static_on(void) { return sno_const_feature(0); }
 const tree_t * sno_const_pat(const char * ck) {
-    if (!sno_const_static_on() || !g_lower.sno.seal_enabled || !ck) return NULL;
-    for (int i = 0; i < (int) g_lower.sno.seal.len; i++) if (!strcmp(CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).pat;
+    if (!sno_const_static_on() || !g_lower_sno.seal_enabled || !ck) return NULL;
+    for (int i = 0; i < (int) g_lower_sno.seal.len; i++) if (!strcmp(CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).pat;
     return NULL;
 }
 static int sno_const_t1_on(void) {
-    if (g_lower.sno.sno_const_t1_on_t < 0) { const char * e = getenv("SCRIP_CONST_T1"); g_lower.sno.sno_const_t1_on_t = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_const_t1_on_t;
+    if (g_lower_sno.sno_const_t1_on_t < 0) { const char * e = getenv("SCRIP_CONST_T1"); g_lower_sno.sno_const_t1_on_t = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_const_t1_on_t;
 }
 static int sno_const_scalar_tree(const tree_t * t) { return t && (t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_QLIT); }
 static void sno_const_note_val(const char * nm, const tree_t * val) {
     if (!nm || !val) return;
-    for (uint32_t i = 0; i < g_lower.sno.seal.len; i++) if (!strcmp(CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).name, nm)) return;
-    { sno_seal_ent_t x; x.name = nm; x.pat = NULL; x.val = val; CV_PUSH(g_lower.sno.seal, sno_seal_ent_t) = x; }
+    for (uint32_t i = 0; i < g_lower_sno.seal.len; i++) if (!strcmp(CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).name, nm)) return;
+    { sno_seal_ent_t x; x.name = nm; x.pat = NULL; x.val = val; CV_PUSH(g_lower_sno.seal, sno_seal_ent_t) = x; }
 }
 static const tree_t * sno_protected_kw_const(const char * ck) {
     const char * v = !strcmp(ck, "&UCASE") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(ck, "&LCASE") ? "abcdefghijklmnopqrstuvwxyz" : (const char *) 0;
@@ -102,14 +103,14 @@ static const tree_t * sno_protected_kw_const(const char * ck) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const tree_t * sno_const_val(const char * ck) {
     if (ck) { const tree_t * pk = sno_protected_kw_const(ck); if (pk) return pk; }
-    if (!sno_const_static_on() || !sno_const_t1_on() || !g_lower.sno.seal_enabled || !ck) return NULL;
+    if (!sno_const_static_on() || !sno_const_t1_on() || !g_lower_sno.seal_enabled || !ck) return NULL;
     if (rt_kw_index(ck) >= 0) return NULL;
-    for (int i = 0; i < (int) g_lower.sno.seal.len; i++) if (!strcmp(CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_lower.sno.seal, sno_seal_ent_t, i).val;
+    for (int i = 0; i < (int) g_lower_sno.seal.len; i++) if (!strcmp(CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_lower_sno.seal, sno_seal_ent_t, i).val;
     return NULL;
 }
-int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_lower.sno.pro.len; i++) if (!strcmp(CV_AT(g_lower.sno.pro, const char *, i), nm)) return 1; return 0; }
+int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_lower_sno.pro.len; i++) if (!strcmp(CV_AT(g_lower_sno.pro, const char *, i), nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_t4_on(void) { if (g_lower.sno.sno_t4_on_v < 0) { const char * e = getenv("SCRIP_OPSYN_FOLD"); g_lower.sno.sno_t4_on_v = (e && *e == '0') ? 0 : 1; } return g_lower.sno.sno_t4_on_v; }
+static int sno_t4_on(void) { if (g_lower_sno.sno_t4_on_v < 0) { const char * e = getenv("SCRIP_OPSYN_FOLD"); g_lower_sno.sno_t4_on_v = (e && *e == '0') ? 0 : 1; } return g_lower_sno.sno_t4_on_v; }
 static int sno_t4_opchar(char c) { return !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_t4_scan(const tree_t * t) {
@@ -130,33 +131,33 @@ static void sno_t4_scan(const tree_t * t) {
         long ar = (a2 && a2->t == TT_ILIT) ? a2->v.ival : -1;
         if (op && tg && *op && sno_t4_opchar(*op)) {
             if (na == 3 && (ar == 1 || ar == 2)) {
-                for (int i = 0; i < (int) g_lower.sno.t4.len; i++) if (!strcmp(CV_AT(g_lower.sno.t4, sno_t4_t, i).op, op)) {
-                    if (strcmp(CV_AT(g_lower.sno.t4, sno_t4_t, i).tgt, tg) || CV_AT(g_lower.sno.t4, sno_t4_t, i).arity != (int) ar) CV_AT(g_lower.sno.t4, sno_t4_t, i).poisoned = 1;
+                for (int i = 0; i < (int) g_lower_sno.t4.len; i++) if (!strcmp(CV_AT(g_lower_sno.t4, sno_t4_t, i).op, op)) {
+                    if (strcmp(CV_AT(g_lower_sno.t4, sno_t4_t, i).tgt, tg) || CV_AT(g_lower_sno.t4, sno_t4_t, i).arity != (int) ar) CV_AT(g_lower_sno.t4, sno_t4_t, i).poisoned = 1;
                     return;
                 }
-                { sno_t4_t x; x.op = op; x.tgt = tg; x.arity = (int) ar; x.poisoned = 0; CV_PUSH(g_lower.sno.t4, sno_t4_t) = x; }
+                { sno_t4_t x; x.op = op; x.tgt = tg; x.arity = (int) ar; x.poisoned = 0; CV_PUSH(g_lower_sno.t4, sno_t4_t) = x; }
                 return;
             }
-            g_lower.sno.t4_unsafe = 1;
+            g_lower_sno.t4_unsafe = 1;
             return;
         }
         if (op && tg) return;
-        g_lower.sno.t4_unsafe = 1;
+        g_lower_sno.t4_unsafe = 1;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * sno_t4_target(const char * op, int nops) {
-    if (!sno_t4_on() || g_lower.sno.t4_unsafe || !op) return NULL;
-    for (int i = 0; i < (int) g_lower.sno.t4.len; i++)
-        if (!CV_AT(g_lower.sno.t4, sno_t4_t, i).poisoned && !strcmp(CV_AT(g_lower.sno.t4, sno_t4_t, i).op, op) && CV_AT(g_lower.sno.t4, sno_t4_t, i).arity == nops)
-        return CV_AT(g_lower.sno.t4, sno_t4_t, i).tgt;
+    if (!sno_t4_on() || g_lower_sno.t4_unsafe || !op) return NULL;
+    for (int i = 0; i < (int) g_lower_sno.t4.len; i++)
+        if (!CV_AT(g_lower_sno.t4, sno_t4_t, i).poisoned && !strcmp(CV_AT(g_lower_sno.t4, sno_t4_t, i).op, op) && CV_AT(g_lower_sno.t4, sno_t4_t, i).arity == nops)
+        return CV_AT(g_lower_sno.t4, sno_t4_t, i).tgt;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_prog_scan(const tree_t ** st, int nst) {
-    g_lower.sno.pro.len = 0;
-    g_lower.sno.t4.len = 0;
-    g_lower.sno.t4_unsafe = 0;
+    g_lower_sno.pro.len = 0;
+    g_lower_sno.t4.len = 0;
+    g_lower_sno.t4_unsafe = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i];
         if (!s) continue;
@@ -183,20 +184,20 @@ void sno_prog_scan(const tree_t ** st, int nst) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_cap_name_strict(void) {
-    if (g_lower.sno.sno_cap_name_strict_v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); g_lower.sno.sno_cap_name_strict_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_cap_name_strict_v;
+    if (g_lower_sno.sno_cap_name_strict_v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); g_lower_sno.sno_cap_name_strict_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_cap_name_strict_v;
 }
 static int sno_rtseq_resume(void) {
-    if (g_lower.sno.sno_rtseq_resume_v < 0) { const char * e = getenv("SCRIP_RTSEQ_RESUME"); g_lower.sno.sno_rtseq_resume_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_rtseq_resume_v;
+    if (g_lower_sno.sno_rtseq_resume_v < 0) { const char * e = getenv("SCRIP_RTSEQ_RESUME"); g_lower_sno.sno_rtseq_resume_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_rtseq_resume_v;
 }
 static int sno_defer_resume(void) {
-    if (g_lower.sno.sno_defer_resume_v < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); g_lower.sno.sno_defer_resume_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_defer_resume_v;
+    if (g_lower_sno.sno_defer_resume_v < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); g_lower_sno.sno_defer_resume_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_defer_resume_v;
 }
 int sno_seq_tail(void) {
-    if (g_lower.sno.sno_seq_tail_v < 0) { const char * e = getenv("SCRIP_SEQ_TAIL"); g_lower.sno.sno_seq_tail_v = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_seq_tail_v;
+    if (g_lower_sno.sno_seq_tail_v < 0) { const char * e = getenv("SCRIP_SEQ_TAIL"); g_lower_sno.sno_seq_tail_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower_sno.sno_seq_tail_v;
 }
 int sno_alt_tail(void) { const char * e = getenv("SCRIP_ALT_TAIL"); return (e && *e == '0') ? 0 : 1; }
 static int sno_fence_rtail(void) { const char * e = getenv("SCRIP_FENCE_RTAIL"); return (e && *e == '0') ? 0 : 1; }
@@ -361,14 +362,14 @@ int sno_is_pattern_rhs(const tree_t * t) {
         }
         case TT_KEYWORD:
         {
-            if (!sno_const_static_on() || g_lower.sno.sno_is_pattern_rhs_kdepth >= 32 || !t->v.sval) return 0;
+            if (!sno_const_static_on() || g_lower_sno.sno_is_pattern_rhs_kdepth >= 32 || !t->v.sval) return 0;
             char cb[130];
             snprintf(cb, sizeof cb, "&%s", t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval);
             const tree_t * p = sno_const_pat(cb);
             if (!p) return 0;
-            g_lower.sno.sno_is_pattern_rhs_kdepth++;
+            g_lower_sno.sno_is_pattern_rhs_kdepth++;
             int r = sno_is_pattern_rhs(p);
-            g_lower.sno.sno_is_pattern_rhs_kdepth--;
+            g_lower_sno.sno_is_pattern_rhs_kdepth--;
             return r;
         }
         default:
@@ -384,8 +385,8 @@ static int sno_seq_rtl(const tree_t * t, int first, int (*g)(const tree_t *)) {
     return (first || !sno_is_fence1(t)) ? g(t) : -1;
 }
 int sno_mkpat_here(const tree_t * t) {
-    if (g_lower.sno.sno_mkpat_here_on < 0) { const char * e = getenv("SCRIP_MKPAT_ANYWHERE"); g_lower.sno.sno_mkpat_here_on = (e && *e == '0') ? 0 : 1; }
-    if (!g_lower.sno.sno_mkpat_here_on || !t || t->t == TT_VAR || t->t == TT_KEYWORD || t->t == TT_INDIRECT || t->t == TT_DEFER || !sno_is_pattern_rhs(t) || !sno_pat_supported(t)) return 0;
+    if (g_lower_sno.sno_mkpat_here_on < 0) { const char * e = getenv("SCRIP_MKPAT_ANYWHERE"); g_lower_sno.sno_mkpat_here_on = (e && *e == '0') ? 0 : 1; }
+    if (!g_lower_sno.sno_mkpat_here_on || !t || t->t == TT_VAR || t->t == TT_KEYWORD || t->t == TT_INDIRECT || t->t == TT_DEFER || !sno_is_pattern_rhs(t) || !sno_pat_supported(t)) return 0;
     if (sno_seq_is_chain(t) && (sno_null_lit(sno_seq_last_leaf(t)) || (sno_null_lit(t->c[0]) && !sno_seq_is_chain(t->c[1])))) return 0;
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx;
@@ -422,7 +423,7 @@ static int sno_pat_right_sealed(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * sno_capt_elem_target(const tree_t * tg, sno_tvec_t * pro) {
     char nb[32];
-    snprintf(nb, sizeof nb, "SN4$CAPN%d", g_lower.sno.sno_lower_match_snapctr++);
+    snprintf(nb, sizeof nb, "SN4$CAPN%d", g_lower_sno.sno_lower_match_snapctr++);
     char * nm = lp_strdup(nb);
     sno_reg_var(nm);
     tree_t * lv = ast_node_new(TT_VAR);
@@ -558,7 +559,7 @@ IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, i
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int sno_expr_mark(void) { return (int) g_lower.sno.exprs.len; }
+int sno_expr_mark(void) { return (int) g_lower_sno.exprs.len; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, IR_t * no, IR_t ** out_brt, int * out_pfenced) {
     IR_t * pe;
@@ -624,9 +625,9 @@ static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tre
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_pat_thunks_build(int p0) {
-    int sv = g_lower.sno.in_patproc;
-    g_lower.sno.in_patproc = 1;
-    for (int pi2 = p0; pi2 < (int) g_lower.sno.pats.len; pi2++) {
+    int sv = g_lower_sno.in_patproc;
+    g_lower_sno.in_patproc = 1;
+    for (int pi2 = p0; pi2 < (int) g_lower_sno.pats.len; pi2++) {
         IR_graph_t * gp = IR_alloc(512);
         scx_t px;
         px.g = gp;
@@ -650,14 +651,14 @@ void sno_pat_thunks_build(int p0) {
         int before_pat = gp->n;
         IR_t * brt = NULL;
         int pfenced = 0;
-        IR_t * pe = sno_pat_carrier_build(&px, CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).pat, ok, no, &brt, &pfenced);
+        IR_t * pe = sno_pat_carrier_build(&px, CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).pat, ok, no, &brt, &pfenced);
         {
             extern tree_t *ast_stmt_new(tree_e kind);
             IR_t * paft = pe;
             for (int api = 0; api < px.npre; api++) {
                 if (px.pre[api].snapg) {
-                    char vbuf[fmt_len("%s$V%d", CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, api)];
-                    snprintf(vbuf, sizeof vbuf, "%s$V%d", CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, api);
+                    char vbuf[fmt_len("%s$V%d", CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name, api)];
+                    snprintf(vbuf, sizeof vbuf, "%s$V%d", CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name, api);
                     char * vg = lp_strdup(vbuf);
                     sno_reg_var(vg);
                     IR_LIT(px.pre[api].prim).sval = vg;
@@ -666,8 +667,8 @@ void sno_pat_thunks_build(int p0) {
                 }
                 IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
                 IR_LIT(co).ival = px.pre[api].codes;
-                char abuf[fmt_len("%s$V%d", CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, api)];
-                snprintf(abuf, sizeof abuf, "%s$V%d", CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, api);
+                char abuf[fmt_len("%s$V%d", CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name, api)];
+                snprintf(abuf, sizeof abuf, "%s$V%d", CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name, api);
                 tree_t * tv = ast_stmt_new(TT_VAR);
                 tv->v.sval = lp_strdup(abuf);
                 IR_t * av = NULL;
@@ -683,9 +684,9 @@ void sno_pat_thunks_build(int p0) {
         gp->entry = pe;
         gp->resumable_callable = 1;
         sno_match_traps_insert(gp, before_pat, px.pat_seal);
-        sno_pat_publish_body_root(gp, before_pat, CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).pat, brt, pfenced, CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name, px.pat_seal);
+        sno_pat_publish_body_root(gp, before_pat, CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).pat, brt, pfenced, CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name, px.pat_seal);
         int ppi = stage2_proc_grow(&g_stage2);
-        g_stage2.proc_table[ppi].name = CV_AT(g_lower.sno.pats, sno_pat_ent_t, pi2).name;
+        g_stage2.proc_table[ppi].name = CV_AT(g_lower_sno.pats, sno_pat_ent_t, pi2).name;
         g_stage2.proc_table[ppi].proc = NULL;
         g_stage2.proc_table[ppi].entry_pc = -1;
         g_stage2.proc_table[ppi].nparams = 0;
@@ -696,7 +697,7 @@ void sno_pat_thunks_build(int p0) {
         g_stage2.proc_table[ppi].result_name = NULL;
         g_stage2.proc_table[ppi].bb_idx = bb_program_add(&g_stage2.bbp, gp);
     }
-    g_lower.sno.in_patproc = sv;
+    g_lower_sno.in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {

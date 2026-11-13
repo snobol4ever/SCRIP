@@ -1,6 +1,6 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "ct_arena.h"
-#include "lower/g_lower.h"
+#include "lower/g_lower_ir.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -19,7 +19,7 @@ static void *ct_map(size_t want, int soft) {
     void *m = mmap((void *)0, want, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
     if (m == MAP_FAILED && soft) return (void *)0;
     if (m == MAP_FAILED) { fprintf(stderr, "ct_arena: mmap of %zu bytes failed\n", want); _exit(3); }
-    g_lower.ir.ct_mapped += want;
+    g_lower_ir.ct_mapped += want;
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -27,12 +27,12 @@ static int ct_class_of(size_t n) { size_t cap = CT_MIN_CLASS; int i = 0; while (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_cap_of(int cls) { return CT_MIN_CLASS << (size_t)cls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *ct_jlink(ct_head_t *h) { h->older = g_lower.ir.ct_jhead; h->next = (ct_head_t *)0; if (h->older) h->older->next = h; g_lower.ir.ct_jhead = h; return (void *)((uint8_t *)h + CT_ALIGN); }
+static void *ct_jlink(ct_head_t *h) { h->older = g_lower_ir.ct_jhead; h->next = (ct_head_t *)0; if (h->older) h->older->next = h; g_lower_ir.ct_jhead = h; return (void *)((uint8_t *)h + CT_ALIGN); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ct_junlink(ct_head_t *h) {
     if (h->older) h->older->next = h->next;
     if (h->next) h->next->older = h->older;
-    else g_lower.ir.ct_jhead = h->older;
+    else g_lower_ir.ct_jhead = h->older;
     h->older = (ct_head_t *)0;
     h->next = (ct_head_t *)0;
 }
@@ -50,32 +50,32 @@ static void *ct_alloc_in(size_t n, int soft) {
         if (!h) return (void *)0;
         h->magic = CT_MAGIC_BIG;
         h->size = need;
-        g_lower.ir.ct_taken += need;
+        g_lower_ir.ct_taken += need;
         return ct_jlink(h);
     }
-    if (g_lower.ir.ct_bin[cls]) {
-        h = g_lower.ir.ct_bin[cls];
-        g_lower.ir.ct_bin[cls] = h->next;
+    if (g_lower_ir.ct_bin[cls]) {
+        h = g_lower_ir.ct_bin[cls];
+        g_lower_ir.ct_bin[cls] = h->next;
         h->magic = CT_MAGIC_BIN;
         h->size = ct_cap_of(cls);
         h->next = (ct_head_t *)0;
-        g_lower.ir.ct_taken += h->size;
+        g_lower_ir.ct_taken += h->size;
         return ct_jlink(h);
     }
     cap = ct_cap_of(cls);
     need = cap + CT_ALIGN;
-    if ((size_t)(g_lower.ir.ct_end - g_lower.ir.ct_cur) < need) {
+    if ((size_t)(g_lower_ir.ct_end - g_lower_ir.ct_cur) < need) {
         size_t want = CT_CHUNK > need ? CT_CHUNK : ((need + ct_page() - 1) & ~(ct_page() - 1));
         uint8_t *c = (uint8_t *)ct_map(want, soft);
         if (!c) return (void *)0;
-        g_lower.ir.ct_cur = c;
-        g_lower.ir.ct_end = g_lower.ir.ct_cur + want;
+        g_lower_ir.ct_cur = c;
+        g_lower_ir.ct_end = g_lower_ir.ct_cur + want;
     }
-    h = (ct_head_t *)g_lower.ir.ct_cur;
-    g_lower.ir.ct_cur += need;
+    h = (ct_head_t *)g_lower_ir.ct_cur;
+    g_lower_ir.ct_cur += need;
     h->magic = CT_MAGIC_BIN;
     h->size = cap;
-    g_lower.ir.ct_taken += cap;
+    g_lower_ir.ct_taken += cap;
     return ct_jlink(h);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -96,9 +96,9 @@ void *ct_grow(void *p, size_t n) {
     old = h->magic == CT_MAGIC_BIN ? (size_t)h->size : (size_t)h->size - CT_ALIGN;
     if (n <= old) return p;
     cls = ct_class_of(n);
-    if (h->magic == CT_MAGIC_BIN && cls >= 0 && (uint8_t *)p + old == g_lower.ir.ct_cur && (size_t)(g_lower.ir.ct_end - (uint8_t *)p) >= (cap = ct_cap_of(cls))) {
-        g_lower.ir.ct_cur = (uint8_t *)p + cap;
-        g_lower.ir.ct_taken += cap - old;
+    if (h->magic == CT_MAGIC_BIN && cls >= 0 && (uint8_t *)p + old == g_lower_ir.ct_cur && (size_t)(g_lower_ir.ct_end - (uint8_t *)p) >= (cap = ct_cap_of(cls))) {
+        g_lower_ir.ct_cur = (uint8_t *)p + cap;
+        g_lower_ir.ct_taken += cap - old;
         h->size = cap;
         return p;
     }
@@ -117,16 +117,16 @@ void ct_drop(void *p) {
     if (h->magic == CT_MAGIC_BIN) {
         cls = ct_class_of((size_t)h->size);
         if (cls < 0) return;
-        if (g_lower.ir.ct_poison < 0) g_lower.ir.ct_poison = (getenv("SCRIP_CT_POISON") ? 1 : 0) | (getenv("SCRIP_CT_NORECYCLE") ? 2 : 0);
-        if (g_lower.ir.ct_poison & 1) memset(p, 0xDD, (size_t)h->size);
-        if (g_lower.ir.ct_poison & 2) { h->magic = 0; return; }
+        if (g_lower_ir.ct_poison < 0) g_lower_ir.ct_poison = (getenv("SCRIP_CT_POISON") ? 1 : 0) | (getenv("SCRIP_CT_NORECYCLE") ? 2 : 0);
+        if (g_lower_ir.ct_poison & 1) memset(p, 0xDD, (size_t)h->size);
+        if (g_lower_ir.ct_poison & 2) { h->magic = 0; return; }
         h->magic = 0;
-        g_lower.ir.ct_taken -= (size_t)h->size;
-        h->next = g_lower.ir.ct_bin[cls];
-        g_lower.ir.ct_bin[cls] = h;
+        g_lower_ir.ct_taken -= (size_t)h->size;
+        h->next = g_lower_ir.ct_bin[cls];
+        g_lower_ir.ct_bin[cls] = h;
         return;
     }
-    if (h->magic == CT_MAGIC_BIG) { size_t len = (size_t)h->size; h->magic = 0; g_lower.ir.ct_taken -= len; munmap((void *)h, len); return; }
+    if (h->magic == CT_MAGIC_BIG) { size_t len = (size_t)h->size; h->magic = 0; g_lower_ir.ct_taken -= len; munmap((void *)h, len); return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *ct_mark(void) { return ct_alloc(1); }
@@ -136,10 +136,10 @@ void ct_release(void *m) {
     ct_head_t *h;
     if (!m) return;
     stop = (ct_head_t *)((uint8_t *)m - CT_ALIGN);
-    h = g_lower.ir.ct_jhead;
+    h = g_lower_ir.ct_jhead;
     while (h && h != stop) h = h->older;
     if (!h) return;
-    while (g_lower.ir.ct_jhead != stop) ct_drop((uint8_t *)g_lower.ir.ct_jhead + CT_ALIGN);
+    while (g_lower_ir.ct_jhead != stop) ct_drop((uint8_t *)g_lower_ir.ct_jhead + CT_ALIGN);
     ct_drop(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -147,9 +147,9 @@ char *ct_strdup(const char *s) { size_t n; char *q; if (!s) return (char *)0; n 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *ct_strndup(const char *s, size_t n) { size_t k = 0; char *q; if (!s) return (char *)0; while (k < n && s[k]) k++; q = (char *)ct_alloc(k + 1); memcpy(q, s, k); q[k] = '\0'; return q; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-size_t ct_arena_bytes(void) { return g_lower.ir.ct_taken; }
+size_t ct_arena_bytes(void) { return g_lower_ir.ct_taken; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-size_t ct_arena_mapped(void) { return g_lower.ir.ct_mapped; }
+size_t ct_arena_mapped(void) { return g_lower_ir.ct_mapped; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int ct_head_ok(const ct_head_t *h, const char *hi) {
     int cls;

@@ -12,6 +12,7 @@
 #include "lower/lower_icon/lic_02_sh.h"
 #include "lower/lower_icon/lic_03_sh.h"
 #include "lower/lower_icon/lic_04_sh.h"
+#include "lower/g_lower_icn.h"
 static int pm_const_int(const tree_t * a, int64_t * v);
 static rx_t * rx_regex(rxs_t * st);
 static tree_t * rx_tr(const rx_t * r, int line);
@@ -211,9 +212,9 @@ static const char * th_sigh(icx_t * cx) {
     for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], "$sigh")) return "$sigh";
     const char * nm = "$sigh";
     { extern void global_register(const char *); global_register(nm); }
-    lc_vec_push(&g_lower.icn.lower_icon_proc_gnv, &nm);
-    cx->gn = (const char **) g_lower.icn.lower_icon_proc_gnv.data;
-    cx->ngn = g_lower.icn.lower_icon_proc_gnv.n;
+    lc_vec_push(&g_lower_icn.lower_icon_proc_gnv, &nm);
+    cx->gn = (const char **) g_lower_icn.lower_icon_proc_gnv.data;
+    cx->ngn = g_lower_icn.lower_icon_proc_gnv.n;
     return nm;
 }
 static tree_t * th_poll(const char * sg, const char * sv) {
@@ -424,14 +425,14 @@ static IR_t * pm_defer_box(icx_t * cx, const tree_t * e, IR_t ** argt) {
     const char * nm = NULL;
     if (e->t == TT_VAR && e->v.sval && e->v.sval[0] != '&' && icn_is_own_global(cx, e->v.sval) && !icn_is_proc(e->v.sval)) nm = e->v.sval;
     else {
-        int hn = ++g_lower.icn.pm_hidden_n;
+        int hn = ++g_lower_icn.pm_hidden_n;
         char b[fmt_len("$pmg%d", hn)];
         snprintf(b, sizeof b, "$pmg%d", hn);
         nm = lp_strdup(b);
         { extern void global_register(const char *); global_register(nm); }
-        lc_vec_push(&g_lower.icn.lower_icon_proc_gnv, &nm);
-        cx->gn = (const char **) g_lower.icn.lower_icon_proc_gnv.data;
-        cx->ngn = g_lower.icn.lower_icon_proc_gnv.n;
+        lc_vec_push(&g_lower_icn.lower_icon_proc_gnv, &nm);
+        cx->gn = (const char **) g_lower_icn.lower_icon_proc_gnv.data;
+        cx->ngn = g_lower_icn.lower_icon_proc_gnv.n;
         tree_t * v = pm_patfn(cx, e);
         *argt = pm_node(TT_ASSIGN, pm_var(nm), v ? v : (tree_t *) e, NULL);
     }
@@ -555,11 +556,11 @@ const tree_t * pm_fn_form(icx_t * cx, const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * icn_synth_local(icx_t * cx) {
     char b[32];
-    snprintf(b, sizeof b, "$rep%d", g_lower.icn.synth_locals.n + 1);
+    snprintf(b, sizeof b, "$rep%d", g_lower_icn.synth_locals.n + 1);
     const char * nm = lp_strdup(b);
-    lc_vec_push(&g_lower.icn.synth_locals, &nm);
-    lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &nm);
-    cx->ln = (const char **) g_lower.icn.lower_icon_proc_lnv.data;
-    cx->nln = g_lower.icn.lower_icon_proc_lnv.n;
+    lc_vec_push(&g_lower_icn.synth_locals, &nm);
+    lc_vec_push(&g_lower_icn.lower_icon_proc_lnv, &nm);
+    cx->ln = (const char **) g_lower_icn.lower_icon_proc_lnv.data;
+    cx->nln = g_lower_icn.lower_icon_proc_lnv.n;
     return nm;
 }
