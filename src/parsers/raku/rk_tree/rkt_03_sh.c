@@ -282,6 +282,7 @@ tree_t *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "-")) return expr_unary(TT_MNS, nctx(b, x));
+    if (!strcmp(op, "+^")) return expr_binary(TT_SUB, expr_unary(TT_MNS, nctx(b, x)), rk_ilit(1));
     if (!strcmp(op, "+") && x && x->t == TT_TO) { tree_t *c = make_call("__rk_numify"); expr_add_child(c, x); return c; }
     if (!strcmp(op, "+")) { tree_t *n = nctx(b, x); if (n == x && x->t != TT_ILIT && x->t != TT_FLIT) n = expr_binary(TT_ADD, x, rk_ilit(0)); return n; }
     if ((!strcmp(op, "?") || !strcmp(op, "so")) && x && x->t == TT_SMATCH) return rkb_ternary(b, x, mkbool_lit(1), mkbool_lit(0));
