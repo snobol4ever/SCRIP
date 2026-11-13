@@ -36856,6 +36856,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_EXPORTS[] = {
     { "gc_strings", 0 },
     { "set_xsb_param", 2 },
     { "parsort", 4 },
+    { "assert", 3 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_84_SHADOWS[] = {
@@ -36904,6 +36905,7 @@ static const char PL_PRELUDE_LIB_84_SRC[] =
     "'$xsb_vv'([], _, _).\n"
     "'$xsb_vv'([W|Ws], Bs, [vv(N, W)|Vs]) :- ( member(N0 = V0, Bs), V0 == W -> N = N0 ; N = '_' ), '$xsb_vv'(Ws, Bs, Vs).\n"
     "str_cat(A, B, C) :- atom_concat(A, B, C).\n"
+    "assert(C, AZ, _) :- ( AZ /\\ 1 =:= 0 -> asserta(C) ; assertz(C) ).\n"
     "gc_strings.\n"
     "set_xsb_param(float_display_format, Opts) :- !, ( memberchk(precision(N), Opts) -> true ; N = 15 ), create_prolog_flag('$xsb_float_precision', N, []).\n"
     "set_xsb_param(_, _).\n"
@@ -37743,6 +37745,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "arithmetic_function", 19, 1, 3 },
     { "arrangement", 11, 2, 19 },
     { "asin", 4, 2, 63 },
+    { "assert", 6, 3, 84 },
     { "assertai", 8, 2, 85 },
     { "asserti", 7, 2, 85 },
     { "assertzi", 8, 2, 85 },

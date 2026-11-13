@@ -14,7 +14,7 @@
     found as named when the name has an extension, else as File.P, File.pl or File (search_module's order), each clause is asserted at the end (direction 1, z) and each
     directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, R-1960). gc_strings/0 (a no-op: SCRIP's strings are not collected by the program) and set_xsb_param/2 (float_display_format with precision(N) sets the digits write prints a float with, the flag $xsb_float_precision that the writer reads; other parameters are accepted and ignored) are XSB machine routines prolog_tests/test_float_io_precision calls. file_open/3 (a numeric or r, w, a mode; 3 opens the text as a stream), file_close/1, file_read/3 (the term and, in an open list as XSB leaves it, vv(Name, Var) for each variable, an anonymous one named _, syslib/xsb_read.P) and str_cat/3 are the XSB file_io and machine routines prolog_tests/readstrtest calls. read_canonical/1,2 are XSB syslib/consult.P's read of a term the canonical writer wrote (hq_packages 2026-10-29, prolog_tests/test_write_read), answered by SCRIP's reader, a superset of the canonical syntax. load_dync/1 is consult/1 and ensure_dync_loaded/1 consults a file once, both down the dialect(xsb) load_files road that reads
     the file's table directives (ARCH-PROLOG-WFS-TABLING.md section 8 R1, hq_packages 2026-10-28, R-2005). edb/1, ti/1, thread_shared/1 and document_export/1 are XSB's declarations (the package prelude declares their operators) that change nothing SCRIP answers, so each directive succeeds silently (hq_packages 2026-10-28). */
-:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1, edb/1, ti/1, thread_shared/1, document_export/1, read_canonical/1, read_canonical/2, file_open/3, file_close/1, file_read/3, str_cat/3, gc_strings/0, set_xsb_param/2, parsort/4 ]).
+:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, term_depth/2, dynamic_pred_has_clauses/2, set_arg/3, load_dyn/1, load_dync/1, ensure_dync_loaded/1, edb/1, ti/1, thread_shared/1, document_export/1, read_canonical/1, read_canonical/2, file_open/3, file_close/1, file_read/3, str_cat/3, gc_strings/0, set_xsb_param/2, parsort/4, assert/3 ]).
 import(_).
 export(_).
 index(_).
@@ -47,6 +47,7 @@ file_read(Stream, Term, Vars) :- read_term(Stream, Term, [variable_names(Bs), va
 '$xsb_vv'([], _, _).
 '$xsb_vv'([W|Ws], Bs, [vv(N, W)|Vs]) :- ( member(N0 = V0, Bs), V0 == W -> N = N0 ; N = '_' ), '$xsb_vv'(Ws, Bs, Vs).
 str_cat(A, B, C) :- atom_concat(A, B, C).
+assert(C, AZ, _) :- ( AZ /\ 1 =:= 0 -> asserta(C) ; assertz(C) ).
 gc_strings.
 set_xsb_param(float_display_format, Opts) :- !, ( memberchk(precision(N), Opts) -> true ; N = 15 ), create_prolog_flag('$xsb_float_precision', N, []).
 set_xsb_param(_, _).
