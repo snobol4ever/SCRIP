@@ -768,7 +768,10 @@ static tree_t *icn_unlock_after(tree_t *e, const IcnCrit *st, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *icn_susp_rewrite(tree_t *s, const IcnCrit *st) {
-    s->c[0] = icn_unlock_after(s->c[0], st, -1);
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    tree_t *me = ast_node_new(TT_FNC);
+    push_child(me, one); push_child(me, s->c[0]); push_child(me, icn_unlock_chain(st, -1));
+    s->c[0] = me;
     tree_t *q = ast_node_new(TT_SEQ_EXPR);
     icn_lock_fill(q, st);
     if (s->n > 1) { push_child(q, s->c[1]); s->c[1] = q; }
