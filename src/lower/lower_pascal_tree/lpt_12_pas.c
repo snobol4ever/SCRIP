@@ -84,6 +84,7 @@ static int pas_ov_unsigned(const char *t) {
         !strcmp(t, "uint64") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeuint") || !strcmp(t, "ptruint");
 }
 static int pas_ov_width(const char *t) {
+    if (!strcmp(t, "integer")) return g_lower_pas.sem.pas_int16 ? 16 : 32;
     if (!strcmp(t, "byte") || !strcmp(t, "shortint") || !strcmp(t, "int8") || !strcmp(t, "uint8")) return 8;
     if (!strcmp(t, "word") || !strcmp(t, "smallint") || !strcmp(t, "int16") || !strcmp(t, "uint16")) return 16;
     if (!strcmp(t, "int64") || !strcmp(t, "qword") || !strcmp(t, "uint64") || !strcmp(t, "nativeint") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeint") || !strcmp(t, "sizeuint") ||
@@ -481,9 +482,7 @@ static int pas_fname_read_as_variable(const tree_t *t) {
     for (int i = 0; i < t->n; i++) if (pas_fname_read_as_variable(t->c[i])) return 1;
     return 0;
 }
-int pas_result_flips_dialect(const tree_t *root) {
-    return !pas_tree_has_event(root, "mode_iso") && ((pas_result_used(root, 0) && !pas_result_declared(root)) || pas_fname_read_as_variable(root));
-}
+int pas_result_flips_dialect(const tree_t *root) { return !pas_tree_has_event(root, "mode_iso") && ((pas_result_used(root, 0) && !pas_result_declared(root)) || pas_fname_read_as_variable(root)); }
 static void pas_default_add(const char *routine, int idx, tree_t *expr) {
     if (!routine || !expr) return;
     if (g_lower_pas.sem.pas_ndefault >= g_lower_pas.sem.pas_default_cap) {
