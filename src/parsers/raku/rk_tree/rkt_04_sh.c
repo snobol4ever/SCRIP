@@ -151,7 +151,7 @@ RkList *rkb_list_new(void) { return (RkList *) ct_zalloc(1, sizeof(RkList)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RkEl *rkb_list_el(RkList *L) { GROW(L->v, L->n, L->cap, RkEl); RkEl *e = &L->v[L->n++]; memset(e, 0, sizeof *e); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rkb_list_end(RkList *L) { if (L->n && L->v[L->n - 1].nitem == 1 && L->v[L->n - 1].t0.kind == TK_EMPTY) { L->n--; L->trailing = L->nitem > 1; } }
+void rkb_list_end(RkList *L) { if (L->n && L->v[L->n - 1].nitem == 1 && L->v[L->n - 1].t0.kind == TK_EMPTY) { L->n--; L->trailing = L->nitem > 1; L->tc = 1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_pend(RkEl *e, tree_t *ph, RkDecl *d) { GROW(e->pd, e->npd, e->cpd, RkPend); e->pd[e->npd].ph = ph; e->pd[e->npd].d = d; e->npd++; }
 tree_t *rkb_expr(RkB *b, RkList *L) { if (!L || !L->n) return ast_node_new(TT_NUL); return el_tree(b, &L->v[0]); }

@@ -385,7 +385,7 @@ int r_semilist(RkP *p, int pos) {
         int e = r_statement(p, q);
         p->x_star = 0;
         if (e < 0) break;
-        if (p->stmt_list) { if (!first) first = p->stmt_list; else { for (int k = 0; k < p->stmt_list->n; k++) *rkb_list_el(first) = p->stmt_list->v[k]; first->nitem += p->stmt_list->nitem; } }
+        if (p->stmt_list) { if (!first) first = p->stmt_list; else { for (int k = 0; k < p->stmt_list->n; k++) *rkb_list_el(first) = p->stmt_list->v[k]; first->nitem += p->stmt_list->nitem; } first->tc = p->stmt_list->tc; }
         n++;
         q = r_eat_terminator(p, e);
         if (q < 0) { q = e; break; }

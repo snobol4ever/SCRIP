@@ -23,7 +23,7 @@ typedef struct { tree_t *ph; RkDecl *d; } RkPend;
 typedef struct { tree_t *t; int nitem; RkTerm t0; const char *op1; tree_t *rest; RkPend *pd; int npd, cpd; } RkEl;
 struct RkList {
     RkEl *v; int n, cap;
-    int trailing, nitem, subst;
+    int trailing, nitem, subst, tc;
     RkTerm t1;
     const char *op1;
     tree_t *rg_lo, *rg_hi; const char *rg_op; int rg_nitem;

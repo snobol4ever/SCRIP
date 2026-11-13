@@ -128,7 +128,7 @@ int r_circumfix(RkP *p, int pos) {
     int c = cp_at(p, pos);
     if (c == '(') { int sa = p->invocant_ok; int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); RkList *in = p->last_list; int n = p->last_nstmts; p->invocant_ok = sa;
         p->goal = sg; e = expect_close(p, e, ')', "parenthesized expression", pos);
-        if (p->build) { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_PAREN; p->tm.from = pos; p->tm.to = p->tm.core_to = e; p->tm.cnt = n; p->tm.in = in; p->tm.t = rkb_paren(p->B, in, n); }
+        if (p->build) { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_PAREN; p->tm.from = pos; p->tm.to = p->tm.core_to = e; p->tm.cnt = n; p->tm.in = in; if (in && in->tc && in->n == 1) in->trailing = 1; p->tm.t = rkb_paren(p->B, in, n); }
         return e; }
     if (c == '[') { int sg = p->goal; p->goal = 0; int e = r_semilist(p, pos + 1); RkList *in = p->last_list; p->goal = sg; e = expect_close(p, e, ']', "array composer", pos);
         if (p->build) { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_TREE; p->tm.from = pos; p->tm.to = p->tm.core_to = e; p->tm.t = rkb_bracket(p->B, in); }
