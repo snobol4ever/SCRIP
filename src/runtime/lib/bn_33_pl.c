@@ -64,6 +64,11 @@ static void pl_fh_addal(int i, const char *nm) {
     else pl_fh_push(&g_fh[i].xal, &g_fh[i].nxal, prolog_atom_intern(nm));
 }
 static int pl_sp_nprops(int i) { return PL_SP_NPROP + g_fh[i].nxal + (i >= 3 ? g_fh[i].nmir : 0); }
+static const char *pl_enc_swi(const char *e) {
+    static const char *const m[][2] = { { "UTF-8", "utf8" }, { "ISO-8859-1", "iso_latin_1" }, { "US-ASCII", "ascii" }, { "UTF-16BE", "utf16be" }, { "UTF-16LE", "utf16le" }, { 0, 0 } };
+    for (int i = 0; m[i][0]; i++) if (!strcmp(e, m[i][0])) return m[i][1];
+    return e;
+}
 static int pl_sp_xprop(int i, int j, DESCR_t *out) {
     extern const char *prolog_atom_name(int);
     if (j < g_fh[i].nxal) { const char *a = prolog_atom_name(g_fh[i].xal[j]); *out = pl_mk_cmp1("alias", pl_mk_atom_dup(a, strlen(a))); return 1; }
@@ -123,7 +128,7 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
             return 1;
         }
         case 8:
-        { extern const char *fh_encoding(int); const char *e; if (g_fh[i].type == 'b') return 0; e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(e)); return 1; }
+        { extern const char *fh_encoding(int); const char *e; e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(pl_enc_swi(e))); return 1; }
         case 9:
         { if (g_fh[i].type == 'b') return 0; { extern int fh_bom(int); *out = pl_mk_cmp1("bom", pl_mk_atom(fh_bom(i) ? "true" : "false")); } return 1; }
         case 10:
