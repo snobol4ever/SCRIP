@@ -37,6 +37,8 @@ tree_t *var_node(RkB *b, const char *name) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_indirect_code(RkB *b, RkTerm *it, tree_t *name) { (void) b; tree_t *v = leaf_sval(TT_VAR, "&"); v->slen = 1 | RK_VAR_INDIRECT; expr_add_child(v, name); it->t = v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *make_call(const char *name) { tree_t *e = leaf_sval(TT_FNC, name); tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name); expr_add_child(e, n); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *call2(const char *fn, tree_t *l, tree_t *r) { tree_t *c = make_call(fn); expr_add_child(c, l); expr_add_child(c, r); return c; }

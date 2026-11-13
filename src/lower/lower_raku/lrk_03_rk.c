@@ -541,6 +541,19 @@ static void rk_sub_names(const tree_t * t, rk_ns_t * out) {
     for (int i = 0; i < t->n; i++) rk_sub_names(t->c[i], out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_indirect_lit_names(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_indirect_lit_names(t->c[i]);
+    if (t->t != TT_VAR || !(t->slen & RK_VAR_INDIRECT) || t->n != 1 || !t->c[0] || t->c[0]->t != TT_QLIT || !t->c[0]->v.sval) return;
+    const char * s = t->c[0]->v.sval;
+    if (!isalpha((unsigned char) s[0]) || strpbrk(s, ":*?!<>[]()$@%&. ")) return;
+    char nb[strlen(s) + 2];
+    snprintf(nb, sizeof nb, "&%s", s);
+    t->v.sval = (char *) intern(nb);
+    t->slen &= ~RK_VAR_INDIRECT;
+    t->n = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_builtin_refs(tree_t * t, const rk_ns_t * subs) {
     if (!t) return;
     int skip = t->t == TT_SUB_DECL || t->t == TT_ANON_BLOCK || t->t == TT_DECL;
@@ -611,6 +624,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
         rk_module_names(prog, &ss);
         rk_type_terms((tree_t *) prog, &ss);
         rk_ns_t subs = { 0 };
+        rk_indirect_lit_names((tree_t *) prog);
         rk_sub_names(prog, &subs);
         rk_builtin_refs((tree_t *) prog, &subs);
         rk_ctl_rhs((tree_t *) prog);

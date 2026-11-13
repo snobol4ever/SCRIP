@@ -180,6 +180,13 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 ast_push(mc, bq);
                 return lower_rcall(cx, mc, "__rk_typeobj", 1, γ, ω, res);
             }
+            if ((t->slen & RK_VAR_INDIRECT) && t->n == 1 && t->c[0]) {
+                tree_t * mc = ast_node_new(TT_FNC);
+                mc->v.sval = (char *)"__blk_ref";
+                ast_push(mc, leaf_sval2(TT_VAR, "__blk_ref"));
+                ast_push(mc, t->c[0]);
+                return lower_rcall(cx, mc, "__blk_ref", 1, γ, ω, res);
+            }
             if ((t->slen & 1) && t->v.sval && t->v.sval[0] == '&' && t->v.sval[1] && rk_proc_known(t->v.sval + 1)) {
                 tree_t * mc = ast_node_new(TT_FNC);
                 mc->v.sval = (char *)"__blk_ref";

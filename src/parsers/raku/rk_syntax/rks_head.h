@@ -65,6 +65,7 @@ typedef struct RkP {
     RkList *xb_cond; tree_t *xb_blk; tree_t *xb_sig;
     int nmods, cmodk, cmodx; const char **modk; RkList **modx;
     int ctl_ns;
+    tree_t *ind_t; int ind_end;
     int x_star; int x_sub; const char *x_subst; int x_subst_len;
 } RkP;
 /*====================================================================================================================================================================================================*/

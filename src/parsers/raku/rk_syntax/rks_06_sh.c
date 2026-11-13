@@ -64,6 +64,7 @@ static int r_morename(RkP *p, int pos) {
         if (r < 0) panic_at(p, q, "Malformed indirect name");
         r = ws(p, r);
         if (ch(p, r) != ')') panic_at(p, r, "Unable to parse indirect name; couldn't find final ')'");
+        if (p->build) { p->ind_t = rkb_expr(p->B, takelst(p)); p->ind_end = r + 1; }
         return r + 1;
     }
     if (is_alpha_cp(c)) { int r = r_identifier(p, e); return r >= 0 ? r : e; }

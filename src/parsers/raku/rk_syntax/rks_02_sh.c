@@ -376,6 +376,7 @@ int r_term(RkP *p, int pos) {
         e = r_variable(p, pos);
         if (e >= 0 && p->build && c == '$' && ch(p, pos + 1) == '{' && !p->in_decl && !p->qsigil) { rkb_contextualize(p->B, &p->tm, "item"); p->tm.from = pos; return e; }
         if (e >= 0 && p->build) { if ((c == '$' || c == '@') && ch(p, pos + 1) == '<') rkb_var(p->B, &p->tm, pos, e, p->s + pos + 2, e - pos - 3); else rkb_var(p->B, &p->tm, pos, e, NULL, 0); }
+        if (e >= 0 && p->build && c == '&' && p->ind_t && p->ind_end == e && at_lit(p, pos + 1, "::(")) { rkb_indirect_code(p->B, &p->tm, p->ind_t); p->ind_t = NULL; return e; }
         if (e >= 0 && p->build && p->tm.kind == TK_VAR && p->tm.t && p->tm.t->t == TT_VAR) { int ni = user_name_index(p, p->s + pos, e - pos); if (ni >= 0 && p->names[ni].st) rkb_rename_var(p->B, &p->tm, p->names[ni].st); }
         return e;
     }
