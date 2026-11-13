@@ -4,6 +4,7 @@
 #include <string.h>
 #include "ir/ct_arena.h"
 #include "parsers/snobol4/scrip_cc.h"
+#include "runtime/builtin_table.h"
 #include "parsers/raku/rk_syntax/rks_01_sh.h"
 #include "parsers/raku/rk_syntax/rks_02_sh.h"
 #include "parsers/raku/rk_syntax/rks_03_sh.h"
@@ -74,6 +75,7 @@ static int routine_visible(RkP *p, const char *s, int n) {
     if (user_name_index(p, buf, n + 1) >= 0 || user_name_index(p, s, n) >= 0) return 1;
     if (core_has(rk_core_routines, sizeof rk_core_routines / sizeof *rk_core_routines, s, n)) return 1;
     if (p->lang_e && core_has(rk_core_e_routines, sizeof rk_core_e_routines / sizeof *rk_core_e_routines, s, n)) return 1;
+    { int r = bt_row_of(BT_VOC_RK, s, (unsigned) n); if (r >= 0 && (g_builtins[r].flags & BT_FLAG_VISIBLE)) return 1; }
     return core_has(rk_core_names, sizeof rk_core_names / sizeof *rk_core_names, s, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

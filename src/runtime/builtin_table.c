@@ -300,7 +300,7 @@ const bt_row_t g_builtins[BT_ROWS] = { { "**", "bt_x2Ax2A", 1, BT_VOC_SNO, BT_CO
     "bt_tail", 697, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "try_enter", "bt_try_enter", 698, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "try_exit", "bt_try_exit", 699, BT_VOC_RK,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "uc", "bt_uc", 700, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "unique", "bt_unique", 701, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "unshift_pure", "bt_unshift_pure", 702, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "user", "bt_user", 703, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "val", "bt_val", 704,
-    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "wall_ms", "bt_wall_ms", 705, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "wall_us", "bt_wall_us", 706, BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128,
+    BT_VOC_RK, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "wall_ms", "bt_wall_ms", 705, BT_VOC_RK, BT_CONV_LEAF, 4, 1, -128, -128, 0 }, { "wall_us", "bt_wall_us", 706, BT_VOC_RK, BT_CONV_LEAF, 4, 1, -128,
     -128, 0 }, { "Bool", "bt_Bool", 707, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "IO", "bt_IO", 708, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "Int", "bt_Int", 709, BT_VOC_RKM,
     BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "Num", "bt_Num", 710, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "Numeric", "bt_Numeric", 711, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 },
     { "Real", "bt_Real", 712, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "Str", "bt_Str", 713, BT_VOC_RKM, BT_CONV_LEAF, 0, 1, -128, -128, 0 }, { "WHAT", "bt_WHAT", 714, BT_VOC_RKM,

@@ -10,7 +10,7 @@
 #define BT_LEGACY_W 17
 enum { BT_VOC_SNO = 0, BT_VOC_ICN = 1, BT_VOC_PAS = 2, BT_VOC_RK = 3, BT_VOC_RKM = 4, BT_VOC_PL = 5 };
 enum { BT_CONV_LEAF = 0, BT_CONV_GEN = 1, BT_CONV_OPEN = 2, BT_CONV_INLINE = 3 };
-enum { BT_FLAG_SCAN = 1, BT_FLAG_MUT = 2 };
+enum { BT_FLAG_SCAN = 1, BT_FLAG_MUT = 2, BT_FLAG_VISIBLE = 4 };
 typedef struct {
     char name[BT_NAME_W];
     char entry[BT_ENTRY_W];
