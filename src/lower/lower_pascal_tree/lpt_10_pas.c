@@ -40,17 +40,26 @@ static tree_t *pas_pun_view_x(const pty_t *P, tree_t *rhs, int self) {
     if (pas_is_pre0(rhs)) return P ? pas_preview_to(P, rhs) : rhs;
     if (!P || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
     int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
-    if (!av && !ae) return rhs;
-    const pty_t *bt = pty_of_low(rhs->c[1]);
-    if (!bt && rhs->c[1]->t == TT_VAR && rhs->c[1]->v.sval) bt = pty_name_type(rhs->c[1]->v.sval);
-    if (!bt || bt->k == PTK_UNKNOWN) return rhs;
-    const pty_t *e = bt;
+    int pi = !strcmp(rhs->c[0]->v.sval, "__pas_ptr_inc");
+    if (!av && !ae && !pi) return rhs;
+    const pty_t *e = NULL;
     tree_t *addr = rhs;
-    if (bt->k == PTK_ARRAY) {
-        if (P == bt || P->k == PTK_ARRAY || bt->dyn || bt->open || bt->nix != 1 || !bt->ix || !bt->ix[0] || !bt->ix[0]->bounded || !bt->base) return rhs;
-        e = bt->base;
-        if (av) addr = mk_fnc2("__pas_addr", rhs->c[1], ilit(bt->ix[0]->lo));
-    } else if (ae) return rhs;
+    if (pi) {
+        const pty_t *pp = pty_of_low(rhs->c[1]);
+        if (!pp || pp->k != PTK_POINTER || !pp->base) return rhs;
+        e = pp->base;
+    } else {
+        const pty_t *bt = pty_of_low(rhs->c[1]);
+        if (!bt && rhs->c[1]->t == TT_VAR && rhs->c[1]->v.sval) bt = pty_name_type(rhs->c[1]->v.sval);
+        if (!bt || bt->k == PTK_UNKNOWN) return rhs;
+        e = bt;
+        if (bt->k == PTK_ARRAY) {
+            if (P == bt || P->k == PTK_ARRAY || !bt->base || bt->open || bt->nix > 1) return rhs;
+            if (av && (bt->dyn || bt->nix != 1 || !bt->ix || !bt->ix[0] || !bt->ix[0]->bounded)) return rhs;
+            e = bt->base;
+            if (av) addr = mk_fnc2("__pas_addr", rhs->c[1], ilit(bt->ix[0]->lo));
+        } else if (ae) return rhs;
+    }
     if (P == e) return self ? pas_self_view(e, addr) : addr;
     long long w = 0, W = 0;
     int ek = pas_view_kind(e, &w), pk = pas_view_kind(P, &W);
