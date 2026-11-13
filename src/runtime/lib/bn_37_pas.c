@@ -152,10 +152,20 @@ static void pas_fmt_float(double v, char kind, int prec, char *s) {
     if (s[0] == '-' && s[1] && s[strspn(s + 1, "0.E+,") + 1] == '\0') pas_fmt_del(s, 0, 1);
 }
 static void pas_fmt_fail(const char *msg, const char *fmt) { fflush(NULL); fprintf(stderr, "An unhandled exception occurred at $0000000000000000:\nEConvertError: %s \"%s\"\n", msg, fmt); exit(217); }
+static DESCR_t pas_fmt_vrec(DESCR_t d) {
+    static const signed char slot[19] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, 10, 11, -1, -1, -1, 12, 13, 14 };
+    ARBLK_t *b = d.v == DT_A ? (ARBLK_t *) d.arr : NULL;
+    if (!b || b->ewidth || b->lo != 0 || b->hi != 14 || !IS_INT_fn(b->data[0]) || b->data[0].i < 0 || b->data[0].i > 18 || slot[b->data[0].i] < 0) return d;
+    DESCR_t v = b->data[slot[b->data[0].i]];
+    return b->data[0].i == 3 ? *pas_heap_ref(v, "__pas_format") : v;
+}
 size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, size_t cap) {
     int len = (int)strlen(fmt), ch = 0, old = 0, argpos = 0, nbcap = 640;
     size_t w = 0;
     char nb[nbcap];
+    DESCR_t vb[na > 0 ? na : 1];
+    for (int i = 0; i < na; i++) vb[i] = pas_fmt_vrec(a[i]);
+    a = vb;
     const char *add = "";
     while (ch < len) {
         while (ch < len && fmt[ch] != '%') ch++;

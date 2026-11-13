@@ -879,7 +879,7 @@ static pval E_set_member(const tree_t *n) {
         { pas_set_member_ordinal(v[1].node); pas_set_member_ordinal(v[3].node); out.node = mk_set_bin("__pas_setrange", v[1].node, v[3].node); }
         return out;
     }
-    if (n != NULL && g_lower_pas.sem.pas_arrctor == 2) {
+    if (n != NULL && g_lower_pas.sem.pas_arrctor == 2 && pas_pf_lookup(pas_vr_wrapper(n))) {
         tree_t *w = ast_node_new(TT_FNC);
         ast_push(w, leaf_s(TT_VAR, pas_vr_wrapper(n)));
         ast_push(w, (tree_t *)n);
