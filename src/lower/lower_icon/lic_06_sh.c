@@ -26,7 +26,11 @@ IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** re
     if (t && cx->prog && cx->prog->v.ival && t->n == 2 && (t->t == TT_CSET_UNION || t->t == TT_CSET_DIFF || t->t == TT_CSET_INTER))
         return lower_node(cx, pm_call(t->t == TT_CSET_UNION ? "ICN$UUNION" : t->t == TT_CSET_DIFF ? "ICN$UDIFF" : "ICN$UINTER", (tree_t *) t->c[0], (tree_t *) t->c[1]), γ, ω, res);
     if (lc_is_binop(t->t)) {
-        { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = lic_build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
+        {
+            int64_t fb = 0;
+            int fr = 0;
+            if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = lic_build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; }
+        }
         int64_t bcode = lc_binop_code(t->t);
         if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;
         int64_t bemit = (bcode == BINOP_ADD) ? (int64_t)BINOP_ADD_BIG : (bcode == BINOP_SUB) ? (int64_t)BINOP_SUB_BIG : (bcode == BINOP_MUL) ? (int64_t)BINOP_MUL_BIG : bcode;
@@ -499,7 +503,12 @@ IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** re
                 as->line = t->line;
                 return lic_lower(cx, as, γ, ω, res);
             }
-            if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, (tree_t *) rhs); return lic_lower(cx, as, γ, ω, res); }
+            if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) {
+                tree_t * as = ast_node_new(TT_ASSIGN);
+                ast_push(as, (tree_t *) lhs);
+                ast_push(as, (tree_t *) rhs);
+                return lic_lower(cx, as, γ, ω, res);
+            }
             int aop = (int) t->v.ival;
             {
                 IR_t * b4 = cx->beta;
@@ -696,7 +705,26 @@ IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** re
             }
             ir_operand_push(sn, ev);
             IR_t * rrt;
-            if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lic_lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); sn->seal = 1; } else rrt = eβ ? eβ : ω;
+            const tree_t * db = (t->n > 1) ? t->c[1] : NULL;
+            while (db && db->t == TT_SEQ_EXPR && db->n == 1) db = (db->c[0] && db->c[0]->t == TT_STMT) ? lic_stmt_subj(db->c[0]) : db->c[0];
+            if (eβ && db && db->t == TT_SEQ_EXPR && db->n > 1) {
+                IR_t * dv = NULL;
+                IR_t * mark = lic_build(cx, IR_BOUND, NULL, NULL);
+                IR_t * unmk = lic_build(cx, IR_UNMARK, eβ, eβ);
+                ir_operand_push(unmk, mark);
+                cx->discard = t->c[1];
+                IR_t * sb = cx->beta;
+                IR_t * be = lic_lower(cx, t->c[1], unmk, unmk, &dv);
+                cx->beta = sb;
+                lc_γ_to_α(mark, be);
+                lc_ω_to_α(mark, be);
+                rrt = mark;
+                sn->seal = 1;
+            } else if (t->n > 1 && t->c[1]) {
+                IR_t * dv = NULL;
+                rrt = lic_lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv);
+                sn->seal = 1;
+            } else rrt = eβ ? eβ : ω;
             if (cx->scan_sp > 0) {
                 IR_t * ytgt = cx->psucc ? cx->psucc : γ;
                 IR_t * rrt0 = rrt;
