@@ -104,6 +104,98 @@ type
     property Values[const Name: string]: string read GetValue write SetValue;
     property ValueFromIndex[Index: Integer]: string read GetValueFromIndex;
   end;
+  EStreamError = class(Exception);
+  EReadError = class(EStreamError);
+  EWriteError = class(EStreamError);
+  EBitsError = class(Exception);
+  TSeekOrigin = (soBeginning, soCurrent, soEnd);
+  TBytes = array of Byte;
+  TPersistent = class
+  public
+    procedure Assign(Source: TPersistent); virtual;
+    procedure AssignTo(Dest: TPersistent); virtual;
+  end;
+  TStream = class
+  private
+    function GetPosition: Int64;
+    procedure SetPosition(const Pos: Int64);
+  protected
+    function GetSize: Int64; virtual;
+    procedure SetSize(NewSize: Int64); virtual;
+  public
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; virtual;
+    function ReadByte: Byte; virtual;
+    procedure WriteByte(Value: Byte); virtual;
+    function ReadWord: Word;
+    procedure WriteWord(Value: Word);
+    function ReadDWord: Cardinal;
+    procedure WriteDWord(Value: Cardinal);
+    function CopyFrom(Source: TStream; Count: Int64): Int64;
+    property Position: Int64 read GetPosition write SetPosition;
+    property Size: Int64 read GetSize write SetSize;
+  end;
+  TCustomMemoryStream = class(TStream)
+  private
+    FData: array of Byte;
+    FSize: Longint;
+    FPos: Longint;
+    FCapacity: Longint;
+  protected
+    function GetSize: Int64; override;
+    procedure SetSize(NewSize: Int64); override;
+    procedure SetCapacity(NewCapacity: Longint);
+    function GetMemory: Pointer;
+  public
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+    function ReadByte: Byte; override;
+    procedure SaveToStream(Stream: TStream);
+    property Memory: Pointer read GetMemory;
+  end;
+  TMemoryStream = class(TCustomMemoryStream)
+  public
+    procedure WriteByte(Value: Byte); override;
+    procedure Clear;
+    procedure LoadFromStream(Stream: TStream);
+    property Capacity: Longint read FCapacity write SetCapacity;
+  end;
+  TBytesStream = class(TMemoryStream)
+  private
+    function GetBytes: TBytes;
+  public
+    constructor Create(const ABytes: TBytes);
+    property Bytes: TBytes read GetBytes;
+  end;
+  TBits = class
+  private
+    FBits: array of Cardinal;
+    FBSize: Longint;
+    FindIndex: Longint;
+    FindState: Boolean;
+    procedure SetBit(Bit: Longint; Value: Boolean);
+    procedure SetSize(Value: Longint);
+    procedure CheckBitIndex(Bit: Longint; CurrentSize: Boolean);
+  public
+    constructor Create(TheSize: Longint = 0);
+    function GetFSize: Longint;
+    procedure SetOn(Bit: Longint);
+    procedure Clear(Bit: Longint);
+    procedure ClearAll;
+    procedure CopyBits(BitSet: TBits);
+    procedure AndBits(BitSet: TBits);
+    procedure OrBits(BitSet: TBits);
+    procedure XorBits(BitSet: TBits);
+    procedure NotBits(BitSet: TBits);
+    function Get(Bit: Longint): Boolean;
+    procedure Grow(NBit: Longint);
+    function Equals(BitSet: TBits): Boolean;
+    procedure SetIndex(Index: Longint);
+    function FindFirstBit(State: Boolean): Longint;
+    function FindNextBit: Longint;
+    function FindPrevBit: Longint;
+    function OpenBit: Longint;
+    property Bits[Bit: Longint]: Boolean read Get write SetBit; default;
+    property Size: Longint read FBSize write SetSize;
+  end;
 implementation
 procedure OpenForRead(var f: Text; const n: string);
 begin
@@ -668,5 +760,317 @@ begin
   OpenForWrite(f, FileName);
   for k := 0 to FCount - 1 do WriteLn(f, FStrings[k]);
   Close(f)
+end;
+procedure TPersistent.Assign(Source: TPersistent);
+begin
+  if Source <> nil then Source.AssignTo(Self) else raise EConvertError.Create('Cannot assign nil');
+end;
+procedure TPersistent.AssignTo(Dest: TPersistent);
+begin
+  raise EConvertError.Create('Cannot assign to this object');
+end;
+function TStream.GetPosition: Int64;
+begin
+  Result := Seek(0, soCurrent);
+end;
+procedure TStream.SetPosition(const Pos: Int64);
+begin
+  Seek(Pos, soBeginning);
+end;
+function TStream.GetSize: Int64;
+var Pos: Int64;
+begin
+  Pos := Seek(0, soCurrent);
+  Result := Seek(0, soEnd);
+  Seek(Pos, soBeginning);
+end;
+procedure TStream.SetSize(NewSize: Int64);
+begin
+end;
+function TStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+begin
+  Result := 0;
+end;
+function TStream.CopyFrom(Source: TStream; Count: Int64): Int64;
+var N: Int64;
+begin
+  if Count = 0 then begin Source.Position := 0; Count := Source.Size; end;
+  Result := 0;
+  N := Count;
+  while (N > 0) and (Source.Position < Source.Size) do
+  begin
+    WriteByte(Source.ReadByte);
+    Inc(Result);
+    Dec(N);
+  end;
+end;
+function TStream.ReadByte: Byte;
+begin
+  raise EReadError.Create('Stream read error');
+end;
+procedure TStream.WriteByte(Value: Byte);
+begin
+  raise EWriteError.Create('Stream write error');
+end;
+function TStream.ReadWord: Word;
+begin
+  Result := ReadByte;
+  Result := Result or (Word(ReadByte) shl 8);
+end;
+procedure TStream.WriteWord(Value: Word);
+begin
+  WriteByte(Value and 255);
+  WriteByte(Value shr 8);
+end;
+function TStream.ReadDWord: Cardinal;
+begin
+  Result := ReadWord;
+  Result := Result or (Cardinal(ReadWord) shl 16);
+end;
+procedure TStream.WriteDWord(Value: Cardinal);
+begin
+  WriteWord(Value and 65535);
+  WriteWord(Value shr 16);
+end;
+function TCustomMemoryStream.GetSize: Int64;
+begin
+  Result := FSize;
+end;
+procedure TCustomMemoryStream.SetCapacity(NewCapacity: Longint);
+begin
+  if NewCapacity < FSize then NewCapacity := FSize;
+  SetLength(FData, NewCapacity);
+  FCapacity := NewCapacity;
+end;
+procedure TCustomMemoryStream.SetSize(NewSize: Int64);
+begin
+  if NewSize > FCapacity then SetCapacity((NewSize + 4095) and not 4095);
+  FSize := NewSize;
+  if FPos > FSize then FPos := FSize;
+end;
+function TCustomMemoryStream.GetMemory: Pointer;
+begin
+  if FCapacity = 0 then Result := nil else Result := @FData[0];
+end;
+function TCustomMemoryStream.ReadByte: Byte;
+begin
+  if FPos >= FSize then raise EReadError.Create('Stream read error');
+  Result := FData[FPos];
+  Inc(FPos);
+end;
+function TCustomMemoryStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+begin
+  case Origin of
+    soBeginning: FPos := Offset;
+    soCurrent: FPos := FPos + Offset;
+    soEnd: FPos := FSize + Offset;
+  end;
+  Result := FPos;
+end;
+procedure TCustomMemoryStream.SaveToStream(Stream: TStream);
+var I: Longint;
+begin
+  for I := 0 to FSize - 1 do Stream.WriteByte(FData[I]);
+end;
+procedure TMemoryStream.WriteByte(Value: Byte);
+begin
+  if FPos >= FCapacity then SetCapacity((FPos + 1 + (FPos shr 2) + 4095) and not 4095);
+  FData[FPos] := Value;
+  Inc(FPos);
+  if FPos > FSize then FSize := FPos;
+end;
+procedure TMemoryStream.Clear;
+begin
+  FSize := 0;
+  FPos := 0;
+  SetCapacity(0);
+end;
+procedure TMemoryStream.LoadFromStream(Stream: TStream);
+var B: Byte;
+begin
+  Clear;
+  Stream.Position := 0;
+  while Stream.Position < Stream.Size do WriteByte(Stream.ReadByte);
+  FPos := 0;
+end;
+constructor TBytesStream.Create(const ABytes: TBytes);
+var I: Longint;
+begin
+  inherited Create;
+  SetCapacity(Length(ABytes));
+  for I := 0 to Length(ABytes) - 1 do FData[I] := ABytes[I];
+  FSize := Length(ABytes);
+  FPos := 0;
+end;
+function TBytesStream.GetBytes: TBytes;
+var I: Longint;
+begin
+  SetLength(Result, FSize);
+  for I := 0 to FSize - 1 do Result[I] := FData[I];
+end;
+procedure TBits.CheckBitIndex(Bit: Longint; CurrentSize: Boolean);
+begin
+  if (Bit < 0) or (CurrentSize and (Bit >= FBSize)) then raise EBitsError.Create('Invalid bit index : ' + IntToStr(Bit));
+end;
+procedure TBits.SetSize(Value: Longint);
+var NewLen, I, Old: Longint;
+begin
+  CheckBitIndex(Value, False);
+  if Value <> 0 then NewLen := (Value shr 5) + 1 else NewLen := 0;
+  Old := Length(FBits);
+  if NewLen <> Old then
+  begin
+    SetLength(FBits, NewLen);
+    for I := Old to NewLen - 1 do FBits[I] := 0;
+  end;
+  FBSize := Value;
+end;
+procedure TBits.SetBit(Bit: Longint; Value: Boolean);
+var N: Longint;
+begin
+  Grow(Bit + 1);
+  N := Bit shr 5;
+  if Value then FBits[N] := FBits[N] or (Cardinal(1) shl (Bit and 31))
+  else FBits[N] := FBits[N] and ($FFFFFFFF xor (Cardinal(1) shl (Bit and 31)));
+end;
+constructor TBits.Create(TheSize: Longint = 0);
+begin
+  FBSize := 0;
+  FindIndex := -1;
+  FindState := True;
+  if TheSize > 0 then Grow(TheSize);
+end;
+function TBits.GetFSize: Longint;
+begin
+  Result := Length(FBits);
+end;
+procedure TBits.Grow(NBit: Longint);
+begin
+  if NBit > FBSize then SetSize(NBit);
+end;
+procedure TBits.SetOn(Bit: Longint);
+begin
+  SetBit(Bit, True);
+end;
+procedure TBits.Clear(Bit: Longint);
+begin
+  SetBit(Bit, False);
+end;
+procedure TBits.ClearAll;
+var I: Longint;
+begin
+  for I := 0 to Length(FBits) - 1 do FBits[I] := 0;
+end;
+function TBits.Get(Bit: Longint): Boolean;
+var N: Longint;
+begin
+  CheckBitIndex(Bit, True);
+  Result := False;
+  N := Bit shr 5;
+  if N < Length(FBits) then Result := (FBits[N] and (Cardinal(1) shl (Bit and 31))) <> 0;
+end;
+procedure TBits.CopyBits(BitSet: TBits);
+var I: Longint;
+begin
+  SetSize(BitSet.Size);
+  for I := 0 to Length(FBits) - 1 do FBits[I] := BitSet.FBits[I];
+end;
+procedure TBits.AndBits(BitSet: TBits);
+var N, I: Longint;
+begin
+  if Length(FBits) < BitSet.GetFSize then N := Length(FBits) - 1 else N := BitSet.GetFSize - 1;
+  for I := 0 to N do FBits[I] := FBits[I] and BitSet.FBits[I];
+  for I := N + 1 to Length(FBits) - 1 do FBits[I] := 0;
+end;
+procedure TBits.NotBits(BitSet: TBits);
+var N, I: Longint;
+begin
+  if Length(FBits) < BitSet.GetFSize then N := Length(FBits) - 1 else N := BitSet.GetFSize - 1;
+  for I := 0 to N do FBits[I] := FBits[I] xor BitSet.FBits[I];
+end;
+procedure TBits.OrBits(BitSet: TBits);
+var I: Longint;
+begin
+  Grow(BitSet.Size);
+  for I := 0 to BitSet.GetFSize - 1 do FBits[I] := FBits[I] or BitSet.FBits[I];
+end;
+procedure TBits.XorBits(BitSet: TBits);
+var I: Longint;
+begin
+  Grow(BitSet.Size);
+  for I := 0 to BitSet.GetFSize - 1 do FBits[I] := FBits[I] xor BitSet.FBits[I];
+end;
+function TBits.Equals(BitSet: TBits): Boolean;
+var N, I: Longint;
+begin
+  Result := False;
+  if Length(FBits) < BitSet.GetFSize then N := Length(FBits) - 1 else N := BitSet.GetFSize - 1;
+  for I := 0 to N do if FBits[I] <> BitSet.FBits[I] then Exit;
+  if Length(FBits) - 1 > N then
+  begin
+    for I := N to Length(FBits) - 1 do if FBits[I] <> 0 then Exit;
+  end
+  else if BitSet.GetFSize - 1 > N then
+    for I := N to BitSet.GetFSize - 1 do if BitSet.FBits[I] <> 0 then Exit;
+  Result := True;
+end;
+procedure TBits.SetIndex(Index: Longint);
+begin
+  CheckBitIndex(Index, True);
+  FindIndex := Index;
+end;
+function TBits.FindFirstBit(State: Boolean): Longint;
+var I: Longint;
+begin
+  Result := -1;
+  FindState := State;
+  for I := 0 to FBSize - 1 do
+    if Get(I) = State then
+    begin
+      Result := I;
+      break;
+    end;
+  FindIndex := Result;
+end;
+function TBits.FindNextBit: Longint;
+var I: Longint;
+begin
+  Result := -1;
+  if FindIndex > -1 then
+  begin
+    for I := FindIndex + 1 to FBSize - 1 do
+      if Get(I) = FindState then
+      begin
+        Result := I;
+        break;
+      end;
+    FindIndex := Result;
+  end;
+end;
+function TBits.FindPrevBit: Longint;
+var I: Longint;
+begin
+  Result := -1;
+  if FindIndex > -1 then
+  begin
+    for I := FindIndex - 1 downto 0 do
+      if Get(I) = FindState then
+      begin
+        Result := I;
+        break;
+      end;
+    FindIndex := Result;
+  end;
+end;
+function TBits.OpenBit: Longint;
+var I: Longint;
+begin
+  Result := FBSize;
+  for I := 0 to FBSize - 1 do
+    if not Get(I) then
+    begin
+      Result := I;
+      Exit;
+    end;
 end;
 end.
