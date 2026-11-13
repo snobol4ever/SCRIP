@@ -375,6 +375,21 @@ static int import_module(RkP *p, const char *name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int module_resolves(RkP *p, const char *name) {
+    char *rel = (char *) ct_alloc(strlen(name) + 1); int k = 0;
+    for (int i = 0; name[i]; i++) { if (name[i] == ':' && name[i + 1] == ':') { rel[k++] = '/'; i++; } else rel[k++] = name[i]; }
+    rel[k] = 0;
+    static const char *const exts[] = { ".rakumod", ".pm6", ".pm" };
+    for (int i = 0; RK_SETTING_MODULES[i].name; i++) if (!strcmp(RK_SETTING_MODULES[i].name, name)) return 1;
+    for (int l = p->nlibs - 1; l >= 0; l--) for (int x = 0; x < 6; x++) {
+        size_t pl = strlen(p->libs[l]) + strlen(rel) + strlen(exts[x % 3]) + 6;
+        char *path = (char *) ct_alloc(pl); snprintf(path, pl, "%s/%s%s%s", p->libs[l], x < 3 ? "" : "lib/", rel, exts[x % 3]);
+        FILE *f = fopen(path, "rb");
+        if (f) { fclose(f); return 1; }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_module_name(RkP *p, int pos) {
     int e = r_longname(p, pos);
     if (e < 0) return -1;
@@ -533,12 +548,14 @@ int r_statement_control(RkP *p, int pos) {
         p->myst_off = 1;
         int q = e;
         int m = r_module_name(p, q);
+        tree_t *req = NULL;
+        if (m >= 0 && p->build) { const char *nm = ct_strndup0(p->s + q, name_part_len(p, q, m)); req = rkb_require(p->B, nm, (int) strlen(nm), module_resolves(p, nm)); }
         if (m < 0) m = r_variable(p, q);
         if (m < 0 && ch(p, q) != '$' && ch(p, q) != '@') m = r_term(p, q);
         if (m < 0) panic_at(p, q, "Malformed require");
         q = ws(p, m);
         if (!stdstopper(p, q)) { int x = r_EXPR(p, q, 0); if (x >= 0) q = x; }
-        p->tv = NULL;
+        p->tv = req;
         return q;
     }
     if ((e = kok(p, pos, "given")) >= 0) { p->xb_bk = BK_GIVEN; int q = r_xblock(p, e, 2); if (p->build) p->tv = rkb_given(p->B, p->xb_cond, p->blk_list); return q; }

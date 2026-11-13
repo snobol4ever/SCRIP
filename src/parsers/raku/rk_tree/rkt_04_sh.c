@@ -542,6 +542,7 @@ tree_t *rkb_use(RkB *b, const char *name, int namelen, RkList *args) {
     if (args && args->nitem) ast_push(u, rkb_expr(b, args));
     return u;
 }
+tree_t *rkb_require(RkB *b, const char *name, int namelen, int resolved) { (void) b; tree_t *u = ast_node_new(TT_USE_DECL); u->v.sval = trimdup(name, namelen); u->slen = resolved ? 1 : 3; return u; }
 void rkb_pointy(RkB *b, tree_t *blk, tree_t *sig) {
     if (!blk || !sig || sig->n != 1 || !sig->c[0] || sig->c[0]->t != TT_VAR || !sig->c[0]->v.sval) return;
     if (b->pt_n >= b->pt_c) { b->pt_c = b->pt_c ? b->pt_c * 2 : 8; b->pt_blk = (tree_t **) ct_grow((void *) b->pt_blk, sizeof(tree_t *) * (size_t) b->pt_c); b->pt_nm = (const char **) ct_grow((void *) b->pt_nm, sizeof(const char *) * (size_t) b->pt_c); }

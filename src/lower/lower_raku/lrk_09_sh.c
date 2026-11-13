@@ -305,6 +305,14 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
         }
         { IR_t * s = lrk_build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         case TT_USE_DECL:
+        if ((t->slen & 3) == 3 && t->v.sval) {
+            tree_t * df = ast_node_new(TT_DIE);
+            size_t ml = strlen(t->v.sval) + 24;
+            char * msg = (char *) ct_alloc(ml);
+            snprintf(msg, ml, "Could not find %s in:", t->v.sval);
+            ast_push(df, leaf_sval2(TT_QLIT, msg));
+            return lower_rv(cx, df, γ, ω, res);
+        }
         { IR_t * nd = lrk_build(cx, IR_SUCCEED, γ, ω); *res = nd; return nd; }
         case TT_SAY:
         case TT_SAY_FH:
