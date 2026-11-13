@@ -456,6 +456,16 @@ DESCR_t pas_pview(DESCR_t *args, int nargs) {
     p.src_node2 = (uint8_t)((code >> 16) & 255);
     return p;
 }
+DESCR_t pas_preview(DESCR_t *args, int nargs) {
+    (void) nargs;
+    DESCR_t p = args[0];
+    long long code = rk_ival(args[1]);
+    if (p.v != DT_PCELL || !p.src_node0 || !((code >> 8) & 255)) return p;
+    p.src_node1 = (uint8_t)((code >> 8) & 255);
+    p.src_node2 = (uint8_t)((p.src_node2 & (7 | PAS_VIEW_STR | PAS_VIEW_RAW)) | ((code >> 16) & 56));
+    return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pas_pcell(void *base, long idx) { return (DESCR_t){ .v = DT_PCELL, .slen = (uint32_t)(int32_t) idx, .ptr = base }; }
 static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
@@ -861,6 +871,8 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         return pas_writestr(args, nargs);
         case PBI_pview:
         return pas_pview(args, nargs);
+        case PBI_preview:
+        return pas_preview(args, nargs);
         case PBI_pstrview:
         return pas_pstrview(args, nargs);
         case PBI_xr_cvt:

@@ -17,7 +17,27 @@ static int pas_view_kind(const pty_t *t, long long *w) {
     if (t->k == PTK_REAL) return *w == 4 || *w == 8 ? 3 : -1;
     return -1;
 }
-tree_t *pas_pun_view_to(const pty_t *P, tree_t *rhs) {
+static tree_t *pas_self_view(const pty_t *e, tree_t *addr) {
+    long long w = 0;
+    int ek = pas_view_kind(e, &w);
+    if (ek < 0) return addr;
+    long long k = (ek & 3) | ((ek >> 2) << 2) | ((ek & 3) << 3) | ((ek >> 2) << 5);
+    return mk_fnc2("__pas_pview", addr, ilit(w | (w << 8) | (k << 16)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_is_pre0(const tree_t *r) {
+    return r && r->t == TT_FNC && r->n == 3 && r->c[0] && r->c[0]->v.sval && !strcmp(r->c[0]->v.sval, "__pas_preview") && r->c[2] && r->c[2]->t == TT_ILIT && !r->c[2]->v.ival;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pas_preview_to(const pty_t *P, tree_t *rhs) {
+    long long W = 0;
+    int pk = pas_view_kind(P, &W);
+    if (pk < 0) return rhs;
+    return mk_fnc2("__pas_preview", rhs->c[1], ilit((W << 8) | ((long long)(((pk & 3) << 3) | ((pk >> 2) << 5)) << 16)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pas_pun_view_x(const pty_t *P, tree_t *rhs, int self) {
+    if (pas_is_pre0(rhs)) return P ? pas_preview_to(P, rhs) : rhs;
     if (!P || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
     int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
     if (!av && !ae) return rhs;
@@ -31,7 +51,7 @@ tree_t *pas_pun_view_to(const pty_t *P, tree_t *rhs) {
         e = bt->base;
         if (av) addr = mk_fnc2("__pas_addr", rhs->c[1], ilit(bt->ix[0]->lo));
     } else if (ae) return rhs;
-    if (P == e) return addr;
+    if (P == e) return self ? pas_self_view(e, addr) : addr;
     long long w = 0, W = 0;
     int ek = pas_view_kind(e, &w), pk = pas_view_kind(P, &W);
     if (ek < 0 || pk < 0) {
@@ -41,14 +61,16 @@ tree_t *pas_pun_view_to(const pty_t *P, tree_t *rhs) {
         g_lower_pas.sem.pas_iso_errors++;
         return rhs;
     }
-    if (w == W && ek == pk) return addr;
+    if (w == W && ek == pk) return self ? pas_self_view(e, addr) : addr;
     return mk_fnc2("__pas_pview", addr, ilit(w | (W << 8) | ((long long)((ek & 3) | ((ek >> 2) << 2) | ((pk & 3) << 3) | ((pk >> 2) << 5)) << 16)));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *pas_pun_view_to(const pty_t *P, tree_t *rhs) { return pas_pun_view_x(P, rhs, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
     if (!sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
     int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
-    const pty_t *pt = (av || ae) ? pty_of_low(sel) : NULL;
+    const pty_t *pt = (av || ae || pas_is_pre0(rhs)) ? pty_of_low(sel) : NULL;
     if (!pt || pt->k != PTK_POINTER || !pt->base || pty_is_pchar(pt)) return rhs;
     return pas_pun_view_to(pt->base, rhs);
 }
@@ -205,9 +227,9 @@ static void pas_ut_body(tree_t *t, const tree_t *r) {
     for (int i = 0; t && i < t->n; i++) {
         tree_t *c = t->c[i];
         long long code = 0;
-        if (IS(c, TT_ADDR) && c->n == 1 && IS(c->c[0], TT_VAR) && pas_ut_formal(r, c->c[0]->v.sval)) { t->c[i] = c->c[0]; continue; }
+        if (IS(c, TT_ADDR) && c->n == 1 && IS(c->c[0], TT_VAR) && pas_ut_formal(r, c->c[0]->v.sval)) { t->c[i] = mk_fnc2("__pas_preview", c->c[0], ilit(0)); continue; }
         if (IS(c, TT_FNC) && c->n == 2 && IS(c->c[0], TT_VAR) && IS(c->c[1], TT_VAR) && pas_ut_formal(r, c->c[1]->v.sval) && pas_ut_tcode(c->c[0]->v.sval, &code)) {
-            t->c[i] = un(TT_DEREF, mk_fnc2("__pas_pview", c->c[1], ilit(code)));
+            t->c[i] = un(TT_DEREF, mk_fnc2("__pas_preview", c->c[1], ilit(code)));
             continue;
         }
         pas_ut_body(c, r);
@@ -246,7 +268,7 @@ tree_t *pas_untyped_view(tree_t *addr) {
     const pty_t *bt = pty_of_low(addr->c[1]);
     if (!bt && addr->c[1]->t == TT_VAR && addr->c[1]->v.sval) bt = pty_name_type(addr->c[1]->v.sval);
     if (!bt || bt->k == PTK_UNKNOWN) return addr;
-    return pas_pun_view_to(bt->k == PTK_ARRAY && bt->base ? bt->base : bt, addr);
+    return pas_pun_view_x(bt->k == PTK_ARRAY && bt->base ? bt->base : bt, addr, 1);
 }
 static void pas_rename_var(tree_t *t, const char *from, const char *to) {
     for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, from)) c->v.sval = (char *)to; pas_rename_var(c, from, to); }
