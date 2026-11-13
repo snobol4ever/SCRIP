@@ -1,6 +1,6 @@
 #ifndef PL_TRAIL_LAYOUT_H
 #define PL_TRAIL_LAYOUT_H
-#define PL_TR_ARENA_LG2 29
+#define PL_TR_ARENA_LG2 30
 #define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
 #define PL_TR_HEADER_BYTES 160
 #define PL_TR_ENTRY_BYTES 32

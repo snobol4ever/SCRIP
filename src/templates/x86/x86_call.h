@@ -18,7 +18,7 @@ int x86_fc_hit(int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int x86_port_of(const char * s);
 #define X86_PL_TR_ENTRY_BYTES 32L
-#define X86_PL_TR_ARENA_MASK (-536870912L)
+#define X86_PL_TR_ARENA_MASK (-1073741824L)
 std::string x86_pl_tr_pop_head();
 std::string x86_pl_tr_pop_restore();
 std::string x86_pl_tr_top_sync();

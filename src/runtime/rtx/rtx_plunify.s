@@ -8,7 +8,7 @@ RTX_GATE_DEF(plunify)
 #define CTX_R15          40
 #define CTX_FRAME        56
 #define CTX_SAVE mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov qword ptr [rsp + CTX_RBX], rbx; mov qword ptr [rsp + CTX_R14], r14; mov qword ptr [rsp + CTX_R15], r15
-#define PL_TR_ARENA_MASK  -536870912
+#define PL_TR_ARENA_MASK  -1073741824
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
