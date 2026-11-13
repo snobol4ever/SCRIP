@@ -67,3 +67,26 @@ sub group-of($p) is export {
     my $tests = $p.value.value;
     subtest $desc, { plan $plan; $tests() };
 }
+
+sub make-rand-path() {
+    my $p = $*TMPDIR;
+    $p.resolve.child(('raku_roast_', $*PROGRAM.basename, '_', rand, time).join.subst(:g, /\W/, '_'))
+}
+my @FILES-FOR-make-temp-file;
+my @DIRS-FOR-make-temp-dir;
+END {
+    try { unlink $_ } for @FILES-FOR-make-temp-file;
+    try { rmdir $_ } for @DIRS-FOR-make-temp-dir;
+}
+sub make-temp-path(|c) is export { make-temp-file |c }
+sub make-temp-file(:$content, :$chmod) is export {
+    @FILES-FOR-make-temp-file.push: my \p = make-rand-path();
+    with $chmod { p.spurt: $content // ''; p.chmod: $_ } orwith $content { p.spurt: $_ }
+    p
+}
+sub make-temp-dir($chmod?) is export {
+    @DIRS-FOR-make-temp-dir.push: my \p = make-rand-path();
+    p.mkdir;
+    p.chmod: $_ with $chmod;
+    p
+}

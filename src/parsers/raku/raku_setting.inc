@@ -629,10 +629,33 @@ static const char RK_SETTING_MODULE_2_SRC[] =
     "    my $desc = $p.value.key;\n"
     "    my $tests = $p.value.value;\n"
     "    subtest $desc, { plan $plan; $tests() };\n"
+    "}\n"
+    "\n"
+    "sub make-rand-path() {\n"
+    "    my $p = $*TMPDIR;\n"
+    "    $p.resolve.child(('raku_roast_', $*PROGRAM.basename, '_', rand, time).join.subst(:g, /\\W/, '_'))\n"
+    "}\n"
+    "my @FILES-FOR-make-temp-file;\n"
+    "my @DIRS-FOR-make-temp-dir;\n"
+    "END {\n"
+    "    try { unlink $_ } for @FILES-FOR-make-temp-file;\n"
+    "    try { rmdir $_ } for @DIRS-FOR-make-temp-dir;\n"
+    "}\n"
+    "sub make-temp-path(|c) is export { make-temp-file |c }\n"
+    "sub make-temp-file(:$content, :$chmod) is export {\n"
+    "    @FILES-FOR-make-temp-file.push: my \\p = make-rand-path();\n"
+    "    with $chmod { p.spurt: $content // ''; p.chmod: $_ } orwith $content { p.spurt: $_ }\n"
+    "    p\n"
+    "}\n"
+    "sub make-temp-dir($chmod?) is export {\n"
+    "    @DIRS-FOR-make-temp-dir.push: my \\p = make-rand-path();\n"
+    "    p.mkdir;\n"
+    "    p.chmod: $_ with $chmod;\n"
+    "    p\n"
     "}\n";
 static const rk_setting_module_t RK_SETTING_MODULES[] = {
     { "CORE", RK_SETTING_MODULE_0_SRC, " squish unique permutations combinations sech cosech cotanh lines keys values kv pairs elems end ords splice floor ceiling round truncate sign log2 log10 sinh cosh tanh asinh acosh atanh asin acos sec cosec cotan is-prime atan2 $*SPEC " },
     { "Test", RK_SETTING_MODULE_1_SRC, " _diag _istype _bool proclaim plan pass flunk ok nok is isnt cmp-ok bail-out _is-approx-calculate is-approx todo skip skip-rest _init_vars _push_vars _pop_vars _subtest-open _subtest-close subtest diag isa-ok does-ok can-ok like unlike dies-ok lives-ok eval-dies-ok eval-lives-ok is-deeply _throws-like-report _is-code _catch-call _catch-eval _catch-sink throws-like fails-like done-testing " },
-    { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of " },
+    { "Test::Util", RK_SETTING_MODULE_2_SRC, " get_out is_run is-eqv group-of make-rand-path make-temp-path make-temp-file make-temp-dir " },
     { 0, 0, 0 }
 };
