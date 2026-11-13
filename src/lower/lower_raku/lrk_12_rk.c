@@ -305,6 +305,7 @@ static int rk_why_walk(tree_t * t, const tree_t * pods) {
         if (c->t == TT_METHCALL && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] == '&' && c->c[1] && c->c[1]->t == TT_QLIT && c->c[1]->v.sval && !strcmp(c->c[1]->v.sval, "WHY")) {
             int k = rk_why_index(pods, c->c[0]->v.sval + 1);
             tree_t * r = leaf_sval2(TT_VAR, "Nil");
+            r->slen = 1;
             if (k >= 0) { r = ast_node_new(TT_ARR_GET); tree_t * ix = ast_node_new(TT_ILIT); ix->v.ival = k; ast_push(r, leaf_sval2(TT_VAR, "=pod")); ast_push(r, ix); }
             t->c[i] = r;
             hit = 1;
