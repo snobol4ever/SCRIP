@@ -393,8 +393,8 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             RkList *xs = pf->inner;
             RkTerm *x0 = xs && xs->n ? &xs->v[0].t0 : NULL;
             if (x0 && xs->nitem == 1 && x0->kind == TK_STAR && !x0->npost) { it->t = rk_arr_all(b, name); return; }
-            if (x0 && xs->n == 1 && xs->nitem >= 2 && x0->kind == TK_STAR && !x0->npost && xs->op1 && (!strcmp(xs->op1, "-") || !strcmp(xs->op1, "+"))) {
-                it->t = rk_arr_end_index(b, name, el_rest(b, &xs->v[0]), xs->op1[0] == '-' ? TT_SUB : TT_ADD); return;
+            if (x0 && xs->n == 1 && xs->nitem >= 2 && (x0->kind == TK_STAR || rk_is_star(xs->v[0].t)) && !x0->npost && xs->v[0].op1 && (!strcmp(xs->v[0].op1, "-") || !strcmp(xs->v[0].op1, "+"))) {
+                it->t = rk_arr_end_index(b, name, el_rest(b, &xs->v[0]), xs->v[0].op1[0] == '-' ? TT_SUB : TT_ADD); return;
             }
             if (xs && xs->n > 1) {
                 tree_t *call = make_call("__rk_arr_pick"); expr_add_child(call, var_node(b, name));
