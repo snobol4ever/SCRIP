@@ -23,7 +23,7 @@ static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INT
     [IR_SCAN_ENTER] = "IR_SCAN_ENTER", [IR_SCAN_ANY] = "IR_SCAN_ANY", [IR_SCAN_BAL] = "IR_SCAN_BAL", [IR_SCAN_FIND] = "IR_SCAN_FIND", [IR_SCAN_MANY] = "IR_SCAN_MANY",
     [IR_SCAN_MATCH] = "IR_SCAN_MATCH", [IR_SCAN_MOVE] = "IR_SCAN_MOVE", [IR_SCAN_POS] = "IR_SCAN_POS", [IR_SCAN_TAB] = "IR_SCAN_TAB", [IR_SCAN_UPTO] = "IR_SCAN_UPTO",
     [IR_SCAN_ALTERNATE] = "IR_SCAN_ALTERNATE", [IR_SWAP] = "IR_SWAP", [IR_SWAP_VAR] = "IR_SWAP_VAR", [IR_PROC_VALUE] = "IR_PROC_VALUE", [IR_CALL_VALUE] = "IR_CALL_VALUE", [IR_DEREF] = "IR_DEREF",
-    [IR_IDENT] = "IR_IDENT", [IR_DIFFER] = "IR_DIFFER", [IR_MAKE_LIST] = "IR_MAKE_LIST", [IR_INITIAL] = "IR_INITIAL", [IR_ITERATE] = "IR_ITERATE", [IR_CREATE] = "IR_CREATE", [IR_CORET] = "IR_CORET",
+    [IR_IDENT] = "IR_IDENT", [IR_ARG_STAGE] = "IR_ARG_STAGE", [IR_DIFFER] = "IR_DIFFER", [IR_MAKE_LIST] = "IR_MAKE_LIST", [IR_INITIAL] = "IR_INITIAL", [IR_ITERATE] = "IR_ITERATE", [IR_CREATE] = "IR_CREATE", [IR_CORET] = "IR_CORET",
     [IR_COFAIL] = "IR_COFAIL", [IR_CONJUNCTION] = "IR_CONJUNCTION", [IR_GATE_ARM] = "IR_GATE_ARM", [IR_GATE] = "IR_GATE", [IR_DISJUNCTION] = "IR_DISJUNCTION", [IR_MATCH] = "IR_MATCH",
     [IR_MATCH_LIT] = "IR_MATCH_LIT", [IR_MATCH_ANY] = "IR_MATCH_ANY", [IR_MATCH_NOTANY] = "IR_MATCH_NOTANY", [IR_MATCH_SPAN] = "IR_MATCH_SPAN", [IR_MATCH_SPAN_VAR] = "IR_MATCH_SPAN_VAR",
     [IR_MATCH_BREAK] = "IR_MATCH_BREAK", [IR_MATCH_BREAKX] = "IR_MATCH_BREAKX", [IR_MATCH_LAMBDA] = "IR_MATCH_LAMBDA", [IR_MATCH_LEN] = "IR_MATCH_LEN", [IR_MATCH_POS] = "IR_MATCH_POS",
@@ -165,7 +165,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_node_produces_value(IR_e op) {
     return op == IR_LIT_INTEGER || ir_is_lit_text_kind(op) || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF ||
-        op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP ||
+        op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_ARG_STAGE || op == IR_BINOP ||
         op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT || op == IR_SWAP || op == IR_SWAP_VAR ||
         op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB ||
         op == IR_SCAN_MOVE || op == IR_SCAN_MATCH || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL ||

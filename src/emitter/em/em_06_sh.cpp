@@ -211,7 +211,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_COERCE_NUMERIC: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: {
+    case IR_COERCE_NUMERIC: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: case IR_ARG_STAGE: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         IR_t * a1 = nd->n_operands > 1 ? nd->operands[1] : (nd->op == IR_COERCE_NUMERIC ? a0 : (IR_t *)0);
         int sa = a0 ? emit_binop_opnd_slot(a0, zrow_opoff(nd, 0), zrow_opvs(nd, 0)) : -1;

@@ -376,6 +376,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_coerce_numeric.cpp \
     $(SRC)/templates/bb/bb_cmp_test.cpp \
     $(SRC)/templates/bb/bb_ident.cpp \
+    $(SRC)/templates/bb/bb_arg_stage.cpp \
     $(SRC)/templates/bb/bb_differ.cpp \
     $(SRC)/templates/bb/bb_coerce_integer.cpp \
     $(SRC)/templates/bb/bb_coerce_real.cpp \

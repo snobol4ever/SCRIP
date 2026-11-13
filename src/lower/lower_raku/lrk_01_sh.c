@@ -199,6 +199,38 @@ static int rk_callee_param_rw(const char * nm, int k) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lrk_is_slip(const tree_t * a) { return a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_arr_slip"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lrk_spread_call(rcx_t * cx, const tree_t * t, int from, int nargs, IR_t * nd, IR_t * ω, IR_t ** res) {
+    IR_t * entry = NULL, * prev = NULL;
+    IR_t * val[nargs > 0 ? nargs : 1];
+    for (int k = 0; k < nargs; k++) {
+        IR_t * ar = NULL;
+        IR_t * ae = lower_rv(cx, t->c[from + k], NULL, ω, &ar);
+        if (!entry) entry = ae;
+        if (prev && ae) lc_γ_to(prev, ae);
+        prev = ar;
+        val[k] = ar;
+    }
+    IR_t * cnt = lrk_build(cx, IR_LIT_INTEGER, NULL, ω);
+    IR_LIT(cnt).ival = 0;
+    if (!entry) entry = cnt;
+    if (prev) lc_γ_to(prev, cnt);
+    prev = cnt;
+    for (int k = 0; k < nargs; k++) {
+        IR_t * st = lrk_build(cx, IR_ARG_STAGE, NULL, ω);
+        IR_LIT(st).ival = lrk_is_slip(t->c[from + k]) ? 1 : 0;
+        ir_operand_push(st, prev);
+        if (val[k]) ir_operand_push(st, val[k]);
+        lc_γ_to(prev, st);
+        prev = st;
+    }
+    lc_γ_to(prev, nd);
+    ir_operand_push(nd, prev);
+    if (res) *res = nd;
+    return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = lrk_build(cx, rk_proc_is_generator(nm) ? IR_PROC_GEN : IR_CALL, γ, ω);
     IR_LIT(nd).sval = nm;
@@ -215,6 +247,7 @@ IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t
             return lower_rv(cx, rf, γ, ω, res);
         }
     }
+    { int sp = 0; for (int k = 0; k < nargs; k++) if (lrk_is_slip(t->c[from + k])) sp = 1; if (sp && nm && nm[0] != '_' && nd->op == IR_CALL) return lrk_spread_call(cx, t, from, nargs, nd, ω, res); }
     IR_t * prev = NULL;
     IR_t * tgt = nd;
     if (nd->op == IR_PROC_GEN) { tgt = lrk_build(cx, IR_GOTO, NULL, NULL); lc_γ_to(tgt, nd); lc_ω_to(tgt, nd); }

@@ -653,6 +653,19 @@ DESCR_t bt___rk_arr_slip(DESCR_t *args, int nargs) {
     if (nargs >= 1) { rk_av_t a = rk_av(args[0]); DESCR_t s = rk_mk_arr(a.el, a.n); ((ARBLK_t *) s.arr)->proto = rk_proto_slip; return s; }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_arg_stage_d, leaf, 0);
+void rt_arg_stage_d(const DESCR_t * cnt, const DESCR_t * val, DESCR_t * out, long spread) {
+    extern void rt_arg_stage(int idx, DESCR_t v);
+    extern void rt_script_die_surface(const char * msg);
+    long k = (cnt && cnt->v == DT_I) ? (long) cnt->i : -1;
+    if (k < 0 || !val) { *out = FAILDESCR; return; }
+    if (!spread) { rt_arg_stage((int) k, *val); *out = INTVAL(k + 1); return; }
+    if (val->v != DT_A || !val->arr || ((ARBLK_t *) val->arr)->proto != rk_proto_slip) { rt_script_die_surface("a | argument is not a reified list"); *out = FAILDESCR; return; }
+    rk_av_t a = rk_av(*val);
+    for (int i = 0; i < a.n; i++) rt_arg_stage((int) (k + i), a.el[i]);
+    *out = INTVAL(k + a.n);
+}
 static DESCR_t bta___rk_arr_kv(DESCR_t *args, int nargs, int _bop) {
     if (nargs >= 1) {
         rk_av_t a = rk_av(args[0]);

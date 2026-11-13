@@ -3185,7 +3185,7 @@ long zw_carve_k(const IR_t * nd) {
     if (!g_lower.ir.zw_carve_k_ba || !nd) return 0;
     _spine =
         (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
-        nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
+        nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER || nd->op == IR_ARG_STAGE);
     if (_spine) return 0;
     if (!g_lower.ir.zw_carve_k_all && ((ir_is_define_kind(ir_kind0(nd)) && ir_define_sr_citizen(nd)) || ir_norm_call_kind(ir_kind0(nd)) == IR_CALL || ir_kind0(nd) == IR_GOTO_DEFERRED)) return 0;
     if (fc_geom(nd, &_d)) return 0;

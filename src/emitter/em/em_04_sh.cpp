@@ -281,7 +281,7 @@ int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emitter.walk_bb_node_inner__bs = getenv("SCRIP_BB_SKIP"); }
       int _spine =
           (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || ir_is_lit_text_kind(nd->op) || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
-          nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
+          nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER || nd->op == IR_ARG_STAGE);
       { if (g_emitter.walk_bb_node_inner__all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); g_emitter.walk_bb_node_inner__all = (e && *e == '1') ? 1 : 0; }
       (void)g_emitter.walk_bb_node_inner__ba; (void)g_emitter.walk_bb_node_inner__bo; (void)g_emitter.walk_bb_node_inner__bs; (void)g_emitter.walk_bb_node_inner__all; (void)_spine;
       if (_zn->carve > 0) g_emit.op_fc_bytes = _zn->carve; } }
@@ -447,6 +447,7 @@ int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_COERCE_REAL: { bb_prepare(nd); bb_emit_x86(bb_coerce_real()); } return 0;
     case IR_CMP_TEST: { bb_prepare(nd); bb_emit_x86(bb_cmp_test()); } return 0;
     case IR_IDENT: { bb_prepare(nd); bb_emit_x86(bb_ident()); } return 0;
+    case IR_ARG_STAGE: { bb_prepare(nd); bb_emit_x86(bb_arg_stage()); } return 0;
     case IR_DIFFER: { bb_prepare(nd); bb_emit_x86(bb_differ()); } return 0;
     case IR_ASSIGN: {
         extern int is_global(const char *);

@@ -95,7 +95,7 @@ int zd_nops_g(const IR_graph_t * cg, IR_t * nd) { int op = (int)ir_kind0(nd);
     if (zd_icn_suspend_g(cg, nd)) return 1;
     return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_FIELD_GET || op == IR_MATCH_BEGIN ||
         op == IR_RETURN) ? 1 :
-        (op == IR_BINOP || op == IR_ASSIGN_FRAME || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 :
+        (op == IR_BINOP || op == IR_ASSIGN_FRAME || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_ARG_STAGE || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 :
             (op == IR_MATCH_REPLACE) ? 2 :
         (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || ir_norm_call_kind((IR_e)op) == IR_CALL || op == IR_PROC_GEN || op == IR_SUSPEND || op == IR_TO ||
             op == IR_TO_BY || op == IR_MATCH_LEN ||
@@ -475,7 +475,7 @@ if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN ||
     IR_GOTO_DEFERRED) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_STATEMENT_BEGIN && (c)->ω.node) RPO_PUSH((c)->ω.node); \
 if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || \
-    (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER) && (c)->ω.node) RPO_PUSH((c) \
+    (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER || (c)->op == IR_ARG_STAGE) && (c)->ω.node) RPO_PUSH((c) \
     ->ω.node); \
         (void)0;
 #define RPO_DRAIN() \

@@ -257,7 +257,8 @@ static std::string bcps_det_arm() {
         int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1;
             if (_bnp >= 0) return _bnp != det_nA_z ? x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count")
                 : bcps_det_block_arm(1, off, bidx_z, det_idx_z, det_nA_z, 1); }
-        int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
+        int spr_z = _.op_a_node_kind == (int)IR_ARG_STAGE;
+        int det_fuse_z = !spr_z && (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
@@ -273,7 +274,7 @@ static std::string bcps_det_arm() {
         uint64_t dc_slot_fp_z = dc_slot_z;
         return x86_alpha()
              + x86_anchor_enter()
-             + ((_.op_sig_ok || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
+             + ((!spr_z && (_.op_sig_ok || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))))
                 ? [&]() -> std::string {
                     if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
@@ -346,7 +347,7 @@ static std::string bcps_det_arm() {
                     + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                     + x86("call", detN_nm_z[det_nA_z], detN_fp_z[det_nA_z])
                     : ((det_idx_z >= 0
-                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i)
+                        ? FOR(0, spr_z ? 0 : (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i)
                         + x86("note", ZOPN(i))
                         + x86("mov", "rsi", ZOPQ(i, 0))
                         + x86("note", ZOPN(i))
@@ -354,9 +355,9 @@ static std::string bcps_det_arm() {
                         + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
                         + x86_rt_gc_poll(); })
                         + x86("mov32", "edi", (long)det_idx_z)
-                        + x86("mov32", "esi", (long)_.op_ival)
+                        + (spr_z ? x86("note", ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8)) : x86("mov32", "esi", (long)_.op_ival))
                         + x86("call", "rt_proc_call_open_det", (uint64_t)TEMPLATE_FN_ADDR(rt_proc_call_open_det))
-                        : FOR(0, (int)_.op_ival, [&](int i) {return x86("mov32", "edi", (long)i)
+                        : FOR(0, spr_z ? 0 : (int)_.op_ival, [&](int i) {return x86("mov32", "edi", (long)i)
                         + x86("note", ZOPN(i))
                         + x86("mov", "rsi", ZOPQ(i, 0))
                         + x86("note", ZOPN(i))
@@ -364,7 +365,7 @@ static std::string bcps_det_arm() {
                         + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
                         + x86_rt_gc_poll(); })
                         + x86("mov", "rdi", ROQ(0))
-                        + x86("mov32", "esi", (long)_.op_ival)
+                        + (spr_z ? x86("note", ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8)) : x86("mov32", "esi", (long)_.op_ival))
                         + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))))
                    + x86_rt_gc_poll()
                    + x86("test", "rax", "rax")

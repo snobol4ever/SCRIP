@@ -1991,6 +1991,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_apply_land_γ", GC_RET_DESCR },
     { "rt_apply_open", GC_RET_OTHER },
     { "rt_arg_stage", GC_RET_VOID },
+    { "rt_arg_stage_d", GC_RET_VOID },
     { "rt_args_list_from", GC_RET_DESCR },
     { "rt_assign_var", GC_RET_DESCR },
     { "rt_assign_var_strict", GC_RET_DESCR },
