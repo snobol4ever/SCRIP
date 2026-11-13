@@ -350,6 +350,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt___rk_cross", GC_RET_DESCR },
     { "bt___rk_deref", GC_RET_DESCR },
     { "bt___rk_die_m", GC_RET_DESCR },
+    { "bt___rk_dyn_notfound", GC_RET_DESCR },
     { "bt___rk_elem_bind", GC_RET_DESCR },
     { "bt___rk_elem_put", GC_RET_DESCR },
     { "bt___rk_elem_ref", GC_RET_DESCR },
