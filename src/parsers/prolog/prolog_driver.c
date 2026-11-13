@@ -169,6 +169,27 @@ static tree_t * pl_stmt_subj(const tree_t *s) {
     return (tree_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_choice_prelude_only(const tree_t *ch) {
+    int k = 0;
+    if (!ch || ch->t != TT_CHOICE) return 0;
+    for (int j = 0; j < ch->n; j++) if (ch->c[j] && ch->c[j]->t == TT_CLAUSE) { if (ch->c[j]->line != 0) return 0; k++; }
+    return k > 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_splice_drop_shadowed(tree_t *prog) {
+    int n = prog->n, w = 0;
+    for (int r = 0; r < n; r++) {
+        const tree_t *s = pl_stmt_subj(prog->c[r]);
+        int drop = 0;
+        if (s && s->v.sval && pl_choice_prelude_only(s)) for (int q = 0; q < n && !drop; q++) {
+            const tree_t *o = pl_stmt_subj(prog->c[q]);
+            drop = o && o != s && o->t == TT_CHOICE && o->v.sval && !strcmp(o->v.sval, s->v.sval) && o->n > 0 && !pl_choice_prelude_only(o);
+        }
+        if (!drop) prog->c[w++] = prog->c[r];
+    }
+    prog->n = w;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_splice_consults(tree_t *prog, const char *from_file) {
     cv_t pending = {0, 0, 0, 0}; int npending = 0, done = 0, n0, moved = 0;
     if (!prog || g_parser.pl.consult_depth >= PL_CONSULT_DEPTH_MAX) return;
@@ -200,6 +221,7 @@ static void pl_splice_consults(tree_t *prog, const char *from_file) {
         ct_drop(ord);
     }
     ct_drop(span);
+    if (npending) pl_splice_drop_shadowed(prog);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *prolog_compile_parse(const char *source, const char *filename)
