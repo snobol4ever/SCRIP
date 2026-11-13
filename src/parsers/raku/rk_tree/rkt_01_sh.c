@@ -477,11 +477,6 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (nm[0] != '&' && strchr(nm, ':')) { char *cn = rk_op_name_canon(nm); if (cn != nm && rk_user_canon_known(b, cn)) nm = cn; }
     it->name = nm;
     if (!args || !args->nitem) args = NULL;
-    if (!strcmp(nm, "make") && args && args->nitem == 1) {
-        TL mk = { 0 };
-        arglist(b, args, 0, &mk, NULL);
-        if (mk.n == 1) { tree_t *c = make_call("__rk_make"); expr_add_child(c, leaf_sval(TT_VAR, "/")); expr_add_child(c, mk.v[0]); it->t = c; return; }
-    }
     if (ns_has(&b->codev, nm)) {
         tree_t *c = ast_node_new(TT_INVOKE); expr_add_child(c, leaf_sval(TT_VAR, fmt("%s__code", nm)));
         if (args) { TL cp = { 0 }; arglist(b, args, 0, &cp, NULL); for (int i = 0; i < cp.n; i++) expr_add_child(c, cp.v[i]); }

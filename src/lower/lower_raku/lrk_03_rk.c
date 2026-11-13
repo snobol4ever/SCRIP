@@ -634,7 +634,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_subst_meth_walk((tree_t *) prog);
     { int sseq = 0; rk_subst_code_walk(prog, (tree_t *) prog, &sseq); }
     { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
-    rk_make_walk((tree_t *) prog, "/");
+    if (!rk_user_sub_named(prog, "make")) rk_make_walk((tree_t *) prog, "/");
     { int nseq = 0; rk_new_build_walk((tree_t *) prog, (tree_t *) prog, &nseq); }
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
