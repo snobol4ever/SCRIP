@@ -19,7 +19,7 @@ static int pas_is_int_typename(const char *t);
 static int pas_is_tfilevar(const char *name);
 static int pas_is_boolvar(const char *name);
 int pas_scope_has(const char *name) {
-    const char *req[] = { "true", "false", "maxint", "input", "output", "nil", "char", "boolean", "text", "string", "widechar", "paramcount" };
+    const char *req[] = { "true", "false", "maxint", "input", "output", "nil", "char", "boolean", "text", "string", "widechar", "paramcount", "pointer" };
     if (!name) return 1;
     if (pas_is_int_typename(name) || pas_is_realtypename(name)) return 1;
     for (size_t i = 0; i < sizeof req / sizeof req[0]; i++) if (!strcmp(name, req[i])) return 1;
@@ -608,11 +608,7 @@ void pas_formal_tfiles(const char *sig, PNodeList *params) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pas_formal_is_dynarr(const char *callee, int idx) {
-    const PasDef *cd = pas_pf_lookup(callee);
-    const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL;
-    return t && pas_arrtype_isdyn(t);
-}
+int pas_formal_is_dynarr(const char *callee, int idx) { const PasDef *cd = pas_pf_lookup(callee); const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL; return t && pas_arrtype_isdyn(t); }
 int pas_formal_is_aoc(const char *callee, int idx) { const PasDef *cd = pas_pf_lookup(callee); const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL; return t && !strcmp(t, "$open$const"); }
 int pas_formal_elem_is_string(const char *callee, int idx) {
     const PasDef *cd = pas_pf_lookup(callee);
@@ -651,13 +647,7 @@ void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *ar
         g_lower_pas.sem.pas_iso_errors++;
     }
 }
-pval E_expression(const tree_t *n) {
-    pval o = E_expression_raw(n);
-    int c = pty_capped(n);
-    if (c > 0 && o.node) o.node = mk_fnc2("__pas_sstr_fit", o.node, ilit(c));
-    pty_note_low(o.node, n);
-    return o;
-}
+pval E_expression(const tree_t *n) { pval o = E_expression_raw(n); int c = pty_capped(n); if (c > 0 && o.node) o.node = mk_fnc2("__pas_sstr_fit", o.node, ilit(c)); pty_note_low(o.node, n); return o; }
 pval E_program_in(const tree_t *n) {
     pval v[9];
     pval out;

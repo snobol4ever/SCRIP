@@ -59,6 +59,20 @@ static tree_t *pt_sval(tree_t *n, const char *s) { if (n) n->v.sval = ct_strdup(
 static tree_t *pt_kw(const char *w) { return pt_sval(pt_new(TT_KEYWORD), w); }
 static tree_t *pt_part(const char *w, tree_t *first) { return pt_add(pt_sval(pt_new(TT_PART), w), first); }
 static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_add(pt_sval(pt_new(TT_DECL), w), a), b); }
+static int pt_is_helper_word(tree_t *w) { return w && w->v.sval && !strcasecmp(w->v.sval, "helper"); }
+static tree_t *pt_helper_mark(tree_t *target, tree_t *parent) { tree_t *m = pt_add(pt_sval(pt_new(TT_DECL), "helper"), target); return parent ? pt_add(m, parent) : m; }
+static int pt_first_is_helper(tree_t *fl) { return fl && fl->n > 0 && fl->c[0] && fl->c[0]->t == TT_DECL && fl->c[0]->v.sval && !strcmp(fl->c[0]->v.sval, "helper"); }
+static tree_t *pt_record_or_helper(tree_t *packed, tree_t *rb) {
+    if (!pt_first_is_helper(rb)) return pt_add(pt_add(pt_new(TT_RECORD), packed), rb);
+    tree_t *mem = pt_new(TT_VLIST);
+    for (int i = 0; i < rb->n; i++) pt_add(mem, rb->c[i]);
+    return pt_add(pt_add(pt_new(TT_CLASS_DECL), pt_new(TT_KEYWORD)), mem);
+}
+static tree_t *pt_type_helper(tree_t *target, tree_t *members) {
+    tree_t *mem = pt_add(pt_new(TT_VLIST), pt_helper_mark(target, NULL));
+    for (int i = 0; members && i < members->n; i++) pt_add(mem, members->c[i]);
+    return pt_add(pt_add(pt_new(TT_CLASS_DECL), pt_new(TT_KEYWORD)), mem);
+}
 static tree_t *pt_dot(tree_t *a, tree_t *b) {
     if (!a || !b || !a->v.sval || !b->v.sval) return a;
     size_t n = strlen(a->v.sval) + strlen(b->v.sval) + 2;
@@ -370,7 +384,8 @@ type:
     |FUNCTIONSY pf_params COLON result_type { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
     |FUNCTIONSY pf_params COLON result_type OFSY IDENT { if (strcasecmp($6->v.sval, "object")) { pascal_yyerror("syntax error"); YYERROR; } pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
     |packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $6), $9); }
-    |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $1), $4); }
+    |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_record_or_helper($1, $4); }
+    |TYPESY IDENT FORSY type class_members ENDSY { if (!pt_is_helper_word($2)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_type_helper($4, $5); }
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }
     |packed_opt FILESY { $$ = pt_add(pt_new(TT_FILE_TYPE), $1); }
     |packed_opt FILESY OFSY type { $$ = pt_add(pt_add(pt_new(TT_FILE_TYPE), $1), $4); }
@@ -397,6 +412,8 @@ class_members:
 class_member:
     IDENT { $$ = pt_retag($1, TT_KEYWORD); }
     |IDENT SEMICOLON { $$ = pt_retag($1, TT_KEYWORD); }
+    |IDENT FORSY IDENT { if (!pt_is_helper_word($1)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_helper_mark($3, NULL); }
+    |IDENT LPARENT IDENT RPARENT FORSY IDENT { if (!pt_is_helper_word($1)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_helper_mark($6, $3); }
     |id_list COLON type SEMICOLON { $$ = pt_decl("field", $1, $3); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
@@ -472,6 +489,8 @@ record_field_list:
     ;
 record_field:
     id_list COLON { } type { $$ = pt_decl("field", $1, $4); }
+    |IDENT FORSY IDENT { if (!pt_is_helper_word($1)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_helper_mark($3, NULL); }
+    |IDENT LPARENT IDENT RPARENT FORSY IDENT { if (!pt_is_helper_word($1)) { pascal_yyerror("syntax error"); YYERROR; } $$ = pt_helper_mark($6, $3); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON result_type { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     |CONSTRUCTORSY IDENT pv_mark parameter_list_opt { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "constructor"); }

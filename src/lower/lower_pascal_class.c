@@ -597,6 +597,10 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
         if (m && pc_eq(m->kind, "operator")) { tree_t *args = ast_node_new(TT_VLIST); ast_push(args, e->c[0]); ast_push(args, e->c[1]); return pc_mcall(x, NULL, m, args, 0, 0); }
     }
     if (!e) return e;
+    if (PC_IS(e, TT_FNC) && e->n == 2 && PC_IS(e->c[0], TT_VAR) && pc_eq(pc_sv(e->c[0]), "sizeof") && PC_IS(e->c[1], TT_VAR)) {
+        pc_class *hc = pc_class_named(x, pc_sv(e->c[1]));
+        if (hc && !hc->isrec) { e->c[1] = pc_var("pointer"); return e; }
+    }
     if (PC_IS(e, TT_VAR)) {
         const char *n = pc_sv(e);
         for (int i = x->nren - 1; i >= 0; i--) if (pc_eq(x->ren[i].from, n)) return pc_var(x->ren[i].to);
