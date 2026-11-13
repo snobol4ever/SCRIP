@@ -621,8 +621,78 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pr_is_star(const tree_t * e) {
+    if (!e || e->t != TT_ANON_BLOCK || e->n != 1 || !e->c[0] || e->c[0]->t != TT_SEQ_EXPR || e->c[0]->n != 1) return 0;
+    const tree_t * v = e->c[0]->c[0];
+    return v && v->t == TT_VAR && v->v.sval && !strcmp(v->v.sval, "*");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pr_count_star(const tree_t * t) {
+    int n = 0;
+    for (int i = 0; t && i < t->n; i++) if (t->c[i] && t->c[i]->t != TT_SUB_DECL) n += rk_pr_is_star(t->c[i]) ? 1 : rk_pr_count_star(t->c[i]);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pr_swap_star(tree_t * t, const char * nb, int np, const char * const * hv) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (!c || c->t == TT_SUB_DECL) continue;
+        if (!rk_pr_is_star(c)) { rk_pr_swap_star(c, nb, np, hv); continue; }
+        tree_t * call = ast_node_new(TT_FNC);
+        call->v.sval = (char *) nb;
+        ast_push(call, leaf_sval2(TT_VAR, nb));
+        for (int q = 0; q < np; q++) ast_push(call, leaf_sval2(TT_VAR, hv[q]));
+        t->c[i] = call;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pr_param_fixed(const tree_t * pv) {
+    if (!pv || pv->t != TT_VAR || !pv->v.sval || !pv->v.sval[0] || strchr("@%&", pv->v.sval[0]) || (pv->slen & (RK_PV_NAMED | RK_PV_OPT))) return 0;
+    const tree_t * ty = (pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT) ? pv->c[0] : NULL;
+    return !(ty && ty->v.sval && (ty->v.sval[0] == '*' || ty->v.sval[0] == '+'));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_ss_proto_list(tree_t * t, int * ctr) {
+    for (int i = 0; i < t->n; i++) {
+        tree_t * pd = rk_top_subj(t->c[i]);
+        const char * nm = (pd && pd->t == TT_SUB_DECL && pd->n > 0 && pd->c[0]) ? pd->c[0]->v.sval : NULL;
+        if (!nm || !*nm || strchr(nm, '$')) continue;
+        int np = (int) pd->v.ival, ok = np >= 0 && np < pd->n, ncand = 0;
+        size_t bl = strlen(nm);
+        for (int q = 1; ok && q <= np; q++) ok = rk_pr_param_fixed(pd->c[q]);
+        for (int k = 0; ok && k < t->n; k++) {
+            const tree_t * dk = rk_top_subj(t->c[k]);
+            const char * nk = (dk && dk->t == TT_SUB_DECL && dk->n > 0 && dk->c[0]) ? dk->c[0]->v.sval : NULL;
+            if (nk && !strncmp(nk, nm, bl) && nk[bl] == '$') ncand++;
+        }
+        if (!ok || !ncand || !rk_pr_count_star(pd)) continue;
+        char nb[bl + 24];
+        snprintf(nb, sizeof nb, "__pr%d_%s", (*ctr)++, nm);
+        const char * nbi = intern(nb);
+        for (int k = 0; k < t->n; k++) {
+            tree_t * dk = rk_top_subj(t->c[k]);
+            const char * nk = (dk && dk->t == TT_SUB_DECL && dk->n > 0 && dk->c[0]) ? dk->c[0]->v.sval : NULL;
+            if (!nk || strncmp(nk, nm, bl) || nk[bl] != '$') continue;
+            char rn[strlen(nbi) + strlen(nk + bl) + 1];
+            snprintf(rn, sizeof rn, "%s%s", nbi, nk + bl);
+            dk->c[0]->v.sval = (char *) intern(rn);
+        }
+        const char * hv[np > 0 ? np : 1];
+        for (int q = 0; q < np; q++) { char hn[sizeof nb + 16]; snprintf(hn, sizeof hn, "__prv%s_%d", nb + 4, q); hv[q] = intern(hn); }
+        rk_pr_swap_star(pd, nbi, np, hv);
+        for (int q = np - 1; q >= 0; q--) {
+            tree_t * a = ast_node_new(TT_ASSIGN);
+            ast_push(a, leaf_sval2(TT_VAR, hv[q]));
+            ast_push(a, leaf_sval2(TT_VAR, pd->c[q + 1]->v.sval));
+            ast_push(pd, a);
+            for (int y = pd->n - 1; y > np + 1; y--) pd->c[y] = pd->c[y - 1];
+            pd->c[np + 1] = a;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_ss_multi(tree_t * t, const rk_ns_t * ss, const rk_ns_t * classes, tree_t * root, int * ctr) {
     if (!t) return;
-    if (t->t != TT_CLASS_DECL && t->t != TT_ROLE_DECL && t->t != TT_GRAMMAR_DECL) rk_ss_multi_list(t, ss, classes, root, ctr);
+    if (t->t != TT_CLASS_DECL && t->t != TT_ROLE_DECL && t->t != TT_GRAMMAR_DECL) { rk_ss_proto_list(t, ctr); rk_ss_multi_list(t, ss, classes, root, ctr); }
     for (int i = 0; i < t->n; i++) rk_ss_multi(t->c[i], ss, classes, root, ctr);
 }
