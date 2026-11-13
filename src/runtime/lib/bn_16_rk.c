@@ -486,6 +486,7 @@ int rt_raku_undeclared_call(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out) {
     rk_exc_init();
+    if (!IS_DATA_INST_fn(recv) && !rk_typeobj_name(recv) && !strcmp(rk_value_type(recv), "Nil")) { *out = recv; return; }
     const char *tn = NULL;
     if (IS_DATA_INST_fn(recv) && recv.u && recv.u->type) tn = recv.u->type->name;
     else if (rk_typeobj_name(recv)) tn = rk_typeobj_name(recv);
