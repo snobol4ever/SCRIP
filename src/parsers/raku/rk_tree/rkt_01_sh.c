@@ -354,7 +354,7 @@ static int var_cls_of(const char *t, int n) {
     if (s0 == '$') {
         if (n == 1) return 0;
         char c1 = t[1];
-        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8))) || (n == 4 && !strncmp(t, "$*IN", 4)) || (n == 5 && (!strncmp(t, "$*OUT", 5) || !strncmp(t, "$*ERR", 5)))) return 'F';
+        if ((n == 4 && !strncmp(t, "$*IN", 4)) || (n == 5 && (!strncmp(t, "$*OUT", 5) || !strncmp(t, "$*ERR", 5)))) return 'F';
         if (isdigit((unsigned char) c1)) return 'P';
         if (n == 6 && !strncmp(t, "$?LINE", 6)) return 'L';
         if ((c1 == '.' || c1 == '!') && n > 2 && (isalpha((unsigned char) t[2]) || t[2] == '_')) return 'T';
@@ -373,7 +373,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
-    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit((!strcmp(name, "$*STDIN") || !strcmp(name, "$*IN")) ? 0 : (!strcmp(name, "$*STDOUT") || !strcmp(name, "$*OUT")) ? 1 : 2)); it->t = c; return; }
+    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit(!strcmp(name, "$*IN") ? 0 : !strcmp(name, "$*OUT") ? 1 : 2)); it->t = c; return; }
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
