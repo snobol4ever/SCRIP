@@ -14,6 +14,7 @@ static void rk_cap_walk(tree_t * t, const rk_ns_t * encl);
 static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl);
 static void rk_cap_proc_m(tree_t * sd, int mth);
 static void rk_bind_names(const tree_t * t, rk_ns_t * out, const rk_ns_t * skip);
+static int rk_cap_mutated(const tree_t * t, const char * v);
 static void rk_shd_enter(tree_t * s, const rk_shd_t * up, const rk_ns_t * callees, int * ctr);
 static void rk_shd_walk(tree_t * t, const rk_shd_t * sc, const rk_ns_t * callees, int * ctr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -156,6 +157,40 @@ static int rk_cap_name_escapes(const tree_t * t, const char * name, const tree_t
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_cap_name_bare(const tree_t * t, const char * name, const tree_t * decl) {
+    if (!t || t == decl) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, name)) return 1;
+    for (int i = (rk_cap_is_callee(t, name) ? 1 : 0); i < t->n; i++) if (rk_cap_name_bare(t->c[i], name, decl)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_cap_any_mutated(const tree_t * sd, int np, const rk_ns_t * F) {
+    for (int j = 1 + np; j < sd->n; j++) for (int k = 0; k < F->n; k++) if (rk_cap_mutated(sd->c[j], F->v[k])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_cap_ref_close(tree_t * t, const char * name, const tree_t * decl, const rk_ns_t * F) {
+    if (!t || t == decl) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (c && c != decl && c->t == TT_VAR && c->v.sval && c->v.sval[0] == '&' && !strcmp(c->v.sval + 1, name)) {
+            tree_t * cl = ast_node_new(TT_FNC);
+            cl->line = c->line;
+            cl->v.sval = (char *) "__blk_close";
+            ast_push(cl, leaf_sval2(TT_VAR, "__blk_close"));
+            ast_push(cl, c);
+            for (int k = 0; k < F->n; k++) {
+                tree_t * bv = ast_node_new(TT_FNC);
+                bv->v.sval = (char *) "__rk_byval";
+                ast_push(bv, leaf_sval2(TT_VAR, "__rk_byval"));
+                ast_push(bv, leaf_sval2(TT_VAR, F->v[k]));
+                ast_push(cl, bv);
+            }
+            t->c[i] = cl;
+        } else rk_cap_ref_close(c, name, decl, F);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_cap_calls_prepend(tree_t * t, const char * name, const rk_ns_t * F) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_cap_calls_prepend(t->c[i], name, F);
@@ -191,17 +226,20 @@ static void rk_cap_nested_find(tree_t * t, tree_t * sd, int np, const rk_ns_t * 
                 if (!strcmp(u, "_") || u[0] == '^' || !strncmp(u, "__", 2) || u[0] == '&' || rk_ns_has(&decl, u) || !rk_ns_has(d, u)) continue;
                 rk_ns_add(&F, u);
             }
-            if (F.n && F.n + cnp <= 12 && !rk_cap_name_escapes(sd, nm, c)) {
+            int esc = rk_cap_name_escapes(sd, nm, c);
+            int refonly = esc && F.n && !rk_cap_name_bare(sd, nm, c) && !rk_cap_any_mutated(sd, np, &F);
+            if (F.n && F.n + cnp <= 12 && (!esc || refonly)) {
                 rk_cap_calls_prepend(sd, nm, &F);
                 tree_t ** nc = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) (c->n + F.n + 1));
                 int k = 0;
                 nc[k++] = c->c[0];
-                for (int j = 0; j < F.n; j++) { tree_t * pv = leaf_sval2(TT_VAR, F.v[j]); ast_push(pv, leaf_sval2(TT_QLIT, "@")); nc[k++] = pv; }
+                for (int j = 0; j < F.n; j++) { tree_t * pv = leaf_sval2(TT_VAR, F.v[j]); if (!refonly) ast_push(pv, leaf_sval2(TT_QLIT, "@")); nc[k++] = pv; }
                 for (int j = 1; j < c->n; j++) nc[k++] = c->c[j];
                 c->n = 0;
                 for (int j = 0; j < k; j++) ast_push(c, nc[j]);
                 c->v.ival = cnp + F.n;
-                for (int j = 1 + c->v.ival; j < c->n; j++) rk_cap_assign_through(c->c[j], &F);
+                if (refonly) rk_cap_ref_close(sd, nm, c, &F);
+                else for (int j = 1 + c->v.ival; j < c->n; j++) rk_cap_assign_through(c->c[j], &F);
             }
             rk_cap_nested_find(c, sd, np, d);
             continue;
