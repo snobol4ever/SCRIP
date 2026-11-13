@@ -4852,6 +4852,7 @@ static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "  DriveSeparator = '';\n"
     "  ExtensionSeparator = '.';\n"
     "  PathSeparator = ':';\n"
+    "  MAX_PATH = 4096;\n"
     "  faReadOnly = 1;\n"
     "  faHidden = 2;\n"
     "  faSysFile = 4;\n"

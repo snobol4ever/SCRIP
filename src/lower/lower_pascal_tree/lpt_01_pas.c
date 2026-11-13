@@ -356,6 +356,19 @@ static int pas_const_fold_fn(const char *s) {
     for (size_t i = 0; s && i < sizeof N / sizeof N[0]; i++) if (!strcmp(s, N[i])) return 1;
     return 0;
 }
+static int pas_intcast_bits(const char *f, int *w, int *sg) {
+    static const char *const T[] = { "byte", "shortint", "smallint", "word", "longint", "longword", "cardinal", "int64", "qword", "uint64", "integer" };
+    static const int W[] = { 8, 8, 16, 16, 32, 32, 32, 64, 64, 64, 32 };
+    static const int S[] = { 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1 };
+    for (size_t j = 0; j < sizeof T / sizeof T[0]; j++) if (!strcmp(f, T[j])) { *w = W[j]; *sg = S[j]; if (!strcmp(f, "integer")) *w = g_lower_pas.sem.pas_int16 ? 16 : 32; return 1; }
+    return 0;
+}
+static long long pas_intcast_wrap(long long v, int w, int sg) {
+    if (w >= 64) return v;
+    unsigned long long u = (unsigned long long)v & ((1ULL << w) - 1);
+    if (sg && ((u >> (w - 1)) & 1ULL)) return (long long)u - (1LL << w);
+    return (long long)u;
+}
 static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, const char **sv) {
     if (!e) return 0;
     if (e->t == TT_ILIT) { *k = 1; *iv = e->v.ival; return 1; }
@@ -414,6 +427,10 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
         *k = 1;
         *iv = !strcmp(e->c[0]->v.sval, "xor") ? (ia ^ ib) : !strcmp(e->c[0]->v.sval, "shl") ? (long long)((unsigned long long)ia << (ib & 63)) : (long long)((unsigned long long)ia >> (ib & 63));
         return 1;
+    }
+    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && e->c[1] && !pas_scope_uid(e->c[0]->v.sval)) {
+        int w = 0, sg = 0;
+        if (pas_intcast_bits(e->c[0]->v.sval, &w, &sg) && pas_fold_const(e->c[1], k, iv, dv, sv) && (*k == 1 || *k == 4)) { *k = 1; *iv = pas_intcast_wrap(*iv, w, sg); return 1; }
     }
     if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && e->c[1] && !pas_is_func(e->c[0]->v.sval) && !pas_is_proc(e->c[0]->v.sval)) {
         const char *f = e->c[0]->v.sval, *a = e->c[1]->t == TT_VAR ? e->c[1]->v.sval : NULL;

@@ -27,6 +27,7 @@ const
   DriveSeparator = '';
   ExtensionSeparator = '.';
   PathSeparator = ':';
+  MAX_PATH = 4096;
   faReadOnly = 1;
   faHidden = 2;
   faSysFile = 4;
