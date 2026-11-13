@@ -494,6 +494,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     sno_prog_scan(st, nst);
     cv_t defs = {0}, def_body = {0};
     g_lower.sno.predef.len = 0;
+    g_lower.sno.bare_pat.len = 0;
     g_lower.sno.tdef.len = 0;
     cv_t def_entry_all = {0};
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
@@ -689,6 +690,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     g_lower.sno.predef.len = 0;
+    g_lower.sno.bare_pat.len = 0;
     g_lower.sno.tdef.len = 0;
     g_lower.sno.t4.len = 0;
     g_lower.sno.t4_unsafe = 1;

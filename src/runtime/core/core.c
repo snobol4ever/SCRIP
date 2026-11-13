@@ -3543,6 +3543,9 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_sno_touch_name, leaf, 0);
+void rt_sno_touch_name(const char *name) { _var_init(); NV_t *pe = name ? _var_bucket_find(name) : NULL; if (pe) pe->touched = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t NV_GET_untapped(const char *name) {
     _var_init();
     if (!name) return NULVCL;

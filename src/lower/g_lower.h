@@ -87,6 +87,7 @@ typedef struct {
     int uses_xname;
     int calls_code;
     cv_t predef;
+    cv_t bare_pat;
     cv_t tdef;
     cv_t multiproto;
     cv_t proto_fn;

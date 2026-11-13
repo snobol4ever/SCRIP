@@ -33,7 +33,7 @@ tree_e sno_pat_eff_kind(const tree_t * t) {
     } m[] = { { "ABORT", TT_ABORT }, { "ARB", TT_ARB }, { "BAL", TT_BAL }, { "FAIL", TT_FAIL }, { "FENCE", TT_FENCE }, { "FLUSH", TT_FLUSH }, { "REM", TT_REM }, { "SUCCEED", TT_SUCCEED }, { NULL,
         TT_VAR } };
     const char * nm = t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval;
-    for (int i = 0; m[i].n; i++) if (!strcmp(nm, m[i].n)) return m[i].k;
+    for (int i = 0; m[i].n; i++) if (!strcmp(nm, m[i].n)) { if (t->t == TT_VAR && t->v.sval[0] != '&') sno_bare_pat_note(m[i].n); return m[i].k; }
     return t->t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -97,6 +97,12 @@ void sno_predef_note(const char * fname) {
     for (uint32_t k = 0; k < g_lower.sno.predef.len; k++) if (!strcmp(CV_AT(g_lower.sno.predef, const char *, k), fname)) return;
     CV_PUSH(g_lower.sno.predef, const char *) = fname;
 }
+void sno_bare_pat_note(const char * fname) {
+    for (uint32_t k = 0; k < g_lower.sno.bare_pat.len; k++) if (!strcmp(CV_AT(g_lower.sno.bare_pat, const char *, k), fname)) return;
+    CV_PUSH(g_lower.sno.bare_pat, const char *) = fname;
+}
+int sno_bare_pat_count(void) { return (int) g_lower.sno.bare_pat.len; }
+const char * sno_bare_pat_name(int k) { return CV_AT(g_lower.sno.bare_pat, const char *, k); }
 void sno_tdef_note(const char * fname) {
     for (uint32_t k = 0; k < g_lower.sno.tdef.len; k++) if (!strcmp(CV_AT(g_lower.sno.tdef, const char *, k), fname)) return;
     CV_PUSH(g_lower.sno.tdef, const char *) = lp_strdup(fname);

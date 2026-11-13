@@ -3668,6 +3668,17 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+            {
+                extern int sno_bare_pat_count(void);
+                extern const char *sno_bare_pat_name(int);
+                int n_bp = sno_bare_pat_count();
+                if (n_bp > 0) {
+                    emit_textf("  .section .rodata\n");
+                    for (int k = 0; k < n_bp; k++) emit_textf("  .Lbpn%d: .string \"%s\"\n", k, sno_bare_pat_name(k));
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    for (int k = 0; k < n_bp; k++) emit_textf("  lea rdi, [rip + .Lbpn%d]\n  call rt_sno_touch_name@PLT\n", k);
+                }
+            }
             emit_textf(
                 "  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  "
                 "call rt_main_args_stage_argv@PLT\n");
@@ -3947,6 +3958,12 @@ int main(int argc, char **argv) {
                     if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1)) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; }
                 }
                 rt_main_progname_stage(_pn ? _pn : "");
+            }
+            {
+                extern int sno_bare_pat_count(void);
+                extern const char *sno_bare_pat_name(int);
+                extern void rt_sno_touch_name(const char *);
+                for (int k = 0, nb = sno_bare_pat_count(); k < nb; k++) rt_sno_touch_name(sno_bare_pat_name(k));
             }
             if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
             if (opt_no_exec) return 231;
