@@ -604,6 +604,18 @@ DESCR_t pas_pdx(DESCR_t *args, int nargs) {
     if (args[0].v != DT_PCELL) pas_file_err("6.5.4", "an element is indexed through a pointer that holds no cell kind", "__pas_pdx");
     return pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + (i - lo), "__pas_pdx");
 }
+static DESCR_t pas_row_el_get(ARBLK_t *b, long long d) {
+    if (!b->ewidth) return b->data[d];
+    unsigned long long u = 0;
+    memcpy(&u, (unsigned char *) b->data + (size_t) d * (size_t) b->ewidth, (size_t) b->ewidth);
+    if (b->esigned && b->ewidth < 8) { unsigned long long m = 1ULL << (b->ewidth * 8 - 1); u = (u ^ m) - m; }
+    return INTVAL((long long) u);
+}
+static void pas_row_el_put(ARBLK_t *b, long long d, DESCR_t v) {
+    if (!b->ewidth) { b->data[d] = pas_agg_copy(v); return; }
+    long long x = rk_ival(v);
+    memcpy((unsigned char *) b->data + (size_t) d * (size_t) b->ewidth, &x, (size_t) b->ewidth);
+}
 DESCR_t pas_row_get(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
@@ -616,7 +628,7 @@ DESCR_t pas_row_get(DESCR_t *args, int nargs) {
     for (long long k = l2; k <= h2; k++) {
         long long at = i * nc + (k - l2) - a->lo;
         if (at < 0 || at > (long long) a->hi - a->lo) pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_get");
-        b->data[k - l2] = pas_agg_copy(a->data[at]);
+        pas_row_el_put(b, k - l2, pas_row_el_get(a, at));
     }
     return row;
 }
@@ -630,7 +642,7 @@ DESCR_t pas_row_set(DESCR_t *args, int nargs) {
         long long at = i * nc + (k - l2) - a->lo, from = k - l2;
         if (at < 0 || at > (long long) a->hi - a->lo || from > (long long) r->hi - r->lo)
             pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_row_set");
-        a->data[at] = pas_agg_copy(r->data[from]);
+        pas_row_el_put(a, at, pas_row_el_get(r, from));
     }
     return args[5];
 }
