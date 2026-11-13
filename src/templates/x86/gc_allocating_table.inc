@@ -1815,6 +1815,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_order_cmp_num", GC_RET_OTHER },
     { "rk_order_cmp_str", GC_RET_OTHER },
     { "rk_os_release", GC_RET_OTHER },
+    { "rk_pair_legacy", GC_RET_DESCR },
     { "rk_pair_text", GC_RET_OTHER },
     { "rk_param_ok", GC_RET_OTHER },
     { "rk_paren", GC_RET_OTHER },
