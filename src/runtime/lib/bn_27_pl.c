@@ -27,7 +27,7 @@ extern int rt_pl_db_abolish(void *, void *);
 extern int rt_pl_nb_set(void *, int64_t, void *);
 extern int rt_pl_nb_get_cell(void *, int64_t, void *, pl_tr_ctx_t *);
 extern int rt_pl_b_set(void *, int64_t, void *, pl_tr_ctx_t *);
-extern int rt_pl_db_count(void *);
+extern int rt_pl_db_life(void *);
 extern int rt_pl_db_seed(void *, void *, void *);
 extern int rt_pl_db_term_key(void *, char *, size_t, int *);
 extern void *rt_pl_db_get_by_key(void *, const char *, int);
@@ -709,7 +709,7 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
         void *db = ks ? rt_pl_db_get_by_key(root, ks, 1) : pl_db_cell_of(args, root);
         DESCR_t iv = rt_pl_deref_val(args[1]);
         if (!db || iv.v != DT_I) return FAILDESCR;
-        if (rt_pl_db_count(db) > (int)iv.i) return pl_ok();
+        if (rt_pl_db_life(db) > (int)iv.i) return pl_ok();
         {
             extern int rt_pl_db_consult(void *, void *, void *, int, int);
             extern int rt_pl_db_key_is_declared(void *, const char *);

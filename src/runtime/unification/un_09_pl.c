@@ -148,6 +148,7 @@ static int64_t pl_ix_pick(pl_db_t *db, const void *target, int *pp) {
     pl_ix_t *x = (pl_ix_t *)db->ix;
     int64_t k;
     *pp = 0;
+    if (!x && target && !db->ix_off && db->n >= PL_IX_MIN) { pl_ix_build(db, 0, 0); x = (pl_ix_t *)db->ix; }
     if (!x || !target) return 0;
     if ((k = pl_ix_target_key(db, target, 0, x->deep[0])) != 0) {
         pl_ix_ent_t *e0 = pl_ix_find_at(x, 0, k);
@@ -398,7 +399,7 @@ int rt_pl_db_consult(void *root, void *db_v, void *clause_term, int declared, in
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db) return 0;
     if (db->whole == 2) pl_db_dynamize(root, db);
-    if (db->whole == 0 && (declared || db->n > 0 || db->data_on || db->data_off)) return pl_db_store(root, db_v, clause_term, 0, 1, 1);
+    if (db->whole == 0 && (declared || db->life > 0 || db->data_on || db->data_off)) return pl_db_store(root, db_v, clause_term, 0, 1, 1);
     if (!pl_db_store(root, db_v, clause_term, 0, 0, 0)) return 0;
     if (!db->whole) db->whole = pend;
     return 1;
@@ -610,6 +611,54 @@ void pl_db_reclaim(pl_db_t *db) {
         db->recl_lo = next_lo;
     }
 }
+static void pl_db_tw_seg(const char *lo, const char *hi, void *a) {
+    pl_db_tw_t *w = (pl_db_tw_t *)a;
+    for (const char *p = (const char *)(((uintptr_t)lo + 7) & ~(uintptr_t)7); !w->live && p + 8 <= hi; p += 8) if ((*(const uint64_t *)p ^ w->not_mark) == ~(uint64_t)0) w->live = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_trim_slots(pl_db_t *db) {
+    int j = 0, prev = -1, nh = -1, on = db->n;
+    for (int i = 0; i < on; i++) if (!db->s[i].erased) db->s[i].chain_off = j++;
+    for (int i = db->head_idx, nx; i >= 0; i = nx) {
+        nx = db->s[i].next_idx;
+        if (db->s[i].erased) continue;
+        if (prev < 0) nh = db->s[i].chain_off;
+        else db->s[prev].next_idx = db->s[i].chain_off;
+        prev = i;
+    }
+    if (prev >= 0) db->s[prev].next_idx = -1;
+    db->head_idx = nh;
+    db->tail_idx = prev >= 0 ? db->s[prev].chain_off : -1;
+    for (int i = 0; i < on; i++) {
+        int k = db->s[i].chain_off;
+        if (db->s[i].erased) continue;
+        db->s[i].chain_off = 0;
+        if (k != i) { db->s[k] = db->s[i]; db->src[2 * k] = db->src[2 * i]; db->src[2 * k + 1] = db->src[2 * i + 1]; }
+    }
+    memset((void *)&db->s[j], 0, (size_t)(on - j) * sizeof(pl_db_slot_t));
+    db->n = j;
+    db->erased_n = 0;
+    db->ix = (void *)0;
+    db->ix_off = 0;
+    db->recl_lo = 0;
+    db->recl_since = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_db_trim(pl_db_t *db, int closing) {
+    pl_db_tw_t w = { 0, 0 };
+    if (!db || db->erased_n < db->trim_at || 2 * db->erased_n < db->n) return 0;
+    if (db->frag_top >= 0 || db->whole || db->trim_pin || db->tx_pins > 0 || db->entry_idx >= 0 || db->cell_k < 0 || db->cell_k >= 65535) return 0;
+    if (!closing && db->trim_wait && db->erased_n < 2 * db->trim_wait) return 0;
+    w.not_mark = ~(((uint64_t)(db->cell_k + 1) << 48) | (uint64_t)DT_RAW);
+    rt_gc_segments_visit(pl_db_tw_seg, (void *)&w);
+    if (w.live) { db->trim_wait = closing ? 0 : db->erased_n; if (closing) db->trim_at = 2 * db->erased_n; return 0; }
+    pl_db_trim_slots(db);
+    db->trim_wait = 0;
+    db->trim_at = db->n > 64 ? db->n : 64;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_db_walk_closed(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; if (db && !pl_db_trim(db, 1)) db->trim_wait = 0; }
 int rt_pl_mod_ext(void *root, void *mc, void *gc, void *ec, void *out, pl_tr_ctx_t *cx) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);
@@ -644,8 +693,8 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
             pl_db_t *db = ((int)k->v == DT_I && (int)c->v == DT_I && (int)s->v == DT_I) ? (pl_db_t *)rt_pl_db_get(root, c->i) : (pl_db_t *)0;
             int i = (int)s->i;
             if (db && i >= 0 && i < db->n) {
+                if (db->tx_pins > 0) db->tx_pins--;
                 if (k->i == 1) {
-                    if (db->tx_pins > 0) db->tx_pins--;
                     if (op == 0 && db->s[i].erased) { db->s[i].erased = 0; if (db->erased_n > 0) db->erased_n--; pl_db_note_live(root, db, i); }
                 } else if (op == 0 && !db->s[i].erased) pl_db_note_erase(root, db, i, db->next_ref++);
             }

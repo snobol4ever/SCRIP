@@ -452,11 +452,11 @@ static void *pl_db_and_key(DESCR_t *tgt, DESCR_t refv, void *root, char *key, si
     return (void *)0;
 }
 DESCR_t rt_pl_dop_db_n_r_c(DESCR_t *args, int nargs, void *root) {
-    extern int rt_pl_db_count(void *);
+    extern int rt_pl_db_walk_hi(void *);
     char key[nargs == 2 ? bnd_db_and_key_need(&args[0], args[1]) : 1];
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); return INTVAL(db ? rt_pl_db_count(db) - 1 : -1); }
+    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); return INTVAL(rt_pl_db_walk_hi(db)); }
 }
 DESCR_t rt_pl_dop_db_at_r_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_clause_at(void *, int, void *);

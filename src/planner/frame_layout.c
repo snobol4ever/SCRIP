@@ -283,7 +283,8 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd);
         if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) {
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.db G (the generation the enumeration took at alpha, ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B)", nd);
-            zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.db pad (unused)", nd);
+            zls_field(scope_id, off + 24, 8, ZK_RAW, 0,
+                "to.db walk mark (the walked store's cell number + 1 above bit 48 over DT_RAW while the walk is open, 0 once it is exhausted; a trim of the store scans for it)", nd);
             if (!zls_g_pinned_frame(g)) return 2;
             zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "to.db prev B (D1: the header at op_off+24 banks it at +24, restored when the enumeration is exhausted)", nd);
             zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "to.db boundary (D1: rsp at the open as a packed RAW word, the header's +32)", nd);

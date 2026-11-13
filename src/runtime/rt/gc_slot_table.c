@@ -26,7 +26,7 @@ _Static_assert(sizeof(dtp_rcp_t) == 48 && offsetof(dtp_rcp_t, s) == 8 && offseto
     "HB_DTPRCP holds one dtp_rcp_t: the pointer members are s, l and r; a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_slot_t) == 40 && offsetof(pl_db_slot_t, cl) == 0 && sizeof(pl_cell_t) == 16,
     "HB_PLDBS is a vector of pl_db_slot_t whose clause cell cl is a DESCR_t; the other members are ints; a new member means this row is re-read");
-_Static_assert(sizeof(pl_db_t) == 104 && offsetof(pl_db_t, s) == 0 && offsetof(pl_db_t, ix) == 64 && offsetof(pl_db_t, src) == 96,
+_Static_assert(sizeof(pl_db_t) == 120 && offsetof(pl_db_t, s) == 0 && offsetof(pl_db_t, ix) == 64 && offsetof(pl_db_t, src) == 96,
     "HB_PLDB holds one pl_db_t: the pointer members are s (the PLDBS vector), ix (the index block) and src (the source record, two ints a slot); a new member means this row is re-read");
 _Static_assert(sizeof(pl_db_key_t) == 48 && offsetof(pl_db_key_t, key) == 0 && offsetof(pl_db_key_t, db) == 16,
     "HB_PLDBK is a vector of pl_db_key_t whose pointer members are key and db; a new member means this row is re-read");

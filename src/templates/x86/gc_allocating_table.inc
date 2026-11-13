@@ -2375,6 +2375,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_db_meta_decl", GC_RET_VOID },
     { "rt_pl_db_mod_get", GC_RET_OTHER },
     { "rt_pl_db_mod_set_limit", GC_RET_OTHER },
+    { "rt_pl_db_pin_cell", GC_RET_VOID },
     { "rt_pl_db_seed", GC_RET_OTHER },
     { "rt_pl_db_slot_ensure", GC_RET_OTHER },
     { "rt_pl_db_space_ball", GC_RET_OTHER },

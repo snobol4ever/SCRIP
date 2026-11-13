@@ -15,6 +15,7 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 int rt_pl_db_cand_first(void * db, void * target);
 int rt_pl_db_cand_next(void * db, int i, void * target);
 int rt_pl_db_cand_last(void * db, int i, void * target, int g);
+void rt_pl_db_walk_closed(void * db);
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_frame.h"
@@ -51,6 +52,20 @@ static std::string bb_to_db() {
          + xa_to_db_store_rax(20)
          + x86("test", "rax", "rax")
          + x86_omega("je")
+         + x86("mov", FRQ(_.op_off + 40), 0L)
+         + x86("mov", "ecx", RDD("rax", 112))
+         + x86("test", "ecx", "ecx")
+         + x86("je", L(6))
+         + x86("mov", "rdi", "rax")
+         + x86("call", "rt_pl_db_walk_closed", (uint64_t)(uintptr_t)(void *)rt_pl_db_walk_closed)
+         + x86("mov", "rax", FRQ(_.op_sa + 8))
+         + xa_to_db_store_rax(28)
+         + x86("def", L(6))
+         + x86("mov", "ecx", RDD("rax", 32))
+         + x86("add", "rcx", 1L)
+         + x86_shift_imm("shl", 4, "rcx", 40)
+         + x86_raw_pack("rcx")
+         + x86("mov", FRQ(_.op_off + 40), "rcx")
          + x86("mov", "r9", RDQ("rax", 0))
          + x86("mov", "r8d", RDD("rax", 20))
          + x86("mov", FRQ(_.op_off + 32), "r8")
@@ -66,6 +81,10 @@ static std::string bb_to_db() {
          + xa_to_trail_mark()
          + x86("def", L(0))
          + x86("mov", "rsi", FRQ(_.op_off + 16))
+         + x86("cmp", "esi", 0L)
+         + x86("jge", L(7))
+         + x86("mov", FRQ(_.op_off + 40), 0L)
+         + x86("def", L(7))
          + x86("cmp", "esi", 0L)
          + xa_to_trail_exhausted("jge", 5)
          + x86_omega("jl")

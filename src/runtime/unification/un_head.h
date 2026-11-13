@@ -123,6 +123,8 @@ _Static_assert(__builtin_offsetof(pl_db_t, s) == 0 && __builtin_offsetof(pl_db_t
     "xa_flat.cpp's packet entry and bb_to.cpp's db walk bake the store layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
 _Static_assert(__builtin_offsetof(pl_db_t, ix) == 64, "rtx_gc.s's HB_PLDB visitor marks the index block through the word at +64 (ARCH-PROLOG-DATABASE section 7)");
 _Static_assert(__builtin_offsetof(pl_db_t, src) == 96, "rtx_gc.s's HB_PLDB visitor marks the source record through the word at +96 (ARCH-PROLOG-DATABASE section 23)");
+_Static_assert(__builtin_offsetof(pl_db_t, trim_wait) == 112 && __builtin_offsetof(pl_db_t, cell_k) == 32,
+    "bb_to.cpp's db walk reads the store's trim_wait word at +112 and its cell number at +32 at its alpha");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_IX_ATOM 1
@@ -136,6 +138,8 @@ typedef struct { int64_t key; int first; int last; int n; } pl_ix_ent_t;
 RT_ENTRY_DECL(rt_pl_db_cand_first, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_next, leaf, 0);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RT_ENTRY_DECL(rt_pl_db_walk_closed, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_pl_db_cand_last, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -168,6 +172,7 @@ RT_ENTRY_DECL(rt_pl_db_decls_install, leaf, 0);
 RT_ENTRY_DECL(rt_pl_db_slot_ensure, leaf, 0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { pl_db_t *db; unsigned char *mk; long frames; } pl_db_rr_t;
+typedef struct { uint64_t not_mark; int live; } pl_db_tw_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *lo; int slot; } pl_db_rcix_t;
 typedef struct { pl_db_t *db; const char *lo; const char *hi; int min_g; int c_lo; int c_hi; const pl_db_rcix_t *ix; int nix; } pl_db_rc_t;

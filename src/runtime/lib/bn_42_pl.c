@@ -248,6 +248,7 @@ void * rt_pl_pseg_ball_c(void *root, char *r12) {
     return (void *)s;
 }
 void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
+    extern void rt_pl_db_pin_cell(void *, int);
     DESCR_t *h = rt_pl_tbh_current((void *)(uintptr_t)cx->r14);
     if (nargs != 1 || !h || (int)h[PL_TBH_CELLS].v != DT_I || (int)h[PL_TBH_CELLS + 1].v != DT_I) {
         fprintf(stderr, "FATAL rt_pl_pseg_park: no current tabling header with a carve top\n");
@@ -286,6 +287,10 @@ void * rt_pl_pseg_park(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, char *lrbp) {
                 }
             }
             memcpy(pl_pseg_bytes(b), orig_lo, len);
+            for (uint64_t o = 0; o + 8 <= len; o += 8) {
+                uint64_t wv = *(const uint64_t *)(const void *)(orig_lo + o);
+                if ((wv & 0xFFFFFFFFFFFFull) == (uint64_t)DT_RAW && (wv >> 48)) rt_pl_db_pin_cell((void *)(uintptr_t)cx->r14, (int)(wv >> 48) - 1);
+            }
             for (uint64_t i = 0; i < tn; i++) {
                 char *src = tbase + i * PL_TR_ENTRY_BYTES, *dst = pl_pseg_trail(b) + i * 64;
                 pl_tr_entry_t *e = (pl_tr_entry_t *)src;

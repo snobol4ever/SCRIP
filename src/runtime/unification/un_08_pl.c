@@ -44,6 +44,10 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->data_on = 0;
             d->data_off = 0;
             d->entry_idx = -1;
+            d->life = 0;
+            d->trim_at = 64;
+            d->trim_wait = 0;
+            d->trim_pin = 0;
             d->mod = pl_db_kmod_get(root, k);
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             d->src = (int *)0;
@@ -645,6 +649,7 @@ int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int reco
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !clause_term) return 0;
     pl_db_reclaim(db);
+    pl_db_trim(db, 0);
     db->killed = 0;
     if (db->n >= db->cap) {
         int nc = db->cap > 0 ? db->cap * 2 : 8;
@@ -693,6 +698,7 @@ int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int reco
                 db->tail_idx = i;
             }
             db->n++;
+            db->life++;
             pl_db_note_live(root, db, i);
             pl_ix_note(db, i, prepend);
             if (tx) pl_db_tx_note(root, db, prepend ? 2 : 0, i);
@@ -743,7 +749,7 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
         cons[0] = pl_make_compound(prolog_atom_intern("$txdb"), 5, (void *)da);
         cons[1] = *lst;
         *lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, (void *)cons);
-        if (kind == 1) db->tx_pins++;
+        db->tx_pins++;
     }
 }
 static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(root, db, i, gen); pl_db_tx_note(root, db, 1, i); }
@@ -755,6 +761,7 @@ int rt_pl_db_erase(void *root, void *db_v, int i) {
     pl_db_erase_slot(root, db, i, db->next_ref++);
     pl_db_reclaim_report(db);
     pl_db_reclaim(db);
+    pl_db_trim(db, 0);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -772,6 +779,9 @@ int rt_pl_db_unload_src(void *root, int file) {
     return n;
 }
 int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
+int rt_pl_db_life(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->life : 0; }
+void rt_pl_db_pin_cell(void *root, int k) { pl_db_t *db = pl_db_cell_peek(root, k); if (db) db->trim_pin = 1; }
+int rt_pl_db_walk_hi(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; if (!db) return -1; db->trim_pin = 1; return db->n - 1; }
 int rt_pl_db_slot_erased(void *db_v, int i) { pl_db_t *db = (pl_db_t *)db_v; return db && i >= 0 && i < db->n && db->s[i].erased; }
 int rt_pl_db_abolish(void *root, void *db_v) {
     pl_db_t *db = (pl_db_t *)db_v;
@@ -786,6 +796,7 @@ int rt_pl_db_abolish(void *root, void *db_v) {
     if (hi >= 0) { const char *nm = pl_db_head_name((void *)&db->s[hi].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); pl_db_define_absent(root, key, ar); }
     db->data_on = 0;
     pl_db_reclaim(db);
+    pl_db_trim(db, 0);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -811,6 +822,7 @@ int rt_pl_db_match_erase(void *root, void *db_v, void *goal_term) {
     (void)ar;
     if (hit) pl_db_reclaim_report(db);
     if (hit) pl_db_reclaim(db);
+    if (hit) pl_db_trim(db, 0);
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
