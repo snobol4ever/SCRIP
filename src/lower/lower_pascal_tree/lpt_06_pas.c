@@ -594,6 +594,7 @@ long long pas_elem_size(const char *an) {
     if (an && !pas_array_isdyn(an) && pas_array_high_get(an, &ah) && pas_sizeof_lookup(an, &z) && z > 0) return z / (ah - pas_array_low(an) + 1);
     const char *t = an ? pas_scalarvartype_get(an) : NULL;
     if (t && pas_arrtype_elem(t)) t = pas_arrtype_elem(t);
+    if (t) { const pty_t *at = pty_type_by_name(t); if (at && at->k == PTK_ARRAY) { const char *bn = at->base ? pty_name_of(at->base) : NULL; if (!bn) return -1; t = bn; } }
     if (t && pas_sizeof_builtin_size(t, &z) && z > 0) return z;
     if (t && pas_sizeof_lookup(t, &z) && z > 0) return z;
     return -1;
