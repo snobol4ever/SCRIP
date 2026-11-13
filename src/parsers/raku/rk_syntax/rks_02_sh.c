@@ -360,7 +360,7 @@ int r_term(RkP *p, int pos) {
         }
         if ((c == '$' || c == '%') && ch(p, pos + 1) == '(' && !p->in_decl && !p->qsigil) {
             e = r_circumfix(p, pos + 1);
-            if (e >= 0 && p->build) { rkb_contextualize(p->B, &p->tm, c == '$' ? "item" : "hash"); p->tm.from = pos; }
+            if (e >= 0 && p->build) { if (c == '$' && p->tm.kind == TK_PAREN && p->tm.cnt > 1) p->tm.t = rkb_paren_last(p->B, p->tm.in); rkb_contextualize(p->B, &p->tm, c == '$' ? "item" : "hash"); p->tm.from = pos; }
             return e;
         }
         if (c == '$' && ch(p, pos + 1) == '[' && !p->in_decl && !p->qsigil) {

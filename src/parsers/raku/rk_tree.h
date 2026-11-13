@@ -102,6 +102,7 @@ tree_t  *rkb_assign_op(RkB *b, const char *name, const char *op, tree_t *r);
 tree_t  *rkb_dotassign(RkB *b, int cls, const char *name, tree_t *r);
 tree_t  *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post);
 tree_t  *rkb_paren(RkB *b, RkList *L, int nstmts);
+tree_t  *rkb_paren_last(RkB *b, RkList *L);
 void     rkb_contextualize(RkB *b, RkTerm *it, const char *meth);
 void     rkb_codevar(RkB *b, const char *name);
 void     rkb_rename_var(RkB *b, RkTerm *it, const char *name);

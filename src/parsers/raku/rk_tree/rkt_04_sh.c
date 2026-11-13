@@ -178,6 +178,7 @@ tree_t *rkb_paren(RkB *b, RkList *L, int nstmts) {
     return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_paren_last(RkB *b, RkList *L) { if (!L || !L->n) return make_call("__rk_arr"); tree_t *sq = ast_node_new(TT_SEQ_EXPR); for (int i = 0; i < L->n; i++) expr_add_child(sq, el_tree(b, &L->v[i])); return sq; }
 tree_t *closure_of(RkTerm *t) { if (!t || t->kind != TK_BLOCK) return NULL; return t->lop; }
 int rkt_rk_reads_var(const tree_t *t, const char *name) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return 0;
