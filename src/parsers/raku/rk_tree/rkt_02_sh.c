@@ -564,7 +564,9 @@ void rkb_number(RkB *b, RkTerm *it, int from, int to) {
     if (u[0] == '0' && (u[1] == 'o' || u[1] == 'O')) { it->t = rk_digits_fit(u + 2, 8) ? rk_ilit(strtoll(u + 2, NULL, 8)) : rk_big_lit(8, u + 2, 0); return; }
     if (u[0] == '0' && (u[1] == 'd' || u[1] == 'D')) { it->t = rk_digits_fit(u + 2, 10) ? rk_ilit(strtoll(u + 2, NULL, 10)) : rk_big_lit(10, u + 2, 0); return; }
     if (u[0] == '0' && (u[1] == 'x' || u[1] == 'X') && !rk_digits_fit(u + 2, 16)) { it->t = rk_big_lit(16, u + 2, 0); return; }
-    it->t = rk_ilit(strtoll(u, NULL, 0));
+    int ux = u[0] == '0' && (u[1] == 'x' || u[1] == 'X');
+    if (!ux && strlen(u) >= 19 && !rk_digits_fit(u, 10)) { it->t = rk_big_lit(10, u, 0); return; }
+    it->t = rk_ilit(strtoll(u, NULL, ux ? 16 : 10));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int b_quote_fl(RkB *b, RkTerm *it, RkClosure *cl, int ncl, int bf, int bt, int qf) {
