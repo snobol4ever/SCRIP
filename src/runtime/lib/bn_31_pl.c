@@ -498,6 +498,8 @@ PL_CX_LEAF_HEAD(format3, 3)
         extern int fh_capture_begin(char **, size_t *, int *);
         extern void fh_capture_end(int, int);
         extern int prolog_atom_intern(const char *);
+        extern int rt_pl_cap_refuses(unsigned long long, unsigned long long);
+        extern void *rt_pl_cap_error(void);
         DESCR_t d = rt_pl_deref_val(args[0]);
         int kind = 0;
         int idx;
@@ -524,6 +526,7 @@ PL_CX_LEAF_HEAD(format3, 3)
                     DESCR_t r = rt_pl_dop_format_c(args + 1, 2, cx);
                     fh_capture_end(cap, sv);
                     if (r.v == (DTYPE_t)DT_I && kind >= 5) ok = plw_unify_vals(((DESCR_t *)d.p)[0], pl_text_dlist(buf ? buf : "", sz, kind == 5, ((DESCR_t *)d.p)[1]), cx);
+                    else if (r.v == (DTYPE_t)DT_I && kind == 4 && rt_pl_cap_refuses((unsigned long long)sz + 1ULL, 1ULL)) { cx->ball = rt_pl_cap_error(); ok = 0; }
                     else if (r.v == (DTYPE_t)DT_I) ok =
                         plw_unify_vals(((DESCR_t *)d.p)[0],
                         kind == 1 ? pl_mk_atom_dup(buf ? buf : "", sz) : kind == 4 ? rt_pl_make_string_cell(buf ? buf : "") : pl_text_list(buf ? buf : "", kind == 2), cx);
