@@ -755,6 +755,17 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
             return f;
         }
     }
+    if (name && g_lower_pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "move") && args && args->count >= 6 && args->items[0] && args->items[2] &&
+        args->items[4] && pas_is_stringexpr(args->items[0]) && pas_is_stringexpr(args->items[2])) {
+        tree_t *part = ast_node_new(TT_IF), *whole = ast_node_new(TT_IF), *err = mk_fnc1("__pas_rterr", leaf_s(TT_QLIT, "move"));
+        ast_push(err, leaf_s(TT_QLIT, "move between two strings copies the whole string or nothing"));
+        ast_push(part, bin(TT_NE, pas_tree_clone(args->items[4]), ilit(0)));
+        ast_push(part, err);
+        ast_push(whole, bin(TT_GE, pas_tree_clone(args->items[4]), bin(TT_ADD, mk_fnc1("length", pas_tree_clone(args->items[0])), ilit(1))));
+        ast_push(whole, mk_assign(args->items[2], args->items[0]));
+        ast_push(whole, part);
+        return whole;
+    }
     if (name && g_lower_pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "assignfile")) return lpt_mk_call("assign", args);
     if (name && g_lower_pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "closefile")) return lpt_mk_call("close", args);
     if (name && !strcmp(name, "assign") && args && args->count >= 3) { tree_t *fv = args->items[0]; tree_t *nm = args->items[2]; return mk_assign(fv, mk_fnc1("__pas_fassign", pas_alpha_wrap(nm))); }
