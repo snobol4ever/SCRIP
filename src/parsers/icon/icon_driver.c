@@ -88,8 +88,8 @@ static int icn_has_link_to(const tree_t * prog, const char * nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_link_posix_implicitly(tree_t * prog) {
-    if (!prog->v.ival || !icn_calls_posix_record(prog) || icn_has_link_to(prog, "posix")) return;
+static int icn_link_posix_implicitly(tree_t * prog) {
+    if (!prog->v.ival || !icn_calls_posix_record(prog) || icn_has_link_to(prog, "posix")) return 0;
     tree_t * top = ast_node_new(TT_LINK), * v = ast_node_new(TT_VAR), * st = ast_stmt_new(TT_STMT);
     v->v.sval = intern_n("posix", 5);
     v->slen = 5;
@@ -98,16 +98,17 @@ static void icn_link_posix_implicitly(tree_t * prog) {
     ast_push(st, ast_attr_int(":stno", 0));
     ast_push(st, ast_attr_expr(":subj", top));
     ast_push(prog, st);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (!prog) return;
-    icn_link_posix_implicitly(prog);
     const char * slash = strrchr(filename, '/'); char dir[slash ? (size_t)(slash - filename) + 1 : 2];
     if (slash) { size_t dl = (size_t)(slash - filename); memcpy(dir, filename, dl); dir[dl] = '\0'; } else { dir[0] = '.'; dir[1] = '\0'; }
     const char ** loaded = (const char **) ct_grow(NULL, 16 * sizeof *loaded); int nloaded = 0, nloadcap = 16;
     { const char * base = slash ? slash + 1 : filename; const char * dot = strrchr(base, '.'); size_t bl = dot ? (size_t)(dot - base) : strlen(base);
       char * own = (char *) ct_alloc(bl + 1); memcpy(own, base, bl); own[bl] = '\0'; loaded[nloaded++] = own; }
+    for (int again = 1; again; ) {
     for (int scan = 0; scan < prog->n; scan++) {
         const tree_t * subj = icn_stmt_subject(prog->c[scan]);
         if (!subj || subj->t != TT_LINK) continue;
@@ -135,6 +136,8 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             { const char * lb = strrchr(path, '/'); lb = lb ? lb + 1 : path;
               if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) { if (sub_ast->c[j]->t == TT_STMT) ast_push(sub_ast->c[j], ast_attr_leaf(":file", lb)); ast_push(prog, sub_ast->c[j]); } }
         }
+    }
+        again = icn_link_posix_implicitly(prog);
     }
     ct_drop((void *) loaded);
 }
