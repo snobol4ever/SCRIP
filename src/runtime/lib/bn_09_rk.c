@@ -327,6 +327,7 @@ int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *margs, i
         return 1;
     }
     if (nmargs == 0 && !strcmp(meth, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (nmargs == 0 && !strcmp(meth, "iterator")) { *out = rk_seq_done(rk_mk_arr(a.el, a.n)); return 1; }
     if (nmargs == 0 && !strcmp(meth, "tail")) { *out = a.n ? a.el[a.n - 1] : NULVCL; return 1; }
     if (nmargs == 0 && !strcmp(meth, "minmax")) {
         if (!a.n) { *out = rk_mk_arr(NULL, 0); return 1; }

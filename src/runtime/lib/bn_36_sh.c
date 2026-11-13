@@ -263,6 +263,15 @@ int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs,
         if (mname0 && rk_is_seq(args[0])) {
             if (!strcmp(mname0, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_seq_is_lazy(args[0]) }; return 1; }
             if (!strcmp(mname0, "list") || !strcmp(mname0, "Seq") || !strcmp(mname0, "lazy") || !strcmp(mname0, "iterator")) { *out = args[0]; return 1; }
+            if (nargs == 2 && !strcmp(mname0, "pull-one")) {
+                rk_seq_reify(&args[0], 1L);
+                ARBLK_t *pl = (ARBLK_t *) ((ARBLK_t *) args[0].arr)->data[3].arr;
+                if (pl->hi < pl->lo) { *out = rk_typeobj("IterationEnd"); return 1; }
+                *out = pl->data[0];
+                for (int pi = 0; pi < pl->hi - pl->lo; pi++) pl->data[pi] = pl->data[pi + 1];
+                pl->hi--;
+                return 1;
+            }
             {
                 long need = -1L;
                 if (!strcmp(mname0, "head")) need = (nargs >= 3 && IS_INT_fn(args[2]) && args[2].i >= 0) ? (long) args[2].i : 1L;

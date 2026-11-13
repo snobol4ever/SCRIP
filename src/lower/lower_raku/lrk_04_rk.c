@@ -590,7 +590,7 @@ static tree_t * rk_infinite_range_gather(tree_t * to, int * seq) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_range_iterates(const tree_t * t, int i) {
     static const char * const meths[] = { "head", "map", "grep", "first", "list", "Seq", "Array", "flat", "skip", "kv", "pairs", "values", "rotor", "batch", "toggle", "produce", "lazy", "cache",
-        "iterator", NULL };
+        "iterator", "is-lazy", NULL };
     if (t->t == TT_ITERATE || (t->t == TT_ARR_GET && i == 0)) return 1;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_slice") && i == 1) return 1;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_range_arr")) return 0;
