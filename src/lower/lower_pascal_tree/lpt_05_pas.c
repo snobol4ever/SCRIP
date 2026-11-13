@@ -655,6 +655,10 @@ pval pas_strhlp_eval(tree_t *sh) {
     if (o.node && fn && (!strcmp(fn, "__strhlp_contains") || !strcmp(fn, "__strhlp_startswith") || !strcmp(fn, "__strhlp_endswith"))) pty_note_kind(o.node, PTK_BOOL);
     return o;
 }
+int pas_dyn_create_call(const tree_t *n) {
+    return n->n >= 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2 && IS(n->c[0]->c[0], TT_VAR) && n->c[0]->c[0]->v.sval && IS(n->c[0]->c[1], TT_VAR) && n->c[0]->c[1]->v.sval &&
+        !strcasecmp(n->c[0]->c[1]->v.sval, "create") && pas_arrtype_isdyn(n->c[0]->c[0]->v.sval);
+}
 pval E_call_with_args(const tree_t *n) {
     pval v[7];
     pval out;
@@ -662,6 +666,12 @@ pval E_call_with_args(const tree_t *n) {
     memset(&out, 0, sizeof out);
     if (pas_xr_call(n, &out)) return out;
     if (IS(n, TT_FNC) && n->n == 1 && IS(n->c[0], TT_FIELD) && n->c[0]->n == 2) { tree_t *_sh = pas_strhlp_prop(n->c[0]); if (_sh) return pas_strhlp_eval(_sh); }
+    if (IS(n, TT_FNC) && pas_dyn_create_call(n)) {
+        tree_t *_al = ast_node_new(TT_FNC);
+        ast_push(_al, leaf_s(TT_VAR, "__pas_arrlit"));
+        for (int _i = 1; _i < n->n; _i++) ast_push(_al, (tree_t *)n->c[_i]);
+        return E_call_with_args(_al);
+    }
     if (IS(n, TT_FNC)) {
         if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "exit") && IS(n->c[1], TT_SET) && n->c[1]->n > 0 && !pas_set_has_range(n->c[1]) && pas_curfunc_name() &&
             pas_dyn_depth(E_selector(leaf_s(TT_VAR, "result")).node, NULL) > 0) {

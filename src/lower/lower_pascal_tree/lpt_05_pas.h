@@ -13,6 +13,7 @@ __attribute__((visibility("hidden"))) tree_t *prog_of(PNodeList *l);
 __attribute__((visibility("hidden"))) tree_t *seq_of(PNodeList *l);
 __attribute__((visibility("hidden"))) int pas_array_is_param(const char *name);
 __attribute__((visibility("hidden"))) int pas_arrtype_isdyn(const char *name);
+__attribute__((visibility("hidden"))) int pas_dyn_create_call(const tree_t *n);
 __attribute__((visibility("hidden"))) int pas_array_isopen(const char *name);
 __attribute__((visibility("hidden"))) const char *pas_proctype_get(const char *name);
 __attribute__((visibility("hidden"))) int pas_is_cafield(const tree_t *e);

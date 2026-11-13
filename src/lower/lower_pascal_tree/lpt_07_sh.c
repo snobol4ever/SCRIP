@@ -406,7 +406,7 @@ pval E_for_statement(const tree_t *n) {
             } else if (coll->t == TT_VAR && coll->v.sval && pas_fixed_arr_bounds(coll->v.sval, &_fl, &_fh)) {
                 lo = ilit(_fl);
                 hi = ilit(_fh);
-            } else if (pas_is_dynexpr(coll) || (pty_of_low(coll) && pty_of_low(coll)->k == PTK_ARRAY && pty_of_low(coll)->dyn)) {
+            } else if (pas_dyn_create_call(n->c[1]) || pas_is_dynexpr(coll) || (pty_of_low(coll) && pty_of_low(coll)->k == PTK_ARRAY && pty_of_low(coll)->dyn)) {
                 lo = ilit(0);
                 hi = bin(TT_SUB, mk_fnc1("__pas_dynlen", pas_tree_clone(base)), ilit(1));
             } else {
