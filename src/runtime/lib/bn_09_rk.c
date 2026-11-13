@@ -480,7 +480,7 @@ DESCR_t bt___rk_to_hash(DESCR_t *args, int nargs) {
             if (a.n == 1 && a.el[0].v == DT_A && a.el[0].arr && !rk_is_pair(a.el[0])) a = rk_av(a.el[0]);
             *out = rk_hash_from_list(a.el, a.n);
         } else if (args[0].v == DT_SNUL) *out = TABLE_VAL(table_new());
-        else *out = args[0];
+        else *out = rk_hash_from_list(&args[0], 1);
         return _bo;
     }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
