@@ -492,6 +492,16 @@ tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (!op1) return NULL;
+    if (!strcmp(op1, "R=") && L->n == 1 && !t0->npre && !t0->npost && t0->t) {
+        tree_t *tg = el_rest(b, e0), *val = t0->t;
+        if (tg && tg->t == TT_VAR) return expr_binary(TT_ASSIGN, tg, val);
+        if (tg && tg->t == TT_ASSIGN && tg->n == 2 && tg->c[0] && tg->c[0]->t == TT_VAR && tg->c[0]->v.sval) {
+            tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+            ast_push(sq, tg);
+            ast_push(sq, expr_binary(TT_ASSIGN, var_node(b, tg->c[0]->v.sval), val));
+            return sq;
+        }
+    }
     if (!strcmp(op1, "=") && t0->kind == TK_NAME && !t0->npost && !t0->npre && t0->t && t0->t->t == TT_VAR && t0->name && L->n == 1) return expr_binary(TT_ASSIGN, var_node(b, t0->name), el_rest(b, e0));
     int eq = !strcmp(op1, "=") || (!strcmp(op1, ":=") && !plain(t0, 'S'));
     if (!strcmp(op1, ":=") && plain(t0, 'S')) {
