@@ -1653,6 +1653,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "register_fn", GC_RET_VOID },
     { "register_fn_alias", GC_RET_VOID },
     { "register_fn_lit", GC_RET_VOID },
+    { "register_include_ops", GC_RET_VOID },
     { "register_lib_ops", GC_RET_VOID },
     { "register_op_directive", GC_RET_VOID },
     { "register_op_one", GC_RET_VOID },
