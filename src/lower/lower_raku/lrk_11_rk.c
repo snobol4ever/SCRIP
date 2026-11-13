@@ -271,6 +271,18 @@ void rk_rw_subs(const tree_t * t, rk_rwmap_t * m) {
 void rk_rw_calls(tree_t * t, const rk_rwmap_t * m, int in_blk) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_rw_calls(t->c[i], m, in_blk || (t->c[i] && t->c[i]->t == TT_ANON_BLOCK));
+    if (!in_blk && t->t == TT_METHCALL && t->n >= 3 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval) {
+        for (int j = 0; j < m->n; j++) {
+            if (strcmp(m->nm[j], t->c[1]->v.sval)) continue;
+            for (int k = 0; k < m->np[j] && 2 + k < t->n; k++) {
+                if (!(m->mask[j] & (1ULL << k))) continue;
+                tree_t * a = t->c[2 + k];
+                if (rk_is_scalar_name(a) && a->n == 0) a->slen |= RK_VF_RAW;
+                else if (a && a->t == TT_ARR_GET && a->n >= 2) t->c[2 + k] = rk_bind_ref(a);
+            }
+        }
+        return;
+    }
     if (in_blk || t->t != TT_FNC || !t->v.sval) return;
     for (int j = 0; j < m->n; j++) {
         if (strcmp(m->nm[j], t->v.sval) || t->n - 1 != m->np[j]) continue;
@@ -283,6 +295,96 @@ void rk_rw_calls(tree_t * t, const rk_rwmap_t * m, int in_blk) {
         return;
     }
 }
+static tree_t * rk_formal_var(tree_t * pv) { if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; return pv && pv->t == TT_VAR && pv->v.sval ? pv : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rw_method_deref_one(tree_t * sd, const rk_rwmap_t * m) {
+    if (!sd->n || !sd->c[0] || !sd->c[0]->v.sval) return;
+    int np = (int) sd->v.ival - 1, added = 0;
+    for (int j = 0; j < m->n; j++) {
+        if (strcmp(m->nm[j], sd->c[0]->v.sval)) continue;
+        for (int k = 0; k < np && 1 + k < sd->n; k++) {
+            tree_t * pv = rk_formal_var(sd->c[1 + k]);
+            if (!(m->mask[j] & (1ULL << k)) || !pv || rk_param_is_rw(pv) || (pv->slen & RK_PV_RAW) || pv->v.sval[0] == '@' || pv->v.sval[0] == '%' || pv->v.sval[0] == '&') continue;
+            tree_t * d = rk_fnc_of("__rk_deref", sd->line);
+            ast_push(d, leaf_sval2(TT_VAR, pv->v.sval));
+            tree_t * as = ast_node_new(TT_ASSIGN);
+            as->line = sd->line;
+            ast_push(as, leaf_sval2(TT_VAR, pv->v.sval));
+            ast_push(as, d);
+            ast_push(sd, as);
+            for (int i = sd->n - 1; i > 1 + np + added; i--) sd->c[i] = sd->c[i - 1];
+            sd->c[1 + np + added] = as;
+            added++;
+        }
+        return;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_rw_method_deref(tree_t * t, const rk_rwmap_t * m) {
+    if (!t) return;
+    int pkg = t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL;
+    for (int i = 0; i < t->n; i++) { if (pkg && t->c[i] && t->c[i]->t == TT_SUB_DECL) rk_rw_method_deref_one(t->c[i], m); rk_rw_method_deref(t->c[i], m); }
+}
+static const char * rk_rw_tail_attr(const tree_t * sd) {
+    const tree_t * c = sd->n > 1 ? sd->c[sd->n - 1] : NULL;
+    if (c && c->t == TT_RETURN && c->n == 1) c = c->c[0];
+    return c && c->t == TT_TWIGIL_FIELD && c->v.sval ? c->v.sval : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rw_add_setter(tree_t * cls, const char * m, const char * attr) {
+    char nm[256];
+    snprintf(nm, sizeof nm, "__rwset_%s", m);
+    tree_t * sd = ast_node_new(TT_SUB_DECL);
+    sd->line = cls->line;
+    sd->v.ival = 2;
+    ast_push(sd, leaf_sval2(TT_VAR, intern(nm)));
+    ast_push(sd, leaf_sval2(TT_VAR, "__rwv"));
+    tree_t * as = ast_node_new(TT_ASSIGN);
+    as->line = cls->line;
+    ast_push(as, leaf_sval2(TT_TWIGIL_FIELD, attr));
+    ast_push(as, leaf_sval2(TT_VAR, "__rwv"));
+    ast_push(sd, as);
+    ast_push(cls, sd);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rw_collect(tree_t * t, rk_ns_t * names) {
+    if (!t) return;
+    if (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL) for (int i = 0; i < t->n; i++) {
+        const tree_t * sd = t->c[i];
+        if (sd && sd->t == TT_SUB_DECL && (sd->slen & RK_PV_RW) && sd->n && sd->c[0] && sd->c[0]->v.sval && rk_rw_tail_attr(sd)) rk_ns_add(names, sd->c[0]->v.sval);
+    }
+    for (int i = 0; i < t->n; i++) rk_rw_collect(t->c[i], names);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rw_gen_setters(tree_t * t, const rk_ns_t * names) {
+    if (!t) return;
+    if (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL) {
+        int n0 = t->n;
+        for (int i = 0; i < n0; i++) {
+            const tree_t * sd = t->c[i];
+            if (sd && sd->t == TT_SUB_DECL && (sd->slen & RK_PV_RW) && sd->n && sd->c[0] && sd->c[0]->v.sval && rk_rw_tail_attr(sd)) rk_rw_add_setter(t, sd->c[0]->v.sval, rk_rw_tail_attr(sd));
+            else if (sd && sd->t == TT_RW_DECL && sd->v.sval && sd->v.sval[0] == '.' && rk_ns_has(names, sd->v.sval + 1)) rk_rw_add_setter(t, sd->v.sval + 1, sd->v.sval + 1);
+        }
+    }
+    for (int i = 0; i < t->n; i++) rk_rw_gen_setters(t->c[i], names);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rw_assign_calls(tree_t * t, const rk_ns_t * names) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_rw_assign_calls(t->c[i], names);
+    if (t->t != TT_ASSIGN || t->n < 2 || !t->c[0] || t->c[0]->t != TT_FIELD || t->c[0]->n < 1 || !t->c[0]->v.sval || !rk_ns_has(names, t->c[0]->v.sval)) return;
+    char nm[256];
+    snprintf(nm, sizeof nm, "__rwset_%s", t->c[0]->v.sval);
+    tree_t * obj = t->c[0]->c[0], * rhs = t->c[1];
+    t->t = TT_METHCALL;
+    t->v.ival = 0;
+    t->n = 0;
+    ast_push(t, obj);
+    ast_push(t, leaf_sval2(TT_QLIT, intern(nm)));
+    ast_push(t, rhs);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_rw_method_setters(tree_t * prog) { rk_ns_t names = { 0 }; rk_rw_collect(prog, &names); if (!names.n) return; rk_rw_gen_setters(prog, &names); rk_rw_assign_calls(prog, &names); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_user_sub_named(const tree_t * prog, const char * nm) {
     size_t l = strlen(nm);

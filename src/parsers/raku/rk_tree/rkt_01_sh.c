@@ -752,7 +752,7 @@ tree_t *rkb_self_sig(RkB *b, tree_t *sig) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr) {
-    (void) prefix; (void) has_parens; (void) tr; (void) ntr;
+    (void) prefix; (void) has_parens;
     TL params = { 0 };
     for (int i = 0; sig && i < sig->n; i++) tl_add(&params, sig->c[i]);
     rk_pcv_release(b, sig);
@@ -774,6 +774,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mn); expr_add_child(e, nn);
     for (int i = 0; i < params.n; i++) expr_add_child(e, params.v[i]);
     for (int i = 0; i < rkbody->n; i++) expr_add_child(e, rkbody->c[i]);
+    for (int i = 0; kind != 0 && i < ntr; i++) if (tr[i].word && tr[i].name && !strcmp(tr[i].word, "is") && (!strcmp(tr[i].name, "rw") || !strcmp(tr[i].name, "raw"))) e->slen |= RK_PV_RW;
     (void) b;
     return e;
 }
