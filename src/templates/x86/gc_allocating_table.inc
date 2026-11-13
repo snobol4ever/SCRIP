@@ -966,6 +966,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "lower_trace_operand", GC_RET_OTHER },
     { "lower_until", GC_RET_OTHER },
     { "lpad_fn", GC_RET_DESCR },
+    { "lrk_spread_call", GC_RET_OTHER },
     { "lt", GC_RET_OTHER },
     { "make_kw_cset", GC_RET_DESCR },
     { "mk_call", GC_RET_OTHER },
