@@ -30,7 +30,7 @@ void sno_error_quiet_end(void) { sno_err_quiet = 0; }
 int sno_error_quiet_on(void) { return sno_err_quiet; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
-static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; int d_code; int d_line; const char *d_text; char *d_file; int d_refused; int d_eline; char *d_efile; int d_pend; int gt_s; int gt_f; int gt_pre; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1, 0, 0, (const char *)0, (char *)0, 0, 0, (char *)0, 0, 0, 0, 0 };
+static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; int d_code; int d_line; const char *d_text; char *d_file; int d_refused; int d_eline; char *d_efile; int d_pend; int gt_s; int gt_f; int gt_pre; int q_line; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1, 0, 0, (const char *)0, (char *)0, 0, 0, (char *)0, 0, 0, 0, 0, 0 };
 static int   g_nofail_mode = 0;
 int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static int   g_case_fold = 0;
@@ -609,7 +609,7 @@ static void sno_gt_field(int ln) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_diag_refuse(int ln) {
     if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", "parse error: syntax error"); sno_nerrors++; return; }
-    if (g_stmt_pos.d_refused) return;
+    if (g_stmt_pos.d_refused || (ln == g_stmt_pos.q_line && !g_stmt_pos.d_code)) return;
     g_stmt_pos.d_refused = 1; g_stmt_pos.d_eline = ln + incl_start_stack[incl_stack_depth].line_delta; ct_drop(g_stmt_pos.d_efile); g_stmt_pos.d_efile = ct_strdup(sno_frame_file());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -633,11 +633,11 @@ static void sno_syn_term(Lex *lx, int ln) {
     int top = lx->syn_n ? lx->syn_lev[lx->syn_n - 1] : 0;
     if (top == 6) { sno_diag(227, "syntax error: right paren missing from goto", ln, 0); return; }
     if (lx->syn_goto && !top) return;
-    if (lx->syn_s == 1) { sno_diag(221, "syntax error: missing operand", ln, 0); return; }
+    if (lx->syn_s == 1) { if (g_stmt_pos.q_line != ln) sno_diag(221, "syntax error: missing operand", ln, 0); return; }
     if (top == 1) sno_diag(227, "syntax error: right paren missing from goto", ln, 0);
     else if (top == 2) sno_diag(228, "syntax error: right bracket missing from goto", ln, 0);
     else if (top == 3) sno_diag(229, "syntax error: missing right array bracket", ln, 0);
-    else if (top == 4 || top == 5) sno_diag(226, "syntax error: missing right paren", ln, 0);
+    else if (top == 4 || top == 5) { sno_diag(226, "syntax error: missing right paren", ln, 0); g_stmt_pos.q_line = ln; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_syn(Lex *lx, int tok, int ln) {
