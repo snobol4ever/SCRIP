@@ -141,6 +141,7 @@ void rk_bind_refs(tree_t * t, int in_blk) {
     for (int i = 0; i < t->n; i++) rk_bind_refs(t->c[i], in_blk || (t->c[i] && t->c[i]->t == TT_ANON_BLOCK));
     int ebind = t->t == TT_ARR_SET && t->v.ival == 2 && t->n == 3;
     if (in_blk) { if (rk_is_scalar_bind(t) || ebind) t->v.ival = 0; return; }
+    if (t->t == TT_ASSIGN && t->v.ival == 2 && t->n > 1 && t->c[0] && t->c[0]->t == TT_TWIGIL_FIELD) { t->c[1] = rk_bind_ref(t->c[1]); return; }
     if (rk_is_scalar_bind(t)) { t->c[0]->slen |= RK_VF_RAW; t->c[1] = rk_bind_ref(t->c[1]); return; }
     if (ebind) {
         tree_t * c0 = t->c[0], * c1 = t->c[1], * c2 = rk_bind_ref(t->c[2]);
@@ -385,6 +386,53 @@ static void rk_rw_assign_calls(tree_t * t, const rk_ns_t * names) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_rw_method_setters(tree_t * prog) { rk_ns_t names = { 0 }; rk_rw_collect(prog, &names); if (!names.n) return; rk_rw_gen_setters(prog, &names); rk_rw_assign_calls(prog, &names); }
+static void rk_attr_collect_binds(const tree_t * t, rk_ns_t * names) {
+    if (!t) return;
+    if (t->t == TT_ASSIGN && t->v.ival == 2 && t->n > 1 && t->c[0] && t->c[0]->t == TT_TWIGIL_FIELD && t->c[0]->v.sval) rk_ns_add(names, t->c[0]->v.sval);
+    for (int i = 0; i < t->n; i++) rk_attr_collect_binds(t->c[i], names);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_attr_rewrite(tree_t * t, const rk_ns_t * names) {
+    if (!t) return;
+    int tw = t->t == TT_ASSIGN && t->n > 1 && t->c[0] && t->c[0]->t == TT_TWIGIL_FIELD && t->c[0]->v.sval && rk_ns_has(names, t->c[0]->v.sval);
+    if (tw && t->v.ival == 2) { rk_attr_rewrite(t->c[1], names); return; }
+    if (tw) {
+        rk_attr_rewrite(t->c[1], names);
+        tree_t * nm = leaf_sval2(TT_QLIT, t->c[0]->v.sval), * rhs = t->c[1];
+        t->t = TT_FNC;
+        t->v.sval = (char *) "__rk_attr_assign";
+        t->v.ival = 0;
+        t->n = 0;
+        ast_push(t, leaf_sval2(TT_VAR, "__rk_attr_assign"));
+        ast_push(t, leaf_sval2(TT_VAR, "self"));
+        ast_push(t, nm);
+        ast_push(t, rhs);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) rk_attr_rewrite(t->c[i], names);
+    if (t->t == TT_TWIGIL_FIELD && t->v.sval && rk_ns_has(names, t->v.sval)) {
+        tree_t * inner = ast_node_new(TT_TWIGIL_FIELD);
+        inner->line = t->line;
+        inner->v = t->v;
+        inner->slen = t->slen;
+        t->t = TT_FNC;
+        t->v.sval = (char *) "__rk_deref";
+        t->v.ival = 0;
+        t->n = 0;
+        ast_push(t, leaf_sval2(TT_VAR, "__rk_deref"));
+        ast_push(t, inner);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_attr_bound_refs(tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL) {
+        rk_ns_t names = { 0 };
+        rk_attr_collect_binds(t, &names);
+        if (names.n) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_SUB_DECL) rk_attr_rewrite(t->c[i], &names);
+    }
+    for (int i = 0; i < t->n; i++) rk_attr_bound_refs(t->c[i]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_user_sub_named(const tree_t * prog, const char * nm) {
     size_t l = strlen(nm);

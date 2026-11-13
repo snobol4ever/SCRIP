@@ -335,6 +335,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bt___rk_arr_values", GC_RET_DESCR },
     { "bt___rk_arr_xx", GC_RET_DESCR },
     { "bt___rk_assign_check", GC_RET_DESCR },
+    { "bt___rk_attr_assign", GC_RET_DESCR },
     { "bt___rk_before", GC_RET_DESCR },
     { "bt___rk_bor", GC_RET_DESCR },
     { "bt___rk_box", GC_RET_DESCR },

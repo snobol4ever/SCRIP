@@ -72,7 +72,7 @@ static int rk_cap_synchronous(const tree_t * parent, int idx) {
 static void rk_cap_assign_through(tree_t * t, const rk_ns_t * F) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     for (int i = 0; i < t->n; i++) rk_cap_assign_through(t->c[i], F);
-    if (rk_is_scalar_bind(t)) return;
+    if (rk_is_scalar_bind(t) || (t->t == TT_ASSIGN && t->v.ival == 2 && t->n > 1 && t->c[0] && t->c[0]->t == TT_TWIGIL_FIELD)) return;
     if (t->t == TT_ASSIGN && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && rk_ns_has(F, t->c[1]->v.sval)) {
         tree_t * rd = ast_node_new(TT_FNC);
         rd->v.sval = (char *) "__rk_deref";
@@ -556,7 +556,11 @@ void rk_hoist_nested_multis(tree_t * prog) {
     const tree_t * top[cap];
     tree_t * out[cap];
     rk_mhoist_t h = { top, 0, out, 0 };
-    for (int i = 0; i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) { const tree_t * sub = lrk_stmt_subj(d); if (sub) d = sub; } if (rk_is_multi_decl(d)) top[h.ntop++] = d; }
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = lrk_stmt_subj(d); if (sub) d = sub; }
+        if (rk_is_multi_decl(d)) top[h.ntop++] = d;
+    }
     rk_hoist_multis_walk(&h, prog, NULL);
     for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
 }

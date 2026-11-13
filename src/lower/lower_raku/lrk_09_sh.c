@@ -116,7 +116,12 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 *res = nd;
                 return nd;
             }
-            if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Nil") && !rk_is_class_name("Nil")) { IR_t * nd = lrk_build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_undef"; *res = nd; return nd; }
+            if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Nil") && !rk_is_class_name("Nil")) {
+                IR_t * nd = lrk_build(cx, IR_CALL, γ, ω);
+                IR_LIT(nd).sval = "__rk_undef";
+                *res = nd;
+                return nd;
+            }
             if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "pi") && !rk_is_class_name("pi")) {
                 IR_t * nd = lrk_build(cx, IR_LIT_REAL, γ, ω);
                 IR_LIT(nd).dval = 3.141592653589793;
@@ -193,8 +198,20 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 ast_push(pf, leaf_sval2(TT_QLIT, t->v.sval));
                 return lower_rv(cx, pf, γ, ω, res);
             }
-            if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) { IR_t * nd = lrk_build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_mkcplx_i"; *res = nd; return nd; }
-            if (rk_var_byref(cx, t)) { IR_t * dr = lrk_build(cx, IR_DEREF, γ, ω); IR_t * v = lrk_build(cx, IR_VAR, dr, ω); IR_LIT(v).sval = t->v.sval; ir_operand_push(dr, v); *res = dr; return v; }
+            if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) {
+                IR_t * nd = lrk_build(cx, IR_CALL, γ, ω);
+                IR_LIT(nd).sval = "__rk_mkcplx_i";
+                *res = nd;
+                return nd;
+            }
+            if (rk_var_byref(cx, t) && !(t->slen & RK_VF_RAW)) {
+                IR_t * dr = lrk_build(cx, IR_DEREF, γ, ω);
+                IR_t * v = lrk_build(cx, IR_VAR, dr, ω);
+                IR_LIT(v).sval = t->v.sval;
+                ir_operand_push(dr, v);
+                *res = dr;
+                return v;
+            }
             IR_t * nd = lrk_build(cx, IR_VAR, γ, ω);
             IR_LIT(nd).sval = t->v.sval;
             *res = nd;
@@ -1219,7 +1236,15 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
             return lower_rcall(cx, t, "obj_new", 0, γ, ω, res);
         }
         case TT_TWIGIL_FIELD:
-        { IR_t * nd = lrk_build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = lrk_build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv; }
+        {
+            IR_t * nd = lrk_build(cx, IR_FIELD_GET, γ, ω);
+            IR_LIT(nd).sval = t->v.sval;
+            IR_t * sv = lrk_build(cx, IR_VAR, nd, ω);
+            IR_LIT(sv).sval = "self";
+            ir_operand_push(nd, sv);
+            *res = nd;
+            return sv;
+        }
         case TT_FIELD:
         {
             const char * fname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;

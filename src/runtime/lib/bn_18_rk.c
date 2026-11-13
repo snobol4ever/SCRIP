@@ -687,6 +687,16 @@ DESCR_t bt___rk_run_child(DESCR_t *args, int nargs) {
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
 DESCR_t bt___rk_deref(DESCR_t *args, int nargs) { if (nargs == 1) { extern DESCR_t rt_deref(DESCR_t d); return rt_deref(args[0]); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
+DESCR_t bt___rk_attr_assign(DESCR_t *args, int nargs) {
+    if (nargs != 3) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+    const char *fname = VARVAL_fn(args[1]);
+    DESCR_t *cell = data_field_ptr(fname ? fname : "", args[0]);
+    if (!cell) return args[2];
+    if (cell->v == DT_N) { DESCR_t rv = rtx_try_rt_assign_var(*cell, args[2]); return IS_FAIL_fn(rv) ? args[2] : rv; }
+    *cell = args[2];
+    return args[2];
+}
 DESCR_t bt___rk_elem_ref(DESCR_t *args, int nargs) {
     if (nargs == 2) {
         extern ARBLK_t *array_new(int lo, int hi);

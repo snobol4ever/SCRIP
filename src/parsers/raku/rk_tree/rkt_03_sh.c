@@ -506,7 +506,9 @@ tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     if (eq && plain(t0, 'T') && L->n == 1) {
         tree_t *rhs = el_rest(b, e0);
         tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(t0->name + 1));
-        return expr_binary(TT_ASSIGN, fe, rhs);
+        tree_t *as = expr_binary(TT_ASSIGN, fe, rhs);
+        if (!strcmp(op1, ":=")) as->v.ival = 2;
+        return as;
     }
     if (eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && t0->t && L->n > 1 && t0->t->t == TT_HASH_GET && t0->t->n >= 2 && rk_is_slice_key(t0->t->c[1])) {
         tree_t *g = t0->t;

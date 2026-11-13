@@ -605,6 +605,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_minmax_fns((tree_t *) prog, prog, rk_user_sub_named(prog, "max"), rk_user_sub_named(prog, "min"));
     { int rseq = 0; rk_rw_loops((tree_t *) prog, &rseq); }
     rk_rw_method_setters((tree_t *) prog);
+    rk_attr_bound_refs((tree_t *) prog);
     { rk_rwmap_t rm = { 0 }; rk_rw_subs(prog, &rm); if (rm.n) { rk_rw_calls((tree_t *) prog, &rm, 0); rk_rw_method_deref((tree_t *) prog, &rm); } }
     rk_elem_store_values((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
