@@ -9,6 +9,7 @@ __attribute__((visibility("hidden"))) const char *pas_ov_psig(const tree_t *n);
 __attribute__((visibility("hidden"))) void pas_ov_tag(const char *psig);
 __attribute__((visibility("hidden"))) const char *pas_overload_name(const char *src, const char *psig);
 __attribute__((visibility("hidden"))) const char *pas_overload_pick(const char *src, PNodeList *args, int *np_out);
+__attribute__((visibility("hidden"))) const pty_t *pas_formal_type(const char *name, int idx);
 __attribute__((visibility("hidden"))) int pascal_sem_check(const tree_t *root, const char *filename);
 __attribute__((visibility("hidden"))) int pas_tree_has_event(const tree_t *t, const char *ev);
 __attribute__((visibility("hidden"))) void pas_iso_empty_strings(const tree_t *t);

@@ -194,6 +194,21 @@ const char *pas_overload_pick(const char *src, PNodeList *args, int *np_out) {
     return bestn ? bestn : firstn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const pty_t *pas_formal_type(const char *name, int idx) {
+    if (name && idx >= 0 && g_lower_pas.sem.pas_dialect_fpc) for (int i = g_lower_pas.sem.pas_scope.n - 1; i >= 0; i--) {
+        const PasDef *d = &g_lower_pas.sem.pas_scope.defs[i];
+        int sib = 0;
+        if (!d->name || d->fld || !d->rid || !d->ov || strcmp(d->alias ? d->alias : d->name, name)) continue;
+        for (int j = 0; j < g_lower_pas.sem.pas_scope.n; j++) {
+            const PasDef *o = &g_lower_pas.sem.pas_scope.defs[j];
+            if (o != d && o->name && !o->fld && o->rid && o->ov && o->depth == d->depth && !strcmp(o->name, d->name)) sib = 1;
+        }
+        if (sib) { int byref = 0; const char *tn = pas_ov_ptype(d->ov, idx, &byref); const pty_t *t = tn ? pty_named_type(tn) : NULL; if (t) return t; }
+        break;
+    }
+    return pty_formal_type(name, idx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t *pas_sem_proc_at(const tree_t *root, int k) {
     if (!root || k < 0 || k >= root->n) return NULL;
     const tree_t *w = root->c[k];

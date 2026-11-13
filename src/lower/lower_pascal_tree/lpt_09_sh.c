@@ -14,6 +14,7 @@
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
 #include "lower/lower_pascal_tree/lpt_09_sh.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
+#include "lower/lower_pascal_tree/lpt_12_pas.h"
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 tree_t *mk_call_raw(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
@@ -949,7 +950,7 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                 tree_t *val = args->items[i];
                 int _pidx = i / 2;
                 if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx)) {
-                    const pty_t *_xf = pty_formal_type(name, _pidx), *_xa = pty_of_low(val);
+                    const pty_t *_xf = pas_formal_type(name, _pidx), *_xa = pty_of_low(val);
                     int _fr = pty_real_rank(_xf), _ar = pty_real_rank(_xa);
                     if (_fr == 2 && IS(val, TT_FLIT)) val = pas_xr_wrap(val, val);
                     else if (_fr == 2 && _ar != 2 && (_ar >= 0 || (_xa && _xa->k == PTK_INT))) val = pas_xr_cvtn(2, val);
@@ -960,12 +961,12 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     if (val && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx) && pas_row_designator(val, _rd)) val = mk_row_call("__pas_row_get", val, _rd, NULL);
                 }
                 if (val && val->t != TT_ILIT && (pas_is_proc(name) || pas_is_func(name)) && !pas_proc_param_is_var(name, _pidx)) {
-                    const pty_t *_wf = pty_formal_type(name, _pidx);
+                    const pty_t *_wf = pas_formal_type(name, _pidx);
                     const char *_wt = _wf ? pty_name_of(_wf) : NULL;
                     if (_wt) val = pas_wrap_to_tn(val, _wt, 0);
                 }
                 if (g_lower_pas.sem.pas_ptrcell && val && (pas_is_proc(name) || pas_is_func(name))) {
-                    const pty_t *_ft = pty_formal_type(name, _pidx), *_at = pty_of_low(val);
+                    const pty_t *_ft = pas_formal_type(name, _pidx), *_at = pty_of_low(val);
                     int _cl = val->t == TT_FNC && val->n == 2 && val->c[0] && val->c[0]->v.sval && !strcmp(val->c[0]->v.sval, "__pas_chrlit") && val->c[1] && val->c[1]->t == TT_ILIT;
                     if (_ft && pty_is_pchar(_ft) && _cl) {
                         char _cb[2] = { (char) val->c[1]->v.ival, 0 };
@@ -993,7 +994,7 @@ tree_t *mk_call_raw(const char *name, PNodeList *args) {
                     long long _lo = pas_caparm_lo(name, _pidx);
                     long long _hi = _lo + (long long)strlen(val->v.sval) - 1;
                     if (g_lower_pas.sem.pas_dialect_fpc) {
-                        const pty_t *_cf = pty_formal_type(name, _pidx);
+                        const pty_t *_cf = pas_formal_type(name, _pidx);
                         const char *_cn = _cf ? pty_name_of(_cf) : NULL;
                         long long _th = _cn ? pas_arrtype_high(_cn) : -1;
                         if (_th > _hi) _hi = _th;

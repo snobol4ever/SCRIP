@@ -1429,6 +1429,7 @@ const pty_t *pty_type_by_name(const char *name) {
     for (pscope_t *c = s->ecur; name && c; c = c->up) for (psym_t *p = c->s; p; p = p->next) if (p->k == 't' && p->name && !strcmp(p->name, name)) return p->t;
     return NULL;
 }
+const pty_t *pty_named_type(const char *name) { struct pty_state *s = pt_st(); return s && s->ecur && name ? pt_named(s, name) : NULL; }
 static const pty_t *pt_tn(struct pty_state *s, const char *name, pty_t *tmp) {
     if (!s || !s->ecur || !name) return NULL;
     if (!strncmp(name, "$open$", 6)) { memset(tmp, 0, sizeof *tmp); tmp->k = PTK_ARRAY; tmp->dyn = 1; tmp->open = 1; tmp->base = pt_named(s, name + 6); return tmp; }
