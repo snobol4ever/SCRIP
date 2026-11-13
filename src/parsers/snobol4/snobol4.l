@@ -535,7 +535,7 @@ G       ({WS}|{CONT})*
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
 <GT>"<"{G}              { if (gt_depth == 0) sno_gt_field(lineno); if (gt_depth > 0) { yyless(1); gt_depth++; if (gt_have_operand) { gt_have_operand=0; return T_LANGLE; } gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 <GT>">"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
-<GT>"$"                 { if (gt_depth == 0) sno_diag(234, "syntax error: goto field incorrect", lineno, 1); return T_1DOLLAR; }
+<GT>"$"                 { if (gt_depth == 0) sno_diag(233, "syntax error: invalid use of operator", lineno, 1); return T_1DOLLAR; }
 <GT>"["                 { if (gt_depth > 0) { gt_depth++; gt_have_operand=0; return T_LBRACK; } }
 <GT>"]"                 { if (gt_depth > 0) { gt_depth--; gt_have_operand=1; return T_RBRACK; } }
 <GT>{ALPHA}{IDCONT}* {

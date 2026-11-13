@@ -1982,7 +1982,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 105:
 YY_RULE_SETUP
-{ if (gt_depth == 0) sno_diag(234, "syntax error: goto field incorrect", lineno, 1); return T_1DOLLAR; }
+{ if (gt_depth == 0) sno_diag(233, "syntax error: invalid use of operator", lineno, 1); return T_1DOLLAR; }
 	YY_BREAK
 case 106:
 YY_RULE_SETUP
