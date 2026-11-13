@@ -427,6 +427,24 @@ void zd_check_g(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char 
             break;
         }
     }
+    for (int d = 0; d < n; d++) {
+        if (!zon[d] || nodes[d]->op != IR_DISJUNCTION) continue;
+        int N = (int)IR_LIT(nodes[d]).ival;
+        IR_t * jn = zd_chase(nodes[d]->γ.node);
+        for (int j = 0; j < N && 2 * j + 1 < nodes[d]->n_operands; j++) {
+            IR_t * r = nodes[d]->operands[2 * j + 1];
+            int q = (r && r != nodes[d]) ? nidx(nodes, n, r) : -1;
+            for (int g = 0; q >= 0 && zon[q] && g++ < n; ) {
+                int fo = (int)nodes[q]->op;
+                if (fo == IR_UNMARK || fo == IR_CUT || fo == IR_BOUND || fo == IR_LIMIT || fo == IR_RETURN || fo == IR_MATCH_END) break;
+                if (zgpop[q] != 0)
+                    fprintf(stderr, "[ZD-CHECK]   ARM-END-POP d=%d arm=%d i=%d %s gpop=%d expects=0 (reported, not counted)\n", d, j, q, bb_op_name(nodes[q]->op), zgpop[q]);
+                IR_t * t = zd_chase(nodes[q]->γ.node);
+                if (!t || t == nodes[d] || t == jn) break;
+                q = nidx(nodes, n, t);
+            }
+        }
+    }
     fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
 }
 static int zd_has_match(IR_t ** nodes, int n) {
