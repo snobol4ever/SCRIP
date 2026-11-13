@@ -635,6 +635,13 @@ DESCR_t bt___rk_rep(DESCR_t *args, int nargs) {
         if (!src) src = "";
         if (n < 0) n = 0;
         size_t L = strlen(src);
+        char m[160];
+        if (n > 4294967295LL) { snprintf(m, sizeof m, "Repeat count (%lld) cannot be greater than max allowed number of graphemes 4294967295", n); rk_io_fail("X::AdHoc", m); return FAILDESCR; }
+        if (L && (unsigned long long) n > 4294967295ULL / L) {
+            snprintf(m, sizeof m, "Can't repeat string, required number of graphemes (%zu * %lld) greater than max allowed of 4294967295", L, n);
+            rk_io_fail("X::AdHoc", m);
+            return FAILDESCR;
+        }
         char *buf = rt_wsb_alloc(L * (size_t)(n > 0 ? n : 0) + 1);
         size_t p = 0;
         for (long long k = 0; k < n; k++) { memcpy(buf + p, src, L); p += L; }
