@@ -620,7 +620,7 @@ tree_t *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_given(RkB *b, RkList *topic, tree_t *whens) {
-    tree_t *ec = ast_node_new(TT_CASE); expr_add_child(ec, rkb_expr(b, topic));
+    tree_t *ec = ast_node_new(TT_CASE); expr_add_child(ec, rk_pointy_cond(b, whens, rkb_expr(b, topic)));
     for (int i = 0; whens && i < whens->n; i++) expr_add_child(ec, whens->c[i]);
     return ec;
 }
