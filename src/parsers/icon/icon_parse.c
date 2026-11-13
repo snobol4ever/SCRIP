@@ -748,6 +748,7 @@ static tree_t *icn_conj2(tree_t *a, tree_t *b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *icn_unlock_after(tree_t *e, const IcnCrit *st, int n);
+static int icn_crit_plain(const tree_t *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *icn_crit_exit(tree_t *n, const IcnCrit *st) {
     if (n->t == TT_PROC_FAIL || (n->t == TT_RETURN && n->n == 0)) return icn_conj2(icn_unlock_chain(st, -1), n);
@@ -759,6 +760,7 @@ static tree_t *icn_unlock_after(tree_t *e, const IcnCrit *st, int n) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     tree_t *me = ast_node_new(TT_FNC);
     push_child(me, one); push_child(me, e); push_child(me, icn_unlock_chain(st, n));
+    if (icn_crit_plain(e)) return me;
     tree_t *one2 = ast_node_new(TT_ILIT); one2->v.ival = 1;
     tree_t *lim = ast_node_new(TT_LIMIT);
     push_child(lim, icn_conj2(icn_unlock_chain(st, n), e_leaf_sval(TT_VAR, "&fail", -1))); push_child(lim, one2);
