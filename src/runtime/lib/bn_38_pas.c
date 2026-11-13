@@ -72,6 +72,8 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         goto L_pbi_172;
         case PBI_sstr_fit:
         goto L_pbi_900;
+        case PBI_sstr_store:
+        goto L_pbi_918;
         case PBI_glob_nth:
         goto L_pbi_901;
         case PBI_valcode:
@@ -558,6 +560,22 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         *out = BSTRVAL(o, n);
         return 1;
     }
+    L_pbi_918:
+    ;
+    if (id == PBI_sstr_store && nargs == 4) {
+        long long n = IS_INT_fn(args[3]) ? args[3].i : 255, ix = IS_INT_fn(args[1]) ? args[1].i : 0;
+        unsigned char ch = pas_ch_of(args[2]);
+        const char *c = IS_INT_fn(args[0]) ? "" : VARVAL_fn(args[0]);
+        if (!c) c = "";
+        if (ix < 0 || ix > n) pas_file_err("6.5.3.2", "an index value is not assignment-compatible with the index-type of the array", "__pas_sstr_store");
+        long long ln = (long long)pas_slen(args[0], c), nl = ix == 0 ? (ch > n ? n : ch) : (ix > ln ? ix : ln);
+        char *o = rt_wsb_alloc((size_t)nl + 1);
+        memset(o, 0, (size_t)nl + 1);
+        memcpy(o, c, (size_t)(ln < nl ? ln : nl));
+        if (ix > 0) o[ix - 1] = (char)ch;
+        *out = BSTRVAL(o, nl);
+        return 1;
+    }
     L_pbi_182:
     ;
     if (id == PBI_strf && nargs == 4) {
@@ -626,15 +644,15 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         const char *d = VARVAL_fn(args[0]), *sv = VARVAL_fn(args[2]);
         if (!d) d = "";
         if (!sv) sv = "";
-        long long dl = (long long)strlen(d), sl = (long long)strlen(sv), j = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, i = IS_INT_fn(args[3]) ? (long long)args[3].i : 1;
+        long long dl = (long long)pas_slen(args[0], d), sl = (long long)pas_slen(args[2], sv), j = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, i = IS_INT_fn(args[3]) ? (long long)args[3].i : 1;
         long long n = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, total = dl > j - 1 + n ? dl : j - 1 + n;
-        if (n < 0 || j < 1 || i < 1) { *out = STRVAL((char *)d); return 1; }
+        if (n < 0 || j < 1 || i < 1) { *out = args[0]; return 1; }
         char *o = rt_wsb_alloc((size_t)total + 1);
         memcpy(o, d, (size_t)dl);
         if (total > dl) memset(o + dl, ' ', (size_t)(total - dl));
         for (long long t = 0; t < n; t++) o[j - 1 + t] = (i - 1 + t < sl) ? sv[i - 1 + t] : ' ';
         o[total] = '\0';
-        *out = STRVAL(o);
+        *out = BSTRVAL(o, total);
         return 1;
     }
     L_pbi_230:

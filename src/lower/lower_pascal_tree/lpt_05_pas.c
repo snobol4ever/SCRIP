@@ -223,11 +223,7 @@ int pas_pf_decl_index(const char *callee, int xi) {
     const char *f;
     char k;
     if (!cd || !cd->sig || !strpbrk(cd->sig + 1, "PFr")) return xi;
-    for (int d = 0, at = 0; (k = pas_pf_param(cd->sig, d, &f)) != 0; d++) {
-        int w = (k == 'P' || k == 'F' || pas_pf_varproc(cd->sig, d)) ? 4 : 1;
-        if (xi < at + w) return xi == at ? d : -1;
-        at += w;
-    }
+    for (int d = 0, at = 0; (k = pas_pf_param(cd->sig, d, &f)) != 0; d++) { int w = (k == 'P' || k == 'F' || pas_pf_varproc(cd->sig, d)) ? 4 : 1; if (xi < at + w) return xi == at ? d : -1; at += w; }
     return xi;
 }
 static void pas_pf_candidate(const PasDef *d) {
@@ -428,6 +424,20 @@ pval E_assignment(const tree_t *n) {
     if (IS(n, TT_ASSIGN)) {
         if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && pas_pf_is_formal(n->c[0]->v.sval)) { out.node = pas_pf_assign(n); return out; }
         if (n->n == 2 && IS(n->c[0], TT_FIELD) && pas_pf_field_sig(n->c[0])) { out.node = pas_pf_field_assign(n); return out; }
+        if (n->n == 2 && IS(n->c[0], TT_IDX) && n->c[0]->n == 2 && IS(n->c[0]->c[1], TT_ILIT) && n->c[0]->c[1]->v.ival == 0) {
+            pval _b = E_selector(n->c[0]->c[0]);
+            int _n0 = pty_shortmax(_b.node);
+            if (_n0 > 0) {
+                tree_t *_s0 = ast_node_new(TT_FNC);
+                ast_push(_s0, leaf_s(TT_VAR, "__pas_sstr_store"));
+                ast_push(_s0, pas_tree_clone(_b.node));
+                ast_push(_s0, ilit(0));
+                ast_push(_s0, pas_bool(E_expression(n->c[1]).node));
+                ast_push(_s0, ilit(_n0));
+                out.node = pas_trace_assigned(pas_trace_lhs(_b.node), mk_assign(_b.node, _s0));
+                return out;
+            }
+        }
         v[1] = E_selector(n->c[0]);
         if (n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && !strcmp(n->c[2]->v.sval, "+=") && IS(n->c[1], TT_SET) && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
             return E_compound_statement(pas_dynarr_append_src(n->c[0], n->c[1]));
@@ -457,7 +467,16 @@ pval E_assignment(const tree_t *n) {
             }
             pas_deref_assign_compat(v[1].node, v[3].node);
             tree_t *_tl = pas_trace_lhs(v[1].node);
-            if (v[1].node && v[1].node->t == TT_FNC && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->v.sval &&
+            if (v[1].node && v[1].node->t == TT_IDX && v[1].node->n == 2 && pty_shortmax(v[1].node->c[0]) > 0) {
+                tree_t *_ss = ast_node_new(TT_FNC);
+                ast_push(_ss, leaf_s(TT_VAR, "__pas_sstr_store"));
+                ast_push(_ss, pas_tree_clone(v[1].node->c[0]));
+                ast_push(_ss, v[1].node->c[1]);
+                ast_push(_ss, pas_bool(v[3].node));
+                ast_push(_ss, ilit(pty_shortmax(v[1].node->c[0])));
+                out.node = pas_trace_assigned(_tl, mk_assign(v[1].node->c[0], _ss));
+            }
+                else if (v[1].node && v[1].node->t == TT_FNC && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->v.sval &&
                 (!strcmp(v[1].node->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(v[1].node->c[0]->v.sval, "__pas_tbuf_get"))) {
                 int _isqlit = v[3].node &&
                     (v[3].node->t == TT_QLIT || (v[3].node->t == TT_FNC && v[3].node->n >= 1 && v[3].node->c[0] && v[3].node->c[0]->v.sval && !strcmp(v[3].node->c[0]->v.sval, "__pas_chrlit")));
