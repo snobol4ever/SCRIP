@@ -2,6 +2,8 @@
 #include <unordered_set>
 #include "runtime/core/g_runtime.h"
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <cstdlib>
 #include <cstdio>
 #include "emitter/emit_medium.h"
@@ -983,9 +985,35 @@ static std::string pl_switch_ext(const char * op, bb_label_t * l) { return x86(o
 static int pl_switch_has(const pl_ix_arm_t * arms, int n, int tag) { return n > 0 && (arms[n - 1].tag == tag || pl_switch_has(arms, n - 1, tag)); }
 static std::string pl_switch_arm_ref(const pl_ix_arm_t * a) { return x86("cmp", "ecx", (long)a->val) + pl_switch_ext("je", a->to); }
 static std::string pl_switch_arm_val(const pl_ix_arm_t * a) { return x86_movabs_r64("rax", (uint64_t)a->val) + x86("cmp", "rsi", "rax") + pl_switch_ext("je", a->to); }
+static std::vector<const pl_ix_arm_t *> pl_sw_sorted(const pl_ix_arm_t * arms, int n, int tag) {
+    std::vector<const pl_ix_arm_t *> v;
+    for (int i = 0; i < n; i++) if (arms[i].tag == tag) v.push_back(&arms[i]);
+    std::stable_sort(v.begin(), v.end(), [tag](const pl_ix_arm_t * x, const pl_ix_arm_t * y) { return tag == DT_PLREF ? (int32_t)x->val < (int32_t)y->val : x->val < y->val; });
+    return v;
+}
+static int pl_sw_nodes(int n) { return n <= 8 ? 0 : 1 + pl_sw_nodes(n / 2) + pl_sw_nodes(n - n / 2 - 1); }
+static int pl_sw_cnt(const pl_ix_arm_t * arms, int n, int tag) { return (int)pl_sw_sorted(arms, n, tag).size(); }
+static std::string pl_sw_leaf(const std::vector<const pl_ix_arm_t *> & v, int lo, int hi, int tag, bb_label_t * fb) {
+    return lo >= hi ? pl_switch_ext("jmp", fb) : (tag == DT_PLREF ? pl_switch_arm_ref(v[lo]) : pl_switch_arm_val(v[lo])) + pl_sw_leaf(v, lo + 1, hi, tag, fb);
+}
+static std::string pl_sw_cmp(const pl_ix_arm_t * a, int tag) {
+    return tag == DT_PLREF ? x86("cmp", "ecx", (long)a->val) + pl_switch_ext("je", a->to) : x86_movabs_r64("rax", (uint64_t)a->val) + x86("cmp", "rsi", "rax") + pl_switch_ext("je", a->to);
+}
+static std::string pl_sw_tree(const std::vector<const pl_ix_arm_t *> & v, int lo, int hi, int tag, bb_label_t * fb, int base) {
+    return hi - lo <= 8 ? pl_sw_leaf(v, lo, hi, tag, fb)
+         : pl_sw_cmp(v[lo + (hi - lo) / 2], tag) + x86("jl", L(base)) + pl_sw_tree(v, lo + (hi - lo) / 2 + 1, hi, tag, fb, base + 1)
+         + x86("def", L(base)) + pl_sw_tree(v, lo, lo + (hi - lo) / 2, tag, fb, base + 1 + pl_sw_nodes(hi - lo - (hi - lo) / 2 - 1));
+}
+static std::string pl_sw_class(const pl_ix_arm_t * arms, int n, int tag, bb_label_t * fb, int base) {
+    std::vector<const pl_ix_arm_t *> v = pl_sw_sorted(arms, n, tag);
+    return pl_sw_tree(v, 0, (int)v.size(), tag, fb, base);
+}
 #define PLSW_REF() (pl_switch_has(arms, narms, DT_PLREF) || fb_ref != chain)
 #define PLSW_ATOM() (pl_switch_has(arms, narms, DT_PLATOM) || fb_atom != chain)
 #define PLSW_INT() (pl_switch_has(arms, narms, DT_I) || fb_int != chain)
+#define PLSW_BR 100
+#define PLSW_BA (PLSW_BR + pl_sw_nodes(pl_sw_cnt(arms, narms, DT_PLREF)))
+#define PLSW_BI (PLSW_BA + pl_sw_nodes(pl_sw_cnt(arms, narms, DT_PLATOM)))
 static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
     x86_begin();
     return x86("comment", "PL SWITCH (ARCH-PROLOG-C-OUT-OF-THE-BOX 11; the design of record's section 7.2, V1): the first argument's key -- a functor id, an atom id or a small integer -- "
@@ -1002,19 +1030,16 @@ static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int na
          + pl_switch_ext("jmp", chain)
          + IF(PLSW_REF(), x86("def", L(20))
                         + x86("mov", "ecx", RDD("rdi", 4))
-                        + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_PLREF, pl_switch_arm_ref(&arms[i])); })
-                        + pl_switch_ext("jmp", fb_ref))
+                        + pl_sw_class(arms, narms, DT_PLREF, fb_ref, PLSW_BR))
          + IF(PLSW_ATOM(), x86("def", L(30))
                          + x86("mov", "rsi", RDQ("rdi", 8))
-                         + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_PLATOM, pl_switch_arm_val(&arms[i])); })
-                         + pl_switch_ext("jmp", fb_atom))
+                         + pl_sw_class(arms, narms, DT_PLATOM, fb_atom, PLSW_BA))
          + IF(PLSW_INT(), x86("def", L(40))
                         + x86("mov", "ecx", RDD("rdi", 4))
                         + x86("test", "ecx", "ecx")
                         + pl_switch_ext("jne", chain)
                         + x86("mov", "rsi", RDQ("rdi", 8))
-                        + FOR(0, narms, [&](int i) { return IF(arms[i].tag == DT_I, pl_switch_arm_val(&arms[i])); })
-                        + pl_switch_ext("jmp", fb_int));
+                        + pl_sw_class(arms, narms, DT_I, fb_int, PLSW_BI));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_pl_switch(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {

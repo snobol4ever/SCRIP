@@ -520,7 +520,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                     for (int _q = _n0; _q < ix_n && !_dup; _q++) if (ix_val[_q] == _kval[_ak]) _dup = 1;
                     if (_dup) continue;
                     ix_tag[ix_n] = _ct; ix_val[ix_n] = _kval[_ak]; ix_code[ix_n] = _setcode(_ct, _kval[_ak], 1); ix_n++; _nk++; }
-                { int _fb; if (_nk > 64) { ix_n = _n0; ix_nset = _ns0; _nsi = _si0; _fb = -2; } else { if (_vset == -9) _vset = _setcode(0, 0, 0); _fb = _vset; }
+                { int _fb; if (_vset == -9) _vset = _setcode(0, 0, 0); _fb = _vset;
                   if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
             ix_switch = emit_label_alloc("%s_switch", fam); } }
     if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
