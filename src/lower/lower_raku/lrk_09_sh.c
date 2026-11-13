@@ -163,7 +163,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 ast_push(df, leaf_sval2(TT_QLIT, "Died"));
                 return lower_rv(cx, df, γ, ω, res);
             }
-            if ((t->slen & 1) && t->v.sval && rk_user_proc_exists(t->v.sval) && !rk_is_class_name(t->v.sval)) {
+            if ((t->slen & 1) && t->v.sval && (rk_user_proc_exists(t->v.sval) || rk_is_multi_name(t->v.sval)) && !rk_is_class_name(t->v.sval)) {
                 tree_t * cf = ast_node_new(TT_FNC);
                 cf->v.sval = t->v.sval;
                 ast_push(cf, leaf_sval2(TT_VAR, t->v.sval));
