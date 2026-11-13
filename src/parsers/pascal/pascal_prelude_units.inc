@@ -1522,73 +1522,6 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "end.\n";
 static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "{$mode objfpc}{$H+}\n"
-    "unit gdeque;\n"
-    "\n"
-    "{ SCRIP's own generic double-ended queue (row fpc-source-gdeque-is-a-prelude-unit): the surface the fpc-source\n"
-    "  members use, over a dynamic array. The observable behaviour mirrors fpc 3.2.2's gdeque.pp: Insert pushes back\n"
-    "  and shifts right, Erase shifts left and pops back, Size is the element count. Cut from fpc, not vendored. }\n"
-    "\n"
-    "interface\n"
-    "\n"
-    "type\n"
-    "  generic TDeque<T> = class\n"
-    "  private\n"
-    "    FData: array of T;\n"
-    "    FCount: Integer;\n"
-    "  public\n"
-    "    constructor Create;\n"
-    "    function Size: Integer;\n"
-    "    procedure PushBack(Value: T);\n"
-    "    procedure Insert(Position: Integer; Value: T);\n"
-    "    procedure Erase(Position: Integer);\n"
-    "  end;\n"
-    "\n"
-    "implementation\n"
-    "\n"
-    "constructor TDeque.Create;\n"
-    "begin\n"
-    "  FCount := 0;\n"
-    "end;\n"
-    "\n"
-    "function TDeque.Size: Integer;\n"
-    "begin\n"
-    "  Size := FCount;\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.PushBack(Value: T);\n"
-    "begin\n"
-    "  if FCount = Length(FData) then\n"
-    "    SetLength(FData, 2 * Length(FData) + 4);\n"
-    "  FData[FCount] := Value;\n"
-    "  Inc(FCount);\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.Insert(Position: Integer; Value: T);\n"
-    "var\n"
-    "  I: Integer;\n"
-    "begin\n"
-    "  PushBack(Value);\n"
-    "  for I := FCount - 1 downto Position + 1 do\n"
-    "    FData[I] := FData[I - 1];\n"
-    "  FData[Position] := Value;\n"
-    "end;\n"
-    "\n"
-    "procedure TDeque.Erase(Position: Integer);\n"
-    "var\n"
-    "  I: Integer;\n"
-    "begin\n"
-    "  if Position <= FCount then\n"
-    "  begin\n"
-    "    if FCount > 1 then\n"
-    "      for I := Position to FCount - 2 do\n"
-    "        FData[I] := FData[I + 1];\n"
-    "    Dec(FCount);\n"
-    "  end;\n"
-    "end;\n"
-    "\n"
-    "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
-    "{$mode objfpc}{$H+}\n"
     "unit generics.collections;\n"
     "interface\n"
     "uses generics.defaults;\n"
@@ -2298,7 +2231,7 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "initialization\n"
     "  __shg_crcok := false;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit generics.defaults;\n"
     "interface\n"
@@ -2321,7 +2254,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  Result := FCmp(L, R)\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$H+}\n"
     "unit gmp;\n"
     "interface\n"
@@ -2916,7 +2849,7 @@ static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "  end\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_14_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "{$H+}\n"
     "unit ioerr;\n"
     "interface\n"
@@ -2948,7 +2881,7 @@ static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "  __sh_rdiv := a / b\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_15_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: extended): extended;\n"
@@ -3041,45 +2974,82 @@ static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_16_SRC[] =
-    "{$mode objfpc}{$H+}\n"
-    "unit regex;\n"
+static const char PAS_PRELUDE_UNIT_15_SRC[] =
+    "unit objects;\n"
     "interface\n"
-    "uses RegExpr;\n"
+    "const\n"
+    "  stOk = 0;\n"
+    "  stError = -1;\n"
+    "  stInitError = -2;\n"
+    "  stReadError = -3;\n"
+    "  stWriteError = -4;\n"
+    "  stGetError = -5;\n"
+    "  stPutError = -6;\n"
+    "  stSeekError = -7;\n"
+    "  stOpenError = -8;\n"
+    "  stCreate = $3C00;\n"
+    "  stOpenRead = $3D00;\n"
+    "  stOpenWrite = $3D01;\n"
+    "  stOpen = $3D02;\n"
+    "  coIndexError = -1;\n"
+    "  coOverflow = -2;\n"
     "type\n"
-    "  TRegexError = (recNone, recSuddenEnd, recMetaChar, recNoCloseParen, recExtraChars);\n"
-    "  TRegexEngine = class\n"
-    "  private\n"
-    "    FPat: string;\n"
-    "    FRe: TRegExpr;\n"
-    "  public\n"
-    "    constructor Create(const aRegexStr: string);\n"
-    "    function Parse(out aErrorPos: integer; out aErrorCode: TRegexError): boolean;\n"
-    "    function MatchString(const S: string; out MatchPos: integer; var Offset: integer): boolean;\n"
+    "  TObject = object\n"
+    "    constructor Init;\n"
+    "    destructor Done;\n"
     "  end;\n"
+    "  PObject = ^TObject;\n"
+    "  TStream = object(TObject)\n"
+    "    Status: integer;\n"
+    "    ErrorInfo: integer;\n"
+    "    StreamSize: longint;\n"
+    "    Position: longint;\n"
+    "    constructor Init;\n"
+    "    destructor Done;\n"
+    "    function GetSize: longint;\n"
+    "    function GetPos: longint;\n"
+    "    procedure Seek(Pos: longint);\n"
+    "    procedure Error(Code, Info: integer);\n"
+    "  end;\n"
+    "  PStream = ^TStream;\n"
+    "var\n"
+    "  StreamError: pointer;\n"
     "implementation\n"
-    "constructor TRegexEngine.Create(const aRegexStr: string);\n"
+    "constructor TObject.Init;\n"
     "begin\n"
-    "  FPat := aRegexStr;\n"
-    "  FRe := nil\n"
     "end;\n"
-    "function TRegexEngine.Parse(out aErrorPos: integer; out aErrorCode: TRegexError): boolean;\n"
+    "destructor TObject.Done;\n"
     "begin\n"
-    "  aErrorPos := 0;\n"
-    "  aErrorCode := recNone;\n"
-    "  FRe := TRegExpr.Create(FPat);\n"
-    "  Parse := true\n"
     "end;\n"
-    "function TRegexEngine.MatchString(const S: string; out MatchPos: integer; var Offset: integer): boolean;\n"
-    "var sub: string;\n"
+    "constructor TStream.Init;\n"
     "begin\n"
-    "  MatchPos := 0;\n"
-    "  sub := Copy(S, Offset, Length(S));\n"
-    "  MatchString := FRe.Exec(sub);\n"
-    "  if MatchString then MatchPos := Offset + FRe.MatchPos[0] - 1\n"
+    "  Status := stOk;\n"
+    "  ErrorInfo := 0;\n"
+    "  StreamSize := 0;\n"
+    "  Position := 0\n"
+    "end;\n"
+    "destructor TStream.Done;\n"
+    "begin\n"
+    "end;\n"
+    "function TStream.GetSize: longint;\n"
+    "begin\n"
+    "  GetSize := StreamSize\n"
+    "end;\n"
+    "function TStream.GetPos: longint;\n"
+    "begin\n"
+    "  GetPos := Position\n"
+    "end;\n"
+    "procedure TStream.Seek(Pos: longint);\n"
+    "begin\n"
+    "  Position := Pos\n"
+    "end;\n"
+    "procedure TStream.Error(Code, Info: integer);\n"
+    "begin\n"
+    "  Status := Code;\n"
+    "  ErrorInfo := Info\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
+static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit RegExpr;\n"
     "interface\n"
@@ -3715,7 +3685,7 @@ static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "  r.Free;\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -3820,13 +3790,13 @@ static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_19_SRC[] =
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_20_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -4000,7 +3970,7 @@ static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_21_SRC[] =
+static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -4008,7 +3978,7 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_22_SRC[] =
+static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -4190,7 +4160,7 @@ static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -5213,7 +5183,7 @@ static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_24_SRC[] =
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -5234,13 +5204,13 @@ static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_25_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "{$mode objfpc}\n"
     "unit unicodeducet;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_26_SRC[] =
+static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5266,7 +5236,7 @@ static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_27_SRC[] =
+static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit uregexpr;\n"
     "interface\n"
@@ -5283,7 +5253,7 @@ static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_28_SRC[] =
+static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5300,24 +5270,23 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "dynlibs", PAS_PRELUDE_UNIT_7_SRC },
     { "fgl", PAS_PRELUDE_UNIT_8_SRC },
     { "fpwidestring", PAS_PRELUDE_UNIT_9_SRC },
-    { "gdeque", PAS_PRELUDE_UNIT_10_SRC },
-    { "generics.collections", PAS_PRELUDE_UNIT_11_SRC },
-    { "generics.defaults", PAS_PRELUDE_UNIT_12_SRC },
-    { "gmp", PAS_PRELUDE_UNIT_13_SRC },
-    { "ioerr", PAS_PRELUDE_UNIT_14_SRC },
-    { "math", PAS_PRELUDE_UNIT_15_SRC },
-    { "regex", PAS_PRELUDE_UNIT_16_SRC },
-    { "regexpr", PAS_PRELUDE_UNIT_17_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_18_SRC },
-    { "strings", PAS_PRELUDE_UNIT_19_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_20_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_21_SRC },
-    { "system", PAS_PRELUDE_UNIT_22_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_23_SRC },
-    { "types", PAS_PRELUDE_UNIT_24_SRC },
-    { "unicodeducet", PAS_PRELUDE_UNIT_25_SRC },
-    { "unix", PAS_PRELUDE_UNIT_26_SRC },
-    { "uregexpr", PAS_PRELUDE_UNIT_27_SRC },
-    { "variants", PAS_PRELUDE_UNIT_28_SRC },
+    { "generics.collections", PAS_PRELUDE_UNIT_10_SRC },
+    { "generics.defaults", PAS_PRELUDE_UNIT_11_SRC },
+    { "gmp", PAS_PRELUDE_UNIT_12_SRC },
+    { "ioerr", PAS_PRELUDE_UNIT_13_SRC },
+    { "math", PAS_PRELUDE_UNIT_14_SRC },
+    { "objects", PAS_PRELUDE_UNIT_15_SRC },
+    { "regexpr", PAS_PRELUDE_UNIT_16_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_17_SRC },
+    { "strings", PAS_PRELUDE_UNIT_18_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_19_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_20_SRC },
+    { "system", PAS_PRELUDE_UNIT_21_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_22_SRC },
+    { "types", PAS_PRELUDE_UNIT_23_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_24_SRC },
+    { "unix", PAS_PRELUDE_UNIT_25_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_26_SRC },
+    { "variants", PAS_PRELUDE_UNIT_27_SRC },
     { 0, 0 }
 };
