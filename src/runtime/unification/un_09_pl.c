@@ -93,15 +93,18 @@ static void pl_ix_link(pl_ix_t *x, int p, int i, int64_t key, int prepend) {
         t[j].key = key;
         t[j].first = i;
         t[j].last = i;
+        t[j].n = 1;
         kn[i] = -1;
         x->hused[p]++;
     } else if (prepend) {
         kn[i] = t[j].first;
         t[j].first = i;
+        t[j].n++;
     } else {
         kn[t[j].last] = i;
         kn[i] = -1;
         t[j].last = i;
+        t[j].n++;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -146,7 +149,19 @@ static int64_t pl_ix_pick(pl_db_t *db, const void *target, int *pp) {
     int64_t k;
     *pp = 0;
     if (!x || !target) return 0;
-    if ((k = pl_ix_target_key(db, target, 0, x->deep[0])) != 0) return k;
+    if ((k = pl_ix_target_key(db, target, 0, x->deep[0])) != 0) {
+        pl_ix_ent_t *e0 = pl_ix_find_at(x, 0, k);
+        int n0 = e0 ? e0->n : 0;
+        if (n0 < PL_IX_MIN || x->off2 || db->n < PL_IX_MIN || !pl_ix_target_key(db, target, 1, 0)) return k;
+        if (x->np < 2) pl_ix_build(db, 1, 0);
+        x = (pl_ix_t *)db->ix;
+        if (!x || x->np < 2) return k;
+        int64_t k1 = pl_ix_target_key(db, target, 1, x->deep[1]);
+        pl_ix_ent_t *e1 = k1 ? pl_ix_find_at(x, 1, k1) : (pl_ix_ent_t *)0;
+        if (!k1 || (e1 && e1->n >= n0)) return k;
+        *pp = 1;
+        return k1;
+    }
     if (x->np < 2 && (x->off2 || db->n < PL_IX_MIN || !pl_ix_target_key(db, target, 1, 0))) return 0;
     if (x->np < 2) pl_ix_build(db, 1, 0);
     x = (pl_ix_t *)db->ix;
