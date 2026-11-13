@@ -1807,6 +1807,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_mk_jct", GC_RET_DESCR },
     { "rk_mk_metaval", GC_RET_DESCR },
     { "rk_mk_pair", GC_RET_DESCR },
+    { "rk_mk_pair_cell", GC_RET_DESCR },
     { "rk_mu_method", GC_RET_OTHER },
     { "rk_multi_named_winner", GC_RET_OTHER },
     { "rk_num_dbl", GC_RET_OTHER },
