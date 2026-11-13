@@ -423,7 +423,10 @@ int rt_pl_db_materialize_all(void *root, int which) {
         const char *sl = strrchr(r->e[i].key, '/');
         if (db && db->whole == which && sl) pl_runtime_register_key(r->e[i].key, atoi(sl + 1));
     }
-    for (int i = 0; i < r->n; i++) { pl_db_t *db = (r->e[i].k >= 0) ? pl_db_cell_peek(root, r->e[i].k) : r->e[i].db; if (db && db->whole == which && pl_db_materialize(root, db)) n++; }
+    for (int i = 0; i < r->n; i++) {
+        pl_db_t *db = (r->e[i].k >= 0) ? pl_db_cell_peek(root, r->e[i].k) : r->e[i].db;
+        if (db && db->whole == which && pl_db_materialize(root, db)) { n++; if (!r->e[i].decl && !r->e[i].lib) r->e[i].stat = 1; }
+    }
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
