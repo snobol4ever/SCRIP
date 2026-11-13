@@ -386,6 +386,7 @@ int planner_read_distance(const IR_graph_t * cg, IR_t ** nodes, int n, const int
         for (int zm = i - 1; zm > k; zm--) {
             if (nodes[zm]->op == IR_MATCH_END) { xc++; continue; }
             if (xc > 0) { if (nodes[zm]->op == IR_MATCH_BEGIN) xc--; continue; }
+            if (xb && xb[i] != INT_MIN && xb[zm] != INT_MIN && xb[i] + zout[i] < xb[zm] + zout[zm]) continue;
             if (planner_env_encloses(zarm, i, zm) && nodes[zm]->op == IR_MATCH_ALTERNATE) { xh += 32; continue; }
             if (planner_env_encloses(zarm, i, zm) && nodes[zm]->op == IR_MATCH_FENCE1 && planner_act_slot(nodes[zm]) == -1) { xh += 16; continue; }
             if (nodes[zm]->op == IR_MATCH_DEFER) { xh += 16; continue; }
