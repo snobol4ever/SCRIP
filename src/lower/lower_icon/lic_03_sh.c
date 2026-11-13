@@ -469,10 +469,11 @@ static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
     body->c[0] = as;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g) {
+static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g, const tree_t * pd) {
     for (int k = 0; k < g_lower.icn.reassigned.n + g_lower.icn.breassigned.n; k++) {
         const char * nm = (k < g_lower.icn.reassigned.n) ? LC_AT(&g_lower.icn.reassigned, const char *, k) : LC_AT(&g_lower.icn.breassigned, const char *, k - g_lower.icn.reassigned.n);
         if (k < g_lower.icn.reassigned.n && !icn_is_proc(nm)) continue;
+        if (icn_proc_declares(pd, nm)) continue;
         IR_t * asn = lic_build(cx, IR_ASSIGN, g->entry, g->entry);
         IR_LIT(asn).sval = (char *) nm;
         IR_t * pv = lic_build(cx, IR_PROC_VALUE, asn, asn);
@@ -536,7 +537,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     }
     if (pd && pd->n > 2 && pd->c[2]) {
         IR_graph_t * g = lower_proc_body(&cx, pd->c[2]);
-        if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g);
+        if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g, pd);
         if (g) {
             int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0;
             g->nparams = np;
