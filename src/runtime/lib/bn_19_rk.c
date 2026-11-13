@@ -16,6 +16,7 @@
 #include "runtime/lib/bn_12_rk.h"
 #include "runtime/lib/bn_13_rk.h"
 #include "runtime/lib/bn_14_rk.h"
+#include "runtime/lib/bn_24_sh.h"
 #include "runtime/lib/bn_16_rk.h"
 #include "runtime/lib/bn_17_pas.h"
 #include "runtime/lib/bn_18_rk.h"
@@ -545,6 +546,7 @@ DESCR_t bt___rk_arr_xx(DESCR_t *args, int nargs) {
 }
 DESCR_t bt___rk_smartmatch(DESCR_t *args, int nargs) {
     if (nargs == 2) {
+        if (rk_is_jct(args[1])) { int ok = junction_collapse(args[0], args[1], TT_EQ, IS_INT_fn(args[0]) || IS_REAL_fn(args[0])); return (DESCR_t){ .v = DT_BOOL, .i = ok ? 1 : 0 }; }
         if (rk_is_range(args[1])) { return (DESCR_t){ .v = DT_BOOL, .i = rk_in_range_value(args[0], args[1]) }; }
         const char *pat = rk_rx_pat(args[1]);
         if (pat) {
