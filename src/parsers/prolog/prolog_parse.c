@@ -4287,6 +4287,36 @@ static void pl_qq_refs(const tree_t *t, cv_t *referenced, cv_t *keys) {
     for (int i = 0; i < t->n; i++) pl_qq_refs(t->c[i], referenced, keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_qq_lift(tree_t *t, cv_t *goals) {
+    if (!t) return t;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$qq") && t->n == 3) {
+        char nm[32];
+        snprintf(nm, sizeof nm, "_QQ%u", goals->len);
+        tree_t *v = ast_node_new(TT_VAR);
+        v->v.sval = ct_strdup(nm);
+        tree_t *g = ast_node_new(TT_FNC);
+        g->v.sval = ct_strdup("$qq_expand");
+        ast_push(g, t->c[0]);
+        ast_push(g, t->c[1]);
+        ast_push(g, t->c[2]);
+        tree_t *gv = ast_node_new(TT_VAR);
+        gv->v.sval = v->v.sval;
+        ast_push(g, gv);
+        CV_PUSH(*goals, tree_t *) = g;
+        return v;
+    }
+    for (int i = 0; i < t->n; i++) t->c[i] = pl_qq_lift(t->c[i], goals);
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_qq_expand_clause(PlClause *cl) {
+    if (!cl || !cl->tr || cl->tr->n < 2 || !cl->tr->c[1] || pl_clause_dcg(cl)) return;
+    cv_t goals; memset(&goals, 0, sizeof goals);
+    tree_t *body = pl_qq_lift(cl->tr->c[1], &goals);
+    for (uint32_t i = goals.len; i > 0; i--) body = pt_binop(",", CV_AT(goals, tree_t *, i - 1), body);
+    cl->tr->c[1] = body;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_pkey_split(const char *k, int *ar) {
     const char *s = strrchr(k, '/');
     *ar = s ? atoi(s + 1) : 0;
@@ -5170,6 +5200,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (!pl_clause_is_directive(cl) && !pl_clause_dcg(cl) && pl_tree_has_fn(pl_clause_body(cl), "ensure_loaded")) pl_cv_add(&referenced, "load_files");
         if (xsb_prog && cl->tr && pl_tree_dyn_modq(cl->tr)) pl_cv_add(&referenced, "load_files");
     }
+    for (PlClause *cl = prog->head; cl; cl = cl->next) pl_qq_expand_clause(cl);
     pl_module_imports_referenced(prog, &referenced, &modimp);
     if (pl_cv_has(&referenced, "phrase")) { pl_cv_add(&referenced, "$phrase"); pl_cv_add(&referenced, "$phrase_rt"); }
     if (pl_cv_has(&referenced, "$cc_chain")) { pl_cv_add(&referenced, "consult"); pl_cv_add(&referenced, "open_string"); pl_cv_add(&referenced, "format"); pl_cv_add(&refkeys, pl_pred_key("open_string", 2)); pl_cv_add(&referenced, "$load_items"); pl_cv_add(&refkeys, pl_pred_key("$load_items", 3)); }

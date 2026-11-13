@@ -34487,12 +34487,18 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_EXPORTS[] = {
     { "indent_lines", 4 },
     { "interpolate_string", 4 },
     { "string_lines", 2 },
+    { "string", 4 },
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_SHADOWS[] = {
     { "", 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_75_QUIET[] = {
+    { "dedent_lines", 0 },
+    { "indent_lines", 0 },
+    { "interpolate_string", 0 },
+    { "string", 0 },
+    { "string_lines", 0 },
     { "", 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_75_OPS[] = {
@@ -34508,6 +34514,24 @@ static const char PL_PRELUDE_LIB_75_SRC[] =
     ":- '$meta_spec'((\n"
     "    interpolate_string(:, -, +, +),\n"
     "    indent_lines(1, +, +, -))).\n"
+    "string(Content, Args, Binding, DOM) :-\n"
+    "    must_be(list, Binding),\n"
+    "    include('$strings_qq_var'(Args), Binding, QQDict),\n"
+    "    with_quasi_quotation_input(Content, Stream,\n"
+    "                               read_string(Stream, _, String)),\n"
+    "    (   string_concat(\"\\n\", String1, String)\n"
+    "    ->  dedent_lines(String1, String2, [tab(8), chars(\"\\s\\t|\")])\n"
+    "    ;   String2 = String\n"
+    "    ),\n"
+    "    (   prolog_load_context(module, Module)\n"
+    "    ->  true\n"
+    "    ;   Module = user\n"
+    "    ),\n"
+    "    (   Args == []\n"
+    "    ->  DOM = String2\n"
+    "    ;   '$strings_comp_interpolate'(String2, Compiled, QQDict, [module(Module)]),\n"
+    "        DOM =.. ['.',strings{type:string},exec(Compiled, QQDict)]\n"
+    "    ).\n"
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "'$dict_method'('strings', exec(Compiled, Map), _Dict, String) :-\n"
     "    '$strings_exec_interpolate'(Compiled, String, Map).\n"
@@ -38751,6 +38775,7 @@ static const pl_prelude_lib_ex_t PL_PRELUDE_LIB_EXPORT_INDEX[] = {
     { "stream_position", 15, 3, 63 },
     { "stream_to_lazy_list", 19, 2, 62 },
     { "string", 6, 3, 26 },
+    { "string", 6, 4, 75 },
     { "string_lines", 12, 2, 75 },
     { "string_to_atom", 14, 2, 5 },
     { "string_to_list", 14, 2, 5 },
