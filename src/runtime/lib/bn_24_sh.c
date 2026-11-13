@@ -31,6 +31,8 @@
 #include "runtime/lib/bn_26_sh.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_41_sh.h"
+#include "runtime/core/g_runtime_rt.h"
+#include "runtime/core/g_runtime_bn.h"
 int core_icn_error(int code, DESCR_t val);
 extern int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 extern gv_t g_call_args;
@@ -84,9 +86,9 @@ void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
     extern int dat_type_gen(void);
     if (!cname || !*cname) return;
     {
-        long gen = (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_runtime.bn.tweak_gen_bump * 1099511627776L;
+        long gen = (long)g_rt_rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_rt_bn.tweak_gen_bump * 1099511627776L;
         unsigned h = (unsigned)(((uintptr_t)cname >> 3) & (RT_TWEAK_IC_N - 1));
-        if (g_runtime.bn.tweak_none[h].cname == cname && g_runtime.bn.tweak_none[h].gen == gen) return;
+        if (g_rt_bn.tweak_none[h].cname == cname && g_rt_bn.tweak_none[h].gen == gen) return;
         const char *chain[bnd_dat_need(cname, 0)];
         int n = dat_mro(cname, chain, (int)(sizeof chain / sizeof chain[0]));
         int any = 0;
@@ -110,7 +112,7 @@ void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
                 ir_call_proc(pi, &a0, 1);
             }
         }
-        if (!any) { g_runtime.bn.tweak_none[h].cname = cname; g_runtime.bn.tweak_none[h].gen = gen; }
+        if (!any) { g_rt_bn.tweak_none[h].cname = cname; g_rt_bn.tweak_none[h].gen = gen; }
     }
 }
 static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
@@ -178,17 +180,17 @@ DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT
 static long rt_ctor_gen(void) {
     extern int dat_type_gen(void);
     extern unsigned rt_dtax_gen;
-    return (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L;
+    return (long)g_rt_rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L;
 }
 void rt_ctor_ic_note(const char *fn, void *dt) {
-    const char *site = g_runtime.bn.ctor_ic_site;
+    const char *site = g_rt_bn.ctor_ic_site;
     if (!site || (site != fn && strcmp(site, fn) != 0)) return;
     {
         unsigned h = rt_ctor_ic_h(site);
-        if (g_runtime.bn.ctor_ic[h].fn != site && g_runtime.bn.ctor_ic[h].fn && (!g_runtime.bn.ctor_ic[h ^ 1u].fn || g_runtime.bn.ctor_ic[h ^ 1u].fn == site)) h ^= 1u;
-        g_runtime.bn.ctor_ic[h].fn = site;
-        g_runtime.bn.ctor_ic[h].dt = dt;
-        g_runtime.bn.ctor_ic[h].gen = rt_ctor_gen();
+        if (g_rt_bn.ctor_ic[h].fn != site && g_rt_bn.ctor_ic[h].fn && (!g_rt_bn.ctor_ic[h ^ 1u].fn || g_rt_bn.ctor_ic[h ^ 1u].fn == site)) h ^= 1u;
+        g_rt_bn.ctor_ic[h].fn = site;
+        g_rt_bn.ctor_ic[h].dt = dt;
+        g_rt_bn.ctor_ic[h].gen = rt_ctor_gen();
     }
 }
 DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq) {
@@ -196,18 +198,11 @@ DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidl
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
         if (h >= 0) {
             extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
-            DatType *_udt = (DatType *)g_runtime.bn.ctor_ic[h].dt;
+            DatType *_udt = (DatType *)g_rt_bn.ctor_ic[h].dt;
             if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq);
         }
     }
-    {
-        const char *outer = g_runtime.bn.ctor_ic_site;
-        DESCR_t r;
-        g_runtime.bn.ctor_ic_site = fn;
-        r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq));
-        g_runtime.bn.ctor_ic_site = outer;
-        return r;
-    }
+    { const char *outer = g_rt_bn.ctor_ic_site; DESCR_t r; g_rt_bn.ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq)); g_rt_bn.ctor_ic_site = outer; return r; }
 }
 DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern int rt_g_want_name;
@@ -217,14 +212,14 @@ DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidl
     if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
     if (fn && g_runtime.abi.error == 0 && g_runtime.abi.kw_errlimit == 0 && !rt_g_want_name) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0 && nargs <= dat_nfields_byref(g_runtime.bn.ctor_ic[h].dt)) return dat_construct_byref(g_runtime.bn.ctor_ic[h].dt, args, nargs);
+        if (h >= 0 && nargs <= dat_nfields_byref(g_rt_bn.ctor_ic[h].dt)) return dat_construct_byref(g_rt_bn.ctor_ic[h].dt, args, nargs);
     }
     {
-        const char *outer = g_runtime.bn.ctor_ic_site;
+        const char *outer = g_rt_bn.ctor_ic_site;
         DESCR_t r;
-        g_runtime.bn.ctor_ic_site = fn;
+        g_rt_bn.ctor_ic_site = fn;
         r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0));
-        g_runtime.bn.ctor_ic_site = outer;
+        g_rt_bn.ctor_ic_site = outer;
         return r;
     }
 }
@@ -274,7 +269,7 @@ rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t
     {
         DESCR_t v = rt_call_name_sn4_rq(r->name, args, nargs, -1, rq);
         int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
-        if (h >= 0) { r->ctor = g_runtime.bn.ctor_ic[h].dt; r->cgen = g_runtime.bn.ctor_ic[h].gen; }
+        if (h >= 0) { r->ctor = g_rt_bn.ctor_ic[h].dt; r->cgen = g_rt_bn.ctor_ic[h].gen; }
         if (!rq[0] || rq[0] == 2 || rq[0] == RT_TRY_EVAL_OPEN) *out = v;
         return (rt_call_next_t){ rq[0], rq[1] };
     }
@@ -285,7 +280,7 @@ DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r) {
     {
         DESCR_t v = rt_call_name_sn4(r->name, args, nargs, -1);
         int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
-        if (h >= 0) { r->ctor = g_runtime.bn.ctor_ic[h].dt; r->cgen = g_runtime.bn.ctor_ic[h].gen; }
+        if (h >= 0) { r->ctor = g_rt_bn.ctor_ic[h].dt; r->cgen = g_rt_bn.ctor_ic[h].gen; }
         return v;
     }
 }
@@ -304,18 +299,11 @@ DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
         if (h >= 0) {
             extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
-            DatType *_udt = (DatType *)g_runtime.bn.ctor_ic[h].dt;
+            DatType *_udt = (DatType *)g_rt_bn.ctor_ic[h].dt;
             if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq);
         }
     }
-    {
-        const char *outer = g_runtime.bn.ctor_ic_site;
-        DESCR_t r;
-        g_runtime.bn.ctor_ic_site = fn;
-        r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq));
-        g_runtime.bn.ctor_ic_site = outer;
-        return r;
-    }
+    { const char *outer = g_rt_bn.ctor_ic_site; DESCR_t r; g_rt_bn.ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); g_rt_bn.ctor_ic_site = outer; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq) {

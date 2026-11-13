@@ -14,4 +14,11 @@ typedef struct {
     long sno_stmt_compiled;
     long sno_code_calls;
 } g_eval_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_eval_t g_rt_eval;
+#ifdef __cplusplus
+}
+#endif
 #endif

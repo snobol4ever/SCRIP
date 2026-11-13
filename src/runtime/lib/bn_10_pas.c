@@ -14,6 +14,7 @@
 #include "runtime/lib/bn_27_pl.h"
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
+#include "runtime/core/g_runtime_pas.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern DESCR_t rt_deref(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -74,28 +75,28 @@ int jct_one_cmp_str(const char *a, const char *b, int op) {
 }
 void pas_tf_set(int idx, DESCR_t buf, int has, int mode) {
     uint64_t need = (uint64_t)(2 * (idx + 1));
-    gv_reserve(&g_runtime.pas.pas_tf, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), need, "g_runtime.pas.pas_tf");
-    while (g_runtime.pas.pas_tf.len < need) { ((DESCR_t *)g_runtime.pas.pas_tf.p)[g_runtime.pas.pas_tf.len] = INTVAL(0); g_runtime.pas.pas_tf.len++; }
+    gv_reserve(&g_rt_pas.pas_tf, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), need, "g_rt_pas.pas_tf");
+    while (g_rt_pas.pas_tf.len < need) { ((DESCR_t *)g_rt_pas.pas_tf.p)[g_rt_pas.pas_tf.len] = INTVAL(0); g_rt_pas.pas_tf.len++; }
     PTF_BUF(idx) = buf;
     PTF_ST(idx) = INTVAL((long)(has & 1) | ((long)mode << 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *pas_heap_cell(long n, int grow) {
     if (n <= 0) return (DESCR_t *)0;
-    if (n >= g_runtime.pas.pas_heap_cap) {
+    if (n >= g_rt_pas.pas_heap_cap) {
         if (!grow) return (DESCR_t *)0;
-        long nc = g_runtime.pas.pas_heap_cap ? g_runtime.pas.pas_heap_cap : 1024;
+        long nc = g_rt_pas.pas_heap_cap ? g_rt_pas.pas_heap_cap : 1024;
         while (nc <= n) nc *= 2;
-        DESCR_t *nh = (DESCR_t *)ct_grow((void *)g_runtime.pas.pas_heap, (size_t)nc * sizeof(DESCR_t));
-        unsigned char *nd = (unsigned char *)ct_grow((void *)g_runtime.pas.pas_heap_dead, (size_t)nc);
+        DESCR_t *nh = (DESCR_t *)ct_grow((void *)g_rt_pas.pas_heap, (size_t)nc * sizeof(DESCR_t));
+        unsigned char *nd = (unsigned char *)ct_grow((void *)g_rt_pas.pas_heap_dead, (size_t)nc);
         if (!nh || !nd) { fprintf(stderr, "[PAS] heap table: out of memory growing to %ld entries\n", nc); abort(); }
-        memset(nh + g_runtime.pas.pas_heap_cap, 0, (size_t)(nc - g_runtime.pas.pas_heap_cap) * sizeof(DESCR_t));
-        memset(nd + g_runtime.pas.pas_heap_cap, 0, (size_t)(nc - g_runtime.pas.pas_heap_cap));
-        g_runtime.pas.pas_heap = nh;
-        g_runtime.pas.pas_heap_dead = nd;
-        g_runtime.pas.pas_heap_cap = nc;
+        memset(nh + g_rt_pas.pas_heap_cap, 0, (size_t)(nc - g_rt_pas.pas_heap_cap) * sizeof(DESCR_t));
+        memset(nd + g_rt_pas.pas_heap_cap, 0, (size_t)(nc - g_rt_pas.pas_heap_cap));
+        g_rt_pas.pas_heap = nh;
+        g_rt_pas.pas_heap_dead = nd;
+        g_rt_pas.pas_heap_cap = nc;
     }
-    return &g_runtime.pas.pas_heap[n];
+    return &g_rt_pas.pas_heap[n];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pas_numeral_put(char *b, size_t *n, size_t *cap, int c) {
@@ -165,22 +166,22 @@ DESCR_t pas_read_number(FILE *f, int real, int fpc, const char *fn) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pas_tag_ne(long long a, long long b) { if (a >= -1 && a <= 1 && b >= -1 && b <= 1) return (a != 0) != (b != 0); return a != b; }
 long pas_heap_take(void) {
-    if (g_runtime.pas.pas_heap_nfree > 0) { long n = g_runtime.pas.pas_heap_free[--g_runtime.pas.pas_heap_nfree]; if (n < g_runtime.pas.pas_heap_cap) g_runtime.pas.pas_heap_dead[n] = 0; return n; }
-    return ++g_runtime.pas.pas_heap_ctr;
+    if (g_rt_pas.pas_heap_nfree > 0) { long n = g_rt_pas.pas_heap_free[--g_rt_pas.pas_heap_nfree]; if (n < g_rt_pas.pas_heap_cap) g_rt_pas.pas_heap_dead[n] = 0; return n; }
+    return ++g_rt_pas.pas_heap_ctr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_heap_give(long n) {
-    if (n <= 0 || n > g_runtime.pas.pas_heap_ctr || n >= g_runtime.pas.pas_heap_cap || (g_runtime.pas.pas_heap_dead[n] & 1)) return;
-    g_runtime.pas.pas_heap[n] = INTVAL(0);
-    g_runtime.pas.pas_heap_dead[n] = 1;
-    if (g_runtime.pas.pas_heap_nfree == g_runtime.pas.pas_heap_freecap) {
-        long nc = g_runtime.pas.pas_heap_freecap ? g_runtime.pas.pas_heap_freecap * 2 : 256;
-        long *nf = (long *)ct_grow((void *)g_runtime.pas.pas_heap_free, (size_t)nc * sizeof(long));
+    if (n <= 0 || n > g_rt_pas.pas_heap_ctr || n >= g_rt_pas.pas_heap_cap || (g_rt_pas.pas_heap_dead[n] & 1)) return;
+    g_rt_pas.pas_heap[n] = INTVAL(0);
+    g_rt_pas.pas_heap_dead[n] = 1;
+    if (g_rt_pas.pas_heap_nfree == g_rt_pas.pas_heap_freecap) {
+        long nc = g_rt_pas.pas_heap_freecap ? g_rt_pas.pas_heap_freecap * 2 : 256;
+        long *nf = (long *)ct_grow((void *)g_rt_pas.pas_heap_free, (size_t)nc * sizeof(long));
         if (!nf) return;
-        g_runtime.pas.pas_heap_free = nf;
-        g_runtime.pas.pas_heap_freecap = nc;
+        g_rt_pas.pas_heap_free = nf;
+        g_rt_pas.pas_heap_freecap = nc;
     }
-    g_runtime.pas.pas_heap_free[g_runtime.pas.pas_heap_nfree++] = n;
+    g_rt_pas.pas_heap_free[g_rt_pas.pas_heap_nfree++] = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_list_to_arr(DESCR_t lst, DESCR_t *out, int max) {

@@ -21,6 +21,7 @@
 #include "runtime/keywords.h"
 #include "ir/ir_node_index.h"
 #include "templates/bb/bb_templates.h"
+#include "runtime/core/g_runtime_eval.h"
 extern "C" {
 #include "templates/x86/x86_zverify.h"
 }
@@ -595,7 +596,7 @@ int walk_bb_node_inner(IR_t * nd, FILE * out) {
             sig_prepare_define(g_emit.op_sval, g_emit.lbl_t0, 5); bb_emit_x86(bb_define_shim_inline()); g_emit.op_ival = _sv5; }
         return 0; }
     case IR_STATEMENT_BEGIN: { g_emit.op_mon_stmt_tap = ((g_runtime.abi.trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;
-        { if (g_emit.op_mon_stmt_tap && !g_runtime.eval.rt_fragment_emit && g_emit.op_stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
+        { if (g_emit.op_mon_stmt_tap && !g_rt_eval.rt_fragment_emit && g_emit.op_stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
         g_emitter.walk_bb_node_inner__zdpa = (e && *e == '1') ? 1 : 0; } if (g_emitter.walk_bb_node_inner__zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd)));
             } g_emit.op_mon_stmt_tap = 0; } return 0;

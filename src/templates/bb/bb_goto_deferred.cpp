@@ -1,5 +1,5 @@
 #include <string>
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include <cstdint>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_str.h"
@@ -20,9 +20,9 @@ int xa_flat_class_c_pred(void);
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_goto_deferred_frame_release() {
-    return IF(!g_runtime.eval.rt_fragment_emit || !xa_flat_class_c_pred(),
+    return IF(!g_rt_eval.rt_fragment_emit || !xa_flat_class_c_pred(),
                std::string())
-         + IF(!(!g_runtime.eval.rt_fragment_emit || !xa_flat_class_c_pred()),
+         + IF(!(!g_rt_eval.rt_fragment_emit || !xa_flat_class_c_pred()),
                x86("add", "rsp", (long)_.flat_frame_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include <stdlib.h>
 #include "scrip_sm.h"

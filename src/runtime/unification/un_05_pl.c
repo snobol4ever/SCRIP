@@ -10,6 +10,7 @@
 #include "runtime/unification/un_03_pl.h"
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_05_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern int rt_pl_dialect_swi(void);
 extern int rt_pl_dialect_xsb(void);
 extern int rt_pl_dialect_gnu(void);
@@ -82,7 +83,7 @@ static int plc_op_is_postfix_id(int nid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int plc_op_is_postfix(const char *name) { return name ? plc_op_is_postfix_id(prolog_atom_intern(name)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int plc_is_nil(pl_cell_t *d) { if ((int)d->v == DT_PLATOM) return (int)d->i == g_runtime.atoms.atom_nil; if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0; return 0; }
+int plc_is_nil(pl_cell_t *d) { if ((int)d->v == DT_PLATOM) return (int)d->i == g_rt_atoms.atom_nil; if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0; return 0; }
 int plc_atom_needs_quoting(const char *name) {
     static const char *const graphic = "#$&*+-./:<=>?@\\^~";
     extern int rt_pl_dialect_xsb(void);
@@ -131,7 +132,7 @@ int plc_term_prio(pl_cell_t *c, int ignore_ops) {
     int pr = 0, lm = 0, rm = 0, ar;
     if (!d || ignore_ops || (int)d->v != DT_PLREF) return 0;
     ar = plc_fid_arity(d->slen);
-    if (plc_fid_name(d->slen) == g_runtime.atoms.atom_dot && ar == 2) return 0;
+    if (plc_fid_name(d->slen) == g_rt_atoms.atom_dot && ar == 2) return 0;
     if (ar != 1 && ar != 2) return 0;
     { int nid = plc_fid_name(d->slen); const char *fn = prolog_atom_name(nid); if (fn && !strcmp(fn, "{}") && ar == 1) return 0; if (fn && plc_op_info_id(nid, ar, &pr, &lm, &rm)) return pr; }
     return 0;
@@ -165,7 +166,7 @@ int plc_first_char_d(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, l
             if ((int)n->v == DT_I) return 'A';
             if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *t = plc_atom_text(n); return t ? (unsigned char)*t : 0; }
         }
-        if ((!ignore_ops || (ignore_ops & 2)) && plc_fid_name(d->slen) == g_runtime.atoms.atom_dot && ar == 2) return '[';
+        if ((!ignore_ops || (ignore_ops & 2)) && plc_fid_name(d->slen) == g_rt_atoms.atom_dot && ar == 2) return '[';
         if ((!ignore_ops || (ignore_ops & 4)) && ar == 1 && !strcmp(fn, "{}")) return '{';
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info_id(nid, ar, &pr, &lm, &rm)) {
             if (pr > 1200) return (unsigned char)fn[0];
@@ -194,7 +195,7 @@ int plc_last_char_d(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lo
     aa = (pl_cell_t *)d->p;
     if (!fn || !fn[0]) return ')';
     if (numbervars && ar == 1 && !strcmp(fn, "$VAR")) return 'a';
-    if ((!ignore_ops || (ignore_ops & 2)) && nid == g_runtime.atoms.atom_dot && ar == 2) return ']';
+    if ((!ignore_ops || (ignore_ops & 2)) && nid == g_rt_atoms.atom_dot && ar == 2) return ']';
     if ((!ignore_ops || (ignore_ops & 4)) && ar == 1 && !strcmp(fn, "{}")) return '}';
     if (ignore_ops || (ar != 1 && ar != 2) || !plc_op_info_id(nid, ar, &pr, &lm, &rm)) return ')';
     if (ar == 1 && plc_op_is_postfix_id(nid)) return (unsigned char)fn[strlen(fn) - 1];
@@ -429,7 +430,7 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fmt_exhausted(pl_cell_t all) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-    return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(g_runtime.atoms.atom_nil));
+    return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(g_rt_atoms.atom_nil));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fmt_has_stop(const char *p) {
@@ -687,7 +688,7 @@ static int plc_tv1_visit(pl_cell_t *d, void *ctx) {
 PLR_WALK1(plc_tv1_walk, plc_tv1_visit, pl_deref)
 int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell, pl_tr_ctx_t *cx) {
     int dot_id = prolog_atom_intern(".");
-    pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
+    pl_cell_t nil = pl_make_atom(g_rt_atoms.atom_nil);
     pl_cell_t result = tail_cell ? *(pl_cell_t *)tail_cell : nil;
     plc_tv1_t t;
     t.head = (pl_cell_t *)0;

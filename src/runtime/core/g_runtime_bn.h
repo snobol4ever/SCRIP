@@ -31,4 +31,11 @@ typedef struct {
     struct g_ctor_slot ctor_ic[RT_CTOR_IC_N];
     struct g_field_slot field_ic[RT_FIELD_IC_N];
 } g_bn_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_bn_t g_rt_bn;
+#ifdef __cplusplus
+}
+#endif
 #endif

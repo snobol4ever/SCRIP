@@ -1,5 +1,4 @@
 #include "runtime/rt/rt_arena.h"
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"

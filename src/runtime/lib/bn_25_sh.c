@@ -16,6 +16,7 @@
 #include "runtime/lib/bn_24_sh.h"
 #include "runtime/lib/bn_25_sh.h"
 #include "runtime/lib/bn_26_sh.h"
+#include "runtime/core/g_runtime_bn.h"
 int core_icn_error(int code, DESCR_t val);
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
@@ -152,10 +153,10 @@ DESCR_t rt_args_list_from(char **v, int n) {
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
-void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_runtime.bn.main_args_v = v; g_runtime.bn.main_args_n = n; }
-int pas_main_argc(void) { return g_runtime.bn.main_args_n > 0 ? g_runtime.bn.main_args_n : 0; }
+void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_rt_bn.main_args_v = v; g_rt_bn.main_args_n = n; }
+int pas_main_argc(void) { return g_rt_bn.main_args_n > 0 ? g_rt_bn.main_args_n : 0; }
 const char *pas_main_arg(int k) {
-    return (k >= 1 && k <= g_runtime.bn.main_args_n && g_runtime.bn.main_args_v && g_runtime.bn.main_args_v[k - 1] && g_runtime.bn.main_args_v[k - 1][0]) ? g_runtime.bn.main_args_v[k - 1] :
+    return (k >= 1 && k <= g_rt_bn.main_args_n && g_rt_bn.main_args_v && g_rt_bn.main_args_v[k - 1] && g_rt_bn.main_args_v[k - 1][0]) ? g_rt_bn.main_args_v[k - 1] :
         (const char *)0;
 }
 void rt_main_args_stage_argv(char **v, int n) {
@@ -167,11 +168,11 @@ void rt_main_args_stage_argv(char **v, int n) {
     rt_main_args_stage(v + skip, n - skip);
 }
 void rt_main_args_bind(void) {
-    if (g_runtime.bn.main_args_descr.v == DT_DATA) return;
-    if (g_runtime.bn.main_args_n < 0) rt_main_args_stage((char **)0, 0);
-    g_runtime.bn.main_args_descr = rt_args_list_from(g_runtime.bn.main_args_v, g_runtime.bn.main_args_n);
+    if (g_rt_bn.main_args_descr.v == DT_DATA) return;
+    if (g_rt_bn.main_args_n < 0) rt_main_args_stage((char **)0, 0);
+    g_rt_bn.main_args_descr = rt_args_list_from(g_rt_bn.main_args_v, g_rt_bn.main_args_n);
     if (!getenv("SCRIP_NO_MAIN_ARGS")) rt_call_args_need(2);
-    CALL_ARGS[0] = g_runtime.bn.main_args_descr;
+    CALL_ARGS[0] = g_rt_bn.main_args_descr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int icn_bi_string_of_int(DESCR_t av, DESCR_t *out) {
@@ -408,7 +409,7 @@ int bn_icn_center(DESCR_t *args, int nargs, DESCR_t *out) {
 }
 static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (bid == BID_trim) {
         if (nargs < 1 || nargs > 2 || args[0].v != DT_S || IS_CSET_fn(args[0])) return 0;
         if (nargs == 2 && args[1].v != DT_SNUL && args[1].v != DT_S) return 0;
@@ -425,7 +426,7 @@ static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out
 }
 static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (bid == BID_type) { if (nargs != 1 || rt_g_want_name) return 0; core_icn_op_ctx_clear(); return bn_type_datatype("type", args, nargs, out); }
     if (bid == BID_integer) {
         if (nargs != 1) return 0;
@@ -449,14 +450,14 @@ static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out)
     return 0;
 }
 static int icn_bi_direct_pad(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 2 || nargs > 3 || (args[0].v != DT_I && (args[0].v != DT_S || IS_CSET_fn(args[0]))) || args[1].v != DT_I || args[1].i < 0) return 0;
     if (nargs == 3 && args[2].v != DT_SNUL && (args[2].v != DT_S || IS_CSET_fn(args[2]))) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_left ? bn_icn_left(args, nargs, out) : bid == BID_center ? bn_icn_center(args, nargs, out) : bn_icn_right(args, nargs, out);
 }
 static int icn_bi_direct_write(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 1 || g_fh[1].closed) return 0;
     for (int i = 0; i < nargs; i++) if (!((args[i].v == DT_S && !IS_CSET_fn(args[i])) || args[i].v == DT_I)) return 0;
     core_icn_op_ctx_clear();
@@ -498,7 +499,7 @@ int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
         default:
         return 0;
     }
-    if (!fnlen || fnlen >= 14 || dtax_off() || g_runtime.bn.dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (!fnlen || fnlen >= 14 || dtax_off() || g_rt_bn.dtax_bid[bid].gen != rt_dtax_gen) return 0;
     switch (bid) {
         case BID_write:
         case BID_writes:
@@ -524,11 +525,11 @@ int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_read:
         return icn_bi_direct_list_io(bid, args, nargs, out);
         case BID_IDENTICAL:
-        { if (nargs != 2 || (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
+        { if (nargs != 2 || (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
         default:
         break;
     }
-    if (nargs != 1 || g_runtime.bn.dtax_bid[bid].kind != 0) return 0;
+    if (nargs != 1 || g_rt_bn.dtax_bid[bid].kind != 0) return 0;
     if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
     if (args[0].v == DT_S && !IS_CSET_fn(args[0])) { *out = args[0]; return 1; }
     return 0;

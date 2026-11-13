@@ -15,6 +15,7 @@
 #include "lower/lower_raku/lrk_08_rk.h"
 #include "lower/lower_raku/lrk_09_sh.h"
 #include "lower/lower_raku/lrk_10_rk.h"
+#include "runtime/core/g_runtime.h"
 static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
 static void rk_arm_body(tree_t * seq, int from);
 static int rk_block_has_arm(const tree_t * t);

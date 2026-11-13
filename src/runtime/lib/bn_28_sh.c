@@ -8,6 +8,7 @@
 #include "runtime/lib/bn_05_pl.h"
 #include "runtime/lib/bn_27_pl.h"
 #include "runtime/lib/bn_28_sh.h"
+#include <time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_op_code(const char *s) {
     if (!strcmp(s, "add")) return BINOP_ADD;

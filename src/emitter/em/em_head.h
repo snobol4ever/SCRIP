@@ -29,7 +29,6 @@ extern "C" {
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
 #include "templates/x86/x86_call.h"
-#include "runtime/core/g_runtime.h"
 #include "runtime/rt/pl_trail_layout.h"
 #define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
 #include <string.h>

@@ -1,5 +1,5 @@
 #include "lower/lower_snobol4/lsn_head.h"
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include "lower/lower_common.h"
@@ -443,7 +443,7 @@ IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                     if (res) *res = nd;
                     return nd;
                 }
-                if (fnb[0] && !({ g_runtime.eval.rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase))
+                if (fnb[0] && !({ g_rt_eval.rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase))
                     sno_fatal(
                     "DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)",
                     NULL);

@@ -43,6 +43,7 @@
 #include "runtime/lib/bn_39_sh.h"
 #include "runtime/lib/bn_40_sh.h"
 #include "runtime/lib/bn_41_sh.h"
+#include "runtime/core/g_runtime_bn.h"
 extern int rt_icn_cset_member_n(const char *, long, int);
 int core_icn_error(int code, DESCR_t val);
 extern ssize_t rt_line_read(char **buf, size_t *cap, FILE *f);
@@ -75,8 +76,8 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
         const int _fb = bidlen & BID_BAKE_MASK;
 #if RT_DIAG
         extern void bidprof_init(void);
-        if (g_runtime.bn.bidprof_on < 0) bidprof_init();
-        if (g_runtime.bn.bidprof_on && _fb >= 0 && _fb < 1024) g_runtime.bn.bidprof[_fb]++;
+        if (g_rt_bn.bidprof_on < 0) bidprof_init();
+        if (g_rt_bn.bidprof_on && _fb >= 0 && _fb < 1024) g_rt_bn.bidprof[_fb]++;
 #endif
         int _fr = -1;
         if (_fb == BID_SIZE) _fr = bn_size(args, nargs, out);
@@ -107,7 +108,7 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
         } else if (_br >= 0 && g_bt_open[_br] && g_bt_open[_br](args, nargs, out, rq)) return 1;
     }
 #if RT_DIAG
-    { extern void bidprof_init(void); if (g_runtime.bn.bidprof_on < 0) bidprof_init(); if (g_runtime.bn.bidprof_on && _bid >= 0 && _bid < 1024) g_runtime.bn.bidprof[_bid]++; }
+    { extern void bidprof_init(void); if (g_rt_bn.bidprof_on < 0) bidprof_init(); if (g_rt_bn.bidprof_on && _bid >= 0 && _bid < 1024) g_rt_bn.bidprof[_bid]++; }
 #endif
     {
         extern int rt_g_want_name;
@@ -130,13 +131,13 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
     if (!dtax_off()) {
         if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) {
             _dxl = (unsigned char)_fnlen;
-            _dx = &g_runtime.bn.dtax_bid[_bid];
+            _dx = &g_rt_bn.dtax_bid[_bid];
             _dx_bid_path = 1;
         } else {
             const char *_q = fn;
             while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
             if (!(!*_q && _dxl)) _dxl = 0;
-            else _dx = &g_runtime.bn.dtax[_dxh & 255u];
+            else _dx = &g_rt_bn.dtax[_dxh & 255u];
         }
         if (_dx) {
             if (_dx->gen == rt_dtax_gen && (_dx_bid_path || (_dx->len == _dxl && !memcmp(_dx->dxn, fn, _dxl)))) {
@@ -284,7 +285,7 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
         }
     }
     if (icn_argtype_gate(_bid, args, nargs, out, strict)) return 1;
-    if (g_runtime.bn.bidjmp_on) switch (_bid) {
+    if (g_rt_bn.bidjmp_on) switch (_bid) {
         case BID___rk_bool:
         goto L_bidjmp_5076;
         case BID___rk_defined:

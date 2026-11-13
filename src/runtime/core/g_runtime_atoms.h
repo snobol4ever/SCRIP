@@ -31,4 +31,12 @@ typedef struct {
     int opcols_ready;
 } g_atoms_t;
 typedef struct { int *mods; int *ht; int ht_size; int used; } g_atag_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_atoms_t g_rt_atoms;
+extern g_atag_t g_rt_atag;
+#ifdef __cplusplus
+}
+#endif
 #endif

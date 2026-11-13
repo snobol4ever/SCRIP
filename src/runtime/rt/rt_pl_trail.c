@@ -6,6 +6,7 @@
 #include "pl_trail_layout.h"
 #include "rt_pl_trail.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_atoms.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "rt_slab.h"
 extern void rt_gc_root_range_add_topword(const char *lo);
@@ -34,7 +35,7 @@ static char *pl_tr_arena_open(char *raw) {
 static void pl_tr_ovf_ball_make(char *tr) {
     extern void *rt_pl_cap_error(void);
     extern void prolog_atom_init(void);
-    if (g_runtime.atoms.atom_dot < 0) prolog_atom_init();
+    if (g_rt_atoms.atom_dot < 0) prolog_atom_init();
     *(void **)(pl_tr_base_of(tr) + PL_TR_OVF_BALL_OFF) = rt_pl_cap_error();
 }
 void *rt_pl_tr_init(void) { char *tr = pl_tr_arena_open((char *)rt_slab_region((size_t)PL_TR_ARENA_BYTES * 2u)); rt_gcheap_cap_road(); pl_tr_ovf_ball_make(tr); return (void *)tr; }

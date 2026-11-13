@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "ir/ir_graph.h"
 #include "planner/frame_layout.h"
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include "emitter/emit_knobs.h"
 #include "emitter/bb_label.h"
 #include "emitter/emit_walk.h"
@@ -158,7 +158,7 @@ extern "C" void sig_prepare(const char * fname, int nargs) {
     g_emit.op_sig_ok = (fname && fname[0]) ? bb_scc_probe(fname, nargs, &g_emit.op_sig_np, &g_emit.op_sig_ns, gk, &g_emit.op_sig_rg) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void sig_prepare_floater(void) { g_emit.op_frag_release = (g_runtime.eval.rt_fragment_emit && xa_flat_class_c_pred()) ? 1 : 0; }
+void sig_prepare_floater(void) { g_emit.op_frag_release = (g_rt_eval.rt_fragment_emit && xa_flat_class_c_pred()) ? 1 : 0; }
 static void sig_prepare_define_columns(const char * fname, const char * entry, int role) {
     const char * fn6 = fname ? fname : "?"; int cell = 0, tiny = 0;
     if (role == 1 || role == 2) sig_prepare_floater();

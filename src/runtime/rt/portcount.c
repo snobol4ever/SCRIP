@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_pc.h"
 #include "ir/ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
@@ -16,25 +16,25 @@ int rt_port_counts_on(void) { static int p = -1; if (p < 0) { const char * e = g
 uint64_t * rt_port_counts_cell(int uid, int port, const char * label) {
     if (uid < 0 || port < 0 || port >= PC_PORTS) return NULL;
     long s = (long)uid * PC_PORTS + port, ci = s / PC_CHUNK, off = s % PC_CHUNK;
-    if (ci >= g_runtime.pc.pc_nchunk) {
+    if (ci >= g_rt_pc.pc_nchunk) {
         long n = ci + 1;
-        uint64_t ** t = (uint64_t **)ct_grow(g_runtime.pc.pc_chunk, (size_t)n * sizeof *t);
+        uint64_t ** t = (uint64_t **)ct_grow(g_rt_pc.pc_chunk, (size_t)n * sizeof *t);
         if (!t) return NULL;
-        g_runtime.pc.pc_chunk = t;
-        for (long i = g_runtime.pc.pc_nchunk; i < n; i++) g_runtime.pc.pc_chunk[i] = (uint64_t *)ct_zalloc(PC_CHUNK, sizeof(uint64_t));
-        g_runtime.pc.pc_nchunk = n;
+        g_rt_pc.pc_chunk = t;
+        for (long i = g_rt_pc.pc_nchunk; i < n; i++) g_rt_pc.pc_chunk[i] = (uint64_t *)ct_zalloc(PC_CHUNK, sizeof(uint64_t));
+        g_rt_pc.pc_nchunk = n;
     }
-    if (!g_runtime.pc.pc_chunk[ci]) return NULL;
-    if (s + 1 > g_runtime.pc.pc_nslot) g_runtime.pc.pc_nslot = s + 1;
+    if (!g_rt_pc.pc_chunk[ci]) return NULL;
+    if (s + 1 > g_rt_pc.pc_nslot) g_rt_pc.pc_nslot = s + 1;
     if (label && *label) {
-        if (s >= g_runtime.pc.pc_nname) {
+        if (s >= g_rt_pc.pc_nname) {
             long n = s + 1;
-            char ** t = (char **)ct_grow(g_runtime.pc.pc_name, (size_t)n * sizeof *t);
-            if (t) { g_runtime.pc.pc_name = t; for (long i = g_runtime.pc.pc_nname; i < n; i++) g_runtime.pc.pc_name[i] = NULL; g_runtime.pc.pc_nname = n; }
+            char ** t = (char **)ct_grow(g_rt_pc.pc_name, (size_t)n * sizeof *t);
+            if (t) { g_rt_pc.pc_name = t; for (long i = g_rt_pc.pc_nname; i < n; i++) g_rt_pc.pc_name[i] = NULL; g_rt_pc.pc_nname = n; }
         }
-        if (s < g_runtime.pc.pc_nname && !g_runtime.pc.pc_name[s]) g_runtime.pc.pc_name[s] = ct_strdup(label);
+        if (s < g_rt_pc.pc_nname && !g_rt_pc.pc_name[s]) g_rt_pc.pc_name[s] = ct_strdup(label);
     }
-    return &g_runtime.pc.pc_chunk[ci][off];
+    return &g_rt_pc.pc_chunk[ci][off];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t * rt_port_counts_slot(int uid, int port, const char * label) {
@@ -44,15 +44,15 @@ uint64_t * rt_port_counts_slot(int uid, int port, const char * label) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t pc_get(long s) {
-    if (s < 0 || s >= g_runtime.pc.pc_nslot) return 0;
+    if (s < 0 || s >= g_rt_pc.pc_nslot) return 0;
     long ci = s / PC_CHUNK;
-    return (ci < g_runtime.pc.pc_nchunk && g_runtime.pc.pc_chunk[ci]) ? g_runtime.pc.pc_chunk[ci][s % PC_CHUNK] : 0;
+    return (ci < g_rt_pc.pc_nchunk && g_rt_pc.pc_chunk[ci]) ? g_rt_pc.pc_chunk[ci][s % PC_CHUNK] : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t pc_box_name_len(long b) {
     const char * l = NULL;
     size_t len;
-    for (int p = 0; p < PC_PORTS && !l; p++) { long s = b * PC_PORTS + p; if (s < g_runtime.pc.pc_nname && g_runtime.pc.pc_name[s]) l = g_runtime.pc.pc_name[s]; }
+    for (int p = 0; p < PC_PORTS && !l; p++) { long s = b * PC_PORTS + p; if (s < g_rt_pc.pc_nname && g_rt_pc.pc_name[s]) l = g_rt_pc.pc_name[s]; }
     if (!l) return (size_t)fmt_len("n%ld_?", b);
     len = strlen(l);
     if (len > 3 && l[len - 3] == '_' && (unsigned char)l[len - 2] == 0xCE) len -= 3;
@@ -61,7 +61,7 @@ static size_t pc_box_name_len(long b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pc_box_name(long b, char * out, size_t n) {
     const char * l = NULL;
-    for (int p = 0; p < PC_PORTS && !l; p++) { long s = b * PC_PORTS + p; if (s < g_runtime.pc.pc_nname && g_runtime.pc.pc_name[s]) l = g_runtime.pc.pc_name[s]; }
+    for (int p = 0; p < PC_PORTS && !l; p++) { long s = b * PC_PORTS + p; if (s < g_rt_pc.pc_nname && g_rt_pc.pc_name[s]) l = g_rt_pc.pc_name[s]; }
     if (!l) { snprintf(out, n, "n%ld_?", b); return; }
     size_t len = strlen(l);
     if (len > 3 && l[len - 3] == '_' && (unsigned char)l[len - 2] == 0xCE) len -= 3;
@@ -79,7 +79,7 @@ static void pc_row(int four, long b, const char * nm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pc_csv(int four) {
-    long nbox = (g_runtime.pc.pc_nslot + PC_PORTS - 1) / PC_PORTS;
+    long nbox = (g_rt_pc.pc_nslot + PC_PORTS - 1) / PC_PORTS;
     for (long b = 0; b < nbox; b++) {
         unsigned long long a = pc_get(b * PC_PORTS), q = pc_get(b * PC_PORTS + 1), g = pc_get(b * PC_PORTS + 2), w = pc_get(b * PC_PORTS + 3);
         if (!a && !q && !g && !w) continue;
@@ -91,11 +91,11 @@ static void pc_csv(int four) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_port_counts_report(const char * tag, int four) {
-    if (g_runtime.pc.pc_nslot == 0) {
+    if (g_rt_pc.pc_nslot == 0) {
         fprintf(stderr, "[PORTCOUNTS] ⛔ REFUSE: armed, but ZERO port cells were registered -- no box was instrumented. This is NOT a measurement of 'no port activity'.\n");
         return;
     }
-    long nbox = (g_runtime.pc.pc_nslot + PC_PORTS - 1) / PC_PORTS, hot = 0;
+    long nbox = (g_rt_pc.pc_nslot + PC_PORTS - 1) / PC_PORTS, hot = 0;
     uint64_t ta = 0, tb = 0, tg = 0, tw = 0;
     for (long b = 0; b < nbox; b++) { uint64_t a = pc_get(b * PC_PORTS); ta += a; tb += pc_get(b * PC_PORTS + 1); tg += pc_get(b * PC_PORTS + 2); tw += pc_get(b * PC_PORTS + 3); if (a) hot++; }
     fprintf(stderr, "[PORTCOUNTS] %s port entries -- boxes=%ld alpha-entered=%ld (%.1f%%) alpha-total=%llu beta-total=%llu", tag, nbox, hot, nbox ? 100.0 * (double)hot / (double)nbox : 0.0,
@@ -105,7 +105,7 @@ void rt_port_counts_report(const char * tag, int four) {
         four ? "; W/G is concedes-per-succeed (clause tries that failed after an exit)" : "");
     if (ta == 0) {
         fprintf(stderr, "[PORTCOUNTS] ⛔ REFUSE: %ld cells registered but EVERY alpha count is zero -- the increments were emitted but never executed, or never reached the cells.\n",
-            g_runtime.pc.pc_nslot);
+            g_rt_pc.pc_nslot);
         return;
     }
     {
@@ -129,7 +129,7 @@ void rt_port_counts_report(const char * tag, int four) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((force_align_arg_pointer)) void rt_port_counts_dump(void) {
     if (getenv("SCRIP_PORT_COUNTS_DIAG"))
-        fprintf(stderr, "[PCDIAG] dump entered: on=%d nslot=%ld nchunk=%ld env=%s\n", rt_port_counts_on(), g_runtime.pc.pc_nslot, g_runtime.pc.pc_nchunk,
+        fprintf(stderr, "[PCDIAG] dump entered: on=%d nslot=%ld nchunk=%ld env=%s\n", rt_port_counts_on(), g_rt_pc.pc_nslot, g_rt_pc.pc_nchunk,
         getenv("SCRIP_PORT_COUNTS") ? getenv("SCRIP_PORT_COUNTS") : "<unset>");
     if (!rt_port_counts_on()) return;
     rt_port_counts_report("mode-3 EXACT", 0);

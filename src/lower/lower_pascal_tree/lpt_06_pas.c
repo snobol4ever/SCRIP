@@ -1,7 +1,6 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"

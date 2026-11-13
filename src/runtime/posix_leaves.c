@@ -21,7 +21,6 @@
 #include "ir/ct_arena.h"
 #include "ir/descr.h"
 #include "posix_leaves.h"
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/table.h"
 #include "runtime/rt/gc_heap.h"

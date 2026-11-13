@@ -15,6 +15,8 @@
 #include "runtime/lib/bn_25_sh.h"
 #include "runtime/lib/bn_37_pas.h"
 #include "runtime/lib/bn_38_pas.h"
+#include "runtime/core/g_runtime_pas.h"
+#include <time.h>
 extern void *rt_ws_alloc_descr(size_t);
 extern FILE *fh_get(int);
 int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
@@ -269,7 +271,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (id == PBI_dispose_k && nargs == 3) {
         if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
         long long n = args[0].i;
-        int tagged = n < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[n] & 2);
+        int tagged = n < g_rt_pas.pas_heap_cap && (g_rt_pas.pas_heap_dead[n] & 2);
         if (!tagged) pas_file_err("6.6.5.3", "dispose(p, k1, ..., kn) names variants for a variable not created with new(p, c1, ..., cn)", NULL);
         if (IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
             pas_file_err("6.6.5.3", "the variant constants of dispose are not those of the new that created the variable", NULL);
@@ -279,11 +281,11 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     L_pbi_29:
     ;
-    if (id == PBI_tagmark && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap) g_runtime.pas.pas_heap_dead[args[0].i] |= 2; *out = NULVCL; return 1; }
+    if (id == PBI_tagmark && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_rt_pas.pas_heap_cap) g_rt_pas.pas_heap_dead[args[0].i] |= 2; *out = NULVCL; return 1; }
     L_pbi_34:
     ;
     if (id == PBI_tagset_chk && nargs == 3) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) &&
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_rt_pas.pas_heap_cap && (g_rt_pas.pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) &&
             pas_tag_ne(args[1].i, args[2].i)) pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
         *out = NULVCL;
         return 1;
@@ -291,7 +293,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     L_pbi_40:
     ;
     if (id == PBI_tagwhole && nargs == 1) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_rt_pas.pas_heap_cap && (g_rt_pas.pas_heap_dead[args[0].i] & 2))
             pas_file_err("6.6.5.3", "a variable created with new(p, c1, ..., cn) is accessed as a whole by a factor, an assignment or an actual-parameter", NULL);
         *out = NULVCL;
         return 1;
@@ -352,7 +354,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     L_pbi_88:
     ;
-    if (id == PBI_mark && nargs == 0) { *out = INTVAL(g_runtime.pas.pas_heap_ctr + 1); return 1; }
+    if (id == PBI_mark && nargs == 0) { *out = INTVAL(g_rt_pas.pas_heap_ctr + 1); return 1; }
     L_pbi_89:
     ;
     if (id == PBI_release && nargs == 1) { if (IS_INT_fn(args[0])) pas_heap_release(args[0].i); *out = NULVCL; return 1; }
@@ -462,7 +464,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     L_pbi_171:
     ;
-    if (id == PBI_randomize && nargs == 0) { g_runtime.pasrnd.seed = (unsigned)time(NULL) ^ ((unsigned)getpid() << 16); *out = NULVCL; return 1; }
+    if (id == PBI_randomize && nargs == 0) { g_rt_pasrnd.seed = (unsigned)time(NULL) ^ ((unsigned)getpid() << 16); *out = NULVCL; return 1; }
     L_pbi_172:
     ;
     if (id == PBI_stringofchar && nargs == 2) {
@@ -492,10 +494,10 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (id == PBI_pdx && nargs == 4) { *out = pas_pdx(args, nargs); return 1; }
     L_pbi_914:
     ;
-    if (id == PBI_ioflow && nargs == 1) { g_runtime.pasio.ioflow = 1; *out = INTVAL(0); return 1; }
+    if (id == PBI_ioflow && nargs == 1) { g_rt_pasio.ioflow = 1; *out = INTVAL(0); return 1; }
     L_pbi_915:
     ;
-    if (id == PBI_ioresult && nargs == 1) { *out = INTVAL(g_runtime.pasio.inoutres); g_runtime.pasio.inoutres = 0; return 1; }
+    if (id == PBI_ioresult && nargs == 1) { *out = INTVAL(g_rt_pasio.inoutres); g_rt_pasio.inoutres = 0; return 1; }
     L_pbi_916:
     ;
     if (id == PBI_ioerrmsg && nargs == 1) { *out = STRVAL(rt_heap_strdup_c(pas_io_message(IS_INT_fn(args[0]) ? args[0].i : 0))); return 1; }
@@ -986,7 +988,7 @@ int pas_bi_chain_id(int id, const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (id == PBI_fclose && nargs == 1) {
         extern FILE *fh_get(int);
         extern void fh_free(int);
-        if (g_runtime.pasio.ioflow && (!IS_FH_fn(args[0]) || !fh_get((int)args[0].i))) g_runtime.pasio.inoutres = 103;
+        if (g_rt_pasio.ioflow && (!IS_FH_fn(args[0]) || !fh_get((int)args[0].i))) g_rt_pasio.inoutres = 103;
         if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
         *out = NULVCL;
         return 1;

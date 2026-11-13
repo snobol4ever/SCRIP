@@ -16,6 +16,7 @@
 #include "runtime/lib/bn_24_sh.h"
 #include "runtime/lib/bn_26_sh.h"
 #include "runtime/lib/bn_30_pl.h"
+#include "runtime/core/g_runtime_bn.h"
 extern int rt_icn_cset_member_n(const char *, long, int);
 int core_icn_error(int code, DESCR_t val);
 extern gv_t g_call_args;
@@ -740,13 +741,13 @@ int bn_icn_move(DESCR_t *args, DESCR_t *out) {
     return 1;
 }
 int icn_bi_direct_scanpos(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs != 1 || args[0].v != DT_I) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_tab ? bn_icn_tab(args, out) : bn_icn_move(args, out);
 }
 int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
+    if (g_rt_bn.dtax_bid[bid].kind != 0 && g_rt_bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 1 || nargs > 4 || args[0].v != DT_S) return 0;
     if (nargs != 1 && (args[1].v != DT_S || IS_CSET_fn(args[1]))) return 0;
     for (int i = 2; i < nargs; i++) if (args[i].v != DT_I && args[i].v != DT_SNUL) return 0;

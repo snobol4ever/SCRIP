@@ -9,6 +9,7 @@
 #include "runtime/unification/un_03_pl.h"
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_05_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern int rt_pl_eng_inst_is(DESCR_t);
 extern int64_t rt_pl_eng_inst_id(DESCR_t);
 extern int rt_pl_dialect_swi(void);
@@ -142,7 +143,7 @@ static int plc_is_graphic_char(int ch) { static const char *const g = "#$&*+-./:
 int plc_is_op_atom(pl_cell_t *d) {
     int p = 0, l = 0, r = 0;
     int nid = (int)d->v == DT_PLATOM ? (int)d->i : -1;
-    if (nid >= 0 && nid == g_runtime.atoms.atom_dot && rt_pl_dialect_swi()) return 1;
+    if (nid >= 0 && nid == g_rt_atoms.atom_dot && rt_pl_dialect_swi()) return 1;
     return nid >= 0 && (plc_op_info_id(nid, 2, &p, &l, &r) || plc_op_info_id(nid, 1, &p, &l, &r));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -224,7 +225,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         pl_cell_t *n = pl_deref(&aa[0]);
         if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
-    if ((!ignore_ops || (ignore_ops & 2)) && fnid == g_runtime.atoms.atom_dot && ar == 2) {
+    if ((!ignore_ops || (ignore_ops & 2)) && fnid == g_rt_atoms.atom_dot && ar == 2) {
         if (m->xstr && !wx && plc_xsb_codes(m, d)) return;
         if (max_depth > 0 && !wx && rt_pl_dialect_gnu()) {
             long rem = max_depth - depth;
@@ -244,7 +245,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 tl = pl_deref(&ca[1]);
                 if (rem == 0) { if (!emit || !plc_is_nil(tl)) fputs("|...", fp); break; }
                 first = 0;
-                if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) { gc = tl; continue; }
+                if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_rt_atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) { gc = tl; continue; }
                 if (!plc_is_nil(tl)) { fputc('|', fp); PLC_KID(tl, max_depth - rem, 999); }
                 break;
             }
@@ -267,7 +268,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             n++;
             if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
             tl = pl_deref(&ca[1]);
-            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) {
+            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_rt_atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) {
                 cur = tl;
                 if (cur == tort && max_depth <= 0) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
                 if ((n & (n - 1)) == 0) tort = cur;
@@ -422,7 +423,7 @@ static int plc_fz_run(void *wv) {
                 nb[ar] = plc_fz_var(w, ++w->next_k);
                 kc[0] = pl_make_compound(plc_fid_name(d->slen), ar, nb);
                 kc[1] = w->knodes;
-                w->knodes = pl_make_compound(g_runtime.atoms.atom_dot, 2, kc);
+                w->knodes = pl_make_compound(g_rt_atoms.atom_dot, 2, kc);
             }
             *w->d = nb[ar].v != DT_SNUL ? nb[ar] : pl_make_compound(plc_fid_name(d->slen), ar, nb);
         } else if (e) {
@@ -456,7 +457,7 @@ static int plc_fz_run(void *wv) {
 static int plc_fz_count_visit(pl_cell_t *d, void *ctx) { if ((int)d->v == DT_PLREF) ++*(long *)ctx; return PLR_V_GO; }
 PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) pl_cell_t plc_factorize_x(pl_cell_t *c, int named, int dag) {
     long n = 0, cap = 64;
-    pl_cell_t out, subs = pl_make_atom(g_runtime.atoms.atom_nil), *args = (pl_cell_t *)rt_ws_alloc_descr(2);
+    pl_cell_t out, subs = pl_make_atom(g_rt_atoms.atom_nil), *args = (pl_cell_t *)rt_ws_alloc_descr(2);
     plc_fz_t w;
     (void)plc_fz_count_walk(c, (void *)&n);
     while (cap < 2 * n + 2) cap <<= 1;
@@ -471,7 +472,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) pl_cell_t plc_factori
         w.next_k = 0;
         w.named = named;
         w.dag = dag;
-        w.knodes = pl_make_atom(g_runtime.atoms.atom_nil);
+        w.knodes = pl_make_atom(g_rt_atoms.atom_nil);
         w.tab = tab;
         w.mask = cap - 1;
         (void)plc_fz_run(&w);
@@ -484,7 +485,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) pl_cell_t plc_factori
         eq[1] = node;
         cons[0] = pl_make_compound(prolog_atom_intern("="), 2, eq);
         cons[1] = subs;
-        subs = pl_make_compound(g_runtime.atoms.atom_dot, 2, cons);
+        subs = pl_make_compound(g_rt_atoms.atom_dot, 2, cons);
     }
     args[0] = out;
     args[1] = subs;
@@ -518,7 +519,7 @@ void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, rt_pl_dial
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, (rt_pl_dialect_swi() || rt_pl_dialect_xsb()) ? 3 : PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void plc_atoms_ready(void) { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
+void plc_atoms_ready(void) { extern void prolog_atom_init(void); if (g_rt_atoms.atom_dot < 0) prolog_atom_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell) {
     plc_atoms_ready();

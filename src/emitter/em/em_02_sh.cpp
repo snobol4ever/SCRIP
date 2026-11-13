@@ -9,6 +9,7 @@
 #include "ir/dtp.h"
 #include "ir/ir_node_index.h"
 #include "templates/bb/bb_templates.h"
+#include "runtime/core/g_runtime_eval.h"
 extern "C" {
 #include "templates/x86/x86_rodata.h"
 }
@@ -388,7 +389,7 @@ const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" :
 uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 int elem_access_kind(const IR_t * nd) { return nd ? nd->elem_access : 0; }
 int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out) {
-    if (!fname || !fname[0] || g_runtime.eval.rt_fragment_emit) return 0;
+    if (!fname || !fname[0] || g_rt_eval.rt_fragment_emit) return 0;
     int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
     int np = 0, nsave = 0, res_gk = -1;
     int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);

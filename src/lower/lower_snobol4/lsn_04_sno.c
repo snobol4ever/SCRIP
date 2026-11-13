@@ -1,5 +1,4 @@
 #include "lower/lower_snobol4/lsn_head.h"
-#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"

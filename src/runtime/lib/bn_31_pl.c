@@ -22,6 +22,8 @@
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/pl_meta_specs.inc"
+#include "runtime/core/g_runtime_bn.h"
+#include <time.h>
 extern void *rt_ws_alloc_descr(size_t);
 extern int rt_proc_is_registered(const char *name);
 extern int fh_capture_begin(char **, size_t *, int *);
@@ -91,8 +93,8 @@ PL_CX_LEAF_HEAD(telling, 1)
         extern int fh_current_output(void);
         ok =
             plw_unify_vals(args[0],
-            fh_current_output() == 1 ? pl_mk_atom("user") : !g_runtime.bn.pl_edin_out_name[0] ? pl_mk_stream(fh_current_output()) :
-            pl_mk_atom_dup(g_runtime.bn.pl_edin_out_name, strlen(g_runtime.bn.pl_edin_out_name)), cx);
+            fh_current_output() == 1 ? pl_mk_atom("user") : !g_rt_bn.pl_edin_out_name[0] ? pl_mk_stream(fh_current_output()) :
+            pl_mk_atom_dup(g_rt_bn.pl_edin_out_name, strlen(g_rt_bn.pl_edin_out_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -101,8 +103,8 @@ PL_CX_LEAF_HEAD(seeing, 1)
         extern int fh_current_input(void);
         ok =
             plw_unify_vals(args[0],
-            fh_current_input() == 0 ? pl_mk_atom("user") : !g_runtime.bn.pl_edin_in_name[0] ? pl_mk_stream(fh_current_input()) :
-            pl_mk_atom_dup(g_runtime.bn.pl_edin_in_name, strlen(g_runtime.bn.pl_edin_in_name)), cx);
+            fh_current_input() == 0 ? pl_mk_atom("user") : !g_rt_bn.pl_edin_in_name[0] ? pl_mk_stream(fh_current_input()) :
+            pl_mk_atom_dup(g_rt_bn.pl_edin_in_name, strlen(g_rt_bn.pl_edin_in_name)), cx);
     }
 PL_CX_LEAF_TAIL
 DESCR_t pl_gnu_fn(const char *f, int ar, const DESCR_t *a) {

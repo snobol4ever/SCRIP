@@ -5,6 +5,7 @@
 #include "runtime/core/runtime_shim.h"
 #include "runtime/rt/rt_list_view.h"
 #include "runtime/lib/bn_39_sh.h"
+#include <time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     if (nargs != 2) return -1;

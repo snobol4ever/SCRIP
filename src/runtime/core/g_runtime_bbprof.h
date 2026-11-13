@@ -22,4 +22,11 @@ typedef struct {
     timer_t timer;
     int timer_ok;
 } g_bbprof_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_bbprof_t g_rt_bbprof;
+#ifdef __cplusplus
+}
+#endif
 #endif

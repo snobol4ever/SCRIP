@@ -24,6 +24,7 @@
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_36_sh.h"
 #include "runtime/rk_rakudo_method_names.inc"
+#include "runtime/core/g_runtime_bn.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 extern void *rt_ws_alloc_descr(size_t);
@@ -101,7 +102,7 @@ void bnd_gc_roots(void) {
     {
         static const long off[2] = { (long)__builtin_offsetof(gram_ent_t, qname), (long)__builtin_offsetof(gram_ent_t, body) };
         static const char *const *const words[2] = { (const char *const *)&g_match.blk, (const char *const *)&g_subject };
-        if (gram_n > 0) rt_gc_run_ptr_fields(g_runtime.bn.gram.p, (long)gram_n, (long)sizeof(gram_ent_t), 2, off);
+        if (gram_n > 0) rt_gc_run_ptr_fields(g_rt_bn.gram.p, (long)gram_n, (long)sizeof(gram_ent_t), 2, off);
         rt_gc_run_loc_list(words, 2);
     }
     for (rk_redisp_t *r = g_redisp_cur; r; r = r->prev) if (r->local) {
@@ -285,7 +286,7 @@ DESCR_t rk_method_land_γ(DESCR_t frame0, long word) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DESCR_t r = rt_call_land_ω(word); if (g_redisp_cur) g_redisp_cur = g_redisp_cur->prev; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bnd_tweak_cache_clear(void) { g_runtime.bn.tweak_gen_bump++; }
+void bnd_tweak_cache_clear(void) { g_rt_bn.tweak_gen_bump++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char *fmode) {
@@ -304,16 +305,16 @@ static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char
         extern FILE *fh_get(int);
         DESCR_t sa = rt_pl_deref_val(((DESCR_t *)f.p)[0]);
         if (sa.v != DT_I || (int)sa.i < 0 || (int)sa.i >= FH_N || !fh_get((int)sa.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", f); return 0; }
-        if (is_out) { fh_set_output((int)sa.i); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input((int)sa.i); g_runtime.bn.pl_edin_in_name = ""; }
+        if (is_out) { fh_set_output((int)sa.i); g_rt_bn.pl_edin_out_name = ""; } else { fh_set_input((int)sa.i); g_rt_bn.pl_edin_in_name = ""; }
         return 1;
     }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
-    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_runtime.bn.pl_edin_in_name = ""; } return 1; }
+    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_rt_bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_rt_bn.pl_edin_in_name = ""; } return 1; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     idx = fh_alloc(fp);
     if (idx < 0) { fclose(fp); return 0; }
-    if (is_out) { fh_set_output(idx); g_runtime.bn.pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); g_runtime.bn.pl_edin_in_name = rt_heap_strdup_c(fn); }
+    if (is_out) { fh_set_output(idx); g_rt_bn.pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); g_rt_bn.pl_edin_in_name = rt_heap_strdup_c(fn); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -326,7 +327,7 @@ int pl_edin_revert(int is_out) {
     extern int fh_current_input(void);
     int cur = is_out ? fh_current_output() : fh_current_input();
     if (cur >= 3) { FILE *fp = fh_get(cur); if (fp) fclose(fp); fh_free(cur); }
-    if (is_out) { fh_set_output(1); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_runtime.bn.pl_edin_in_name = ""; }
+    if (is_out) { fh_set_output(1); g_rt_bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_rt_bn.pl_edin_in_name = ""; }
     return 1;
 }
 static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_procedure_arity",
@@ -349,8 +350,8 @@ const char *pl_dia_flag(const char *nm) {
     return (const char *)0;
 }
 void pl_flags_ready(void) {
-    if (g_runtime.bn.g_pl_flags.len) return;
-    for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_runtime.bn.g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
+    if (g_rt_bn.g_pl_flags.len) return;
+    for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_rt_bn.g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
 }
 static const char *rt_sno_patck_text(int code) {
     return code == 240 ? "pattern match right operand is not pattern" : code == 5 ? "alternation right operand is not pattern" : code == 6 ? "alternation left operand is not pattern" : code == 61 ?
@@ -386,13 +387,13 @@ DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_runtime.bn.g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
+const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_rt_bn.g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 void rt_pl_flags_gc_roots(void) {
-    gc_roots_args_t a = { (void **)pl_flags, (long)g_runtime.bn.g_pl_flags.len, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
+    gc_roots_args_t a = { (void **)pl_flags, (long)g_rt_bn.g_pl_flags.len, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
     rt_gc_run_flags_roots(&a);
 }
 void bnd_text_gc_roots(void) {
-    static const char *const *const words[2] = { (const char *const *)&g_runtime.bn.pl_edin_out_name, (const char *const *)&g_runtime.bn.pl_edin_in_name };
+    static const char *const *const words[2] = { (const char *const *)&g_rt_bn.pl_edin_out_name, (const char *const *)&g_rt_bn.pl_edin_in_name };
     rt_gc_run_loc_list(words, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -404,7 +405,7 @@ pl_flag_t * pl_flag_find_or_create(const char *nm) {
         extern char *rt_heap_strdup_c(const char *);
         char *persist = rt_heap_strdup_c(nm);
         if (!persist) return (pl_flag_t *)0;
-        (void)CV_PUSH(g_runtime.bn.g_pl_flags, pl_flag_t);
+        (void)CV_PUSH(g_rt_bn.g_pl_flags, pl_flag_t);
         pl_flags[i].nm = persist;
         pl_flags[i].val = "";
         pl_flags[i].mod = 1;
@@ -734,7 +735,7 @@ DESCR_t bt___rk_tl_got(DESCR_t *args, int nargs) {
     if (nargs == 2) { *out = rk_mk_arr(args, 2); ((ARBLK_t *) out->arr)->proto = rk_proto_tlgot; return _bo; }
     return (DESCR_t){ .v = RTX_NOT_HANDLED };
 }
-DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_runtime.bn.main_args_descr; }
+DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_rt_bn.main_args_descr; }
 DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) {
     extern DESCR_t pat_alt(DESCR_t, DESCR_t);
     RT_HOOK_GUARD("SNO$PBALT");

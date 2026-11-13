@@ -3,6 +3,8 @@
 #include "runtime/core/core.h"
 #include <glob.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_pas.h"
+#include "runtime/core/g_runtime_bn.h"
 #include "runtime/rt/rtx_try.h"
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"
@@ -34,8 +36,8 @@ typedef struct { const char *name; int nref; } rk_cb_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *qname; const char *body; int flavor; } gram_ent_t;
-#define GRAM(k) CV_AT(g_runtime.bn.gram, gram_ent_t, (k))
-#define gram_n ((int)g_runtime.bn.gram.len)
+#define GRAM(k) CV_AT(g_rt_bn.gram, gram_ent_t, (k))
+#define gram_n ((int)g_rt_bn.gram.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rk_is_truthy, leaf, 0);
@@ -62,11 +64,11 @@ typedef struct { long mode, posv, xmin, xmax; const long *nth; int nnth; } RkRxO
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { char *b; size_t n, cap; } rk_sb_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PTF_BUF(k) (((DESCR_t *)g_runtime.pas.pas_tf.p)[2 * (k)])
-#define PTF_ST(k) (((DESCR_t *)g_runtime.pas.pas_tf.p)[2 * (k) + 1])
+#define PTF_BUF(k) (((DESCR_t *)g_rt_pas.pas_tf.p)[2 * (k)])
+#define PTF_ST(k) (((DESCR_t *)g_rt_pas.pas_tf.p)[2 * (k) + 1])
 #define PTF_HAS(k) ((int)(PTF_ST(k).i & 1))
 #define PTF_MODE(k) ((int)(PTF_ST(k).i >> 1))
-#define PTF_N ((int)(g_runtime.pas.pas_tf.len / 2))
+#define PTF_N ((int)(g_rt_pas.pas_tf.len / 2))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PAS_VIEW_STR 64
 #define PAS_VIEW_RAW 128
@@ -217,7 +219,7 @@ typedef struct {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PLF_NONE = 0, PLF_BOOL, PLF_ATOM, PLF_INT, PLF_FLOAT, PLF_TERM, PLF_GONE };
 typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; int user; int type; } pl_flag_t;
-#define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
+#define pl_flags ((pl_flag_t *)g_rt_bn.g_pl_flags.p)
 typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
 RT_ENTRY_DECL(rt_sno_patck_d, leaf, 0);
 _Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
@@ -331,8 +333,8 @@ RT_ENTRY_DECL(c_rt_sno_name_dl, leaf, 0);
 RT_ENTRY_DECL(rt_sno_mkexpr_d, leaf, 0);
 RT_ENTRY_DECL(rt_sno_xlv_d, leaf, 0);
 typedef struct { const char *newname; const char *oldname; } rt_syn_t;
-#define SYN(k) CV_AT(g_runtime.bn.rt_syn, rt_syn_t, (k))
-#define g_rt_syn_n ((int)g_runtime.bn.rt_syn.len)
+#define SYN(k) CV_AT(g_rt_bn.rt_syn, rt_syn_t, (k))
+#define g_rt_syn_n ((int)g_rt_bn.rt_syn.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -379,23 +381,20 @@ static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
 static inline unsigned rt_ctor_ic_h(const char *fn) { return (unsigned)((((uintptr_t)fn) * 0x9E3779B97F4A7C15ull) >> 56) & (RT_CTOR_IC_N - 1); }
 static inline int rt_ctor_ic_find(const char *fn, long gen) {
     unsigned h = rt_ctor_ic_h(fn);
-    if (g_runtime.bn.ctor_ic[h].fn == fn && g_runtime.bn.ctor_ic[h].gen == gen) return (int)h;
+    if (g_rt_bn.ctor_ic[h].fn == fn && g_rt_bn.ctor_ic[h].gen == gen) return (int)h;
     h ^= 1u;
-    if (g_runtime.bn.ctor_ic[h].fn == fn && g_runtime.bn.ctor_ic[h].gen == gen) return (int)h;
+    if (g_rt_bn.ctor_ic[h].fn == fn && g_rt_bn.ctor_ic[h].gen == gen) return (int)h;
     return -1;
 }
 static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb) {
     unsigned h = (unsigned)(((((uintptr_t)fn ^ ((uintptr_t)idb << 1)) * 0x9E3779B97F4A7C15ull) >> 56) & (RT_FIELD_IC_N - 1));
-    if (g_runtime.bn.field_ic[h].fn == fn && g_runtime.bn.field_ic[h].type == idb) {
-        int fi = g_runtime.bn.field_ic[h].idx;
-        if (fi < idb->nfields && idb->fields[fi] && !strcmp(idb->fields[fi], fn)) return fi;
-    }
+    if (g_rt_bn.field_ic[h].fn == fn && g_rt_bn.field_ic[h].type == idb) { int fi = g_rt_bn.field_ic[h].idx; if (fi < idb->nfields && idb->fields[fi] && !strcmp(idb->fields[fi], fn)) return fi; }
     {
         const char _f0 = fn[0];
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
-            g_runtime.bn.field_ic[h].fn = fn;
-            g_runtime.bn.field_ic[h].type = idb;
-            g_runtime.bn.field_ic[h].idx = fi;
+            g_rt_bn.field_ic[h].fn = fn;
+            g_rt_bn.field_ic[h].type = idb;
+            g_rt_bn.field_ic[h].idx = fi;
             return fi;
         }
     }

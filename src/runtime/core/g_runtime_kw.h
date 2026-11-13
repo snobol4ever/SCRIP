@@ -17,4 +17,11 @@ typedef struct {
     int kw_cset_regc_len[64];
     int64_t kwb_own[8];
 } g_kw_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_kw_t g_rt_kw;
+#ifdef __cplusplus
+}
+#endif
 #endif

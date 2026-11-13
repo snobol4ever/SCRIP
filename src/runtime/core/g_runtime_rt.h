@@ -21,4 +21,11 @@ typedef struct {
     cv_t rt_dc_chunks;
     struct g_dcr_cell cell_cache[DCR_CELL_CACHE_SIZE];
 } g_rt_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_rt_t g_rt_rt;
+#ifdef __cplusplus
+}
+#endif
 #endif

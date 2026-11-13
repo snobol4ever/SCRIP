@@ -1,6 +1,6 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/ir_graph.h"
@@ -174,8 +174,8 @@ void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int ari
     g_emit_cfg = g;
     fa = g_frame_active;
     g_frame_active = 1;
-    rfe_sv = g_runtime.eval.rt_fragment_emit;
-    g_runtime.eval.rt_fragment_emit = 1;
+    rfe_sv = g_rt_eval.rt_fragment_emit;
+    g_rt_eval.rt_fragment_emit = 1;
     rt_proc_set_generator(key, 1);
     rt_proc_set_jmpentry(key, 1);
     rt_proc_set_dyn_scope(key, 0);
@@ -229,7 +229,7 @@ void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int ari
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
     emit_jmp_entry_clear();
     g_gen_proc_active = gpa_sv;
-    g_runtime.eval.rt_fragment_emit = rfe_sv;
+    g_rt_eval.rt_fragment_emit = rfe_sv;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
     if (!fn) { extern void rt_code_pool_check(void); rt_code_pool_check(); return (void *)0; }

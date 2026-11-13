@@ -1,5 +1,4 @@
 #include "lower/lower_snobol4/lsn_head.h"
-#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
@@ -8,6 +7,7 @@
 #include "lower/lower_snobol4/lsn_03_sno.h"
 #include "lower/lower_snobol4/lsn_05_sno.h"
 #include "lower/lower_snobol4/lsn_07_sno.h"
+#include <time.h>
 extern int snobol4_list_event_count(void);
 extern int snobol4_list_event_nend(int);
 extern int snobol4_list_event_kind(int);

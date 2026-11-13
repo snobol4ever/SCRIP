@@ -20,6 +20,7 @@
 #include "runtime/lib/bn_32_pl.h"
 #include "runtime/lib/bn_33_pl.h"
 #include "runtime/lib/bn_34_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern void *rt_ws_alloc_descr(size_t);
 int rt_pl_keysort_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_compare_cell(void *, void *, void *, pl_tr_ctx_t *);
@@ -84,7 +85,7 @@ int plw_bind_vv(DESCR_t *A, DESCR_t *B, pl_tr_ctx_t *cx, const char *floor_) {
 __attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb, pl_tr_ctx_t *cx) { DESCR_t ta = va, tb = vb; return plw_unify_cells(plw_entry(&ta), plw_entry(&tb), cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
-    { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
+    { extern void prolog_atom_init(void); if (g_rt_atoms.atom_dot < 0) prolog_atom_init(); }
     DESCR_t *c = plw_cell_deref(plw_entry(tmp));
     if (c->v == DT_SNUL || c->v == DT_FAIL) pl_var_make(c, (const pl_tr_ctx_t *)0, 0);
     return c;
@@ -102,7 +103,7 @@ const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, int *ar_
     if ((int)v.v == DT_PLREF) { nm = prolog_atom_name(plc_fid_name(v.slen)); ar = plc_fid_arity(v.slen); kids = (DESCR_t *)v.p; } else if ((int)v.v == (int)DT_PLATOM) nm = prolog_atom_name((int)v.i);
     else if ((int)v.v == (int)DT_S) nm = v.s;
     if (!nm || extra < 0) return (const char *)0;
-    if ((int)v.v == DT_PLREF && extra == 0 && ar == 2 && plc_fid_name(v.slen) == g_runtime.atoms.atom_dot) { kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = v; nm = "consult"; ar = 1; }
+    if ((int)v.v == DT_PLREF && extra == 0 && ar == 2 && plc_fid_name(v.slen) == g_rt_atoms.atom_dot) { kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = v; nm = "consult"; ar = 1; }
     *args_out = kids;
     *ar_out = ar;
     return nm;
@@ -115,7 +116,7 @@ const char *pl_atom_str(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pl_mk_atom(const char *s) { extern int prolog_atom_intern(const char *); DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern(s); return d; }
-DESCR_t pl_nil(void) { DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = g_runtime.atoms.atom_nil; return d; }
+DESCR_t pl_nil(void) { DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = g_rt_atoms.atom_nil; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
@@ -124,15 +125,15 @@ DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     kids[1] = tail;
     DESCR_t c = {0};
     c.v = (DTYPE_t)DT_PLREF;
-    c.slen = (uint32_t)g_runtime.atoms.functor_dot2;
+    c.slen = (uint32_t)g_rt_atoms.functor_dot2;
     c.p = (void *)kids;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 DESCR_t pl_ok(void) { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
-void pl_atoms_ready(void) { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
-int pl_is_cons(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == g_runtime.atoms.atom_dot && plc_fid_arity(d.slen) == 2; }
+void pl_atoms_ready(void) { extern void prolog_atom_init(void); if (g_rt_atoms.atom_dot < 0) prolog_atom_init(); }
+int pl_is_cons(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == g_rt_atoms.atom_dot && plc_fid_arity(d.slen) == 2; }
 DESCR_t pl_spine_end(DESCR_t cur, long *n_out, int *cyclic) {
     void *ck = (void *)0;
     long n = 0, st = 0, pw = 1;

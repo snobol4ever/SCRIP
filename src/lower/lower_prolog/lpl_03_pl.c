@@ -1,6 +1,5 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
 #include "ir/stage2_pl.h"

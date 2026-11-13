@@ -8,6 +8,7 @@
 #include "runtime/unification/un_07_pl.h"
 #include "runtime/unification/un_08_pl.h"
 #include "runtime/unification/un_09_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern const char *prolog_atom_name(int id);
 static int pl_db_kmod_get(void *root, int64_t k);
 static int pl_db_src_grow(pl_db_t *db, int n, int cap);
@@ -745,10 +746,10 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
         da[1] = pl_make_int(db->cell_k);
         da[2] = pl_make_int(slot);
         da[3] = pl_make_compound(prolog_atom_intern("$clref"), 2, (void *)rk);
-        da[4] = kind == 1 ? plc_copy(&db->s[slot].cl) : pl_make_atom(g_runtime.atoms.atom_nil);
+        da[4] = kind == 1 ? plc_copy(&db->s[slot].cl) : pl_make_atom(g_rt_atoms.atom_nil);
         cons[0] = pl_make_compound(prolog_atom_intern("$txdb"), 5, (void *)da);
         cons[1] = *lst;
-        *lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, (void *)cons);
+        *lst = pl_make_compound(g_rt_atoms.atom_dot, 2, (void *)cons);
         db->tx_pins++;
     }
 }

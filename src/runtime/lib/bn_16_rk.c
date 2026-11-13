@@ -22,6 +22,7 @@
 #include "runtime/lib/bn_20_pl.h"
 #include "runtime/lib/bn_23_rk.h"
 #include "runtime/lib/bn_24_sh.h"
+#include "runtime/core/g_runtime_bn.h"
 void rt_call_args_need(int n);
 static DESCR_t rk_exc_from_msg(const char *msg);
 extern FILE *fh_get(int);
@@ -780,4 +781,4 @@ DESCR_t bt___rk_map_append(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
-int icn_dtax_plain(int bid) { return !dtax_off() && g_runtime.bn.dtax_bid[bid].gen == rt_dtax_gen && (g_runtime.bn.dtax_bid[bid].kind == 0 || g_runtime.bn.dtax_bid[bid].kind == 3); }
+int icn_dtax_plain(int bid) { return !dtax_off() && g_rt_bn.dtax_bid[bid].gen == rt_dtax_gen && (g_rt_bn.dtax_bid[bid].kind == 0 || g_rt_bn.dtax_bid[bid].kind == 3); }

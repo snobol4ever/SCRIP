@@ -1,6 +1,5 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/stage2.h"

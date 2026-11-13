@@ -15,6 +15,7 @@
 #include "runtime/lib/bn_16_rk.h"
 #include "runtime/lib/bn_18_rk.h"
 #include "runtime/lib/bn_20_pl.h"
+#include <time.h>
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 extern DESCR_t rt_deref(DESCR_t d);

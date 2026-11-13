@@ -27,6 +27,8 @@
 #include "runtime/lib/bn_21_sh.h"
 #include "runtime/lib/bn_23_rk.h"
 #include "runtime/lib/bn_31_pl.h"
+#include "runtime/core/g_runtime_bn.h"
+#include <time.h>
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 extern void *rt_ws_alloc_descr(size_t);
@@ -555,11 +557,11 @@ DESCR_t bt_hash_pairs(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_hash_
 DESCR_t bt_hash_kv(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_hash_keys(args, nargs, 3); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_hash_values(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_hash_keys(args, nargs, 1); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt_hash_keys(DESCR_t *args, int nargs) { { const DESCR_t _r = bta_hash_keys(args, nargs, 0); if (_r.v != RTX_NOT_HANDLED) return _r; } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
-void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_runtime.bn.main_progname); g_runtime.bn.main_progname = c; }
-const char *rt_main_progname(void) { return g_runtime.bn.main_progname ? g_runtime.bn.main_progname : ""; }
-void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_runtime.bn.main_args_descr); }
-int rt_main_args_count(void) { return g_runtime.bn.main_args_n < 0 ? 0 : g_runtime.bn.main_args_n; }
-const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_runtime.bn.main_args_n && g_runtime.bn.main_args_v) ? g_runtime.bn.main_args_v[i] : (const char *)0; }
+void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_rt_bn.main_progname); g_rt_bn.main_progname = c; }
+const char *rt_main_progname(void) { return g_rt_bn.main_progname ? g_rt_bn.main_progname : ""; }
+void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_rt_bn.main_args_descr); }
+int rt_main_args_count(void) { return g_rt_bn.main_args_n < 0 ? 0 : g_rt_bn.main_args_n; }
+const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_rt_bn.main_args_n && g_rt_bn.main_args_v) ? g_rt_bn.main_args_v[i] : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_match_is(DESCR_t d) { return IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

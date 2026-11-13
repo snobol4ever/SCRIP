@@ -5,6 +5,7 @@
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_06_pl.h"
 #include "runtime/core/g_runtime_misc.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern int plw_unify_cells_x(DESCR_t *, DESCR_t *, pl_tr_ctx_t *);
 extern void plw_bind_x(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 extern const char *prolog_atom_name(int id);
@@ -192,7 +193,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
     int *ord = plc_merge_order(0, elems, n, ordb, tmpb);
     int m = 0;
     for (int i = 0; i < n; i++) { if (!do_msort && m > 0 && rt_pl_cell_compare(elems[ord[m - 1]], elems[ord[i]]) == 0) continue; ord[m++] = ord[i]; }
-    pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
+    pl_cell_t nil = pl_make_atom(g_rt_atoms.atom_nil);
     pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -249,7 +250,7 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell) {
     int m = 0;
     int out_idx[n + 1];
     for (int i = 0; i < n; i++) { if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue; out_idx[m++] = i; }
-    pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
+    pl_cell_t nil = pl_make_atom(g_rt_atoms.atom_nil);
     pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -269,7 +270,7 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx) {
     if (n < 0) return 0;
     int ordb[n + 1], tmpb[n + 1];
     int *ord = plc_merge_order(1, elems, n, ordb, tmpb);
-    pl_cell_t nil = pl_make_atom(g_runtime.atoms.atom_nil);
+    pl_cell_t nil = pl_make_atom(g_rt_atoms.atom_nil);
     pl_cell_t result = nil;
     for (int i = n - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -428,7 +429,7 @@ static const char *pl_atom_text(pl_cell_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_nil(pl_cell_t *d) { const char *s = pl_atom_text(d); return s && !strcmp(s, "[]"); }
-static pl_cell_t pl_nil_cell(void) { return pl_make_atom(g_runtime.atoms.atom_nil); }
+static pl_cell_t pl_nil_cell(void) { return pl_make_atom(g_rt_atoms.atom_nil); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_name_singleton_vars_cell(void *term_cell) {
     int occ = plc_var_occ((pl_cell_t *)term_cell) + 1;

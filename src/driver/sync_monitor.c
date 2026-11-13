@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
 #include <string.h>

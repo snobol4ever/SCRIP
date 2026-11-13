@@ -52,4 +52,11 @@ typedef struct {
     int terminal_tried;
     int (*label_exists_hook)(const char *);
 } g_core_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_core_t g_rt_core;
+#ifdef __cplusplus
+}
+#endif
 #endif

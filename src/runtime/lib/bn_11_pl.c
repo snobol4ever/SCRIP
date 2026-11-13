@@ -25,6 +25,9 @@
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_34_pl.h"
+#include "runtime/core/g_runtime_pas.h"
+#include "runtime/core/g_runtime_bn.h"
+#include <time.h>
 extern void *rt_ws_alloc_descr(size_t);
 extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
 static int pl_getc_cp_raw(FILE *f, char *seq, int *seqn);
@@ -38,7 +41,7 @@ int junction_mirror_op(int op) { switch (op) { case TT_LT: return TT_GT; case TT
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_set(const char *qname, const char *body, int flavor) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) { GRAM(i).body = rt_heap_strdup_c(body); GRAM(i).flavor = flavor; return; }
-    { gram_ent_t *e = &CV_PUSH(g_runtime.bn.gram, gram_ent_t); e->qname = rt_heap_strdup_c(qname); e->body = rt_heap_strdup_c(body); e->flavor = flavor; }
+    { gram_ent_t *e = &CV_PUSH(g_rt_bn.gram, gram_ent_t); e->qname = rt_heap_strdup_c(qname); e->body = rt_heap_strdup_c(body); e->flavor = flavor; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -50,20 +53,20 @@ int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? GRAM(i).flavor : 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_heap_release(long m) {
     if (m <= 0) return;
-    for (long n = m; n <= g_runtime.pas.pas_heap_ctr && n < g_runtime.pas.pas_heap_cap; n++) { g_runtime.pas.pas_heap[n] = INTVAL(0); g_runtime.pas.pas_heap_dead[n] = 0; }
-    if (m - 1 < g_runtime.pas.pas_heap_ctr) g_runtime.pas.pas_heap_ctr = m - 1;
+    for (long n = m; n <= g_rt_pas.pas_heap_ctr && n < g_rt_pas.pas_heap_cap; n++) { g_rt_pas.pas_heap[n] = INTVAL(0); g_rt_pas.pas_heap_dead[n] = 0; }
+    if (m - 1 < g_rt_pas.pas_heap_ctr) g_rt_pas.pas_heap_ctr = m - 1;
     {
         long w = 0;
-        for (long i = 0; i < g_runtime.pas.pas_heap_nfree; i++) if (g_runtime.pas.pas_heap_free[i] < m) g_runtime.pas.pas_heap_free[w++] = g_runtime.pas.pas_heap_free[i];
-        g_runtime.pas.pas_heap_nfree = w;
+        for (long i = 0; i < g_rt_pas.pas_heap_nfree; i++) if (g_rt_pas.pas_heap_free[i] < m) g_rt_pas.pas_heap_free[w++] = g_rt_pas.pas_heap_free[i];
+        g_rt_pas.pas_heap_nfree = w;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *);
-    long top = (g_runtime.pas.pas_heap_ctr < g_runtime.pas.pas_heap_cap) ? g_runtime.pas.pas_heap_ctr : g_runtime.pas.pas_heap_cap - 1;
-    for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_runtime.pas.pas_heap[n]);
-    gv_gc_root(&g_runtime.pas.pas_tf);
+    long top = (g_rt_pas.pas_heap_ctr < g_rt_pas.pas_heap_cap) ? g_rt_pas.pas_heap_ctr : g_rt_pas.pas_heap_cap - 1;
+    for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_rt_pas.pas_heap[n]);
+    gv_gc_root(&g_rt_pas.pas_tf);
 }
 int pl_alias_idx(const char *nm) {
     extern int fh_alias_idx(const char *);
@@ -787,7 +790,7 @@ void rt_builtin_synonym_add(const char *newname, const char *oldname) {
     if (!newname || !oldname) return;
     rt_dtax_gen++;
     for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(SYN(i).newname, newname)) { SYN(i).oldname = oldname; return; }
-    { rt_syn_t *e = &CV_PUSH(g_runtime.bn.rt_syn, rt_syn_t); e->newname = newname; e->oldname = oldname; }
+    { rt_syn_t *e = &CV_PUSH(g_rt_bn.rt_syn, rt_syn_t); e->newname = newname; e->oldname = oldname; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_builtin_synonym(const char *name) {

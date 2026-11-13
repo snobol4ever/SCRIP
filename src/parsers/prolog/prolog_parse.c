@@ -14,7 +14,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern void *rt_wsb_alloc(size_t);
 typedef struct {
     int active;
@@ -405,7 +405,7 @@ static tree_t *pt_stamp(tree_t *t, int ln) { if (t && t->line <= 0 && ln > 0) t-
 static tree_t *pt_ext(Parser *p, tree_t *t, int start) { if (t && t->end <= t->start) { t->start = start; t->end = p->lx.last_end; } return t; }
 static tree_t *pt_span2(tree_t *n, const tree_t *a, const tree_t *b) { if (n && a && b) { n->start = a->start; n->end = b->end; } return n; }
 static tree_t *mk_atom(int atom_id) {
-    if (atom_id == g_runtime.atoms.atom_cut) return ast_node_new(TT_CUT);
+    if (atom_id == g_rt_atoms.atom_cut) return ast_node_new(TT_CUT);
     tree_t *e = ast_node_new(TT_QLIT);
     const char *nm = prolog_atom_name(atom_id);
     e->v.sval = ct_strdup(nm ? nm : "");
@@ -432,7 +432,7 @@ static int tls_control(const tree_t *t) {
     return f && ((t->n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "|") || !strcmp(f, "->") || !strcmp(f, "*->"))) || (t->n == 1 && !strcmp(f, "\\+")));
 }
 static tree_t *tls(tree_t *t, int goal) {
-    if (!t) return mk_atom(g_runtime.atoms.atom_nil);
+    if (!t) return mk_atom(g_rt_atoms.atom_nil);
     switch (t->t) {
         case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_CUT: case TT_DQLIT:
             return t;
@@ -440,10 +440,10 @@ static tree_t *tls(tree_t *t, int goal) {
             return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
         case TT_MAKELIST: {
             int nelem = t->v.ival ? t->n - 1 : t->n;
-            tree_t *result = t->v.ival ? tls(t->c[t->n - 1], 0) : mk_atom(g_runtime.atoms.atom_nil);
+            tree_t *result = t->v.ival ? tls(t->c[t->n - 1], 0) : mk_atom(g_rt_atoms.atom_nil);
             for (int i = nelem - 1; i >= 0; i--) {
                 tree_t *dargs[2] = { tls(t->c[i], 0), result };
-                result = mk_raw(g_runtime.atoms.atom_dot, dargs, 2);
+                result = mk_raw(g_rt_atoms.atom_dot, dargs, 2);
             }
             return pt_stamp(result, t->line);
         }
@@ -467,7 +467,7 @@ static tree_t *mk_raw(int fid, tree_t **args, int arity) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rls(tree_t *t) {
-    if (!t) return mk_atom(g_runtime.atoms.atom_nil);
+    if (!t) return mk_atom(g_rt_atoms.atom_nil);
     switch (t->t) {
         case TT_VAR:
             if (t->v.sval && strcmp(t->v.sval, "_") == 0) {
@@ -484,10 +484,10 @@ static tree_t *rls(tree_t *t) {
             return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
         case TT_MAKELIST: {
             int nelem = t->v.ival ? t->n - 1 : t->n;
-            tree_t *result = t->v.ival ? rls(t->c[t->n - 1]) : mk_atom(g_runtime.atoms.atom_nil);
+            tree_t *result = t->v.ival ? rls(t->c[t->n - 1]) : mk_atom(g_rt_atoms.atom_nil);
             for (int i = nelem - 1; i >= 0; i--) {
                 tree_t *dargs[2] = { rls(t->c[i]), result };
-                result = mk_raw(g_runtime.atoms.atom_dot, dargs, 2);
+                result = mk_raw(g_rt_atoms.atom_dot, dargs, 2);
             }
             return pt_stamp(result, t->line);
         }
@@ -1086,10 +1086,10 @@ static tree_t *dcg_var_use(TreeScope *ts, tree_t *v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_dq_codes(const tree_t *dq) {
     const char *b = (dq->n > 0 && dq->c[0] && dq->c[0]->v.sval) ? dq->c[0]->v.sval : ""; size_t n = strlen(b);
-    tree_t *acc = mk_atom(g_runtime.atoms.atom_nil);
+    tree_t *acc = mk_atom(g_rt_atoms.atom_nil);
     int cps[n + 1], k = 0;
     for (size_t i = 0; i < n;) i += (size_t)u8_decode((const unsigned char *)b + i, &cps[k++]);
-    while (k > 0) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)cps[--k]; tree_t *dargs[2] = { e, acc }; acc = mk_raw(g_runtime.atoms.atom_dot, dargs, 2); }
+    while (k > 0) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)cps[--k]; tree_t *dargs[2] = { e, acc }; acc = mk_raw(g_rt_atoms.atom_dot, dargs, 2); }
     return acc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1101,7 +1101,7 @@ static tree_t *dcg_append_tail(TreeScope *ts, tree_t *list, tree_t *tail) {
     if (list->t == TT_FNC && list->v.sval && strcmp(list->v.sval, ".") == 0 && list->n == 2) {
         tree_t *new_tail = dcg_append_tail(ts, list->c[1], tail);
         tree_t *args[2] = { list->c[0], new_tail };
-        return mk_raw(g_runtime.atoms.atom_dot, args, 2);
+        return mk_raw(g_rt_atoms.atom_dot, args, 2);
     }
     return dcg_var_use(ts, tail);
 }

@@ -1,7 +1,6 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
-#include "runtime/core/g_runtime.h"
 #include "ir/ast.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_03_pas.h"

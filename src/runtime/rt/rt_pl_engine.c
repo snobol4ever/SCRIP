@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_pleng.h"
 #include "runtime/rt/rt.h"
 #include "ir/ct_arena.h"

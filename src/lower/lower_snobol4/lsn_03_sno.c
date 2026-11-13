@@ -1,5 +1,5 @@
 #include "lower/lower_snobol4/lsn_head.h"
-#include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
@@ -128,7 +128,7 @@ static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land)
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
-    if (l && (g_runtime.eval.rt_fragment_emit || g_lower.sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
+    if (l && (g_rt_eval.rt_fragment_emit || g_lower.sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);

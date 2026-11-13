@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_coexpr.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
@@ -21,7 +22,7 @@
 #include "rt_list_view.h"
 #include "runtime/builtin_ids.h"
 _Static_assert(sizeof(scrip_coctx_t) <= sizeof(((g_coexpr_t *)0)->root_ctx) && _Alignof(scrip_coctx_t) <= 16,
-    "g_runtime.coexpr.root_ctx holds the root scrip_coctx_t: g_runtime_coexpr.h cannot include rt_coexpr.h (its declarations clash with by_name_dispatch.c), so the block is bytes and this assert is "
+    "g_rt_coexpr.root_ctx holds the root scrip_coctx_t: g_runtime_coexpr.h cannot include rt_coexpr.h (its declarations clash with by_name_dispatch.c), so the block is bytes and this assert is "
     "its size contract");
 scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
@@ -80,26 +81,26 @@ static void *scrip_co_trampoline(void *arg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_init_once(scrip_coctx_t *cur) {
-    if (g_runtime.coexpr.inited) return;
+    if (g_rt_coexpr.inited) return;
     cur->semp = &cur->sema;
     scrip_co_makesem(cur);
     cur->thread = pthread_self();
     cur->alive = 1;
     cur->started = 1;
-    g_runtime.coexpr.co_main_thr = cur->thread;
-    g_runtime.coexpr.co_main_set = 1;
-    { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_runtime.coexpr.coexp_stksize = _v; } }
-    pthread_attr_init(&g_runtime.coexpr.attribs);
-    if (pthread_attr_setstacksize(&g_runtime.coexpr.attribs, (size_t)g_runtime.coexpr.coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
-    g_runtime.coexpr.inited = 1;
+    g_rt_coexpr.co_main_thr = cur->thread;
+    g_rt_coexpr.co_main_set = 1;
+    { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_rt_coexpr.coexp_stksize = _v; } }
+    pthread_attr_init(&g_rt_coexpr.attribs);
+    if (pthread_attr_setstacksize(&g_rt_coexpr.attribs, (size_t)g_rt_coexpr.coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
+    g_rt_coexpr.inited = 1;
 }
 static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
     scrip_co_makesem(new_ctx);
     {
-        pthread_attr_t *ap = &g_runtime.coexpr.attribs;
+        pthread_attr_t *ap = &g_rt_coexpr.attribs;
         pthread_attr_t big;
         size_t need = new_ctx->stk_need + (size_t)(2u << 20);
-        if (need > (size_t)g_runtime.coexpr.coexp_stksize) {
+        if (need > (size_t)g_rt_coexpr.coexp_stksize) {
             need = (need + 4095u) & ~(size_t)4095u;
             pthread_attr_init(&big);
             if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (image-sized) failed");
@@ -158,7 +159,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && c->serial == 0) return 1; return c->serial; }
+static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx) && c->serial == 0) return 1; return c->serial; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_trace_xmit(const char *procname, scrip_coctx_t *self, scrip_coctx_t *target, uint64_t x0, uint64_t x1) {
     extern void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override);
@@ -177,13 +178,13 @@ static void scrip_co_trace_term(scrip_coctx_t *me, scrip_coctx_t *back, uint64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     scrip_coctx_t *b = me ? me->activator : 0;
-    for (int hop = 0; b && b != &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && b->dead && hop < 64; hop++) b = b->activator;
-    if (!b || (b != &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && b->dead)) b = &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    for (int hop = 0; b && b != &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx) && b->dead && hop < 64; hop++) b = b->activator;
+    if (!b || (b != &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx) && b->dead)) b = &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx);
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(rt_co_env, leaf, 0);
-uint64_t *rt_co_env(void) { return (g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx))->env; }
+uint64_t *rt_co_env(void) { return (g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx))->env; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_ENTRY_DECL(scrip_coret, leaf, 0);
 uint64_t *scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
@@ -312,7 +313,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->park_rbp = 0;
     ctx->park_pc = 0;
     memset(ctx->env, 0, sizeof ctx->env);
-    ctx->serial = ++g_runtime.coexpr.coexpr_serial;
+    ctx->serial = ++g_rt_coexpr.coexpr_serial;
     ctx->activations = 0;
     { ctx->create_line = g_runtime.abi.line; }
     ctx->create_proc = procname;
@@ -330,7 +331,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->pl_det = 0;
     ctx->gc_next = g_co_gc_head;
     g_co_gc_head = ctx;
-    { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx); scrip_co_init_once(cur); }
+    { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx); scrip_co_init_once(cur); }
     if (sem_init(&ctx->created, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init (created) failed");
     scrip_co_thread_start(ctx);
     while (sem_wait(&ctx->created) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait (created) in scrip_coexpr_create");
@@ -366,7 +367,7 @@ scrip_co_ret_t scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_
         return (scrip_co_ret_t){ 0, rt_co_env() };
     }
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
-    scrip_coctx_t *self = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    scrip_coctx_t *self = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx);
 #if RT_DIAG
     if (target->dead) { scrip_co_trace_xmit(procname, self, target, x0, x1); scrip_co_trace_term(target, self, 0, 0, 1); return (scrip_co_ret_t){ 0, self->env }; }
 #else
@@ -456,8 +457,8 @@ static void th_visit(scrip_coctx_t *c) { rt_gc_visit_descr(&c->th_inbox); rt_gc_
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     long n = 0, ns = 0;
     scrip_coctx_t *c;
-    rt_gc_visit_descr(&(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).xmit);
-    th_visit((scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    rt_gc_visit_descr(&(*(scrip_coctx_t *)g_rt_coexpr.root_ctx).xmit);
+    th_visit((scrip_coctx_t *)g_rt_coexpr.root_ctx);
     n++;
     for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); th_visit(c); n++; }
     if (n_ctx) *n_ctx = n;
@@ -465,8 +466,8 @@ long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     return n;
 }
 scrip_coctx_t *scrip_co_gc_root(void) {
-    if ((*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).serial == 0) (*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).serial = 1;
-    return &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    if ((*(scrip_coctx_t *)g_rt_coexpr.root_ctx).serial == 0) (*(scrip_coctx_t *)g_rt_coexpr.root_ctx).serial = 1;
+    return &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx);
 }
 const char *scrip_co_body_base(const scrip_coctx_t *ctx) {
     if (!ctx || ctx->entry_fn != scrip_coexpr_trampoline_entry || !ctx->entry_arg) return (const char *)0;
@@ -475,10 +476,10 @@ const char *scrip_co_body_base(const scrip_coctx_t *ctx) {
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
 long scrip_coexpr_activations_of(void *ctx) {
     if (!ctx) return 0;
-    if (ctx == (void *)&(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx)) return ((scrip_coctx_t *)ctx)->activations + 1;
+    if (ctx == (void *)&(*(scrip_coctx_t *)g_rt_coexpr.root_ctx)) return ((scrip_coctx_t *)ctx)->activations + 1;
     return ((scrip_coctx_t *)ctx)->activations;
 }
-int scrip_co_main_known(pthread_t *out) { if (g_runtime.coexpr.co_main_set && out) *out = g_runtime.coexpr.co_main_thr; return g_runtime.coexpr.co_main_set; }
+int scrip_co_main_known(pthread_t *out) { if (g_rt_coexpr.co_main_set && out) *out = g_rt_coexpr.co_main_thr; return g_rt_coexpr.co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
     if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }
@@ -517,7 +518,7 @@ static int th_holds(scrip_coctx_t *c, DESCR_t m) {
     return 0;
 }
 static scrip_coctx_t *th_holder(DESCR_t m) {
-    scrip_coctx_t *root = (scrip_coctx_t *)g_runtime.coexpr.root_ctx;
+    scrip_coctx_t *root = (scrip_coctx_t *)g_rt_coexpr.root_ctx;
     for (scrip_coctx_t *c = root; c; c = th_next(c, root)) if (th_holds(c, m)) return c;
     return NULL;
 }
@@ -582,7 +583,7 @@ DESCR_t bt_ICNx24THREAD(DESCR_t *args, int nargs) {
     t->th_state = 1;
     th_mklist(&t->th_inbox);
     th_mklist(&t->th_outbox);
-    scrip_coctx_t *root = (scrip_coctx_t *)g_runtime.coexpr.root_ctx;
+    scrip_coctx_t *root = (scrip_coctx_t *)g_rt_coexpr.root_ctx;
     if (root->th_state == 0) root->th_state = 1;
     return args[0];
 }
@@ -601,7 +602,7 @@ DESCR_t bt_ICNx24SCHED(DESCR_t *args, int nargs) {
     (void)args;
     (void)nargs;
     scrip_coctx_t *cur = th_cur();
-    scrip_coctx_t *root = (scrip_coctx_t *)g_runtime.coexpr.root_ctx;
+    scrip_coctx_t *root = (scrip_coctx_t *)g_rt_coexpr.root_ctx;
     scrip_coctx_t *pick = NULL;
     int after = 0;
     for (scrip_coctx_t *c = root; c && !pick; c = th_next(c, root)) { if (c == cur) { after = 1; continue; } if (after && th_ready(c)) pick = c; }
@@ -634,7 +635,7 @@ DESCR_t bt_ICNx24UCONDVAR(DESCR_t *args, int nargs) { if (nargs == 1 && args[0].
 DESCR_t bt_ICNx24USIGNAL(DESCR_t *args, int nargs) {
     long long n = (nargs == 2 && args[1].v == DT_I) ? args[1].i : 1;
     if (!(args[0].v == DT_I && args[0].i < 0)) return FAILDESCR;
-    scrip_coctx_t *root = &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+    scrip_coctx_t *root = &(*(scrip_coctx_t *)g_rt_coexpr.root_ctx);
     for (scrip_coctx_t *c = root; c && n > 0; c = th_next(c, root)) if (c->th_state == 2 && c->th_wait_kind == 4 && c->th_wait.v == DT_I && c->th_wait.i == args[0].i) { c->th_wait_kind = 5; n--; }
     return args[0];
 }

@@ -2,7 +2,6 @@
 #define SNOBOL4_SYSTEM_FNS_H
 #include <string.h>
 #include <stdlib.h>
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 static const char g_sn4_system_fns[][10] = { "ANY","APPLY","ARBNO","ARG","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CLEAR","CODE","COLLECT","CONVERT","COPY","COS","DATA","DATATYPE","DATE",
     "DEFINE","DIFFER","DUMP","DUPL","ENDFILE","EQ","EVAL","EXP","FENCE","FIELD","GE","GT","HOST","IDENT","INPUT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LOAD","LOCAL",

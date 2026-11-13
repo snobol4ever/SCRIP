@@ -27,4 +27,11 @@ typedef struct {
     unsigned long zdp_rbp_violations;
     unsigned long zdp_rbp_nobank;
 } g_zsm_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern g_zsm_t g_rt_zsm;
+#ifdef __cplusplus
+}
+#endif
 #endif

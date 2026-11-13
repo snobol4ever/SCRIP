@@ -15,6 +15,7 @@
 #include "runtime/lib/bn_03_sh.h"
 #include "runtime/lib/bn_25_sh.h"
 #include "runtime/lib/bn_41_sh.h"
+#include "runtime/core/g_runtime_bn.h"
 int core_icn_error(int code, DESCR_t val);
 extern void *rt_ws_alloc_descr(size_t);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
@@ -302,8 +303,8 @@ int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out) {
 }
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_runtime.bn.bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_runtime.bn.bidprof[i]); }
-void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_runtime.bn.bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_runtime.bn.bidprof_on) atexit(bidprof_dump); }
+static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_rt_bn.bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_rt_bn.bidprof[i]); }
+void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_rt_bn.bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_rt_bn.bidprof_on) atexit(bidprof_dump); }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {

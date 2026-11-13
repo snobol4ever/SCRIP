@@ -15,6 +15,7 @@
 #include "runtime/lib/bn_17_pas.h"
 #include "runtime/lib/bn_37_pas.h"
 #include "runtime/lib/bn_38_pas.h"
+#include "runtime/core/g_runtime_pas.h"
 extern void *rt_ws_alloc_descr(size_t);
 int rt_pas_bi_index(const char *fn);
 int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);
@@ -36,7 +37,7 @@ long long rk_ival(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned pas_mt_u32rand(void) {
-    g_pasrnd_t *g = &g_runtime.pasrnd;
+    g_pasrnd_t *g = &g_rt_pasrnd;
     unsigned li = g->i1 ? g->i1 - 1 : 625, *mt = g->mt;
     g->i1 = li + 2;
     if (g->seed != g->old || li >= 625) {
@@ -66,8 +67,8 @@ DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
     if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
     DESCR_t *hc = pas_heap_cell(p.i, 0);
-    if (!hc || p.i > g_runtime.pas.pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
-    if (g_runtime.pas.pas_heap_dead[p.i] & 1) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
+    if (!hc || p.i > g_rt_pas.pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
+    if (g_rt_pas.pas_heap_dead[p.i] & 1) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -351,7 +352,7 @@ DESCR_t bt_arr_set_pure(DESCR_t *args, int nargs) { if (nargs >= 3) { return pas
 DESCR_t pas_dispose(DESCR_t *args, int nargs) {
     (void) nargs;
     if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
-    if (args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
+    if (args[0].i < g_rt_pas.pas_heap_cap && (g_rt_pas.pas_heap_dead[args[0].i] & 2))
         pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
     pas_heap_give(args[0].i);
     return NULVCL;
@@ -624,7 +625,7 @@ DESCR_t pas_row_set(DESCR_t *args, int nargs) {
     return args[5];
 }
 static int pas_io_errno_code(int e) { return e == ENOENT ? 2 : e == ENOTDIR ? 3 : e == EMFILE ? 4 : (e == EACCES || e == EPERM || e == EISDIR || e == EROFS) ? 5 : 5; }
-int pas_io_fail(int e) { if (!g_runtime.pasio.ioflow) return 0; g_runtime.pasio.inoutres = pas_io_errno_code(e); return 1; }
+int pas_io_fail(int e) { if (!g_rt_pasio.ioflow) return 0; g_rt_pasio.inoutres = pas_io_errno_code(e); return 1; }
 const char *pas_io_message(long code) {
     switch (code) {
         case 2:
@@ -671,7 +672,7 @@ static DESCR_t pas_raw_first(ARBLK_t *b) {
 }
 DESCR_t pas_pchar_of(DESCR_t *args, int nargs) {
     (void) nargs;
-    if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i <= g_runtime.pas.pas_heap_ctr) {
+    if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i <= g_rt_pas.pas_heap_ctr) {
         DESCR_t *hc = pas_heap_cell(args[0].i, 0);
         if (hc && hc->v == DT_A && hc->arr && ((ARBLK_t *) hc->arr)->data) return ((ARBLK_t *) hc->arr)->ewidth ? pas_raw_first((ARBLK_t *) hc->arr) :
             pas_pcell((void *) ((ARBLK_t *) hc->arr)->data, 0);
@@ -876,7 +877,7 @@ static const unsigned short g_pas_bi_bid[PBI_COUNT_] = { [PBI_abs] = BID___pas_a
 DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
     DESCR_t out = FAILDESCR;
     const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
-    if (g_runtime.pasio.ioflow && g_runtime.pasio.inoutres &&
+    if (g_rt_pasio.ioflow && g_rt_pasio.inoutres &&
         (idx == PBI_write || idx == PBI_writeln || idx == PBI_read_i || idx == PBI_read_i_f || idx == PBI_read_c || idx == PBI_read_c_f || idx == PBI_read_s || idx == PBI_read_s_f ||
         idx == PBI_readln || idx == PBI_readln_f)) return NULVCL;
     if (nargs == 1) {

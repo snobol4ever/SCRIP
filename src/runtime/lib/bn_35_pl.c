@@ -17,6 +17,7 @@
 #include "runtime/lib/bn_32_pl.h"
 #include "runtime/lib/bn_33_pl.h"
 #include "runtime/lib/bn_34_pl.h"
+#include <time.h>
 extern FILE *fh_get(int);
 static int pl_gnu_copy(const char *f, const char *t, pl_tr_ctx_t *cx) {
     char b[65536];

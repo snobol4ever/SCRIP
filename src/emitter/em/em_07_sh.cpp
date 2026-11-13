@@ -21,6 +21,7 @@
 #include "lower/lower_prolog.h"
 #include "ir/ir_node_index.h"
 #include "templates/bb/bb_templates.h"
+#include "runtime/core/g_runtime_eval.h"
 extern "C" {
 #include "templates/x86/x86_frame.h"
 }
@@ -239,7 +240,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && g_emit_cfg->pf.block_args && !g_emit_cfg->pf.det_block) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
-    if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_runtime.eval.rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) &&
+    if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_rt_eval.rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) &&
         !g_emit.flat_lcl_proc &&
         !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region;
         if (_rg >= 0 && !(_rg & 15)) { bb_emit_x86(emit_gc_map_register(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
@@ -395,7 +396,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
-    if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
+    if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_eval.rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); if (_pl->zdp_on) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     int _sigk = 0;
     if (xa_flat_class_c_pred()) { sig_prepare_chain(fam); xa_flat_chain_prologue(fam, &_sigk); }
@@ -1066,7 +1067,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                   + x86("mov", "rbp", RDQ("rdx", 0))
          + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(1, fam); }
+    else if (xa_flat_class_c_pred() && !g_rt_eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(1, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86((_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ())); }
     }
     if (!bare && !_top_hoist) {
@@ -1085,7 +1086,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                   + x86("mov", "rbp", RDQ("rbp", 0))
                   + x86("mov32", "eax", (long)DT_FAIL) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(0, fam); }
+    else if (xa_flat_class_c_pred() && !g_rt_eval.rt_fragment_emit) { sig_prepare_chain(fam); xa_flat_chain_epilogue_sig(0, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86((_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω())); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {

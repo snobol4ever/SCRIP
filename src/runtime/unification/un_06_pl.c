@@ -5,9 +5,10 @@
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_06_pl.h"
 #include "runtime/unification/un_08_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 int rt_pl_trie_tbl_vt(void *root);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-pl_cell_t plc_nil_cell(void) { return pl_make_atom(g_runtime.atoms.atom_nil); }
+pl_cell_t plc_nil_cell(void) { return pl_make_atom(g_rt_atoms.atom_nil); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_cell_t plc_cons(int fid, pl_cell_t head, pl_cell_t tail) {
     pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));

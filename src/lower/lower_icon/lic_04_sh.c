@@ -1,6 +1,5 @@
 #include "lower/lower_icon/lic_head.h"
 #include <string.h>
-#include "runtime/core/g_runtime.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"

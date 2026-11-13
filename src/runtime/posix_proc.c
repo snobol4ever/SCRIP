@@ -10,7 +10,6 @@
 #include "posix_leaves.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/rt_list_view.h"
-#include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int sig; } px_sig_t;

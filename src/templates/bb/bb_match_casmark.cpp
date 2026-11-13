@@ -5,7 +5,6 @@
 extern "C" {
 #include "emitter/emit_state.h"
 #include "bb_templates.h"
-#include "runtime/core/g_runtime.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"

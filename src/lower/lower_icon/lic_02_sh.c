@@ -1,7 +1,6 @@
 #include "lower/lower_icon/lic_head.h"
 #include <string.h>
 #include "ir/cset_block.h"
-#include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"

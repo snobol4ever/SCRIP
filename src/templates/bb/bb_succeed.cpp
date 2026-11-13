@@ -1,5 +1,6 @@
 #include <string>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 extern "C" {
 #include "emitter/emit_state.h"
 }
@@ -14,7 +15,7 @@ std::string bb_succeed() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_mon_label_tap(int32_t stno) {
-    if (!g_runtime.eval.rt_fragment_emit && stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = stno;
+    if (!g_rt_eval.rt_fragment_emit && stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = stno;
     _.op_stno = stno;
     bb_emit_x86(
           x86("comment", "MON LABEL tap")

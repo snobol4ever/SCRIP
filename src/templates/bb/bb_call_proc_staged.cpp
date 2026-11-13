@@ -1,6 +1,7 @@
 #include "runtime/core/core.h"
 #include <string>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
@@ -276,7 +277,7 @@ static std::string bcps_det_arm() {
              + x86_anchor_enter()
              + ((!spr_z && (_.op_sig_ok || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))))
                 ? [&]() -> std::string {
-                    if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                    if (!bcps_no_tiny() && ({ !g_rt_eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
                         if (bcps_fnsig()) {
                             std::vector<long> soffz((size_t)_.op_ival); const char * whyz = "eligible"; std::string badz; int sigokz = 1;

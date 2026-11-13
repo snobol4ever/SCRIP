@@ -10,6 +10,7 @@
 #include "runtime/lib/bn_27_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_32_pl.h"
+#include <time.h>
 extern void *rt_ws_alloc_descr(size_t);
 extern int rt_proc_is_registered(const char *name);
 extern int rt_pl_db_count(void *);

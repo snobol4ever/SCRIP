@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/g_runtime_eval.h"
+#include "runtime/core/g_runtime_kw.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/gc_heap.h"
 #include <stdlib.h>
@@ -73,10 +75,10 @@ static int eval_result_is_plain(DESCR_t d) {
 static unsigned long eval_cache_hash(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_cache_ent_t *eval_cache_slot(const char *s) {
-    if (g_runtime.eval.eval_cache_cap == 0) return NULL;
-    unsigned long m = (unsigned long)g_runtime.eval.eval_cache_cap - 1;
-    for (unsigned long i = eval_cache_hash(s) & m, p = 0; p < (unsigned long)g_runtime.eval.eval_cache_cap; p++, i = (i + 1) & m) if (!g_runtime.eval.eval_cache[i].key) return NULL;
-    else if (strcmp(g_runtime.eval.eval_cache[i].key, s) == 0) return &g_runtime.eval.eval_cache[i];
+    if (g_rt_eval.eval_cache_cap == 0) return NULL;
+    unsigned long m = (unsigned long)g_rt_eval.eval_cache_cap - 1;
+    for (unsigned long i = eval_cache_hash(s) & m, p = 0; p < (unsigned long)g_rt_eval.eval_cache_cap; p++, i = (i + 1) & m) if (!g_rt_eval.eval_cache[i].key) return NULL;
+    else if (strcmp(g_rt_eval.eval_cache[i].key, s) == 0) return &g_rt_eval.eval_cache[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -98,11 +100,11 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
     if (have) { if (fn) have->fn = fn; return; }
     extern long rt_gc_runs_count(void);
     long now = rt_gc_runs_count();
-    if (g_runtime.eval.eval_cache_cap == 0 || (g_runtime.eval.eval_cache_n + 1) * 2 > g_runtime.eval.eval_cache_cap) {
+    if (g_rt_eval.eval_cache_cap == 0 || (g_rt_eval.eval_cache_n + 1) * 2 > g_rt_eval.eval_cache_cap) {
         int keep = 0, marks = 0, ncap = 16;
-        for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || g_runtime.eval.eval_cache[k].gen == now)) {
+        for (int k = 0; k < g_rt_eval.eval_cache_cap; k++) if (g_rt_eval.eval_cache[k].key && (g_rt_eval.eval_cache[k].fn || g_rt_eval.eval_cache[k].gen == now)) {
             keep++;
-            if (!g_runtime.eval.eval_cache[k].fn) marks++;
+            if (!g_rt_eval.eval_cache[k].fn) marks++;
         }
         int drop = (keep + 1) * 4 > EVAL_SEEN_ONCE_TABLE_MAX && marks > 0;
         if (drop) keep -= marks;
@@ -110,14 +112,14 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_gcheap_alloc(HB_EVCH, (size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
-        for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || (g_runtime.eval.eval_cache[k].gen == now && !drop)))
-            eval_cache_insert_raw(ntab, ncap, g_runtime.eval.eval_cache[k].key, g_runtime.eval.eval_cache[k].fn, g_runtime.eval.eval_cache[k].gen);
-        g_runtime.eval.eval_cache = ntab;
-        g_runtime.eval.eval_cache_cap = ncap;
-        g_runtime.eval.eval_cache_n = keep;
+        for (int k = 0; k < g_rt_eval.eval_cache_cap; k++) if (g_rt_eval.eval_cache[k].key && (g_rt_eval.eval_cache[k].fn || (g_rt_eval.eval_cache[k].gen == now && !drop)))
+            eval_cache_insert_raw(ntab, ncap, g_rt_eval.eval_cache[k].key, g_rt_eval.eval_cache[k].fn, g_rt_eval.eval_cache[k].gen);
+        g_rt_eval.eval_cache = ntab;
+        g_rt_eval.eval_cache_cap = ncap;
+        g_rt_eval.eval_cache_n = keep;
     }
-    eval_cache_insert_raw(g_runtime.eval.eval_cache, g_runtime.eval.eval_cache_cap, key, fn, now);
-    g_runtime.eval.eval_cache_n++;
+    eval_cache_insert_raw(g_rt_eval.eval_cache, g_rt_eval.eval_cache_cap, key, fn, now);
+    g_rt_eval.eval_cache_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_thunks_emit_from(int pc0) {
@@ -152,7 +154,7 @@ static int eval_thunks_emit_from(int pc0) {
     int fa = g_frame_active;
     g_frame_active = 1;
     int ga = g_gen_proc_active;
-    g_runtime.eval.rt_fragment_emit = 1;
+    g_rt_eval.rt_fragment_emit = 1;
     int b1c = 1;
     { const char *_be = rt_scrip_getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
@@ -200,7 +202,7 @@ static int eval_thunks_emit_from(int pc0) {
         if (b1c && pfn) { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
         emit_jmp_entry_clear();
     }
-    g_runtime.eval.rt_fragment_emit = 0;
+    g_rt_eval.rt_fragment_emit = 0;
     g_gen_proc_active = ga;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
@@ -265,8 +267,8 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     const int byname = s && s[0] == '\001';
     if (byname) s++;
     if (!s || !*s) return NULL;
-    if (eval_top_comma(s)) { g_runtime.kw.sno_errtext = "syntax error: invalid use of comma"; return NULL; }
-    if (sno_text_illegal_at(s) >= 0) { g_runtime.kw.sno_errtext = "syntax error: illegal character"; return NULL; }
+    if (eval_top_comma(s)) { g_rt_kw.sno_errtext = "syntax error: invalid use of comma"; return NULL; }
+    if (sno_text_illegal_at(s) >= 0) { g_rt_kw.sno_errtext = "syntax error: illegal character"; return NULL; }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
@@ -287,7 +289,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
         const char *cap = sno_error_captured(), *fm = (const char *)0;
         int fc = (e && cap) ? sno_preeval_expr(e, &fm) : 0;
         if (fc && fm && !strcmp(fm, cap)) { *pe = fc; *pm = fm; return NULL; }
-        if (cap) g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap);
+        if (cap) g_rt_kw.sno_errtext = rt_heap_strdup_c(cap);
         return NULL;
     }
     *pe = sno_preeval_expr(e, pm);
@@ -332,10 +334,10 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     int fa = g_frame_active;
     g_frame_active = 1;
     emit_jmp_entry_for_chain((IR_graph_t *)g);
-    g_runtime.eval.rt_fragment_emit = 1;
+    g_rt_eval.rt_fragment_emit = 1;
     eval_chain_fn fn = compile_chain(g_emit_cfg, ((IR_graph_t *)g)->entry, NULL, "pat_flat");
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
-    g_runtime.eval.rt_fragment_emit = 0;
+    g_rt_eval.rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
@@ -349,7 +351,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_c2bb_hit(const char *site, const char *name);
 extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
-__attribute__((constructor)) static void eval_ret_init(void) { const char *e = rt_scrip_getenv("SCRIP_EVAL_RET"); g_runtime.eval.eval_ret_v = (e && *e == '0') ? 0 : 1; }
+__attribute__((constructor)) static void eval_ret_init(void) { const char *e = rt_scrip_getenv("SCRIP_EVAL_RET"); g_rt_eval.eval_ret_v = (e && *e == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = rt_scrip_getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -694,7 +696,7 @@ void rt_eval_syntax_raise(const char *s) { int code = 0; const char *msg = (cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t mark, size_t built, int thunks, int keep) {
     if (!keep) { bb_pool_release(mark); return; }
-    if (!thunks && bb_pool_mark() == built && eval_result_is_plain(res) && !eval_cache_slot(key) && g_runtime.eval.eval_cache_n >= EVAL_FIRST_ADMIT_ENTRIES) {
+    if (!thunks && bb_pool_mark() == built && eval_result_is_plain(res) && !eval_cache_slot(key) && g_rt_eval.eval_cache_n >= EVAL_FIRST_ADMIT_ENTRIES) {
         eval_cache_put(key, NULL);
         bb_pool_release(mark);
     } else eval_cache_put(key, fn);
@@ -851,14 +853,14 @@ static DESCR_t eval_expr(const char *src) { if (!src || !*src) return NULVCL; tr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void eval_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
-    if (g_runtime.eval.eval_cache) {
-        rt_gc_visit_raw((const char **)&g_runtime.eval.eval_cache);
-        for (int i = 0; i < g_runtime.eval.eval_cache_cap; i++) if (g_runtime.eval.eval_cache[i].key) rt_gc_visit_raw((const char **)&g_runtime.eval.eval_cache[i].key);
+    if (g_rt_eval.eval_cache) {
+        rt_gc_visit_raw((const char **)&g_rt_eval.eval_cache);
+        for (int i = 0; i < g_rt_eval.eval_cache_cap; i++) if (g_rt_eval.eval_cache[i].key) rt_gc_visit_raw((const char **)&g_rt_eval.eval_cache[i].key);
     }
     { extern void rt_gc_visit_descr(DESCR_t *); for (eval_cframe_t *c = g_eval_cfr; c; c = c->prev) { rt_gc_visit_descr(&c->f.saved); if (c->f.key.v == DT_S) rt_gc_visit_descr(&c->f.key); } }
-    if (g_runtime.eval.lbl_tab) {
-        rt_gc_visit_raw((const char **)&g_runtime.eval.lbl_tab);
-        for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (g_runtime.eval.lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_runtime.eval.lbl_tab[i].key);
+    if (g_rt_eval.lbl_tab) {
+        rt_gc_visit_raw((const char **)&g_rt_eval.lbl_tab);
+        for (int i = 0; i < g_rt_eval.lbl_n; i++) if (g_rt_eval.lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_rt_eval.lbl_tab[i].key);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -877,22 +879,22 @@ static void rt_sno_entry_cells_follow(const char *lbl, void *fn) {
 void rt_label_set_fn(const char *name, void *fn) {
     if (!name || !*name) return;
     rt_sno_entry_cells_follow(name, fn);
-    for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) { g_runtime.eval.lbl_tab[i].fn = (eval_chain_fn)fn; return; }
-    if (g_runtime.eval.lbl_n >= g_runtime.eval.lbl_cap) {
-        int ncap = g_runtime.eval.lbl_cap ? g_runtime.eval.lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_gcheap_grow_block(g_runtime.eval.lbl_tab, HB_LBLT, (size_t)ncap * sizeof(lbl_ent_t));
+    for (int i = 0; i < g_rt_eval.lbl_n; i++) if (!strcmp(g_rt_eval.lbl_tab[i].key, name)) { g_rt_eval.lbl_tab[i].fn = (eval_chain_fn)fn; return; }
+    if (g_rt_eval.lbl_n >= g_rt_eval.lbl_cap) {
+        int ncap = g_rt_eval.lbl_cap ? g_rt_eval.lbl_cap * 2 : 16;
+        lbl_ent_t *nt = (lbl_ent_t *)rt_gcheap_grow_block(g_rt_eval.lbl_tab, HB_LBLT, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
-        g_runtime.eval.lbl_tab = nt;
-        g_runtime.eval.lbl_cap = ncap;
+        g_rt_eval.lbl_tab = nt;
+        g_rt_eval.lbl_cap = ncap;
     }
-    g_runtime.eval.lbl_tab[g_runtime.eval.lbl_n].key = rt_heap_strdup_c(name);
-    g_runtime.eval.lbl_tab[g_runtime.eval.lbl_n].fn = (eval_chain_fn)fn;
-    g_runtime.eval.lbl_n++;
+    g_rt_eval.lbl_tab[g_rt_eval.lbl_n].key = rt_heap_strdup_c(name);
+    g_rt_eval.lbl_tab[g_rt_eval.lbl_n].fn = (eval_chain_fn)fn;
+    g_rt_eval.lbl_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn rt_label_get_fn(const char *name) {
     if (!name || !*name) return NULL;
-    for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) return g_runtime.eval.lbl_tab[i].fn;
+    for (int i = 0; i < g_rt_eval.lbl_n; i++) if (!strcmp(g_rt_eval.lbl_tab[i].key, name)) return g_rt_eval.lbl_tab[i].fn;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1036,19 +1038,19 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
         planner_cells_graph(g);
         {
             IR_graph_t *cfg_sv = g_emit_cfg;
-            int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_runtime.eval.rt_fragment_emit;
+            int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_rt_eval.rt_fragment_emit;
             char pfx[strlen(name) + 6];
             snprintf(pfx, sizeof pfx, "proc_%s", name);
             g_emit_cfg = g;
             g_frame_active = 1;
             g_gen_proc_active = 0;
-            g_runtime.eval.rt_fragment_emit = 1;
+            g_rt_eval.rt_fragment_emit = 1;
             { planner_road_t _rd; planner_road_named(name, 1, 0, g, &_rd); emit_jmp_entry_for_road(&_rd, g, name); }
             {
                 eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, pfx);
                 emit_gc_tables_register((const void *)fn);
                 emit_jmp_entry_clear();
-                g_runtime.eval.rt_fragment_emit = rfe;
+                g_rt_eval.rt_fragment_emit = rfe;
                 g_gen_proc_active = ga;
                 g_frame_active = fa;
                 g_emit_cfg = cfg_sv;
@@ -1107,7 +1109,7 @@ DESCR_t code(const char *src) { return code_at(src, 0, 0); }
 DESCR_t code_at(const char *src, long base, long endline) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src) return FAILDESCR;
-    long ncalls = ++g_runtime.eval.sno_code_calls;
+    long ncalls = ++g_rt_eval.sno_code_calls;
     long text_line = endline > 0 ? endline + ncalls : 0;
     const char *illegal = NULL, *orig = src;
     {
@@ -1117,7 +1119,7 @@ DESCR_t code_at(const char *src, long base, long endline) {
             char q = 0;
             for (long i = 0; i < bad; i++) { char c = src[i]; if (q) { if (c == q) q = 0; continue; } if (c == '\'' || c == '"') q = c; else if (c == ';') cut = i; }
             illegal = "syntax error: illegal character";
-            if (cut < 0) { g_runtime.kw.sno_errtext = illegal; code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+            if (cut < 0) { g_rt_kw.sno_errtext = illegal; code_compile_raise(orig, 0, NULL); return FAILDESCR; }
             char *pre = (char *)rt_wsb_alloc((size_t)cut + 1);
             if (!pre) return FAILDESCR;
             memcpy(pre, src, (size_t)cut);
@@ -1143,7 +1145,7 @@ DESCR_t code_at(const char *src, long base, long endline) {
     int empty = 0;
     if (!prog || prog->n == 0) {
         const char *cap = sno_error_captured();
-        if (cap) { g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+        if (cap) { g_rt_kw.sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
         if (!prog) prog = ast_stmt_new(TT_PROGRAM);
         tree_t *st = ast_stmt_new(TT_STMT);
         ast_push(st, ast_attr_int(":line", 1));
@@ -1180,8 +1182,8 @@ DESCR_t code_at(const char *src, long base, long endline) {
     if (pe_at >= 0) { tree_t *pre = ast_stmt_new(TT_PROGRAM); for (int i = 0; i < pe_at; i++) ast_push(pre, prog->c[i]); prog = pre; }
     int sterr = 0;
     if ((parse_err || illegal) && !empty && prog->n > 0) { ast_push(prog, code_stmt_in_error(text_line > 0 ? text_line : 1)); sterr = 1; }
-    if (g_runtime.eval.sno_stmt_compiled < base) g_runtime.eval.sno_stmt_compiled = base;
-    long stno_base = g_runtime.eval.sno_stmt_compiled;
+    if (g_rt_eval.sno_stmt_compiled < base) g_rt_eval.sno_stmt_compiled = base;
+    long stno_base = g_rt_eval.sno_stmt_compiled;
     extern int sno_pat_count(void);
     extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void);
@@ -1196,10 +1198,10 @@ DESCR_t code_at(const char *src, long base, long endline) {
         if (!c || c->t != TT_STMT) continue;
         const char *lbl = sno_stmt_label(c);
         if (k == 0 || (lbl && lbl[0])) {
-            int rfl_sv = g_runtime.eval.rt_fragment_emit;
-            g_runtime.eval.rt_fragment_emit = 1;
+            int rfl_sv = g_rt_eval.rt_fragment_emit;
+            g_rt_eval.rt_fragment_emit = 1;
             IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base, endline);
-            g_runtime.eval.rt_fragment_emit = rfl_sv;
+            g_rt_eval.rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
             { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
@@ -1209,13 +1211,13 @@ DESCR_t code_at(const char *src, long base, long endline) {
             g_emit_cfg = g;
             int fa = g_frame_active;
             g_frame_active = 1;
-            int rfe_sv = g_runtime.eval.rt_fragment_emit;
-            g_runtime.eval.rt_fragment_emit = 1;
+            int rfe_sv = g_rt_eval.rt_fragment_emit;
+            g_rt_eval.rt_fragment_emit = 1;
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = compile_chain(g_emit_cfg, g->entry, NULL, "code_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             emit_jmp_entry_clear();
-            g_runtime.eval.rt_fragment_emit = rfe_sv;
+            g_rt_eval.rt_fragment_emit = rfe_sv;
             g_frame_active = fa;
             g_emit_cfg = cfg_sv;
             if (!fn) { rt_code_pool_check(); return FAILDESCR; }
@@ -1231,8 +1233,8 @@ DESCR_t code_at(const char *src, long base, long endline) {
         if (patn > pat0) sno_pat_thunks_build(pat0);
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }
     }
-    g_runtime.eval.sno_stmt_compiled += (long)(k - sterr - empty) + ((parse_err || illegal) ? 0 : 1);
-    if (parse_err || illegal) { g_runtime.kw.sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
+    g_rt_eval.sno_stmt_compiled += (long)(k - sterr - empty) + ((parse_err || illegal) ? 0 : 1);
+    if (parse_err || illegal) { g_rt_kw.sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
     d.v = DT_C;
@@ -1356,7 +1358,7 @@ static int rk_emit_new_procs(int pc0) {
     int fa = g_frame_active;
     g_frame_active = 1;
     int ga = g_gen_proc_active;
-    g_runtime.eval.rt_fragment_emit = 1;
+    g_rt_eval.rt_fragment_emit = 1;
     { extern void planner_stage_procs(stage2_t *, int, int); planner_stage_procs(&g_stage2, pc0, 0); }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
@@ -1364,7 +1366,7 @@ static int rk_emit_new_procs(int pc0) {
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
         if (!driver_install_proc(&g_stage2, pi, NULL)) emit_failed = 1;
     }
-    g_runtime.eval.rt_fragment_emit = 0;
+    g_rt_eval.rt_fragment_emit = 0;
     g_gen_proc_active = ga;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;

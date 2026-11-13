@@ -10,6 +10,7 @@
 #include "runtime/unification/un_05_pl.h"
 #include "runtime/unification/un_06_pl.h"
 #include "runtime/unification/un_08_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern int rt_pl_eng_inst_is(DESCR_t);
 extern int64_t rt_pl_eng_inst_id(DESCR_t);
 extern int rt_pl_dialect_swi(void);
@@ -79,7 +80,7 @@ int plc_xsb_codes(plc_vmap *m, pl_cell_t *d) {
         if (!(c == 9 || c == 10 || (c >= 32 && c <= 126))) return 0;
         if (++n > 1000000) return 0;
         tl = pl_deref(&ca[1]);
-        if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) { cur = tl; continue; }
+        if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_rt_atoms.atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) { cur = tl; continue; }
         if (!plc_is_nil(tl) && !pl_cell_unbound(tl)) return 0;
         break;
     }
@@ -130,8 +131,8 @@ static int plc_cell_is_proper_list(pl_cell_t *c) {
     pl_cell_t *tort = d;
     unsigned long n = 0;
     while (d) {
-        if (plc_is_atomlike(d) && plc_atom_id_of(d) == g_runtime.atoms.atom_nil) return 1;
-        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(d->slen) == 2 && d->p) {
+        if (plc_is_atomlike(d) && plc_atom_id_of(d) == g_rt_atoms.atom_nil) return 1;
+        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == g_rt_atoms.atom_dot && plc_fid_arity(d->slen) == 2 && d->p) {
             d = pl_deref(&((pl_cell_t *)d->p)[1]);
             n++;
             if (d == tort) return 0;
@@ -170,8 +171,8 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int plc_swi_list_name(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && name == g_runtime.atoms.atom_dot && rt_pl_dialect_swi()) ? prolog_atom_intern("[|]") : name; }
-int plc_swi_list_build(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && rt_pl_dialect_swi() && name == prolog_atom_intern("[|]")) ? g_runtime.atoms.atom_dot : name; }
+int plc_swi_list_name(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && name == g_rt_atoms.atom_dot && rt_pl_dialect_swi()) ? prolog_atom_intern("[|]") : name; }
+int plc_swi_list_build(int name, int arity) { extern int rt_pl_dialect_swi(void); return (arity == 2 && rt_pl_dialect_swi() && name == prolog_atom_intern("[|]")) ? g_rt_atoms.atom_dot : name; }
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
@@ -233,16 +234,16 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
         if ((int)d0->v == DT_PLREF) {
             int ar = plc_fid_arity(d0->slen);
             pl_cell_t *aa = (pl_cell_t *)d0->p;
-            for (int i = ar - 1; i >= 0; i--) { pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); c[0] = aa[i]; c[1] = lst; lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, c); }
+            for (int i = ar - 1; i >= 0; i--) { pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); c[0] = aa[i]; c[1] = lst; lst = pl_make_compound(g_rt_atoms.atom_dot, 2, c); }
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
             c[0] = plc_atom_id_cell(plc_swi_list_name(plc_fid_name(d0->slen), plc_fid_arity(d0->slen)));
             c[1] = lst;
-            lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, c);
+            lst = pl_make_compound(g_rt_atoms.atom_dot, 2, c);
         } else {
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
             c[0] = *d0;
             c[1] = lst;
-            lst = pl_make_compound(g_runtime.atoms.atom_dot, 2, c);
+            lst = pl_make_compound(g_rt_atoms.atom_dot, 2, c);
         }
         if (!plc_unify_cells_cx((pl_cell_t *)list_cell, &lst, cx)) { return 0; }
         return 1;
@@ -253,14 +254,11 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *l0 = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0, *cur = l0;
     void *b = (void *)0;
     int ne = 0;
-    long nl = plc_list_cells(list_cell, g_runtime.atoms.atom_dot);
-    while (nl >= 0 && cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(cur->slen) == 2 && cur->p) {
-        ne++;
-        cur = pl_deref(&((pl_cell_t *)cur->p)[1]);
-    }
+    long nl = plc_list_cells(list_cell, g_rt_atoms.atom_dot);
+    while (nl >= 0 && cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == g_rt_atoms.atom_dot && plc_fid_arity(cur->slen) == 2 && cur->p) { ne++; cur = pl_deref(&((pl_cell_t *)cur->p)[1]); }
     if (nl < 0) b = rt_pl_ball_kind2("type_error", "list", *l0);
     else if (!cur || pl_cell_unbound(cur)) b = rt_pl_ball_instantiation();
-    else if (!(plc_is_atomlike(cur) && plc_atom_id_of(cur) == g_runtime.atoms.atom_nil)) b = rt_pl_ball_kind2("type_error", "list", *l0);
+    else if (!(plc_is_atomlike(cur) && plc_atom_id_of(cur) == g_rt_atoms.atom_nil)) b = rt_pl_ball_kind2("type_error", "list", *l0);
     else if (ne == 0) b = rt_pl_ball_kind2("domain_error", "non_empty_list", *l0);
     if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
     pl_cell_t *h = pl_deref(&((pl_cell_t *)l0->p)[0]);

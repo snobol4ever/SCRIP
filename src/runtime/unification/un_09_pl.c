@@ -9,6 +9,7 @@
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_08_pl.h"
 #include "runtime/unification/un_09_pl.h"
+#include "runtime/core/g_runtime_atoms.h"
 extern const char *prolog_atom_name(int id);
 static int pl_db_ground(const pl_cell_t *c);
 extern void rt_pl_db_reclaimed_entry(void);
@@ -329,7 +330,7 @@ int pl_db_data_fact(const pl_db_t *db, int i) {
     if ((int)pair->v != DT_PLREF || !pair->p) return 0;
     body = pl_deref(&((pl_cell_t *)pair->p)[1]);
     head = pl_deref(&((pl_cell_t *)pair->p)[0]);
-    if ((int)body->v != DT_PLATOM || (int)body->i != g_runtime.atoms.atom_true || (int)head->v != DT_PLREF || plc_fid_arity(head->slen) < 1) return 0;
+    if ((int)body->v != DT_PLATOM || (int)body->i != g_rt_atoms.atom_true || (int)head->v != DT_PLREF || plc_fid_arity(head->slen) < 1) return 0;
     return pl_db_no_attv(head);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -686,7 +687,7 @@ int rt_pl_tx_db(void *root, int op, void *recs) {
     extern int prolog_atom_intern(const char *);
     int txdb = prolog_atom_intern("$txdb");
     pl_cell_t *l = pl_deref((pl_cell_t *)recs);
-    while ((int)l->v == DT_PLREF && l->p && plc_fid_arity(l->slen) == 2 && plc_fid_name(l->slen) == g_runtime.atoms.atom_dot) {
+    while ((int)l->v == DT_PLREF && l->p && plc_fid_arity(l->slen) == 2 && plc_fid_name(l->slen) == g_rt_atoms.atom_dot) {
         pl_cell_t *cons = (pl_cell_t *)l->p, *d = pl_deref(&cons[0]);
         if ((int)d->v == DT_PLREF && d->p && plc_fid_arity(d->slen) == 5 && plc_fid_name(d->slen) == txdb) {
             pl_cell_t *a = (pl_cell_t *)d->p, *k = pl_deref(&a[0]), *c = pl_deref(&a[1]), *s = pl_deref(&a[2]);
