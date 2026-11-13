@@ -521,6 +521,7 @@ static DESCR_t bta_head(DESCR_t *args, int nargs, int _bop) {
             listargs = nargs - 1;
         }
         rk_av_t a = rk_av_args(args, 0, listargs);
+        if (nargs == 1) return a.n ? a.el[is_tail ? a.n - 1 : 0] : NULVCL;
         if (n < 0) n = 0;
         int lo = is_tail ? (int) (a.n - n < 0 ? 0 : a.n - n) : 0, hi = is_tail ? a.n : (int) (n < a.n ? n : a.n);
         return rk_mk_arr(a.el + lo, hi - lo);
