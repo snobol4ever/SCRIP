@@ -20,6 +20,8 @@ int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);
 extern FILE *fh_get(int);
 DESCR_t pas_slice(DESCR_t *args, int nargs);
 static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn);
+static long long pas_raw_off(DESCR_t p);
+static DESCR_t pas_raw_at(void *base, long long off, int w, int W, int sgn, const char *fn);
 DESCR_t rt_pas_resundef(DESCR_t *args, int nargs);
 DESCR_t rt_pas_sin(DESCR_t *args, int nargs);
 DESCR_t rt_pas_cos(DESCR_t *args, int nargs);
@@ -386,7 +388,7 @@ static DESCR_t pas_view_load(DESCR_t p) {
     if (f & PAS_VIEW_RAW) {
         uint64_t u = 0;
         if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", "__pas_deref");
-        memcpy(&u, (unsigned char *) p.ptr + (int32_t) p.slen, (size_t) W);
+        memcpy(&u, (unsigned char *) p.ptr + pas_raw_off(p), (size_t) W);
         return pas_view_val(u, 0, (f >> 5) & 1, W);
     }
     DESCR_t *b = pas_view_at(p, &e, &bo);
@@ -401,7 +403,7 @@ static void pas_view_store(DESCR_t p, DESCR_t val) {
     if (f & PAS_VIEW_RAW) {
         uint64_t u = pas_view_img(val, 0, W);
         if (!p.ptr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", "__pas_deref_set");
-        memcpy((unsigned char *) p.ptr + (int32_t) p.slen, &u, (size_t) W);
+        memcpy((unsigned char *) p.ptr + pas_raw_off(p), &u, (size_t) W);
         return;
     }
     DESCR_t *b = pas_view_at(p, &e, &bo);
@@ -446,12 +448,7 @@ DESCR_t pas_pview(DESCR_t *args, int nargs) {
     DESCR_t p = args[0];
     long long code = rk_ival(args[1]);
     if (p.v != DT_PCELL) return p;
-    if (p.src_node2 & PAS_VIEW_RAW) {
-        p.src_node0 = (uint8_t)((code & 255) ? (code & 255) : 1);
-        p.src_node1 = (uint8_t)((code >> 8) & 255);
-        p.src_node2 = (uint8_t)(PAS_VIEW_RAW | ((code >> 16) & 32));
-        return p;
-    }
+    if (p.src_node2 & PAS_VIEW_RAW) return pas_raw_at(p.ptr, pas_raw_off(p), (int)((code & 255) ? (code & 255) : 1), (int)((code >> 8) & 255), (int)((code >> 16) & 32), "__pas_pview");
     if (!(code & 255)) return p;
     p = pas_pcell_at(p.ptr, (long long)(int32_t) p.slen * (code & 255), "__pas_pview");
     p.src_node0 = (uint8_t)(code & 255);
@@ -465,18 +462,23 @@ static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn) {
     if (idx < INT32_MIN || idx > INT32_MAX) pas_file_err("6.5.4", "pointer arithmetic leaves the range of the element index", fn);
     return pas_pcell(base, (long) idx);
 }
+static long long pas_raw_off(DESCR_t p) { return (long long)(int32_t) p.slen * (p.src_node1 ? p.src_node1 : 1) + (p.src_node2 & 7); }
+static DESCR_t pas_raw_at(void *base, long long off, int w, int W, int sgn, const char *fn) {
+    long long u = W > 0 ? W : 1, q = off / u, m = off % u;
+    if (m < 0) { m += u; q--; }
+    DESCR_t r = pas_pcell_at(base, q, fn);
+    r.src_node0 = (uint8_t) w;
+    r.src_node1 = (uint8_t) W;
+    r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (sgn ? 32 : 0) | (int) m);
+    return r;
+}
 DESCR_t pas_addr(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
     if (args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
         if (b->hi < b->lo || !b->data) return INTVAL(0);
-        if (b->ewidth) {
-            DESCR_t r = pas_pcell_at((void *) b->data, (rk_ival(args[1]) - b->lo) * b->ewidth, "__pas_addr");
-            r.src_node0 = r.src_node1 = (uint8_t) b->ewidth;
-            r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (b->esigned ? 32 : 0));
-            return r;
-        }
+        if (b->ewidth) { return pas_raw_at((void *) b->data, (rk_ival(args[1]) - b->lo) * b->ewidth, b->ewidth, b->ewidth, b->esigned, "__pas_addr"); }
         return pas_pcell_at((void *) b->data, rk_ival(args[1]) - b->lo, "__pas_addr");
     }
     if (IS_INT_fn(args[0]) && args[0].i == 0) return INTVAL(0);
@@ -494,6 +496,8 @@ DESCR_t pas_ptr_inc(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
     if (args[0].v != DT_PCELL || !args[0].ptr) pas_file_err("6.5.4", "pointer arithmetic on a pointer that denotes no cell", "__pas_ptr_inc");
+    if (args[0].src_node2 & PAS_VIEW_RAW)
+        return pas_raw_at(args[0].ptr, pas_raw_off(args[0]) + rk_ival(args[1]) * args[0].src_node1, args[0].src_node0, args[0].src_node1, args[0].src_node2 & 32, "__pas_ptr_inc");
     DESCR_t r = pas_pcell_at(args[0].ptr, (long long) (int32_t) args[0].slen + rk_ival(args[1]) * (args[0].src_node0 ? args[0].src_node1 : 1), "__pas_ptr_inc");
     r.src_node0 = args[0].src_node0;
     r.src_node1 = args[0].src_node1;
@@ -532,7 +536,7 @@ DESCR_t pas_slice(DESCR_t *args, int nargs) {
 }
 static uintptr_t pas_ptr_word(DESCR_t p) {
     if (!p.src_node0) return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t)(int32_t) p.slen;
-    if (p.src_node2 & PAS_VIEW_RAW) return (uintptr_t) p.ptr + (uintptr_t)(intptr_t)(int32_t) p.slen;
+    if (p.src_node2 & PAS_VIEW_RAW) return (uintptr_t) p.ptr + (uintptr_t)(intptr_t) pas_raw_off(p);
     long long off = (long long)(int32_t) p.slen, w = p.src_node0, e = off >= 0 ? off / w : -((-off + w - 1) / w);
     return (uintptr_t) p.ptr + 16u * (uintptr_t)(intptr_t) e + (uintptr_t)(off - e * w);
 }
@@ -546,16 +550,12 @@ DESCR_t pas_pdx(DESCR_t *args, int nargs) {
     void pas_file_err(const char *clause, const char *what, const char *proc);
     (void) nargs;
     long long i = rk_ival(args[1]), lo = rk_ival(args[2]), hi = rk_ival(args[3]);
-    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_RAW)) { DESCR_t r = args[0]; r.slen = (uint32_t) ((int32_t) args[0].slen + (int32_t) ((i - lo) * args[0].src_node1)); return r; }
+    if (args[0].v == DT_PCELL && (args[0].src_node2 & PAS_VIEW_RAW))
+        return pas_raw_at(args[0].ptr, pas_raw_off(args[0]) + (i - lo) * args[0].src_node1, args[0].src_node0, args[0].src_node1, args[0].src_node2 & 32, "__pas_pdx");
     DESCR_t *cell = pas_heap_ref(args[0], "__pas_pdx");
     if (cell->v == DT_A && cell->arr) {
         ARBLK_t *b = (ARBLK_t *) cell->arr;
-        if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data && b->ewidth) {
-            DESCR_t r = pas_pcell_at((void *) b->data, (i - b->lo) * b->ewidth, "__pas_pdx");
-            r.src_node0 = r.src_node1 = (uint8_t) b->ewidth;
-            r.src_node2 = (uint8_t) (PAS_VIEW_RAW | (b->esigned ? 32 : 0));
-            return r;
-        }
+        if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data && b->ewidth) { return pas_raw_at((void *) b->data, (i - b->lo) * b->ewidth, b->ewidth, b->ewidth, b->esigned, "__pas_pdx"); }
         if (b->ndim == 1 && b->lo == lo && b->hi == hi && b->data) return pas_pcell_at((void *) b->data, i - b->lo, "__pas_pdx");
     }
     if (args[0].v != DT_PCELL) pas_file_err("6.5.4", "an element is indexed through a pointer that holds no cell kind", "__pas_pdx");
@@ -626,6 +626,8 @@ const char *pas_io_message(long code) {
 DESCR_t pas_ptr_diff(DESCR_t *args, int nargs) {
     (void) nargs;
     if (args[0].v != DT_PCELL || args[1].v != DT_PCELL) return INTVAL(0);
+    if ((args[0].src_node2 & PAS_VIEW_RAW) && (args[1].src_node2 & PAS_VIEW_RAW) && args[0].ptr == args[1].ptr && args[0].src_node1)
+        return INTVAL((pas_raw_off(args[0]) - pas_raw_off(args[1])) / args[0].src_node1);
     if (args[0].src_node0 && args[0].ptr == args[1].ptr && args[1].src_node0) return INTVAL(((long long)(int32_t) args[0].slen - (int32_t) args[1].slen) / args[0].src_node1);
     return INTVAL((long long)((intptr_t) pas_ptr_word(args[0]) - (intptr_t) pas_ptr_word(args[1])) / 16);
 }
