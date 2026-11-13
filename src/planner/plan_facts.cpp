@@ -170,7 +170,8 @@ static void pf_dj(zeta_plan_t * rec, IR_t ** nodes, int n, int i, const IR_graph
         g_planner.g_zd_fam_p && g_planner.g_zd_fbase_p && g_planner.g_zd_gp_p;
     for (int j = 0; j < N; j++) {
         IR_t * r = nd->operands[2 * j + 1]; int k = pf_row(nodes, n, r), A = INT_MIN, C = INT_MIN;
-        if (aok) A = (r == nd) ? djx : (k >= 0 ? g_planner.g_zd_out_p[i] - g_planner.g_zd_out_p[k] : 0);
+        if (aok) A = (r == nd) ? djx : (k >= 0) ? g_planner.g_zd_out_p[i] - g_planner.g_zd_out_p[k] :
+            zd_k_g(g, nd) + (g_planner.g_zd_wp_p ? g_planner.g_zd_wp_p[i] : 0);
         if (cok) {
             const unsigned char * zon = g_planner.g_zd_plan_on; const int * zout = g_planner.g_zd_out_p, * xb = g_planner.g_zd_xb_p, * gp = g_planner.g_zd_gp_p;
             int e = zd_dj_arm_end(nodes, n, i, j), kk = pf_row(nodes, n, zd_chase(nd->operands[2 * j + 1]));
