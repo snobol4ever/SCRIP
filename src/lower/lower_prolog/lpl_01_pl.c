@@ -150,6 +150,10 @@ static void pl_register_releases(lcx_t * cx, int from) {
 }
 int pl_scc_armed(void) { extern int rt_proc_jmp_entry(const char *); return (pl_file_defines("$scc_cut", 0) || rt_proc_jmp_entry("$scc_cut/0")); }
 int emit_pl_scc_armed(void) { return pl_scc_armed(); }
+int pl_xsb_attv_armed(const char * cur_key) {
+    extern int rt_proc_jmp_entry(const char *);
+    return g_stage2_pl.pl_dialect == PL_DIALECT_XSB && cur_key && cur_key[0] != '$' && (pl_file_defines("$xsb_attv_clause", 2) || rt_proc_jmp_entry("$xsb_attv_clause/2"));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 static int pl_trace_is_control(const tree_t * t, int n, const char * f) { return t && t->t == TT_FNC && t->n == n && t->v.sval && !strcmp(t->v.sval, f); }

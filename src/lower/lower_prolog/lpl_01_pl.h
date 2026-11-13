@@ -18,6 +18,7 @@ __attribute__((visibility("hidden"))) IR_t * goal(lcx_t * cx, const tree_t * t, 
 __attribute__((visibility("hidden"))) int pl_seal_branch_tail(int tail, int pop, IR_t * nd);
 __attribute__((visibility("hidden"))) int pl_file_defines(const char * nm, int ar);
 __attribute__((visibility("hidden"))) int pl_scc_armed(void);
+__attribute__((visibility("hidden"))) int pl_xsb_attv_armed(const char * cur_key);
 __attribute__((visibility("hidden"))) IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 extern __attribute__((visibility("hidden"))) const pl_det_leaf_t pl_det_leaves[334];
 __attribute__((visibility("hidden"))) int pl_det_leaf_name_wired(const char * nm);

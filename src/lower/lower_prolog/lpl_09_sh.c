@@ -721,6 +721,12 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 if (mt && mt != t->c[0]) *t->c[0] = *mt;
                 pl_clause_unqual_head(t->c[0]);
             }
+            if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1 && pl_xsb_attv_armed(cx->cur_key)) {
+                tree_t * xv = pl_cc_freshvar();
+                return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$xsb_attv_clause", (tree_t *) t->c[0], xv), pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", xv, (tree_t *) pl_atom_goal(nm)),
+                    (!strcmp(nm, "asserta") ? pl_cc_fnc1("$db_asserta_t", xv) : pl_cc_fnc3("$db_assertz_t", xv, pl_cc_ilit(-1), pl_cc_ilit(0))))), γnext, ωfail, entry_out);
+            }
+            if (!strcmp(nm, "retract") && t->n == 1 && pl_xsb_attv_armed(cx->cur_key)) return goal(cx, pl_cc_fnc1("$xsb_attv_retract", (tree_t *) t->c[0]), γnext, ωfail, entry_out);
             if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
                 int ar = 0;
                 const char * pn;

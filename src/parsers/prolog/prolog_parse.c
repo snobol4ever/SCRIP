@@ -1612,6 +1612,12 @@ static const char * const PL_PRELUDE_SRC =
     "'$scc_cut_loop'(B):-'$scc_take'(B,C),!,(catch(C,_,true)->true;true),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(_).\n"
     "'$wakeup':-'$attv_take'(L),'$wake_run'(L).\n"
+    "'$xsb_attv_clause'(C,C2):-term_attvars(C,Vs),(Vs==[]->C2=C;'$xa_pairs'(Vs,Ps),copy_term_nat(C-Ps,C3-Ps2),(C3=(H:-B)->true;H=C3,B=true),C2=(H:-'$attv_mk'(Ps2),B)).\n"
+    "'$xa_pairs'([],[]).\n"
+    "'$xa_pairs'([V|Vs],[V-A|Ps]):-get_attrs(V,A),'$xa_pairs'(Vs,Ps).\n"
+    "'$attv_mk'([]).\n"
+    "'$attv_mk'([P-A|Ps]):-put_attrs(W,A),P=W,'$attv_mk'(Ps).\n"
+    "'$xsb_attv_retract'(C):-(C=(H:-B)->retract(C);H=C,clause(H,B0,R),(B0=('$attv_mk'(Ps),true)->'$attv_mk'(Ps);B0==true),erase(R)).\n"
     "'$wake_run'([]).\n"
     "'$wake_run'(wakeup(A,V,R)):-'$wake_hooks'(A,V),'$wake_run'(R).\n"
     "'$wake_hooks'([],_).\n"
@@ -5359,6 +5365,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_attv_term_arms(cl->tr, seen);
         for (int i = 0; pl_attv_api[i]; i++) if (seen[i]) armed = 1;
         if (armed) pl_cv_add(&referenced, "$wakeup");
+        if (armed && xsb_prog) { pl_cv_add(&referenced, "$xsb_attv_clause"); pl_cv_add(&referenced, "$xsb_attv_retract"); }
         for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
     }
     if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); pl_cv_add(&referenced, "$mq_db_head"); pl_cv_add(&referenced, "$mq_db_pi"); }
