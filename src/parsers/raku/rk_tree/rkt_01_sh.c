@@ -303,7 +303,7 @@ tree_t *rk_adv_pair(const char *name) { tree_t *pr = make_call("__rk_pair"); exp
 static int named_form(RkTerm *t, int first) {
     if (!t || t->npre || t->npost) return 0;
     if (t->kind == TK_FAT) return 1;
-    if (t->kind == TK_CP && t->ck == 'v' && t->cnt == 'P') return 1;
+    if (t->kind == TK_CP && t->ck == 'v' && (t->cnt == 'P' || t->cnt == 'W')) return 1;
     if (t->kind == TK_CP && (t->ck == 'n' || t->ck == '!') && first) return 1;
     if (t->kind == TK_CP && t->ck == '$' && t->val) return 1;
     return 0;

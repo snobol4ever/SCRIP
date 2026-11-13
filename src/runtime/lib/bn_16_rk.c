@@ -321,7 +321,8 @@ static const struct {
     "X::TypeCheck::Binding", "X::TypeCheck" }, { "Type check failed in assignment", "X::TypeCheck::Assignment", "X::TypeCheck" }, { "Cannot modify an immutable", "X::Assignment::RO", "Exception" },
     { "No such method", "X::Method::NotFound", "Exception" }, { "out of range", "X::OutOfRange", "Exception" }, { "Cannot convert string to number", "X::Str::Numeric", "Exception" },
     { "imaginary part not zero", "X::Numeric::Real", "Exception" }, { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "numeric expected", "X::Str::Numeric", "Exception" },
-    { "must be resolved by class", "X::Role::Composition", "Exception" }, { NULL, NULL, NULL } };
+    { "must be resolved by class", "X::Role::Composition", "Exception" }, { "No compiler available for language", "X::Eval::NoSuchLang", "Exception" }, { "Could not find Inline::",
+    "X::CompUnit::UnsatisfiedDependency", "Exception" }, { NULL, NULL, NULL } };
 static const struct {
     const char *needle, *cls, *parent;
 } rk_comp_tab[] = { { "Unsupported use of", "X::Obsolete", "X::Comp" }, { "Quantifier quantifies nothing", "X::Syntax::Regex::SolitaryQuantifier", "X::Syntax" }, { "Null regex not allowed",
@@ -621,6 +622,15 @@ DESCR_t bt_die(DESCR_t *args, int nargs) {
 }
 int bt___rk_eval(DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (nargs >= 1) {
+        const char *lg = nargs >= 2 ? rk_cstr(args[1]) : "Raku";
+        if (strcmp(lg, "Raku") && strcmp(lg, "perl6")) {
+            char msg[strlen(lg) + 48];
+            if (!strcmp(lg, "Perl5")) snprintf(msg, sizeof msg, "Could not find Inline::Perl5");
+            else snprintf(msg, sizeof msg, "No compiler available for language '%s'", lg);
+            rk_exc_throw(rk_exc_from_msg(msg));
+            *out = FAILDESCR;
+            return 1;
+        }
         extern const char *rt_raku_eval_compile(const char *src, const char **errmsg);
         const char *s0 = rk_cstr(args[0]);
         char src[strlen(s0) + 1];

@@ -523,6 +523,13 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
         {
             const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
             if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+            const tree_t * evn = (nm && !strcmp(nm, "__rk_named_call") && t->n > 3 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && t->c[2] && t->c[2]->t == TT_ILIT) ? t->c[1] : NULL;
+            if (evn && !strcmp(evn->v.sval, "EVAL") && t->c[2]->v.ival >= 1 && !rk_user_proc_exists("EVAL")) {
+                tree_t * ec = rk_fnc2("EVAL", t->c[3], NULL);
+                ec->line = t->line;
+                for (int i = 3 + (int) t->c[2]->v.ival; i + 1 < t->n; i += 2) if (t->c[i] && t->c[i]->t == TT_QLIT && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "lang")) ast_push(ec, t->c[i + 1]);
+                return lower_rcall(cx, ec, "__rk_eval", 1, γ, ω, res);
+            }
             if (nm && !strcmp(nm, "__rk_temp") && t->n >= 2) return lower_rv(cx, t->n >= 3 ? t->c[2] : t->c[1], γ, ω, res);
             if (nm && !rk_is_multi_name(nm)) {
                 int named = !strcmp(nm, "__rk_named_call");
