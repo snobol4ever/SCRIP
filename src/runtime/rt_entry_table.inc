@@ -235,7 +235,7 @@ static const rt_entry_t g_rt_entries[RT_ENTRIES] = { { "NV_GET_fn", RT_CONV_LEAF
     RT_RC_NONE, 0, 0, 0 }, { "rt_shim_nv_gamma", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "rt_shim_nv_in", RT_CONV_LEAF, RT_RC_VOID, 1, 0, 0 }, { "rt_shim_nv_omega", RT_CONV_LEAF, RT_RC_VOID, 1, 0,
     0 }, { "rt_size_d", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_sno_goto_special_is", RT_CONV_LEAF, RT_RC_OTHER, 1, 0, 0 }, { "rt_sno_mkexpr_d", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 },
     { "rt_sno_mkpat_d", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "rt_sno_name_dl", RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 }, { "rt_sno_patck_d", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "rt_sno_touch_name",
-    RT_CONV_LEAF, RT_RC_VOID, 0, 0, 0 }, { "rt_sno_xlv_d", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "rt_stmt_enter_p", RT_CONV_LEAF, RT_RC_VOID, 1, 0, 0 }, { "rt_str_alloc", RT_CONV_ASM, RT_RC_OTHER, 1,
+    RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "rt_sno_xlv_d", RT_CONV_LEAF, RT_RC_NONE, 0, 0, 0 }, { "rt_stmt_enter_p", RT_CONV_LEAF, RT_RC_VOID, 1, 0, 0 }, { "rt_str_alloc", RT_CONV_ASM, RT_RC_OTHER, 1,
     29, -1 }, { "rt_str_coerce", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_sub", RT_CONV_ASM, RT_RC_NONE, 0, 16, -1 }, { "rt_sub_big", RT_CONV_LEAF, RT_RC_DESCR, 1, 0, 0 }, { "rt_sub_sno",
     RT_CONV_ASM, RT_RC_NONE, 0, 16, -1 }, { "rt_subscript_val", RT_CONV_ASM, RT_RC_NONE, 0, 29, -1 }, { "rt_subscript_val_strict", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_subscript_var",
     RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_subscript_var_container_only", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 }, { "rt_subscript_var_strict", RT_CONV_ASM, RT_RC_DESCR, 1, 29, -1 },
