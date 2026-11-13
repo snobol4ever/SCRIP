@@ -243,12 +243,38 @@ static int rk_var_scalar_name(const tree_t * v) {
     char c = v->v.sval[0] == '*' ? v->v.sval[1] : v->v.sval[0];
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
-static void rk_var_container_walk(tree_t * t) {
+static int rk_var_agg_name(const tree_t * v) {
+    if (!v || v->t != TT_VAR || v->n || !v->v.sval || (v->slen & 4)) return 0;
+    char c = v->v.sval[0], d = v->v.sval[1];
+    return (c == '@' || c == '%') && ((d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z') || d == '_');
+}
+static tree_t * rk_var_operand(tree_t * t) {
+    if (!t) return NULL;
+    if (t->t == TT_METHCALL && t->n == 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "VAR")) return t->c[0];
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "VAR")) return t->c[1];
+    return NULL;
+}
+typedef struct rk_vctx { const tree_t * scope; const struct rk_vctx * up; } rk_vctx;
+static int rk_var_is_param(const rk_vctx * c, const char * nm) {
+    for (; c; c = c->up) for (int i = 0; i < c->scope->n; i++) { const tree_t * p = c->scope->c[i]; if (p && p->t == TT_VAR && p->n == 1 && p->v.sval && !strcmp(p->v.sval, nm)) return 1; }
+    return 0;
+}
+static void rk_var_container_walk(tree_t * t, const rk_vctx * up) {
     if (!t) return;
-    for (int i = 0; i < t->n; i++) rk_var_container_walk(t->c[i]);
-    tree_t * v = NULL;
-    if (t->t == TT_METHCALL && t->n == 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "VAR")) v = t->c[0];
-    else if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "VAR")) v = t->c[1];
+    rk_vctx here = { t, up };
+    const rk_vctx * cx = (t->t == TT_SUB_DECL || t->t == TT_ANON_BLOCK) ? &here : up;
+    if (t->t == TT_METHCALL && t->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "name") && rk_var_agg_name(rk_var_operand(t->c[0])) &&
+        !rk_var_is_param(cx, rk_var_operand(t->c[0])->v.sval)) {
+        tree_t * q = leaf_sval2(TT_QLIT, rk_var_operand(t->c[0])->v.sval);
+        t->t = q->t;
+        t->v = q->v;
+        t->slen = q->slen;
+        t->n = 0;
+        return;
+    }
+    for (int i = 0; i < t->n; i++) rk_var_container_walk(t->c[i], cx);
+    tree_t * v = rk_var_operand(t);
+    if (rk_var_agg_name(v)) { t->t = v->t; t->v = v->v; t->slen = v->slen; t->n = 0; return; }
     if (!rk_var_scalar_name(v)) return;
     char nb[strlen(v->v.sval) + 2];
     nb[0] = '$';
@@ -632,7 +658,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
         rk_bool_regexes((tree_t *) prog);
         rk_sub_topic((tree_t *) prog, 0);
     }
-    rk_var_container_walk((tree_t *) prog);
+    rk_var_container_walk((tree_t *) prog, NULL);
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
