@@ -310,7 +310,7 @@ DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
     const char *rv = to_cstring(args[2], rb, sizeof rb);
     size_t rvl = strlen(rv);
     if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; return STRVAL(e0); }
-    if (idx < 1 || (size_t)idx > 255) return FAILDESCR;
+    if (idx < 1 || ((size_t)idx > pas_slen(args[0], cur) && idx > 255)) return FAILDESCR;
     return pas_str_setch(args[0], idx, pas_ch_of(args[2]));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
