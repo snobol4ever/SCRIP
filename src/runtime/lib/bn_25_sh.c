@@ -192,7 +192,16 @@ int bn_icn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
     if(!s)s="";
     const char *cset = " ";
     int cl = 1;
-    if (nargs >= 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(cv, &cp, &cn)) { cset = cp; cl = cn; } } }
+    if (nargs >= 2) {
+        DESCR_t cv = args[1];
+        if (cv.v != DT_SNUL) {
+            const char *cp;
+            int cn;
+            extern int core_icn_str_ok(DESCR_t);
+            if (!core_icn_str_ok(cv)) { extern int core_icn_error(int, DESCR_t); core_icn_error(104, cv); *out = FAILDESCR; return 1; }
+            if (cset_resolve(cv, &cp, &cn)) { cset = cp; cl = cn; }
+        }
+    }
     int sl=icn_true_len(args[0], s);
     while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl-1], (size_t)cl)) sl--;
     char *buf=rt_wsb_alloc(sl+1);
@@ -206,7 +215,13 @@ DESCR_t bt_ICNx24UTRIM(DESCR_t *args, int nargs) {
     const char *s = VARVAL_fn(args[0]), *cset = " ";
     int cl = 1, side = -1;
     if (!s) s = "";
-    if (nargs >= 2 && args[1].v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(args[1], &cp, &cn)) { cset = cp; cl = cn; } }
+    if (nargs >= 2 && args[1].v != DT_SNUL) {
+        const char *cp;
+        int cn;
+        extern int core_icn_str_ok(DESCR_t);
+        if (!core_icn_str_ok(args[1])) { extern int core_icn_error(int, DESCR_t); core_icn_error(104, args[1]); return FAILDESCR; }
+        if (cset_resolve(args[1], &cp, &cn)) { cset = cp; cl = cn; }
+    }
     if (nargs >= 3 && args[2].v == DT_I) side = args[2].i < 0 ? -1 : args[2].i > 0 ? 1 : 0;
     int sl = icn_true_len(args[0], s), b = 0;
     if (side <= 0) while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl - 1], (size_t)cl)) sl--;
