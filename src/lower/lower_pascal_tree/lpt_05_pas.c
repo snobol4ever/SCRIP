@@ -217,6 +217,18 @@ int pas_pf_nactuals(const char *sig) {
     for (int i = 0; (k = pas_pf_param(sig, i, &f)) != 0; i++) n += (k == 'P' || k == 'F' || pas_pf_varproc(sig, i)) ? 4 : 1;
     return n;
 }
+int pas_pf_decl_index(const char *callee, int xi) {
+    const PasDef *cd = pas_pf_lookup(callee);
+    const char *f;
+    char k;
+    if (!cd || !cd->sig || !strpbrk(cd->sig + 1, "PFr")) return xi;
+    for (int d = 0, at = 0; (k = pas_pf_param(cd->sig, d, &f)) != 0; d++) {
+        int w = (k == 'P' || k == 'F' || pas_pf_varproc(cd->sig, d)) ? 4 : 1;
+        if (xi < at + w) return xi == at ? d : -1;
+        at += w;
+    }
+    return xi;
+}
 static void pas_pf_candidate(const PasDef *d) {
     for (int i = 0; i < g_lower_pas.sem.pas_scope.ncand; i++) if (g_lower_pas.sem.pas_scope.cand[i].rid == d->rid && !strcmp(g_lower_pas.sem.pas_scope.cand[i].sig, d->sig)) return;
     PasDef *c = pas_scope_push(&g_lower_pas.sem.pas_scope.cand, &g_lower_pas.sem.pas_scope.ncand, &g_lower_pas.sem.pas_scope.ccand, d->name);

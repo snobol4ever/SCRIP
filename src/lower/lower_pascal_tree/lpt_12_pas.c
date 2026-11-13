@@ -195,6 +195,8 @@ const char *pas_overload_pick(const char *src, PNodeList *args, int *np_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const pty_t *pas_formal_type(const char *name, int idx) {
+    idx = name ? pas_pf_decl_index(name, idx) : idx;
+    if (idx < 0) return NULL;
     if (name && idx >= 0 && g_lower_pas.sem.pas_dialect_fpc) for (int i = g_lower_pas.sem.pas_scope.n - 1; i >= 0; i--) {
         const PasDef *d = &g_lower_pas.sem.pas_scope.defs[i];
         int sib = 0;

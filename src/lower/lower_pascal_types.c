@@ -1410,8 +1410,7 @@ const pty_t *pty_formal_type(const char *name, int idx) {
         const tree_t *d = ps->c[i];
         if (!PT_IS(d, TT_DECL) || !d->v.sval || d->n < 1) continue;
         int m = PT_IS(d->c[0], TT_VLIST) ? d->c[0]->n : 1;
-        if (!strcmp(d->v.sval, "procedure") || !strcmp(d->v.sval, "function")) m = 1;
-        else if (idx < k + m) return d->n >= 2 ? pt_type(s, d->c[1]) : NULL;
+        if (!strcmp(d->v.sval, "procedure") || !strcmp(d->v.sval, "function")) { if (idx == k) return NULL; m = 1; } else if (idx < k + m) return d->n >= 2 ? pt_type(s, d->c[1]) : NULL;
         k += m;
     }
     return NULL;

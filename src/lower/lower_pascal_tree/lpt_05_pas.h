@@ -8,6 +8,7 @@ __attribute__((visibility("hidden"))) void pnl_push(PNodeList *l, tree_t *e);
 __attribute__((visibility("hidden"))) PNodeList *pnl_concat(PNodeList *a, PNodeList *b);
 __attribute__((visibility("hidden"))) PasDef *pas_scope_push(PasDef **a, int *n, int *cap, const char *name);
 __attribute__((visibility("hidden"))) int pas_pf_nactuals(const char *sig);
+__attribute__((visibility("hidden"))) int pas_pf_decl_index(const char *callee, int xi);
 __attribute__((visibility("hidden"))) tree_t *prog_of(PNodeList *l);
 __attribute__((visibility("hidden"))) tree_t *seq_of(PNodeList *l);
 __attribute__((visibility("hidden"))) int pas_array_is_param(const char *name);
