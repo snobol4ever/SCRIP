@@ -375,7 +375,12 @@ DESCR_t rk_hash_copy(DESCR_t h) {
     TBBLK_t *t = table_new();
     if (h.v == DT_T && h.tbl) {
         TBBLK_t *s = h.tbl;
-        for (unsigned i = 0; i < s->ord_len; i++) { DESCR_t key = s->ord[i]; if (key.v == DT_RAW) continue; TBPAIR_t *e = table_find_pair_d(s, key); if (e) table_set_descr_d(t, key, e->val); }
+        for (unsigned i = 0; i < s->ord_len; i++) {
+            DESCR_t key = s->ord[i];
+            if (key.v == DT_RAW) continue;
+            TBPAIR_t *e = table_find_pair_d(s, key);
+            if (e) table_set_descr_d(t, key, rt_deref(e->val));
+        }
     }
     return TABLE_VAL(t);
 }

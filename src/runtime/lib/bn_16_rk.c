@@ -95,7 +95,7 @@ const char *rk_raku_str(DESCR_t v, int in_hash) {
             if (key.v == DT_RAW) continue;
             TBPAIR_t *e = table_find_pair_d(na.tbl, key);
             if (!e) continue;
-            const char *kt = rk_cstr(key), *vt = rk_raku_str(e->val, 0);
+            const char *kt = rk_cstr(key), *vt = rk_raku_str(rt_deref(e->val), 0);
             char *ln = rt_wsb_alloc(strlen(kt) + strlen(vt) + 4);
             sprintf(ln, ":%s(%s)", kt, vt);
             tx[c++] = ln;
@@ -117,7 +117,7 @@ const char *rk_raku_str(DESCR_t v, int in_hash) {
             if (key.v == DT_RAW) continue;
             TBPAIR_t *e = table_find_pair_d(t, key);
             if (!e) continue;
-            const char *kt = rk_cstr(key), *vt = rk_raku_str(e->val, 1);
+            const char *kt = rk_cstr(key), *vt = rk_raku_str(rt_deref(e->val), 1);
             size_t kl = strlen(kt), vl = strlen(vt);
             char *ln;
             if (rk_ident_key(kt)) {

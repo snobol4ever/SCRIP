@@ -335,6 +335,7 @@ static const char * rk_rw_tail_attr(const tree_t * sd) {
 static void rk_rw_add_setter(tree_t * cls, const char * m, const char * attr) {
     char nm[256];
     snprintf(nm, sizeof nm, "__rwset_%s", m);
+    for (int i = 0; i < cls->n; i++) if (cls->c[i] && cls->c[i]->t == TT_SUB_DECL && cls->c[i]->n && cls->c[i]->c[0] && cls->c[i]->c[0]->v.sval && !strcmp(cls->c[i]->c[0]->v.sval, nm)) return;
     tree_t * sd = ast_node_new(TT_SUB_DECL);
     sd->line = cls->line;
     sd->v.ival = 2;

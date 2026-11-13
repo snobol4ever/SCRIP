@@ -99,7 +99,15 @@ DESCR_t rk_slot(const ARBLK_t *b, long k) { DESCR_t d = b->data[k]; return ((b->
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rk_av_t rk_av(DESCR_t v) {
     rk_av_t a = { 0, NULL };
-    if (IS_DATA_INST_fn(v) && v.u && rk_is_pair(v)) { a.n = 2; a.el = v.u->fields; return a; }
+    if (IS_DATA_INST_fn(v) && v.u && rk_is_pair(v)) {
+        extern DESCR_t rt_deref(DESCR_t d);
+        DESCR_t * pd = (DESCR_t *) rt_ws_alloc_descr(2);
+        pd[0] = rt_deref(v.u->fields[0]);
+        pd[1] = rt_deref(v.u->fields[1]);
+        a.n = 2;
+        a.el = pd;
+        return a;
+    }
     if (rk_is_seq(v)) { rk_seq_reify(&v, -1L); v = ((ARBLK_t *) v.arr)->data[3]; }
     if (v.v == DT_A && v.arr) {
         ARBLK_t *b = (ARBLK_t *) v.arr;
@@ -187,7 +195,7 @@ const char *rk_tbl_text(DESCR_t v) {
         if (key.v == DT_RAW) continue;
         TBPAIR_t *e = table_find_pair_d(t, key);
         if (!e) continue;
-        const char *kt = rk_cstr(key), *vt = rk_cstr(e->val);
+        const char *kt = rk_cstr(key), *vt = rk_cstr(rt_deref(e->val));
         size_t kl = strlen(kt), vl = strlen(vt);
         char *ln = rt_wsb_alloc(kl + vl + 2);
         memcpy(ln, kt, kl);
@@ -286,7 +294,13 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
                 *out = rk_mk_arr(r, a.n);
                 return 1;
             }
-            if (!strcmp(meth, "pairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(INTVAL(i), a.el[i]); *out = rk_mk_arr(r, a.n); return 1; }
+            if (!strcmp(meth, "pairs")) {
+                ARBLK_t *pb = (recv.v == DT_A && recv.arr && !rk_is_seq(recv)) ? (ARBLK_t *) recv.arr : NULL;
+                int own = pb && !pb->proto && pb->ndim == 1 && pb->lo == 0;
+                for (int i = 0; i < a.n; i++) { DESCR_t ca[2] = { recv, INTVAL(i) }; r[i] = own ? rk_mk_pair_cell(INTVAL(i), bt___rk_elem_ref(ca, 2)) : rk_mk_pair(INTVAL(i), a.el[i]); }
+                *out = rk_mk_arr(r, a.n);
+                return 1;
+            }
             if (!strcmp(meth, "antipairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(a.el[i], INTVAL(i)); *out = rk_mk_arr(r, a.n); return 1; }
             if (!strcmp(meth, "batch")) {
                 if (nmargs >= 1 && IS_INT_fn(margs[0]) && margs[0].i < 1) {
@@ -575,10 +589,18 @@ DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v) {
     kv[0] = IS_STR_fn(k) && !rk_typeobj_name(k) && !rk_is_slip(k) ? k : rk_one(k);
     kv[1] = IS_STR_fn(v) && !rk_typeobj_name(v) && !rk_is_slip(v) ? v : rk_one(v);
     DESCR_t p = NULVCL;
-    { DATBLK_t *pt = dat_find_type(rk_proto_pair); if (pt && pt->nfields == 2 && !strcmp(pt->fields[0], "key")) p = DATCON_fn(rk_proto_pair, NULVCL); }
+    { DATBLK_t *pt = dat_find_type(rk_proto_pair); if (pt && pt->nfields == 3 && !strcmp(pt->fields[0], "key")) p = DATCON_fn(rk_proto_pair, NULVCL); }
     if (!IS_DATA_INST_fn(p)) { p = rk_mk_arr(kv, 2); ((ARBLK_t *) p.arr)->proto = rk_proto_pair; return p; }
     p.u->fields[0] = kv[0];
     p.u->fields[1] = kv[1];
+    p.u->fields[2] = INTVAL(0);
+    return p;
+}
+DESCR_t rk_mk_pair_cell(DESCR_t k, DESCR_t cell) {
+    DESCR_t p = rk_mk_pair(k, NULVCL);
+    if (!IS_DATA_INST_fn(p)) return rk_mk_pair(k, cell);
+    p.u->fields[1] = cell;
+    p.u->fields[2] = INTVAL(1);
     return p;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -175,8 +175,8 @@ static void rk_qh_add(DESCR_t q, DESCR_t src, double mult, int weighted) {
             if (key.v == DT_RAW) continue;
             TBPAIR_t *e = table_find_pair_d(t, key);
             if (!e) continue;
-            if (!weighted) rk_qh_bump(q, rk_mk_pair(key, e->val), mult);
-            else if (rk_qh_setty(kind)) { if (rk_is_truthy(e->val)) rk_qh_set(q, key, 1.0); } else { double w = rk_qh_w(e->val); if (w != 0.0) rk_qh_bump(q, key, w * mult); }
+            if (!weighted) rk_qh_bump(q, rk_mk_pair(key, rt_deref(e->val)), mult);
+            else if (rk_qh_setty(kind)) { if (rk_is_truthy(rt_deref(e->val))) rk_qh_set(q, key, 1.0); } else { double w = rk_qh_w(rt_deref(e->val)); if (w != 0.0) rk_qh_bump(q, key, w * mult); }
         }
         return;
     }

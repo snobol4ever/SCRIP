@@ -59,11 +59,12 @@ const char rk_proto_jct_none[] = "none";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_is_pair(DESCR_t v) {
     return (v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_pair) ||
-        (IS_DATA_INST_fn(v) && v.u && v.u->type && v.u->type->name && !strcmp(v.u->type->name, rk_proto_pair) && v.u->type->nfields == 2 && !strcmp(v.u->type->fields[0], "key"));
+        (IS_DATA_INST_fn(v) && v.u && v.u->type && v.u->type->name && !strcmp(v.u->type->name, rk_proto_pair) && v.u->type->nfields == 3 && !strcmp(v.u->type->fields[0], "key"));
 }
 DESCR_t rk_pair_legacy(DESCR_t v) {
     if (!(IS_DATA_INST_fn(v) && v.u)) return v;
-    DESCR_t kv[2] = { v.u->fields[0], v.u->fields[1] };
+    extern DESCR_t rt_deref(DESCR_t d);
+    DESCR_t kv[2] = { rt_deref(v.u->fields[0]), rt_deref(v.u->fields[1]) };
     DESCR_t p = rk_mk_arr(kv, 2);
     ((ARBLK_t *) p.arr)->proto = rk_proto_pair;
     return p;
@@ -111,7 +112,7 @@ const char *rk_gist_str(DESCR_t v) {
             if (key.v == DT_RAW) continue;
             TBPAIR_t *e = table_find_pair_d(t, key);
             if (!e) continue;
-            const char *kt = rk_cstr(key), *vt = rk_gist_str(e->val);
+            const char *kt = rk_cstr(key), *vt = rk_gist_str(rt_deref(e->val));
             size_t kl = strlen(kt), vl = strlen(vt);
             char *ln = rt_wsb_alloc(kl + vl + 5);
             memcpy(ln, kt, kl);
@@ -396,7 +397,7 @@ static int rk_sub_has(DESCR_t c, DESCR_t k) {
 static DESCR_t rk_sub_get(DESCR_t c, DESCR_t k) {
     long long i;
     int found = 0;
-    if (c.v == DT_T && c.tbl) { DESCR_t v = table_get_found_d(c.tbl, rk_key_tmp(k), &found); return found ? v : rk_typeobj("Any"); }
+    if (c.v == DT_T && c.tbl) { DESCR_t v = table_get_found_d(c.tbl, rk_key_tmp(k), &found); return found ? rt_deref(v) : rk_typeobj("Any"); }
     if (!rk_sub_is_arr(c) || !rk_sub_idx(k, &i)) return rk_typeobj("Any");
     ARBLK_t *b = (ARBLK_t *) c.arr;
     return i < b->hi - b->lo + 1 ? b->data[i] : rk_typeobj("Any");
@@ -405,7 +406,7 @@ static DESCR_t rk_sub_get(DESCR_t c, DESCR_t k) {
 static DESCR_t rk_sub_del(DESCR_t c, DESCR_t k) {
     long long i;
     int found = 0;
-    if (c.v == DT_T && c.tbl) { DESCR_t dk = rk_key_tmp(k), v = table_get_found_d(c.tbl, dk, &found); if (found) table_delete_d(c.tbl, dk); return found ? v : rk_typeobj("Any"); }
+    if (c.v == DT_T && c.tbl) { DESCR_t dk = rk_key_tmp(k), v = table_get_found_d(c.tbl, dk, &found); if (found) table_delete_d(c.tbl, dk); return found ? rt_deref(v) : rk_typeobj("Any"); }
     if (!rk_sub_is_arr(c) || !rk_sub_idx(k, &i)) return rk_typeobj("Any");
     ARBLK_t *b = (ARBLK_t *) c.arr;
     long long n = b->hi - b->lo + 1;
@@ -725,10 +726,10 @@ DESCR_t bt___rk_unpack_named(DESCR_t *args, int nargs) {
     DESCR_t _bo = FAILDESCR;
     DESCR_t *const out = &_bo;
     if (nargs == 2) {
-        if (args[0].v == DT_T && args[0].tbl) { int found = 0; DESCR_t v = table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found); return found ? v : rk_typeobj("Any"); }
+        if (args[0].v == DT_T && args[0].tbl) { int found = 0; DESCR_t v = table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found); return found ? rt_deref(v) : rk_typeobj("Any"); }
         if (IS_DATA_INST_fn(args[0]) && rk_is_pair(args[0]) && IS_STR_fn(args[1]) && args[1].s) {
             if (!strcmp(args[1].s, "key")) return args[0].u->fields[0];
-            if (!strcmp(args[1].s, "value")) return args[0].u->fields[1];
+            if (!strcmp(args[1].s, "value")) { extern DESCR_t rt_deref(DESCR_t d); return rt_deref(args[0].u->fields[1]); }
         }
         DESCR_t ma[2] = { args[0], args[1] };
         if (script_try_call_builtin_by_name("meth_call", ma, 2, out) && !IS_FAIL_fn(*out)) return _bo;
@@ -757,7 +758,7 @@ DESCR_t bt_hash_get(DESCR_t *args, int nargs) {
     }
     int found = 0;
     DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
-    return found ? v : rk_typeobj("Any");
+    return found ? rt_deref(v) : rk_typeobj("Any");
 }
 DESCR_t bt_hash_exists(DESCR_t *args, int nargs) {
     if (nargs < 2) return (DESCR_t){ .v = RTX_NOT_HANDLED };
@@ -772,6 +773,6 @@ DESCR_t bt_hash_delete(DESCR_t *args, int nargs) {
     DESCR_t dk = rk_key_tmp(args[1]), dv = NULVCL;
     int found = 0;
     if (args[0].v == DT_T && args[0].tbl) { dv = table_get_found_d(args[0].tbl, dk, &found); if (found) table_delete_d(args[0].tbl, dk); }
-    return found ? dv : NULVCL;
+    return found ? rt_deref(dv) : NULVCL;
 }
 DESCR_t bt___rk_subscr_adv(DESCR_t *args, int nargs) { DESCR_t o = FAILDESCR; if (nargs >= 2 && rk_subscr_adv(args, nargs, &o)) return o; return (DESCR_t){ .v = RTX_NOT_HANDLED }; }

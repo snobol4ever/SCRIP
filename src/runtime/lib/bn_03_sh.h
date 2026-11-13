@@ -9,6 +9,8 @@ __attribute__((visibility("hidden"))) int rk_io_is(DESCR_t d);
 __attribute__((visibility("hidden"))) const char *rk_io_pathstr(DESCR_t d);
 __attribute__((visibility("hidden"))) DESCR_t rk_mk_arr(const DESCR_t *el, int n);
 __attribute__((visibility("hidden"))) DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v);
+__attribute__((visibility("hidden"))) DESCR_t rk_mk_pair_cell(DESCR_t k, DESCR_t cell);
+DESCR_t bt___rk_elem_ref(DESCR_t *args, int nargs);
 __attribute__((visibility("hidden"))) const char *rk_real_str(double r, char *buf, int bufsz);
 __attribute__((visibility("hidden"))) const char *rk_tbl_text(DESCR_t v);
 __attribute__((visibility("hidden"))) const char *rk_cstr(DESCR_t v);

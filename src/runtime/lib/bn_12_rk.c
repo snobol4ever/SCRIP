@@ -154,15 +154,14 @@ int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out, int pa
     return 1;
 }
 int rk_uni_is_name(const char *nm) { for (int i = 0; nm && g_rk_uni_types[i]; i++) if (!strcmp(nm, g_rk_uni_types[i])) return 1; return 0; }
-PL_CX_LEAF_HEAD(argv, 1)
-    {
-        extern int rt_main_args_count(void);
-        extern const char *rt_main_arg_at(int);
-        extern const char *rt_main_progname(void);
-        DESCR_t l = pl_nil();
-        for (int i = rt_main_args_count() - 1; i >= -1; i--) { const char *a = i < 0 ? rt_main_progname() : rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
-        ok = plw_unify_vals(args[0], l, cx);
-    }
+PL_CX_LEAF_HEAD(argv, 1) {
+    extern int rt_main_args_count(void);
+    extern const char *rt_main_arg_at(int);
+    extern const char *rt_main_progname(void);
+    DESCR_t l = pl_nil();
+    for (int i = rt_main_args_count() - 1; i >= -1; i--) { const char *a = i < 0 ? rt_main_progname() : rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
+    ok = plw_unify_vals(args[0], l, cx);
+}
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_hash_list(DESCR_t h, int what) {
@@ -177,9 +176,15 @@ DESCR_t rk_hash_list(DESCR_t h, int what) {
         const char *kt = rk_cstr(key);
         DESCR_t kd = rk_txt_elem(kt, strlen(kt));
         if (what == 'k') r[c++] = kd;
-        else if (what == 'v') r[c++] = e->val;
-        else if (what == 'p') r[c++] = rk_mk_pair(kd, e->val);
-        else { r[c++] = kd; r[c++] = e->val; }
+        else if (what == 'v') r[c++] = rt_deref(e->val);
+        else if (what == 'p') {
+            extern ARBLK_t *array_new(int lo, int hi);
+            if (!rk_is_cell(e->val)) { ARBLK_t *bx = array_new(0, 0); bx->data[0] = e->val; e->val = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] }; }
+            r[c++] = rk_mk_pair_cell(kd, e->val);
+        } else {
+            r[c++] = kd;
+            r[c++] = rt_deref(e->val);
+        }
     }
     return rk_mark_list(rk_mk_arr(r, c));
 }
@@ -586,7 +591,7 @@ static int rk_match_caps(DESCR_t d, rk_cap_t *cs, int cap) {
             TBPAIR_t *e = table_find_pair_d(na.tbl, k);
             if (!e) continue;
             const char *ks = VARVAL_fn(k) ? VARVAL_fn(k) : "";
-            DESCR_t v = e->val;
+            DESCR_t v = rt_deref(e->val);
             if (rk_match_is(v)) {
                 if (n < cap) { cs[n].from = (int) FIELD_GET_fn(v, "from").i; cs[n].label = ks; cs[n].m = v; }
                 n++;
