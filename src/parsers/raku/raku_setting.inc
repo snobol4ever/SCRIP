@@ -45,7 +45,8 @@ static const char RK_SETTING_MODULE_0_SRC[] =
     "multi sub atan2(\\y) { y.atan2 }\n"
     "multi sub atan2(\\y, \\x) { y.atan2(x) }\n";
 static const char RK_SETTING_MODULE_1_SRC[] =
-    "class Pair { has $.key; has $!value; has $!bound; multi method new($k, $v) { $k => $v }; multi method new(:$key, :$value) { $key => $value }; method bind-value($c) { $!value := $c; $!bound = 1; self }; method value is rw { $!value }; method __rwset_value($v) { die \"Cannot modify an immutable {$!value.^name} ({$!value})\" unless $!bound; $!value = $v }; method kv { (self.key, $!value) }; method antipair { $!value => self.key } }\n";
+    "class Pair { has $.key; has $!value; has $!bound; multi method new($k, $v) { $k => $v }; multi method new(:$key, :$value) { $key => $value }; method bind-value($c) { $!value := $c; $!bound = 1; self }; method value is rw { $!value }; method __rwset_value($v) { die \"Cannot modify an immutable {$!value.^name} ({$!value})\" unless $!bound; $!value = $v }; method kv { (self.key, $!value) }; method antipair { $!value => self.key } }\n"
+    "class Scalar { has $.name; has $.of; has $.dynamic; has $.value }\n";
 static const char RK_SETTING_MODULE_2_SRC[] =
     "unit module Test;\n"
     "# Copyright (C) 2007 - 2026 Yet Another Society\n"

@@ -237,6 +237,36 @@ static void rk_sort_cmp_walk(tree_t * prog, tree_t * t) {
     for (int i = 2; cl && i < cl->n; i++) ast_push(t, cl->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_var_scalar_name(const tree_t * v) {
+    if (!v || v->t != TT_VAR || !v->v.sval || (v->slen & 4)) return 0;
+    char c = v->v.sval[0];
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+}
+static void rk_var_container_walk(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_var_container_walk(t->c[i]);
+    tree_t * v = NULL;
+    if (t->t == TT_METHCALL && t->n == 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "VAR")) v = t->c[0];
+    else if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "VAR")) v = t->c[1];
+    if (!rk_var_scalar_name(v)) return;
+    char nb[strlen(v->v.sval) + 2];
+    nb[0] = '$';
+    strcpy(nb + 1, v->v.sval);
+    tree_t * nm = leaf_sval2(TT_QLIT, lp_strdup(nb));
+    t->t = TT_NEW;
+    t->v.sval = NULL;
+    t->n = 0;
+    ast_push(t, leaf_sval2(TT_QLIT, "Scalar"));
+    ast_push(t, leaf_sval2(TT_QLIT, "name"));
+    ast_push(t, nm);
+    ast_push(t, leaf_sval2(TT_QLIT, "of"));
+    ast_push(t, rk_fnc2("__rk_typeobj", leaf_sval2(TT_QLIT, "Mu"), NULL));
+    ast_push(t, leaf_sval2(TT_QLIT, "dynamic"));
+    ast_push(t, rk_fnc2("__rk_mkbool", rk_ti(0), NULL));
+    ast_push(t, leaf_sval2(TT_QLIT, "value"));
+    ast_push(t, v);
+}
 static tree_t * rk_range_call_of(tree_t * to, const char * fn, int flagged) {
     tree_t * w = ast_node_new(TT_FNC);
     w->line = to->line;
@@ -588,6 +618,7 @@ stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
         rk_bool_regexes((tree_t *) prog);
         rk_sub_topic((tree_t *) prog, 0);
     }
+    rk_var_container_walk((tree_t *) prog);
     rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);

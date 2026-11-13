@@ -755,6 +755,14 @@ static void rk_mod_begins(tree_t *t, tree_t ***v, int *n, int *c) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tree_uses_var(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_METHCALL && t->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "VAR")) return 1;
+    if (t->t == TT_FNC && t->n == 2 && t->v.sval && !strcmp(t->v.sval, "VAR")) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_tree_uses_var(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     if (!t || !p->nmtrees) return t;
     tree_t **cand = NULL; int nc = 0, cc = 0;
@@ -772,6 +780,7 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     int user_pair = 0;
     for (int i = 0; t && i < t->n; i++) { const tree_t * ud = rk_mod_subj(t->c[i]); const char * un = rk_mod_decl_name(ud); if (un && !strcmp(un, "Pair")) user_pair = 1; }
     if (!user_pair) { RK_GROW(names, nn, cn, char *); names[nn++] = (char *) "Pair"; }
+    if (rk_tree_uses_var(t)) { RK_GROW(names, nn, cn, char *); names[nn++] = (char *) "Scalar"; }
     char *taken = (char *) ct_alloc((size_t) nc + 1);
     memset(taken, 0, (size_t) nc + 1);
     for (int grew = 1; grew; ) {

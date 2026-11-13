@@ -1,1 +1,2 @@
 class Pair { has $.key; has $!value; has $!bound; multi method new($k, $v) { $k => $v }; multi method new(:$key, :$value) { $key => $value }; method bind-value($c) { $!value := $c; $!bound = 1; self }; method value is rw { $!value }; method __rwset_value($v) { die "Cannot modify an immutable {$!value.^name} ({$!value})" unless $!bound; $!value = $v }; method kv { (self.key, $!value) }; method antipair { $!value => self.key } }
+class Scalar { has $.name; has $.of; has $.dynamic; has $.value }
