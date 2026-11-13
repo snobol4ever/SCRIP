@@ -20,7 +20,7 @@ static int rk_ph_rank(const char * p, int mainline) {
     if (!strcmp(p, "KEEP")) return mainline ? -1 : 6;
     if (!strcmp(p, "UNDO")) return mainline ? 6 : -1;
     if (!strcmp(p, "END")) return 7;
-    if (!strcmp(p, "TEMP")) return -1;
+    if (!strcmp(p, "TEMP") || !strcmp(p, "CLOSE")) return -1;
     if (rk_ph_is_loop(p)) return -2;
     return 4;
 }

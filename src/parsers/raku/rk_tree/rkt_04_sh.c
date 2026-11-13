@@ -644,7 +644,7 @@ tree_t *rkb_catch(RkB *b, tree_t *body, int whens) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_phaser_word(const char *w, int blk) {
-    static const char *const ph[] = { "BEGIN", "CHECK", "INIT", "END", "ENTER", "LEAVE", "KEEP", "UNDO", "PRE", "POST", "FIRST", "LAST", "NEXT", "TEMP", 0 };
+    static const char *const ph[] = { "BEGIN", "CHECK", "INIT", "END", "ENTER", "LEAVE", "KEEP", "UNDO", "PRE", "POST", "FIRST", "LAST", "NEXT", "TEMP", "CLOSE", 0 };
     for (int i = 0; ph[i]; i++) if (!strcmp(ph[i], w)) return 1;
     if (blk && (!strcmp(w, "once") || !strcmp(w, "quietly") || !strcmp(w, "react") || !strcmp(w, "do"))) return 1;
     return 0;
