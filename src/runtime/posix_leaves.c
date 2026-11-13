@@ -17,12 +17,14 @@
 #include <strings.h>
 #include <sys/un.h>
 #include "driver/driver_data.h"
+#include "driver/driver_globals.h"
 #include "ir/ct_arena.h"
 #include "ir/descr.h"
 #include "posix_leaves.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/table.h"
+#include "runtime/rt/gc_heap.h"
 #include "runtime/rt/rt_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void px_begin(void) { g_rt_misc.posix_errno = 0; }
@@ -279,6 +281,44 @@ FILE *px_sock_open(const char *addr, const char *mode, const DESCR_t *attrs, int
     return fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void px_mgr_note(int ix, struct in_addr g, struct in_addr src, int join) {
+    fh_slot_t *h = &g_fh[ix];
+    int w = 0, have = 0;
+    for (int k = 0; k < h->nmgr; k += 2) {
+        int same = h->mgr[k] == g.s_addr && h->mgr[k + 1] == src.s_addr;
+        have |= same;
+        if (join || !same) { h->mgr[w] = h->mgr[k]; h->mgr[w + 1] = h->mgr[k + 1]; w += 2; }
+    }
+    h->nmgr = w;
+    if (!join || have) return;
+    unsigned int *q = (unsigned int *) rt_gcheap_grow_block((void *) h->mgr, (uint16_t) HB_WSB, (uint64_t) (h->nmgr + 2) * sizeof(unsigned int));
+    if (!q) return;
+    q[h->nmgr] = g.s_addr;
+    q[h->nmgr + 1] = src.s_addr;
+    h->mgr = q;
+    h->nmgr += 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void px_sock_note(int ix, const DESCR_t *a, int na) {
+    if (ix < 0 || ix >= FH_N || !g_fh[ix].fp) return;
+    int fd = fileno(g_fh[ix].fp);
+    struct sockaddr_in b;
+    socklen_t bl = sizeof b;
+    int bound = fd >= 0 && getsockname(fd, (struct sockaddr *) &b, &bl) == 0 && b.sin_family == AF_INET && IN_MULTICAST(ntohl(b.sin_addr.s_addr));
+    for (int k = 0; k < na; k++) {
+        const char *s = px_str(a[k]), *eq = s ? strchr(s, '=') : NULL;
+        if (!eq) continue;
+        size_t kl = (size_t) (eq - s);
+        const char *v = eq + 1, *c = strchr(v, ',');
+        struct in_addr g, src;
+        src.s_addr = 0;
+        if (px_key_is(s, kl, "source")) { if (bound && px_addr_part(v, strlen(v), &src)) px_mgr_note(ix, b.sin_addr, src, 1); continue; }
+        if (!px_key_is(s, kl, "join") && !px_key_is(s, kl, "leave")) continue;
+        if (!px_addr_part(v, c ? (size_t) (c - v) : strlen(v), &g) || (c && !px_addr_part(c + 1, strlen(c + 1), &src))) continue;
+        px_mgr_note(ix, g, src, px_key_is(s, kl, "join"));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t bt_ICNx24UATTRIB(DESCR_t *args, int nargs) {
     if (nargs < 2 || args[0].v != DT_FH) return FAILDESCR;
     FILE *fp = fh_get((int) args[0].i);
@@ -287,6 +327,7 @@ DESCR_t bt_ICNx24UATTRIB(DESCR_t *args, int nargs) {
     if (px_sock_attrs(args + 1, nargs - 1, &proto, &hdrincl) < 0) return FAILDESCR;
     if (px_sock_apply(fd, args + 1, nargs - 1, 1, NULL, NULL) != 0) return FAILDESCR;
     if (px_sock_apply(fd, args + 1, nargs - 1, 0, NULL, NULL) != 0) return FAILDESCR;
+    px_sock_note((int) args[0].i, args + 1, nargs - 1);
     const char *s = px_str(args[1]), *eq = s ? strchr(s, '=') : NULL;
     if (!eq) return FAILDESCR;
     size_t kl = (size_t) (eq - s);
@@ -301,9 +342,25 @@ DESCR_t bt_ICNx24UATTRIB(DESCR_t *args, int nargs) {
     return STRVAL(rt_heap_strdup_c(eq + 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *const px_sock_names[] = { "ttl", "hdrincl", "iface", "mcastloop", "reuseaddr", "reuseport", "broadcast", "rcvbuf", "sndbuf", NULL };
+static const char *const px_sock_names[] = { "ttl", "hdrincl", "iface", "groups", "mcastloop", "reuseaddr", "reuseport", "broadcast", "rcvbuf", "sndbuf", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t px_sock_get(int fd, const char *name) {
+static DESCR_t px_sock_get(int fd, int ix, const char *name) {
+    if (!strcmp(name, "groups")) {
+        int n = ix >= 0 && ix < FH_N ? g_fh[ix].nmgr / 2 : 0;
+        if (n == 0) return FAILDESCR;
+        DESCR_t el[n];
+        for (int k = 0; k < n; k++) {
+            struct in_addr g, src;
+            char it[2 * INET_ADDRSTRLEN + 1];
+            size_t n0 = 0;
+            g.s_addr = g_fh[ix].mgr[2 * k];
+            src.s_addr = g_fh[ix].mgr[2 * k + 1];
+            if (src.s_addr) { if (!inet_ntop(AF_INET, &src, it, INET_ADDRSTRLEN)) return FAILDESCR; n0 = strlen(it); it[n0++] = '@'; }
+            if (!inet_ntop(AF_INET, &g, it + n0, INET_ADDRSTRLEN)) return FAILDESCR;
+            el[k] = STRVAL(rt_heap_strdup_c(it));
+        }
+        return px_list(el, n);
+    }
     if (!strcmp(name, "ttl")) { unsigned char t = 0; socklen_t tl = sizeof t; if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &t, &tl) != 0) return FAILDESCR; return INTVAL((int64_t) t); }
     if (!strcmp(name, "iface")) {
         struct in_addr a;
@@ -347,15 +404,16 @@ DESCR_t px_sock_peek(DESCR_t f, DESCR_t name) {
     int fd = px_sock_fd(f);
     if (fd < 0 || (name.v != DT_S && name.v != DT_SNUL)) return FAILDESCR;
     const char *n = rt_cstr_d(name);
-    if (strcmp(n, "*")) return px_sock_get(fd, n);
+    if (strcmp(n, "*")) return px_sock_get(fd, (int) f.i, n);
     TBBLK_t *tb = table_new();
-    for (int k = 0; px_sock_names[k]; k++) { DESCR_t v = px_sock_get(fd, px_sock_names[k]); if (v.v != DT_FAIL) table_set_descr_d(tb, STRVAL(rt_heap_strdup_c(px_sock_names[k])), v); }
+    for (int k = 0; px_sock_names[k]; k++) { DESCR_t v = px_sock_get(fd, (int) f.i, px_sock_names[k]); if (v.v != DT_FAIL) table_set_descr_d(tb, STRVAL(rt_heap_strdup_c(px_sock_names[k])), v); }
     return TABLE_VAL(tb);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t px_sock_key_at(DESCR_t f, int64_t *cur) {
-    if (px_sock_fd(f) < 0) return FAILDESCR;
-    for (int64_t k = 0; px_sock_names[k]; k++) if (k == *cur) return STRVAL(rt_heap_strdup_c(px_sock_names[k]));
+    int fd = px_sock_fd(f);
+    if (fd < 0) return FAILDESCR;
+    for (int64_t k = 0, j = 0; px_sock_names[k]; k++) if (px_sock_get(fd, (int) f.i, px_sock_names[k]).v != DT_FAIL && j++ == *cur) return STRVAL(rt_heap_strdup_c(px_sock_names[k]));
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

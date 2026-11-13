@@ -2128,6 +2128,8 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
             int sidx = sfp ? fh_alloc(sfp) : -1;
             if (sidx < 0) { if (sfp) fclose(sfp); *out = FAILDESCR; return 1; }
             g_fh[sidx].name = rt_heap_strdup_c(path);
+            extern void px_sock_note(int, const DESCR_t *, int);
+            if (nargs > 2) px_sock_note(sidx, args + 2, nargs - 2);
             *out = FHVAL(sidx);
             return 1;
         }

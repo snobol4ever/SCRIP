@@ -52,6 +52,8 @@ typedef struct {
     long gpos_lpos;
     int lastc;
     int sink;
+    unsigned int *mgr;
+    int nmgr;
 } fh_slot_t;
 extern cv_t g_fhv;
 void fh_ensure_init(void);

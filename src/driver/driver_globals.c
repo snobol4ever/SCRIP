@@ -341,6 +341,8 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->gpos_lpos=0;
     s->lastc=0;
     s->sink=0;
+    s->mgr=NULL;
+    s->nmgr=0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
@@ -362,7 +364,17 @@ FILE *fh_get(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return NULL; retur
 void fh_free(int idx){
     if(fh_init&&idx>=3&&idx<FH_N) fh_pos_reset(idx);
     if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
-    if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].xal=NULL; g_fh[idx].nxal=0; g_fh[idx].mir=NULL; g_fh[idx].nmir=0; g_fh[idx].tsk=0; g_fh[idx].buf=0; g_fh[idx].sink=0; }
+    if(fh_init&&idx>=3&&idx<FH_N){
+        g_fh[idx].xal=NULL;
+        g_fh[idx].nxal=0;
+        g_fh[idx].mir=NULL;
+        g_fh[idx].nmir=0;
+        g_fh[idx].tsk=0;
+        g_fh[idx].buf=0;
+        g_fh[idx].sink=0;
+        g_fh[idx].mgr=NULL;
+        g_fh[idx].nmgr=0;
+    }
     for(int i=0;fh_init&&i<FH_N;i++){ int w=0; for(int k=0;k<g_fh[i].nmir;k++) if(g_fh[i].mir[k]!=idx) g_fh[i].mir[w++]=g_fh[i].mir[k]; g_fh[i].nmir=w; }
 }
 int fh_cur_in = 0;
@@ -595,7 +607,9 @@ void drv_gc_roots(void) {
     extern void rt_gc_run_ptr_fields(const void *, long, long, long, const long *);
     static const long off[5] = { (long) __builtin_offsetof(fh_slot_t, name), (long) __builtin_offsetof(fh_slot_t, alias), (long) __builtin_offsetof(fh_slot_t, enc),
         (long) __builtin_offsetof(fh_slot_t, xal), (long) __builtin_offsetof(fh_slot_t, mir) };
+    static const long off_mgr = (long) __builtin_offsetof(fh_slot_t, mgr);
     fh_ensure_init();
     if (g_fhv.len > 0) rt_gc_run_ptr_fields(g_fhv.p, (long) g_fhv.len, (long) sizeof(fh_slot_t), 5, off);
+    if (g_fhv.len > 0) rt_gc_run_ptr_fields(g_fhv.p, (long) g_fhv.len, (long) sizeof(fh_slot_t), 1, &off_mgr);
     if (g_fh_sink_v) rt_gc_visit_raw((const char **)&g_fh_sink_v);
 }

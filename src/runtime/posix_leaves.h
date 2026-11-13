@@ -6,6 +6,7 @@ DESCR_t px_fail(void);
 const char *px_str(DESCR_t d);
 DESCR_t px_rec(const char *tn, DESCR_t *f, int n);
 DESCR_t px_list(DESCR_t *f, int n);
+void px_sock_note(int ix, const DESCR_t *a, int na);
 DESCR_t px_fmt(const char *fmt, ...);
 int px_signal_number(DESCR_t d);
 const char *px_signal_name(int sig);
