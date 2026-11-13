@@ -1264,6 +1264,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_gnu_dt", GC_RET_DESCR },
     { "pl_gnu_fn", GC_RET_DESCR },
     { "pl_gnu_fn1", GC_RET_DESCR },
+    { "pl_gnu_hash_top", GC_RET_OTHER },
     { "pl_gnu_hash_walk", GC_RET_OTHER },
     { "pl_gnu_os_fail", GC_RET_OTHER },
     { "pl_gnu_path_arg", GC_RET_OTHER },
