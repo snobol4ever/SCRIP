@@ -4,6 +4,7 @@
 #include "runtime/unification/un_03_pl.h"
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_06_pl.h"
+#include "runtime/core/g_runtime_misc.h"
 extern int plw_unify_cells_x(DESCR_t *, DESCR_t *, pl_tr_ctx_t *);
 extern void plw_bind_x(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 extern const char *prolog_atom_name(int id);
@@ -25,8 +26,7 @@ int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, pl_tr_ctx_t *cx) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_pl_cell_name(pl_cell_t *d) { if ((int)d->v == DT_S) return d->s ? d->s : ""; const char *n = prolog_atom_name((int)d->i); return n ? n : ""; }
-PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref)
-int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
+PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref) int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
     int ok, r = plc_cmp_bounded(ca, cb, 0, &ok);
     if (ok) return r;
     r = plc_cmp_bounded(ca, cb, 1, &ok);
@@ -42,6 +42,17 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell) {
     return c != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_guard_arm(void) { int a = !g_rt_misc.stack_refuse_armed; if (a) g_rt_misc.stack_refuse_armed = 1; return a; }
+static int plc_guard_refused(int arm, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_cap_error(void);
+    if (!arm) return 0;
+    g_rt_misc.stack_refuse_armed = 0;
+    if (!g_rt_misc.stack_refused) return 0;
+    g_rt_misc.stack_refused = 0;
+    if (cx && !cx->ball) cx->ball = rt_pl_cap_error();
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *o = pl_deref((pl_cell_t *)order_cell);
     if (!pl_cell_unbound(o)) {
@@ -50,7 +61,9 @@ int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t
         if (!on) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "atom", *o); return 0; }
         if (strcmp(on, "<") && strcmp(on, "=") && strcmp(on, ">")) { if (cx && !cx->ball) cx->ball = rt_pl_ball_kind2("domain_error", "order", *o); return 0; }
     }
+    int garm = plc_guard_arm();
     int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell);
+    if (plc_guard_refused(garm, cx)) return 0;
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
     const char *an = prolog_atom_name(prolog_atom_intern(nm));
     pl_cell_t ord = pl_make_atom(prolog_atom_intern(an ? an : nm));
@@ -382,13 +395,19 @@ int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell, pl_
     if (!st || (int)st->v != DT_I) return 0;
     long counter = (long)st->i;
     int var_id = prolog_atom_intern("$VAR");
+    int garm = plc_guard_arm();
     counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id, cx);
+    if (plc_guard_refused(garm, cx)) return 0;
     pl_cell_t endv = pl_make_int((int64_t)counter);
     if (!plc_unify_cells_cx((pl_cell_t *)end_cell, &endv, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_numbervars1_cell(void *term_cell, pl_tr_ctx_t *cx) { int var_id = prolog_atom_intern("$VAR"); pl_numbervars_walk((pl_cell_t *)term_cell, 0, var_id, cx); return 1; }
+int rt_pl_numbervars1_cell(void *term_cell, pl_tr_ctx_t *cx) {
+    int var_id = prolog_atom_intern("$VAR"), garm = plc_guard_arm();
+    pl_numbervars_walk((pl_cell_t *)term_cell, 0, var_id, cx);
+    return plc_guard_refused(garm, cx) ? 0 : 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_get_print_stream_cell(void *stream_cell) {
     extern int fh_current_output(void);
