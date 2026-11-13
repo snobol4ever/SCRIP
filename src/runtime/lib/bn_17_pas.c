@@ -446,7 +446,13 @@ DESCR_t pas_pview(DESCR_t *args, int nargs) {
     DESCR_t p = args[0];
     long long code = rk_ival(args[1]);
     if (p.v != DT_PCELL) return p;
-    if (p.src_node2 & PAS_VIEW_RAW) { p.src_node0 = (uint8_t)(code & 255); p.src_node1 = (uint8_t)((code >> 8) & 255); p.src_node2 = (uint8_t)(PAS_VIEW_RAW | ((code >> 16) & 32)); return p; }
+    if (p.src_node2 & PAS_VIEW_RAW) {
+        p.src_node0 = (uint8_t)((code & 255) ? (code & 255) : 1);
+        p.src_node1 = (uint8_t)((code >> 8) & 255);
+        p.src_node2 = (uint8_t)(PAS_VIEW_RAW | ((code >> 16) & 32));
+        return p;
+    }
+    if (!(code & 255)) return p;
     p = pas_pcell_at(p.ptr, (long long)(int32_t) p.slen * (code & 255), "__pas_pview");
     p.src_node0 = (uint8_t)(code & 255);
     p.src_node1 = (uint8_t)((code >> 8) & 255);

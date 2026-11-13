@@ -16,6 +16,7 @@
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
 #include "lower/lower_pascal_tree/lpt_09_sh.h"
+#include "lower/lower_pascal_tree/lpt_10_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
 static pval E_argument_list(const tree_t *n, int from, int to);
@@ -649,6 +650,11 @@ pval E_call_with_args(const tree_t *n) {
             ast_push(_seq, mk_fnc0("exit"));
             return E_compound_statement(_seq);
         }
+        if (n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "__pas_untyped_actual")) {
+            tree_t *_ua = (IS(n->c[1], TT_VAR) || IS(n->c[1], TT_IDX) || IS(n->c[1], TT_FIELD) || IS(n->c[1], TT_DEREF)) ? pas_addr_of(E_selector(n->c[1]).node) : NULL;
+            out.node = _ua ? pas_untyped_view(_ua) : E_expression(n->c[1]).node;
+            return out;
+        }
         if (n->n == 3 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval && !strcmp(n->c[0]->v.sval, "__pas_mptr")) {
             out.node = mk_fnc2("__pas_mptr", leaf_s(TT_QLIT, n->c[1]->v.sval), E_expression(n->c[2]).node);
             return out;
@@ -673,7 +679,10 @@ pval E_call_with_args(const tree_t *n) {
             if (!out.node) out.node = mk_fnc1("__pas_pchar_of", v[3].node);
             return out;
         }
-        if (pas_ptrcast_target(n)) return E_expression(n->c[1]);
+        {
+            const char *_pct = pas_ptrcast_target(n);
+            if (_pct) { const pty_t *_pp = pty_named_type(_pct); pval _pv = E_expression(n->c[1]); if (_pp) _pv.node = pas_pun_view_to(_pp, _pv.node); return _pv; }
+        }
         if (v[1].str && !strcmp(v[1].str, "length") && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && n->n == 2 && IS(n->c[1], TT_IDX) && n->c[1]->n == 2 && IS(n->c[1]->c[0], TT_VAR)) {
             tree_t *b = E_selector(n->c[1]->c[0]).node;
             long long d2[4];

@@ -571,6 +571,9 @@ parameter_decl:
     |id_list COLON param_type EQOP expression { pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $1), $3), $5); pt_sval($$, "value"); }
     |CONSTSY id_list COLON param_type EQOP expression { pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $4), $6); pt_sval($$, "const"); }
     |IDENT id_list COLON param_type { int cr = $1->v.sval && !strcasecmp($1->v.sval, "constref"); if (!$1->v.sval || (strcasecmp($1->v.sval, "out") && !cr)) { pascal_yyerror("syntax error"); YYERROR; } pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, cr ? "const" : "var"); }
+    |VARSY id_list { pascal_flip_dialect(PAS_DIALECT_FPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), pt_sval(pt_new(TT_VAR), "$untyped")); pt_sval($$, "var"); }
+    |CONSTSY id_list { pascal_flip_dialect(PAS_DIALECT_FPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), pt_sval(pt_new(TT_VAR), "$untyped")); pt_sval($$, "const"); }
+    |IDENT id_list { int cr = $1->v.sval && !strcasecmp($1->v.sval, "constref"); if (!$1->v.sval || (strcasecmp($1->v.sval, "out") && !cr)) { pascal_yyerror("syntax error"); YYERROR; } pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), pt_sval(pt_new(TT_VAR), "$untyped")); pt_sval($$, cr ? "const" : "var"); }
     ;
 param_type:
     IDENT { pascal_note_type_ident($1); $$ = $1; }

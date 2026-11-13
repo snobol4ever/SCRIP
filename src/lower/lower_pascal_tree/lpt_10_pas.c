@@ -17,15 +17,14 @@ static int pas_view_kind(const pty_t *t, long long *w) {
     if (t->k == PTK_REAL) return *w == 4 || *w == 8 ? 3 : -1;
     return -1;
 }
-tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
-    if (!sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
+tree_t *pas_pun_view_to(const pty_t *P, tree_t *rhs) {
+    if (!P || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
     int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
-    const pty_t *pt = (av || ae) ? pty_of_low(sel) : NULL;
-    if (!pt || pt->k != PTK_POINTER || !pt->base || pty_is_pchar(pt)) return rhs;
+    if (!av && !ae) return rhs;
     const pty_t *bt = pty_of_low(rhs->c[1]);
     if (!bt && rhs->c[1]->t == TT_VAR && rhs->c[1]->v.sval) bt = pty_name_type(rhs->c[1]->v.sval);
     if (!bt || bt->k == PTK_UNKNOWN) return rhs;
-    const pty_t *P = pt->base, *e = bt;
+    const pty_t *e = bt;
     tree_t *addr = rhs;
     if (bt->k == PTK_ARRAY) {
         if (P == bt || P->k == PTK_ARRAY || bt->dyn || bt->open || bt->nix != 1 || !bt->ix || !bt->ix[0] || !bt->ix[0]->bounded || !bt->base) return rhs;
@@ -44,6 +43,14 @@ tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
     }
     if (w == W && ek == pk) return addr;
     return mk_fnc2("__pas_pview", addr, ilit(w | (W << 8) | ((long long)((ek & 3) | ((ek >> 2) << 2) | ((pk & 3) << 3) | ((pk >> 2) << 5)) << 16)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *pas_pun_view(tree_t *sel, tree_t *rhs) {
+    if (!sel || !rhs || rhs->t != TT_FNC || rhs->n < 2 || !rhs->c[0] || !rhs->c[0]->v.sval || !rhs->c[1]) return rhs;
+    int av = !strcmp(rhs->c[0]->v.sval, "__pas_addr_var"), ae = !strcmp(rhs->c[0]->v.sval, "__pas_addr");
+    const pty_t *pt = (av || ae) ? pty_of_low(sel) : NULL;
+    if (!pt || pt->k != PTK_POINTER || !pt->base || pty_is_pchar(pt)) return rhs;
+    return pas_pun_view_to(pt->base, rhs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_castname(const tree_t *t, const char *n) {
@@ -148,6 +155,98 @@ void pas_call_casts(tree_t *root, tree_t *t) {
         if (IS(t, TT_FNC) && i == 0 && IS(c, TT_FNC) && c->n == 2 && IS(c->c[0], TT_VAR) && pas_castname(root, c->c[0]->v.sval)) { t->c[0] = c->c[1]; c = t->c[0]; }
         pas_call_casts(root, c);
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_ut_is(const tree_t *ty) { return IS(ty, TT_VAR) && ty->v.sval && !strcmp(ty->v.sval, "$untyped"); }
+static const tree_t *pas_ut_params(const tree_t *r) { for (int i = 1; r && i < r->n; i++) if (IS(r->c[i], TT_PARAMS)) return r->c[i]; return NULL; }
+static int pas_ut_routine(const tree_t *t) { return (IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) && t->n >= 1 && IS(t->c[0], TT_VAR) && t->c[0]->v.sval; }
+static int pas_ut_has(const tree_t *r) {
+    const tree_t *ps = pas_ut_params(r);
+    for (int i = 0; ps && i < ps->n; i++) if (IS(ps->c[i], TT_DECL) && ps->c[i]->n >= 2 && pas_ut_is(ps->c[i]->c[1])) return 1;
+    return 0;
+}
+static int pas_ut_any(const tree_t *t) { if (IS(t, TT_DECL) && t->n >= 2 && pas_ut_is(t->c[1])) return 1; for (int i = 0; t && i < t->n; i++) if (pas_ut_any(t->c[i])) return 1; return 0; }
+static int pas_ut_formal(const tree_t *r, const char *nm) {
+    const tree_t *ps = r ? pas_ut_params(r) : NULL;
+    for (int i = 0; ps && nm && i < ps->n; i++) {
+        const tree_t *d = ps->c[i];
+        if (!IS(d, TT_DECL) || d->n < 2 || !pas_ut_is(d->c[1]) || !IS(d->c[0], TT_VLIST)) continue;
+        for (int q = 0; q < d->c[0]->n; q++) if (IS(d->c[0]->c[q], TT_VAR) && d->c[0]->c[q]->v.sval && !strcmp(d->c[0]->c[q]->v.sval, nm)) return 1;
+    }
+    return 0;
+}
+static int pas_ut_pos(const tree_t *r, int k) {
+    const tree_t *ps = pas_ut_params(r);
+    int pos = 0;
+    for (int i = 0; ps && i < ps->n; i++) {
+        const tree_t *d = ps->c[i];
+        if (!IS(d, TT_DECL)) continue;
+        int cnt = IS(d->c[0], TT_VLIST) ? d->c[0]->n : 1;
+        if (k >= pos && k < pos + cnt) return d->n >= 2 && pas_ut_is(d->c[1]);
+        pos += cnt;
+    }
+    return 0;
+}
+static const tree_t *pas_ut_find(const tree_t *t, const char *nm) {
+    if (pas_ut_routine(t) && !strcmp(t->c[0]->v.sval, nm) && pas_ut_has(t)) return t;
+    for (int i = 0; t && i < t->n; i++) { const tree_t *r = pas_ut_find(t->c[i], nm); if (r) return r; }
+    return NULL;
+}
+static int pas_ut_tcode(const char *tn, long long *code) {
+    static const struct {
+        const char *n;
+        int w, k;
+    } T[] = { { "byte", 1, 0 }, { "shortint", 1, 4 }, { "word", 2, 0 }, { "smallint", 2, 4 }, { "longword", 4, 0 }, { "cardinal", 4, 0 }, { "dword", 4, 0 }, { "longint", 4, 4 }, { "int64", 8, 4 },
+        { "qword", 8, 0 }, { "char", 1, 1 }, { "boolean", 1, 2 }, { 0, 0, 0 } };
+    for (int i = 0; tn && T[i].n; i++) if (!strcmp(tn, T[i].n)) { int pk = T[i].k; *code = ((long long)T[i].w << 8) | ((long long)(((pk & 3) << 3) | ((pk >> 2) << 5)) << 16); return 1; }
+    return 0;
+}
+static void pas_ut_body(tree_t *t, const tree_t *r) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        long long code = 0;
+        if (IS(c, TT_ADDR) && c->n == 1 && IS(c->c[0], TT_VAR) && pas_ut_formal(r, c->c[0]->v.sval)) { t->c[i] = c->c[0]; continue; }
+        if (IS(c, TT_FNC) && c->n == 2 && IS(c->c[0], TT_VAR) && IS(c->c[1], TT_VAR) && pas_ut_formal(r, c->c[1]->v.sval) && pas_ut_tcode(c->c[0]->v.sval, &code)) {
+            t->c[i] = un(TT_DEREF, mk_fnc2("__pas_pview", c->c[1], ilit(code)));
+            continue;
+        }
+        pas_ut_body(c, r);
+    }
+}
+static void pas_ut_bodies(tree_t *t) { for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (pas_ut_routine(c) && pas_ut_has(c)) pas_ut_body(c, c); pas_ut_bodies(c); } }
+static void pas_ut_walk(const tree_t *root, tree_t *t, const tree_t *cur) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (!c) continue;
+        const tree_t *nc = pas_ut_routine(c) && pas_ut_has(c) ? c : cur;
+        if (IS(c, TT_FNC) && c->n >= 2 && IS(c->c[0], TT_VAR) && c->c[0]->v.sval) {
+            const tree_t *r = pas_ut_find(root, c->c[0]->v.sval);
+            for (int k = 1; r && k < c->n; k++) {
+                tree_t *a = c->c[k];
+                if (!pas_ut_pos(r, k - 1) || (IS(a, TT_VAR) && pas_ut_formal(cur, a->v.sval))) continue;
+                tree_t *m = ast_node_new(TT_FNC);
+                ast_push(m, leaf_s(TT_VAR, "__pas_untyped_actual"));
+                ast_push(m, a);
+                c->c[k] = m;
+            }
+        }
+        pas_ut_walk(root, c, nc);
+    }
+}
+static void pas_ut_decls(tree_t *t) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (IS(c, TT_DECL) && c->n >= 2 && pas_ut_is(c->c[1])) { c->v.sval = (char *)"value"; c->c[1] = leaf_s(TT_VAR, "pointer"); }
+        pas_ut_decls(c);
+    }
+}
+void pas_untyped_formals(tree_t *root) { if (!pas_ut_any(root)) return; pas_ut_walk(root, root, NULL); pas_ut_bodies(root); pas_ut_decls(root); }
+tree_t *pas_untyped_view(tree_t *addr) {
+    if (!addr || addr->t != TT_FNC || addr->n < 2 || !addr->c[0] || !addr->c[0]->v.sval || strcmp(addr->c[0]->v.sval, "__pas_addr_var") || !addr->c[1]) return addr;
+    const pty_t *bt = pty_of_low(addr->c[1]);
+    if (!bt && addr->c[1]->t == TT_VAR && addr->c[1]->v.sval) bt = pty_name_type(addr->c[1]->v.sval);
+    if (!bt || bt->k == PTK_UNKNOWN) return addr;
+    return pas_pun_view_to(bt->k == PTK_ARRAY && bt->base ? bt->base : bt, addr);
 }
 static void pas_rename_var(tree_t *t, const char *from, const char *to) {
     for (int i = 0; t && i < t->n; i++) { tree_t *c = t->c[i]; if (IS(c, TT_VAR) && c->v.sval && !strcmp(c->v.sval, from)) c->v.sval = (char *)to; pas_rename_var(c, from, to); }
