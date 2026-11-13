@@ -3042,6 +3042,78 @@ static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_16_SRC[] =
+    "unit process;\n"
+    "interface\n"
+    "uses sysutils;\n"
+    "type\n"
+    "  EProcess = class(Exception);\n"
+    "  TProcess = class\n"
+    "  private\n"
+    "    FActive: boolean;\n"
+    "    FExecutable: string;\n"
+    "    procedure SetActive(AValue: boolean);\n"
+    "  public\n"
+    "    constructor Create(AOwner: TObject);\n"
+    "    procedure Execute;\n"
+    "    property Active: boolean read FActive write SetActive;\n"
+    "    property Executable: string read FExecutable write FExecutable;\n"
+    "  end;\n"
+    "implementation\n"
+    "constructor TProcess.Create(AOwner: TObject);\n"
+    "begin\n"
+    "  FActive := false;\n"
+    "  FExecutable := ''\n"
+    "end;\n"
+    "procedure TProcess.Execute;\n"
+    "begin\n"
+    "  if FExecutable = '' then raise EProcess.Create('Executable not set');\n"
+    "  FActive := true\n"
+    "end;\n"
+    "procedure TProcess.SetActive(AValue: boolean);\n"
+    "begin\n"
+    "  if AValue then Execute\n"
+    "  else FActive := false\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
+    "{$mode objfpc}{$H+}\n"
+    "unit regex;\n"
+    "interface\n"
+    "uses RegExpr;\n"
+    "type\n"
+    "  TRegexError = (recNone, recSuddenEnd, recMetaChar, recNoCloseParen, recExtraChars);\n"
+    "  TRegexEngine = class\n"
+    "  private\n"
+    "    FPat: string;\n"
+    "    FRe: TRegExpr;\n"
+    "  public\n"
+    "    constructor Create(const aRegexStr: string);\n"
+    "    function Parse(out aErrorPos: integer; out aErrorCode: TRegexError): boolean;\n"
+    "    function MatchString(const S: string; out MatchPos: integer; var Offset: integer): boolean;\n"
+    "  end;\n"
+    "implementation\n"
+    "constructor TRegexEngine.Create(const aRegexStr: string);\n"
+    "begin\n"
+    "  FPat := aRegexStr;\n"
+    "  FRe := nil\n"
+    "end;\n"
+    "function TRegexEngine.Parse(out aErrorPos: integer; out aErrorCode: TRegexError): boolean;\n"
+    "begin\n"
+    "  aErrorPos := 0;\n"
+    "  aErrorCode := recNone;\n"
+    "  FRe := TRegExpr.Create(FPat);\n"
+    "  Parse := true\n"
+    "end;\n"
+    "function TRegexEngine.MatchString(const S: string; out MatchPos: integer; var Offset: integer): boolean;\n"
+    "var sub: string;\n"
+    "begin\n"
+    "  MatchPos := 0;\n"
+    "  sub := Copy(S, Offset, Length(S));\n"
+    "  MatchString := FRe.Exec(sub);\n"
+    "  if MatchString then MatchPos := Offset + FRe.MatchPos[0] - 1\n"
+    "end;\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit RegExpr;\n"
     "interface\n"
@@ -3677,7 +3749,7 @@ static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "  r.Free;\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -3782,13 +3854,13 @@ static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
+static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_19_SRC[] =
+static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -3962,7 +4034,7 @@ static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_20_SRC[] =
+static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -3970,7 +4042,7 @@ static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_21_SRC[] =
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -4152,7 +4224,7 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_22_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -5175,7 +5247,7 @@ static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -5196,13 +5268,13 @@ static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_24_SRC[] =
+static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "{$mode objfpc}\n"
     "unit unicodeducet;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_25_SRC[] =
+static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5228,7 +5300,7 @@ static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_26_SRC[] =
+static const char PAS_PRELUDE_UNIT_28_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit uregexpr;\n"
     "interface\n"
@@ -5245,7 +5317,7 @@ static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_27_SRC[] =
+static const char PAS_PRELUDE_UNIT_29_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5268,17 +5340,19 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "gmp", PAS_PRELUDE_UNIT_13_SRC },
     { "ioerr", PAS_PRELUDE_UNIT_14_SRC },
     { "math", PAS_PRELUDE_UNIT_15_SRC },
-    { "regexpr", PAS_PRELUDE_UNIT_16_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_17_SRC },
-    { "strings", PAS_PRELUDE_UNIT_18_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_19_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_20_SRC },
-    { "system", PAS_PRELUDE_UNIT_21_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_22_SRC },
-    { "types", PAS_PRELUDE_UNIT_23_SRC },
-    { "unicodeducet", PAS_PRELUDE_UNIT_24_SRC },
-    { "unix", PAS_PRELUDE_UNIT_25_SRC },
-    { "uregexpr", PAS_PRELUDE_UNIT_26_SRC },
-    { "variants", PAS_PRELUDE_UNIT_27_SRC },
+    { "process", PAS_PRELUDE_UNIT_16_SRC },
+    { "regex", PAS_PRELUDE_UNIT_17_SRC },
+    { "regexpr", PAS_PRELUDE_UNIT_18_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_19_SRC },
+    { "strings", PAS_PRELUDE_UNIT_20_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_21_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_22_SRC },
+    { "system", PAS_PRELUDE_UNIT_23_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_24_SRC },
+    { "types", PAS_PRELUDE_UNIT_25_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_26_SRC },
+    { "unix", PAS_PRELUDE_UNIT_27_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_28_SRC },
+    { "variants", PAS_PRELUDE_UNIT_29_SRC },
     { 0, 0 }
 };
