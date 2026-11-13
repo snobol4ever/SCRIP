@@ -2,6 +2,7 @@
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/by_name_dispatch.h"
 #include <math.h>
+#include <locale.h>
 #include "runtime/rt/prolog_atom.h"
 #include <errno.h>
 #include "runtime/lib/bn_04_pl.h"
@@ -265,6 +266,7 @@ PL_CX_LEAF_TAIL PL_CX_LEAF_HEAD(format_time_text, 3) {
             double fl = floor(st), frac = fabs(st - trunc(st));
             time_t t = (time_t)fl;
             struct tm tm;
+            setlocale(LC_TIME, "");
             if (local) localtime_r(&t, &tm);
             else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
             for (const char *p = fm; *p && n + 64 < cap; p++) {
