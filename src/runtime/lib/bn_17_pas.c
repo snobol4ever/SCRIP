@@ -20,6 +20,7 @@ int rt_pas_bi_index(const char *fn);
 int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);
 extern FILE *fh_get(int);
 DESCR_t pas_slice(DESCR_t *args, int nargs);
+DESCR_t pas_ucd(DESCR_t *args, int nargs);
 static DESCR_t pas_pcell_at(void *base, long long idx, const char *fn);
 static long long pas_raw_off(DESCR_t p);
 static DESCR_t pas_raw_at(void *base, long long off, int w, int W, int sgn, const char *fn);
@@ -896,6 +897,8 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         return pas_preview(args, nargs);
         case PBI_cpuid:
         return pas_cpuid(args, nargs);
+        case PBI_ucd:
+        return pas_ucd(args, nargs);
         case PBI_pstrview:
         return pas_pstrview(args, nargs);
         case PBI_xr_cvt:
@@ -943,4 +946,43 @@ DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) {
     extern DESCR_t pat_defer_text(const char *, DESCR_t, int);
     RT_HOOK_GUARD("SNO$PDEF");
     return nargs >= 1 && nargs <= 3 ? pat_defer_text(rt_sno_target_name(args[0]), nargs >= 2 ? args[1] : NULVCL, nargs >= 3 ? (int) rk_ival(args[2]) : 1) : FAILDESCR;
+}
+#include "runtime/pas_ucd_table.inc"
+static int pas_ucd_cat_of(unsigned int cp) {
+    int lo = 0, hi = PAS_UCD_NCAT - 1;
+    while (lo <= hi) { int m = (lo + hi) / 2; if (cp < pas_ucd_cat[m][0]) hi = m - 1; else if (cp > pas_ucd_cat[m][1]) lo = m + 1; else return (int) pas_ucd_cat[m][2]; }
+    return 29;
+}
+static unsigned int pas_ucd_map_of(const unsigned int (*t)[2], int n, unsigned int cp) {
+    int lo = 0, hi = n - 1;
+    while (lo <= hi) { int m = (lo + hi) / 2; if (cp < t[m][0]) hi = m - 1; else if (cp > t[m][0]) lo = m + 1; else return t[m][1]; }
+    return 0;
+}
+static int pas_ucd_ws_of(unsigned int cp) {
+    int lo = 0, hi = PAS_UCD_NWS - 1;
+    while (lo <= hi) { int m = (lo + hi) / 2; if (cp < pas_ucd_ws[m]) hi = m - 1; else if (cp > pas_ucd_ws[m]) lo = m + 1; else return 1; }
+    return 0;
+}
+static double pas_ucd_num_of(unsigned int cp) {
+    int lo = 0, hi = PAS_UCD_NNUM - 1;
+    while (lo <= hi) {
+        int m = (lo + hi) / 2;
+        if (cp < pas_ucd_num[m].cp) hi = m - 1;
+        else if (cp > pas_ucd_num[m].cp) lo = m + 1;
+        else { double d; memcpy(&d, &pas_ucd_num[m].bits, sizeof d); return d; }
+    }
+    return 0.0;
+}
+DESCR_t pas_ucd(DESCR_t *args, int nargs) {
+    long long cp, what;
+    if (nargs != 2) return FAILDESCR;
+    cp = rk_ival(args[0]);
+    what = rk_ival(args[1]);
+    if (cp < 0 || cp > 0x10FFFF) return REALVAL(what == 0 ? 29.0 : 0.0);
+    if (what == 0) return REALVAL((double) pas_ucd_cat_of((unsigned int) cp));
+    if (what == 1) return REALVAL((double) pas_ucd_map_of(pas_ucd_upper, PAS_UCD_NUPPER, (unsigned int) cp));
+    if (what == 2) return REALVAL((double) pas_ucd_map_of(pas_ucd_lower, PAS_UCD_NLOWER, (unsigned int) cp));
+    if (what == 3) return REALVAL((double) pas_ucd_ws_of((unsigned int) cp));
+    if (what == 4) return REALVAL(pas_ucd_num_of((unsigned int) cp));
+    return FAILDESCR;
 }

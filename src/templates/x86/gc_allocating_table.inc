@@ -1056,6 +1056,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pas_tf_set", GC_RET_VOID },
     { "pas_tf_write", GC_RET_VOID },
     { "pas_trace_print_value", GC_RET_VOID },
+    { "pas_ucd", GC_RET_DESCR },
     { "pas_val_scan", GC_RET_OTHER },
     { "pas_view_get", GC_RET_DESCR },
     { "pas_view_make", GC_RET_DESCR },
