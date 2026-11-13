@@ -3469,7 +3469,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_term'((:-D),_,R,R):-!,'$consult_goal'(D).\n"
     "'$consult_term'((?-D),_,R,R):-!,'$consult_goal'(D).\n"
     "'$consult_term'((H-->B),FL,R,R):-!,'$src_dcg'((H-->B),C),'$consult_term'(C,FL,R,R).\n"
-    "'$consult_term'(C,F-L,R,R):-'$db_t_guard'(C,assertz),'$db_consult_t'(C,F,L).\n"
+    "'$consult_term'(C,F-L,R,R):-'$db_t_guard'(C,assertz),'$mu_clause'(C,C1),'$db_consult_t'(C1,F,L).\n"
     "stream_position_data(F,'$stream_position'(C,L,P,B),D):-'$spd_f'(F,C,L,P,B,D).\n"
     "'$spd_f'(char_count,C,_,_,_,C).\n"
     "'$spd_f'(line_count,_,L,_,_,L).\n"
