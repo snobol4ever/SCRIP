@@ -11,7 +11,7 @@ enum { OF_FIDDLY = 1, OF_IFFY = 2, OF_DIFFY = 4, OF_CHAIN = 8, OF_FAKE = 16, OF_
 #define PRLE(c) (((c) - 'a') * 4 + 1)
 typedef struct { const char *sym; int prec; int sub; unsigned char assoc; unsigned char flags; } RkOp;
 typedef struct { char *sym; int len; int prec; int depth; char cat; int assoc; unsigned flags; int wordend; } RkUserOp;
-typedef struct { char *name; int depth; int value; const char *st; } RkName;
+typedef struct { char *name; int depth; int value; int shadow; const char *st; } RkName;
 typedef struct { int pos; int len; int depth; } RkMyst;
 typedef struct { char **v; int n; int c; } RkStrs;
 typedef struct {

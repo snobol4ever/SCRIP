@@ -20,6 +20,7 @@ void add_name_n(RkP *p, const char *s, int n) {
     p->names[p->nnames].name = ct_strndup0(s, n);
     p->names[p->nnames].depth = p->depth;
     p->names[p->nnames].value = 0;
+    p->names[p->nnames].shadow = 0;
     p->names[p->nnames].st = NULL;
     p->nnames++;
 }
@@ -211,7 +212,9 @@ int r_term_name(RkP *p, int pos) {
     int starts_colons = at_lit(p, pos, "::");
     int is_n = starts_colons || is_name_n(p, p->s + pos, nl);
     if (is_n) {
-        int is_t = (is_type_n(p, p->s + pos, nl) || starts_colons) && !(nl >= 2 && p->s[pos + nl - 1] == ':' && p->s[pos + nl - 2] == ':');
+        int shadowed = user_name_index(p, p->s + pos, nl);
+        shadowed = shadowed >= 0 && p->names[shadowed].shadow;
+        int is_t = !shadowed && (is_type_n(p, p->s + pos, nl) || starts_colons) && !(nl >= 2 && p->s[pos + nl - 1] == ':' && p->s[pos + nl - 2] == ':');
         int q = e; int u;
         u = r_unsp(p, q); if (u >= 0) q = u;
         if (is_t && ch(p, q) == '[') { int a = r_arglist(p, q + 1); a = ws(p, a); if (ch(p, a) != ']') panic_at(p, a, "Unable to parse type parameter; couldn't find final ']'"); e = a + 1; q = e; }
@@ -229,7 +232,7 @@ int r_term_name(RkP *p, int pos) {
             int t2 = ws(p, tn >= 0 ? tn : t);
             if (ch(p, t2) == ')') e = t2 + 1;
         }
-        if (p->build) { int ui = user_name_index(p, p->s + pos, nl); if (!is_t && ui >= 0 && p->names[ui].value) rkb_user_name(p->B, &p->tm, pos, e, nl); else rkb_name(p->B, &p->tm, pos, e, nl); }
+        if (p->build) { int ui = user_name_index(p, p->s + pos, nl); if (!is_t && ui >= 0 && (p->names[ui].value || p->names[ui].shadow)) rkb_user_name(p->B, &p->tm, pos, e, nl); else rkb_name(p->B, &p->tm, pos, e, nl); }
         return e;
     }
     int q = e;
@@ -621,7 +624,9 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     char *saved_pkg = p->pkg;
     if (n >= 0) {
         int nl = name_part_len(p, q, n);
+        int first_name = p->nnames;
         add_name_all(p, p->s + q, nl);
+        if (!strcmp(kind, "grammar") && p->nnames > first_name) { char *gn = ct_strndup0(p->s + q, nl); if (rk_is_core_type(gn)) p->names[first_name].shadow = 1; }
         int pl = p->pkg ? (int) strlen(p->pkg) : 0;
         char *full = (char *) ct_alloc((size_t) pl + (size_t) nl + 3);
         if (pl) { memcpy(full, p->pkg, (size_t) pl); memcpy(full + pl, "::", 2); memcpy(full + pl + 2, p->s + q, (size_t) nl); full[pl + 2 + nl] = 0; add_our_name(p, full, pl + 2 + nl); }
