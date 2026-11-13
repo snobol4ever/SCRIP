@@ -124,7 +124,7 @@ static pty_t *pt_builtin(struct pty_state *s, const char *n) {
     if (n[0] == 'p' && n[1]) { pty_t *e = pt_builtin(s, n + 1); if (e && e->k != PTK_UNKNOWN && e->k != PTK_POINTER) { pty_t *t = pt_new(PTK_POINTER, n); t->base = e; return t; } }
     return NULL;
 }
-static pty_t *pt_named(struct pty_state *s, const char *n) { psym_t *p = ps_find_kind(s, n, 't'); return p ? p->t : pt_builtin(s, n); }
+static pty_t *pt_named(struct pty_state *s, const char *n) { if (n && !strcmp(n, "const")) n = "tvarrec"; psym_t *p = ps_find_kind(s, n, 't'); return p ? p->t : pt_builtin(s, n); }
 static pty_t *pt_expr(struct pty_state *s, const tree_t *n);
 static const pty_t *pt_of_src_mut(struct pty_state *s, const tree_t *n);
 static int lk_bsize(const char *n, long long *out);

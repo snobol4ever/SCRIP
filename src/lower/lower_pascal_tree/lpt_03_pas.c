@@ -856,6 +856,18 @@ const PasDef *pas_pf_lookup(const char *name) {
 int pas_pf_is_formal(const char *name) { const PasDef *d = pas_pf_lookup(name); return d && d->formal; }
 tree_t *pas_xr_cvtn(int kind, tree_t *x) { return mk_fnc2("__pas_xr_cvt", ilit(kind), x); }
 static pval E_program(const tree_t *n) { const void *pc = pty_enter(n); pval o = E_program_in(n); pty_leave(pc); return o; }
+static const char *pas_vr_wrapper(const tree_t *m) {
+    const pty_t *t = pty_of_src(m);
+    const char *nm = t ? pty_name_of(t) : NULL;
+    if (!t) return "__pc_vr_obj";
+    if (t->k == PTK_INT || t->k == PTK_ENUM) return nm && !strcasecmp(nm, "int64") ? "__pc_vr_int64" : "__pc_vr_int";
+    if (t->k == PTK_BOOL) return "__pc_vr_bool";
+    if (t->k == PTK_CHAR) return "__pc_vr_char";
+    if (t->k == PTK_REAL) return "__pc_vr_ext";
+    if (t->k == PTK_STRING) return nm && !strcasecmp(nm, "shortstring") ? "__pc_vr_sstr" : "__pc_vr_str";
+    if (t->k == PTK_POINTER && !pty_pointee(t)) return "__pc_vr_ptr";
+    return "__pc_vr_obj";
+}
 static pval E_set_member(const tree_t *n) {
     pval v[6];
     pval out;
@@ -865,6 +877,13 @@ static pval E_set_member(const tree_t *n) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
         { pas_set_member_ordinal(v[1].node); pas_set_member_ordinal(v[3].node); out.node = mk_set_bin("__pas_setrange", v[1].node, v[3].node); }
+        return out;
+    }
+    if (n != NULL && g_lower_pas.sem.pas_arrctor == 2) {
+        tree_t *w = ast_node_new(TT_FNC);
+        ast_push(w, leaf_s(TT_VAR, pas_vr_wrapper(n)));
+        ast_push(w, (tree_t *)n);
+        { int _sv = g_lower_pas.sem.pas_arrctor; PNodeList *_l = pnl_new(); pnl_push(_l, E_expression(w).node); g_lower_pas.sem.pas_arrctor = _sv; out.node = mk_set_ctor(_l); }
         return out;
     }
     if (n != NULL) {

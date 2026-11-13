@@ -11,6 +11,7 @@ __attribute__((visibility("hidden"))) int pas_scope_has(const char *name);
 __attribute__((visibility("hidden"))) long long pas_enumtype_high(const char *n);
 __attribute__((visibility("hidden"))) char pas_typename_class(const char *t);
 __attribute__((visibility("hidden"))) int pas_formal_is_dynarr(const char *callee, int idx);
+__attribute__((visibility("hidden"))) int pas_formal_is_aoc(const char *callee, int idx);
 __attribute__((visibility("hidden"))) int pas_formal_elem_is_string(const char *callee, int idx);
 __attribute__((visibility("hidden"))) long long pas_index_bound(long long v, int want_hi);
 __attribute__((visibility("hidden"))) int pas_index_is_enum(long long v);

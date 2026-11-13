@@ -613,6 +613,7 @@ int pas_formal_is_dynarr(const char *callee, int idx) {
     const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL;
     return t && pas_arrtype_isdyn(t);
 }
+int pas_formal_is_aoc(const char *callee, int idx) { const PasDef *cd = pas_pf_lookup(callee); const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL; return t && !strcmp(t, "$open$const"); }
 int pas_formal_elem_is_string(const char *callee, int idx) {
     const PasDef *cd = pas_pf_lookup(callee);
     const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL;

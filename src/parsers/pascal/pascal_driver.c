@@ -104,7 +104,7 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_names_system(const tree_t *t) {
-    static const char *const S[] = { "strlen", "bsrqword", "bsrdword", "bsfqword", "bsfdword", "popcnt", "stdout", "stderr", "erroutput", "ioresult", "lowercase", "methodaddress", "__pc_lcase", "tmethod", "lineending", "defaultsystemcodepage", "directoryseparator", "driveseparator", "extensionseparator", "pathseparator", 0 };
+    static const char *const S[] = { "strlen", "bsrqword", "bsrdword", "bsfqword", "bsfdword", "popcnt", "stdout", "stderr", "erroutput", "ioresult", "lowercase", "methodaddress", "__pc_lcase", "tmethod", "lineending", "defaultsystemcodepage", "directoryseparator", "driveseparator", "extensionseparator", "pathseparator", "tvarrec", "$open$const", "pextended", "vtinteger", "vtboolean", "vtchar", "vtextended", "vtstring", "vtpointer", "vtpchar", "vtobject", "vtclass", "vtansistring", "vtcurrency", "vtint64", "vtqword", "vtunicodestring", 0 };
     if (!t) return 0;
     if (t->t == TT_VAR && t->v.sval) for (int i = 0; S[i]; i++) if (!strcasecmp(t->v.sval, S[i])) return 1;
     for (int i = 0; i < t->n; i++) if (pas_names_system(t->c[i])) return 1;

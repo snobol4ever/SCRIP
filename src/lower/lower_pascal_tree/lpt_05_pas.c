@@ -698,6 +698,8 @@ pval E_call_with_args(const tree_t *n) {
             if (!out.node) out.node = mk_fnc1("__pas_pchar_of", v[3].node);
             return out;
         }
+        if (n->n == 2 && v[1].str && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (!strcmp(v[1].str, "ansistring") || !strcmp(v[1].str, "string") || !strcmp(v[1].str, "unicodestring")) &&
+            pty_of_src(n->c[1]) && pty_of_src(n->c[1])->k == PTK_POINTER) return E_expression(n->c[1]);
         {
             const char *_pct = pas_ptrcast_target(n);
             if (_pct) { const pty_t *_pp = pty_named_type(_pct); pval _pv = E_expression(n->c[1]); if (_pp) _pv.node = pas_pun_view_to(_pp, _pv.node); return _pv; }
@@ -715,7 +717,7 @@ pval E_call_with_args(const tree_t *n) {
         if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
                 int _ac = IS(n->c[i], TT_SET) && ((i - 1 < 64 && ((pas_openparm_mask(v[1].str) >> (i - 1)) & 1ULL)) || pas_formal_is_dynarr(v[1].str, i - 1));
-                g_lower_pas.sem.pas_arrctor = _ac;
+                g_lower_pas.sem.pas_arrctor = _ac && pas_formal_is_aoc(v[1].str, i - 1) ? 2 : _ac;
                 pval _a = E_argument(n->c[i]);
                 g_lower_pas.sem.pas_arrctor = 0;
                 v[3].list = i == 1 ? _a.list : pnl_concat(v[3].list, _a.list);
