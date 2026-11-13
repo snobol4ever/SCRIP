@@ -232,6 +232,7 @@ IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res
     }
     IR_t * mark = lic_build(cx, IR_BOUND, NULL, NULL);
     IR_t * unmk = lic_build(cx, IR_UNMARK, ω, ω);
+    icn_mark_γ_fail_conduit(unmk);
     ir_operand_push(unmk, mark);
     IR_LIT(unmk).ival = 2;
     int before = g->n;
