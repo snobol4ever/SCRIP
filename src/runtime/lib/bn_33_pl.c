@@ -141,6 +141,14 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
                 *out = pl_mk_cmp1("position", pl_gnu_fn("$stream_position", 4, (DESCR_t[]) { INTVAL(c), INTVAL(l + 1), INTVAL(p), INTVAL(fh_pipe_bytes(i)) }));
                 return 1;
             }
+            {
+                extern int fh_in_position(int, long *, long *, long *);
+                long c, l, p;
+                if (g_fh[i].mode == 'r' && fh_in_position(i, &c, &l, &p) == 1) {
+                    *out = pl_mk_cmp1("position", pl_gnu_fn("$stream_position", 4, (DESCR_t[]) { INTVAL((long long)off), INTVAL(l + 1), INTVAL(p), INTVAL((long long)off) }));
+                    return 1;
+                }
+            }
             *out = pl_mk_cmp1("position", pl_mk_cmp1("$stream_position", INTVAL((long long)off)));
             return 1;
         }

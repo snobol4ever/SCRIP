@@ -912,7 +912,7 @@ PL_CX_LEAF_HEAD(set_stream_position, 2)
             pl_gnu_ctx(cx, "set_stream_position", 2);
             return FAILDESCR;
         }
-        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || (plc_fid_arity(pd.slen) == 4 && pl_gnu_dialect())))) {
+        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || plc_fid_arity(pd.slen) == 4))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
             pl_gnu_ctx(cx, "set_stream_position", 2);
             return FAILDESCR;
