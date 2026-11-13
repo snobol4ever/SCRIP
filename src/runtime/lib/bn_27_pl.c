@@ -302,9 +302,10 @@ static int pl_ax_powm_arg(DESCR_t d, const char *dom, int floor1, DESCR_t *out, 
     if (dom && pl_ax_isign(d) < floor1) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", dom, d); return 0; }
     return 1;
 }
+static DESCR_t pl_ax_powm_norm(DESCR_t d, int any) { return d.v == DT_R && (any || d.r >= 0.0) && d.r > -9.2e18 && d.r < 9.2e18 ? INTVAL((long long)d.r) : d; }
 int pl_ax_powm(DESCR_t *args, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
-    DESCR_t vb = rt_pl_deref_val(args[0]), ve = rt_pl_deref_val(args[1]), vm = rt_pl_deref_val(args[2]);
+    DESCR_t vb = pl_ax_powm_norm(rt_pl_deref_val(args[0]), 0), ve = pl_ax_powm_norm(rt_pl_deref_val(args[1]), 0), vm = pl_ax_powm_norm(rt_pl_deref_val(args[2]), 1);
     if (!pl_ax_powm_arg(vb, (const char *)0, 0, out, ball) || !pl_ax_powm_arg(ve, (const char *)0, 0, out, ball) || !pl_ax_powm_arg(vm, (const char *)0, 0, out, ball)) return 1;
     if (!pl_ax_powm_arg(vb, "not_less_than_zero", 0, out, ball) || !pl_ax_powm_arg(ve, "not_less_than_zero", 0, out, ball) || !pl_ax_powm_arg(vm, "not_less_than_one", 1, out, ball)) return 1;
     if (vb.v == DT_I && ve.v == DT_I && vm.v == DT_I) {
