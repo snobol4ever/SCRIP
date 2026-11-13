@@ -521,11 +521,13 @@ static const char * rk_nsub_decl_name(const tree_t * d) {
     return (d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0] && d->c[0]->t == TT_VAR && d->c[0]->v.sval && d->c[0]->v.sval[0] && !strchr(d->c[0]->v.sval, '$')) ? d->c[0]->v.sval : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_nsub_count(const tree_t * t, int in_pkg, rk_ns_t * seen, rk_ns_t * dup) {
+static void rk_nsub_count(const tree_t * t, int in_pkg, int nest, rk_ns_t * seen, rk_ns_t * dup) {
+    extern int rk_is_core_routine(const char *);
     if (!t) return;
     const char * nm = in_pkg ? NULL : rk_nsub_decl_name(t);
-    if (nm) { if (rk_ns_has(seen, nm)) rk_ns_add(dup, nm); else rk_ns_add(seen, nm); }
-    for (int i = 0; i < t->n; i++) rk_nsub_count(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL, seen, dup);
+    if (nm) { if (rk_ns_has(seen, nm) || (nest > 0 && rk_is_core_routine(nm))) rk_ns_add(dup, nm); else rk_ns_add(seen, nm); }
+    int cn = nest < 0 ? 0 : (nest || t->t == TT_SUB_DECL || t->t == TT_SEQ_EXPR || t->t == TT_ANON_BLOCK);
+    for (int i = 0; i < t->n; i++) rk_nsub_count(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL, cn, seen, dup);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_nsub_find(const rk_nsb_t * e, const char * nm) { for (; e; e = e->up) if (!strcmp(e->from, nm)) return e->to; return NULL; }
@@ -565,7 +567,7 @@ static void rk_nsub_walk(tree_t * t, const rk_nsb_t * env, const rk_ns_t * dup, 
     for (int i = 0; i < t->n; i++) rk_nsub_walk(t->c[i], e, dup, ctr, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rk_nested_sub_names(tree_t * prog) { rk_ns_t seen = { 0 }, dup = { 0 }; int ctr = 0; rk_nsub_count(prog, 0, &seen, &dup); if (dup.n) rk_nsub_walk(prog, NULL, &dup, &ctr, 1); }
+void rk_nested_sub_names(tree_t * prog) { rk_ns_t seen = { 0 }, dup = { 0 }; int ctr = 0; rk_nsub_count(prog, 0, -1, &seen, &dup); if (dup.n) rk_nsub_walk(prog, NULL, &dup, &ctr, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tree_has_sub(const tree_t * t, const char * nm) {
     if (!t) return 0;
