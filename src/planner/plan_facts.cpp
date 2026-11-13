@@ -407,6 +407,7 @@ void planner_facts(zeta_plan_t * rec, IR_t ** nodes, int n, const IR_graph_t * g
         }
     }
     rec->pso0 = (g && g->nparams >= 1 && g->pnames && g->pnames[0]) ? pf_vs(g, -1, g->pnames[0]) : -1;
+    if (g && g->pnames) for (int _pi = 0; _pi < g->nparams; _pi++) rec->v_pso.push_back(g->pnames[_pi] ? pf_vs(g, -1, g->pnames[_pi]) : -1);
     {
         std::unordered_set<const IR_t *> rowset(nodes, nodes + n);
         std::vector<IR_t *> pend;

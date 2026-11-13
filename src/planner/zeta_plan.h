@@ -96,6 +96,7 @@ struct zeta_plan_t {
     std::vector<int> v_altpad;
     std::vector<int> v_opoff, v_partoff, v_opvs, v_partvs;
     int pso0;
+    std::vector<int> v_pso;
     std::vector<int> v_dj;
     std::vector<int> v_gate;
     std::vector<unsigned char> v_lspine;

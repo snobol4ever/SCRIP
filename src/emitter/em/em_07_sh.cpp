@@ -87,9 +87,8 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     emit_label_initf(&lbl_β, "%s_β", fam);
     emit_label_initf(&lbl_res, "%s_res", fam);
        bb_label_t * alt_step_lbl = (bb_label_t *)0; int n_alt = 0;
-    bb_label_t * ix_switch = (bb_label_t *)0; int * ix_code = (int *)0; int ix_n = 0; int ix_fbr = -2, ix_fba = -2, ix_fbi = -2; int ix_slot = -1; int * ix_tag = (int *)0;
-        int64_t * ix_val = (int64_t *)0;
-    int * ix_sets = (int *)0; int * ix_set_beg = (int *)0; int * ix_set_len = (int *)0; int ix_nset = 0;
+    struct IxP { bb_label_t * sw; int slot, n, nset, fbr, fba, fbi; int * tag; int * code; int64_t * val; int * sets; int * set_beg; int * set_len; };
+    bb_label_t * ix_switch = (bb_label_t *)0; IxP * ixp = (IxP *)0; int ix_np = 0;
     g_emit.flat_alt1_p = (bb_label_t *)0; g_emit.flat_altdet_p = (bb_label_t *)0;
     if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
         n_alt = g_emit_cfg->n_alts;
@@ -492,10 +491,15 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
     }
     if (g_emit_cfg && n_alt > 1 && n_alt <= 4096 && emit_resumable_frame() && !g_emit_cfg->root_graph && !g_emit.flat_pkt && g_emit_cfg->nparams >= 1 && g_emit_cfg->pnames && g_emit_cfg->pnames[0] &&
         g_emit_cfg->alt_entry) {
-        const char * _p0 = g_emit_cfg->pnames[0]; ix_slot = _pl->pso0;
+        ixp = (IxP *)alloca(sizeof(IxP) * (size_t)g_emit_cfg->nparams);
+        for (int _pi = 0; _pi < g_emit_cfg->nparams; _pi++) {
+            if (!g_emit_cfg->pnames[_pi]) continue;
+            IxP & P = ixp[ix_np]; P.n = 0; P.nset = 0; P.fbr = -2; P.fba = -2; P.fbi = -2; P.sw = (bb_label_t *)0; P.slot = _pi < (int)_pl->v_pso.size() ? _pl->v_pso[_pi] : -1;
+        const char * _p0 = g_emit_cfg->pnames[_pi];
         int * _ktag = (int *)alloca(sizeof(int) * (size_t)n_alt); int64_t * _kval = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); int _nvar = 0, _nvc = -1;
         for (int _ak = 0; _ak < n_alt; _ak++) { IR_t * _e = g_emit_cfg->alt_entry[_ak]; _ktag[_ak] = 0; _kval[_ak] = 0;
             { int _sg = 0; while (_e && _e->op == IR_SUCCEED && _e->γ.node && _sg++ < 4096) _e = _e->γ.node; }
+            { int _hw = 0; while (_e && (_e->op == IR_UNIFY_CONST || _e->op == IR_UNIFY_STRUCT) && _e->n_operands >= 3 && _e->operands[0] && _e->operands[0]->op == IR_VAR_REF && IR_LIT(_e->operands[0]).sval && strcmp(IR_LIT(_e->operands[0]).sval, _p0) && _e->γ.node && _hw++ < 4096) _e = _e->γ.node; }
             if (_e && (_e->op == IR_UNIFY_CONST || _e->op == IR_UNIFY_STRUCT) && _e->n_operands >= 3 && _e->operands[0] && _e->operands[0]->op == IR_VAR_REF && IR_LIT(_e->operands[0]).sval &&
                 !strcmp(IR_LIT(_e->operands[0]).sval, _p0) && _e->operands[2]) {
                 IR_t * _k = _e->operands[2];
@@ -503,26 +507,27 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                 else if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_INTEGER) { _ktag[_ak] = DT_I; _kval[_ak] = (int64_t)IR_LIT(_k).ival; }
                 else if (_e->op == IR_UNIFY_STRUCT && _k->op == IR_LIT_INTEGER && prolog_functor_arity((int)IR_LIT(_k).ival) >= 1) { _ktag[_ak] = DT_PLREF; _kval[_ak] = (int64_t)IR_LIT(_k).ival; } }
             if (!_ktag[_ak]) { _nvar++; _nvc = _ak; } }
-        if (ix_slot >= 0 && _nvar < n_alt) {
-            ix_tag = (int *)alloca(sizeof(int) * (size_t)n_alt); ix_val = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); ix_code = (int *)alloca(sizeof(int) * (size_t)n_alt);
+        if (P.slot >= 0 && _nvar < n_alt) {
+            P.tag = (int *)alloca(sizeof(int) * (size_t)n_alt); P.val = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); P.code = (int *)alloca(sizeof(int) * (size_t)n_alt);
             const int _scap = n_alt * 8 + 64; int _nsi = 0, _vset = -9;
-            ix_sets = (int *)alloca(sizeof(int) * (size_t)_scap); ix_set_beg = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2)); ix_set_len = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2));
+            P.sets = (int *)alloca(sizeof(int) * (size_t)_scap); P.set_beg = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2)); P.set_len = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2));
             auto _setcode = [&](int ct, int64_t kv, int keyed) -> int {
                 int _m = 0, _who = -1, _b0 = _nsi;
                 for (int _b = 0; _b < n_alt; _b++) if (!_ktag[_b] || (keyed && _ktag[_b] == ct && _kval[_b] == kv)) { _m++; _who = _b; }
                 if (_m == 0) return -1;
                 if (_m == 1) return _who;
-                if (_m == n_alt || _nsi + _m > _scap || ix_nset >= n_alt + 2) return -2;
-                for (int _b = 0; _b < n_alt; _b++) if (!_ktag[_b] || (keyed && _ktag[_b] == ct && _kval[_b] == kv)) ix_sets[_nsi++] = _b;
-                ix_set_beg[ix_nset] = _b0; ix_set_len[ix_nset] = _m; return -3 - ix_nset++; };
-            for (int _c = 0; _c < 3; _c++) { int _nk = 0, _n0 = ix_n, _ns0 = ix_nset, _si0 = _nsi; const int _ct = _c == 0 ? (int)DT_PLREF : _c == 1 ? (int)DT_PLATOM : (int)DT_I;
+                if (_m == n_alt || _nsi + _m > _scap || P.nset >= n_alt + 2) return -2;
+                for (int _b = 0; _b < n_alt; _b++) if (!_ktag[_b] || (keyed && _ktag[_b] == ct && _kval[_b] == kv)) P.sets[_nsi++] = _b;
+                P.set_beg[P.nset] = _b0; P.set_len[P.nset] = _m; return -3 - P.nset++; };
+            for (int _c = 0; _c < 3; _c++) { int _nk = 0, _n0 = P.n, _ns0 = P.nset, _si0 = _nsi; const int _ct = _c == 0 ? (int)DT_PLREF : _c == 1 ? (int)DT_PLATOM : (int)DT_I;
                 for (int _ak = 0; _ak < n_alt; _ak++) { if (_ktag[_ak] != _ct) continue; int _dup = 0;
-                    for (int _q = _n0; _q < ix_n && !_dup; _q++) if (ix_val[_q] == _kval[_ak]) _dup = 1;
+                    for (int _q = _n0; _q < P.n && !_dup; _q++) if (P.val[_q] == _kval[_ak]) _dup = 1;
                     if (_dup) continue;
-                    ix_tag[ix_n] = _ct; ix_val[ix_n] = _kval[_ak]; ix_code[ix_n] = _setcode(_ct, _kval[_ak], 1); ix_n++; _nk++; }
+                    P.tag[P.n] = _ct; P.val[P.n] = _kval[_ak]; P.code[P.n] = _setcode(_ct, _kval[_ak], 1); P.n++; _nk++; }
                 { int _fb; if (_vset == -9) _vset = _setcode(0, 0, 0); _fb = _vset;
-                  if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
-            ix_switch = emit_label_alloc("%s_switch", fam); } }
+                  if (_c == 0) P.fbr = _fb; else if (_c == 1) P.fba = _fb; else P.fbi = _fb; } }
+            P.sw = emit_label_alloc("%s_switch%d", fam, _pi); ix_np++; } } }
+    if (ix_np) ix_switch = ixp[0].sw;
     if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
     else if (flat_empty_body_fail && n > 0) emit_jmp_label(alt_step_lbl && n_alt > 1 ? alt_step_lbl : &lbl_ω, JMP_JMP);
     int _bx_open = -1;
@@ -875,21 +880,26 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                             x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40))));
             emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
         }
-        if (ix_switch) {
+        if (ix_np) {
             int _kt = g_emit.flat_frame_bytes; bb_label_t * _chain = pl_alt_target(0);
             bb_label_t ** _det = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)n_alt); for (int _ak = 0; _ak < n_alt; _ak++) _det[_ak] = (bb_label_t *)0;
             bb_label_t * _fail = (bb_label_t *)0;
-            bb_label_t ** _sent = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(ix_nset + 1)); for (int _s = 0; _s < ix_nset; _s++) _sent[_s] = (bb_label_t *)0;
+            bb_label_t *** _sentp = (bb_label_t ***)alloca(sizeof(bb_label_t **) * (size_t)ix_np);
+            for (int _pp = 0; _pp < ix_np; _pp++) {
+            IxP & P = ixp[_pp];
+            bb_label_t * _nxt = _pp + 1 < ix_np ? ixp[_pp + 1].sw : _chain;
+            bb_label_t ** _sent = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(P.nset + 1)); for (int _s = 0; _s < P.nset; _s++) _sent[_s] = (bb_label_t *)0; _sentp[_pp] = _sent;
             auto _to = [&](int code) -> bb_label_t * {
-                if (code == -2) return _chain;
-                if (code <= -3) { int _s = -3 - code; if (!_sent[_s]) _sent[_s] = emit_label_alloc("%s_ixset%d", fam, _s); return _sent[_s]; }
+                if (code == -2) return _nxt;
+                if (code <= -3) { int _s = -3 - code; if (!_sent[_s]) _sent[_s] = emit_label_alloc("%s_ixset%d_p%d", fam, _s, _pp); return _sent[_s]; }
                 if (code == -1) { if (!_fail) _fail = emit_label_alloc("%s_ixfail", fam); return _fail; }
                 if (!_det[code]) _det[code] = (code == n_alt - 1) ? g_emitter.codegen_flat_chain_body_alt_tr[code] : emit_label_alloc("%s_ixdet%d", fam, code); return _det[code]; };
-            pl_ix_arm_t * _arms = (pl_ix_arm_t *)alloca(sizeof(pl_ix_arm_t) * (size_t)(ix_n > 0 ? ix_n : 1));
-            for (int _q = 0; _q < ix_n; _q++) { _arms[_q].tag = ix_tag[_q]; _arms[_q].val = ix_val[_q]; _arms[_q].to = _to(ix_code[_q]); }
-            bb_label_t * _fbr = _to(ix_fbr), * _fba = _to(ix_fba), * _fbi = _to(ix_fbi);
-            emit_sep_rule('-'); emit_label_define_bb(ix_switch);
-            { extern void xa_pl_switch(int, const pl_ix_arm_t *, int, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t *); xa_pl_switch(ix_slot, _arms, ix_n, _fbr, _fba, _fbi, _chain); }
+            pl_ix_arm_t * _arms = (pl_ix_arm_t *)alloca(sizeof(pl_ix_arm_t) * (size_t)(P.n > 0 ? P.n : 1));
+            for (int _q = 0; _q < P.n; _q++) { _arms[_q].tag = P.tag[_q]; _arms[_q].val = P.val[_q]; _arms[_q].to = _to(P.code[_q]); }
+            bb_label_t * _fbr = _to(P.fbr), * _fba = _to(P.fba), * _fbi = _to(P.fbi);
+            emit_sep_rule('-'); emit_label_define_bb(P.sw);
+            { extern void xa_pl_switch(int, const pl_ix_arm_t *, int, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t *); xa_pl_switch(P.slot, _arms, P.n, _fbr, _fba, _fbi, _nxt); }
+            }
             for (int _ak = 0; _ak < n_alt - 1; _ak++) {
                 if (!_det[_ak]) continue;
                 emit_sep_rule('-'); emit_label_define_bb(_det[_ak]);
@@ -907,11 +917,13 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                           + x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40)));
                 emit_jmp_label(alt_step_lbl, JMP_JMP);
             }
-            for (int _s = 0; _s < ix_nset; _s++) {
+            for (int _pp = 0; _pp < ix_np; _pp++) {
+            IxP & P = ixp[_pp]; bb_label_t ** _sent = _sentp[_pp];
+            for (int _s = 0; _s < P.nset; _s++) {
                 if (!_sent[_s]) continue;
-                const int _m = ix_set_len[_s]; const int * _it = ix_sets + ix_set_beg[_s];
+                const int _m = P.set_len[_s]; const int * _it = P.sets + P.set_beg[_s];
                 bb_label_t ** _tl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)_m);
-                for (int _j = 1; _j < _m; _j++) _tl[_j] = emit_label_alloc("%s_ixset%d_%d", fam, _s, _j);
+                for (int _j = 1; _j < _m; _j++) _tl[_j] = emit_label_alloc("%s_ixset%d_p%d_%d", fam, _s, _pp, _j);
                 emit_sep_rule('-'); emit_label_define_bb(_sent[_s]);
                 bb_emit_x86(x86("comment", "PL SWITCH V2 (ARCH-PROLOG-C-OUT-OF-THE-BOX 11.4): the first argument's key leaves two or more candidate clauses -- the choice stays open (B is this "
                                            "frame's header) and the step walks ONLY this set, in source order, through its own trampolines")
@@ -926,6 +938,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
                               + IF(_j + 1 >= _m, x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40))));
                     emit_jmp_label(pl_alt_target(_it[_j]), JMP_JMP);
                 }
+            }
             }
         }
     }
