@@ -3301,7 +3301,7 @@ static const char * const PL_PRELUDE_SRC =
     "clause_info(R,F,TP,VO):-clause_info(R,F,TP,VO,[]).\n"
     "'$qq_expand'(S,T,B,V):-S=..[N|A],call(N,'$qq_content'(T),A,B,R),'$qq_value'(R,V).\n"
     "'$qq_read_expand'(T0,T):-compound(T0),T0='$qq'(S,Txt,B),!,S=..[N|A],call(N,'$qq_content'(Txt),A,B,R),'$qq_value'(R,T).\n"
-    "'$qq_read_expand'(T0,T):-compound(T0),!,T0=..[F|As],'$qq_read_list'(As,Bs),T=..[F|Bs].\n"
+    "'$qq_read_expand'(T0,T):-compound(T0),!,compound_name_arguments(T0,F,As),'$qq_read_list'(As,Bs),compound_name_arguments(T,F,Bs).\n"
     "'$qq_read_expand'(T,T).\n"
     "'$qq_read_list'([],[]).\n"
     "'$qq_read_list'([A|As],[B|Bs]):-'$qq_read_expand'(A,B),'$qq_read_list'(As,Bs).\n"
