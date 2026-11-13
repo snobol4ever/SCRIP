@@ -274,18 +274,14 @@ DESCR_t rk_qh_get(DESCR_t q, DESCR_t k) { int pos = rk_qh_find(q, k); return rk_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_qh_put(DESCR_t q, DESCR_t k, DESCR_t v) {
     int kind = rk_qh_kind(q);
-    if (!rk_qh_mutable(kind)) {
-        if (rk_qh_setty(kind)) rk_qh_refuse("Cannot modify an immutable %s (%s)", rk_qh_names[kind], rk_qh_render(q, 1));
-        else rk_qh_refuse("Cannot modify an immutable %s (%s)", "Int", rk_cstr(rk_qh_get(q, k)));
-        return q;
-    }
+    if (!rk_qh_mutable(kind)) { rk_qh_refuse("Cannot modify an immutable %s (%s)", rk_qh_names[kind], rk_qh_render(q, 1)); return q; }
     rk_qh_set(q, k, rk_qh_setty(kind) ? (rk_is_truthy(v) ? 1.0 : 0.0) : IS_REAL_fn(v) ? v.r : IS_INT_fn(v) || v.v == DT_BOOL ? (double) v.i : to_real(v));
     return q;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_qh_del(DESCR_t q, DESCR_t k, DESCR_t *old) {
     int kind = rk_qh_kind(q);
-    if (!rk_qh_mutable(kind)) { rk_qh_refuse("Cannot call 'DELETE-KEY' on an immutable '%s'%s", rk_qh_names[kind], ""); *old = FAILDESCR; return 1; }
+    if (!rk_qh_mutable(kind)) { rk_qh_refuse("Cannot modify an immutable %s (%s)", rk_qh_names[kind], rk_qh_render(q, 1)); *old = FAILDESCR; return 1; }
     *old = rk_qh_get(q, k);
     int pos = rk_qh_find(q, k);
     if (pos >= 0) rk_qh_drop(q, pos);
