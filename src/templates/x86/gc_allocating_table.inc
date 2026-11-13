@@ -1724,6 +1724,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rk_failure_new", GC_RET_DESCR },
     { "rk_failure_of", GC_RET_DESCR },
     { "rk_failure_sink", GC_RET_VOID },
+    { "rk_failure_str", GC_RET_DESCR },
     { "rk_fast_rat_builtin", GC_RET_OTHER },
     { "rk_first_shape", GC_RET_DESCR },
     { "rk_flat_agg", GC_RET_DESCR },
