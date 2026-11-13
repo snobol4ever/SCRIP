@@ -112,6 +112,7 @@ static DESCR_t rk_failure_of(DESCR_t *args, int nargs) {
     return rk_failure_new(rk_exc_adhoc(nargs >= 1 ? args[0] : STRVAL(rt_heap_strdup_c("Failed"))));
 }
 static DESCR_t bta_rk_write(DESCR_t *args, int nargs, int _bop) {
+    for (int _fi = 0; _fi < nargs; _fi++) if (rk_failure_is(args[_fi]) && !FIELD_GET_fn(args[_fi], "handled").i) { DESCR_t _fo; rk_failure_method("Str", &args[_fi], 1, &_fo); return FAILDESCR; }
     {
         DESCR_t tmp[nargs > 0 ? nargs : 1];
         for (int _ri = 0; _ri < nargs; _ri++) {
