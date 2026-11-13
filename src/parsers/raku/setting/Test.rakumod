@@ -407,10 +407,9 @@ sub is-deeply(Mu $got, Mu $expected, $reason = '') is export {
     $ok
 }
 
-sub _throws-like-report($died, $ex, $ex_type, $desc, %matcher) {
+sub _throws-like-report($died, $ex, $ex_type, $desc, $msg, %matcher) {
     _subtest-open($desc);
     plan 2 + %matcher.keys.elems;
-    my $msg = 'code dies';
     if $died {
         pass $msg;
         my $type_ok = _istype($ex, $ex_type);
@@ -468,7 +467,8 @@ sub _catch-sink($res) {
 
 sub throws-like($code, $ex_type, $reason?, *%matcher) is export {
     my @r = _is-code($code) ?? _catch-call($code) !! _catch-eval($code);
-    _throws-like-report(@r[0], @r[1], $ex_type, $reason // "did we throws-like $ex_type.^name()?", %matcher);
+    my $msg = _is-code($code) ?? 'code dies' !! "'$code' died";
+    _throws-like-report(@r[0], @r[1], $ex_type, $reason // "did we throws-like $ex_type.^name()?", $msg, %matcher);
 }
 
 sub fails-like($code, $ex-type, $reason?, *%matcher) is export {
@@ -486,7 +486,7 @@ sub fails-like($code, $ex-type, $reason?, *%matcher) is export {
     else {
         isa-ok $res, Failure, 'code returned a Failure';
         my @s = _catch-sink($res);
-        _throws-like-report(@s[0], @s[1], $ex-type, 'Failure threw when sunk', %matcher);
+        _throws-like-report(@s[0], @s[1], $ex-type, 'Failure threw when sunk', 'code dies', %matcher);
     }
     _subtest-close($desc);
 }
