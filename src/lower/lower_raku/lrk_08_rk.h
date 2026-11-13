@@ -7,6 +7,7 @@ __attribute__((visibility("hidden"))) tree_t * rk_state_desugar(const tree_t * t
 __attribute__((visibility("hidden"))) int rk_diverges(const tree_t * t);
 __attribute__((visibility("hidden"))) void rk_file_scope_reads_are_globals(void);
 __attribute__((visibility("hidden"))) void rk_unassigned_dynamics_are_globals(void);
+__attribute__((visibility("hidden"))) void rk_unfound_dynamics(tree_t * prog);
 __attribute__((visibility("hidden"))) void rk_eval_main_globals(void);
 void lower_raku_eval_reads_are_globals(int pc0);
 __attribute__((visibility("hidden"))) void raku_register_program(stage2_t * s2, const tree_t * prog);

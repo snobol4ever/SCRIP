@@ -363,6 +363,8 @@ void rk_exc_init(void) {
     class_inherit("X::TypeCheck::Argument", "X::TypeCheck");
     record_register("X::Cannot::Empty(message)");
     class_inherit("X::Cannot::Empty", "Exception");
+    record_register("X::Dynamic::NotFound(message,name)");
+    class_inherit("X::Dynamic::NotFound", "Exception");
     record_register("X::Numeric::CannotConvert(message)");
     class_inherit("X::Numeric::CannotConvert", "Exception");
     record_register("X::TypeCheck::Assignment(message,got,expected,symbol)");

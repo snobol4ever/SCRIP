@@ -1,5 +1,6 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
+#include <ctype.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
@@ -85,6 +86,57 @@ void rk_file_scope_reads_are_globals(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_dyn_name(const char * nm) { return nm && (nm[0] == '*' || ((nm[0] == '@' || nm[0] == '%') && nm[1] == '*')); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dyn_known(const char * nm) {
+    static const char * const dyn[] = { "*ARGFILES", "*AWAITER", "*COLLATION", "*CWD", "*DEFAULT-READ-ELEMS", "*DISTRO", "*ERR", "*EXCEPTION", "*EXECUTABLE", "*EXECUTABLE-NAME", "*EXIT",
+        "*GROUP", "*HOME", "*IN", "*INIT-INSTANT", "*KERNEL", "*OUT", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*RAKU", "*RAT-OVERFLOW", "*REPO", "*SCHEDULER", "*SPEC", "*THREAD",
+        "*TMPDIR", "*TOLERANCE", "*TZ", "*USER", "*VM", "*USAGE", "@*ARGS", "%*ENV", "&*chdir", "&*EXIT", NULL };
+    for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dyn_is(const tree_t * c, const char * nm) { return c && c->t == TT_VAR && c->v.sval && !strcmp(c->v.sval, nm); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dyn_bound(const tree_t * t, const char * nm) {
+    if (!t) return 0;
+    if (t->t == TT_ASSIGN && t->n > 0 && rk_dyn_is(t->c[0], nm)) return 1;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_temp") && t->n > 1 && rk_dyn_is(t->c[1], nm)) return 1;
+    for (int i = 0; i < t->n; i++) {
+        if (t->t == TT_SUB_DECL && i > 0 && rk_dyn_is(t->c[i], nm)) return 1;
+        if (rk_dyn_bound(t->c[i], nm)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dyn_unfound(const tree_t * c, const tree_t * prog) {
+    if (!c || c->t != TT_VAR || !rk_dyn_name(c->v.sval)) return 0;
+    const char * s = strchr(c->v.sval, '*');
+    return s && isalpha((unsigned char) s[1]) && !rk_dyn_known(c->v.sval) && !rk_dyn_bound(prog, c->v.sval);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_unfound_first(const tree_t * t, const tree_t * prog) {
+    for (int i = 0; t && i < t->n; i++) {
+        if (rk_dyn_unfound(t->c[i], prog)) return t->c[i]->v.sval;
+        const char * r = rk_unfound_first(t->c[i], prog);
+        if (r) return r;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_unfound_dynamics(tree_t * prog) {
+    const char * nm;
+    while (prog && (nm = rk_unfound_first(prog, prog))) {
+        tree_t * as = ast_node_new(TT_ASSIGN), * at = ast_node_new(TT_ATTR), * st = ast_node_new(TT_STMT);
+        ast_push(as, leaf_sval2(TT_VAR, nm));
+        ast_push(as, rk_fnc2("__rk_dyn_notfound", leaf_sval2(TT_QLIT, nm), NULL));
+        at->v.sval = (char *) ":subj";
+        ast_push(at, as);
+        ast_push(st, at);
+        ast_push(prog, st);
+        for (int k = prog->n - 1; k > 0; k--) prog->c[k] = prog->c[k - 1];
+        prog->c[0] = st;
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_unassigned_dynamics_are_globals(void) {
     extern void global_register(const char * name);

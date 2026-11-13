@@ -480,6 +480,14 @@ DESCR_t rk_empty_failure(const char *action) {
     rk_exc_init();
     return rk_failure_new(DATCON_fn("X::Cannot::Empty", STRVAL(msg)));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t bt___rk_dyn_notfound(DESCR_t *args, int nargs) {
+    if (nargs != 1) return (DESCR_t){ .v = RTX_NOT_HANDLED };
+    const char *nm = rk_cstr(args[0]);
+    char *msg = rt_heap_fmt("Dynamic variable %s%s not found", nm[0] == '*' ? "$" : "", nm);
+    rk_exc_init();
+    return rk_failure_new(DATCON_fn("X::Dynamic::NotFound", STRVAL(msg), args[0]));
+}
 DESCR_t bt___rk_seq_arity(DESCR_t *args, int nargs) { if (nargs == 1) { return INTVAL(rk_is_code(args[0]) ? rk_code_arity(args[0]) : 0); } return (DESCR_t){ .v = RTX_NOT_HANDLED }; }
 DESCR_t bt___blk_close(DESCR_t *args, int nargs) {
     if (nargs >= 1) { DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; return cl; }
