@@ -373,6 +373,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     char *name = spn(b, from, to); if (!strcmp(name, "$")) name = fmt("$__rk_st_anon%d", from); it->name = name;
     if (!strcmp(name, "@$/") || !strcmp(name, "%$/")) { tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, leaf_sval(TT_VAR, "/")); ast_push(mc, leaf_sval(TT_QLIT, name[0] == '@' ? "list" : "hash")); it->t = mc; it->cls = 'V'; return; }
     int n = (int) strlen(name);
+    if (name[0] == '$' && name[1] == '.' && name[2] == '^' && isalpha((unsigned char) name[3])) { tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, leaf_sval(TT_VAR, "self")); ast_push(mc, leaf_sval(TT_QLIT, intern(name + 2))); it->t = mc; it->cls = 'V'; return; }
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
     case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit(!strcmp(name, "$*IN") ? 0 : !strcmp(name, "$*OUT") ? 1 : 2)); it->t = c; return; }
