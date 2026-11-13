@@ -619,7 +619,6 @@ DESCR_t bt_ICNx24ULIST(DESCR_t *args, int nargs) {
         return n > 0 && (ki || kr) ? rt_make_list(el, n) : args[0];
     }
     { DESCR_t out = FAILDESCR; if (icn_argtype_gate(BID_list, args, nargs, &out, 1)) return out; }
-    if (nargs > 2) return FAILDESCR;
     if (nargs >= 1 && !IS_FAIL_fn(args[0]) && args[0].v != DT_SNUL) {
         if (IS_INT_fn(args[0])) n = (int) args[0].i;
         else if (IS_REAL_fn(args[0])) n = (int) args[0].r;

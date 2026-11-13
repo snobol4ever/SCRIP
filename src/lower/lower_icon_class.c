@@ -406,20 +406,24 @@ static void cx_prelude(cx_st * st, tree_t * prog) {
     for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char * pkg; const char * name; } pk_decl;
+typedef struct { const char * pkg; const char * name; int cls; } pk_decl;
 typedef struct { pk_decl * d; int n, cap; } pk_decls;
 typedef struct { const char * file; const tree_t * stmt; const char * pkg; } pk_stmt;
 typedef struct { pk_decls decls; const char ** ifile; cx_sv * ilist; int nif, cif; } pk_st;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pk_pkg_of(const tree_t * s, const char * mainpkg) { const tree_t * a = stmt_attr_find(s, ":pkg"); const char * v = a ? stmt_attr_str(a) : NULL; return v && *v ? v : mainpkg; }
-static void pk_decl_add(pk_decls * ds, const char * pkg, const char * name) {
-    for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name)) return;
+static void pk_decl_add(pk_decls * ds, const char * pkg, const char * name, int cls) {
+    for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name)) { ds->d[i].cls |= cls; return; }
     if (ds->n == ds->cap) { ds->cap = ds->cap ? ds->cap * 2 : 16; ds->d = (pk_decl *) ct_grow(ds->d, (size_t) ds->cap * sizeof *ds->d); }
     ds->d[ds->n].pkg = pkg;
     ds->d[ds->n].name = name;
+    ds->d[ds->n].cls = cls;
     ds->n++;
 }
-static int pk_declared(const pk_decls * ds, const char * pkg, const char * name) { for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name)) return 1; return 0; }
+static int pk_declared(const pk_decls * ds, const char * pkg, const char * name, int cls) {
+    for (int i = 0; i < ds->n; i++) if (!strcmp(ds->d[i].pkg, pkg) && !strcmp(ds->d[i].name, name) && (!cls || ds->d[i].cls)) return 1;
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static cx_sv * pk_imports(pk_st * st, const char * file) {
     for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) return &st->ilist[i];
@@ -433,10 +437,10 @@ static cx_sv * pk_imports(pk_st * st, const char * file) {
     return &st->ilist[st->nif++];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pk_map(const pk_st * st, const char * file, const char * name) {
+static const char * pk_map(const pk_st * st, const char * file, const char * name, int cls) {
     if (!*name || name[0] == '&') return NULL;
-    if (pk_declared(&st->decls, file, name)) return *file ? cx_cat(file, "__", name) : NULL;
-    for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) for (int k = 0; k < st->ilist[i].n; k++) if (pk_declared(&st->decls, st->ilist[i].v[k], name))
+    if (pk_declared(&st->decls, file, name, cls)) return *file ? cx_cat(file, "__", name) : NULL;
+    for (int i = 0; i < st->nif; i++) if (!strcmp(st->ifile[i], file)) for (int k = 0; k < st->ilist[i].n; k++) if (pk_declared(&st->decls, st->ilist[i].v[k], name, cls))
         return cx_cat(st->ilist[i].v[k], "__", name);
     return NULL;
 }
@@ -458,9 +462,14 @@ static void pk_walk(pk_st * st, const char * file, tree_t * n, const cx_sv * sha
             return;
         }
         if (q || cx_has(shadow, nm)) return;
-        const char * m = pk_map(st, file, nm);
+        const char * m = pk_map(st, file, nm, 0);
         if (m) { n->v.sval = (char *) m; n->slen = (int) strlen(m); }
         return;
+    }
+    if (n->t == TT_FIELD && n->n > 1 && n->c[0] && n->c[0]->t == TT_FIELD && n->c[0]->n > 1 && n->c[0]->c[1] && n->c[0]->c[1]->t == TT_VAR && n->c[0]->c[1]->v.sval) {
+        tree_t * q = n->c[0]->c[1];
+        const char * m = pk_map(st, file, q->v.sval, 1);
+        if (m) { q->v.sval = (char *) m; q->slen = (int) strlen(m); }
     }
     for (int i = 0; i < n->n; i++) { if (n->t == TT_FIELD && i == 1) continue; pk_walk(st, file, n->c[i], shadow); }
 }
@@ -496,8 +505,8 @@ static void icn_apply_packages(tree_t * prog) {
         const char * f = pk_pkg_of(s, mainpkg);
         if (d->t == TT_USE_DECL) { cx_sv * il = pk_imports(&st, f); for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) cx_push_new(il, d->c[k]->v.sval); continue; }
         if (d->t == TT_PROC_DECL || d->t == TT_RECORD || d->t == TT_CLASS_DECL) {
-            if (d->v.sval) pk_decl_add(&st.decls, f, d->v.sval);
-        } else if (d->t == TT_GLOBAL) for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) pk_decl_add(&st.decls, f, d->c[k]->v.sval);
+            if (d->v.sval) pk_decl_add(&st.decls, f, d->v.sval, d->t == TT_CLASS_DECL);
+        } else if (d->t == TT_GLOBAL) for (int k = 0; k < d->n; k++) if (d->c[k] && d->c[k]->v.sval) pk_decl_add(&st.decls, f, d->c[k]->v.sval, 0);
     }
     for (int i = 0; i < prog->n; i++) {
         tree_t * s = prog->c[i];
@@ -513,7 +522,7 @@ static void icn_apply_packages(tree_t * prog) {
         } else if (d->t == TT_CLASS_DECL) {
             cx_sv fl = { 0 };
             for (int k = 0; k < d->c[1]->n; k++) cx_push(&fl, d->c[1]->c[k]->v.sval);
-            for (int k = 0; k < d->c[0]->n; k++) { tree_t * sv = d->c[0]->c[k]; const char * m = pk_map(&st, f, sv->v.sval); if (m) { sv->v.sval = (char *) m; sv->slen = (int) strlen(m); } }
+            for (int k = 0; k < d->c[0]->n; k++) { tree_t * sv = d->c[0]->c[k]; const char * m = pk_map(&st, f, sv->v.sval, 0); if (m) { sv->v.sval = (char *) m; sv->slen = (int) strlen(m); } }
             for (int k = 2; k < d->n; k++) pk_proc(&st, f, d->c[k], &fl, 0);
             if (*f && d->v.sval) d->v.sval = cx_cat(f, "__", d->v.sval);
         }
