@@ -247,7 +247,7 @@ IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t
             return lower_rv(cx, rf, γ, ω, res);
         }
     }
-    { int sp = 0; for (int k = 0; k < nargs; k++) if (lrk_is_slip(t->c[from + k])) sp = 1; if (sp && nm && nm[0] != '_' && nd->op == IR_CALL) return lrk_spread_call(cx, t, from, nargs, nd, ω, res); }
+    { int sp = 0; for (int k = 0; k < nargs; k++) if (lrk_is_slip(t->c[from + k])) sp = 1; if (sp && nm && (nm[0] != '_' || !strcmp(nm, "__multi_call")) && nd->op == IR_CALL) return lrk_spread_call(cx, t, from, nargs, nd, ω, res); }
     IR_t * prev = NULL;
     IR_t * tgt = nd;
     if (nd->op == IR_PROC_GEN) { tgt = lrk_build(cx, IR_GOTO, NULL, NULL); lc_γ_to(tgt, nd); lc_ω_to(tgt, nd); }

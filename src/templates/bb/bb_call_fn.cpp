@@ -7,6 +7,7 @@
 #include "emitter/emit_str.h"
 extern "C" {
 #include "emitter/emit_state.h"
+extern struct gv_s g_call_args;
 #include "bb_templates.h"
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
@@ -44,6 +45,7 @@ std::string elem_access_flat_join(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_FN() (_.op_sval ? _.op_sval : "")
 #define CF_N() ((int)_.op_ival)
+#define CF_SPREAD() (_.op_a_node_kind == (int)IR_ARG_STAGE)
 #define CF_BLK() (_.op_call_blk)
 #define CF_REC_CELL() (_.op_zres && _.op_call_rec >= 0)
 #define CF_ARG() (_.op_call_argbase)
@@ -113,7 +115,7 @@ static std::string cf_marg(int i) {
 std::string cf_marshal() { return FOR(0, _.op_marg_n, [](int k) { return cf_marg(_.op_marg_n - 1 - k); }); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string cf_zd_copy() {
-    return IF(CF_N() > 0,
+    return IF(CF_N() > 0 && !CF_SPREAD(),
                FOR(0, CF_N(), [](int i) {
                    return emit_seq({ x86("mov", "rax", ZOPQS(i, 0, 0)),
                                      x86("mov", ZCELL(CF_BLK() + i * 16 + 0), "rax"),
@@ -162,15 +164,17 @@ static std::string cf_fnlbl() {
 static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval && !CF_REC_CELL(), x86("add", "rsp", (long)BCFN_EVAL_REC))); }
 static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_env_load_rr()); }
 static std::string cf_argv_rsi(int eval) {
-    return IF(CF_N() > 0, x86("lea", "rsi", ZCELL((eval && !CF_REC_CELL() ? BCFN_EVAL_REC : 0) + CF_BLK())))
-         + IF(CF_N() <= 0, x86("xor", "esi", "esi"));
+    return IF(CF_SPREAD(), x86("mov", "r8", "[rip@got + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args") + x86("mov", "rsi", "qword ptr [r8 + 0]"))
+         + IF(!CF_SPREAD() && CF_N() > 0, x86("lea", "rsi", ZCELL((eval && !CF_REC_CELL() ? BCFN_EVAL_REC : 0) + CF_BLK())))
+         + IF(!CF_SPREAD() && CF_N() <= 0, x86("xor", "esi", "esi"));
 }
 static std::string cf_argv_rdi() {
     return IF(CF_N() > 0, x86("lea", "rdi", ZCELL(CF_BLK())))
          + IF(CF_N() <= 0, x86("xor", "edi", "edi"));
 }
 static std::string cf_try_enter(const std::string & out_lea) {
-    return x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N())
+    return (CF_SPREAD() ? x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8)) + x86("movabs", "rdx", (uint64_t)(uint32_t)_.op_call_bid << 32) + x86("or", "rdx", "rax")
+                        : x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N()))
          +
              bb_glue_try_enter(_.op_call_try_sym, _.op_call_try_fp, "rt_call_land_γ", TEMPLATE_FN_ADDR(rt_call_land_γ), "rt_call_land_ω", TEMPLATE_FN_ADDR(rt_call_land_ω), 100, 108, 29, 0, 0,
              out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"), _.op_call_rec, _.op_zres);
@@ -206,7 +210,7 @@ static std::string cf_byname_zd(int open, int eval) {
                                    x86("mov", "rax", ZRES(0)),
                                    x86("mov", "rdx", ZRES(8)),
                                    IF(!open, x86_deflabel_id(29)) })
-                      : emit_seq({ x86("mov32", "edx", (long)CF_N()),
+                      : emit_seq({ (CF_SPREAD() ? x86("note", ZOPN(0)) + x86("mov", "rdx", ZOPQ(0, 8)) : x86("mov32", "edx", (long)CF_N())),
                                    x86("mov32", "ecx", _.op_call_bid),
                                    x86("call", _.op_call_sym, _.op_call_fp) }),
                       cf_join29(open, eval),

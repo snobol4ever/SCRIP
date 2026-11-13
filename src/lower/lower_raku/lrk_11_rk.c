@@ -784,15 +784,22 @@ static int rk_pr_count_star(const tree_t * t) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_pr_swap_star(tree_t * t, const char * nb, int np, const char * const * hv) {
+static void rk_pr_swap_star(tree_t * t, const char * nb, int np, const char * const * hv, const char * slv) {
     for (int i = 0; t && i < t->n; i++) {
         tree_t * c = t->c[i];
         if (!c || c->t == TT_SUB_DECL) continue;
-        if (!rk_pr_is_star(c)) { rk_pr_swap_star(c, nb, np, hv); continue; }
+        if (!rk_pr_is_star(c)) { rk_pr_swap_star(c, nb, np, hv, slv); continue; }
         tree_t * call = ast_node_new(TT_FNC);
         call->v.sval = (char *) nb;
         ast_push(call, leaf_sval2(TT_VAR, nb));
         for (int q = 0; q < np; q++) ast_push(call, leaf_sval2(TT_VAR, hv[q]));
+        if (slv) {
+            tree_t * sp = ast_node_new(TT_FNC);
+            sp->v.sval = (char *) "__rk_arr_slip";
+            ast_push(sp, leaf_sval2(TT_VAR, "__rk_arr_slip"));
+            ast_push(sp, leaf_sval2(TT_VAR, slv));
+            ast_push(call, sp);
+        }
         t->c[i] = call;
     }
 }
@@ -803,6 +810,11 @@ static int rk_pr_param_fixed(const tree_t * pv) {
     return !(ty && ty->v.sval && (ty->v.sval[0] == '*' || ty->v.sval[0] == '+'));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pr_param_slurpy(const tree_t * pv) {
+    if (!pv || pv->t != TT_VAR || !pv->v.sval || (pv->slen & RK_PV_NAMED) || pv->n < 1 || !pv->c[0] || pv->c[0]->t != TT_QLIT || !pv->c[0]->v.sval) return 0;
+    return pv->c[0]->v.sval[0] == '*';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_ss_proto_list(tree_t * t, int * ctr) {
     for (int i = 0; i < t->n; i++) {
         tree_t * pd = rk_top_subj(t->c[i]);
@@ -810,7 +822,8 @@ static void rk_ss_proto_list(tree_t * t, int * ctr) {
         if (!nm || !*nm || strchr(nm, '$')) continue;
         int np = (int) pd->v.ival, ok = np >= 0 && np < pd->n, ncand = 0;
         size_t bl = strlen(nm);
-        for (int q = 1; ok && q <= np; q++) ok = rk_pr_param_fixed(pd->c[q]);
+        int sl = ok && np > 0 && rk_pr_param_slurpy(pd->c[np]), nfx = sl ? np - 1 : np;
+        for (int q = 1; ok && q <= nfx; q++) ok = rk_pr_param_fixed(pd->c[q]);
         for (int k = 0; ok && k < t->n; k++) {
             const tree_t * dk = rk_top_subj(t->c[k]);
             const char * nk = (dk && dk->t == TT_SUB_DECL && dk->n > 0 && dk->c[0]) ? dk->c[0]->v.sval : NULL;
@@ -829,9 +842,11 @@ static void rk_ss_proto_list(tree_t * t, int * ctr) {
             dk->c[0]->v.sval = (char *) intern(rn);
         }
         const char * hv[np > 0 ? np : 1];
-        for (int q = 0; q < np; q++) { char hn[sizeof nb + 16]; snprintf(hn, sizeof hn, "__prv%s_%d", nb + 4, q); hv[q] = intern(hn); }
-        rk_pr_swap_star(pd, nbi, np, hv);
-        for (int q = np - 1; q >= 0; q--) {
+        for (int q = 0; q < nfx; q++) { char hn[sizeof nb + 16]; snprintf(hn, sizeof hn, "__prv%s_%d", nb + 4, q); hv[q] = intern(hn); }
+        const char * slv = NULL;
+        if (sl) { if (!pd->c[np]->v.sval[0]) { char sn[sizeof nb + 16]; snprintf(sn, sizeof sn, "__prv%s_s", nb + 4); pd->c[np]->v.sval = (char *) intern(sn); } slv = pd->c[np]->v.sval; }
+        rk_pr_swap_star(pd, nbi, nfx, hv, slv);
+        for (int q = nfx - 1; q >= 0; q--) {
             tree_t * a = ast_node_new(TT_ASSIGN);
             ast_push(a, leaf_sval2(TT_VAR, hv[q]));
             ast_push(a, leaf_sval2(TT_VAR, pd->c[q + 1]->v.sval));
