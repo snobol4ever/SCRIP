@@ -898,7 +898,7 @@ int codegen_flat_chain_body(zeta_plan_t * _pl, const char *prefix) {
             for (int _q = 0; _q < P.n; _q++) { _arms[_q].tag = P.tag[_q]; _arms[_q].val = P.val[_q]; _arms[_q].to = _to(P.code[_q]); }
             bb_label_t * _fbr = _to(P.fbr), * _fba = _to(P.fba), * _fbi = _to(P.fbi);
             emit_sep_rule('-'); emit_label_define_bb(P.sw);
-            { extern void xa_pl_switch(int, const pl_ix_arm_t *, int, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t *); xa_pl_switch(P.slot, _arms, P.n, _fbr, _fba, _fbi, _nxt); }
+            { extern int xa_pl_switch_nodes(const pl_ix_arm_t *, int); extern void xa_pl_switch(int, const pl_ix_arm_t *, int, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t **); int _nn = xa_pl_switch_nodes(_arms, P.n); bb_label_t ** _nl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(_nn > 0 ? _nn : 1)); for (int _k = 0; _k < _nn; _k++) _nl[_k] = emit_label_alloc("%s_swn%d_%d", fam, _pp, _k); xa_pl_switch(P.slot, _arms, P.n, _fbr, _fba, _fbi, _nxt, _nl); }
             }
             for (int _ak = 0; _ak < n_alt - 1; _ak++) {
                 if (!_det[_ak]) continue;
