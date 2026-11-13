@@ -1522,6 +1522,73 @@ static const char PAS_PRELUDE_UNIT_9_SRC[] =
     "end.\n";
 static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "{$mode objfpc}{$H+}\n"
+    "unit gdeque;\n"
+    "\n"
+    "{ SCRIP's own generic double-ended queue (row fpc-source-gdeque-is-a-prelude-unit): the surface the fpc-source\n"
+    "  members use, over a dynamic array. The observable behaviour mirrors fpc 3.2.2's gdeque.pp: Insert pushes back\n"
+    "  and shifts right, Erase shifts left and pops back, Size is the element count. Cut from fpc, not vendored. }\n"
+    "\n"
+    "interface\n"
+    "\n"
+    "type\n"
+    "  generic TDeque<T> = class\n"
+    "  private\n"
+    "    FData: array of T;\n"
+    "    FCount: Integer;\n"
+    "  public\n"
+    "    constructor Create;\n"
+    "    function Size: Integer;\n"
+    "    procedure PushBack(Value: T);\n"
+    "    procedure Insert(Position: Integer; Value: T);\n"
+    "    procedure Erase(Position: Integer);\n"
+    "  end;\n"
+    "\n"
+    "implementation\n"
+    "\n"
+    "constructor TDeque.Create;\n"
+    "begin\n"
+    "  FCount := 0;\n"
+    "end;\n"
+    "\n"
+    "function TDeque.Size: Integer;\n"
+    "begin\n"
+    "  Size := FCount;\n"
+    "end;\n"
+    "\n"
+    "procedure TDeque.PushBack(Value: T);\n"
+    "begin\n"
+    "  if FCount = Length(FData) then\n"
+    "    SetLength(FData, 2 * Length(FData) + 4);\n"
+    "  FData[FCount] := Value;\n"
+    "  Inc(FCount);\n"
+    "end;\n"
+    "\n"
+    "procedure TDeque.Insert(Position: Integer; Value: T);\n"
+    "var\n"
+    "  I: Integer;\n"
+    "begin\n"
+    "  PushBack(Value);\n"
+    "  for I := FCount - 1 downto Position + 1 do\n"
+    "    FData[I] := FData[I - 1];\n"
+    "  FData[Position] := Value;\n"
+    "end;\n"
+    "\n"
+    "procedure TDeque.Erase(Position: Integer);\n"
+    "var\n"
+    "  I: Integer;\n"
+    "begin\n"
+    "  if Position <= FCount then\n"
+    "  begin\n"
+    "    if FCount > 1 then\n"
+    "      for I := Position to FCount - 2 do\n"
+    "        FData[I] := FData[I + 1];\n"
+    "    Dec(FCount);\n"
+    "  end;\n"
+    "end;\n"
+    "\n"
+    "end.\n";
+static const char PAS_PRELUDE_UNIT_11_SRC[] =
+    "{$mode objfpc}{$H+}\n"
     "unit generics.collections;\n"
     "interface\n"
     "uses generics.defaults;\n"
@@ -2231,7 +2298,7 @@ static const char PAS_PRELUDE_UNIT_10_SRC[] =
     "initialization\n"
     "  __shg_crcok := false;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_11_SRC[] =
+static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit generics.defaults;\n"
     "interface\n"
@@ -2254,7 +2321,7 @@ static const char PAS_PRELUDE_UNIT_11_SRC[] =
     "  Result := FCmp(L, R)\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_12_SRC[] =
+static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "{$H+}\n"
     "unit gmp;\n"
     "interface\n"
@@ -2849,7 +2916,7 @@ static const char PAS_PRELUDE_UNIT_12_SRC[] =
     "  end\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_13_SRC[] =
+static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "{$H+}\n"
     "unit ioerr;\n"
     "interface\n"
@@ -2881,7 +2948,7 @@ static const char PAS_PRELUDE_UNIT_13_SRC[] =
     "  __sh_rdiv := a / b\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_14_SRC[] =
+static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "unit math;\n"
     "interface\n"
     "function Power(base, exponent: extended): extended;\n"
@@ -2974,7 +3041,7 @@ static const char PAS_PRELUDE_UNIT_14_SRC[] =
     "  if a = b then CompareValue := 0 else if a < b then CompareValue := -1 else CompareValue := 1\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_15_SRC[] =
+static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "unit process;\n"
     "interface\n"
     "uses sysutils;\n"
@@ -3008,7 +3075,7 @@ static const char PAS_PRELUDE_UNIT_15_SRC[] =
     "  else FActive := false\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_16_SRC[] =
+static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit RegExpr;\n"
     "interface\n"
@@ -3644,7 +3711,7 @@ static const char PAS_PRELUDE_UNIT_16_SRC[] =
     "  r.Free;\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_17_SRC[] =
+static const char PAS_PRELUDE_UNIT_18_SRC[] =
     "{$H+}\n"
     "unit sha1;\n"
     "interface\n"
@@ -3749,13 +3816,13 @@ static const char PAS_PRELUDE_UNIT_17_SRC[] =
     "  SHA1Match := __sh_ok\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_18_SRC[] =
+static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "{$H+}\n"
     "unit strings;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_19_SRC[] =
+static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "{$H+}\n"
     "unit strutils;\n"
     "interface\n"
@@ -3929,7 +3996,7 @@ static const char PAS_PRELUDE_UNIT_19_SRC[] =
     "  AnsiReplaceStr := rs\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_20_SRC[] =
+static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "{$mode objfpc}\n"
     "unit sysgen;\n"
     "interface\n"
@@ -3937,7 +4004,7 @@ static const char PAS_PRELUDE_UNIT_20_SRC[] =
     "  generic TArray<T> = array of T;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_21_SRC[] =
+static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "{$H+}\n"
     "unit system;\n"
     "interface\n"
@@ -4119,7 +4186,7 @@ static const char PAS_PRELUDE_UNIT_21_SRC[] =
     "  stderr := __pas_stdfile(2);\n"
     "  erroutput := __pas_stdfile(2);\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_22_SRC[] =
+static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "{$H+}\n"
     "unit sysutils;\n"
     "interface\n"
@@ -5142,7 +5209,7 @@ static const char PAS_PRELUDE_UNIT_22_SRC[] =
     "  FormatDateTime := r\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_23_SRC[] =
+static const char PAS_PRELUDE_UNIT_24_SRC[] =
     "{$H+}\n"
     "unit types;\n"
     "interface\n"
@@ -5163,13 +5230,13 @@ static const char PAS_PRELUDE_UNIT_23_SRC[] =
     "  end;\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_24_SRC[] =
+static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "{$mode objfpc}\n"
     "unit unicodeducet;\n"
     "interface\n"
     "implementation\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_25_SRC[] =
+static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "{$H+}\n"
     "unit unix;\n"
     "interface\n"
@@ -5195,7 +5262,7 @@ static const char PAS_PRELUDE_UNIT_25_SRC[] =
     "  GetDomainName := __sh_ukread('/proc/sys/kernel/domainname')\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_26_SRC[] =
+static const char PAS_PRELUDE_UNIT_27_SRC[] =
     "{$mode objfpc}{$H+}\n"
     "unit uregexpr;\n"
     "interface\n"
@@ -5212,7 +5279,7 @@ static const char PAS_PRELUDE_UNIT_26_SRC[] =
     "  ReplaceRegExpr := RegExpr.ReplaceRegExpr(ARegExpr, AInputStr, AReplaceStr, AUseSubstitution);\n"
     "end;\n"
     "end.\n";
-static const char PAS_PRELUDE_UNIT_27_SRC[] =
+static const char PAS_PRELUDE_UNIT_28_SRC[] =
     "{$H+}\n"
     "unit variants;\n"
     "interface\n"
@@ -5229,23 +5296,24 @@ static const pas_prelude_unit_t PAS_PRELUDE_UNITS[] = {
     { "dynlibs", PAS_PRELUDE_UNIT_7_SRC },
     { "fgl", PAS_PRELUDE_UNIT_8_SRC },
     { "fpwidestring", PAS_PRELUDE_UNIT_9_SRC },
-    { "generics.collections", PAS_PRELUDE_UNIT_10_SRC },
-    { "generics.defaults", PAS_PRELUDE_UNIT_11_SRC },
-    { "gmp", PAS_PRELUDE_UNIT_12_SRC },
-    { "ioerr", PAS_PRELUDE_UNIT_13_SRC },
-    { "math", PAS_PRELUDE_UNIT_14_SRC },
-    { "process", PAS_PRELUDE_UNIT_15_SRC },
-    { "regexpr", PAS_PRELUDE_UNIT_16_SRC },
-    { "sha1", PAS_PRELUDE_UNIT_17_SRC },
-    { "strings", PAS_PRELUDE_UNIT_18_SRC },
-    { "strutils", PAS_PRELUDE_UNIT_19_SRC },
-    { "sysgen", PAS_PRELUDE_UNIT_20_SRC },
-    { "system", PAS_PRELUDE_UNIT_21_SRC },
-    { "sysutils", PAS_PRELUDE_UNIT_22_SRC },
-    { "types", PAS_PRELUDE_UNIT_23_SRC },
-    { "unicodeducet", PAS_PRELUDE_UNIT_24_SRC },
-    { "unix", PAS_PRELUDE_UNIT_25_SRC },
-    { "uregexpr", PAS_PRELUDE_UNIT_26_SRC },
-    { "variants", PAS_PRELUDE_UNIT_27_SRC },
+    { "gdeque", PAS_PRELUDE_UNIT_10_SRC },
+    { "generics.collections", PAS_PRELUDE_UNIT_11_SRC },
+    { "generics.defaults", PAS_PRELUDE_UNIT_12_SRC },
+    { "gmp", PAS_PRELUDE_UNIT_13_SRC },
+    { "ioerr", PAS_PRELUDE_UNIT_14_SRC },
+    { "math", PAS_PRELUDE_UNIT_15_SRC },
+    { "process", PAS_PRELUDE_UNIT_16_SRC },
+    { "regexpr", PAS_PRELUDE_UNIT_17_SRC },
+    { "sha1", PAS_PRELUDE_UNIT_18_SRC },
+    { "strings", PAS_PRELUDE_UNIT_19_SRC },
+    { "strutils", PAS_PRELUDE_UNIT_20_SRC },
+    { "sysgen", PAS_PRELUDE_UNIT_21_SRC },
+    { "system", PAS_PRELUDE_UNIT_22_SRC },
+    { "sysutils", PAS_PRELUDE_UNIT_23_SRC },
+    { "types", PAS_PRELUDE_UNIT_24_SRC },
+    { "unicodeducet", PAS_PRELUDE_UNIT_25_SRC },
+    { "unix", PAS_PRELUDE_UNIT_26_SRC },
+    { "uregexpr", PAS_PRELUDE_UNIT_27_SRC },
+    { "variants", PAS_PRELUDE_UNIT_28_SRC },
     { 0, 0 }
 };
