@@ -42,7 +42,7 @@ tree_t *rk_arr_rhs(tree_t *rhs) {
     tree_t *call = make_call("__rk_arr"); expr_add_child(call, rhs); return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_chain_cmp(tree_e k) { return k == TT_LT || k == TT_GT || k == TT_LE || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_LEQ || k == TT_LNE; }
+static int rk_is_chain_cmp(tree_e k) { return k == TT_LT || k == TT_GT || k == TT_LE || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_LEQ || k == TT_LNE || k == TT_LLT || k == TT_LLE || k == TT_LGT || k == TT_LGE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_chain_last_operand(tree_t *left) {
     if (!left) return NULL;
@@ -143,10 +143,10 @@ tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     case 19: return rk_order_call("__rk_cmpg", l, r);
     case 20: return rk_order_call("__rk_leg", l, r);
     case 21: return expr_binary(TT_LNE, l, r);
-    case 22: return expr_binary(TT_LLT, l, r);
-    case 23: return expr_binary(TT_LLE, l, r);
-    case 24: return expr_binary(TT_LGT, l, r);
-    default: return expr_binary(TT_LGE, l, r);
+    case 22: return rk_chain_cmp(l, TT_LLT, r);
+    case 23: return rk_chain_cmp(l, TT_LLE, r);
+    case 24: return rk_chain_cmp(l, TT_LGT, r);
+    default: return rk_chain_cmp(l, TT_LGE, r);
     }
 }
 void rkb_user_op(RkB *b, char cat, const char *sym, int len, const char *raw, int rawlen, int prec) {
