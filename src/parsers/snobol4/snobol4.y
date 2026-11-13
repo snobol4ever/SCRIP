@@ -14,8 +14,12 @@ static int sno4_goto_f_first;
 #include <ctype.h>
 typedef struct { CODE_t *prog; tree_t **result; tree_t *ast_prog; } PP;
 static void     sno4_stmt_commit_go(void*,Token,tree_t*,tree_t*,int,tree_t*,tree_t*,tree_t*,tree_t*);
-int             snobol4_lex(YYSTYPE *yylval_param);
+int             snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param);
 void            snobol4_error(void *p, const char *msg);
+extern void     sno_diag(int, const char *, int, int);
+extern void     sno_diag_refuse(int);
+extern void     sno_diag_flush(void);
+static int      sno4_parse(void *);
 static Lex     *g_lx;
 static int      g_err_lineno;
 static tree_t *sno_goto_operand(tree_t *e) {
@@ -62,6 +66,7 @@ static tree_e pat_prim_kind(const char *s) {
 %define api.prefix {snobol4_}
 %define api.pure full
 %parse-param { void *yyparse_param }
+%lex-param { void *yyparse_param }
 %union { tree_t *expr; Token tok; }
 %token <tok> T_IDENT T_FUNCTION T_KEYWORD T_END T_INT T_REAL T_STR
 %token <tok> T_LABEL T_GOTO_S T_GOTO_F T_GOTO_LPAREN T_GOTO_RPAREN T_GOTO_XLPAREN T_GOTO_XRPAREN T_GOTO_LANGLE T_GOTO_RANGLE T_STMT_END
@@ -91,6 +96,8 @@ stmt
              | T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END            { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,NULL,$5); }
              | T_LABEL opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$5,$7); }
              | T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_goto_f_first=1; sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$7,$5); }
+             | T_LABEL error T_STMT_END                                                    { sno4_stmt_commit_go(yyparse_param,$1,NULL,NULL,0,NULL,NULL,NULL,NULL); if($1.ival) sno_diag(215,"syntax error: undefined or erroneous entry label",$1.lineno,2); yyerrok; }
+             | error T_STMT_END                                                            { yyerrok; }
            | unlabeled_stmt
            ;
 unlabeled_stmt
@@ -247,13 +254,20 @@ goto_expr  : goto_atom                                                          
            | goto_atom T_CONCAT goto_expr                                                         { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=s; }
            ;
 %%
-int snobol4_lex(YYSTYPE *yylval_param) {
+int snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param) {
     Token t=lex_next(g_lx); yylval_param->tok=t; if (t.lineno) g_err_lineno=t.lineno;
+    if (t.kind==T_LABEL && t.sval) { PP *pp=(PP*)yyparse_param; for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,t.sval)){sno_diag(217,"syntax error: duplicate label",t.lineno,1);break;} }
     if (getenv("SNO_TOK_TRACE"))
         fprintf(stderr,"[TOK %d sval=%s ival=%ld]\n",t.kind,t.sval?t.sval:"",t.ival);
     return t.kind;
 }
-void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_err_lineno,"parse error: %s",msg);}
+void snobol4_error(void *p,const char *msg){(void)p;(void)msg;sno_diag_refuse(g_err_lineno);}
+static int sno4_entry_label(PP *pp,tree_t *e){
+    if(!e||e->t!=TT_VAR||!e->v.sval) return 0;
+    for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,e->v.sval)) return 1;
+    return 0;
+}
+static int sno4_parse(void *p){int r=snobol4_parse(p);sno_diag_flush();return r;}
 static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,int has_eq,tree_t *repl,tree_t *gu,tree_t *gs,tree_t *gf){
     PP *pp=(PP*)param;
     STMT_t *s=stmt_new();
@@ -263,8 +277,8 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
       s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); if (snobol4_get_stmt_kwfile()) s->kwfile = ct_strdup(snobol4_get_stmt_kwfile()); }
     { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
-    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
-        for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,lbl.sval)){sno_error(s->lineno,"duplicate label '%s'",lbl.sval);break;}}
+    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);}
+    if(s->is_end&&(has_eq||gu||gs||gf||(subj&&!sno4_entry_label(pp,subj)))) sno_diag(215,"syntax error: undefined or erroneous entry label",s->lineno,2);
     s->subject=subj; s->pattern=pat;
     if(has_eq){s->has_eq=1;s->replacement=repl;}
     if(gu) s->goto_u_expr=gu;
@@ -277,16 +291,16 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     }
 }
 static tree_t *parse_expr(Lex *lx){
-    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;sno4_parse(&p);
     return prog->head?prog->head->subject:NULL;
 }
 CODE_t *parse_program_tokens(Lex *stream){
-    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
+    CODE_t *prog=ct_zalloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;sno4_parse(&p);return prog;
 }
 CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
     CODE_t *prog=ct_zalloc(1,sizeof*prog);
     tree_t *ast=ct_zalloc(1,sizeof*ast); ast->t=TT_PROGRAM;
-    PP p={prog,NULL,ast};g_lx=stream;snobol4_parse(&p);
+    PP p={prog,NULL,ast};g_lx=stream;sno4_parse(&p);
     *ast_out=ast;
     return prog;
 }
@@ -311,7 +325,7 @@ tree_t *parse_expr_pat_from_str(const char *src) {
     CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
-    snobol4_parse(&p);
+    sno4_parse(&p);
     flex_lex_destroy(&lx);
     ct_drop(buf);
     if (p.ast_prog && p.ast_prog->n > 0) {
@@ -341,7 +355,7 @@ CODE_t *sno_parse_string(const char *src) {
     CODE_t *prog = ct_zalloc(1, sizeof(CODE_t));
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
-    snobol4_parse(&p);
+    sno4_parse(&p);
     flex_lex_destroy(&lx);
     ct_drop(buf);
     return prog;
@@ -360,7 +374,7 @@ tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
     tree_t  *ast  = ct_zalloc(1, sizeof(tree_t)); ast->t = TT_PROGRAM;
     PP p = {prog, NULL, ast};
     g_lx = &lx;
-    snobol4_parse(&p);
+    sno4_parse(&p);
     flex_lex_destroy(&lx);
     ast = p.ast_prog;
     ct_drop(buf);

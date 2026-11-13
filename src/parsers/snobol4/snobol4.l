@@ -14,6 +14,12 @@
 #include <math.h>
 void sno_error(int, const char *, ...);
 void sno_error_voice(int, const char *, int);
+void sno_diag(int, const char *, int, int);
+void sno_diag_refuse(int);
+void sno_diag_flush(void);
+static void sno_gt_field(int);
+static void sno_diag_card(int, const char *, int);
+static void sno_syn(Lex *, int, int);
 char *inc_dirs[64];
 int   n_inc = 0;
 int   sno_nerrors = 0;
@@ -24,7 +30,7 @@ void sno_error_quiet_end(void) { sno_err_quiet = 0; }
 int sno_error_quiet_on(void) { return sno_err_quiet; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
-static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1 };
+static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; int d_code; int d_line; const char *d_text; char *d_file; int d_refused; int d_eline; char *d_efile; int d_pend; int gt_s; int gt_f; int gt_pre; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1, 0, 0, (const char *)0, (char *)0, 0, 0, (char *)0, 0, 0, 0, 0 };
 static int   g_nofail_mode = 0;
 int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static int   g_case_fold = 0;
@@ -242,7 +248,7 @@ G       ({WS}|{CONT})*
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
-        if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
+        if(!inc)sno_diag_card(285,"include file cannot be opened",lineno-1);
         else {
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
@@ -271,7 +277,7 @@ G       ({WS}|{CONT})*
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
-        if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
+        if(!inc)sno_diag_card(285,"include file cannot be opened",lineno-1);
         else {
             if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
@@ -299,7 +305,7 @@ G       ({WS}|{CONT})*
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
-        if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
+        if(!inc)sno_diag_card(285,"include file cannot be opened",lineno-1);
         else {
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
@@ -345,7 +351,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>[+.]           {
-    sno_error_voice(214, "bad label or misplaced continuation line", lineno);
+    sno_diag(214, "bad label or misplaced continuation line", lineno, 1);
     BEGIN(BODY_START);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -405,7 +411,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <BODY_START>[ \t]+      { }
-<BODY_START>"="/[ \t\n;] { sno_error_voice(221, "syntax error: missing operand", lineno); }
+<BODY_START>"="/[ \t\n;] { sno_diag(221, "syntax error: missing operand", lineno, 1); }
 <BODY_START>{CONT}      { lineno++; }
 <BODY_START>\n          { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START><<EOF>>     { BEGIN(INITIAL); return T_STMT_END; }
@@ -416,7 +422,7 @@ G       ({WS}|{CONT})*
 <BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; gt_depth=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>";"              { gt_angle=0; gt_depth=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; gt_depth=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
-<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
+<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; g_stmt_pos.gt_s=0; g_stmt_pos.gt_f=0; g_stmt_pos.gt_pre=0; BEGIN(GT); }
 <BODY>&{ALPHA}{IDCONT}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
@@ -449,6 +455,7 @@ G       ({WS}|{CONT})*
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |
 <BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
 <BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
+<BODY>{DIGIT}[A-Za-z0-9.]*    { sno_diag(231, "syntax error: invalid numeric item", lineno, 1); strbuf[0]='0'; strbuf[1]='\0'; return T_INT; }
 <BODY>\'                       { strpos=0; BEGIN(STR1); }
 <BODY>\"                       { strpos=0; BEGIN(STR2); }
 <BODY>"^"    { return T_1CARET;  }
@@ -467,8 +474,8 @@ G       ({WS}|{CONT})*
 <BODY>"="    { return T_1EQUAL;        }
 <BODY>"?"    { return T_1QUEST;}
 <BODY>"&"    { return T_1AMP;    }
-<BODY>"\\"    { if (gt_depth) sno_error_voice(230, "syntax error: illegal character", lineno); else sno_error(lineno,"unexpected char '%s'",yytext); }
-<BODY>.      { sno_error(lineno,"unexpected char '%s'",yytext); }
+<BODY>"\\"    { sno_diag(230, "syntax error: illegal character", lineno, 1); }
+<BODY>.      { sno_diag(230, "syntax error: illegal character", lineno, 1); }
 <STR1>[^'\n]*           {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
@@ -482,7 +489,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR1>\n                {
-    sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
+    sno_diag(232, "syntax error: unmatched string quote", lineno, 1); yyless(0); BEGIN(BODY);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>[^\"\n]*          {
@@ -498,16 +505,17 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>\n                {
-    sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
+    sno_diag(232, "syntax error: unmatched string quote", lineno, 1); yyless(0); BEGIN(BODY);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
-<GT>[Ss]/[ \t]*"("      { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
-<GT>[Ss]/[ \t]*"<"      { return T_GOTO_S; }
-<GT>[Ff]/[ \t]*"("      { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
-<GT>[Ff]/[ \t]*"<"      { return T_GOTO_F; }
+<GT>[Ss]/[ \t]*"("      { if (gt_depth == 0) g_stmt_pos.gt_pre='S'; if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
+<GT>[Ss]/[ \t]*"<"      { g_stmt_pos.gt_pre='S'; return T_GOTO_S; }
+<GT>[Ff]/[ \t]*"("      { if (gt_depth == 0) g_stmt_pos.gt_pre='F'; if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
+<GT>[Ff]/[ \t]*"<"      { g_stmt_pos.gt_pre='F'; return T_GOTO_F; }
 <GT>"("                 {
+    if (gt_depth == 0) sno_gt_field(lineno);
     if (gt_depth == 0) {
         char gb[2048];
         int gn = 0, gc, gd = 1, gq = 0, ge = -1;
@@ -525,12 +533,13 @@ G       ({WS}|{CONT})*
     gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN;
 }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
-<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; if (gt_have_operand) { gt_have_operand=0; return T_LANGLE; } gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
+<GT>"<"{G}              { if (gt_depth == 0) sno_gt_field(lineno); if (gt_depth > 0) { yyless(1); gt_depth++; if (gt_have_operand) { gt_have_operand=0; return T_LANGLE; } gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 <GT>">"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
-<GT>"$"                 { return T_1DOLLAR; }
+<GT>"$"                 { if (gt_depth == 0) sno_diag(234, "syntax error: goto field incorrect", lineno, 1); return T_1DOLLAR; }
 <GT>"["                 { if (gt_depth > 0) { gt_depth++; gt_have_operand=0; return T_LBRACK; } }
 <GT>"]"                 { if (gt_depth > 0) { gt_depth--; gt_have_operand=1; return T_RBRACK; } }
 <GT>{ALPHA}{IDCONT}* {
+    if (gt_depth == 0) sno_diag(234, "syntax error: goto field incorrect", lineno, 1);
     gt_have_operand=1;
     strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf);
     return T_IDENT;
@@ -547,10 +556,10 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>","                 { gt_have_operand=0; return T_COMMA; }
 <GT>{DIGIT}+            { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_INT; }
-<GT>";"                 { if (!gt_have_operand) sno_error_voice(219, "syntax error: empty goto field", lineno); gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<GT>";"                 { if (!gt_have_operand && !gt_depth) sno_diag(219, "syntax error: empty goto field", lineno, 1); gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <GT>{CONT}              { lineno++; }
-<GT>\n                  { if (!gt_have_operand) sno_error_voice(219, "syntax error: empty goto field", lineno); lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<GT>.                   { }
+<GT>\n                  { if (!gt_have_operand && !gt_depth) sno_diag(219, "syntax error: empty goto field", lineno, 1); lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<GT>.                   { if (gt_depth == 0) sno_diag(234, "syntax error: goto field incorrect", lineno, 1); }
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
 <AFTER_SEMI>[ \t]*\n/[+.] { lineno++; BEGIN(INITIAL); return T_STMT_END; }
@@ -574,6 +583,118 @@ void sno_error_voice(int code, const char *text, int ln) {
     if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", text); sno_nerrors++; return; }
     core_error_voice_at(code, text, sno_frame_file(), ln, 0);
     sno_nerrors++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_diag(int code, const char *text, int ln, int hard) {
+    if (sno_err_quiet) { if (hard) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", text); sno_nerrors++; } return; }
+    if (!g_stmt_pos.d_code || hard == 2) { g_stmt_pos.d_code = code; g_stmt_pos.d_text = text; g_stmt_pos.d_line = ln + incl_start_stack[incl_stack_depth].line_delta; ct_drop(g_stmt_pos.d_file); g_stmt_pos.d_file = ct_strdup(sno_frame_file()); }
+    if (hard) g_stmt_pos.d_refused = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_diag_card(int code, const char *text, int ln) {
+    extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
+    if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", text); sno_nerrors++; return; }
+    core_error_voice_at(code, text, sno_frame_file(), (long) (ln + incl_start_stack[incl_stack_depth].line_delta), 0);
+    sno_nerrors++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_gt_field(int ln) {
+    int pre = g_stmt_pos.gt_pre;
+    g_stmt_pos.gt_pre = 0;
+    if (pre == 'S') { if (g_stmt_pos.gt_s) sno_diag(218, "syntax error: duplicated goto field", ln, 1); g_stmt_pos.gt_s = 1; return; }
+    if (pre == 'F') { if (g_stmt_pos.gt_f) sno_diag(218, "syntax error: duplicated goto field", ln, 1); g_stmt_pos.gt_f = 1; return; }
+    if (g_stmt_pos.gt_s || g_stmt_pos.gt_f) sno_diag(218, "syntax error: duplicated goto field", ln, 1);
+    g_stmt_pos.gt_s = 1; g_stmt_pos.gt_f = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_diag_refuse(int ln) {
+    if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", "parse error: syntax error"); sno_nerrors++; return; }
+    if (g_stmt_pos.d_refused) return;
+    g_stmt_pos.d_refused = 1; g_stmt_pos.d_eline = ln + incl_start_stack[incl_stack_depth].line_delta; ct_drop(g_stmt_pos.d_efile); g_stmt_pos.d_efile = ct_strdup(sno_frame_file());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_diag_flush(void) {
+    extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
+    g_stmt_pos.d_pend = 0;
+    if (g_stmt_pos.d_refused) {
+        if (g_stmt_pos.d_code) core_error_voice_at(g_stmt_pos.d_code, g_stmt_pos.d_text, g_stmt_pos.d_file, (long) g_stmt_pos.d_line, 0);
+        else core_error_voice_at(702, "syntax error: statement not recognized", g_stmt_pos.d_efile, (long) g_stmt_pos.d_eline, 0);
+        sno_nerrors++;
+    }
+    g_stmt_pos.d_code = 0; g_stmt_pos.d_refused = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_syn_push(Lex *lx, int lev) {
+    if (lx->syn_n >= lx->syn_cap) { int nc = lx->syn_cap ? lx->syn_cap * 2 : 16; char *g = ct_grow(lx->syn_lev, (size_t) nc); if (!g) return; lx->syn_lev = g; lx->syn_cap = nc; }
+    lx->syn_lev[lx->syn_n++] = (char) lev; lx->syn_s = 0; lx->syn_b = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_syn_term(Lex *lx, int ln) {
+    int top = lx->syn_n ? lx->syn_lev[lx->syn_n - 1] : 0;
+    if (top == 6) { sno_diag(227, "syntax error: right paren missing from goto", ln, 0); return; }
+    if (lx->syn_goto && !top) return;
+    if (lx->syn_s == 1) { sno_diag(221, "syntax error: missing operand", ln, 0); return; }
+    if (top == 1) sno_diag(227, "syntax error: right paren missing from goto", ln, 0);
+    else if (top == 2) sno_diag(228, "syntax error: right bracket missing from goto", ln, 0);
+    else if (top == 3) sno_diag(229, "syntax error: missing right array bracket", ln, 0);
+    else if (top == 4 || top == 5) sno_diag(226, "syntax error: missing right paren", ln, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_syn(Lex *lx, int tok, int ln) {
+    int top = lx->syn_n ? lx->syn_lev[lx->syn_n - 1] : 0, s = lx->syn_s, b = lx->syn_b;
+    if (tok == T_STMT_END || tok == T_EOF) { sno_syn_term(lx, ln); lx->syn_s = 0; lx->syn_b = 0; lx->syn_goto = 0; lx->syn_n = 0; lx->syn_fn = 0; return; }
+    if (tok == T_LABEL) return;
+    if (tok == T_GOTO_S || tok == T_GOTO_F || tok == T_GOTO_LPAREN || tok == T_GOTO_XLPAREN || tok == T_GOTO_LANGLE) {
+        if (!lx->syn_goto) { sno_syn_term(lx, ln); lx->syn_goto = 1; lx->syn_n = 0; lx->syn_s = 0; lx->syn_b = 0; top = 0; }
+        if (tok == T_GOTO_LPAREN && (top == 0 || top == 6)) { sno_syn_push(lx, 6); return; }
+        if (tok == T_GOTO_XLPAREN) { sno_syn_push(lx, 1); return; }
+        if (tok == T_GOTO_LANGLE) { sno_syn_push(lx, 2); return; }
+        if (top == 0 || top == 6) return;
+    }
+    if (top == 6) { if (tok == T_GOTO_RPAREN) lx->syn_n--; return; }
+    if (lx->syn_goto && !top) return;
+    if (lx->syn_fn && tok == T_LPAREN) { lx->syn_fn = 0; return; }
+    lx->syn_b = 0;
+    switch (tok) {
+    case T_CONCAT:
+        if (s == 2) lx->syn_b = 1; else sno_diag(221, "syntax error: missing operand", ln, 0);
+        return;
+    case T_IDENT: case T_END: case T_KEYWORD: case T_STR: case T_INT: case T_REAL:
+        if (s == 2 && !b) sno_diag(220, "syntax error: missing operator", ln, 0);
+        lx->syn_s = 2; return;
+    case T_FUNCTION:
+        if (s == 2 && !b) sno_diag(220, "syntax error: missing operator", ln, 0);
+        sno_syn_push(lx, 5); lx->syn_fn = 1; return;
+    case T_LPAREN:
+        if (s == 2 && !b) sno_diag(220, "syntax error: missing operator", ln, 0);
+        sno_syn_push(lx, 4); return;
+    case T_LBRACK: case T_LANGLE:
+        if (s != 2) sno_diag(222, "syntax error: invalid use of left bracket", ln, 0);
+        sno_syn_push(lx, 3); return;
+    case T_RPAREN: case T_GOTO_XRPAREN:
+        if (s == 1) sno_diag(221, "syntax error: missing operand", ln, 0);
+        else if (tok == T_RPAREN ? (top != 4 && top != 5) : top != 1) sno_diag(224, "syntax error: unbalanced right parenthesis", ln, 0);
+        if (tok == T_GOTO_XRPAREN) { while (lx->syn_n && lx->syn_lev[lx->syn_n - 1] != 1) lx->syn_n--; }
+        if (lx->syn_n && (tok == T_GOTO_XRPAREN || top == 4 || top == 5)) lx->syn_n--;
+        lx->syn_s = 2; return;
+    case T_RBRACK: case T_RANGLE: case T_GOTO_RANGLE:
+        if (s == 1) sno_diag(221, "syntax error: missing operand", ln, 0);
+        else if (tok == T_GOTO_RANGLE ? top != 2 : top != 3) sno_diag(225, "syntax error: unbalanced right bracket", ln, 0);
+        if (tok == T_GOTO_RANGLE) { while (lx->syn_n && lx->syn_lev[lx->syn_n - 1] != 2) lx->syn_n--; }
+        if (lx->syn_n && (tok == T_GOTO_RANGLE || top == 3)) lx->syn_n--;
+        lx->syn_s = 2; return;
+    case T_COMMA:
+        if (s == 1) sno_diag(221, "syntax error: missing operand", ln, 0);
+        else if (top < 3) sno_diag(223, "syntax error: invalid use of comma", ln, 0);
+        lx->syn_s = 0; return;
+    case T_2EQUAL: case T_2QUEST: case T_2PIPE: case T_2PLUS: case T_2MINUS: case T_2STAR: case T_2SLASH: case T_2CARET: case T_2DOLLAR: case T_2DOT: case T_2AMP: case T_2AT: case T_2POUND: case T_2PERCENT: case T_2TILDE:
+        if (s != 2) sno_diag(221, "syntax error: missing operand", ln, 0);
+        lx->syn_s = tok == T_2EQUAL ? 0 : 1; return;
+    case T_1AT: case T_1TILDE: case T_1QUEST: case T_1AMP: case T_1PLUS: case T_1MINUS: case T_1STAR: case T_1DOLLAR: case T_1DOT: case T_1BANG: case T_1PERCENT: case T_1SLASH: case T_1POUND: case T_1CARET: case T_1EQUAL: case T_1PIPE:
+        if (s == 2 && !b) sno_diag(233, "syntax error: invalid use of operator", ln, 0);
+        lx->syn_s = 1; return;
+    default: return;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int ln, const char *fmt, ...) {
@@ -612,12 +733,16 @@ void flex_lex_open(Lex *lx, FILE *f, const char *fname) {
 int sno_end_lineno = 0;
 Token flex_lex_next(Lex *lx) {
     yyscan_t sc = (yyscan_t)lx->_scanner;
+    if (g_stmt_pos.d_pend) sno_diag_flush();
     for (;;) {
         int r;
         if (lx->_extra == SNO_END_CLOSED) { Token e; e.kind = T_EOF; e.sval = NULL; e.ival = 0; e.dval = 0.0; e.lineno = lineno; return e; }
+        int pre_line = lineno;
         r = yylex(sc);
+        sno_syn(lx, r, (r == T_STMT_END || r == T_EOF) ? pre_line : lineno);
+        if (r == T_STMT_END || r == T_EOF) g_stmt_pos.d_pend = 1;
         Token t;
-        t.lineno = lineno;
+        t.lineno = (r == T_STMT_END || r == T_EOF) ? pre_line : lineno;
         t.ival   = 0;
         t.dval   = 0.0;
         t.sval   = NULL;
@@ -644,14 +769,14 @@ Token flex_lex_next(Lex *lx) {
         case T_INT:
             { long _iv = 0; int _ov = 0;
               for (const char *_q = strbuf; *_q >= '0' && *_q <= '9'; _q++) if (__builtin_mul_overflow(_iv, 10L, &_iv) || __builtin_add_overflow(_iv, (long)(*_q - '0'), &_iv)) _ov = 1;
-              if (_ov) { sno_error(lineno, "syntax error: invalid numeric item"); _iv = 0; }
+              if (_ov) { sno_diag(231, "syntax error: invalid numeric item", lineno, 1); _iv = 0; }
               t.ival = _iv; }
             return t;
         case T_REAL:
             t.sval = intern(strbuf);
             { extern int rt_gtn_real(const char *, long, double *); char *_ne = (char *)0; errno = 0; double _rv = 0.0;
               if (!rt_gtn_real(strbuf, (long)strlen(strbuf), &_rv)) _rv = strtod(strbuf, &_ne);
-              if (!isfinite(_rv)) { sno_error(lineno, "syntax error: invalid numeric item"); _rv = 0.0; }
+              if (!isfinite(_rv)) { sno_diag(231, "syntax error: invalid numeric item", lineno, 1); _rv = 0.0; }
               t.dval = _rv; }
             return t;
         default:
@@ -712,7 +837,7 @@ static tree_t *sno_parse_lexed(Lex *lx, CODE_t **code_out) {
     tree_t *ast = NULL;
     CODE_t *prog = parse_program_tokens_ast(lx, &ast);
     flex_lex_destroy(lx);
-    if (prog) { int saw_end = 0; STMT_t *p; for (p = prog->head; p; p = p->next) if (p->is_end) { saw_end = 1; break; } if (!saw_end) { fprintf(stderr, "No END statement found in source file(s).\n"); exit(1); } }
+    if (prog) { int saw_end = 0; STMT_t *p; for (p = prog->head; p; p = p->next) if (p->is_end) { saw_end = 1; break; } if (!saw_end) sno_error_voice(216, "syntax error: missing end line", prog->tail ? prog->tail->lineno : 0); }
     if (code_out) *code_out = prog;
     return ast;
 }

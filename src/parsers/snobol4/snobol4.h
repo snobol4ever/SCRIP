@@ -15,6 +15,8 @@ typedef struct Lex {
     int    peeked;
     void  *_scanner;
     void  *_extra;
+    int    syn_s, syn_b, syn_goto, syn_fn, syn_n, syn_cap;
+    char  *syn_lev;
 } Lex;
 void  lex_open_str(Lex *lx, const char *s, int len, int lineno);
 void  lex_open_str_initial(Lex *lx, const char *s, int len, int lineno);

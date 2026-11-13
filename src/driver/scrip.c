@@ -3236,7 +3236,7 @@ int main(int argc, char **argv) {
             MERGE_AST(sub_ast);
         }
         if (!ast_prog) { fprintf(stderr, "scrip: parse failed for '%s'\n", input_path); return 1; }
-        { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 231; } }
+        { extern int sno_nerrors; extern int sno_end_lineno; if (sno_nerrors > 0) return sno_end_lineno ? 231 : 1; }
     }
     {
         int _w = 0;
@@ -3277,7 +3277,7 @@ int main(int argc, char **argv) {
         extern void sno_preeval_program(const tree_t *);
         extern int sno_nerrors;
         for (int _p = 0; _p < nsegs; _p++) if (segs[_p].fn == lower_sno_stage2) sno_preeval_program((const tree_t *)segs[_p].prog);
-        if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 231; }
+        if (sno_nerrors > 0) return 231;
     }
     { extern void core_set_label_exists_hook(int (*fn)(const char *)); core_set_label_exists_hook(_label_exists_fn); }
     { g_rt_misc.eval_str_hook = _eval_str_impl_fn; }
