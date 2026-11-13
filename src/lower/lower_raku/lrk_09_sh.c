@@ -700,7 +700,7 @@ IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res)
                 *res = as;
                 return e;
             }
-            if (nm && !g_lower.rk.eval_road && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(2); }
+            if (nm && !g_lower.rk.eval_road && rk_certainly_undeclared(nm)) { fprintf(stderr, "scrip: raku: Undeclared routine: %s used at line %d\n", nm, t->line); exit(1); }
             return lower_rcall(cx, t, nm, 1, γ, ω, res);
         }
         case TT_STMT:
