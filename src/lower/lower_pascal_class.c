@@ -606,6 +606,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
         for (int i = x->nren - 1; i >= 0; i--) if (pc_eq(x->ren[i].from, n)) return pc_var(x->ren[i].to);
         if (x->curm && x->curm->isfunc && pc_eq(x->curm->name, n)) return e;
         if (pc_ident_is_member(x, n)) return pc_read_member(x, pc_self(x, n), pc_member_owner(x, n), n, NULL);
+        if (x->curm && pc_eq(n, "ClassType") && !pc_sym_find(x, n)) return pc_ofld(pc_var("self"), "__cls");
         pc_ty t = pc_ident_type(x, n);
         if (t.ref && t.cls) { pc_sym *ks = pc_sym_find(x, n); if (!ks || ks->kind == 'k') return pc_int(t.cls->id); }
         return e;
@@ -613,6 +614,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
     if (PC_IS(e, TT_FIELD) && e->n == 2) {
         pc_ty b = pc_type(x, e->c[0]);
         const char *n = pc_sv(e->c[1]);
+        if (b.cls && pc_eq(n, "ClassType")) return b.ref ? pc_int(b.cls->id) : pc_ofld(pc_expr(x, e->c[0]), "__cls");
         if (b.cls && b.ref) {
             pc_meth *m = pc_pick(x, b.cls, n, NULL, 0);
             if (m && pc_eq(m->kind, "constructor")) return pc_fnc(pc_new_fn(x, b.cls, m));
