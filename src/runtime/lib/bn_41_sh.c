@@ -2386,7 +2386,7 @@ int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, D
             }
         }
         { extern int dat_spec_is_current(const char *spec); if (!dat_spec_is_current(sp)) dat_register(sp); }
-        { extern void dat_set_live(const char *name, int live); if (nb[0]) dat_set_live(nb, 1); }
+        { extern void dat_set_live(const char *name, int live); extern void dat_set_nohook(const char *name); if (nb[0]) { dat_set_live(nb, 1); dat_set_nohook(nb); } }
         *out = NULVCL;
         return 1;
     }

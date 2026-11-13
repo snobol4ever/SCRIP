@@ -149,10 +149,7 @@ const char * sno_define_entry_opt(const tree_t * dsub, int argbase) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int sno_fname_is_multiproto(const char * fname) {
-    for (uint32_t k = 0; k < g_lower.sno.multiproto.len; k++) if (!strcmp(CV_AT(g_lower.sno.multiproto, const char *, k), fname)) return 1;
-    return 0;
-}
+int sno_fname_is_multiproto(const char * fname) { for (uint32_t k = 0; k < g_lower.sno.multiproto.len; k++) if (!strcmp(CV_AT(g_lower.sno.multiproto, const char *, k), fname)) return 1; return 0; }
 static const char * sno_proto_encode(const sno_def_t * d) {
     size_t need = (size_t) fmt_len("%d|", d->nformals);
     for (int k = 0; k < d->nnames; k++) need += (size_t) fmt_len("%s%s", k ? "," : "", d->names[k]) - 1;
@@ -250,6 +247,7 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
             extern void * dat_register(const char * spec);
             extern void * dat_find_type(const char * name);
             extern void dat_set_live(const char * name, int live);
+            extern void dat_set_nohook(const char * name);
             extern int dat_spec_is_current(const char * spec);
             const char * sp = t->c[argbase]->v.sval;
             char nb[strlen(sp) + 1];
@@ -273,7 +271,7 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
                     fs = (cm < fe) ? cm + 1 : fe;
                 }
             }
-            if (nb[0] && !prot && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); }
+            if (nb[0] && !prot && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); dat_set_nohook(nb); }
         }
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
             const char * an = sno_litname(t->c[argbase]);

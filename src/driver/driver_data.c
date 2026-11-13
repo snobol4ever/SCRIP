@@ -503,6 +503,8 @@ int dat_attributes(const char *name, const char **out, int max) {
 RT_ENTRY_DECL(dat_set_live, leaf, 0);
 void dat_set_live(const char *name, int live) { DatType *t = dat_find_type(name); if (t) t->live = (char)(live ? 1 : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void dat_set_nohook(const char *name) { DatType *t = dat_find_type(name); if (t) t->nohook = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
     for (int i = 0; i < dat_ntypes; i++) if (dat_types[i]->live) for (int j = 0; j < dat_types[i]->nfields; j++) if (strcmp(dat_types[i]->fields[j], name) == 0) {
         if (fidx) *fidx = j;
@@ -566,7 +568,7 @@ DESCR_t dat_construct_rq(DatType *t, DESCR_t *args, int nargs, long *rq) {
     DESCR_t r = dat_alloc_fill(t, args, nargs);
     dat_check_required(t, r);
     extern void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq);
-    rt_fire_buildplan_tweak_rq(t->name, r, rq);
+    if (!t->nohook) rt_fire_buildplan_tweak_rq(t->name, r, rq);
     return r;
 }
 DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) { return dat_construct_rq(t, args, nargs, (long *)0); }
@@ -633,7 +635,7 @@ DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     char *spec = rt_heap_strdup_c(raw_spec);
     DEFDAT_fn(spec);
     if (!dat_spec_is_current(spec)) dat_register(spec);
-    { int k = 0; while (spec[k] && spec[k] != '(') k++; char nb[k + 1]; memcpy(nb, spec, (size_t)k); nb[k] = 0; if (nb[0]) dat_set_live(nb, 1); }
+    { int k = 0; while (spec[k] && spec[k] != '(') k++; char nb[k + 1]; memcpy(nb, spec, (size_t)k); nb[k] = 0; if (nb[0]) { dat_set_live(nb, 1); dat_set_nohook(nb); } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
