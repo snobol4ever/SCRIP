@@ -10,7 +10,7 @@ typedef struct { const char ** v; int n, cap; } cx_sv;
 typedef struct { const char * name; const char * owner; const tree_t * proc; } cx_meth;
 typedef struct cx_class { const tree_t * node; const char * name; cx_sv supers, fields, anc; cx_meth * meth; int nmeth, cmeth; const tree_t * init; int built; } cx_class;
 typedef struct { cx_class * cls; int ncls, ccls, tmp, use_image, use_oprec; cx_sv gmeth; } cx_st;
-typedef struct { cx_st * st; const cx_class * cls; cx_sv shadow; } cx_ctx;
+typedef struct { cx_st * st; const cx_class * cls; cx_sv shadow; int ini; } cx_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cx_push(cx_sv * s, const char * w) {
     if (s->n == s->cap) { s->cap = s->cap ? s->cap * 2 : 8; s->v = (const char **) ct_grow((void *) s->v, (size_t) s->cap * sizeof *s->v); }
@@ -37,6 +37,12 @@ static tree_t * cx_stmt(tree_t * top) {
     ast_push(st, ast_attr_expr(":subj", top));
     return st;
 }
+static int cx_is_var(const tree_t * n, const char * nm) { return n && n->t == TT_VAR && n->v.sval && !strcmp(n->v.sval, nm); }
+static int cx_is_caller_self(const tree_t * n) {
+    if (!n || n->t != TT_FNC || n->n != 4 || !cx_is_var(n->c[0], "variable") || !cx_is_var(n->c[2], "&null")) return 0;
+    return n->c[1] && n->c[1]->t == TT_QLIT && n->c[1]->v.sval && !strcmp(n->c[1]->v.sval, "self") && n->c[3] && n->c[3]->t == TT_ILIT && n->c[3]->v.ival == 1;
+}
+static int cx_sets_caller_self(const tree_t * n) { if (!n) return 0; if (cx_is_caller_self(n)) return 1; for (int i = 0; i < n->n; i++) if (cx_sets_caller_self(n->c[i])) return 1; return 0; }
 static cx_class * cx_find(cx_st * st, const char * nm) { for (int i = 0; i < st->ncls; i++) if (!strcmp(st->cls[i].name, nm)) return &st->cls[i]; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cx_mpush(cx_class * c, const char * name, const char * owner, const tree_t * proc) {
@@ -183,6 +189,7 @@ static tree_t * cx_expr(tree_t * n, cx_ctx * x) {
         if (x->cls && nm[0] != '&' && !cx_has(&x->shadow, nm) && cx_has(&x->cls->fields, nm)) { tree_t * f = cx_fld(cx_var("self"), nm); f->line = n->line; return f; }
         return n;
     }
+    if (x->ini && cx_is_caller_self(n)) { tree_t * s = cx_fld(cx_var("self"), "__s"); s->line = n->line; return s; }
     if (n->t == TT_FNC && n->n > 0 && n->c[0]) {
         tree_t * f = n->c[0];
         if (x->st->use_image && f->t == TT_VAR && f->v.sval &&
@@ -225,8 +232,9 @@ static tree_t * cx_method_proc(cx_st * st, const cx_class * c, const tree_t * m)
     for (int i = 0; i < params->n; i++) cx_push_new(&x.shadow, params->c[i]->v.sval);
     cx_locals(m->c[2], &x.shadow);
     tree_t * body = m->c[2];
-    cx_kids(body, &x, 0);
     int ini = !strcmp(m->v.sval, "initially");
+    x.ini = ini;
+    cx_kids(body, &x, 0);
     if (ini) ast_push(body, cx_un(TT_RETURN, cx_var("self")));
     tree_t * p = cx_proc(cx_cat(c->name, "_", m->v.sval), params, ini ? 0 : (int) m->c[1]->v.ival, body);
     p->slen = m->slen;
@@ -297,7 +305,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
         for (int i = 0; i < ini->c[1]->n; i++) ast_push(ic, cx_var(ini->c[1]->c[i]->v.sval));
         ast_push(cb, cx_bin(TT_ALTERNATE, ic, ast_node_new(TT_PROC_FAIL)));
     }
-    ast_push(cb, cx_un(TT_RETURN, cx_var("self")));
+    ast_push(cb, cx_un(TT_RETURN, ini && cx_sets_caller_self(ini->c[2]) ? cx_fld(cx_var("self"), "__s") : cx_var("self")));
     tree_t * cpl = ast_node_new(TT_VLIST);
     for (int i = 0; i < cparams.n; i++) ast_push(cpl, cx_var(cparams.v[i]));
     ast_push(prog, cx_stmt(cx_proc(c->name, cpl, ini ? (int) ini->c[1]->v.ival : 0, cb)));
