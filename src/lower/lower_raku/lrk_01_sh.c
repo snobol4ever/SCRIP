@@ -390,7 +390,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     int rk_bstart = rk_np + 1, rk_bn = (pd && pd->n > rk_bstart) ? pd->n - rk_bstart : 0;
     int rk_destr_extra = 0;
     for (int k = 1; k <= rk_np; k++) if (pd->c[k] && pd->c[k]->t == TT_VAR) rk_destr_extra += rk_destr_count(pd->c[k]->v.sval) + pd->c[k]->n + rk_subsig_count(pd->c[k]);
-    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) ct_zalloc((size_t) (rk_bn + rk_np + rk_destr_extra), sizeof(const tree_t *)) : NULL;
+    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) ct_zalloc((size_t) (rk_bn + 2 * rk_np + rk_destr_extra), sizeof(const tree_t *)) : NULL;
     if (rk_plan) {
         int nplan = 0, bi = 0;
         for (int k = 1; k <= rk_np; k++) {
@@ -398,6 +398,12 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
             const char * pn = (pv && pv->t == TT_VAR) ? pv->v.sval : NULL;
             const char * tgt = (bi < rk_bn) ? rk_prologue_target(pd->c[rk_bstart + bi]) : NULL;
             if (pn && tgt && !strcmp(tgt, pn)) rk_plan[nplan++] = pd->c[rk_bstart + bi++];
+            if (pn && (pv->slen & RK_PV_COPY) && (pn[0] == '@' || pn[0] == '%')) {
+                tree_t * cp = ast_node_new(TT_ASSIGN);
+                ast_push(cp, leaf_sval2(TT_VAR, pn));
+                ast_push(cp, leaf_sval2(TT_VAR, pn));
+                rk_plan[nplan++] = cp;
+            }
             if (pn) nplan = rk_destr_plan(pn, rk_plan, nplan);
             for (int j = 0; pn && j < pv->n; j++) if (pv->c[j] && pv->c[j]->t == TT_VAR && (pv->c[j]->slen & RK_PV_ALIAS)) {
                 tree_t * as = ast_node_new(TT_ASSIGN), * dv = leaf_sval2(TT_VAR, pv->c[j]->v.sval);

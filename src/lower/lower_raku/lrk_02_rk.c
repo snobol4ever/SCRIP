@@ -47,7 +47,7 @@ static uint64_t rk_param_byref_mask(const tree_t * proc, int nparams) {
     if (!proc) return 0;
     for (int k = 0; k < nparams && k < 64 && (1 + k) < proc->n; k++) {
         const tree_t * pv = proc->c[1 + k];
-        if (pv && pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strcmp(pv->c[0]->v.sval, "@")) brm |= (1ULL << k);
+        if (pv && pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strcmp(pv->c[0]->v.sval, "@") && !(pv->slen & RK_PV_COPY)) brm |= (1ULL << k);
     }
     return brm;
 }
