@@ -187,7 +187,7 @@ DESCR_t bt___rk_when_match(DESCR_t *args, int nargs) {
             for (int i = 0; i < mn && !hit; i++) {
                 const char * rls[bnd_dat_need(mro[i], 1)];
                 int rn = dat_roles(mro[i], rls, (int)(sizeof rls / sizeof rls[0]));
-                for (int j = 0; j < rn && !hit; j++) if (rls[j] && !strcmp(rls[j], tn)) hit = 1;
+                for (int j = 0; j < rn && !hit; j++) { extern int dat_role_is(const char *role, const char *target); if (rls[j] && dat_role_is(rls[j], tn)) hit = 1; }
             }
             return INTVAL(hit ? 1 : 0);
         }

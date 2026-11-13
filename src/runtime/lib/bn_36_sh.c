@@ -373,7 +373,7 @@ int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs,
                 for (int i = 0; i < mn && !hit; i++) {
                     const char *rls[bnd_dat_need(mro[i], 1)];
                     int rn = dat_roles(mro[i], rls, (int)(sizeof rls / sizeof rls[0]));
-                    for (int j = 0; j < rn && !hit; j++) if (rls[j] && !strcmp(rls[j], target)) hit = 1;
+                    for (int j = 0; j < rn && !hit; j++) { extern int dat_role_is(const char *role, const char *target); if (rls[j] && dat_role_is(rls[j], target)) hit = 1; }
                 }
             }
             *out = INTVAL(hit ? 1 : 0);

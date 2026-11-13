@@ -441,6 +441,16 @@ int dat_mro(const char *name, const char **out, int max) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int dat_role_is(const char *role, const char *target) {
+    if (!role || !target) return 0;
+    size_t n = strlen(target);
+    if (strncmp(role, target, n)) return 0;
+    if (!role[n]) return 1;
+    if (strncmp(role + n, "__rc", 4) || !role[n + 4]) return 0;
+    for (const char *q = role + n + 4; *q; q++) if (*q < '0' || *q > '9') return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_roles(const char *name, const char **out, int max) {
     DatType *t = dat_find_type(name);
     if (!t) return 0;

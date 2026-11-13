@@ -704,6 +704,21 @@ static tree_t * rk_role_find(tree_t * t, const char * base) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_role_stateful(const tree_t * rd) {
+    for (int j = 1; rd && j < rd->n; j++) {
+        const tree_t * c = rd->c[j];
+        if (c && c->t == TT_ASSIGN && c->n > 0 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] != '.' && c->c[0]->v.sval[0] != '!') return 1;
+    }
+    return 0;
+}
+static tree_t * rk_role_find_plain(tree_t * t, const char * base) {
+    if (!t) return NULL;
+    tree_t * d = rk_top_subj(t);
+    if (d && d->t == TT_ROLE_DECL && d->n > 0 && d->c[0] && d->c[0]->v.sval && !strcmp(d->c[0]->v.sval, base) && !rk_role_nparams(d) && rk_role_stateful(d)) return d;
+    for (int i = 0; i < t->n; i++) { tree_t * r = rk_role_find_plain(t->c[i], base); if (r) return r; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_role_spec_in(tree_t * t, tree_t * root, rk_ns_t * made) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) {
@@ -713,10 +728,36 @@ static void rk_role_spec_in(tree_t * t, tree_t * root, rk_ns_t * made) {
         for (int k = 1; k < cd->n; k++) rk_role_spec_in(cd->c[k], root, made);
         for (int tq = 0; tq < cd->c[0]->n; tq++) {
             tree_t * q = cd->c[0]->c[tq];
-            if (!q || q->t != TT_QLIT || !q->v.sval || q->v.sval[0] != 'd' || q->n < 1) continue;
+            if (!q || q->t != TT_QLIT || !q->v.sval || q->v.sval[0] != 'd') continue;
             const char * full = q->v.sval + 1;
             const char * br = strchr(full, '[');
-            if (!br) continue;
+            if (br && q->n < 1) continue;
+            if (!br) {
+                tree_t * prd = rk_role_find_plain(root, full);
+                if (!prd) continue;
+                char pn[strlen(full) + 24];
+                snprintf(pn, sizeof pn, "%s__rc%d", full, made->n);
+                const char * pspec = intern(pn);
+                tree_t * pcl = rk_clone_tree(prd);
+                pcl->c[0]->v.sval = (char *) pspec;
+                rk_ns_add(made, pspec);
+                { char dq[strlen(pspec) + 2]; snprintf(dq, sizeof dq, "d%s", pspec); q->v.sval = (char *) intern(dq); }
+                tree_t * pins = pcl;
+                if (t->c[i]->t == TT_STMT) {
+                    extern tree_t *ast_stmt_new(tree_e kind);
+                    extern tree_t *ast_attr_int(const char *tag, int ival);
+                    extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+                    pins = ast_stmt_new(TT_STMT);
+                    ast_push(pins, ast_attr_int(":line", 0));
+                    ast_push(pins, ast_attr_int(":stno", 0));
+                    ast_push(pins, ast_attr_expr(":subj", pcl));
+                }
+                ast_push(t, NULL);
+                for (int y = t->n - 1; y > i; y--) t->c[y] = t->c[y - 1];
+                t->c[i] = pins;
+                i++;
+                continue;
+            }
             int seen = -1;
             for (int m = 0; m < made->n; m++) if (!strcmp(made->v[m], full)) seen = m;
             if (seen >= 0) { char sb[(size_t) (br - full) + 40]; snprintf(sb, sizeof sb, "d%.*s__rs%d", (int) (br - full), full, seen); q->v.sval = (char *) intern(sb); continue; }
