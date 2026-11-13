@@ -3,7 +3,7 @@
 #define ICON_PARSE_H
 #include "icon_lex.h"
 #include "parsers/snobol4/scrip_cc.h"
-typedef struct IcnCrit { tree_t *m; struct IcnCrit *up; } IcnCrit;
+typedef struct IcnCrit { tree_t *m; struct IcnCrit *up; int loops; } IcnCrit;
 typedef struct {
     IcnLexer   *lex;
     IcnToken    cur;
@@ -16,6 +16,7 @@ typedef struct {
     int         oracle_line;
     const char *oracle_tok;
     IcnCrit    *crit;
+    int         loops;
 } IcnParser;
 void     icn_parse_init(IcnParser *p, IcnLexer *lex);
 CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast);
