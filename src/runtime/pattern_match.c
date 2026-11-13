@@ -561,6 +561,8 @@ static int rec_field_find(const DATBLK_t * blk, DESCR_t idx) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_rec_hidden(const DATBLK_t * b) { return b ? b->nhidden : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
     if (IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
     if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
@@ -600,7 +602,7 @@ static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
         if (arr.u && arr.u->type && arr.u->type->nfields > 0 && arr.u->fields) {
             DATBLK_t *blk = arr.u->type;
             if (idx.v == DT_SNUL && !icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
-            if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i; if (i < 1 || i > blk->nfields) return FAILDESCR; return arr.u->fields[i-1]; }
+            if (IS_INT_fn(idx)) { int h = rt_rec_hidden(blk), n = blk->nfields - h, i = (int)idx.i; if (i <= 0) i = n + 1 + i; if (i < 1 || i > n) return FAILDESCR; return arr.u->fields[h + i - 1]; }
             if (idx.v == DT_S || idx.v == DT_SNUL) { int fi = rec_field_find(blk, idx); if (fi >= 0) return arr.u->fields[fi]; return FAILDESCR; }
         }
         int i = (int)to_int(idx);
@@ -2200,10 +2202,10 @@ static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
             int f = -1;
             if (idx.v == DT_SNUL && !icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
             if (IS_INT_fn(idx)) {
-                int i = (int)idx.i;
-                if (i <= 0) i = blk->nfields + 1 + i;
-                if (i < 1 || i > blk->nfields) return FAILDESCR;
-                f = i - 1;
+                int h = rt_rec_hidden(blk), n = blk->nfields - h, i = (int)idx.i;
+                if (i <= 0) i = n + 1 + i;
+                if (i < 1 || i > n) return FAILDESCR;
+                f = h + i - 1;
             } else if (idx.v == DT_S || idx.v == DT_SNUL) {
                 f = rec_field_find(blk, idx);
                 if (f < 0) return FAILDESCR;

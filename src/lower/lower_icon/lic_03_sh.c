@@ -597,6 +597,11 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
             spec[pos++] = ')';
             spec[pos] = '\0';
             record_register(spec);
+            {
+                extern void dat_set_hidden(const char * name, int n);
+                tree_t * hd = stmt_attr_expr(stmt_attr_find(s, ":hidden"));
+                if (hd && hd->v.sval) dat_set_hidden(proc->v.sval, (int) strtol(hd->v.sval, 0, 10));
+            }
             ct_drop(spec);
         }
         if (proc->t == TT_FNC || proc->t == TT_PROC_DECL || proc->t == TT_SUB_DECL) {

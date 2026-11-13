@@ -2495,7 +2495,7 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     if (IS_DATA_INST_fn(v) && v.u) {
         int ln = 0;
         if (rt_lv_is_list(v, (DESCR_t **)0, &ln)) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)ln; return r; }
-        if (v.u->type) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
+        if (v.u->type) { extern int rt_rec_hidden(const DATBLK_t *); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.u->type->nfields - rt_rec_hidden(v.u->type)); return r; }
         { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }
     if (v.v == DT_R) {

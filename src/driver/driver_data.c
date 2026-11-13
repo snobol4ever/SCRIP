@@ -425,6 +425,8 @@ int dat_type_field_priv(int i, int j) { return (i >= 0 && i < dat_ntypes && j >=
 int dat_type_field_has_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->has_default[j] : 0; }
 int dat_type_field_required(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->required[j] : 0; }
 int dat_type_field_rw(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->rw[j] : 0; }
+int dat_type_hidden(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->nhidden : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_type_field_sigil(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->sigil[j] : 0; }
 DESCR_t dat_type_field_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->defaults[j] : NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -505,6 +507,8 @@ void dat_set_live(const char *name, int live) { DatType *t = dat_find_type(name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_nohook(const char *name) { DatType *t = dat_find_type(name); if (t) t->nohook = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void dat_set_hidden(const char *name, int n) { DatType *t = dat_find_type(name); if (!t) return; t->nhidden = (char)n; if (t->blk) ((DATBLK_t *)t->blk)->nhidden = n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
     for (int i = 0; i < dat_ntypes; i++) if (dat_types[i]->live) for (int j = 0; j < dat_types[i]->nfields; j++) if (strcmp(dat_types[i]->fields[j], name) == 0) {
         if (fidx) *fidx = j;
@@ -536,6 +540,7 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
         blk = rt_gcheap_alloc(HB_DATB, sizeof(DATBLK_t));
         blk->name = rt_heap_strdup_c(t->name);
         blk->nfields = t->nfields;
+        blk->nhidden = t->nhidden;
         blk->fields = rt_pvec_alloc((size_t)t->nfields);
         for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_heap_strdup_c(t->fields[i]);
         blk->next = NULL;

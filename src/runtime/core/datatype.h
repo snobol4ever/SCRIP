@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct _DATINST_tType { char *name; int nfields; char **fields; struct _DATINST_tType *next; long serial_next; } DATBLK_t;
+typedef struct _DATINST_tType { char *name; int nfields; int nhidden; char **fields; struct _DATINST_tType *next; long serial_next; } DATBLK_t;
 typedef struct _DATINST_t { DATBLK_t *type; DESCR_t *fields; long id; long dumpno; } DATINST_t;
 void DEFDAT_fn(const char *spec);
 DESCR_t DATCON_fn(const char *type_name, ...);

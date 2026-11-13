@@ -1246,6 +1246,26 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
         {
             extern int dat_type_count(void);
             extern const char *dat_type_name(int);
+            extern int dat_type_hidden(int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                int nh = dat_type_hidden(ci);
+                if (!cn || !*cn || nh <= 0 || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lhidcls%d: .byte ", cl);
+                for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                emit_textf("0\n");
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lhidcls%d]\n", cl);
+                emit_textf("  mov rsi, %d\n", nh);
+                emit_textf("  call dat_set_hidden@PLT\n");
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
             extern int dat_type_nfields(int);
             extern const char *dat_type_field(int, int);
             extern int dat_type_field_priv(int, int);

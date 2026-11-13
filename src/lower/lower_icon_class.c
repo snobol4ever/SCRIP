@@ -255,7 +255,7 @@ static void cx_emit_class(cx_st * st, cx_class * c, tree_t * prog) {
     cx_sv mnames = { 0 };
     for (int i = 0; i < c->nmeth; i++) cx_push(&mnames, c->meth[i].name);
     for (int i = 0; i < c->anc.n; i++) cx_push(&mnames, c->anc.v[i]);
-    ast_push(prog, cx_stmt(cx_record(cx_cat(c->name, "__state", ""), &c->fields, 1)));
+    { tree_t * sst = cx_stmt(cx_record(cx_cat(c->name, "__state", ""), &c->fields, 1)); ast_push(sst, ast_attr_int(":hidden", 2)); ast_push(prog, sst); }
     ast_push(prog, cx_stmt(cx_record(cx_cat(c->name, "__methods", ""), &mnames, 0)));
     for (int i = 2; i < c->node->n; i++) if (c->node->c[i]->t == TT_RECORD) ast_push(prog, cx_stmt((tree_t *) c->node->c[i]));
     tree_t * g = ast_node_new(TT_GLOBAL);
@@ -385,7 +385,7 @@ static void cx_prelude(cx_st * st, tree_t * prog) {
     if (st->use_image)
         cx_sb_add(&sb,
         "procedure __uimage(x)\n   local s, t;\n   t := type(x);\n   if not (t[-7:0] == \"__state\") then return image(x);\n   s := image(x);\n   return \"object \" || t[1:-7] || s[find(\"__state\","
-        " s) + 7:find(\"(\", s)] || \"(\" || (*x - 2) || \")\";\nend\n");
+        " s) + 7:find(\"(\", s)] || \"(\" || *x || \")\";\nend\n");
     if (!sb.n) return;
     tree_t * pre = g_lower.icn.parse ? (tree_t *) g_lower.icn.parse(sb.b, "<unicon-prelude>") : (tree_t *) 0;
     for (int i = 0; pre && i < pre->n; i++) ast_push(prog, pre->c[i]);

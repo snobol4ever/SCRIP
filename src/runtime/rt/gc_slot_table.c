@@ -44,7 +44,7 @@ _Static_assert(sizeof(NV_t) == 80 && offsetof(NV_t, name) == 0 && offsetof(NV_t,
 _Static_assert(sizeof(FNCBLK_t) == 88 && offsetof(FNCBLK_t, name) == 0 && offsetof(FNCBLK_t, spec) == 8 && offsetof(FNCBLK_t, entry_label) == 16 && offsetof(FNCBLK_t, params) == 40 &&
     offsetof(FNCBLK_t, locals) == 56 && offsetof(FNCBLK_t, next) == 80,
     "HB_FNCB holds one FNCBLK_t: the heap-pointer members are name, spec, entry_label, params, locals and next, fn is a code address; a new member means this row is re-read");
-_Static_assert(sizeof(DATBLK_t) == 40 && offsetof(DATBLK_t, name) == 0 && offsetof(DATBLK_t, fields) == 16 && offsetof(DATBLK_t, next) == 24,
+_Static_assert(sizeof(DATBLK_t) == 40 && offsetof(DATBLK_t, name) == 0 && offsetof(DATBLK_t, nhidden) == 12 && offsetof(DATBLK_t, fields) == 16 && offsetof(DATBLK_t, next) == 24,
     "HB_DATB holds one DATBLK_t: the heap-pointer members are name, fields and next; a new member means this row is re-read");
 _Static_assert(sizeof(eval_cache_ent_t) == 24 && offsetof(eval_cache_ent_t, key) == 0,
     "HB_EVCH holds eval_cache_ent_t[]: the heap-pointer member is key, fn is code and gen a counter; a new member means this row is re-read");

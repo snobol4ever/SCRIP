@@ -35,6 +35,7 @@ typedef struct {
     char live;
     char foreign;
     char nohook;
+    char nhidden;
     int fcap;
 } DatType;
 DatType *dat_register(const char *spec);
@@ -43,6 +44,8 @@ DatType *dat_find_type_n(const char *name, size_t n);
 DatType *dat_find_field(const char *name, int *fidx);
 void dat_set_live(const char *name, int live);
 void dat_set_nohook(const char *name);
+void dat_set_hidden(const char *name, int n);
+int dat_type_hidden(int i);
 DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs);
 void class_inherit_multi(const char *child, const char **parents, int nparents);
 void class_compose_role(const char *child, const char *role);
