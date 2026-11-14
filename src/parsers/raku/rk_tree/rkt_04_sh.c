@@ -573,6 +573,7 @@ tree_t *rkb_if(RkB *b, int n, const char **kw, RkList **cond, tree_t **blk, tree
         int def = kw && kw[i] && (!strcmp(kw[i], "with") || !strcmp(kw[i], "orwith"));
         cs[i] = def ? rk_defined_cond(b, blk[i], rkb_expr(b, cond[i])) : rk_pointy_cond(b, blk[i], rkb_expr(b, cond[i]));
     }
+    if (els && n > 0 && !(kw && kw[n - 1] && (!strcmp(kw[n - 1], "with") || !strcmp(kw[n - 1], "orwith")))) cs[n - 1] = rk_pointy_cond(b, els, cs[n - 1]);
     tree_t *acc = els;
     for (int i = n - 1; i >= 0; i--) { tree_t *e = ast_node_new(TT_IF); expr_add_child(e, cs[i]); expr_add_child(e, blk[i]); if (acc) expr_add_child(e, acc); acc = e; }
     return acc;

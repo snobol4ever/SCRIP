@@ -461,7 +461,13 @@ int r_statement_control(RkP *p, int pos) {
             if ((f = kw(p, t, "elif")) >= 0) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"elif\"");
             if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); RK_GROW(kws, n, ck, const char *); RK_GROW(cs, n, cc, RkList *);
                 RK_GROW(bs, n, cb, tree_t *); kws[n] = at_lit(p, t, "orwith") ? "orwith" : "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; continue; }
-            if ((f = kw(p, t, "else")) >= 0) { int g = ws(p, f); int h = r_pblock(p, g, 0); els = p->tv; if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, els); return h; }
+            if ((f = kw(p, t, "else")) >= 0) {
+                int g = ws(p, f);
+                int h = r_pblock(p, g, 0);
+                els = p->tv;
+                if (p->build) { rkb_pointy(p->B, els, p->pb_sig); p->tv = rkb_if(p->B, n, kws, cs, bs, els); }
+                return h;
+            }
             if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, NULL);
             return q;
         }
