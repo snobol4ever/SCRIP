@@ -1,5 +1,6 @@
 #include "snocone_driver.h"
 #include "ir/ct_arena.h"
+#include "ir/ct_corpus.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,6 +93,7 @@ static char *sci_import_locate(const char *name, const char *base) {
     char *exe = hit ? (char *)0 : sci_exe_dir();
     if (!hit && exe) hit = sci_try_path(exe, "/bootstrap", name);
     if (!hit && exe) hit = sci_try_path(exe, "/../bootstrap", name);
+    for (int k = 0; !hit && k < 2; k++) { char *cr = ct_corpus_root(k, getenv("S4E_CORPUS")); if (cr) { hit = sci_try_path(cr, "/library", name); ct_drop(cr); } }
     if (!hit && exe) hit = sci_try_path(exe, "/../corpus/library", name);
     if (!hit && exe) hit = sci_try_path(exe, "/../../corpus/library", name);
     return hit;

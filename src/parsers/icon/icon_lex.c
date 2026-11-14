@@ -1,6 +1,7 @@
 #include "icon_lex.h"
 #include "parsers/g_parser.h"
 #include "ir/ct_arena.h"
+#include "ir/ct_corpus.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -907,6 +908,16 @@ static char *ipp_pathfind(IcnPp *pp, const char *name) {
         if (e > lp) { char *dir = ct_strndup(lp, (size_t)(e - lp)); hit = ipp_tryfile(dir, name); ct_drop(dir); if (hit) return hit; }
         lp = e;
     }
+    for (int r = 0; r < 2 && !hit; r++) {
+        char *cr = ct_corpus_root(r, getenv("S4E_CORPUS"));
+        for (int k = 0; cr && k < 3 && !hit; k++) {
+            const char *sub = k == 2 ? "unicon_ipl/incl" : k ? "ipl/gincl" : "ipl/incl";
+            size_t dl = strlen(cr) + strlen(sub) + 16; char *dir = (char *)ct_alloc(dl);
+            snprintf(dir, dl, "%s/packages/icon/%s", cr, sub); hit = ipp_tryfile(dir, name); ct_drop(dir);
+        }
+        if (cr) ct_drop(cr);
+    }
+    if (hit) return hit;
     size_t cap = 256; char *exe = NULL; ssize_t el;
     for (;;) { exe = (char *)ct_grow(exe, cap); el = readlink("/proc/self/exe", exe, cap); if (el < 0 || (size_t)el < cap) break; cap *= 2; }
     if (el > 0) {

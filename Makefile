@@ -287,6 +287,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/string_builtins.c \
     $(SRC)/ir/bb_pool.c \
     $(SRC)/ir/ct_arena.c \
+    $(SRC)/ir/ct_corpus.c \
     $(SRC)/ir/descr_asserts.c \
     $(sort $(wildcard $(SRC)/emitter/em/em_*.cpp)) \
     $(sort $(wildcard $(SRC)/planner/zeta_plan/zp_*.cpp)) \

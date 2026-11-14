@@ -1,5 +1,6 @@
 #include "icon_driver.h"
 #include "ir/ct_arena.h"
+#include "ir/ct_corpus.h"
 #include "icon_lex.h"
 #include "icon_parse.h"
 #include "parsers/snobol4/scrip_cc.h"
@@ -56,6 +57,16 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
             if (!colon) break;
             p = colon + 1;
         }
+    }
+    for (int r = 0; r < 2; r++) {
+        char * cr = ct_corpus_root(r, getenv("S4E_CORPUS"));
+        for (int k = 0; cr && k < 2; k++) {
+            snprintf(out, outsz, "%s/packages/icon/%s/%s.icn", cr, (k ^ (unicon != 0)) ? "unicon_ipl/procs" : "ipl/procs", nm);
+            icn_link_note(tried, triedsz, out);
+            src = icn_read_file(out);
+            if (src) { ct_drop(cr); return src; }
+        }
+        if (cr) ct_drop(cr);
     }
     { char exe[PATH_MAX];
       if (realpath("/proc/self/exe", exe)) { char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
@@ -124,7 +135,7 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             loaded[nloaded++] = nm;
             size_t pneed = strlen(dir); const char * pev[2] = { getenv("IPATH"), getenv("ICONPATH") }; for (int v = 0; v < 2; v++) if (pev[v] && strlen(pev[v]) > pneed) pneed = strlen(pev[v]);
             if (pneed < PATH_MAX + sizeof "/../corpus/packages/icon/ipl/procs") pneed = PATH_MAX + sizeof "/../corpus/packages/icon/ipl/procs";
-            size_t per = strlen(nm) + sizeof ", /.icn", tneed = 1 + 2 * (pneed + per);
+            size_t per = strlen(nm) + sizeof ", /.icn", tneed = 1 + 6 * (pneed + per);
             for (int v = 0; v < 2; v++) if (pev[v]) { tneed += strlen(pev[v]) + per; for (const char * q = pev[v]; *q; q++) if (*q == ':') tneed += per; }
             char path[pneed + strlen(nm) + sizeof "/.icn"]; char tried[tneed];
             char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried, prog->v.ival != 0);
