@@ -58,6 +58,44 @@ type
   EConvertError = class(Exception);
   EInvalidCast = class(Exception);
   ENotImplemented = class(Exception);
+  TFloatFormat = (ffGeneral, ffExponent, ffFixed, ffNumber, ffCurrency);
+  TMonthNameArray = array[1..12] of string;
+  TWeekNameArray = array[1..7] of string;
+  TDayTable = array[1..12] of Word;
+  TFormatSettings = record
+    CurrencyFormat: Byte;
+    NegCurrFormat: Byte;
+    ThousandSeparator: Char;
+    DecimalSeparator: Char;
+    CurrencyDecimals: Byte;
+    DateSeparator: Char;
+    TimeSeparator: Char;
+    ListSeparator: Char;
+    CurrencyString: string;
+    ShortDateFormat: string;
+    LongDateFormat: string;
+    TimeAMString: string;
+    TimePMString: string;
+    ShortTimeFormat: string;
+    LongTimeFormat: string;
+    ShortMonthNames: TMonthNameArray;
+    LongMonthNames: TMonthNameArray;
+    ShortDayNames: TWeekNameArray;
+    LongDayNames: TWeekNameArray;
+    TwoDigitYearCenturyWindow: Word;
+  end;
+const
+  MonthDays: array[Boolean] of TDayTable = ((31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31), (31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31));
+var
+  DefaultFormatSettings: TFormatSettings;
+  FormatSettings: TFormatSettings;
+  CurrencyFormat, NegCurrFormat, CurrencyDecimals: Byte;
+  ThousandSeparator, DecimalSeparator, DateSeparator, TimeSeparator, ListSeparator: Char;
+  CurrencyString, ShortDateFormat, LongDateFormat, TimeAMString, TimePMString, ShortTimeFormat, LongTimeFormat: string;
+  ShortMonthNames, LongMonthNames: TMonthNameArray;
+  ShortDayNames, LongDayNames: TWeekNameArray;
+  TrueBoolStrs, FalseBoolStrs: array of string;
+type
   EVariantError = class(Exception);
   EInvalidOpException = class(Exception);
   EArgumentException = class(Exception);
@@ -802,12 +840,12 @@ begin
       begin
         r := r + ip[k];
         cnt := length(ip) - k;
-        if (cnt > 0) and (cnt mod 3 = 0) then r := r + ','
+        if (cnt > 0) and (cnt mod 3 = 0) and (ThousandSeparator <> #0) then r := r + ThousandSeparator
       end;
       ip := r
     end;
     r := ip;
-    if length(fp) > 0 then r := r + '.' + fp;
+    if length(fp) > 0 then r := r + DecimalSeparator + fp;
     if neg then r := '-' + r;
     FormatFloat := pre + r + suf
   end
@@ -903,7 +941,14 @@ function BoolToStr(b: boolean; useBoolStrs: boolean = false): string;
 begin
   if useBoolStrs then
   begin
-    if b then BoolToStr := 'True' else BoolToStr := 'False'
+    if b then
+    begin
+      if length(TrueBoolStrs) > 0 then BoolToStr := TrueBoolStrs[0] else BoolToStr := 'True'
+    end
+    else
+    begin
+      if length(FalseBoolStrs) > 0 then BoolToStr := FalseBoolStrs[0] else BoolToStr := 'False'
+    end
   end
   else
   begin
@@ -1059,4 +1104,59 @@ begin
   end;
   FormatDateTime := r
 end;
+procedure __fs_months(var s: TMonthNameArray; a, b, c, d, e, f, g, h, i, j, k, l: string);
+begin
+  s[1] := a; s[2] := b; s[3] := c; s[4] := d; s[5] := e; s[6] := f;
+  s[7] := g; s[8] := h; s[9] := i; s[10] := j; s[11] := k; s[12] := l
+end;
+procedure __fs_days(var s: TWeekNameArray; a, b, c, d, e, f, g: string);
+begin
+  s[1] := a; s[2] := b; s[3] := c; s[4] := d; s[5] := e; s[6] := f; s[7] := g
+end;
+initialization
+  with DefaultFormatSettings do
+  begin
+    CurrencyFormat := 1;
+    NegCurrFormat := 5;
+    ThousandSeparator := ',';
+    DecimalSeparator := '.';
+    CurrencyDecimals := 2;
+    DateSeparator := '-';
+    TimeSeparator := ':';
+    ListSeparator := ',';
+    CurrencyString := '$';
+    ShortDateFormat := 'd/m/y';
+    LongDateFormat := 'dd" "mmmm" "yyyy';
+    TimeAMString := 'AM';
+    TimePMString := 'PM';
+    ShortTimeFormat := 'hh:nn';
+    LongTimeFormat := 'hh:nn:ss';
+    __fs_months(ShortMonthNames, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
+    __fs_months(LongMonthNames, 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
+    __fs_days(ShortDayNames, 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
+    __fs_days(LongDayNames, 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday');
+    TwoDigitYearCenturyWindow := 50
+  end;
+  FormatSettings := DefaultFormatSettings;
+  CurrencyFormat := DefaultFormatSettings.CurrencyFormat;
+  NegCurrFormat := DefaultFormatSettings.NegCurrFormat;
+  ThousandSeparator := DefaultFormatSettings.ThousandSeparator;
+  DecimalSeparator := DefaultFormatSettings.DecimalSeparator;
+  CurrencyDecimals := DefaultFormatSettings.CurrencyDecimals;
+  DateSeparator := DefaultFormatSettings.DateSeparator;
+  TimeSeparator := DefaultFormatSettings.TimeSeparator;
+  ListSeparator := DefaultFormatSettings.ListSeparator;
+  CurrencyString := DefaultFormatSettings.CurrencyString;
+  ShortDateFormat := DefaultFormatSettings.ShortDateFormat;
+  LongDateFormat := DefaultFormatSettings.LongDateFormat;
+  TimeAMString := DefaultFormatSettings.TimeAMString;
+  TimePMString := DefaultFormatSettings.TimePMString;
+  ShortTimeFormat := DefaultFormatSettings.ShortTimeFormat;
+  LongTimeFormat := DefaultFormatSettings.LongTimeFormat;
+  ShortMonthNames := DefaultFormatSettings.ShortMonthNames;
+  LongMonthNames := DefaultFormatSettings.LongMonthNames;
+  ShortDayNames := DefaultFormatSettings.ShortDayNames;
+  LongDayNames := DefaultFormatSettings.LongDayNames;
+  SetLength(TrueBoolStrs, 0);
+  SetLength(FalseBoolStrs, 0)
 end.
