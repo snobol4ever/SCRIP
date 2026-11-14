@@ -16,5 +16,8 @@ type
   TRect = record
     Left, Top, Right, Bottom: LongInt;
   end;
+  TSmallPoint = record
+    x, y: SmallInt;
+  end;
 implementation
 end.

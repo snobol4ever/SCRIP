@@ -1,8 +1,11 @@
 {$H+}
 unit classes;
 interface
-uses sysutils;
+uses sysutils, types;
 type
+  TPoint = types.TPoint;
+  TRect = types.TRect;
+  TSmallPoint = types.TSmallPoint;
   EListError = class(Exception);
   TDuplicates = (dupAccept, dupIgnore, dupError);
   TAlignment = (taLeftJustify, taRightJustify, taCenter);
@@ -223,7 +226,27 @@ const
   soFromEnd = 2;
   SReadError = 'Stream read error';
   SWriteError = 'Stream write error';
+function Point(AX, AY: Integer): TPoint;
+function SmallPoint(AX, AY: SmallInt): TSmallPoint;
+function Rect(ALeft, ATop, ARight, ABottom: Integer): TRect;
+function Bounds(ALeft, ATop, AWidth, AHeight: Integer): TRect;
 implementation
+function Point(AX, AY: Integer): TPoint;
+begin
+  Result.x := AX; Result.y := AY;
+end;
+function SmallPoint(AX, AY: SmallInt): TSmallPoint;
+begin
+  Result.x := AX; Result.y := AY;
+end;
+function Rect(ALeft, ATop, ARight, ABottom: Integer): TRect;
+begin
+  Result.Left := ALeft; Result.Top := ATop; Result.Right := ARight; Result.Bottom := ABottom;
+end;
+function Bounds(ALeft, ATop, AWidth, AHeight: Integer): TRect;
+begin
+  Result.Left := ALeft; Result.Top := ATop; Result.Right := ALeft + AWidth; Result.Bottom := ATop + AHeight;
+end;
 procedure OpenForRead(var f: Text; const n: string);
 begin
   Assign(f, n);
