@@ -21,10 +21,10 @@ multi sub splice(@a, $start, $n, *@new) { @a.splice($start, $n, |@new) }
 class IO::Spec::Unix { method canonpath(Str() $p) { return '' unless $p; my $abs = $p.starts-with('/'); my @s = $p.split('/').grep({ $_ ne '' && $_ ne '.' }); while $abs && @s && @s[0] eq '..' { @s.shift }; my $r = @s.join('/'); $abs ?? '/' ~ $r !! ($r eq '' ?? '.' !! $r) }; method catdir(*@parts) { self.canonpath(@parts.join('/')) } }
 my $*SPEC = IO::Spec::Unix;
 class Supply { has &.gen; method tap(&cb, :$done) { for self.gen.() -> $v { cb($v) }; $done() if $done.defined; Nil }; method list { self.gen.().list }; method Seq { self.gen.() } }
-multi sub floor(\x) { x.floor }
-multi sub ceiling(\x) { x.ceiling }
-multi sub round(\x) { x.round }
-multi sub truncate(\x) { x.truncate }
+sub floor(\x) { x.floor }
+sub ceiling(\x) { x.ceiling }
+sub round(\x, $scale?) { $scale.defined ?? (x / $scale + 1/2).floor * $scale !! x.round }
+sub truncate(\x) { x.truncate }
 multi sub sign(\x) { x.sign }
 multi sub log2(\x) { x.log2 }
 multi sub log10(\x) { x.log10 }

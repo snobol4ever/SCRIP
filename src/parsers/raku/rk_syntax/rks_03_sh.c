@@ -600,6 +600,7 @@ static int core_name_declared(RkP *p, const char *s, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void import_core_used(RkP *p) {
     if (!p->pair_imported && !p->load_depth && strncmp(p->file, "<setting>/", 10)) { p->pair_imported = 1; import_module(p, "Pair"); if (src_has(p, "$=pod") || src_has(p, ".WHY")) import_module(p, "Pod"); }
+    if (src_has(p, "&::(")) p->want_core = 1;
     if (p->core_imported || (!p->ncore_uses && !p->want_core) || !strncmp(p->file, "<setting>/", 10)) return;
     if (p->want_core && !core_name_declared(p, "Supply", 6)) {
         p->core_imported = 1;
