@@ -85,7 +85,7 @@ DESCR_t rt_sno_cnv_num(DESCR_t v, int want);
 #define MON_RS "\x1e"
 #define MON_US "\x1f"
 #include <sys/uio.h>
-#include "../../harness/scripts/monitor/monitor_wire.h"
+#include "monitor/monitor_wire.h"
 #include "ir/gc_frame_map.h"
 #if RT_DIAG
 static void mon_at_exit(void);

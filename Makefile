@@ -29,7 +29,8 @@ ROOT    := $(shell pwd)
 SRC     := $(ROOT)/src
 RT      := $(SRC)/runtime
 BOXES   := $(SRC)/ir
-CORPUS  ?= $(ROOT)/../corpus
+CORPUS  ?= $(or $(S4E_CORPUS),$(if $(wildcard /home/corpus/.git),/home/corpus,$(dir $(ROOT))corpus))
+HARNESS ?= $(or $(S4E_HARNESS),$(if $(wildcard /home/harness/.git),/home/harness,$(dir $(ROOT))harness))
 # PER-TREE objdir (s150): two checkouts NEVER share .o files — the HQ-27 ABI-mix class is structurally impossible. Override only deliberately. (Comment on own line: make keeps trailing spaces before an inline #.)
 OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 # PER-ROOT pristine lock (make-pristine-per-root-flock-second-builder-waits): keyed by ROOT exactly like OBJ
@@ -38,10 +39,10 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 # 6+ minutes). This is a DIFFERENT lock from lib_build_governor.sh's fleet-wide governor.lock -- that one
 # serializes builds against benchmarks ACROSS seats; this one serializes builds against each other WITHIN
 # one checkout, which the shared governor's -s (shared) build mode deliberately does not do. The wait on
-# THIS lock is bounded by ../harness/scripts/lib_pristine_lock.sh (build-governor-holds-pristine-while-box-idles) --
+# THIS lock is bounded by $(HARNESS)/scripts/lib_pristine_lock.sh (build-governor-holds-pristine-while-box-idles) --
 # see the `pristine` target's own comment for why.
 BUILD_LOCK ?= /tmp/si_pristine_lock$(subst /,-,$(ROOT))
-CC_SLOT := $(if $(wildcard $(ROOT)/../harness/scripts/util_cc_slot.sh),bash $(abspath $(ROOT)/../harness/scripts/util_cc_slot.sh) ,)
+CC_SLOT := $(if $(wildcard $(HARNESS)/scripts/util_cc_slot.sh),bash $(abspath $(HARNESS)/scripts/util_cc_slot.sh) ,)
 CC      := $(CC_SLOT)gcc
 CXX     := $(CC_SLOT)g++
 # ⛔⭐ ONE COMPILE CACHE FOR THE WHOLE FLEET (R-1879; Lon 2026-10-21 18:5x CDT, in-chat, verbatim: "Why is the load so high? Why do recompiles re-compile everything all the
@@ -59,7 +60,7 @@ export CCACHE_NOHASHDIR := true
 # invokes the compiler (a miss, a link, an uncacheable call), so the slot moves there: proved on one object with the only slot held, a hit
 # through the prefix returns in 0.03 s, the same hit through the old wrapper blocks until its 20 s timeout, and a link still waits for the slot.
 ifneq ($(CC_SLOT),)
-export CCACHE_PREFIX := $(abspath $(ROOT)/../harness/scripts/util_cc_slot.sh)
+export CCACHE_PREFIX := $(abspath $(HARNESS)/scripts/util_cc_slot.sh)
 CC      := gcc
 CXX     := g++
 endif
@@ -69,9 +70,9 @@ WARN    := -w
 RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.s, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
 # ⛔ THE FAN-OUT WIDTH OF `make test` READS THE LOAD FIRST (R-1333, Lon's ECONOMY word, 2026-09-27 17:2x: cap concurrent children at
 # max(2, min(4, cores minus load1)); at load 34 that is two, never six). TEST_SHARDS=N on the command line still overrides; TEST_SHARDS=1 is the
-# sequential shape. The width is read from ../harness/scripts/lib_fanout.sh (fanout_width), the one instrument of the ceiling, and run_blocking_set.sh
+# sequential shape. The width is read from $(HARNESS)/scripts/lib_fanout.sh (fanout_width), the one instrument of the ceiling, and run_blocking_set.sh
 # clamps a requested count above it as well. Was `TEST_SHARDS ?= 6` (the 2026-09-20 measurement: the wall is the declared-serial phase plus the slowest shard).
-TEST_SHARDS ?= $(shell bash ../harness/scripts/lib_fanout.sh width)
+TEST_SHARDS ?= $(shell bash $(HARNESS)/scripts/lib_fanout.sh width)
 # ⛔⭐⭐⭐⭐ THE DEFAULT ARENA IS 128 KB AND IT IS COMPILED IN, NOT EXPORTED (Lon 2026-09-21 17:3x, in-chat: "So let's take the default GC arena down to 128 KB."; R-1095). GC_HEAP_KB in gc_heap.c is the default, so it travels with the BINARY and needs no make variable -- which also retires the blanket `export SCRIP_HEAP_MB ?= 1` this line used to carry, the one test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh arm 1 refuses by name because it changed what every existing gate measured and masked standing reds. MEASURED on two allocating witnesses: 128 KB is the PEAK of collector exasperation, not the floor -- icon concat 1613 collections at 1 MB, 7533 at 256 KB, 21362 at 128 KB, then DOWN to 5429 at 64 KB because the live set no longer fits and the window GROWS. Below the peak, smaller is LESS exasperating.
 SCRIP_HEAP_KB_TINY ?= 128  # kept as the knob `make arena` raises; the old note follows. THE TINY ARENA IS THE EXERCISER OF ALL GC TESTING, AND IT WAS ITS OWN PASS UNTIL R-1075 (`make test-arena`), NOT THE BLOCKING SET'S ENVIRONMENT (Lon 2026-09-19 16:1x, in-chat, verbatim: "Actually, for all GC testing all seats should use a tiny arena to exasperate all the problems all the time."; R-931/934/938/939, RULES.md § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2). SCRIP_HEAP_MB is the COMMITTED WINDOW in MB (rt_gcheap_init); at 1 MB a program collects wherever it allocates a megabyte -- 1614 collections against SIX at the shipped 512 on corpus/benchmarks/icon/bench_icnstr_concat_table.icn, stdout identical -- and the reserve is the larger of 8x the window and the shipped default's, so a tiny window REFUSES NO LIVE SET (the cap used to be 8x the window and manufactured three phantom SIGABRTs on the SNOBOL4 rungs; cured at SCRIP e6aab28c7). ⛔ MEASURED AND REVERSED THE SAME SITTING (R-939): this was first landed as a blanket `export SCRIP_HEAP_MB ?= 1` here, so every arm of `make test` inherited it. The full 360-arm set then read 326 green / 32 red / 2 refused, and the classification says why that is the wrong shape -- gates that grade the SHIPPED configuration's behaviour flipped red for an arena nobody ships (gc2's Arizona witness and the co-expression frame image are green at 512 and red at 1 MB), while other reds were standing reds the export got blamed for. A landing gate must grade what we ship; the tiny arena is the SECOND pass whose every red is a row. Same logic as CLAUSE 2's published-row refinement.
 DEPFLAGS := -MMD -MP
@@ -103,12 +104,12 @@ SCRIP_CC_BIN := $(ROOT)/scrip
 # first asks the build cache (/home/resources/builds/scrip/<key>, key = sha256 of HEAD^{tree}, RT_TAG, the toolchain) and on a hit with a CLEAN tree copies the artifacts in, prints
 # FETCHED <key> and compiles nothing; on a miss or a dirty tree it builds as before and, when the tree is clean, publishes the entry for every other root. MEASURED before this: 19
 # roots rebuilt every landing (3,687 compiles waited for the 8 slots in one hour on 2026-10-31). `make scrip` and the other targets stay the raw build; S4E_NO_BUILD_CACHE=1 is the control arm.
-BUILD_CACHE := $(if $(wildcard $(ROOT)/../harness/scripts/util_build_cache.sh),bash $(abspath $(ROOT)/../harness/scripts/util_build_cache.sh),)
+BUILD_CACHE := $(if $(wildcard $(HARNESS)/scripts/util_build_cache.sh),bash $(abspath $(HARNESS)/scripts/util_build_cache.sh),)
 # ⛔⭐ ONE BOX-WIDE COMPILE BUDGET (DESIGN-PLAN box-scheduler step 2, the cto CTO-496; Lon 2026-11-04, verbatim: "There has been talk, and only talk, about using industry
 # recognized ways of doing make and build load balancing and management."): `make` (any -j) runs build-all through harness/scripts/util_jobserver.sh make, which joins the
 # build to the one GNU make jobserver every root shares (the pipe /home/resources/progress/jobserver.fifo held by the unit s4e-jobserver, N tokens declared in
 # /home/resources/progress/JOBSERVER.tsv), so nineteen roots never run more than N+makes compiles at once, by mechanism; no holder, and it is the plain $(MAKE) as before.
-JS_MAKE := $(if $(wildcard $(ROOT)/../harness/scripts/util_jobserver.sh),bash $(abspath $(ROOT)/../harness/scripts/util_jobserver.sh) make,$(MAKE))
+JS_MAKE := $(if $(wildcard $(HARNESS)/scripts/util_jobserver.sh),bash $(abspath $(HARNESS)/scripts/util_jobserver.sh) make,$(MAKE))
 all:
 ifneq ($(BUILD_CACHE),)
 	@if $(BUILD_CACHE) fetch --root $(ROOT) --tag $(RT_TAG); then :; else $(JS_MAKE) --no-print-directory build-all && $(BUILD_CACHE) publish --root $(ROOT) --tag $(RT_TAG); fi
@@ -131,7 +132,7 @@ pristine:  # A full rebuild, SCOPED TO THIS CONFIGURATION. ⛔ NO LONGER the per
 	# ⛔ PER-ROOT FLOCK, EXCLUSIVE, BOUNDED (make-pristine-per-root-flock-second-builder-waits; bound added
 	# by build-governor-holds-pristine-while-box-idles): a second `make pristine` in this same root now
 	# WAITS here instead of racing this rm -rf, then runs its own full wipe+rebuild once the first is done.
-	# ⭐ THE WAIT IS BOUNDED, NOT SILENT (../harness/scripts/lib_pristine_lock.sh, S4E_PRISTINE_LOCK_TIMEOUT, default
+	# ⭐ THE WAIT IS BOUNDED, NOT SILENT ($(HARNESS)/scripts/lib_pristine_lock.sh, S4E_PRISTINE_LOCK_TIMEOUT, default
 	# 1200s): a bare `flock` here previously waited FOREVER with zero output, indistinguishable from a
 	# stuck build until it self-cleared -- hq_P measured a ~9.5h overnight loss to exactly that. Past the
 	# bound it REFUSES (rc=99) naming the current holder instead of hanging; raise the bound for a
@@ -143,7 +144,7 @@ pristine:  # A full rebuild, SCOPED TO THIS CONFIGURATION. ⛔ NO LONGER the per
 		rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip; \
 		$(MAKE) all; \
 	else \
-		bash ../harness/scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
+		bash $(HARNESS)/scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
 			rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip && \
 			$(MAKE) all \
 		'; \
@@ -151,7 +152,7 @@ pristine:  # A full rebuild, SCOPED TO THIS CONFIGURATION. ⛔ NO LONGER the per
 
 
 SHELL := /bin/bash
-preflight:  # ⭐ THE CHEAP HERMETIC ARMS, WITH NO BUILD (hq_T's ask 2026-09-06, measured by them: the Makefile had all/pristine/test/test-postoffice/buildinfo/scrip/clean and NO cheap target of any kind, so EVERY sub-second hermetic arm was trapped behind a full build -- a STRUCTURAL disincentive, not anyone's discipline). ⛔ THE MISSING `scrip` PREREQUISITE IS THE ENTIRE POINT OF THIS TARGET AND MUST NOT BE ADDED. Population DECLARED in ../harness/scripts/preflight_arms.txt because a static grep cannot classify it in either direction (it convicts strip_comments.py, which says "make test" in its prose, and it clears test_gate_pl_quad_regs.sh, which reaches the compiler through a lib_ helper without naming it); ../harness/scripts/test_gate_preflight_arms_stay_cheap.sh PINS EVERY ARM BY MEASURED DURATION so this cannot quietly acquire a 45-second arm and stop being worth running.
+preflight:  # ⭐ THE CHEAP HERMETIC ARMS, WITH NO BUILD (hq_T's ask 2026-09-06, measured by them: the Makefile had all/pristine/test/test-postoffice/buildinfo/scrip/clean and NO cheap target of any kind, so EVERY sub-second hermetic arm was trapped behind a full build -- a STRUCTURAL disincentive, not anyone's discipline). ⛔ THE MISSING `scrip` PREREQUISITE IS THE ENTIRE POINT OF THIS TARGET AND MUST NOT BE ADDED. Population DECLARED in $(HARNESS)/scripts/preflight_arms.txt because a static grep cannot classify it in either direction (it convicts strip_comments.py, which says "make test" in its prose, and it clears test_gate_pl_quad_regs.sh, which reaches the compiler through a lib_ helper without naming it); $(HARNESS)/scripts/test_gate_preflight_arms_stay_cheap.sh PINS EVERY ARM BY MEASURED DURATION so this cannot quietly acquire a 45-second arm and stop being worth running.
 	@: R-1893 Lon 2026-10-22 the R-1671 coo-only refusal is released, every seat may run preflight; \
 	bad=0; n=0; \
 	while read -r arm; do \
@@ -159,11 +160,11 @@ preflight:  # ⭐ THE CHEAP HERMETIC ARMS, WITH NO BUILD (hq_T's ask 2026-09-06,
 	  case "$$arm" in *.py*) out=$$(cd "$(ROOT)" && python3 $$arm </dev/null 2>&1) ;; *) out=$$(cd "$(ROOT)" && bash $$arm </dev/null 2>&1) ;; esac; \
 	  rc=$$?; \
 	  if [ $$rc -ne 0 ]; then bad=$$((bad + 1)); printf '  RED  rc=%-3s %s\n' "$$rc" "$${arm%% *}"; printf '%s\n' "$$out" | tail -3 | sed 's/^/       /'; fi; \
-	done < <(grep -E '^../harness/scripts/' "$(ROOT)/../harness/scripts/preflight_arms.txt"); \
+	done < <(grep -E '^[.][.]/harness/scripts/' "$(HARNESS)/scripts/preflight_arms.txt" | sed 's|^[^ ]*/harness/|$(HARNESS)/|'); \
 	echo "preflight: $$n arm(s), $$bad red -- NO BUILD, hermetic. NOT a substitute for the test target: it cannot see a codegen defect."; \
 	[ $$bad -eq 0 ]
 fleet-smoke:  # ⭐ TIER 1 OF THE VERIFIER LOOP (Lon 2026-10-11 12:4x CDT: "The COO should run a set of super-fast test, a so-called smoke test, often."; R-1673): the eight per-language smokes, about 8-20 s in all, the coo's to run after every origin landing; every other seat is refused rc 2 (R-1671). No build: a stale ./scrip is the freshness guard's refusal, never a verdict.
-	@bash "$(ROOT)/../harness/scripts/test_fleet_smoke.sh"
+	@bash "$(HARNESS)/scripts/test_fleet_smoke.sh"
 
 arena: export SCRIP_HEAP_KB := $(SCRIP_HEAP_KB_TINY)
 arena:  # ⭐ WHAT ARENA WILL THE TINY PASS USE? print it rather than assume it (LAW 0), and it is the one place test-arena's arena is decided.
@@ -174,27 +175,27 @@ test-arena: scrip parsers-sc arena  # ⛔⭐ LON'S TINY-ARENA PASS, MANDATORY PE
 	@bad=0; ref=0; n=0; \
 	for l in snobol4 icon prolog pascal raku rebus snocone; do \
 	  n=$$((n + 1)); \
-	  if bash ../harness/scripts/test_smoke_$$l.sh >/dev/null 2>&1; then printf '  GREEN  smoke %s\n' "$$l"; else bad=$$((bad + 1)); printf '  RED    smoke %s\n' "$$l"; fi; \
+	  if bash $(HARNESS)/scripts/test_smoke_$$l.sh >/dev/null 2>&1; then printf '  GREEN  smoke %s\n' "$$l"; else bad=$$((bad + 1)); printf '  RED    smoke %s\n' "$$l"; fi; \
 	done; \
 	printf 'test-arena: arms=%s red=%s refused=%s at SCRIP_HEAP_KB=%s -- every RED here is a collector finding and owes a ROW; a REFUSED arm COULD NOT MEASURE (a ceiling that fired, a missing prerequisite) and owes its REASON, never a collector row (coo 2026-09-20 on the cfo CFO-121/122: the mark-walk arm needs 651s at 1 MB against a 300s ceiling, and rc=124 was being tallied and read as a lost root). Both still fail this target -- unmeasured must not read green -- but a reader can now tell a clock from a collector (the arena is named on the line above; a suite board run under this pass names it too)\n' "$$n" "$$bad" "$$ref" "$$SCRIP_HEAP_KB"; \
 	[ $$bad -eq 0 ] && [ $$ref -eq 0 ]
 
 test-boards:  # ⭐ THE PACKAGE BOARDS, SPLIT OUT OF `make test` 2026-09-08 (cfo, ECONOMY, on R-433/431 in the archived ruling record): board_packages.sh runs every vendored package/third-party suite and prints the denominator (suites=/graded=/unproven=). It was the REPORTED, NOT BLOCKING arm of `make test` (MASTER-PLAN I21, D1 stage): its exit code is 0 whenever it measured, red constituent suites included, so it could never fail the build -- and it cost every seat ~10 minutes per blocking run. The coo's measure runs this target; any seat runs it on demand. D5 turns the measured floor into a real gate, and that gate goes back into `test` when it exists.
 	$(MAKE) scrip
-	bash ../harness/scripts/board_packages.sh
+	bash $(HARNESS)/scripts/board_packages.sh
 
 test: scrip parsers parsers-sc  # ⭐⛔ LOOP AND REPORT, RULED R-582 (2026-09-11) ON THE cfo'S FIRST FULL CENSUS OF THIS TARGET. It used to be ONE target of ~150 recipe lines, and make ABORTS ON THE FIRST FAILING LINE: when arm 15 went red the set died 24 seconds in and 131 ARMS NEVER EXECUTED, for all 13 seats, for as long as that arm stayed red. Not red, not green -- UNMEASURED, which our own denominator law calls the worst of the three. `make -k` does NOT rescue it (measured, 149s, same single red): -k continues across TARGETS, never across the lines of ONE recipe, so the set could only ever reveal ONE red per cure cycle and each cycle paid a build. The cfo's loop-and-continue census found EIGHT non-green where this target reported ONE -- five reds and THREE REFUSALS, one of which would have passed vacuously. WE REPORTED 1 OF 8. ⛔ NOTHING IS WEAKENED: a blocking red still exits non-zero (1), a blocking refusal exits 2, reds and refusals print as SEPARATE classes because rc=1 FAILED and rc=2 COULD-NOT-MEASURE are different facts, and the summary satisfies its own denominator (green+red+refused == arms, printed) so a run that dies partway can never again read as a clean one. ⭐ THE OBJECTION AND ITS ANSWER: loop-and-report lets a seat land while a red stands elsewhere -- but that was ALREADY TRUE and worse, because seats were landing with 131 arms unmeasured and no way to know they were. ⛔ THE ARMS ARE NOT HERE: they are the recipe lines of `test-sequential` below, which is the DECLARATION this driver reads and an executable twin of it, so `grep <gate-name> Makefile` still finds an arm and the two forms cannot diverge silently (test_gate_make_test_loops_and_reports.sh pins the agreement).
-	@bash ../harness/scripts/run_blocking_set.sh $(if $(filter 1,$(TEST_SHARDS)),,--shards $(TEST_SHARDS))   # ⭐⛔ PARALLEL BY DEFAULT since 2026-09-20 (coo, Lon's TENET condition 2 through the officer). MEASURED ON ONE TREE, BOTH SHAPES, origin e58d97dfb, 372 arms: SEQUENTIAL wall=2239s at load 8.6->3.1 and FAN-OUT/6 wall=1007s at load 9.2->9.1, which is 2.22x -- and the arithmetic closes rather than being asserted, 3899 arm-seconds inside 1007s of wall is 3.87x concurrency divided by the 1.74x each arm slows down under six-way load. 370 OF 372 ARMS AGREE ARM FOR ARM, class counts identical in both shapes (355 green, 16 red, 1 refused) and the same exit code; the two that disagree are duration-pinned arms that disagree in OPPOSITE directions, one favouring each shape, both now declared serial or named there. raced=0 over 230 recorded arm windows here and independently raced=0 over 373 arms on the cfo's tree. TEST_SHARDS=1 restores the one-at-a-time shape for a set that has gone strange, and `make test-sequential` is still the abort-on-first-red form. ⛔ WHAT MAKES IT SAFE TO BELIEVE IS NOT THE SPEED: two arms that ran concurrently and had the same path move under both are BOTH rc=2 COULD-NOT-MEASURE, named with each other and with the path, and NEVER a red -- a collision reported as a red is an unattributable finding and ten seats cannot afford one. The arms that CANNOT be parallel are DECLARED in ../harness/scripts/blocking_set_serial_arms.txt with the reason each cannot, and the parent runs them one at a time before any fan-out. the parallel-agrees-with-serial gate (retired by gates-zero) compares the whole arm-to-rc map between the two shapes and measures both failure directions of the race rule in every run.
+	@bash $(HARNESS)/scripts/run_blocking_set.sh $(if $(filter 1,$(TEST_SHARDS)),,--shards $(TEST_SHARDS))   # ⭐⛔ PARALLEL BY DEFAULT since 2026-09-20 (coo, Lon's TENET condition 2 through the officer). MEASURED ON ONE TREE, BOTH SHAPES, origin e58d97dfb, 372 arms: SEQUENTIAL wall=2239s at load 8.6->3.1 and FAN-OUT/6 wall=1007s at load 9.2->9.1, which is 2.22x -- and the arithmetic closes rather than being asserted, 3899 arm-seconds inside 1007s of wall is 3.87x concurrency divided by the 1.74x each arm slows down under six-way load. 370 OF 372 ARMS AGREE ARM FOR ARM, class counts identical in both shapes (355 green, 16 red, 1 refused) and the same exit code; the two that disagree are duration-pinned arms that disagree in OPPOSITE directions, one favouring each shape, both now declared serial or named there. raced=0 over 230 recorded arm windows here and independently raced=0 over 373 arms on the cfo's tree. TEST_SHARDS=1 restores the one-at-a-time shape for a set that has gone strange, and `make test-sequential` is still the abort-on-first-red form. ⛔ WHAT MAKES IT SAFE TO BELIEVE IS NOT THE SPEED: two arms that ran concurrently and had the same path move under both are BOTH rc=2 COULD-NOT-MEASURE, named with each other and with the path, and NEVER a red -- a collision reported as a red is an unattributable finding and ten seats cannot afford one. The arms that CANNOT be parallel are DECLARED in $(HARNESS)/scripts/blocking_set_serial_arms.txt with the reason each cannot, and the parent runs them one at a time before any fan-out. the parallel-agrees-with-serial gate (retired by gates-zero) compares the whole arm-to-rc map between the two shapes and measures both failure directions of the race rule in every run.
 
-test-sequential: scrip parsers parsers-sc  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AND THE LEGACY ABORT-ON-FIRST-RED FORM. `make test` LOOPS these lines through ../harness/scripts/run_blocking_set.sh and reports every one of them; this target still runs them the old way -- one shell per line, make stopping at the first non-green -- which is what you want when bisecting a set that has gone strange, and never what you want for a landing verdict. ⛔ EDIT THE ARMS HERE. One arm per line, a leading `-` means REPORTED (run and classified, cannot fail the run) exactly as it always meant to make, and the trailing `#` comment is the arm's measured provenance. ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ HQ-27 PRISTINE-BEFORE-VERDICT IS VOID as a per-landing requirement (Lon 2026-09-03 ~15:58, RULES.md FACT RULE: "It's time to loosen this pristine build that keeps preventing forward progress and causes 20 minute wait times."). A landing verdict runs on an INCREMENTAL make -- never on a stale binary, and the stale-binary refusal stays as the guard. `make pristine` survives for the officer's audits, release points, and whenever that refusal fires; the receipt names the build it graded on. This comment asserted the retired law for hours after it was retired, which is the failure mode the FACT RULE exists to prevent: law that lives in a second unversioned place cannot be retired in one edit.
-	bash ../harness/scripts/test_smoke_snobol4.sh   # THE BLOCKING SET IS THE EIGHT SMOKES (DESIGN-PLAN gates-zero, CTO-637; Lon 2026-11-12 13:1x-13:2x CST, verbatim: "I'm thinking I do not want any STINKING GATES." / "take those almost 2000 scripts to ZERO."): what tells right from wrong is a program graded against its oracle, the container entries the cycle grades every lap and these smokes; a lander also runs test_feature_reps.sh <lang> <feature> for what its diff touches (skill gates-and-witnesses section 0)
-	bash ../harness/scripts/test_smoke_icon.sh
-	bash ../harness/scripts/test_smoke_pascal.sh
-	bash ../harness/scripts/test_smoke_prolog.sh
-	bash ../harness/scripts/test_smoke_raku.sh
-	bash ../harness/scripts/test_smoke_rebus.sh
-	bash ../harness/scripts/test_smoke_snocone.sh
-	bash ../harness/scripts/test_smoke_scrip_all_modes.sh
+test-sequential: scrip parsers parsers-sc  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AND THE LEGACY ABORT-ON-FIRST-RED FORM. `make test` LOOPS these lines through $(HARNESS)/scripts/run_blocking_set.sh and reports every one of them; this target still runs them the old way -- one shell per line, make stopping at the first non-green -- which is what you want when bisecting a set that has gone strange, and never what you want for a landing verdict. ⛔ EDIT THE ARMS HERE. One arm per line, a leading `-` means REPORTED (run and classified, cannot fail the run) exactly as it always meant to make, and the trailing `#` comment is the arm's measured provenance. ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ HQ-27 PRISTINE-BEFORE-VERDICT IS VOID as a per-landing requirement (Lon 2026-09-03 ~15:58, RULES.md FACT RULE: "It's time to loosen this pristine build that keeps preventing forward progress and causes 20 minute wait times."). A landing verdict runs on an INCREMENTAL make -- never on a stale binary, and the stale-binary refusal stays as the guard. `make pristine` survives for the officer's audits, release points, and whenever that refusal fires; the receipt names the build it graded on. This comment asserted the retired law for hours after it was retired, which is the failure mode the FACT RULE exists to prevent: law that lives in a second unversioned place cannot be retired in one edit.
+	bash $(HARNESS)/scripts/test_smoke_snobol4.sh   # THE BLOCKING SET IS THE EIGHT SMOKES (DESIGN-PLAN gates-zero, CTO-637; Lon 2026-11-12 13:1x-13:2x CST, verbatim: "I'm thinking I do not want any STINKING GATES." / "take those almost 2000 scripts to ZERO."): what tells right from wrong is a program graded against its oracle, the container entries the cycle grades every lap and these smokes; a lander also runs test_feature_reps.sh <lang> <feature> for what its diff touches (skill gates-and-witnesses section 0)
+	bash $(HARNESS)/scripts/test_smoke_icon.sh
+	bash $(HARNESS)/scripts/test_smoke_pascal.sh
+	bash $(HARNESS)/scripts/test_smoke_prolog.sh
+	bash $(HARNESS)/scripts/test_smoke_raku.sh
+	bash $(HARNESS)/scripts/test_smoke_rebus.sh
+	bash $(HARNESS)/scripts/test_smoke_snocone.sh
+	bash $(HARNESS)/scripts/test_smoke_scrip_all_modes.sh
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
@@ -205,7 +206,7 @@ pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s25
 		rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip; \
 		$(MAKE) all; \
 	else \
-		bash ../harness/scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
+		bash $(HARNESS)/scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
 			rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip && \
 			$(MAKE) all \
 		'; \
@@ -589,6 +590,7 @@ vpath %.S $(sort $(dir $(RT_PIC_SRCS)))
 vpath %.s $(sort $(dir $(RT_PIC_SRCS)))
 $(RT_OBJDIR):
 	@mkdir -p $(RT_OBJDIR)
+$(RT_OBJDIR)/core.o: RT_INCS += -I$(HARNESS)/scripts
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(DBGMAP) $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
@@ -785,7 +787,7 @@ out/parser_%: $(SRC)/parsers/parser_main.c libscrip_rt
 
 # ── scrip-monitor: scrip with CSNOBOL4 4th executor linked in (IM-15b) ───────
 # Build: make scrip-monitor CSN_A=$(ROOT)/../csnobol4/libcsnobol4.a  (CSN_INC=$(ROOT)/../csnobol4 supplies data.h; no root path is hardcoded)
-# Requires: bash ../harness/scripts/build_csnobol4_archive.sh first
+# Requires: bash $(HARNESS)/scripts/build_csnobol4_archive.sh first
 CSN_A   ?= $(ROOT)/../csnobol4/libcsnobol4.a
 CSN_INC ?= $(ROOT)/../csnobol4
 
@@ -815,10 +817,10 @@ monitor-ipc:
 
 # ── Git hooks ─────────────────────────────────────────────────────────────────
 # ⛔⭐ GIT HOOKS DO NOT PROPAGATE THROUGH CLONE, so every seat must install them locally. The
-# live path is the per-prompt session hook (../harness/scripts/s4e_inbox_hook.sh calls the installer
+# live path is the per-prompt session hook ($(HARNESS)/scripts/s4e_inbox_hook.sh calls the installer
 # --quiet); this target is the explicit manual entry point and the one `make setup` runs.
 hooks:
-	@bash $(ROOT)/../harness/scripts/install_commit_msg_hook.sh
+	@bash $(HARNESS)/scripts/install_commit_msg_hook.sh
 
 # ⛔ MEASURED 2026-08-30 (hq_B): $(ROOT)/setup.sh DOES NOT EXIST in this tree, so `make setup`
 # was dying at the bash line having done nothing -- a target that looks like a bootstrap and
@@ -828,18 +830,18 @@ hooks:
 # instead of surfacing as a bare rc=127.
 setup: hooks
 	@# setup.sh never existed in this tree (hq_B measured the dead path 2026-08-30); the bootstrap IS these two scripts, called directly so the README's `make setup` line is true rather than a rc=127 grave.
-	bash $(ROOT)/../harness/scripts/install_system_packages.sh
-	bash $(ROOT)/../harness/scripts/build_official_oracles.sh
+	bash $(HARNESS)/scripts/install_system_packages.sh
+	bash $(HARNESS)/scripts/build_official_oracles.sh
 
 # ── Test targets ──────────────────────────────────────────────────────────────
 # (the old --run corpus runners were removed with the interpreter; the live
-#  gates are the ../harness/scripts/ suite — see GOAL-SNOBOL4-BB.md Session Setup.)
+#  gates are the $(HARNESS)/scripts/ suite — see GOAL-SNOBOL4-BB.md Session Setup.)
 
 # ── EM-9: native codegen-emit-test — smoke + em8 gate for --native codegen-emit --x64 ──────────────
 # Runs: test_smoke_snobol4.sh (7/7) + test_gate_em8_snocone_jit_emit.sh (5/5).
 # Requires: libscrip_rt (built into out/libscrip_rt.so).
 native codegen-emit-test: scrip libscrip_rt
-	@bash ../harness/scripts/test_smoke_snobol4.sh
+	@bash $(HARNESS)/scripts/test_smoke_snobol4.sh
 
 .PHONY: native codegen-emit-test
 
@@ -903,7 +905,7 @@ distclean: clean
 # re.c moved from src/parsers/raku to src/runtime when the flex/bison Raku parser was deleted (R-1289 phase 2, cto
 # ruling), prolog_atom.c from src/parsers/prolog to src/runtime/rt (hq_prolog 481a8cd96, the second instance, R-1352).
 # An empty rule per vanished source does NOT work: vpath then resolves the stem to the phantom target.
-# BY RULE, NOT BY NAME (the coo 2026-09-28, R-1352): ../harness/scripts/live_dep_files.awk keeps a .d only while the source it names
+# BY RULE, NOT BY NAME (the coo 2026-09-28, R-1352): $(HARNESS)/scripts/live_dep_files.awk keeps a .d only while the source it names
 # as its object's first prerequisite exists, so the next move needs no edit here; test_gate_make_leaves_out_a_dep_file_whose_
 # source_is_gone.sh proves it end to end (a real make -n over a moved-source fixture) and fails once with the old by-name filter.
--include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null | xargs -r awk -f $(ROOT)/../harness/scripts/live_dep_files.awk 2>/dev/null)
+-include $(shell find $(OBJ) $(RT_OBJDIR) -name "*.d" 2>/dev/null | xargs -r awk -f $(HARNESS)/scripts/live_dep_files.awk 2>/dev/null)
