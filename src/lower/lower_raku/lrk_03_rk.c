@@ -640,7 +640,61 @@ static void rk_place_groups(tree_t * t, int * uid) {
     else if (!strcmp(t->v.sval, "__rk_given_mod") && t->n >= 3) rk_pl_modifier(t, 2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_version_use(const tree_t * t) {
+    if (!t) return NULL;
+    if (t->t == TT_USE_DECL && t->v.sval && !strcmp(t->v.sval, "v6")) return t;
+    for (int i = 0; i < t->n; i++) { const tree_t * u = rk_version_use(t->c[i]); if (u) return u; }
+    return NULL;
+}
+static int rk_use_depth(const tree_t * c, const char ** letter, const char ** mod) {
+    if (!c || c->t != TT_METHCALL || c->n != 2 || !c->c[1] || !c->c[1]->v.sval) return 0;
+    int d = rk_use_depth(c->c[0], letter, mod) + 1;
+    if (d == 1) *letter = c->c[1]->v.sval;
+    else if (d == 2) *mod = c->c[1]->v.sval;
+    return d;
+}
+static size_t rk_use_dotted(const tree_t * c, char * out, size_t at) {
+    if (!c || c->t != TT_METHCALL || c->n != 2 || !c->c[1] || !c->c[1]->v.sval) return at;
+    at = rk_use_dotted(c->c[0], out, at);
+    size_t l = strlen(c->c[1]->v.sval);
+    if (out) { out[at] = '.'; memcpy(out + at + 1, c->c[1]->v.sval, l); }
+    return at + 1 + l;
+}
+static void rk_sorry(const char * what, const char * name) { fprintf(stderr, "===SORRY!=== Error while compiling\n%s%s\n", what, name); exit(1); }
+static void rk_fold_revision(tree_t * t, int rev) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_fold_revision(t->c[i], rev);
+    int var = t->t == TT_VAR && !t->n && t->v.sval && !strcmp(t->v.sval, "CORE-SETTING-REV");
+    int fnc = t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_typeobj") && t->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "CORE-SETTING-REV");
+    if (!var && !fnc) return;
+    tree_t * l = ast_node_new(TT_ILIT);
+    l->line = t->line;
+    l->v.ival = rev;
+    *t = *l;
+}
+static void rk_revision(tree_t * prog) {
+    const tree_t * u = rk_version_use(prog);
+    const char * l = NULL, * m = NULL;
+    int rev = 2, d = u ? rk_use_depth(u->n ? u->c[0] : NULL, &l, &m) : 0;
+    if (d) {
+        size_t n = rk_use_dotted(u->c[0], NULL, 2);
+        char * name = (char *) ct_alloc(n + 1);
+        name[0] = 'v';
+        name[1] = '6';
+        rk_use_dotted(u->c[0], name, 2);
+        name[n] = 0;
+        int ok = d <= 2 && l &&
+            ((!strcmp(l, "c") && !m) || (!strcmp(l, "d") && (!m || !strcmp(m, "TEST") || !strcmp(m, "TESTDEPR") || !strcmp(m, "PREVIEW"))) || (!strcmp(l, "e") && m && !strcmp(m, "PREVIEW")));
+        if (d == 1 && l && !strcmp(l, "e")) rk_sorry("Raku v6.e requires PREVIEW", "");
+        if (!ok) rk_sorry("No compiler available for Raku ", name);
+        if (m && !strcmp(m, "TESTDEPR")) fprintf(stderr, "Potential difficulties:\n    TESTDEPR modifier is deprecated for Raku v6.%s\n", l);
+        rev = !strcmp(l, "c") ? 1 : !strcmp(l, "e") ? 3 : 2;
+    }
+    rk_fold_revision(prog, rev);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
+    rk_revision((tree_t *) prog);
     rk_unfound_dynamics((tree_t *) prog);
     rk_supply_nodes((tree_t *) prog, rk_user_sub_named(prog, "emit"));
     { rk_ns_t rns = { 0 }; rk_relaxed_collect(prog, &rns); rk_relaxed_walk((tree_t *) prog, &rns); }
