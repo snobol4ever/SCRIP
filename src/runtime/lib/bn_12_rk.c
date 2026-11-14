@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include "runtime/lib/bn_head.h"
 #include <sys/utsname.h>
+#include <dlfcn.h>
 #include "ir/rk_opname.h"
 #include "runtime/core/nv.h"
 #include <math.h>
@@ -303,8 +305,15 @@ int rk_pre_value(const char *nm, DESCR_t *out) {
     if (!strcmp(nm, "*PROGRAM-NAME") || !strcmp(nm, "?FILE")) { const char *p = rt_main_progname(); *out = STRVAL(rt_heap_strdup_c(p && *p ? p : "-e")); return 1; }
     if (!strcmp(nm, "*CWD")) { char *b = rt_wsb_alloc(4096); *out = rk_io_mk(getcwd(b, 4096) ? b : ""); return 1; }
     if (!strcmp(nm, "*EXECUTABLE") || !strcmp(nm, "*EXECUTABLE-NAME")) {
-        char *b = rt_wsb_alloc(4096);
-        ssize_t n = readlink("/proc/self/exe", b, 4095);
+        char *b = rt_wsb_alloc(4096), *l = rt_wsb_alloc(4096), *s = rt_wsb_alloc(4096);
+        Dl_info di;
+        ssize_t n = -1;
+        if (dladdr((void *) rk_pre_value, &di) && di.dli_fname && realpath(di.dli_fname, l) && strrchr(l, '/')) {
+            *strrchr(l, '/') = '\0';
+            snprintf(s, 4096, "%s/../scrip", l);
+            if (realpath(s, b)) n = (ssize_t) strlen(b);
+        }
+        if (n < 0) n = readlink("/proc/self/exe", b, 4095);
         if (n < 0) n = 0;
         b[n] = '\0';
         *out = nm[11] == '-' ? STRVAL(rt_heap_strdup_c(b)) : rk_io_mk(b);

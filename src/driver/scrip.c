@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #include "parsers/snobol4/scrip_cc.h"
 #include "parsers/snocone/snocone_driver.h"
 #include "parsers/prolog/prolog_driver.h"
@@ -2692,7 +2693,49 @@ static int scrip_rl_cli(char * self, const char * mode, int kind, int ac, char *
     return refused ? 2 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char ** scrip_raku_cli_refuse(const char * why, const char * a) { fprintf(stderr, "scrip: --raku-cli: %s%s%s\n", why, *a ? ": " : "", a); return (char **)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char ** scrip_raku_cli(int * argc, char ** argv) {
+    const char * code = (const char *)0, * file = (const char *)0;
+    int i = 2, ninc = 0;
+    for (; i < *argc && argv[i][0] == '-' && argv[i][1]; i++) {
+        const char * a = argv[i];
+        if (!strcmp(a, "--")) { i++; break; }
+        if (!strcmp(a, "-e")) {
+            if (i + 1 >= *argc) return scrip_raku_cli_refuse("-e needs the program text", "");
+            code = argv[++i];
+        } else if (a[1] == 'I') {
+            const char * d = a[2] ? a + 2 : i + 1 < *argc ? argv[++i] : (const char *)0;
+            char * rp = (char *)ct_alloc(PATH_MAX);
+            if (!d) return scrip_raku_cli_refuse("-I needs a directory", "");
+            if (!realpath(d, rp)) return scrip_raku_cli_refuse("-I names a directory that is not there", d);
+            setenv(ct_fmt("SCRIP_RAKU_INC_%d", ninc++), rp, 1);
+        } else return scrip_raku_cli_refuse("not a switch SCRIP takes after --raku-cli (it takes -e CODE, -I DIR, a program file, and -- before @*ARGS)", a);
+    }
+    if (!code) {
+        if (i >= *argc) return scrip_raku_cli_refuse("no program: rakudo would read it from standard input, which --raku-cli does not; give -e CODE or a program file", "");
+        file = argv[i++];
+    } else {
+        int fd = (int)syscall(SYS_memfd_create, "raku-e", 0);
+        size_t n = strlen(code);
+        if (fd < 0 || write(fd, code, n) != (ssize_t)n || write(fd, "\n", 1) != 1) return scrip_raku_cli_refuse("cannot hold the -e text in memory", code);
+        file = ct_fmt("/proc/self/fd/%d", fd);
+    }
+    char ** na = (char **)ct_alloc(sizeof(char *) * (size_t)(*argc - i + 6));
+    int k = 0;
+    na[k++] = argv[0];
+    na[k++] = (char *)"--run";
+    na[k++] = (char *)"--lang=raku";
+    na[k++] = (char *)file;
+    na[k++] = (char *)"--";
+    while (i < *argc) na[k++] = argv[i++];
+    na[k] = (char *)0;
+    *argc = k;
+    return na;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
+    if (argc >= 2 && !strcmp(argv[1], "--raku-cli")) { argv = scrip_raku_cli(&argc, argv); if (!argv) return 2; }
     g_lower_icn.parse = icon_compile_parse;
     if (argc >= 3 && strcmp(argv[1], "--harness") == 0) return scrip_harness_cli(argv[0], "--run", argc - 2, argv + 2);
     if (argc >= 4 && strcmp(argv[1], "--compile") == 0 && strcmp(argv[2], "--harness") == 0) return scrip_harness_cli(argv[0], "--compile", argc - 3, argv + 3);
@@ -3971,6 +4014,7 @@ int main(int argc, char **argv) {
                 extern void rt_main_progname_stage(const char *);
                 extern const char * stmt_src_get_file(void);
                 const char * _pn = stmt_src_get_file();
+                if (_pn && !strncmp(_pn, "/proc/self/fd/", 14)) _pn = (const char *)0;
                 char _pnb[_pn ? strlen(_pn) + 1 : 1];
                 if (_pn) {
                     const char *_sl = strrchr(_pn, '/');

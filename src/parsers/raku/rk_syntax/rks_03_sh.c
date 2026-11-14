@@ -835,9 +835,15 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     return nt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void seed_inc_libs(RkP *p) {
+    char nm[48];
+    for (int i = 0; snprintf(nm, sizeof nm, "SCRIP_RAKU_INC_%d", i) > 0 && getenv(nm); i++) { RK_GROW(p->libs, p->nlibs, p->clibs, char *); p->libs[p->nlibs++] = ct_strndup0(getenv(nm), (int) strlen(getenv(nm))); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg) {
     RkP *p = (RkP *) ct_alloc(sizeof(RkP));
     memset(p, 0, sizeof *p);
+    seed_inc_libs(p);
     p->s = src; p->n = len; p->file = path ? path : "<stdin>"; p->build = 1; p->B = rkb_new(src, len); rkb_set_st_lookup(p->B, state_name_of, p);
     p->myst_off = 1; p->lax = 1;
     p->wsmark = (int *) ct_alloc(sizeof(int) * ((size_t) len + 2));

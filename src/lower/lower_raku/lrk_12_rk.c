@@ -303,7 +303,8 @@ static int rk_why_walk(tree_t * t, const tree_t * pods) {
     for (int i = 0; i < t->n; i++) {
         tree_t * c = t->c[i];
         if (!c) continue;
-        if (c->t == TT_METHCALL && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] == '&' && c->c[1] && c->c[1]->t == TT_QLIT && c->c[1]->v.sval && !strcmp(c->c[1]->v.sval, "WHY")) {
+        if (c->t == TT_METHCALL && c->n == 2 && c->c[0] && c->c[0]->t == TT_VAR && c->c[0]->v.sval && c->c[0]->v.sval[0] == '&' && c->c[1] && c->c[1]->t == TT_QLIT && c->c[1]->v.sval &&
+            !strcmp(c->c[1]->v.sval, "WHY")) {
             int k = rk_why_index(pods, c->c[0]->v.sval + 1);
             tree_t * r = leaf_sval2(TT_VAR, "Nil");
             r->slen = 1;
@@ -337,7 +338,10 @@ static void rk_declare_pod(tree_t * prog) {
 void lower_raku_source(tree_t * prog, const char * file) {
     if (!prog || !file || !*file) return;
     const char * absolute = file;
-    if (file[0] != '/') {
+    if (!strncmp(file, "/proc/self/fd/", 14)) {
+        file = "-e";
+        absolute = file;
+    } else if (file[0] != '/') {
         char * cwd = NULL;
         for (size_t n = 256; n < ((size_t) 1 << 24) && !cwd; n *= 2) { char * b = (char *) ct_alloc(n); if (getcwd(b, n)) cwd = b; else ct_drop(b); }
         if (cwd) {
