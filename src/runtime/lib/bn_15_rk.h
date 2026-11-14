@@ -1,6 +1,8 @@
 #ifndef RUNTIME_LIB_BN_15_RK_H
 #define RUNTIME_LIB_BN_15_RK_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) const char *rk_param_sigil(const char *pn);
 __attribute__((visibility("hidden"))) DESCR_t rk_mk_metaval(const char *proto, const char *a, const char *b);
 __attribute__((visibility("hidden"))) int bnd_dat_need(const char *c, int what);

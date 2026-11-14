@@ -1,5 +1,5 @@
 #include "ir/ir_node.h"
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 #include "ct_vec.h"
 #include "lower/g_lower_ir.h"
 #include "ir_node_index.h"

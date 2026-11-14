@@ -2,8 +2,9 @@
 #include "runtime/core/g_runtime.h"
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 }
 typedef struct { long fn; long how; } rt_dcap_next_t;

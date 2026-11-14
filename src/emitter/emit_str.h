@@ -9,7 +9,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
-#include "emitter/emit_state.h"
 std::string emit_fmt(const char * f, ...) __attribute__((format(printf, 1, 2)));
 std::string u8 (unsigned v);
 std::string u32le(uint32_t v);

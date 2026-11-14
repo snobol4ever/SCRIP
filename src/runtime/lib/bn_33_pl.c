@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/prolog_atom.h"
 #include "driver/driver_globals.h"
@@ -15,6 +16,14 @@
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_33_pl.h"
 #include "runtime/lib/bn_34_pl.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
 extern FILE *fh_get(int);

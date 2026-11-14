@@ -1,5 +1,4 @@
 #include "rtcc.h"
-#include "runtime/rt/gc_heap.h"
 #include "ir/pin_va.h"
 #include <stdlib.h>
 #include <string.h>

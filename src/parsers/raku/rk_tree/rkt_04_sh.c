@@ -8,6 +8,9 @@
 #include "parsers/raku/rk_tree/rkt_03_sh.h"
 #include "parsers/raku/rk_tree/rkt_04_sh.h"
 #include "parsers/raku/rk_tree/rkt_05_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int line_at(RkB *b, int pos) {
     int lo = 0, hi = b->nnlp; if (pos > b->len) pos = b->len;

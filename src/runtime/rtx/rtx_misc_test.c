@@ -5,6 +5,8 @@
 #include <float.h>
 #include <math.h>
 #include "ir/descr.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 int descr_identical(DESCR_t, DESCR_t);
 int c_descr_identical(DESCR_t, DESCR_t);
 static int fails = 0, n = 0, handled = 0, declined = 0;

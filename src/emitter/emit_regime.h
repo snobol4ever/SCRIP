@@ -2,7 +2,7 @@
 #define EMITTER_EMIT_REGIME_H
 #include <stdint.h>
 #include "ir/bb_box.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -2,10 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "ir/stage2.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_lpl_01_pl_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
-#include "runtime/rt/prolog_atom.h"
+#include "runtime/rt/prolog_atom_prolog_max_arity.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
 #include "lower/lower_prolog/lpl_02_pl.h"
 #include "lower/lower_prolog/lpl_03_pl.h"
@@ -13,6 +15,12 @@
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_08_pl.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 static int pl_ssu_clause(const tree_t * cl, int ar);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_refuse(const char * what, const char * detail, int rung) {

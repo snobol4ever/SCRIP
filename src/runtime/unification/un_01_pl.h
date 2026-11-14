@@ -1,6 +1,7 @@
 #ifndef RUNTIME_UNIFICATION_UN_01_PL_H
 #define RUNTIME_UNIFICATION_UN_01_PL_H
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 __attribute__((visibility("hidden"))) const char *plc_atom_text(pl_cell_t *d);
 __attribute__((visibility("hidden"))) const char *plc_vname(plc_vmap *m, pl_cell_t *d);
 __attribute__((visibility("hidden"))) int plc_vindex(plc_vmap *m, pl_cell_t *d);

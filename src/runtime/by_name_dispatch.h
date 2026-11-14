@@ -2,6 +2,7 @@
 #ifndef BY_NAME_DISPATCH_H
 #define BY_NAME_DISPATCH_H
 #include "ir/ast.h"
+#include "ir/descr.h"
 int rt_proc_dyn_scope(const char *name);
 int rt_big_sign(DESCR_t d);
 int script_try_call_builtin(tree_t *call, DESCR_t *out);

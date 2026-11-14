@@ -4,10 +4,10 @@
 #include <cstring>
 #include <string>
 #include "templates/x86/x86_call.h"
-#include "ir/ir_graph.h"
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 #include "emitter/emit_data.h"
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
@@ -21,6 +21,9 @@
 #include "templates/x86/x86_rodata.h"
 #include "templates/x86/x86_zverify.h"
 #include "runtime/core/g_runtime.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
+#include "ir/ir_graph.h"
 extern "C" { void rt_pl_tr_refuse(const char *); }
 std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();

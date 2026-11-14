@@ -1,6 +1,8 @@
 #ifndef RUNTIME_LIB_BN_19_RK_H
 #define RUNTIME_LIB_BN_19_RK_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int rk_qh_is(DESCR_t d);
 __attribute__((visibility("hidden"))) int rk_qh_n(DESCR_t q);
 __attribute__((visibility("hidden"))) const char *rk_qh_render(DESCR_t q, int gist);

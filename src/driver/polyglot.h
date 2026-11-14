@@ -5,6 +5,8 @@
 #include "parsers/snobol4/scrip_cc.h"
 #include "driver/driver.h"
 #include "ir/stage2.h"
+#include "ir/stage2_lower_seg.h"
+#include "ir/ast.h"
 extern int g_fi8_gen_init_count;
 void polyglot_init (stage2_t *s2, const tree_t *prog);
 int polyglot_module_open (stage2_t *s2, const tree_t *s);

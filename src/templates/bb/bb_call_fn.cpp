@@ -5,8 +5,9 @@
 #include "ir/call_forms.h"
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 extern struct gv_s g_call_args;
 #include "bb_templates.h"
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);

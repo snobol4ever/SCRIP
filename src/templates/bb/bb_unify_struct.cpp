@@ -2,11 +2,12 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 void rt_pl_tr_refuse(const char *);
 int prolog_functor_arity(int);
-#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 }
 #include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"

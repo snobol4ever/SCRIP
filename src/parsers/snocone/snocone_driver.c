@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 tree_t *snocone_parse_tree(const char *src, const char *filename);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *snocone_compile_parse(const char *source, const char *filename)

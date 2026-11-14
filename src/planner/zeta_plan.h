@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <stdint.h>
 #include "ir/ir_fwd.h"
-#include "ir/stage2.h"
+#include "ir/stage2_planner_road.h"
 struct zrd_t { int dist, xf, fr, key, kind, anchor, kown, fres; };
 struct znode_t {
     int fcg, leaf, vw, vbin, aslot, loff, owni;

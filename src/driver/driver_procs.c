@@ -1,9 +1,16 @@
 #include <alloca.h>
-#include "ir/bb_box.h"
+#include "ir/bb_box_fn.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/stage2_proc_thunk_pattern.h"
+#include "ir/stage2_procentry.h"
 #include "ir/stage2.h"
+#include "ir/stage2_emit_install_hooks.h"
+#include "ir/stage2_planner_road.h"
+#include "ir/stage2_driver_procs_api.h"
+#include "ir/stage2_etc.h"
 #include <stdio.h>
+#include "ir/ct_arena.h"
 void rt_proc_set_generator(const char *, int);
 void rt_proc_set_jmpentry(const char *, int);
 void rt_proc_set_pinned(const char *, int);

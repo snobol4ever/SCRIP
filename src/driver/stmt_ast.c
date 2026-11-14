@@ -3,6 +3,7 @@
 #include "ir/ct_arena.h"
 #include <string.h>
 #include <stdio.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 static char * stmt_src_for(const STMT_t * s, int * depth);

@@ -4,6 +4,7 @@
 #include "ir/ir_node.h"
 #include "ir_index.h"
 #include "ir/ct_vec.h"
+#include "ir/ir_graph.h"
 typedef struct { int *gen; int *pos; int cur; cv_t list; } bc_walk_t;
 int bc_is_passthrough(IR_e op);
 IR_t * bc_chase(const char *prot, const ir_index_t *ix, bc_walk_t *w, IR_t *node, char sz[4]);

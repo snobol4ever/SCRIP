@@ -2,7 +2,9 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_pascal_tree.h"
 #include "lower/lower_pascal_class.h"
@@ -20,6 +22,7 @@
 #include "lower/lower_pascal_tree/lpt_10_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static int pas_dyn_elem_is_string(tree_t *base);
 static long long pas_wrap_mask_of_type(const char *t);
 static int pas_is_strelem_arr(const char *name);

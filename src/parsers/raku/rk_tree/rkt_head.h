@@ -1,6 +1,7 @@
 #ifndef PARSERS_RAKU_RK_TREE_RKT_HEAD_H
 #define PARSERS_RAKU_RK_TREE_RKT_HEAD_H
 #include "ir/ast.h"
+#include "ir/ct_arena.h"
 /*====================================================================================================================================================================================================*/
 typedef struct { tree_t **v; int n, cap; } TL;
 typedef struct { const char **k; int n, cap; } NS;

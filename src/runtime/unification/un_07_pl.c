@@ -1,11 +1,16 @@
 #include "runtime/unification/un_head.h"
 #include "ir/ct_arena.h"
-#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
 #include "runtime/rt/prolog_atom.h"
 #include "runtime/unification/un_03_pl.h"
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_07_pl.h"
 #include "runtime/unification/un_08_pl.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "ir/descr_tags_dt_platom.h"
 extern const char *prolog_atom_name(int id);
 int rt_pl_db_copy(void *db_v, int i, void *out_v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

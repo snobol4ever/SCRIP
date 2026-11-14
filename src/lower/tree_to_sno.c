@@ -1,6 +1,7 @@
 #include "lower_snobol4.h"
 #include "ir/ct_arena.h"
 #include "ir/ct_vec.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 #include "parsers/icon/icon_lex.h"
 #include <stdio.h>

@@ -1,13 +1,15 @@
 #include <string>
 #include <cstdint>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 void rt_pl_tr_refuse(const char *);
 int rt_pl_unify_const_cold(const DESCR_t *, int64_t, int);
 }
 #include "runtime/rt/pl_trail_layout.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_entry.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"

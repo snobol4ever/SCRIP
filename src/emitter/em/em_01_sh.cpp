@@ -1,5 +1,5 @@
 #include "emitter/em/em_head.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_medium.h"
 #include "emitter/emit_data.h"
 #include "emitter/emit_knobs.h"
@@ -8,6 +8,16 @@
 #include "emitter/emit_str.h"
 #include "lower/lower_prolog.h"
 #include "ir/ir_node_index.h"
+#include "ir/stage2_procentry.h"
+#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/ir_graph.h"
+#include "ir/bb_box_fn.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern "C" {
 #include "templates/xa/xa_templates.h"
 }

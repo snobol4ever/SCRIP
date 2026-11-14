@@ -1,5 +1,6 @@
 #include "emitter/em/em_head.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_xa_pair.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_medium.h"
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"
@@ -10,6 +11,13 @@
 #include "ir/ir_node_index.h"
 #include "templates/bb/bb_templates.h"
 #include "runtime/core/g_runtime_eval.h"
+#include "ir/stage2_proc_thunk_pattern.h"
+#include "ir/stage2_procentry.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/ct_arena.h"
 extern "C" {
 #include "templates/x86/x86_rodata.h"
 }

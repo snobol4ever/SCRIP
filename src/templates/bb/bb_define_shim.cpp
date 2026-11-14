@@ -6,8 +6,12 @@
 #include <vector>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_str.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "ir/pin_va.h"
 #include "runtime/rt/rt.h"

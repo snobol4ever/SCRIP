@@ -2,7 +2,9 @@
 #include <string.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "lower/lower_raku.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
@@ -17,6 +19,12 @@
 #include "lower/lower_raku/lrk_10_rk.h"
 #include "runtime/core/g_runtime.h"
 #include "lower/g_lower_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
 static void rk_arm_body(tree_t * seq, int from);
 static int rk_block_has_arm(const tree_t * t);

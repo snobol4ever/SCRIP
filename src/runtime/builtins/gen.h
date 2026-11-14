@@ -7,13 +7,5 @@ typedef enum {
         BINOP_POW, BINOP_CUNION, BINOP_CDIFF, BINOP_CINTER, BINOP_EQV, BINOP_NEQV, BINOP_XREP, BINOP_CONCAT_FRACDIGIT, BINOP_POW_PROMOTE, BINOP_ADD_BIG, BINOP_SUB_BIG, BINOP_MUL_BIG, BINOP_LCONCAT,
         BINOP_CONCAT_SNO,
 } BinopKind;
-#define BINOP_F_NUMIFY_BLANK 0x100
-#define BINOP_F_NUM_TEXT 0x200
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int binop_is_concat(long op) { return op == BINOP_CONCAT || op == BINOP_CONCAT_FRACDIGIT || op == BINOP_LCONCAT || op == BINOP_CONCAT_SNO; }
-#ifndef EXPR_T_DEFINED
-#define EXPR_T_DEFINED
-typedef struct tree_t tree_t;
-#endif
 #endif

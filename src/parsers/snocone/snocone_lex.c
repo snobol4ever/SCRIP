@@ -4,6 +4,7 @@
 #include <string.h>
 #include "snocone_lex.h"
 #include "snocone_parse.tab.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int is_alpha(int c)        { return ((c | 32) >= 'a' && (c | 32) <= 'z') || c == '_'; }
 static inline int is_digit(int c)        { return c >= '0' && c <= '9'; }

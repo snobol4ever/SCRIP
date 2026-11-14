@@ -1,8 +1,7 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
 #include "ir/ir_node.h"
-#include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
@@ -12,6 +11,11 @@
 #include "lower/lower_raku/lrk_06_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_09_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static tree_t * rk_fnc_cl(const char * nm, const tree_t * cl, const tree_t * a, const tree_t * b);
 static int rk_proc_nparams(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

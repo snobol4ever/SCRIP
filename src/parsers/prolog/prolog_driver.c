@@ -9,6 +9,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PL_CONSULT_DEPTH_MAX = 16 };
 #define g_pl_consulted ((const char **)g_parser.pl.consulted_v.p)

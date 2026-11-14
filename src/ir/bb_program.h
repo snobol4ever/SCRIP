@@ -1,9 +1,11 @@
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#pragma once
 #ifndef SCRIP_BB_PROGRAM_H
 #define SCRIP_BB_PROGRAM_H
 #include "ir/ir_fwd.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef struct bb_program_t { IR_graph_t **table; int count; int cap; int serial_next; } bb_program_t;
-int bb_program_add (bb_program_t *p, IR_graph_t *bbg);
-void bb_program_free(bb_program_t *p);
+#ifdef __cplusplus
+}
+#endif
 #endif

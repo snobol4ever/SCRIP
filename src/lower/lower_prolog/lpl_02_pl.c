@@ -4,11 +4,17 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_label_max.h"
+#include "ir/stage2_resolve_predentry.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_planner_road.h"
+#include "ir/stage2_etc.h"
 #include "ir/stage2_pl.h"
-#include "ir/bb_box.h"
+#include "ir/bb_box_fn.h"
 #include "lower/lower_common.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_regime.h"
 #include "planner/frame_layout.h"
 #include "runtime/rt/prolog_atom.h"
@@ -17,6 +23,11 @@
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next);
 static tree_t * pl_dot_goal(const tree_t * g, int * next);
 int pl_decl_mf_is(const char * name, int arity) {

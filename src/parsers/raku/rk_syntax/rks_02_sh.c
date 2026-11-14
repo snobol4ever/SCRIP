@@ -10,6 +10,9 @@
 #include "parsers/raku/rk_syntax/rks_07_sh.h"
 #include "parsers/raku/rk_syntax/rks_08_sh.h"
 #include "parsers/raku/rk_syntax/rks_09_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_alpha_cp(int c) {
     if (c < 0) return 0;

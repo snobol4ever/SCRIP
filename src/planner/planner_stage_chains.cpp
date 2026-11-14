@@ -13,7 +13,9 @@
 extern "C" {
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/stage2_procentry.h"
 #include "ir/stage2.h"
+#include "ir/stage2_planner_road.h"
 }
 extern "C" {
 #include "planner/g_planner.h"

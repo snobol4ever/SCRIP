@@ -1,6 +1,5 @@
 #include "runtime/unification/un_head.h"
 #include "ir/ct_arena.h"
-#include "runtime/core/core.h"
 #include "ir/bb_pool.h"
 #include "runtime/rt/prolog_atom.h"
 #include "ir/gc_frame_map.h"
@@ -10,6 +9,12 @@
 #include "runtime/unification/un_08_pl.h"
 #include "runtime/unification/un_09_pl.h"
 #include "runtime/core/g_runtime_atoms.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_runtime_init_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/bb_box_fn.h"
+#include "ir/descr_tags_dt_platom.h"
 extern const char *prolog_atom_name(int id);
 static int pl_db_ground(const pl_cell_t *c);
 extern void rt_pl_db_reclaimed_entry(void);

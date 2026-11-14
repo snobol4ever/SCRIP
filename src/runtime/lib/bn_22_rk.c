@@ -1,4 +1,4 @@
-#include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_sb.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
 #include <ctype.h>
@@ -6,6 +6,12 @@
 #include "runtime/lib/bn_08_sh.h"
 #include "runtime/lib/bn_14_rk.h"
 #include "runtime/lib/bn_22_rk.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 static void rk_sb_put(rk_sb_t *s, const char *p, size_t n) {
     if (s->n + n + 1 > s->cap) { size_t nc = (s->cap ? s->cap * 2 : 128) + n; char *nb = (char *) rt_wsb_alloc(nc); if (s->n) memcpy(nb, s->b, s->n); s->b = nb; s->cap = nc; }
     memcpy(s->b + s->n, p, n);

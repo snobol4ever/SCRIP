@@ -9,7 +9,7 @@ extern "C" {
 #include "ir/ir_graph.h"
 }
 extern "C" {
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 }
 extern "C" {
 #include "optimizer/ir_index.h"

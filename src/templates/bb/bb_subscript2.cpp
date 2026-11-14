@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 extern DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);

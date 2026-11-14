@@ -9,6 +9,9 @@
 #include "parsers/raku/rk_tree/rkt_03_sh.h"
 #include "parsers/raku/rk_tree/rkt_04_sh.h"
 #include "parsers/raku/rk_tree/rkt_05_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_capture_like(const tree_t *e) {
     if (!e) return 0;

@@ -9,6 +9,7 @@
 #include "runtime/core/table.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/rt_list_view.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int um_int(DESCR_t d, int64_t *out) {
     char *e;

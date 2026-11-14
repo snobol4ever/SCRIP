@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "ct_arena.h"
+#include "ir/ct_arena.h"
 typedef struct { void *p; uint32_t len, cap, esz; } cv_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void cv_reserve(cv_t *v, uint32_t esz, uint64_t need, const char *name) {

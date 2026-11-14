@@ -4,11 +4,14 @@
 #include <time.h>
 #include <signal.h>
 #include "pl_trail_layout.h"
-#include "rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_entry.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_atoms.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "rt_slab.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void rt_gc_root_range_add_topword(const char *lo);
 extern void rt_gcheap_cap_road(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,6 +1,7 @@
 #ifndef PARSERS_RAKU_RK_SYNTAX_RKS_01_SH_H
 #define PARSERS_RAKU_RK_SYNTAX_RKS_01_SH_H
 #include "parsers/raku/rk_syntax/rks_head.h"
+#include "ir/ast.h"
 extern __attribute__((visibility("hidden"))) const int rk_brackets[394];
 __attribute__((visibility("hidden"))) int rk_decode(const char *s, int n, int pos, int *len);
 __attribute__((visibility("hidden"))) int cp_at(RkP *p, int pos);

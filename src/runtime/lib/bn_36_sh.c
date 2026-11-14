@@ -1,4 +1,8 @@
+#include "runtime/lib/bn_head_call_args.h"
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_cbh.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/lib/bn_head_rk_redisp.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/core/trace.h"
 #include "runtime/rt/rt_arena.h"
@@ -24,6 +28,18 @@
 #include "runtime/lib/bn_22_rk.h"
 #include "runtime/lib/bn_23_rk.h"
 #include "runtime/lib/bn_36_sh.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/builtin_table.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);

@@ -4,7 +4,9 @@
 #include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include <ctype.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_class.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
@@ -19,6 +21,7 @@
 #include "lower/lower_pascal_tree/lpt_10_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static pval E_argument_list(const tree_t *n, int from, int to);
 int pas_trace_enabled(void) { return g_runtime.abi.trace_budget != 0; }
 PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }

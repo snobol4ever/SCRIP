@@ -1,7 +1,13 @@
 #ifndef RUNTIME_LIB_BN_07_RK_H
 #define RUNTIME_LIB_BN_07_RK_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_cbh.h"
+#include "runtime/lib/bn_head_rk_cb.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/lib/bn_head_rkrxopt.h"
 #include "runtime/rx.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) const char *rk_rx_pat(DESCR_t v);
 __attribute__((visibility("hidden"))) int rk_is_code(DESCR_t v);
 __attribute__((visibility("hidden"))) const char *rk_code_name(DESCR_t v);

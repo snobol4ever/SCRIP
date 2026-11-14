@@ -4,9 +4,6 @@
 #include <string.h>
 #include "emitter/sil_macros.h"
 #include "ir/bb_pool.h"
-#include "ir/ast.h"
-#include "ir/bb_box.h"
-#include "ir/ast.h"
 #include "ir/bb_box.h"
 const char *Σ = NULL;
 int Δ = 0;

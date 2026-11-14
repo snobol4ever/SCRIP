@@ -2,9 +2,10 @@
 #include <stdint.h>
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/ast.h"
+#include "emitter/emit_state_.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/descr.h"
 struct DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_num_neg(struct DESCR_t a);

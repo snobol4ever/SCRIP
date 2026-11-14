@@ -10,6 +10,9 @@
 #include "parsers/raku/rk_tree/rkt_03_sh.h"
 #include "parsers/raku/rk_tree/rkt_04_sh.h"
 #include "parsers/raku/rk_tree/rkt_05_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 tree_t *rk_defined_op(RkB *b, int kind, tree_t *l, tree_t *r);
 static tree_t *rkb_smartmatch_raw(RkB *b, tree_t *l, tree_t *r);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

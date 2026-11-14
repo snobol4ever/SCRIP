@@ -2,7 +2,8 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_call.h"

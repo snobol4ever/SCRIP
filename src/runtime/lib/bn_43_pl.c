@@ -1,6 +1,11 @@
-#include "runtime/lib/bn_head.h"
 #include "runtime/rt/prolog_atom.h"
 #include "runtime/lib/bn_05_pl.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_store_k_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_term_cell(void *, void *);

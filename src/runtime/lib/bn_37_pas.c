@@ -1,9 +1,17 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pas_wsink.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
 #include <ctype.h>
 #include "runtime/lib/bn_17_pas.h"
 #include "runtime/lib/bn_37_pas.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 double pas_xr_todouble(DESCR_t d);
 static void pas_currency_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

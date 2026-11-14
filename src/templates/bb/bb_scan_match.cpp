@@ -2,8 +2,8 @@
 #include <cstring>
 #include <cstdint>
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);

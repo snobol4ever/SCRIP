@@ -3,7 +3,7 @@
 #include "runtime/core/g_runtime_misc.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "lower/lower_snobol4.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
@@ -16,6 +16,13 @@
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 int rt_kw_index(const char * kw);
 int sno_sub_val_on(void) {
     if (g_lower_sno.sno_sub_val_on_v < 0) { const char * e = getenv("SCRIP_SUB_VAL"); g_lower_sno.sno_sub_val_on_v = (e && *e == '0') ? 0 : 1; }

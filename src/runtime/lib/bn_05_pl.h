@@ -1,6 +1,11 @@
 #ifndef RUNTIME_LIB_BN_05_PL_H
 #define RUNTIME_LIB_BN_05_PL_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_flag.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 __attribute__((visibility("hidden"))) int plw_bind_vv(DESCR_t *A, DESCR_t *B, pl_tr_ctx_t *cx, const char *floor_);
 __attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb, pl_tr_ctx_t *cx);
 DESCR_t rt_pl_deref_val(DESCR_t v);

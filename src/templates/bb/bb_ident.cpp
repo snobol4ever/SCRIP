@@ -2,7 +2,7 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 int descr_identical(DESCR_t a, DESCR_t b);
 }

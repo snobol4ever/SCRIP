@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_05_RK_H
 #define LOWER_LOWER_RAKU_LRK_05_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_destr_count(const char * pn);
 __attribute__((visibility("hidden"))) int rk_destr_plan(const char * pn, const tree_t ** plan, int nplan);
 __attribute__((visibility("hidden"))) int rk_subsig_count(const tree_t * pv);

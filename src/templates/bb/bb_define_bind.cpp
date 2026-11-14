@@ -4,8 +4,11 @@
 #include <cstdio>
 #include <vector>
 #include "emitter/emit_str.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "runtime/rt/rt.h"
 #include "runtime/core/trace.h"

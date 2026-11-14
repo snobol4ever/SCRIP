@@ -2,7 +2,7 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "ir/descr.h"
 void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp);

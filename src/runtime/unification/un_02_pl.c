@@ -6,6 +6,11 @@
 #include "runtime/unification/un_06_pl.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/g_runtime_atoms.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "ir/descr_tags_dt_platom.h"
 extern int plw_unify_cells_x(DESCR_t *, DESCR_t *, pl_tr_ctx_t *);
 extern void plw_bind_x(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 extern const char *prolog_atom_name(int id);

@@ -2,7 +2,9 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <math.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
 #include "lower/lower_pascal_tree/lpt_03_pas.h"
@@ -13,6 +15,7 @@
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static void pas_openparm_add(const char *name, unsigned long long m);
 static void pas_caparm_add(const char *name, unsigned long long m, const long long *lo);
 void *pas_pool_grow(void *p, int *cap, size_t esz, int init) {

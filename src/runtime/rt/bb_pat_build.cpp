@@ -1,13 +1,15 @@
 extern "C" {
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/ast.h"
+#include "ir/ast_print_api.h"
 #include "ir/bb_pool.h"
-#include "ir/bb_box.h"
+#include "ir/bb_box_fn.h"
 #include "planner/frame_layout.h"
 extern "C" int rt_gc_in_arena(const char *);
 }
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 extern "C" void fc_tables_reset(void);
 extern "C" void bb_src_reset(void);
 extern "C" {

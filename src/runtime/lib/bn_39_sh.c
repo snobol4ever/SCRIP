@@ -1,4 +1,7 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_numrel.h"
+#include "runtime/lib/bn_head_bn_ptrlen.h"
+#include "runtime/lib/bn_head_sv_len.h"
 #include "runtime/core/core_error.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
@@ -6,6 +9,18 @@
 #include "runtime/rt/rt_list_view.h"
 #include "runtime/lib/bn_39_sh.h"
 #include <time.h>
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_bn_39_sh_api.h"
+#include "runtime/core/core_string_builtins_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/builtins/gen_runtime_string_ops_api.h"
+#include "runtime/builtins/gen_runtime_values_api.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     if (nargs != 2) return -1;

@@ -2,6 +2,10 @@
 #include "parsers/snobol4/scrip_cc.h"
 #include <stdint.h>
 #include "lower/g_lower_ir.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_augop_binop_tt.h"
+#include "ir/ast.h"
+#include "ir/ast_print_api.h"
 #define AST_PRINT_MAX_DEPTH 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void print_escaped(const char * s, FILE * f) {

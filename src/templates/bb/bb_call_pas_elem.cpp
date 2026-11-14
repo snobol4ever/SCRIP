@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 }
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_jump.h"

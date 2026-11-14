@@ -1,4 +1,9 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_gram_ent.h"
+#include "runtime/lib/bn_head_gram_n.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_rt_syn.h"
+#include "runtime/lib/bn_head_g_rt_syn_n.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/core/core_error.h"
 #include <sys/stat.h>
@@ -27,6 +32,16 @@
 #include "runtime/core/g_runtime_pas.h"
 #include "runtime/core/g_runtime_bn.h"
 #include <time.h>
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
 static int pl_getc_cp_raw(FILE *f, char *seq, int *seqn);

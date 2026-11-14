@@ -1,7 +1,7 @@
 #include <string>
 #include <stdint.h>
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t rt_proc_value(const char *name);
 }

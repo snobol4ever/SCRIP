@@ -9,9 +9,12 @@
 #include <sys/wait.h>
 #include "ir/descr.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "runtime/core/array.h"
 #include "runtime/core/table.h"
 #include "runtime/core/datatype.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t rt_pas_resundef(DESCR_t *, int);
 DESCR_t rt_pas_sin(DESCR_t *, int);

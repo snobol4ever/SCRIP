@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 int is_global(const char * name);
 struct DESCR_t * NV_PTR_fn(const char * name);

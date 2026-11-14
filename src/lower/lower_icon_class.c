@@ -1,9 +1,11 @@
 #include <string.h>
 #include <stdio.h>
 #include "ir/ct_arena.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "lower/g_lower_icn.h"
 #include "parsers/snobol4/scrip_cc.h"
 typedef struct { const char ** v; int n, cap; } cx_sv;

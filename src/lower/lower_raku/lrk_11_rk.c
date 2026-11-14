@@ -1,12 +1,15 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
-#include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_raku/lrk_01_sh.h"
 #include "lower/lower_raku/lrk_02_rk.h"
 #include "lower/lower_raku/lrk_03_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_11_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t * rk_clone_tree(const tree_t * t) {
     if (!t) return NULL;

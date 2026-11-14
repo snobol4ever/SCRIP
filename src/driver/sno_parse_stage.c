@@ -3,8 +3,11 @@
 #include <string.h>
 #include <stdint.h>
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 #define BB_DEFINE_NAMES 1
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "ir/ct_arena.h"
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"

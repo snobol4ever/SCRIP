@@ -1,6 +1,7 @@
 #ifndef PL_AGGREGATE_NAMES_H
 #define PL_AGGREGATE_NAMES_H
 #include <string.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 static inline const char * pl_aggregate_all_native_kind(const tree_t * spec) {
     static const char * const kinds[] = { "count", "max", "min", "sum", "bag", "set", NULL };

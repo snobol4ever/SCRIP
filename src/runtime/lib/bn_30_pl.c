@@ -1,6 +1,10 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pl_atom_op_leaf.h"
+#include "runtime/lib/bn_head_pl_flag.h"
 #include <math.h>
 #include "runtime/rt/prolog_atom.h"
+#include "runtime/rt/prolog_atom_prolog_max_arity.h"
 #include "runtime/core/utf8.h"
 #include "runtime/pl_rat.h"
 #include <errno.h>
@@ -12,6 +16,14 @@
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_33_pl.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 int rt_pl_term_variables_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *);
 extern int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in, char *b);

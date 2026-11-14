@@ -1,0 +1,5 @@
+#ifndef STAGE2_PROC_THUNK_PATTERN_H
+#define STAGE2_PROC_THUNK_PATTERN_H
+#include <stdint.h>
+enum { PROC_THUNK_NONE = 0, PROC_THUNK_PATTERN = 1, PROC_THUNK_EXPR = 2 };
+#endif

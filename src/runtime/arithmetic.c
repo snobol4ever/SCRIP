@@ -1,23 +1,26 @@
 #include <errno.h>
 #include "runtime/core/g_runtime.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_rt_plain_int_str.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include <setjmp.h>
 #include "emitter/sil_macros.h"
 #include "runtime/rt/rt.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "ir/rk_opname.h"
 #include "runtime/builtins/gen.h"
 #include "ir/ct_vec.h"
 #include "ir/ir_fwd.h"
-#include "ir/bb_box.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/SM.h"
-#include "runtime/keywords.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
-#include "runtime/builtins/gen_runtime.h"
-#include "runtime/rt/prolog_atom.h"
+#include "runtime/builtins/gen_runtime_icon_runtime_api.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -25,6 +28,7 @@
 #include "runtime/core/core_error.h"
 #include "runtime/core/icn_builtins.h"
 #include "runtime/core/table.h"
+#include "ir/descr_tags_dt_platom.h"
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
     ; abort(); } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

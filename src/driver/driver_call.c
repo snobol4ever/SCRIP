@@ -5,12 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "ir/ir_fwd.h"
 #include "ir/bb_box.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "ir/descr.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "ir/ast.h"
 #include "driver/driver.h"
 #include "ir/ct_vec.h"
@@ -20,6 +22,7 @@
 #include "runtime/core/comm_var.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/nv.h"
+#include "ir/descr_tags_dt_platom.h"
 cv_t init_tab_v;
 int init_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

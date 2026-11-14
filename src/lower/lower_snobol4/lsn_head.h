@@ -1,7 +1,8 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_HEAD_H
 #define LOWER_LOWER_SNOBOL4_LSN_HEAD_H
 #include "ir/ir_node.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
+#include "ir/ast.h"
 extern void global_register(const char * name);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; int ppos; IR_t * prim2; } sprearg_t;
 typedef struct sno_kw_link { const char * nm; const struct sno_kw_link * up; } sno_kw_link_t;

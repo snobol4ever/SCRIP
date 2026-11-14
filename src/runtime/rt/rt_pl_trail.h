@@ -2,12 +2,10 @@
 #define RT_PL_TRAIL_H
 #include <stdint.h>
 #include "ir/descr.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
-typedef struct { int64_t depth, low, next, done, uncond, sched; DESCR_t pcons, ncons; } pl_trie_sl_t;
-typedef struct pl_tr_ctx_s { char *tr; char *b; void *ball; uint64_t rbx; uint64_t r14; uint64_t r15; } pl_tr_ctx_t;
 void *rt_pl_tr_init(void);
 void *rt_pl_tr_new_arena(void **slab_out);
 void rt_pl_tr_free_arena(const char *tr, void *slab);

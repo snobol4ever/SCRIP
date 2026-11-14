@@ -3,6 +3,7 @@
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"
+#include "ir/ast.h"
 #define T_EOF SNOBOL4_EOF
 #include <stdio.h>
 #include <stdlib.h>

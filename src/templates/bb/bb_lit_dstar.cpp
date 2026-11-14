@@ -2,9 +2,9 @@
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 const char * bb_ab_sym_name(const char * nm);
-#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "ir/dtp.h"
 }
 #include "templates/x86/x86_ops.h"

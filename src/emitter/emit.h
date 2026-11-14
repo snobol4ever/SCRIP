@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ir/bb_box.h"
+#include "ir/bb_box_fn.h"
 #include "emitter/bb_label.h"
 #ifdef __cplusplus
 extern "C" {

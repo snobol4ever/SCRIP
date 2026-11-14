@@ -1389,6 +1389,8 @@ char *yytext;
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_node_new.h"
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
 int pascal_cenv_int(const char *name, long long *out);

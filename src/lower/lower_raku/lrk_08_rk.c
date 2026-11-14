@@ -4,8 +4,9 @@
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
 #include "lower/lower_raku/lrk_03_rk.h"
@@ -15,6 +16,10 @@
 #include "lower/lower_raku/lrk_08_rk.h"
 #include "lower/lower_raku/lrk_09_sh.h"
 #include "lower/lower_raku/lrk_11_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * rk_tern_branch(rcx_t * cx, const tree_t * br, IR_t * at, IR_t * ω) {
     extern int is_global(const char *);

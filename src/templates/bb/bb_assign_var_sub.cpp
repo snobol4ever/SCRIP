@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
 extern DESCR_t rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);

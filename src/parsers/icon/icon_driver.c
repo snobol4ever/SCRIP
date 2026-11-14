@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <limits.h>
 #include <dirent.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * icn_read_file(const char * path) {
     FILE * f = fopen(path, "rb");

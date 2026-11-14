@@ -5,11 +5,15 @@
 #include "parsers/prolog/pl_cell.h"
 #include "runtime/prolog_db_blocks.h"
 #include "runtime/core/g_runtime_entry.h"
-#include "runtime/rt/rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
 #include "ir/ir_fwd.h"
 #include "runtime/rt/pl_rational.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 #define PL_CELL_ALLOC(n) (rt_ws_alloc_descr((size_t)(n) / sizeof(pl_cell_t)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

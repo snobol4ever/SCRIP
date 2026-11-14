@@ -1,7 +1,6 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_snobol4/lsn_03_sno.h"
@@ -9,6 +8,11 @@
 #include "lower/lower_snobol4/lsn_05_sno.h"
 #include "lower/lower_snobol4/lsn_06_sh.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sx_sub_container_only(IR_t * sub) { const char * e = getenv("SCRIP_SUB_AGG"); if (!(e && *e == '0')) IR_LIT(sub).sval = "container-only"; }
 char * sno_scan_tmp(const char * pfx) {

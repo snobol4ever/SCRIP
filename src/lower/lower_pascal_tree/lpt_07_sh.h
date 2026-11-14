@@ -2,6 +2,7 @@
 #define LOWER_LOWER_PASCAL_TREE_LPT_07_SH_H
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 __attribute__((visibility("hidden"))) tree_t *pas_pf_callthrough(const char *name, PNodeList *args);
 __attribute__((visibility("hidden"))) tree_t *leaf_s(tree_e k, const char *s);

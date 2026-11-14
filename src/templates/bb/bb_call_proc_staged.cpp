@@ -1,4 +1,4 @@
-#include "runtime/core/core.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
 #include <string>
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_eval.h"
@@ -12,17 +12,20 @@
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
 #include "planner/frame_layout.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern "C" int emit_zrow_actoff(const IR_t * nd);
 extern "C" int emit_zrow_sprec(const IR_t * nd);
 extern "C" {
 #include "bb_templates.h"
 #include "emitter/bb_label.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "runtime/rt/pl_trail_layout.h"
-#include "runtime/rt/rt_pl_trail.h"
 #include "bb_pl_cell.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
 void *rt_proc_call_open_det(long idx, int nargs);

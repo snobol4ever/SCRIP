@@ -1,6 +1,8 @@
 #ifndef RUNTIME_LIB_BN_10_PAS_H
 #define RUNTIME_LIB_BN_10_PAS_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 void rt_pl_iso_throw_existence_key(const char *key);
 __attribute__((visibility("hidden"))) DESCR_t elem_to_descr(const char *s, size_t slen);
 __attribute__((visibility("hidden"))) int jct_one_cmp_num(double a, double b, int op);

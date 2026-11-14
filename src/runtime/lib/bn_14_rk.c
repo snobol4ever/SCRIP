@@ -1,4 +1,8 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_cbh.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/lib/bn_head_rk_arr_bound.h"
+#include "runtime/lib/bn_head_rk_adv.h"
 #include "ir/rk_opname.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
@@ -17,6 +21,15 @@
 #include "runtime/lib/bn_17_pas.h"
 #include "runtime/lib/bn_18_rk.h"
 #include "runtime/lib/bn_19_rk.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 int rk_is_seq(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_seq; }
 int rk_seq_is_lazy(DESCR_t v) { return rk_is_seq(v) && (((ARBLK_t *) v.arr)->proto_bare & RK_SEQ_LAZY); }

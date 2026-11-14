@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "ir/ct_arena.h"
 void ir_vslot_push(IR_graph_t * g, const char * name, int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_graph_facts(IR_graph_t * g) {

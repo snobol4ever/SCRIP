@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_29_PL_H
 #define RUNTIME_LIB_BN_29_PL_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 DESCR_t dop_write(DESCR_t *args, int nargs);
 DESCR_t dop_pl_writeln(DESCR_t *args, int nargs);
 DESCR_t dop_pl_tab(DESCR_t *args, int nargs);

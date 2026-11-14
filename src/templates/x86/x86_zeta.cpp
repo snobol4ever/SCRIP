@@ -5,7 +5,7 @@
 #include <string>
 #include "templates/x86/x86_zeta.h"
 #include "templates/x86/x86_zverify.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "templates/x86/x86_ops.h"
 extern "C" const char * bb_kind_name(int op);
 static const char * ZLOC(int o);

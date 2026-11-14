@@ -1,8 +1,9 @@
 #include "const_fold.h"
 #include "ir/ir_graph.h"
-#include "ir/bb_box.h"
 #include "runtime/core/g_runtime_entry.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"
@@ -13,6 +14,7 @@
 #include <setjmp.h>
 #include <math.h>
 #include "runtime/core/core_errjmp.h"
+#include "ir/descr_tags_dt_platom.h"
 extern DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 extern DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 extern DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b);

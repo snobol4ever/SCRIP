@@ -14,7 +14,7 @@ extern "C" {
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
 #include "ir/ir_construct.h"
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 }
 extern "C" {
 #include "planner/g_planner.h"

@@ -1,4 +1,13 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_type_leaf.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pl_atom_op_leaf.h"
+#include "runtime/lib/bn_head_pl_in_leaf.h"
+#include "runtime/lib/bn_head_pl_flag.h"
+#include "runtime/lib/bn_head_pl_gnu_sort1_leaf.h"
+#include "runtime/lib/bn_head_plw_unbound_tag.h"
+#include "runtime/lib/bn_head_plw_cell_deref.h"
+#include "runtime/lib/bn_head_plw_entry.h"
 #include <sys/stat.h>
 #include "runtime/rt/prolog_atom.h"
 #include "runtime/core/runtime_shim.h"
@@ -21,6 +30,16 @@
 #include "runtime/lib/bn_33_pl.h"
 #include "runtime/lib/bn_34_pl.h"
 #include "runtime/core/g_runtime_atoms.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_runtime_init_api.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_entry.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 int rt_pl_keysort_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_compare_cell(void *, void *, void *, pl_tr_ctx_t *);

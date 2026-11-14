@@ -1,7 +1,7 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "lower/lower_common.h"
 #include "lower/lower_snobol4/lsn_02_sno.h"
 #include "lower/lower_snobol4/lsn_03_sno.h"
@@ -11,6 +11,10 @@
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 static const char * sno_pat_collect(const tree_t * pat);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_pat_dfree(const tree_t * t, int spine, int depth) {

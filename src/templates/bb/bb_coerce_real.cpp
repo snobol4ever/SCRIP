@@ -2,7 +2,7 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes);
 }

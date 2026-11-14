@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_prolog_chr.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "lower/lower_common.h"
 typedef struct { const char * name; int arity; } ch_con_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

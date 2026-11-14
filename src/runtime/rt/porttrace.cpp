@@ -2,7 +2,7 @@
 #include "ir/ct_arena.h"
 #include <cstdlib>
 #include <cstring>
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "portcount.h"
 #include "rt_diag.h"
 #if RT_DIAG

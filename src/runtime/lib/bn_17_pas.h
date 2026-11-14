@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_17_PAS_H
 #define RUNTIME_LIB_BN_17_PAS_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) long long rk_ival(DESCR_t v);
 __attribute__((visibility("hidden"))) unsigned pas_mt_u32rand(void);
 __attribute__((visibility("hidden"))) DESCR_t *pas_heap_ref(DESCR_t p, const char *fn);

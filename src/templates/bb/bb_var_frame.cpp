@@ -4,8 +4,8 @@
 #include <cstring>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 int stage2_owner_varslot(const char * proc, const char * var);
 const char * stage2_owner_l3_ancestor(const char * proc);
 }

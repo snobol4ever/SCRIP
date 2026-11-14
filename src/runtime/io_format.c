@@ -1,10 +1,15 @@
 #include "runtime/rt/rt.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
-#include "runtime/rt/prolog_atom.h"
+#include "runtime/core/core_io_format_api.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void output_val(DESCR_t v) {
     if (v.v == DT_S && v.slen && v.slen != 0xFFFFFFFFu) { if (v.s) fwrite(v.s, 1, (size_t)v.slen, stdout); fputc('\n', stdout); return; }

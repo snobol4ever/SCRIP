@@ -2,6 +2,7 @@
 #define PARSERS_RAKU_RK_TREE_RKT_04_SH_H
 #include "parsers/raku/rk_tree/rkt_head.h"
 #include "parsers/raku/rk_tree.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int line_at(RkB *b, int pos);
 __attribute__((visibility("hidden"))) const char *strip_sigil(const char *s);
 __attribute__((visibility("hidden"))) const char *rk_tw_bare(const char *s);

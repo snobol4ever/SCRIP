@@ -1,7 +1,10 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_proc_thunk_pattern.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_snobol4/lsn_01_sno.h"
@@ -13,6 +16,12 @@
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 int rt_kw_index(const char * kw);
 extern int stage2_proc_grow(stage2_t * s2);
 static int sno_pat_right_sealed(const tree_t * t);

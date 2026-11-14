@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "core.h"
+#include "runtime/core/core_argval_api.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
 #include "emitter/sil_macros.h"
 #include "runtime/core/nv.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t VARVAL_d_fn(DESCR_t d) {
     if (d.v == DT_FAIL) return FAILDESCR;

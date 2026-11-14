@@ -9,6 +9,9 @@
 #include "parsers/raku/rk_syntax/rks_05_sh.h"
 #include "parsers/raku/rk_syntax/rks_06_sh.h"
 #include "parsers/raku/rk_syntax/rks_07_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 static int r_package_def(RkP *p, int pos, const char *kind);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int asc_word(int b) { return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' || b >= 0x80; }

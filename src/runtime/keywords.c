@@ -6,9 +6,10 @@
 #include "ir/descr.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rt_diag.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
 #include "emitter/sil_macros.h"
-#include "keywords.h"
+#include "runtime/keywords.h"
 #include "runtime/rt/rt_coexpr.h"
 #include "runtime/rtx/rtcc.h"
 #include "ir/ab_abi.h"
@@ -19,6 +20,8 @@
 #include "runtime/core/core_error.h"
 #include "runtime/core/trace.h"
 #include "runtime/core/nv.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 const char *cset_canonical(const char *cs, int len);
 void fh_ensure_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

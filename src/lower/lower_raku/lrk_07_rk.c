@@ -1,8 +1,8 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
 #include "lower/lower_raku/lrk_03_rk.h"
@@ -10,6 +10,11 @@
 #include "lower/lower_raku/lrk_06_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_11_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static void rk_cap_walk(tree_t * t, const rk_ns_t * encl);
 static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl);
 static void rk_cap_proc_m(tree_t * sd, int mth);

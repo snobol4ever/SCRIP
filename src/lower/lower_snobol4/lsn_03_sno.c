@@ -2,7 +2,7 @@
 #include "runtime/core/g_runtime_eval.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_snobol4/lsn_01_sno.h"
@@ -14,6 +14,11 @@
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_fatal(const char * what, const char * detail) {

@@ -1,10 +1,16 @@
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_string_builtins_api.h"
 #include "runtime/core/core_error.h"
 #include "emitter/sil_macros.h"
 #include "runtime/core/utf8.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include <string.h>
 #include <stdlib.h>
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
     if (!is_numeric_like(n)) { core_runtime_error(90, "dupl second argument is not integer"); return FAILDESCR; }

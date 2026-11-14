@@ -1,8 +1,10 @@
 #include <string>
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t icn_field_get(const char *fname, DESCR_t obj);
 extern DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1);

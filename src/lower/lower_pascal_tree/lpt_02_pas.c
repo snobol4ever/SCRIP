@@ -1,7 +1,9 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
 #include "lower/lower_pascal_tree/lpt_02_pas.h"
@@ -12,6 +14,7 @@
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
+#include "ir/ct_arena.h"
 static const char *pas_elem_rectype(tree_t *e);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_recvar_field_is_bool(const char *vn, long idx);

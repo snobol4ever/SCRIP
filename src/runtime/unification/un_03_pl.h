@@ -1,6 +1,9 @@
 #ifndef RUNTIME_UNIFICATION_UN_03_PL_H
 #define RUNTIME_UNIFICATION_UN_03_PL_H
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words);
 __attribute__((visibility("hidden"))) pl_cell_t plc_atom_id_cell(int id);
 __attribute__((visibility("hidden"))) void plc_put_float(plc_vmap *m, pl_cell_t *d);

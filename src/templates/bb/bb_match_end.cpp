@@ -2,10 +2,10 @@
 #include <cstdint>
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"
-#include "ir/bb_box.h"
 #include "emitter/emit_str.h"
+#include "ir/descr.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 }
 extern "C" uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);

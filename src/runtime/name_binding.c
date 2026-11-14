@@ -1,7 +1,9 @@
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_name_binding_api.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/stage2_scope.h"
+#include "ir/stage2_scope_reserve.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scope_add(Scope *sc, const char *name) {
     if (!name) return -1;

@@ -1,7 +1,7 @@
 #ifndef BUILTIN_IDS_H
 #define BUILTIN_IDS_H
 #include <string.h>
-#include "builtin_table.h"
+#include "runtime/builtin_table.h"
 #define BID_x2Ax2A 1
 #define BID_x2Bx2B 2
 #define BID_x2Dx2D 3

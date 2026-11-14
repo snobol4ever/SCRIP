@@ -1,6 +1,9 @@
 #include "icon_parse.h"
 #include "ir/ct_arena.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_augop_cset_union.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include <stdlib.h>
 #include <string.h>

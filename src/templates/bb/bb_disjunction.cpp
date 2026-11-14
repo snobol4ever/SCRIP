@@ -2,7 +2,8 @@
 #include <cstdint>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_xa_pair.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 }
 #include "templates/x86/x86_ops.h"

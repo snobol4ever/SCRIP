@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_03_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_03_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) void sno_fatal(const char * what, const char * detail);
 __attribute__((visibility("hidden"))) const tree_t * sfind(const tree_t * s, const char * tag);
 __attribute__((visibility("hidden"))) const char * sfind_str(const tree_t * s, const char * tag);

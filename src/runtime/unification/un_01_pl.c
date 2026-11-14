@@ -1,7 +1,8 @@
 #include "runtime/unification/un_head.h"
 #include <math.h>
 #include "runtime/pl_rat.h"
-#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "runtime/rt/prolog_atom.h"
 #include <ctype.h>
 #include <locale.h>
@@ -12,6 +13,11 @@
 #include "runtime/unification/un_05_pl.h"
 #include "runtime/core/g_runtime_atoms.h"
 #include <time.h>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "ir/descr_tags_dt_platom.h"
 static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val);
 extern int plw_unify_cell_val(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 extern int rt_pl_dialect_swi(void);

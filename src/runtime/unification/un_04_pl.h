@@ -1,6 +1,7 @@
 #ifndef RUNTIME_UNIFICATION_UN_04_PL_H
 #define RUNTIME_UNIFICATION_UN_04_PL_H
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 __attribute__((visibility("hidden"))) FILE *plc_out(void);
 __attribute__((visibility("hidden"))) int plc_is_op_atom(pl_cell_t *d);
 __attribute__((visibility("hidden"))) void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m);

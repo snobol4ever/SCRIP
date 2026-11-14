@@ -1,13 +1,11 @@
 #include "emitter/em/em_head.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_regime.h"
-#include "ir/bb_box.h"
 #include "emitter/bb_label.h"
 #include "ir/gc_frame_map.h"
 #include "ir/dtp.h"
 #include "templates/bb/bb_templates.h"
 #include "driver/scrip_sm.h"
-#include "ir/stage2.h"
 #include "templates/xa/xa_templates.h"
 #include "planner/g_planner.h"
 #include "ir/ir_fwd.h"
@@ -16,6 +14,7 @@
 #include "runtime/core/g_runtime_entry.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 extern "C" {
 #include "planner/zeta_plan.h"
 }

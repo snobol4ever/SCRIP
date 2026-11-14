@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
 #include "runtime/by_name_dispatch.h"
 #include <sys/stat.h>
 #include <math.h>
@@ -13,6 +14,17 @@
 #include "runtime/lib/bn_16_rk.h"
 #include "runtime/lib/bn_24_sh.h"
 #include "runtime/lib/bn_25_sh.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/gc_heap_rt_gc_callback.h"
+#include "runtime/builtins/gen.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern void *rt_ws_alloc_descr(size_t);
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
 extern FILE *fh_get(int);

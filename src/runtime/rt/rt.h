@@ -2,7 +2,10 @@
 #ifndef RT_H
 #define RT_H
 #include <stdint.h>
-#include "gc_heap.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_runtime_init_api.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 struct IR_graph_t;
 #ifndef DESCR_T_DEFINED
 #define DESCR_T_DEFINED
@@ -68,7 +71,7 @@ void rt_choice_cut_unwind(void *cp);
 int rt_get_cut_flag(void);
 long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
 void rt_init_arbno(void **slot_ptr, void *child_fn);
-#include "ir/bb_box.h"
+#include "ir/bb_box_fn.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
 typedef struct rt_proc_reg_rec {

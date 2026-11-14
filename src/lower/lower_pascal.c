@@ -4,14 +4,20 @@
 #include <stdio.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_scope.h"
+#include "ir/stage2_scope_reserve.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal.h"
 #include "lower/lower_pascal_tree.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen_runtime.h"
-#include "ir/ir_graph.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
+#include "runtime/builtins/gen_runtime_name_binding_api.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "lower/lc_vec.h"
 #include "lower/lower_common.h"
 #include "lower/g_lower_pas.h"
@@ -1423,8 +1429,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     }
     return g;
 }
-#include "ir/stage2.h"
-#include "ir/bb_program.h"
+#include "ir/bb_program_scrip_ir_api.h"
 extern int scope_get(Scope *sc, const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pascal_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_pascal_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }

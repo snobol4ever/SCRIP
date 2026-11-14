@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "ir/descr.h"
 #include "ir/ir_fwd.h"
+#include "ir/descr_tags_descr_sassert.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

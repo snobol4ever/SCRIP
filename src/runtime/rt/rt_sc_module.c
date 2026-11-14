@@ -10,9 +10,10 @@
 #include <sys/resource.h>
 #include "ir/descr.h"
 #include "runtime/core/core.h"
-#include "ir/ast.h"
 #include "ir/pin_va.h"
 #include "rt_sc_module.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 enum { SC_GVA_RESERVE = 741 };
 #include "runtime/rtx/rtcc.h"
 extern void core_lib_init(void);

@@ -57,6 +57,8 @@ extern int pascal_yydebug;
 
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_node_new.h"
 enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
 int pascal_dialect(void);
 void pascal_dialect_set(int d);
@@ -84,7 +86,7 @@ int pascal_last_tok(void);
 void pascal_last_ident_set(const char *p, int n);
 tree_t *pascal_last_ident_qlit(void);
 
-#line 88 "pascal.tab.h"
+#line 90 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -199,10 +201,10 @@ tree_t *pascal_last_ident_qlit(void);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 210 "pascal.y"
+#line 212 "pascal.y"
  tree_t *node; 
 
-#line 206 "pascal.tab.h"
+#line 208 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

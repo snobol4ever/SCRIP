@@ -1,6 +1,8 @@
 #ifndef RUNTIME_LIB_BN_31_PL_H
 #define RUNTIME_LIB_BN_31_PL_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) DESCR_t pl_mk_atom_dup(const char *s, size_t n);
 __attribute__((visibility("hidden"))) DESCR_t pl_text_list(const char *s, int codes);
 __attribute__((visibility("hidden"))) DESCR_t pl_text_dlist(const char *s, size_t len, int codes, DESCR_t tail);

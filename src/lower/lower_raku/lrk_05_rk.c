@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
@@ -12,6 +11,11 @@
 #include "lower/lower_raku/lrk_05_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_09_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static rkrx_t rk_rx_lower(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t * land, const rkrx_groups_t * gr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_destr_count(const char * pn) { if (!pn || (pn[0] != '[' && pn[0] != '(')) return 0; int n = 1; for (const char * q = pn; *q; q++) if (*q == ',') n++; return n; }

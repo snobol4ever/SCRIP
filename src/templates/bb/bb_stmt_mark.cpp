@@ -4,7 +4,7 @@
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "runtime/core/trace.h"
 }
 #include "templates/x86/x86_ops.h"

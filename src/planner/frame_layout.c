@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/ir_construct.h"
 #include "frame_layout.h"
 #include "zeta_depth.h"
 #include "ir/gc_frame_map.h"
-#include "ir/ast.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "lower/g_lower_ir.h"
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/call_forms.h"
 #include "runtime/rt/pl_trail_layout.h"
 _Static_assert(TABLE_HDR_CELLS == PL_TBH_CELLS + 5, "the table header is its forwarded cells and a tail of five");

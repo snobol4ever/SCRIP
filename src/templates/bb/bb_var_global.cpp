@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include "emitter/emit_str.h"
 #include "bb_templates.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 #include "runtime/core/trace.h"
 extern int g_gva_active;

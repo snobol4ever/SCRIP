@@ -1,7 +1,6 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
 #include <stdlib.h>
-#include "ir/stage2.h"
 #include "lower/lower_raku.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
@@ -10,6 +9,11 @@
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_12_rk.h"
 #include "lower/g_lower_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_ss_is_check(const tree_t * d) { return d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0] && d->c[0]->v.sval && !strncmp(d->c[0]->v.sval, "__ssf_", 6); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

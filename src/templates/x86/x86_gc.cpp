@@ -5,7 +5,8 @@
 #include <string>
 #include "templates/x86/x86_gc.h"
 #include "emitter/emit_medium.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
 #include "templates/x86/x86_frame.h"
@@ -14,6 +15,7 @@
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_rtcc.h"
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "ir/ir_graph.h"
 extern "C" { extern uint64_t g_rtccb[32]; }
 extern "C" void rt_gc_poll_asm(void);

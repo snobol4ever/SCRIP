@@ -2,8 +2,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 const char *real_str(double r, char *buf, int bufsz);
 const char *icon_real_str(double r, char *buf, int bufsz);
 int64_t to_int(DESCR_t v);

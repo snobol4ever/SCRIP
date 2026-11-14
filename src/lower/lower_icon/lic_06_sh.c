@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
-#include "runtime/builtins/gen_runtime.h"
 #include "lower/lower_common.h"
 #include "lower/lower_icon/lic_01_sh.h"
 #include "lower/lower_icon/lic_02_sh.h"
@@ -13,6 +11,13 @@
 #include "lower/lower_icon/lic_04_sh.h"
 #include "lower/lower_icon/lic_05_sh.h"
 #include "lower/lower_icon/lic_06_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_augop_cset_union.h"
+#include "ir/ast_augop_binop_tt.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;

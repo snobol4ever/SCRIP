@@ -14,6 +14,7 @@ extern "C" {
 #include "ir/ct_arena.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/gc_frame_map.h"
 #include "ir/ir_node_index.h"
 #include "optimizer/ir_query.h"

@@ -4,7 +4,7 @@
 #include "emitter/emit_str.h"
 #include "bb_templates.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 #include "runtime/core/comm_var.h"
 extern int g_gva_active;

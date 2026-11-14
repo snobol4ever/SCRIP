@@ -1,7 +1,7 @@
 #include <string>
 #include <cstdint>
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 }
 extern "C" long rt_at_cursor(const char *varname, int cur_delta, void *pend);

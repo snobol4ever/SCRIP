@@ -2,6 +2,8 @@
 #define LOWER_LOWER_RAKU_LRK_03_RK_H
 #include "lower/lower_raku/lrk_head.h"
 #include "ir/stage2.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_is_class_name(const char * nm);
 __attribute__((visibility("hidden"))) tree_t * leaf_sval2(tree_e kind, const char * s);
 __attribute__((visibility("hidden"))) tree_t * rk_coerce_val(tree_t * val, const char * base);

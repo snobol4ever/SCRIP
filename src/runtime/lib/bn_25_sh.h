@@ -1,6 +1,10 @@
 #ifndef RUNTIME_LIB_BN_25_SH_H
 #define RUNTIME_LIB_BN_25_SH_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_dtax_ent.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int icn_true_len(DESCR_t d, const char *materialized);
 void pas_tf_write(FILE *fp, DESCR_t v);
 int pas_tf_read(FILE *fp, DESCR_t *o);

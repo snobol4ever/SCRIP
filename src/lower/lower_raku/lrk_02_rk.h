@@ -1,7 +1,8 @@
 #ifndef LOWER_LOWER_RAKU_LRK_02_RK_H
 #define LOWER_LOWER_RAKU_LRK_02_RK_H
 #include "lower/lower_raku/lrk_head.h"
-#include "ir/stage2.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_is_grammar_name(const char * nm);
 __attribute__((visibility("hidden"))) const char * rk_qualified_type_gist(const char * nm);
 __attribute__((visibility("hidden"))) int rk_is_version_lit(const char * s);

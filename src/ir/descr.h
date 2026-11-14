@@ -2,7 +2,7 @@
 #define DESCR_H
 #include <stdint.h>
 #include <stddef.h>
-#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

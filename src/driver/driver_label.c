@@ -1,8 +1,10 @@
 #include <string.h>
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "runtime/core/datatype.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 #include "driver/driver.h"
 #include "driver/driver_label.h"

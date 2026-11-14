@@ -1,7 +1,9 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
 #include "lower/lower_pascal_tree/lpt_02_pas.h"
@@ -14,6 +16,7 @@
 #include "lower/lower_pascal_tree/lpt_09_sh.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 tree_t *mk_call_raw(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");

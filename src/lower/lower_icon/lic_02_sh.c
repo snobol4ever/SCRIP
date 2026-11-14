@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
 #include "lower/lower_common.h"
 #include "lower/lc_vec.h"
 #include "lower/lower_icon/lic_01_sh.h"
@@ -13,6 +12,11 @@
 #include "lower/lower_icon/lic_03_sh.h"
 #include "lower/lower_icon/lic_04_sh.h"
 #include "lower/g_lower_icn.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static int pm_const_int(const tree_t * a, int64_t * v);
 static rx_t * rx_regex(rxs_t * st);
 static tree_t * rx_tr(const rx_t * r, int line);

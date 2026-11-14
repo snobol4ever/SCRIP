@@ -3,6 +3,7 @@
 #include "emitter/em/em_head.h"
 #include "emitter/emit_medium.h"
 #include "emitter/emit_regime.h"
+#include "ir/ir_graph.h"
 extern "C" {
 #include "planner/zeta_plan.h"
 }

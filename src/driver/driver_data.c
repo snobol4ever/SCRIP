@@ -1,16 +1,18 @@
 #include "runtime/rt/rt_arena.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "ir/ir_fwd.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/SM.h"
-#include "runtime/keywords.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
 #include <stdio.h>
 #include <string.h>
-#include "runtime/core/core.h"
-#include "ir/bb_box.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_io_format_api.h"
 #include "driver/driver.h"
 #include "driver/driver_globals.h"
 #include "ir/ct_vec.h"
@@ -20,6 +22,7 @@
 #include "runtime/core/array.h"
 #include "runtime/core/core_error.h"
 #include "runtime/snobol4_system_fns.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_print(DESCR_t *args, int nargs) { if (nargs == 0) { output_str(""); return NULVCL; } for (int i = 0; i < nargs; i++) output_val(args[i]); return NULVCL; }
 static cv_t dat_types_v;
@@ -661,4 +664,3 @@ DESCR_t *data_field_ptr(const char *fname, DESCR_t inst) {
     for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], fname) == 0) return &inst.u->fields[i];
     return NULL;
 }
-#include "runtime/builtins/gen_runtime.h"

@@ -2,7 +2,9 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
@@ -14,6 +16,7 @@
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
+#include "ir/ct_arena.h"
 static int pas_is_int_typename(const char *t);
 static int pas_is_tfilevar(const char *name);
 static int pas_is_boolvar(const char *name);

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_12_RK_H
 #define LOWER_LOWER_RAKU_LRK_12_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int lrk_rk_reads_var(const tree_t * t, const char * nm);
 __attribute__((visibility("hidden"))) void rk_ss_hoist(tree_t * list);
 __attribute__((visibility("hidden"))) void rk_eval_host_classes(const tree_t * t);

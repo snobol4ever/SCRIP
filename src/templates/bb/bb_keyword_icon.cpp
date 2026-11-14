@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 DESCR_t rt_keyword_read(const char *sval);
 DESCR_t rt_keyword_gen(const char *sval, long idx);

@@ -1,4 +1,9 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pas_set_bytes.h"
+#include "runtime/lib/bn_head_plw_unbound_tag.h"
+#include "runtime/lib/bn_head_plw_cell_deref.h"
+#include "runtime/lib/bn_head_plw_entry.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/by_name_dispatch.h"
 #include <math.h>
@@ -11,6 +16,16 @@
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_32_pl.h"
 #include <time.h>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern int rt_proc_is_registered(const char *name);
 extern int rt_pl_db_count(void *);

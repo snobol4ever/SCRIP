@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_03_PL_H
 #define LOWER_LOWER_PROLOG_LPL_03_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) IR_t * lpl_build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω);
 __attribute__((visibility("hidden"))) IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 __attribute__((visibility("hidden"))) int pl_tree_is_big(const tree_t * t);

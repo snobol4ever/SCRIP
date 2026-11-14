@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include "emitter/emit_str.h"
 #include "runtime/keywords.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 DESCR_t rt_keyword_read_snobol4(const char *sval);
 int rt_kw_index(const char *kw);

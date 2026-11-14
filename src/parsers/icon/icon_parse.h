@@ -3,6 +3,7 @@
 #define ICON_PARSE_H
 #include "icon_lex.h"
 #include "parsers/snobol4/scrip_cc.h"
+#include "ir/ast.h"
 typedef struct IcnCrit { tree_t *m; struct IcnCrit *up; int loops; } IcnCrit;
 typedef struct {
     IcnLexer   *lex;

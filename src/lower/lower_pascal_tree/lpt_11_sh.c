@@ -1,7 +1,9 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_tree.h"
 #include "lower/lower_pascal_class.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
@@ -13,6 +15,7 @@
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static pval E_decl_part(const tree_t *n);
 static pval E_body(const tree_t *n);
 static pval E_body(const tree_t *n);

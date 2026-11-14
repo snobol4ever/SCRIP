@@ -1,6 +1,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

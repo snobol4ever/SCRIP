@@ -1,6 +1,5 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include <stdlib.h>
-#include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_snobol4/lsn_02_sno.h"
@@ -9,6 +8,11 @@
 #include "lower/lower_snobol4/lsn_07_sno.h"
 #include <time.h>
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 extern int snobol4_list_event_count(void);
 extern int snobol4_list_event_nend(int);
 extern int snobol4_list_event_kind(int);

@@ -2,6 +2,7 @@
 #define LOWER_LOWER_PROLOG_LPL_04_PL_H
 #include "lower/lower_prolog/lpl_head.h"
 #include "ir/ct_vec.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) void pl_refuse(const char * what, const char * detail, int rung);
 __attribute__((visibility("hidden"))) int pl_undo_wrap(const lcx_t * cx, const tree_t * const * gl, int ng, const tree_t ** out);
 __attribute__((visibility("hidden"))) const tree_t * pl_atom_goal(const char * nm);

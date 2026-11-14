@@ -1,8 +1,7 @@
-#include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
 #include "ir/rk_opname.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
-#include "runtime/rt/prolog_atom.h"
 #include "driver/driver_globals.h"
 #include "runtime/rx.h"
 #include "runtime/core/utf8.h"
@@ -16,6 +15,15 @@
 #include "runtime/lib/bn_22_rk.h"
 #include "runtime/lib/bn_34_pl.h"
 #include "runtime/rk_case_table.inc"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core.h"
+#include "runtime/core/core_string_builtins_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern FILE *fh_get(int);
 const char *rk_typeobj_name(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_TY) ? v.s + 1 : NULL; }

@@ -1,4 +1,6 @@
+#include "runtime/lib/bn_head_call_args.h"
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
 #include "runtime/rt/rt_arena.h"
 #include "driver/driver_globals.h"
 #include "driver/driver_data.h"
@@ -11,6 +13,14 @@
 #include "runtime/lib/bn_20_pl.h"
 #include "runtime/lib/bn_21_sh.h"
 #include "runtime/rk_unicode_norm_tables.inc"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
 extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);

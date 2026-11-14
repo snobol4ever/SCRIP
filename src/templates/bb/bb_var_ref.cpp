@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
 extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);

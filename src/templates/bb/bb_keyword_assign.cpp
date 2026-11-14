@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 struct DESCR_t rt_keyword_random_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_error_set(struct DESCR_t v);

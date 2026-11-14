@@ -14,6 +14,9 @@
 #include "parsers/raku/rk_syntax/rks_09_sh.h"
 #include "parsers/raku/rk_core_names.inc"
 #include "parsers/raku/raku_setting.inc"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_numeric_other_cp(int c) {
     return (c >= 0xB2 && c <= 0xB3) || c == 0xB9 || (c >= 0xBC && c <= 0xBE) || (c >= 0x2070 && c <= 0x2079 && c != 0x2071 && c != 0x2072 && c != 0x2073) || (c >= 0x2080 && c <= 0x2089) ||

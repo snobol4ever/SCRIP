@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "rk_regex.h"
+#include "ir/ct_arena.h"
 #define RXF_I 1
 #define RXF_M 2
 #define RXF_R 4

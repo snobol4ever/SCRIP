@@ -1,10 +1,12 @@
 #include "parsers/raku/rk_syntax/rks_head.h"
 #include <string.h>
-#include "ir/ct_arena.h"
 #include "parsers/raku/rk_syntax/rks_01_sh.h"
 #include "parsers/raku/rk_syntax/rks_05_sh.h"
 #include "parsers/raku/rk_syntax/rks_06_sh.h"
 #include "parsers/raku/rk_syntax/rks_07_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 static tree_t *x_expr(RkP *p, RkX *x);
 static tree_t *x_tern(RkP *p, RkX *x);
 static int x_seqinfix(RkX *x);

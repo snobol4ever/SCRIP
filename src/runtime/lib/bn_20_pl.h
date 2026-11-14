@@ -1,6 +1,11 @@
 #ifndef RUNTIME_LIB_BN_20_PL_H
 #define RUNTIME_LIB_BN_20_PL_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_redisp.h"
+#include "runtime/lib/bn_head_pl_flag.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int rk_is_rakudo_method(const char *m);
 __attribute__((visibility("hidden"))) int bnd_handles_need(const char *cls, const char *meth);
 __attribute__((visibility("hidden"))) const char *resolve_method_chain(const char *cls, const char *mname, int *pfound);

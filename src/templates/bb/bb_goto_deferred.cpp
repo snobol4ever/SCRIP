@@ -4,7 +4,7 @@
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 void *rt_goto_resolve(const char *name);
 int rt_sno_goto_special_is(const char *enc);

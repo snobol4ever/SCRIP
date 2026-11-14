@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "rebus.h"
 #include "rebus.tab.h"
+#include "ir/ast.h"
 #define yylval rebus_yylval
 #define yylineno rebus_yylineno
 #define YY_USER_ACTION rebus_yylloc.first_line = rebus_yylloc.last_line = yylineno; rebus_yylloc.first_column = rebus_yylloc.last_column = 0;

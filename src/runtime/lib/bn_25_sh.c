@@ -1,4 +1,6 @@
+#include "runtime/lib/bn_head_call_args.h"
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_dtax_ent.h"
 #include "ir/dtp.h"
 #include "runtime/core/icn_builtins.h"
 #include <math.h>
@@ -16,6 +18,15 @@
 #include "runtime/lib/bn_25_sh.h"
 #include "runtime/lib/bn_26_sh.h"
 #include "runtime/core/g_runtime_bn.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 int core_icn_error(int code, DESCR_t val);
 extern gv_t g_call_args;
 void rt_call_args_need(int n);

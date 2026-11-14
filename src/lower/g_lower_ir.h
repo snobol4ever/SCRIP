@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ir/ct_vec.h"
-#include "ir/ct_arena.h"
+#include "ir/ct_arena_ct_align.h"
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { const IR_graph_t * g; int i1; } zgh_t;

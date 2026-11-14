@@ -1,10 +1,12 @@
 #include <string>
 #include <cstdint>
 #include "emitter/emit_str.h"
-extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "ir/ir_graph.h"
+extern "C" {
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr.h"
 #include "ir/ir_node.h"
 DESCR_t rt_pl_dop_tbl_open(DESCR_t *, int);
 }

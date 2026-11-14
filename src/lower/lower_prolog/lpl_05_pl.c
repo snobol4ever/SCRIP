@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/stage2_pl.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
@@ -11,6 +11,12 @@
 #include "lower/lower_prolog/lpl_05_pl.h"
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 static tree_t * pl_cutto_goal(tree_t * g, const tree_t * cl, int body0);
 int pl_var_nodes(const tree_t * t) { int n; if (!t) return 0; n = (t->t == TT_VAR); for (int i = 0; i < t->n; i++) n += pl_var_nodes(t->c[i]); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

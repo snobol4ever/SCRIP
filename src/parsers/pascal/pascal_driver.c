@@ -1,5 +1,7 @@
 #include "pascal_driver.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "ir/ct_arena.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include <dirent.h>

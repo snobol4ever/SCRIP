@@ -2,13 +2,15 @@
 #include "runtime/rt/rt_arena.h"
 #include "ir/ct_arena.h"
 #include "ir/ct_vec.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/ir_node.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
 #include "ir/ir_graph.h"
-#include "ir/bb_box.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "lower/lower_common.h"
 #include "lower/lc_vec.h"
 #include "g_lower.h"
@@ -19,7 +21,6 @@
 #include "lower/g_lower_ir.h"
 #include "lower/g_lower_rk.h"
 #include "lower/g_lower_pas.h"
-#include "ir/bb_program.h"
 #include "runtime/core/coerce.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,7 @@
 #include <math.h>
 #include "runtime/core/g_runtime_entry.h"
 #include <ctype.h>
+#include "ir/descr_tags_dt_platom.h"
 g_lower_t g_lower = G_LOWER_INIT;
 g_lower_pl_t g_lower_pl = G_LOWER_PL_INIT;
 g_lower_sno_t g_lower_sno = G_LOWER_SNO_INIT;

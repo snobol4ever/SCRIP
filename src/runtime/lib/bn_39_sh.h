@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_39_SH_H
 #define RUNTIME_LIB_BN_39_SH_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/core/core_string_builtins_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t *out, int op);
 __attribute__((visibility("hidden"))) __attribute__((noinline)) int bn_lexrel(DESCR_t *args, int nargs, DESCR_t *out, int op);
 __attribute__((visibility("hidden"))) __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DESCR_t *out, int ident);

@@ -2,6 +2,7 @@
 #define RT_LIST_VIEW_H
 #include <string.h>
 #include "runtime/core/datatype.h"
+#include "ir/descr_tags_dt_platom.h"
 int pm_lf_type_is(DATBLK_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t *rt_lv_nil_elems(void) { static DESCR_t nil[1]; return nil; }

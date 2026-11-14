@@ -1,10 +1,14 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_raku/lrk_03_rk.h"
 #include "lower/lower_raku/lrk_07_rk.h"
 #include "lower/lower_raku/lrk_10_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "ir/ct_arena.h"
 const char * rk_ph_of(const tree_t * n) { if (!n || n->t != TT_FNC || !n->v.sval || strncmp(n->v.sval, "__rk_phaser_", 12) != 0) return NULL; return n->v.sval + 12; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_ph_body(tree_t * n) { return (n && n->n >= 2) ? n->c[n->n - 1] : ast_node_new(TT_SEQ_EXPR); }

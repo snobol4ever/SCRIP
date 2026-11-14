@@ -1,7 +1,12 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/core/g_runtime.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
-#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap_rt_sxt_break_fast.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "emitter/sil_macros.h"
 #include <string.h>
 #include <stdint.h>
@@ -10,6 +15,7 @@
 #include "runtime/core/table.h"
 #include "runtime/core/core_error.h"
 #include "runtime/core/datatype.h"
+#include "ir/descr_tags_dt_platom.h"
 static unsigned _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

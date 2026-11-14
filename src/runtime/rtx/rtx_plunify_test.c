@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_pseg.h"
 extern uint64_t g_rtccb[32];
 extern void rt_pl_pseg_switch(void);
 uint64_t t_saved_rsp, t_got[10];

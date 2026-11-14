@@ -10,7 +10,8 @@
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
 #include "ir/ir_graph.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 #include "emitter/emit_data.h"
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"
@@ -24,6 +25,7 @@
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
 #include "optimizer/gva_collect.h"
 }

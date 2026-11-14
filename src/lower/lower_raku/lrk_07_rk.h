@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_07_RK_H
 #define LOWER_LOWER_RAKU_LRK_07_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_proc_slurpy_only(const char * name, int nref);
 __attribute__((visibility("hidden"))) int rk_ns_has(const rk_ns_t * s, const char * x);
 __attribute__((visibility("hidden"))) void rk_ns_add(rk_ns_t * s, const char * x);

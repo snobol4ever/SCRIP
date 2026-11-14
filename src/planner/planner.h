@@ -2,6 +2,7 @@
 #define SCRIP_PLANNER_H
 #include "ir/ir_fwd.h"
 #include "ir/stage2.h"
+#include "ir/stage2_planner_road.h"
 struct zeta_plan_t;
 void planner_dump_homes(const IR_graph_t * g, IR_t ** nodes, int n, const unsigned char * zon);
 void planner_dump_plan(const IR_graph_t * g, const zeta_plan_t * pl, const char * prefix);

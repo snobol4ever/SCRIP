@@ -1,8 +1,11 @@
 #include <string>
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "runtime/rt/rt.h"
 int bb_slot_get(IR_t *nd);
 int rk_is_truthy(DESCR_t v);

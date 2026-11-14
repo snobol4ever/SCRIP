@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include "runtime/core/g_runtime_eval.h"
 #include <limits.h>
-#include "ir/stage2.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_lpl_01_pl_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "lower/pl_aggregate_names.h"
@@ -16,6 +18,11 @@
 #include "lower/lower_prolog/lpl_08_pl.h"
 #include "lower/lower_prolog/lpl_09_sh.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
 static const char * const pl_pred_props[] = { "built_in", "dynamic", "static", "defined", "multifile", "discontiguous", "meta_predicate", "exported", "imported_from", "foreign", "iso",
     "number_of_clauses", "public", "private", "native", "tabled", "incremental", "volatile", "transparent", "nodebug", "visible", "template", "alias", "declared_in", "defined_in", "scope",

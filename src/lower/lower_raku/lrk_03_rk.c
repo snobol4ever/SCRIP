@@ -4,7 +4,11 @@
 #include <stdlib.h>
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_scope.h"
+#include "ir/stage2_scope_reserve.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
@@ -20,6 +24,12 @@
 #include "lower/lower_raku/lrk_11_rk.h"
 #include "lower/lower_raku/lrk_12_rk.h"
 #include "lower/g_lower_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 static tree_t * rk_tv_check(rk_tvenv_t * e, tree_t * val, const char * type, const char * name, int element);
 int rk_is_class_name(const char * nm) {
     if (!nm) return 0;

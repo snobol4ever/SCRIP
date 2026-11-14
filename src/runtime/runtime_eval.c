@@ -3,15 +3,24 @@
 #include "runtime/core/g_runtime_eval.h"
 #include "runtime/core/g_runtime_kw.h"
 #include "runtime/rt/rt_arena.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_argval_api.h"
+#include "runtime/core/core_runtime_eval_api.h"
+#include "runtime/core/core_rt_conve_chain_mark.h"
+#include "runtime/core/core_eval_frame.h"
 #include "eval_blocks.h"
 #include "ir/dtp.h"
-#include "keywords.h"
+#include "runtime/keywords_g_error_eval_at.h"
 #include "emitter/sil_macros.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/ir_graph.h"
@@ -19,13 +28,24 @@
 #include "runtime/core/core_error.h"
 #include "runtime/core/nv.h"
 #include "runtime/core/setexit.h"
+#include "runtime/rt/rt_diag.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 _Static_assert(RT_DCAP_TOP == 0x70000000UL,
     "rt_chain_enter/rt_chain_enter_v seed r12 from the absolute slot 0x70000000 written literally in their asm, exactly as rt_outer_call and main's prologue do; if pin_va.h moves the pin the trampol"
     "ines read a DEAD page and hand generated code a zero pend top");
 _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL,
     "rt_chain_enter/rt_chain_enter_v bound-test r12 against base+67108864 written literally in their asm to tell a LIVE pend top from C's own callee-saved value; if the island resizes the test admit"
     "s or rejects the wrong halves of it");
+#include "ir/stage2_proc_thunk_pattern.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_planner_road.h"
+#include "ir/stage2_driver_procs_api.h"
+#include "ir/stage2_etc.h"
 #include "ir/ct_vec.h"
 #include "ir/ir_fwd.h"
 #include "runtime/core/g_runtime_entry.h"

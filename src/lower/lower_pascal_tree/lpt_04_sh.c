@@ -2,7 +2,9 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
 #include "lower/lower_pascal_tree/lpt_02_pas.h"
@@ -12,6 +14,7 @@
 #include "lower/lower_pascal_tree/lpt_06_pas.h"
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_11_sh.h"
+#include "ir/ct_arena.h"
 static void pas_proctype_add(const char *name, const char *sig);
 static pval E_case_elem(const tree_t *n);
 static pval E_case_open(const tree_t *n);

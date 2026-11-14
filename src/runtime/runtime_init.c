@@ -8,12 +8,13 @@
 #include "ir/dtp.h"
 #include "ir/ir_node.h"
 #include "ir/bb_pool.h"
-#include "runtime/rt/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include "ir/ct_vec.h"
 #include "runtime/rt/rt_diag.h"
+#include "runtime/rt/gc_heap_runtime_init_api.h"
+#include "ir/ct_arena.h"
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_probe_report(unsigned long rsp, long op, long node, long expected, long portflags, long measured) {

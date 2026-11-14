@@ -1,10 +1,12 @@
 #include <cstdint>
 #include <string>
 #include "templates/x86/x86_icn.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "templates/x86/x86_gc.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
+#include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "ir/ir_graph.h"
 extern "C" uint64_t *rt_co_env(void);
 extern "C" int64_t rt_cvpos_pos(DESCR_t v, int64_t len);

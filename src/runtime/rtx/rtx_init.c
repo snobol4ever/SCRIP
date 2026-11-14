@@ -1,7 +1,11 @@
 #include "ir/descr.h"
 #include "runtime/core/g_runtime.h"
-#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "runtime/builtins/gen.h"
 #include "runtime/rt/rt_diag.h"
 #include "ir/pin_va.h"
@@ -12,6 +16,7 @@
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/table.h"
+#include "ir/descr_tags_dt_platom.h"
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_table;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_alloc;

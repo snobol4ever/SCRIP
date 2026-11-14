@@ -1,7 +1,6 @@
 #include "lower/lower_snobol4/lsn_head.h"
 #include "runtime/core/g_runtime_eval.h"
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
 #include "lower/lower_common.h"
 #include "parsers/icon/icon_lex.h"
 #include "lower/lower_snobol4/lsn_01_sno.h"
@@ -13,6 +12,12 @@
 #include "lower/lower_snobol4/lsn_08_sno.h"
 #include "lower/lower_snobol4/lsn_09_sno.h"
 #include "lower/g_lower_sno.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (!t) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }

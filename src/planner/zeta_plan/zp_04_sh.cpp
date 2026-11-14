@@ -7,6 +7,7 @@ extern "C" {
 }
 extern "C" {
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 }
 extern "C" {
 #include "ir/ir_node_index.h"

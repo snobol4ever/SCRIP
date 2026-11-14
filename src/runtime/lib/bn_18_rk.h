@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_18_RK_H
 #define RUNTIME_LIB_BN_18_RK_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int rk_type_isa(const char *have, const char *want);
 __attribute__((visibility("hidden"))) char *rk_str_succ_buf(const char *s, char *b);
 __attribute__((visibility("hidden"))) const char *rt_mc_type_name(DESCR_t d);

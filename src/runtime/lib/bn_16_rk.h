@@ -1,6 +1,10 @@
 #ifndef RUNTIME_LIB_BN_16_RK_H
 #define RUNTIME_LIB_BN_16_RK_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int rk_exc_is(DESCR_t d);
 __attribute__((visibility("hidden"))) void rk_exc_init(void);
 __attribute__((visibility("hidden"))) void rk_exc_throw(DESCR_t ex);

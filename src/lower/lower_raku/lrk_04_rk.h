@@ -1,7 +1,8 @@
 #ifndef LOWER_LOWER_RAKU_LRK_04_RK_H
 #define LOWER_LOWER_RAKU_LRK_04_RK_H
 #include "lower/lower_raku/lrk_head.h"
-#include "ir/stage2.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) const tree_t * rk_find_type_decl(const tree_t * prog, const char * name);
 __attribute__((visibility("hidden"))) tree_t * rk_ti(long long v);
 __attribute__((visibility("hidden"))) tree_t * rk_ti(long long v);

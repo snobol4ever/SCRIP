@@ -10,9 +10,10 @@
 #include "emitter/emit_walk.h"
 extern "C" {
 #include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "ir/ct_arena.h"
 const char *rt_define_query(const char *, int *, int *, int *, void **);
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/ab_abi.h"
 #include "templates/bb/bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);

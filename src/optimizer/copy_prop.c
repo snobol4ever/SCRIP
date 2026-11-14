@@ -4,6 +4,7 @@
 #include "runtime/builtins/gen.h"
 #include "ir_query.h"
 #include <stdlib.h>
+#include "ir/ir_graph.h"
 #define OPT_ON(k) (!getenv(k) || getenv(k)[0] != '0')
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * cp_source(IR_t * c) {

@@ -12,6 +12,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "gc_audit_b.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_rt_hblk.h"
+#include "runtime/rt/gc_heap_hblk_bytes.h"
+#include "runtime/rt/gc_heap.h"
 #if RT_DIAG
 typedef struct gc_audit_b_ctr_t { long words; long inheap; long marked; long fill; long excl; long found; long shown; long suppressed; long xframe; long xowner; } gc_audit_b_ctr_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,7 +1,8 @@
 #include <string>
 #include <stdint.h>
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t rt_random_var(DESCR_t base);
 extern DESCR_t rt_random_var_strict(DESCR_t);

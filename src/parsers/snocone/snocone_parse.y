@@ -1,5 +1,8 @@
 %{
 #include "ir/ct_arena.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 %}
 %code top {
 }

@@ -1,4 +1,5 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_dtax_ent.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/core/nv.h"
 #include <math.h>
@@ -16,6 +17,20 @@
 #include "runtime/lib/bn_25_sh.h"
 #include "runtime/lib/bn_41_sh.h"
 #include "runtime/core/g_runtime_bn.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/core/core_rt_conve_chain_mark.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/builtin_table.h"
+#include "runtime/rt/rt_diag.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 int core_icn_error(int code, DESCR_t val);
 extern void *rt_ws_alloc_descr(size_t);
 extern const char *icon_real_str(double r, char *buf, int bufsz);

@@ -53,7 +53,7 @@
 extern int sc_debug;
 #endif
 /* "%code requires" blocks.  */
-#line 6 "snocone_parse.y"
+#line 9 "snocone_parse.y"
 
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/ct_vec.h"
@@ -168,7 +168,7 @@ typedef struct ScParseState {
 #if ! defined SC_STYPE && ! defined SC_STYPE_IS_DECLARED
 union SC_STYPE
 {
-#line 154 "snocone_parse.y"
+#line 157 "snocone_parse.y"
 
     tree_t *expr;
     char   *str;

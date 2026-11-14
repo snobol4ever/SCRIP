@@ -1,6 +1,11 @@
 #ifndef RUNTIME_LIB_BN_26_SH_H
 #define RUNTIME_LIB_BN_26_SH_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_bn_win.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 int rt_procval_same(DESCR_t a, DESCR_t b);
 __attribute__((visibility("hidden"))) const char *icn_opproc_find(const char *nm, int arity);
 __attribute__((visibility("hidden"))) int icn_opproc_arity(const char *s);

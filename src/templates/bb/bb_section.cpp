@@ -1,8 +1,9 @@
 #include <string>
 #include <stdint.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 extern DESCR_t subscript_get2_strict(DESCR_t, DESCR_t, DESCR_t);

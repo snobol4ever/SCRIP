@@ -5,6 +5,8 @@
 #include <math.h>
 #include <float.h>
 #include "ir/descr.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t rt_add(DESCR_t, DESCR_t);
 DESCR_t rt_sub(DESCR_t, DESCR_t);
 DESCR_t rt_mul(DESCR_t, DESCR_t);

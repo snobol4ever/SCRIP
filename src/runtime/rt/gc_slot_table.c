@@ -1,6 +1,10 @@
 #include <stddef.h>
-#include "gc_heap.h"
-#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_rt_pseg.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/core/core_io_chan.h"
 #include "runtime/pattern_blocks.h"
 #include "runtime/eval_blocks.h"
 #include "rt_proc_block.h"
@@ -11,6 +15,7 @@
 #include "runtime/core/nv.h"
 #include "runtime/core/table.h"
 #include "runtime/core/trace.h"
+#include "runtime/rt/rt_pl_trail_pl_trie_sl.h"
 _Static_assert(sizeof(DESCR_t) == 16, "HB_DVEC is an array of DESCR_t cells, stride 16");
 _Static_assert(sizeof(ARBLK_t) == 64 && offsetof(ARBLK_t, proto) == 24 && offsetof(ARBLK_t, data) == 32,
     "HB_ARR holds one ARBLK_t: the pointer members are proto and data; a new member means this row is re-read");

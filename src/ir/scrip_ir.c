@@ -1,8 +1,10 @@
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/ir_construct.h"
-#include "ct_arena.h"
-#include "bb_program.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program.h"
+#include "ir/bb_program_scrip_ir_api.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

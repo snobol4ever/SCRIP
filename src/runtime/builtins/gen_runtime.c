@@ -1,20 +1,22 @@
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
-#include "gen_runtime.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/builtins/gen_runtime.h"
+#include "runtime/builtins/gen_runtime_scansubjregs.h"
+#include "runtime/builtins/gen_runtime_etc.h"
 #include "ir/ct_vec.h"
 #include "ir/ir_fwd.h"
 #include "ir/SM.h"
-#include "runtime/keywords.h"
 #include "runtime/string_ops.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime.h"
-#include "ir/ct_arena.h"
 #include "gen_value.h"
-#include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "gen.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "runtime/rt/rt_diag.h"
 #include "runtime/core/coerce.h"
 #include "runtime/by_name_dispatch.h"
@@ -22,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "ir/descr_tags_dt_platom.h"
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
@@ -273,7 +276,8 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 }
 #include "runtime/core/nv.h"
 #include "runtime/core/runtime_shim.h"
-#include "ir/stage2.h"
+#include "ir/stage2_procentry.h"
+#include "ir/stage2_sm_prog_api.h"
 #include <time.h>
 #include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

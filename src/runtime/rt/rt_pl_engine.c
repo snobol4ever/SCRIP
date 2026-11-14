@@ -5,8 +5,13 @@
 #include "runtime/core/g_runtime_pleng.h"
 #include "runtime/rt/rt.h"
 #include "ir/ct_arena.h"
-#include "rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail.h"
 #include "runtime/core/datatype.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_diag.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void rt_proc_drop_frame_h(void **);
 extern int rt_genp_valid(void *);
 extern void rt_pl_tr_free_arena(const char *, void *);

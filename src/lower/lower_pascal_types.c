@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <math.h>
 #include "ir/ct_arena.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
-#include "ir/bb_box.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "lower/g_lower_pas.h"
 #include "lower_pascal_types.h"
 #define PT_IS(x, k) ((x) && (x)->t == (k))

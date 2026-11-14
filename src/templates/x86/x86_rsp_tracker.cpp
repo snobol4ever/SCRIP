@@ -5,7 +5,7 @@
 #include <string>
 #include "templates/x86/x86_rsp_tracker.h"
 #include "emitter/emit_medium.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_zeta.h"

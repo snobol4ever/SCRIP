@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "ir/descr.h"
 }

@@ -1,7 +1,13 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pas_view_raw.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_plf_float.h"
+#include "runtime/lib/bn_head_pl_flag.h"
+#include "runtime/lib/bn_head_pas_set_bytes.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/prolog_atom.h"
+#include "runtime/rt/prolog_atom_prolog_max_arity.h"
 #include <errno.h>
 #include <ctype.h>
 #include <float.h>
@@ -15,6 +21,15 @@
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/core/g_runtime_pas.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern DESCR_t rt_deref(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -8,7 +8,11 @@
 #include "runtime/core/table.h"
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t rt_subscript_val(DESCR_t, DESCR_t);
 DESCR_t c_rt_subscript_val(DESCR_t, DESCR_t);
 DESCR_t rt_subscript_val_strict(DESCR_t, DESCR_t);

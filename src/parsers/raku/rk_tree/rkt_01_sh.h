@@ -2,6 +2,8 @@
 #define PARSERS_RAKU_RK_TREE_RKT_01_SH_H
 #include "parsers/raku/rk_tree/rkt_head.h"
 #include "parsers/raku/rk_tree.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) char *fmt(const char *f, ...);
 __attribute__((visibility("hidden"))) char *spn(RkB *b, int from, int to);
 __attribute__((visibility("hidden"))) char *trimdup(const char *s, int n);

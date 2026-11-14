@@ -2,6 +2,7 @@
 #define LOWER_LOWER_ICON_LIC_03_SH_H
 #include "lower/lower_icon/lic_head.h"
 #include "ir/ir_node.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 __attribute__((visibility("hidden"))) IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
 __attribute__((visibility("hidden"))) IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out);

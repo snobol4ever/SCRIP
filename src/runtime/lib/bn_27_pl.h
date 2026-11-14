@@ -1,6 +1,11 @@
 #ifndef RUNTIME_LIB_BN_27_PL_H
 #define RUNTIME_LIB_BN_27_PL_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_flag.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 const char * pl_real_iso_str(double fv, char * fb, int bufsz);
 __attribute__((visibility("hidden"))) int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
 __attribute__((visibility("hidden"))) int pl_ax_eval_d(DESCR_t t, DESCR_t *out, void **ball, int depth);

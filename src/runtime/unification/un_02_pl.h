@@ -1,6 +1,7 @@
 #ifndef RUNTIME_UNIFICATION_UN_02_PL_H
 #define RUNTIME_UNIFICATION_UN_02_PL_H
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 __attribute__((visibility("hidden"))) int plc_unify_cells_cx(pl_cell_t *a, pl_cell_t *b, pl_tr_ctx_t *cx);
 __attribute__((visibility("hidden"))) int pl_acyclic_walk(pl_cell_t *c);
 __attribute__((visibility("hidden"))) long plc_list_cells(void *list_cell, int dot_id);

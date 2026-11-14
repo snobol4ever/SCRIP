@@ -1,12 +1,16 @@
 #ifndef RUNTIME_SHIM_H
 #define RUNTIME_SHIM_H
 #include "runtime/rt/rt_arena.h"
-#include "core.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
 #include <string.h>
 #include "runtime/core/array.h"
 #include "runtime/core/nv.h"
 #include "runtime/core/table.h"
 #include "runtime/pattern_match.h"
+#include "ir/descr_tags_dt_platom.h"
 #define IS_FAIL_fn(v) IS_FAIL_fn(v)
 #define get(v) (v)
 #define set(v, x) ((v) = (x))

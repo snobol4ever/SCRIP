@@ -1,7 +1,6 @@
 #ifndef EMITTER_EM_EM_HEAD_H
 #define EMITTER_EM_EM_HEAD_H
 #include <unordered_map>
-#include "ir/ct_arena.h"
 #include "ir/ct_vec.h"
 #include "runtime/rt/prolog_atom.h"
 #include <string>
@@ -12,6 +11,11 @@
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "ir/ir_graph.h"
 extern "C" {
 #include <string.h>
 #include <stdlib.h>
@@ -21,7 +25,6 @@ extern "C" {
 #include "ir/dtp.h"
 #include "templates/bb/bb_templates.h"
 #include "driver/scrip_sm.h"
-#include "ir/stage2.h"
 #include "templates/xa/xa_templates.h"
 #include "planner/g_planner.h"
 #include "ir/ir_fwd.h"

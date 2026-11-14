@@ -2,9 +2,10 @@
 #include <stdint.h>
 #include "ir/descr.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
 extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 #include "runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);

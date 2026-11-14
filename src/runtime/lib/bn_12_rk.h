@@ -2,6 +2,9 @@
 #define RUNTIME_LIB_BN_12_RK_H
 #include "runtime/lib/bn_head.h"
 #include "driver/driver_globals.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) int gram_get_flavor(const char *qname);
 __attribute__((visibility("hidden"))) const char *gram_get(const char *qname);
 int rt_grammar_has_top(const char *gname);

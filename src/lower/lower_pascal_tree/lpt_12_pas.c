@@ -2,6 +2,7 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
@@ -11,6 +12,7 @@
 #include "lower/lower_pascal_tree/lpt_06_pas.h"
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_12_pas.h"
+#include "ir/ct_arena.h"
 static const char *pas_ov_argtype(tree_t *e);
 long long pas_decl_part_order(long long prev, long long cur) {
     const char *nm[] = { "", "label-declaration-part", "constant-definition-part", "type-definition-part", "variable-declaration-part", "procedure-and-function-declaration-part" };

@@ -1,11 +1,14 @@
 #include "lower/lower_pascal_tree/lpt_head.h"
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_03_pas.h"
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_10_pas.h"
+#include "ir/ct_arena.h"
 static int pas_view_kind(const pty_t *t, long long *w) {
     if (!t) return -1;
     *w = pty_sizeof_flat(t);

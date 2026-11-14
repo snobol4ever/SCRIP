@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_10_RK_H
 #define LOWER_LOWER_RAKU_LRK_10_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_proc_is_generator(const char * name);
 __attribute__((visibility("hidden"))) const char * rk_ph_of(const tree_t * n);
 __attribute__((visibility("hidden"))) void rk_place_phasers(tree_t * prog);

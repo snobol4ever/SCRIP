@@ -3,8 +3,15 @@
 #include "runtime/core/g_runtime.h"
 #include <stdlib.h>
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
 #include "ir/ir_construct.h"
+#include "ir/stage2_label_max.h"
+#include "ir/stage2_resolve_predentry.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_resolve_predtable.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_lpl_01_pl_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_prolog.h"
 #include "parsers/snobol4/scrip_cc.h"
@@ -20,6 +27,12 @@
 #include "lower/lower_prolog/lpl_08_pl.h"
 #include "lower/lower_prolog/lpl_09_sh.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 static int pl_trace_wanted(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned resolve_pred_hash(const char *s) { unsigned h = 5381; while (*s) h = h * 33 ^ (unsigned char)*s++; return h % STAGE2_PL_PRED_TABLE_SIZE; }

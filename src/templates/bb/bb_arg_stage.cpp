@@ -1,8 +1,9 @@
 #include <string>
 #include <cstdint>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 void rt_arg_stage_d(const DESCR_t *cnt, const DESCR_t *val, DESCR_t *out, long spread);
 }

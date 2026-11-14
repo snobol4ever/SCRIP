@@ -1,4 +1,6 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pl_flag.h"
 #include <sys/utsname.h>
 #include <sys/resource.h>
 #include <poll.h>
@@ -18,6 +20,12 @@
 #include "runtime/lib/bn_33_pl.h"
 #include "runtime/lib/bn_34_pl.h"
 #include <time.h>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 extern FILE *fh_get(int);
 static int pl_gnu_copy(const char *f, const char *t, pl_tr_ctx_t *cx) {
     char b[65536];

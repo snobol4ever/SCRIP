@@ -1,6 +1,7 @@
 #ifndef RUNTIME_UNIFICATION_UN_08_PL_H
 #define RUNTIME_UNIFICATION_UN_08_PL_H
 #include "runtime/unification/un_head.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 __attribute__((visibility("hidden"))) void ** pl_db_cell_addr(void *root, int64_t k, int create);
 void * rt_pl_db_get(void *root, int64_t k);
 __attribute__((visibility("hidden"))) int plc_gvar_absent(const pl_cell_t *b);

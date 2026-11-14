@@ -1,7 +1,12 @@
 #include "ir/ir_graph.h"
-#include "ct_arena.h"
-#include "bb_program.h"
-#include "stage2.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
+#include "ir/stage2_label_max.h"
+#include "ir/stage2_labelentry.h"
+#include "ir/stage2_procentry.h"
+#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/stage2_pl.h"
 #include <string.h>
 #include <stdlib.h>

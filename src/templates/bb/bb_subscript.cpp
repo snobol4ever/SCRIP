@@ -4,8 +4,10 @@
 #include "emitter/emit_knobs.h"
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx);

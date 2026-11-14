@@ -1,8 +1,10 @@
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/g_runtime_abi.inc"
+#include "ir/descr_tags_dt_platom.h"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
+#include "ir/ct_arena_ct_align.h"
 #include "ir/ct_arena.h"
 #include "driver/kernel.h"
 #include <stdarg.h>
@@ -36,37 +38,57 @@
 #include "lower/lower_rebus.h"
 #include "parsers/rebus/rebus_driver.h"
 #include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "parsers/icon/icon_lex.h"
+#include "ir/bb_box_fn.h"
 #include "ir/bb_box.h"
 extern void ir_print_node (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern int pl_dyn_is_marked(const char *name, int arity);
 #include "runtime/core/core.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/core/core_pattern_match_api.h"
 #include "emitter/sil_macros.h"
 #include "runtime/core/runtime_shim.h"
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_proc_thunk_pattern.h"
+#include "ir/stage2_procentry.h"
+#include "ir/stage2_scripmodule.h"
 #include "ir/stage2.h"
+#include "ir/stage2_lower_entry_fn.h"
+#include "ir/stage2_lower_seg.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_emit_install_hooks.h"
+#include "ir/stage2_planner_road.h"
+#include "ir/stage2_driver_procs_api.h"
+#include "ir/stage2_etc.h"
 #include "ir/stage2_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_print_api.h"
 #include "lower/lower_icon.h"
 #include "lower/g_lower_icn.h"
 #include "lower/lower_pascal.h"
 #include "runtime/rt/rt_proc_block.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_rt_hblk.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_raku.h"
 #include "lower/lower_snocone.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "ir/ir_graph.h"
+#include "runtime/builtins/gen_runtime_lower_common_api.h"
 #include "lower/lower_common.h"
 #include "lower/lower_pascal_tree.h"
 #include "lower/lower_snobol4.h"
 #include "emitter/emit_medium.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_data.h"
 #include "emitter/emit.h"
-#include "ir/bb_box.h"
 #include "scrip_sm.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -196,7 +218,6 @@ __asm__(".globl rt_outer_call_icn_root\n.type rt_outer_call_icn_root, @function\
 extern const char *Σ;
 extern int Ω;
 extern int Δ;
-#include "runtime/builtins/gen_runtime.h"
 #include "driver/polyglot.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }

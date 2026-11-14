@@ -1,9 +1,11 @@
 #ifndef EMITTER_EM_EM_03_SH_H
 #define EMITTER_EM_EM_03_SH_H
 #include "emitter/em/em_head.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_sm_emit.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_medium.h"
 #include "emitter/emit_gc_site.h"
+#include "ir/ir_graph.h"
 extern "C" { extern g_emitter_t g_emitter; }
 extern "C" { extern bb_emit_mode_t bb_emit_mode; }
 extern "C" { extern FILE *bb_emit_out; }

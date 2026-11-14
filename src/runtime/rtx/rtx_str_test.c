@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include "ir/descr.h"
 #include "ir/cset_block.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);

@@ -4,17 +4,15 @@
 #include <string.h>
 #include <stdio.h>
 #include "sync_monitor.h"
-#include "runtime/core/core.h"
-#include "runtime/builtins/gen_runtime.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "ir/SM.h"
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "ir/ir_fwd.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 #include "ir/SM.h"
 #include "driver.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "runtime/rt/prolog_atom.h"
 #ifdef WITH_CSNOBOL4
 typedef struct { char *name; char *val_str; } CsnNvPair;
 int csnobol4_run_steps(const char *core_path, int step_limit, CsnNvPair **out_pairs, int *out_count);

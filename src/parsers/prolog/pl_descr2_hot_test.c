@@ -1,6 +1,8 @@
 #include "pl_cell.h"
 #include <stdio.h>
 #include <string.h>
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "ir/descr_tags_dt_platom.h"
 static int fails = 0;
 #define CHECK(cond, msg) do { if (!(cond)) { printf("  FAIL: %s\n", msg); fails++; } else { printf("  ok:   %s\n", msg); } } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

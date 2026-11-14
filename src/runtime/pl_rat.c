@@ -1,4 +1,4 @@
-#include "runtime/core/core.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "runtime/rt/rt.h"
 #include "pl_rat.h"
 #include <math.h>
@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "runtime/core/datatype.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
 extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
 extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);

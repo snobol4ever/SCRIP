@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_06_PL_H
 #define LOWER_LOWER_PROLOG_LPL_06_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int pl_tree_is_nil(const tree_t * t);
 extern __attribute__((visibility("hidden"))) const char * const pl_decl_directives[14];
 __attribute__((visibility("hidden"))) int pl_table_opt_kind(const tree_t * o);

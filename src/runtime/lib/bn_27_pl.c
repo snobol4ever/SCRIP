@@ -1,9 +1,15 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_ax_cx.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pl_vtab.h"
+#include "runtime/lib/bn_head_pl_in_leaf.h"
+#include "runtime/lib/bn_head_pl_flag.h"
 #include <math.h>
 #include "lower/pl_arith_names.h"
 #include "lower/pl_control_names.h"
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/prolog_atom.h"
+#include "runtime/rt/prolog_atom_prolog_max_arity.h"
 #include "driver/driver_globals.h"
 #include "runtime/pl_rat.h"
 #include <errno.h>
@@ -19,6 +25,13 @@
 #include "runtime/lib/bn_30_pl.h"
 #include "runtime/lib/bn_31_pl.h"
 #include "runtime/lib/bn_32_pl.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 extern int rt_proc_is_registered(const char *name);
 static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_cx_t *cx);
 int rt_pl_acyclic_cell(void *);

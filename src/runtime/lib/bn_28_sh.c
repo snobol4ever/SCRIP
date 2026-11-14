@@ -1,7 +1,5 @@
-#include "runtime/lib/bn_head.h"
 #include "runtime/by_name_dispatch.h"
 #include <math.h>
-#include "runtime/rt/prolog_atom.h"
 #include "runtime/pl_rat.h"
 #include <fenv.h>
 #include <float.h>
@@ -9,6 +7,12 @@
 #include "runtime/lib/bn_27_pl.h"
 #include "runtime/lib/bn_28_sh.h"
 #include <time.h>
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/builtins/gen.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_op_code(const char *s) {
     if (!strcmp(s, "add")) return BINOP_ADD;

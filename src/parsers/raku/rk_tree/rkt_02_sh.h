@@ -2,6 +2,7 @@
 #define PARSERS_RAKU_RK_TREE_RKT_02_SH_H
 #include "parsers/raku/rk_tree/rkt_head.h"
 #include "parsers/raku/rk_tree.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) void sb_c(SB *s, char c);
 __attribute__((visibility("hidden"))) char *sb_str(SB *s);
 __attribute__((visibility("hidden"))) tree_t *rk_adhoc_new(const char *cname, TL *named, TL *pos);

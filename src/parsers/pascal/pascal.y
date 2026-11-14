@@ -2,6 +2,8 @@
 %code requires {
 #include "ir/ast.h"
 #include "parsers/snobol4/scrip_cc.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_node_new.h"
 enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
 int pascal_dialect(void);
 void pascal_dialect_set(int d);

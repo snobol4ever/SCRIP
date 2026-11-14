@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_snocone.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "ir/bb_box.h"
-#include "runtime/builtins/gen.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e lsc_prim_kind(const char *s) {
     if (!s) return TT_VAR;

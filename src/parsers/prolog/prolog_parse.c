@@ -4,7 +4,8 @@
 #include "ir/ct_vec.h"
 #include "prolog_lex.h"
 #include "runtime/rt/prolog_atom.h"
-#include "ir/stage2.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/ir_fwd.h"
 #include "runtime/core/g_runtime_entry.h"
 #include "ir/stage2_pl.h"
@@ -15,6 +16,9 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include "runtime/core/g_runtime_atoms.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 extern void *rt_wsb_alloc(size_t);
 typedef struct {
     int active;

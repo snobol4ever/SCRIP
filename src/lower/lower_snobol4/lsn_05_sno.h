@@ -1,7 +1,8 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_05_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_05_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
-#include "ir/stage2.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int sno_mkpat_here(const tree_t * t);
 __attribute__((visibility("hidden"))) IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 __attribute__((visibility("hidden"))) int sno_pat_supported(const tree_t * t);

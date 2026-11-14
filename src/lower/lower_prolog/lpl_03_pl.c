@@ -1,7 +1,8 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
 #include "ir/ir_graph.h"
-#include "ir/stage2.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "runtime/rt/prolog_atom.h"
@@ -11,6 +12,12 @@
 #include "lower/lower_prolog/lpl_03_pl.h"
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_05_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * lpl_build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }

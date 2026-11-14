@@ -1,4 +1,7 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pl_cx_leaf_head.h"
+#include "runtime/lib/bn_head_pl_bt.h"
+#include "runtime/lib/bn_head_pl_meta_row.h"
 #include <poll.h>
 #include <sys/stat.h>
 #include <utime.h>
@@ -24,6 +27,14 @@
 #include "runtime/pl_meta_specs.inc"
 #include "runtime/core/g_runtime_bn.h"
 #include <time.h>
+#include "runtime/core/core_etc.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 extern int rt_proc_is_registered(const char *name);
 extern int fh_capture_begin(char **, size_t *, int *);

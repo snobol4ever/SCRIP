@@ -3,7 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
-#include "runtime/core/core.h"
+#include "runtime/core/core_string_builtins_api.h"
+#include "runtime/core/core_runtime_eval_api.h"
+#include "ir/descr_tags_dt_platom.h"
 #define IS_INT(d) ((d).v == DT_I)
 #define IS_REAL(d) ((d).v == DT_R)
 #define IS_STR(d) ((d).v == DT_S || (d).v == DT_SNUL)

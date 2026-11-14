@@ -3,13 +3,17 @@
 #include "ir/cset_block.h"
 #include <math.h>
 #include "ir/ir_node.h"
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_icon/lic_01_sh.h"
 #include "lower/lower_icon/lic_03_sh.h"
 #include "lower/lower_icon/lic_04_sh.h"
 #include "lower/lower_icon/lic_05_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
 extern const char * icn_builtin_nth(int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int icn_field_hint(const tree_t * prog, const char * fn) {

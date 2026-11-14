@@ -7,6 +7,15 @@
 #include "runtime/lib/bn_15_rk.h"
 #include "runtime/lib/bn_16_rk.h"
 #include "runtime/lib/bn_20_pl.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/ct_arena.h"
 const char *rk_param_sigil(const char *pn) {
     size_t n = pn ? strlen(pn) : 0;
     return (n && (pn[0] == '@' || pn[0] == '%' || pn[0] == '&')) ? (pn[0] == '@' ? "@" : pn[0] == '%' ? "%" : "&") : (n > 6 && !strcmp(pn + n - 6, "__code")) ? "&" : "$";

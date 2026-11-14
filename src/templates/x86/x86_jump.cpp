@@ -6,13 +6,16 @@
 #include "templates/x86/x86_jump.h"
 #include "emitter/emit_medium.h"
 #include "emitter/bb_label.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_xa_pair.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 #include "emitter/emit_str.h"
 #include "templates/x86/x86_call.h"
 #include "templates/x86/x86_frame.h"
 #include "templates/x86/x86_ops.h"
 #include "templates/x86/x86_rsp_tracker.h"
 #include "templates/x86/x86_zverify.h"
+#include "ir/ct_arena.h"
 #include "ir/ir_graph.h"
 static const char * x86_tgt0();
 static struct bb_label_t * x86_tgt0_p();

@@ -1,8 +1,9 @@
 #include <string>
 #include <stdint.h>
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);

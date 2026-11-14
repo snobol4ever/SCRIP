@@ -1,4 +1,6 @@
+#include "runtime/lib/bn_head_call_args.h"
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_bn_direct.h"
 #include "ir/dtp.h"
 #include "runtime/by_name_dispatch.h"
 #include "runtime/core/icn_builtins.h"
@@ -17,6 +19,16 @@
 #include "runtime/lib/bn_11_pl.h"
 #include "runtime/lib/bn_39_sh.h"
 #include "runtime/lib/bn_40_sh.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_rt_asm_helpers_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/keywords.h"
+#include "runtime/builtins/gen.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 int core_icn_error(int code, DESCR_t val);
 extern int rt_proc_is_registered(const char *name);
 extern int rt_proc_nparams(const char *name);

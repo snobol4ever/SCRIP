@@ -1,8 +1,9 @@
 #include <string>
 #include <cstdio>
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_walk.h"
 #include "templates/x86/x86_ops.h"
+#include "ir/ct_arena.h"
 extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

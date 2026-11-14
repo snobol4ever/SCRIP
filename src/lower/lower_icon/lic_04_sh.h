@@ -1,6 +1,8 @@
 #ifndef LOWER_LOWER_ICON_LIC_04_SH_H
 #define LOWER_LOWER_ICON_LIC_04_SH_H
 #include "lower/lower_icon/lic_head.h"
+#include "ir/ast.h"
+#include "ir/ir_graph.h"
 __attribute__((visibility("hidden"))) IR_t * icn_arm_result(IR_t * rv);
 __attribute__((visibility("hidden"))) int icn_gen_wiring(const IR_t * t);
 __attribute__((visibility("hidden"))) void lic_γ_to(IR_t * nd, IR_t * t);

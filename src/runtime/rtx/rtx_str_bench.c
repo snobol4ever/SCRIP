@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 extern int g_gc_pending;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

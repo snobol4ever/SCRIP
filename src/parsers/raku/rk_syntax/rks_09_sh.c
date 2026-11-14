@@ -8,6 +8,9 @@
 #include "parsers/raku/rk_syntax/rks_07_sh.h"
 #include "parsers/raku/rk_syntax/rks_08_sh.h"
 #include "parsers/raku/rk_syntax/rks_09_sh.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 static int r_scoped(RkP *p, int pos, int scope);
 static int r_declarator(RkP *p, int pos);
 static int r_regex_def(RkP *p, int pos);

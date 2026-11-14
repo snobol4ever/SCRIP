@@ -1,4 +1,6 @@
 #include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
+#include "ir/descr_tags_descr_sassert.h"
 #include "ir/descr.h"
 DESCR_SASSERT(DT_SNUL == 0, "DT_SNUL must stay 0: bulk memset init mints null strings for free");
 DESCR_SASSERT((DT_I & DT_NUMERIC_BIT) && (DT_R & DT_NUMERIC_BIT), "NUMERIC is bit0");

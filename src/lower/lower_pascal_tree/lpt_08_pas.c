@@ -2,7 +2,9 @@
 #include "lower/g_lower_pas.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #include "lower/lower_pascal_class.h"
 #include "lower/lower_pascal_types.h"
 #include "lower/lower_pascal_tree/lpt_01_pas.h"
@@ -13,6 +15,7 @@
 #include "lower/lower_pascal_tree/lpt_06_pas.h"
 #include "lower/lower_pascal_tree/lpt_07_sh.h"
 #include "lower/lower_pascal_tree/lpt_08_pas.h"
+#include "ir/ct_arena.h"
 static int pas_xr_src(const tree_t *n);
 static tree_t *pas_xr_operand(const tree_t *src);
 extern long double pas_xr_un_ld(long long op, long double x);

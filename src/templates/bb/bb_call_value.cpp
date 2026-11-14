@@ -7,9 +7,11 @@
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
 #include "bb_templates.h"
-extern "C" {
-#include "emitter/emit_state.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "ir/ir_graph.h"
+extern "C" {
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 extern struct gv_s g_call_args;
 #include "ir/descr.h"
 #include <string.h>

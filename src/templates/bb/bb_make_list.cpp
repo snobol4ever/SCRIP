@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 DESCR_t rt_make_list(DESCR_t *args, int nargs);
 }

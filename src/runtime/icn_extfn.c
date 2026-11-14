@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include "ir/descr.h"
 #include "runtime/core/core_error.h"
+#include "ir/descr_tags_dt_platom.h"
 /*====================================================================================================================================================================================================*/
 typedef long icnx_word_t;
 typedef struct { icnx_word_t dword, vword; } icnx_descr_t;

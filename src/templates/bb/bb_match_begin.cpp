@@ -3,8 +3,11 @@
 #include "emitter/emit_knobs.h"
 #include "emitter/emit_regime.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_xa_pair.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "runtime/core/g_runtime.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;

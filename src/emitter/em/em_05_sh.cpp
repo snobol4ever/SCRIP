@@ -1,7 +1,8 @@
 #include "emitter/em/em_head.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_em_03_sh_api.h"
 #include "emitter/emit_gc_site.h"
 #include "runtime/core/g_runtime_eval.h"
+#include "ir/ct_arena.h"
 extern "C" {
 #include "templates/x86/x86_frame.h"
 }

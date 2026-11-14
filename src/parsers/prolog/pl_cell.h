@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "ir/descr_tags_dt_platom.h"
 #ifndef PL_CELL_H
 #define PL_CELL_H
 #include "ir/descr.h"
@@ -7,6 +8,7 @@
 #include <string.h>
 #include "runtime/core/table.h"
 #include "runtime/rt/pl_trail_layout.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 #include "runtime/rt/rt_pl_trail.h"
 typedef DESCR_t pl_cell_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

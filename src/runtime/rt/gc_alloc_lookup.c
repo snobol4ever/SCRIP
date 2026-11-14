@@ -2,6 +2,8 @@
 #include <string.h>
 #include <dlfcn.h>
 #include "runtime/rt/gc_uw_caller.h"
+#include "runtime/rt/gc_heap_rt_emitted_regs.h"
+#include "runtime/rt/gc_heap_gc_alloc_lookup_api.h"
 #define GC_RET_VOID 0
 #define GC_RET_DESCR 1
 #define GC_RET_OTHER 2

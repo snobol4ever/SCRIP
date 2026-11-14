@@ -1,7 +1,8 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_lpl_01_pl_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_common.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
@@ -10,6 +11,11 @@
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/lower_prolog/lpl_07_pl.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static int pl_det_specs(const tree_t * a, const char ** keys, int n, int cap);
 static int pl_auto_clause_dep(pl_auto_t * a, int self, const tree_t * g, int need, int * memo);
 static void pl_hook_dyn_mark(const char * name, int arity) {

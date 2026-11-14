@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
 static int tests_run = 0, tests_passed = 0;
 #define CHECK(label, cond) do { \
     tests_run++; \

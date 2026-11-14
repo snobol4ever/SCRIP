@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include "emitter/emit_str.h"
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_em_03_sh_api.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 #include "runtime/rt/rt_coexpr.h"
 }
 #include "templates/x86/x86_ops.h"

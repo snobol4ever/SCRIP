@@ -23,8 +23,12 @@
 #include "posix_leaves.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/core/table.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "runtime/rt/rt_arena.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void px_begin(void) { g_rt_misc.posix_errno = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

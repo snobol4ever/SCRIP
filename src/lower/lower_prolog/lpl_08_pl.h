@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_08_PL_H
 #define LOWER_LOWER_PROLOG_LPL_08_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) void collect_conj(const tree_t * t, lc_vec * out);
 __attribute__((visibility("hidden"))) IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out);
 __attribute__((visibility("hidden"))) const tree_t * pl_caret_body(const tree_t * t);

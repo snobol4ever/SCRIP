@@ -1,7 +1,5 @@
 #include "lower/lower_prolog/lpl_head.h"
 #include <stdio.h>
-#include "ir/ir_graph.h"
-#include "ir/stage2.h"
 #include "lower/lower_common.h"
 #include "optimizer/ir_query.h"
 #include "lower/lower_prolog/lpl_01_pl.h"
@@ -9,6 +7,11 @@
 #include "lower/lower_prolog/lpl_04_pl.h"
 #include "lower/lower_prolog/lpl_07_pl.h"
 #include "lower/lower_prolog/lpl_08_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 static int pl_goal_is_dollar(const tree_t * g);
 static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng, int k, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

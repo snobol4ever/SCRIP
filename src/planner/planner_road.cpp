@@ -13,7 +13,11 @@
 extern "C" {
 #include "ir/ir_node.h"
 #include "ir/ir_graph.h"
+#include "ir/ir_graph_scrip_ir_api.h"
+#include "ir/stage2_proc_thunk_pattern.h"
+#include "ir/stage2_procentry.h"
 #include "ir/stage2.h"
+#include "ir/stage2_planner_road.h"
 }
 extern "C" {
 #include "planner/frame_layout.h"

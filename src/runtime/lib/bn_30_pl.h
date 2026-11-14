@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_30_PL_H
 #define RUNTIME_LIB_BN_30_PL_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) const char *pl_atom_str_n(DESCR_t v, size_t *n);
 __attribute__((visibility("hidden"))) int pl_is_nil(DESCR_t v);
 __attribute__((visibility("hidden"))) int pl_cell_text_n(DESCR_t v, char *buf, size_t n, const char **out, size_t *len);

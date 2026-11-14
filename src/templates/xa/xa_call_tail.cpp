@@ -1,10 +1,9 @@
-#include "runtime/core/core.h"
 #include <string>
 #include <stdint.h>
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
 #include "templates/xa/xa_templates.h"
 }
 #include "templates/x86/x86_ops.h"

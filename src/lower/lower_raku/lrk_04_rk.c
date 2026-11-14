@@ -1,6 +1,5 @@
 #include "lower/lower_raku/lrk_head.h"
 #include <string.h>
-#include "ir/stage2.h"
 #include "parsers/snobol4/scrip_cc.h"
 #include "lower/lower_common.h"
 #include "lower/lower_raku/lrk_01_sh.h"
@@ -10,6 +9,11 @@
 #include "lower/lower_raku/lrk_05_rk.h"
 #include "lower/lower_raku/lrk_06_rk.h"
 #include "lower/g_lower_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
     if (!prog || !name) return NULL;

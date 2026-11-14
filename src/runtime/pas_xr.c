@@ -6,6 +6,7 @@
 #include <math.h>
 #include "ir/descr.h"
 #include "runtime/builtins/gen.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_wsb_alloc(size_t);
 typedef union { long double ld; struct { uint64_t m; uint16_t se; } f; } xr_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

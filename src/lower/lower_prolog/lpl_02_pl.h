@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_PROLOG_LPL_02_PL_H
 #define LOWER_LOWER_PROLOG_LPL_02_PL_H
 #include "lower/lower_prolog/lpl_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int pl_swi_user_redefines(const char * nm, int ar);
 __attribute__((visibility("hidden"))) int pl_decl_mf_is(const char * name, int arity);
 __attribute__((visibility("hidden"))) void pl_decl_meta_record(const tree_t * spec);

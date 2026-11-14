@@ -11,6 +11,7 @@
 #include "runtime/rt/rt_arena.h"
 #include "runtime/rt/rt_list_view.h"
 #include "runtime/core/g_runtime_misc.h"
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int sig; } px_sig_t;
 static const px_sig_t px_sigs[] = { { "SIGABRT", SIGABRT }, { "SIGALRM", SIGALRM }, { "SIGBUS", SIGBUS }, { "SIGCHLD", SIGCHLD }, { "SIGCLD", SIGCHLD }, { "SIGCONT", SIGCONT }, { "SIGFPE", SIGFPE },

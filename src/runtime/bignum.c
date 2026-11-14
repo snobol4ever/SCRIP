@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stddef.h>
 #include "ir/descr.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_wsb_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -17,10 +17,14 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <limits.h>
-#include "gc_heap.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/gc_heap_rt_gc_callback.h"
 #include "rt_coexpr.h"
 #include "rt_list_view.h"
 #include "runtime/builtin_ids.h"
+#include "ir/descr_tags_dt_platom.h"
 _Static_assert(sizeof(scrip_coctx_t) <= sizeof(((g_coexpr_t *)0)->root_ctx) && _Alignof(scrip_coctx_t) <= 16,
     "g_rt_coexpr.root_ctx holds the root scrip_coctx_t: g_runtime_coexpr.h cannot include rt_coexpr.h (its declarations clash with by_name_dispatch.c), so the block is bytes and this assert is "
     "its size contract");

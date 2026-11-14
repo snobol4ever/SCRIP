@@ -8,14 +8,4 @@
 #define RTX_NOT_HANDLED 0xFF
 #define RTX_NOT_HANDLED_INT 0xFFFFFFFE
 #define RTX_NOT_HANDLED_PTR 0xFFFFFFFFFFFFFFFF
-typedef enum {
-    DT_SNUL = 0x00, DT_S = 0x02, DT_I = 0x03, DT_R = 0x05, DT_P = 0x08, DT_A = 0x10, DT_T = 0x18, DT_C = 0x20, DT_N = 0x28, DT_K = 0x30, DT_E = 0x38, DT_FH = 0x40, DT_PLVAR = 0x48, DT_PLREF = 0x50,
-        DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_CPLX = 0xA8, DT_PLATOM = 0xB0, DT_EXTL = 0xB8,
-        DT_PCELL = 0xC0, DT_XR = 0xC8,
-} DTYPE_t;
-#ifdef __cplusplus
-#define DESCR_SASSERT(c, m) static_assert(c, m)
-#else
-#define DESCR_SASSERT(c, m) _Static_assert(c, m)
-#endif
 #endif

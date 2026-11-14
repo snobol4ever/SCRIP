@@ -1,4 +1,6 @@
 #include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_pas_view_raw.h"
+#include "runtime/lib/bn_head_rt_hook_guard.h"
 #include <math.h>
 #include "runtime/rt/rt_arena.h"
 #include "driver/driver_globals.h"
@@ -15,6 +17,15 @@
 #include "runtime/lib/bn_37_pas.h"
 #include "runtime/lib/bn_38_pas.h"
 #include "runtime/core/g_runtime_pas.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
+#include "runtime/core/core_arithmetic_api.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/gc_heap_rt_gc_callback.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 extern void *rt_ws_alloc_descr(size_t);
 int rt_pas_bi_index(const char *fn);
 int pas_xr_dispatch(int fam, DESCR_t *a, int n, DESCR_t *out);

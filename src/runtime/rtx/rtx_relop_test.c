@@ -6,6 +6,7 @@
 #include "ir/descr.h"
 #include "ir/cset_block.h"
 #include "runtime/core/core.h"
+#include "ir/descr_tags_dt_platom.h"
 int rt_jct_relop(DESCR_t, DESCR_t, int);
 int c_rt_jct_relop(DESCR_t, DESCR_t, int);
 void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);

@@ -5,13 +5,17 @@
 #include "ir/ct_vec.h"
 #include "runtime/rt/prolog_atom.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "ir/stage2.h"
+#include "ir/stage2_pl_dialect_iso.h"
+#include "ir/stage2_sm_prog_api.h"
 #include "ir/stage2_pl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 typedef struct {
     int functor;
     int arity;

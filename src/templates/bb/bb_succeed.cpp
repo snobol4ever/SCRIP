@@ -2,7 +2,7 @@
 #include "runtime/core/g_runtime.h"
 #include "runtime/core/g_runtime_eval.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 }
 #include "templates/x86/x86_ops.h"
 extern "C" void rt_trace_stmt(long line);

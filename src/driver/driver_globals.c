@@ -14,6 +14,7 @@
 #include "driver/driver.h"
 #include "driver/driver_globals.h"
 #include "ir/ct_vec.h"
+#include "ir/descr_tags_dt_platom.h"
 char g_script_exception[512] = "";
 int g_script_try_depth = 0;
 Match g_match;

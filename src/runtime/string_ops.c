@@ -7,17 +7,23 @@
 #include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "runtime/rt/rtx_try.h"
+#include "runtime/core/core_rtx_str_shim_api.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "runtime/rt/rt_list_view.h"
 #include "emitter/sil_macros.h"
 #include "runtime/core/coerce.h"
 #include "string_ops.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 #include "runtime/core/core_errjmp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "ir/descr_tags_dt_platom.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int so_is_list(DESCR_t v) { return rt_lv_is_list(v, (DESCR_t **)0, (int *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

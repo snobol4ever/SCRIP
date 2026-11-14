@@ -1,16 +1,17 @@
-#include "runtime/core/core.h"
 #include <string>
 #include "runtime/core/g_runtime.h"
 #include <stdint.h>
 #include "emitter/emit_str.h"
 #include "emitter/emit_gc_site.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
 #include "bb_templates.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"
 #include "bb_pl_cell.h"
-#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "templates/xa/xa_templates.h"
 const char * bb_ab_fn_sym(const char * nm);
 extern int * const rt_k_level_p;

@@ -2,8 +2,8 @@
 #include <cstring>
 #include <cstdint>
 extern "C" {
-#include "emitter/emit_state.h"
-#include "ir/descr_tags.h"
+#include "emitter/emit_state_.h"
+#include "ir/descr_tags_dt_platom.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_icn_needle_coerce(uint64_t lo, uint64_t hi);
 long rt_sg_scan_member(void);

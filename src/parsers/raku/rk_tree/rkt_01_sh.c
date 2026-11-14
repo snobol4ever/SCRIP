@@ -12,6 +12,9 @@
 #include "parsers/raku/rk_tree/rkt_03_sh.h"
 #include "parsers/raku/rk_tree/rkt_04_sh.h"
 #include "parsers/raku/rk_tree/rkt_05_rk.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
 char *fmt(const char *f, ...) {
     va_list a; va_start(a, f); int n = vsnprintf(NULL, 0, f, a); va_end(a);
     char *r = (char *) ct_alloc((size_t) n + 1); va_start(a, f); vsnprintf(r, (size_t) n + 1, f, a); va_end(a); return r;

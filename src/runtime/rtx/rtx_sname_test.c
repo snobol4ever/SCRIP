@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "ir/descr.h"
 #include "runtime/core/core.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t rt_sno_name_dl(DESCR_t *, int);
 DESCR_t c_rt_sno_name_dl(DESCR_t *, int);
 static int fails = 0, ncase = 0, handled = 0, declined = 0;

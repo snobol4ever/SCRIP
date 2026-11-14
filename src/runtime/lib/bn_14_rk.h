@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_14_RK_H
 #define RUNTIME_LIB_BN_14_RK_H
 #include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 int junction_is(DESCR_t v);
 __attribute__((visibility("hidden"))) DESCR_t rk_unmark(DESCR_t d);
 __attribute__((visibility("hidden"))) DESCR_t rk_hash_store(DESCR_t h, DESCR_t k, DESCR_t v);

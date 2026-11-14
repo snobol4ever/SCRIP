@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include "ir/call_forms.h"
 #include "emitter/emit_str.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "bb_templates.h"
 #include "ir/descr.h"
 DESCR_t rt_pl_ax_cold(DESCR_t *, int, const char *);
@@ -19,7 +20,10 @@ void rt_pl_tr_refuse(const char *);
 void rt_pl_db_decls_install(const long *, void *);
 void rt_pl_mkground(const long long *, DESCR_t *);
 DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 }
 #include "runtime/rt/pl_trail_layout.h"
 #include "runtime/rt/rt_pl_trail.h"

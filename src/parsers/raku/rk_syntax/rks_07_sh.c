@@ -9,6 +9,7 @@
 #include "parsers/raku/rk_syntax/rks_06_sh.h"
 #include "parsers/raku/rk_syntax/rks_07_sh.h"
 #include "parsers/raku/rk_syntax/rks_09_sh.h"
+#include "ir/ast.h"
 static int r_postfix_op_raw(RkP *p, int pos);
 static int r_postfixish_at(RkP *p, int q, int sub, int meta);
 static void register_user_op_x(RkP *p, int from, int to, int exported);

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_RAKU_LRK_11_RK_H
 #define LOWER_LOWER_RAKU_LRK_11_RK_H
 #include "lower/lower_raku/lrk_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int rk_is_scalar_bind(const tree_t * t);
 __attribute__((visibility("hidden"))) tree_t * rk_clone_tree(const tree_t * t);
 __attribute__((visibility("hidden"))) void rk_bind_unbox(tree_t * t, const rk_ns_t * Bx);

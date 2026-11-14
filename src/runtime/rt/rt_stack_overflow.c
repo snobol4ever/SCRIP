@@ -6,7 +6,7 @@
 #include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime_misc.h"
 #include "ir/ct_arena.h"
-#include "gc_heap.h"
+#include "runtime/rt/gc_heap.h"
 #include "ir/bb_pool.h"
 #include <ucontext.h>
 #include <pthread.h>
@@ -20,6 +20,7 @@
 #include <link.h>
 #include "pl_trail_layout.h"
 #include <stdio.h>
+#include "runtime/rt/rt_diag.h"
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc) {

@@ -5,6 +5,7 @@
 #include "runtime/core/g_runtime_vec.h"
 #include "runtime/core/g_runtime_abi.h"
 #include "runtime/core/g_runtime_abi.inc"
+#include "ir/descr_tags_dt_platom.h"
 #define GRT_S2(x) #x
 #define GRT_S(x) GRT_S2(x)
 #include <stdarg.h>
@@ -19,7 +20,20 @@
 #include <unwind.h>
 #include "rt_slab.h"
 #include "rt_arena.h"
-#include "gc_heap.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_rt_pseg.h"
+#include "runtime/rt/gc_heap_hbf_assert_dead.h"
+#include "runtime/rt/gc_heap_rt_hblk.h"
+#include "runtime/rt/gc_heap_hblk_bytes.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_g_sxt_owner.h"
+#include "runtime/rt/gc_heap_rt_sxt_break_fast.h"
+#include "runtime/rt/gc_heap_runtime_init_api.h"
+#include "runtime/rt/gc_heap_gc_roots_args.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/gc_heap_rt_gc_frame_fn.h"
+#include "runtime/rt/gc_heap_rt_gc_callback.h"
 #include "runtime/core/array.h"
 #include "runtime/core/datatype.h"
 #include "runtime/core/table.h"
@@ -49,7 +63,7 @@ _Static_assert(GC_FREE_PCT == 15,
 #include "ir/pin_va.h"
 #include "ir/gc_frame_map.h"
 #include "pl_trail_layout.h"
-#include "rt_pl_trail.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_entry.h"
 #include "gc_audit_b.h"
 #include "gc_slot_table.h"
 #include "runtime/rtx/rtcc.h"
@@ -815,7 +829,8 @@ char *rt_heap_fmt(const char *fmt, ...) {
     return q;
 }
 #include <setjmp.h>
-#include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
+#include "runtime/core/core_arithmetic_api.h"
 #include "rt_coexpr.h"
 #include "ir/ct_arena.h"
 typedef struct gc_slot_t { const char **loc; const char *val; } gc_slot_t;

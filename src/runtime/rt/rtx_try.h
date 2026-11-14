@@ -2,6 +2,8 @@
 #define RTX_TRY_H
 #include "ir/descr.h"
 #include "runtime/core/g_runtime.h"
+#include "ir/descr_tags.h"
+#include "ir/descr_tags_dt_platom.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

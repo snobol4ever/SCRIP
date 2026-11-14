@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ir/ir_graph.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_is_passthrough(IR_e op) { return op == IR_SUCCEED || op == IR_GOTO; }
 static int bc_mon(void) { if (g_lower_opt.bc_mon_m < 0) g_lower_opt.bc_mon_m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return g_lower_opt.bc_mon_m; }

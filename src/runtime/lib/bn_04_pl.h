@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_04_PL_H
 #define RUNTIME_LIB_BN_04_PL_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 int icn_builtin_arity(const char *name);
 const char *icn_builtin_nth(int k);
 __attribute__((visibility("hidden"))) void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx);

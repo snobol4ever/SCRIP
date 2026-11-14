@@ -2,6 +2,10 @@
 #define RUNTIME_LIB_BN_11_PL_H
 #include "runtime/lib/bn_head.h"
 #include <sys/un.h>
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
 int junction_mirror_op(int op);
 __attribute__((visibility("hidden"))) void pas_heap_release(long m);
 __attribute__((visibility("hidden"))) int pl_alias_idx(const char *nm);

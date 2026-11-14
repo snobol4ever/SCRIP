@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast_augop_cset_union.h"
+#include "ir/ast_node_new.h"
 static tree_t *prog;
 extern tree_t *rebus_parsed_program;
 extern int       rebus_nerrors;

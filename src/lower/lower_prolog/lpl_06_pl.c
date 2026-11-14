@@ -2,7 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ir/ir_graph.h"
+#include "ir/stage2_label_max.h"
+#include "ir/stage2_resolve_predentry.h"
+#include "ir/stage2_pl_dialect_iso.h"
 #include "ir/stage2.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "ir/stage2_lpl_01_pl_api.h"
 #include "ir/stage2_pl.h"
 #include "lower/lower_prolog.h"
 #include "lower/lower_prolog_chr.h"
@@ -15,6 +20,12 @@
 #include "lower/lower_prolog/lpl_06_pl.h"
 #include "lower/lower_prolog/lpl_07_pl.h"
 #include "lower/g_lower_pl.h"
+#include "ir/ast_tt_capt_immed_asgn.h"
+#include "ir/ast.h"
+#include "ir/ast_node_new.h"
+#include "runtime/builtins/gen_expr_t_defined.h"
+#include "ir/ct_arena.h"
+#include "ir/bb_program_scrip_ir_api.h"
 int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
 const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "use_subsumptive_tabling",
     "module_transparent", "$module_restore", "public", "mode", NULL };

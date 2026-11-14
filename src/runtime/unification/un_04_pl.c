@@ -10,6 +10,12 @@
 #include "runtime/unification/un_04_pl.h"
 #include "runtime/unification/un_05_pl.h"
 #include "runtime/core/g_runtime_atoms.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 extern int rt_pl_eng_inst_is(DESCR_t);
 extern int64_t rt_pl_eng_inst_id(DESCR_t);
 extern int rt_pl_dialect_swi(void);

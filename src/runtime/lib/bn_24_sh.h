@@ -1,6 +1,8 @@
 #ifndef RUNTIME_LIB_BN_24_SH_H
 #define RUNTIME_LIB_BN_24_SH_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 __attribute__((visibility("hidden"))) void rt_apply_stno_land(const long *sv);
 void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq);

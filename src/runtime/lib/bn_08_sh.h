@@ -1,6 +1,9 @@
 #ifndef RUNTIME_LIB_BN_08_SH_H
 #define RUNTIME_LIB_BN_08_SH_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 __attribute__((visibility("hidden"))) const char *rk_typeobj_name(DESCR_t v);
 __attribute__((visibility("hidden"))) const char *to_cstring(DESCR_t v, char *scratch, size_t scap);
 __attribute__((visibility("hidden"))) double rk_atanh(double x);

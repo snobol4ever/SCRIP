@@ -6,6 +6,14 @@
 #include "runtime/unification/un_06_pl.h"
 #include "runtime/unification/un_08_pl.h"
 #include "runtime/core/g_runtime_atoms.h"
+#include "runtime/rt/gc_heap_hb_aggb.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "runtime/rt/rt_pl_trail_pl_trie_sl.h"
+#include "runtime/rt/rt_pl_trail_pl_tr_ctx_s.h"
+#include "runtime/rt/rt_pl_trail.h"
+#include "ir/descr_tags_dt_platom.h"
 int rt_pl_trie_tbl_vt(void *root);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_cell_t plc_nil_cell(void) { return pl_make_atom(g_rt_atoms.atom_nil); }

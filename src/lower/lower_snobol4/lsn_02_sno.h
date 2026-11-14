@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_02_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_02_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) int sno_fname_is_multiproto(const char * fname);
 __attribute__((visibility("hidden"))) const char * sno_expr_collect(const tree_t * expr);
 __attribute__((visibility("hidden"))) int sno_define_entry_computed(const tree_t * t, int argbase);

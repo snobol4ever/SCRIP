@@ -1,8 +1,9 @@
 #include <string>
 #include <stdint.h>
+#include "ir/descr_tags_dt_platom.h"
 extern "C" {
 #include "ir/ir_node.h"
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/descr.h"
 #include "runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);

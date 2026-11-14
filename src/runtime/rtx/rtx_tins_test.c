@@ -5,9 +5,13 @@
 #include "ir/descr.h"
 #include "ir/cset_block.h"
 #include "runtime/core/core.h"
+#include "runtime/core/core_etc.h"
 #include "runtime/core/table.h"
 #include "runtime/core/array.h"
+#include "runtime/rt/gc_heap_etc.h"
 #include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
+#include "ir/descr_tags_dt_platom.h"
 DESCR_t rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 DESCR_t c_rt_table_assign_fast(DESCR_t, DESCR_t, DESCR_t);
 extern int g_gc_pending;

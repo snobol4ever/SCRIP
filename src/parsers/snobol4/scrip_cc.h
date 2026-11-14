@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include "ir/ast_tt_capt_immed_asgn.h"
 #include "ir/ast.h"
+#include "ir/ast_node_new.h"
 #define expr_right(e)    ((e) && (e)->n >= 2 ? (e)->c[1] : NULL)
 typedef struct STMT_t STMT_t;
 struct STMT_t {

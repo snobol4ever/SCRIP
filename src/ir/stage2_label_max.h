@@ -1,0 +1,7 @@
+#ifndef STAGE2_LABEL_MAX_H
+#define STAGE2_LABEL_MAX_H
+#include <stdint.h>
+#define STAGE2_LABEL_MAX 4096
+#define STAGE2_PROC_TABLE_MAX 256
+#define STAGE2_PL_PRED_TABLE_SIZE 256
+#endif

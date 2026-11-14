@@ -1,7 +1,11 @@
 #ifndef RUNTIME_LIB_BN_03_SH_H
 #define RUNTIME_LIB_BN_03_SH_H
-#include "runtime/lib/bn_head.h"
+#include "runtime/lib/bn_head_rk_av.h"
+#include "runtime/lib/bn_head_pas_set_bytes.h"
 #include "runtime/by_name_dispatch.h"
+#include "runtime/rt/gc_heap_etc.h"
+#include "runtime/rt/gc_heap.h"
+#include "runtime/rt/gc_heap_rt_asm_helpers_api.h"
 int icn_builtin_is_known(const char *name);
 int rt_builtin_is_known(const char *name);
 __attribute__((visibility("hidden"))) char *rtos(double r, char *buf, size_t cap);

@@ -1,6 +1,7 @@
 #ifndef LOWER_LOWER_SNOBOL4_LSN_08_SNO_H
 #define LOWER_LOWER_SNOBOL4_LSN_08_SNO_H
 #include "lower/lower_snobol4/lsn_head.h"
+#include "ir/ast.h"
 __attribute__((visibility("hidden"))) const char * sno_lead_name(const char * lead, const char * nm);
 __attribute__((visibility("hidden"))) const char * sno_cursor_target(const tree_t * tgt);
 __attribute__((visibility("hidden"))) const char * sno_lead_name(const char * lead, const char * nm);

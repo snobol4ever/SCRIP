@@ -1,13 +1,14 @@
 #ifndef X86_ARMED_H
 #define X86_ARMED_H
 #include <string>
-#include "emitter/emit_state.h"
+#include "emitter/emit_state_.h"
 #include "ir/ir_node.h"
 #include "emitter/emit_str.h"
-#include "ir/stage2.h"
-#include "runtime/builtins/gen.h"
+#include "ir/stage2_sm_prog_api.h"
+#include "runtime/builtins/gen_binop_f_numify_blank.h"
 #include "templates/x86/x86_jump.h"
 #include "templates/x86/x86_ops.h"
+#include "ir/descr_tags_dt_platom.h"
 extern "C++" {
 std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy);
 #define RK_ARMED_LOAD_FR() (x86("mov", "rdi", FRQ(_.op_sa)) + x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "rdx", FRQ(_.op_sb)) + x86("mov", "rcx", FRQ(_.op_sb + 8)))
