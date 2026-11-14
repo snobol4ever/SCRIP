@@ -39,7 +39,7 @@ extern "C" { __attribute__((visibility("hidden"))) int zd_bound_pop(const IR_gra
 extern "C" { __attribute__((visibility("hidden"))) int zd_pl_cut(const IR_graph_t * cg, const IR_t * nd); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_pl_entry(const IR_graph_t * cg, IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int i, int e, int *l, const unsigned char *dead); }
 extern "C" { __attribute__((visibility("hidden"))) int zst_names(const IR_t * nd, const char ** out); }
-extern "C" { __attribute__((visibility("hidden"))) void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zgpop, const int * zwpop, const int * zarm, const int * claim, const int * base, const unsigned char * known, int on); }
+extern "C" { __attribute__((visibility("hidden"))) void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, int * zgpop, const int * zwpop, const int * zarm, const int * claim, const int * base, const unsigned char * known, int on); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_check_discard(const IR_t * t); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_check_arm_env(int o); }
 extern "C" { __attribute__((visibility("hidden"))) void zd_place(const IR_graph_t * cg, zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zarm, const int * zcps, const int * zcpd); }

@@ -184,10 +184,11 @@ int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd) {
     if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p RELEASE=%d\n", (const void *)nd, total);
     return total;
 }
-static int zd_dj_join_bounded(const IR_graph_t * cg, IR_t * dn, int n) {
+int zd_dj_join_bounded(const IR_graph_t * cg, IR_t * dn, int n) {
     IR_t * t = zd_chase(dn->γ.node);
     for (int g = 0; t && g++ < n; t = zd_chase(t->γ.node)) {
         if (zd_icn_stmt_head(cg, t)) return 1;
+        if (t->op == IR_LIMIT && t->n_operands > 1 && t->operands[1] && t->operands[1]->op == IR_LIT_INTEGER && IR_LIT(t->operands[1]).ival == 1) return 1;
         if (t->op != IR_CONJUNCTION && t->op != IR_DISJUNCTION && t->op != IR_LINE_MARK) return 0;
     }
     return 0;
@@ -625,23 +626,6 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 for (int i = 0; i < n; i++) if (zd_claim[i] == h) zd_unr[i] = 1; moved = 1;
                 if (zd_map_on()) fprintf(stderr, "[ZD-MAP] UNREACHED run=%d (%s): no alpha landing in the plan; its boxes emit a trap, no cell access\n", h,
                     bb_op_name(g_planner.codegen_flat_chain_body_nodes[h]->op)); } } }
-    for (int d = 0; d < n; d++) {
-        IR_t * dn = g_planner.codegen_flat_chain_body_nodes[d];
-        if (!zd_on[d] || dn->op != IR_DISJUNCTION || !zls_dj_retains(dn) || zd_djx_of(dn) || !zd_dj_admitted(n, d) || zd_dj_join_bounded(cg, dn, n)) continue;
-        IR_t * jn = zd_chase(dn->γ.node);
-        for (int j = 0; j < (int)IR_LIT(dn).ival && 2 * j + 1 < dn->n_operands; j++) {
-            IR_t * r = dn->operands[2 * j + 1];
-            int q = (r && r != dn && zls_dj_arm_resumes(dn, j)) ? nidx(g_planner.codegen_flat_chain_body_nodes, n, r) : -1;
-            for (int g = 0; q >= 0 && zd_on[q] && g++ < n; ) {
-                int fo = (int)g_planner.codegen_flat_chain_body_nodes[q]->op;
-                if (fo == IR_UNMARK || fo == IR_CUT || fo == IR_BOUND || fo == IR_LIMIT || fo == IR_RETURN || fo == IR_MATCH_END) break;
-                if (zd_gp[q] > 0) zd_gp[q] = 0;
-                IR_t * t = zd_chase(g_planner.codegen_flat_chain_body_nodes[q]->γ.node);
-                if (!t || t == dn || t == jn) break;
-                q = nidx(g_planner.codegen_flat_chain_body_nodes, n, t);
-            }
-        }
-    }
     zeta_plan_t * rec = new zeta_plan_t();
     rec->entry = entry; rec->n = n; rec->own_root = entry_is_own_graph_root; rec->empty_fail = flat_empty_body_fail; rec->empty_succ = flat_empty_body_succ;
     rec->nodes = g_planner.codegen_flat_chain_body_nodes;

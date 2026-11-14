@@ -13,6 +13,7 @@ extern "C" { __attribute__((visibility("hidden"))) int zd_map_on(void); }
 extern "C" { __attribute__((visibility("hidden"))) void zdo_build(IR_t **nodes, int n); }
 extern "C" { int bb_proc_target_retains(const char *fname); }
 extern "C" { int planner_fence0_release(const IR_graph_t * cg, const IR_t * nd); }
+extern "C" { __attribute__((visibility("hidden"))) int zd_dj_join_bounded(const IR_graph_t * cg, IR_t * dn, int n); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_omega_head(IR_t **nodes, int n, IR_t *t); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout, const int *claim); }
 extern "C" { __attribute__((visibility("hidden"))) int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t); }

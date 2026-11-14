@@ -312,7 +312,7 @@ int zst_coord(const char * name) {
         if (g_planner.zst_vroot[(size_t)t] == r && g_planner.zst_L[(size_t)t] != INT_MIN) return ZST_BIAS - g_planner.zst_L[(size_t)t]; }
     return -1;
 }
-void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zgpop, const int * zwpop, const int * zarm, const int * claim,
+void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned char * zon, const int * zout, int * zgpop, const int * zwpop, const int * zarm, const int * claim,
     const int * base, const unsigned char * known, int on){
     g_planner.g_zd_grec.assign((size_t)(n > 0 ? n : 0), -1);
     g_planner.g_zd_wrec.assign((size_t)(n > 0 ? n : 0), -1);
@@ -340,6 +340,24 @@ void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned 
         walk(r0);
         push(r1, zd_chase(nodes[d]->γ.node));
         walk(r1);
+        IR_t * jn = zd_chase(nodes[d]->γ.node);
+        int ji = jn ? nidx(nodes, n, jn) : -1, aj = 0;
+        for (int j = 0; ji >= 0 && r1[(size_t)ji] && !r0[(size_t)ji] && !zd_dj_join_bounded(cg, nodes[d], n) && j < (int)IR_LIT(nodes[d]).ival && 2 * j + 1 < nodes[d]->n_operands; j++) {
+            IR_t * r = nodes[d]->operands[2 * j + 1];
+            int q = (r && r != nodes[d] && zls_dj_arm_resumes(nodes[d], j)) ? nidx(nodes, n, r) : -1;
+            for (int g = 0; q >= 0 && zon[q] && g++ < n; ) {
+                int fo = (int)nodes[q]->op;
+                if (fo == IR_UNMARK || fo == IR_CUT || fo == IR_BOUND || fo == IR_LIMIT || fo == IR_RETURN || fo == IR_MATCH_END) break;
+                if (zgpop[q] > 0) {
+                    if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-ARMJOIN] d=%d arm=%d i=%d %s gpop=%d -> 0: the join's rsp comes from the record\n", d, j, q, bb_op_name(nodes[q]->op), zgpop[q]);
+                    zgpop[q] = 0;
+                    aj = 1;
+                }
+                IR_t * t = zd_chase(nodes[q]->γ.node);
+                if (!t || t == nodes[d] || t == jn) break;
+                q = nidx(nodes, n, t);
+            }
+        }
         for (int k = 0; k < n; k++) {
             if (!r1[(size_t)k] || r0[(size_t)k] || !zon[k] || claim[k] < 0 || !known[claim[k]]) continue;
             for (int v = 0; v < 2; v++) {
@@ -348,7 +366,7 @@ void zd_dj_discards(const IR_graph_t * cg, IR_t ** nodes, int n, const unsigned 
                 if (q == d || (q >= 0 && r1[(size_t)q] && !r0[(size_t)q])) continue;
                 int ai = base[claim[k]] + zout[k];
                 int land = v ? ai - zd_k_g(cg, nodes[k]) - zwpop[k] : ai - zgpop[k];
-                if (land >= zdab) {
+                if (land >= zdab && !aj) {
                     if (g_planner.zd_plan__dg) fprintf(stderr, "[ZD-DJREC] i=%d edge %d leaves the continuation of dj %d at %d, not below its %d\n", k, v, d, land, zdab);
                     continue;
                 }
