@@ -91,7 +91,8 @@ IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR
                 cx->umod = sv;
                 return qr;
             }
-            if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
+            if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return goal(cx, pl_cc_fnc1("once", pl_cc_fnc1("$det_goal", (tree_t *) t->c[0])), γnext, ωfail, entry_out);
+            if (!strcmp(nm, "$det_goal") && t->n == 1) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
             if (pl_swi_user_redefines(nm, t->n) && !pl_hook_dyn_is(nm, t->n)) return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$det_prop") && t->n == 3) return pl_lower_det_prop(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
             if (!strcmp(nm, "string_concat") && t->n == 3 && !pl_user_defines(nm, 3)) {

@@ -153,6 +153,8 @@ static tree_t * pl_det_prop_throw(const tree_t * rel, const tree_t * dbg, const 
     return pl_cc_ite(pl_cc_fnc2("current_prolog_flag", (tree_t *) pl_atom_goal("debug"), (tree_t *) pl_atom_goal("true")), own, far);
 }
 IR_t * pl_lower_det_prop(lcx_t * cx, const tree_t * rel, const tree_t * dbg, const tree_t * G, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    cx->tail = 0;
+    cx->tail_pop = 0;
     IR_t * out = lpl_build(cx, IR_GOTO, ωfail, ωfail);
     IR_t * te = NULL;
     IR_t * tn = goal(cx, pl_det_prop_throw(rel, dbg, "nondet"), out, out, &te);
@@ -167,6 +169,8 @@ IR_t * pl_lower_det_prop(lcx_t * cx, const tree_t * rel, const tree_t * dbg, con
     return out;
 }
 IR_t * pl_lower_det_goal(lcx_t * cx, const tree_t * G, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    cx->tail = 0;
+    cx->tail_pop = 0;
     IR_t * out = lpl_build(cx, IR_GOTO, ωfail, ωfail);
     IR_t * te = NULL;
     tree_t * culprit = pl_det_unqual_goal(G);
